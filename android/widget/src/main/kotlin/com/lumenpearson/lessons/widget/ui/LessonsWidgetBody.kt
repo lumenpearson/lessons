@@ -329,10 +329,22 @@ private fun MediumBody(
     val context = LocalContext.current
     Column(modifier = GlanceModifier.fillMaxSize()) {
         if (isHomeworkPrimary(state)) {
+            // The state and the next day's plan above the homework, as every
+            // stacked size draws them. Homework alone was two lines in a 4×2
+            // when nothing was set — «Ничего не задано» over half a widget of
+            // background (#221).
+            val homework = homeworkOf(context, homeworkDay, now.toLocalDate())
+            StateLabel(text = WidgetStrings.restStateLabel(context, state, narrow = false), size = size)
+            dayPlanOf(context, homeworkDay, size.homeworkChars)?.let { plan ->
+                VSpace(2)
+                CaptionText(text = plan, size = size, maxLines = 1)
+            }
+            VSpace(6)
             HomeworkBlock(
-                homework = homeworkOf(context, homeworkDay, now.toLocalDate()),
+                homework = homework,
                 size = size,
-                maxItems = size.homeworkItems,
+                // Two lines went to the state and the plan.
+                maxItems = (size.homeworkItems - 1).coerceAtLeast(1),
                 shortHeader = false,
             )
             return@Column
@@ -417,6 +429,10 @@ private fun StackBody(
             homework = nextDayHomework,
             nextDay = homeworkDay,
             size = size,
+            options = options,
+            week = week,
+            today = now.toLocalDate(),
+            onDayClick = onDayClick,
         )
         return
     }
@@ -672,6 +688,16 @@ private fun AheadBlock(
  * not only the tallest — after school there is no timeline competing for the
  * space, and "6 уроков, первый в 09:00" is the other half of what somebody
  * packing a bag needs.
+ *
+ * Under the homework, on every size tall enough for a list, come the next
+ * school day's lessons themselves, and under them the week. Without them a
+ * tall widget with nothing set for tomorrow was a state label, two lines and
+ * three quarters of a home screen of background (#221). The lessons take
+ * whatever height is left ([GlanceModifier.defaultWeight]) rather than a
+ * count worked out in advance: Glance has no measure pass to ask how much is
+ * left, so a count is either too few on a tall widget or pushes the week off
+ * a short one. Weighted, the list fills the gap and is clipped at its own
+ * bottom edge, and the week strip below it stays where it is.
  */
 @Composable
 private fun RestDayBody(
@@ -679,10 +705,18 @@ private fun RestDayBody(
     homework: HomeworkPresentation,
     nextDay: SchoolDay?,
     size: WidgetSizeClass,
+    options: WidgetOptions,
+    week: List<DayLoad>,
+    today: LocalDate,
+    onDayClick: ((LocalDate) -> Action)?,
 ) {
     val context = LocalContext.current
     val plan = if (size.showsMeta) dayPlanOf(context, nextDay, size.homeworkChars) else null
+    val nextLessons = restDayLessons(size, nextDay, homework)
+    val openDay = onDayClick?.takeIf { size.showsWeekStrip && week.isNotEmpty() }
 
+    // Header, homework, the next day and the week, with a spacer before each of
+    // the last three: seven children, under CHILD_LIMIT.
     Column(modifier = GlanceModifier.fillMaxSize()) {
         Column(modifier = GlanceModifier.fillMaxWidth()) {
             // Not `headlineOf(...).label`, which is the full sentence. This is
@@ -719,6 +753,28 @@ private fun RestDayBody(
             shortHeader = size.isNarrow,
             itemMaxLines = if (size.timelineRows > 0) 2 else 1,
         )
+        if (nextLessons.isNotEmpty()) {
+            VSpace(10)
+            Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                SectionTitle(text = context.getString(R.string.widget_next_day_title), size = size)
+                VSpace(4)
+                Column(modifier = GlanceModifier.fillMaxWidth()) {
+                    nextLessons.forEach { lesson ->
+                        TimelineRow(
+                            lesson = lesson,
+                            size = size,
+                            options = options,
+                            isCurrent = false,
+                            compact = size.isNarrow,
+                        )
+                    }
+                }
+            }
+        }
+        if (openDay != null) {
+            VSpace(8)
+            WeekStrip(week = week, today = today, size = size, openDay = openDay)
+        }
     }
 }
 

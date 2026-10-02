@@ -44,8 +44,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
+import mockwebserver3.RecordedRequest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Request
@@ -243,6 +245,28 @@ class DiarySignInTest {
     }
 
     // ---- the diary's own answer ----------------------------------------------
+
+    /**
+     * #233: every limit on the way was per call, and «Сетевой город» is three
+     * calls or five, so a region answering each one slowly kept «Войти» busy
+     * for minutes without a single call timing out. Each answer here takes a
+     * fraction of the budget and the three together take more than it.
+     */
+    @Test
+    fun `a diary that answers every call slowly gets one deadline for the whole sign-in`() = runBlocking {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                Thread.sleep(SLOW_ANSWER_MILLIS)
+                return script.dispatch(request)
+            }
+        }
+
+        val failure = signIn(upstreamBudgetMillis = SLOW_ANSWER_MILLIS * 2)
+            .openUpstream(netschoolTarget(), "hunter2")
+            .exceptionOrNull()
+
+        assertEquals(DiarySignInProblem.Timeout(originOf(server).host), failure)
+    }
 
     @Test
     fun `a refusal by the diary names the diary's host`() = runBlocking {
@@ -487,6 +511,7 @@ class DiarySignInTest {
 
     private fun signIn(
         directory: FakeUpstreamDirectory = FakeUpstreamDirectory(originOf(server), listOf(regionAt(server))),
+        upstreamBudgetMillis: Long = 25_000L,
     ) = DiarySignInImpl(
         api = api,
         store = store,
@@ -498,6 +523,7 @@ class DiarySignInTest {
         },
         clock = clock,
         ioDispatcher = Dispatchers.Unconfined,
+        upstreamBudgetMillis = upstreamBudgetMillis,
     )
 
     private fun listing(regions: List<String> = listOf("zabaikalsky")) = DiaryCapabilitiesDto(
@@ -607,3 +633,6 @@ private fun httpError(code: Int, vararg headers: Pair<String, String>): HttpExce
         Response.error<Unit>("""{"detail":"no"}""".toResponseBody("application/json".toMediaType()), raw),
     )
 }
+
+/** One slow answer: well inside every per-call limit, a large share of a test budget. */
+private const val SLOW_ANSWER_MILLIS = 300L

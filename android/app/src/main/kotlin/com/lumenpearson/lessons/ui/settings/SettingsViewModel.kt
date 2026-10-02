@@ -37,6 +37,8 @@ import com.lumenpearson.lessons.core.model.WeekStart
 import com.lumenpearson.lessons.ui.common.DefaultAppSettings
 import com.lumenpearson.lessons.ui.common.SyncMessage
 import com.lumenpearson.lessons.ui.common.toMessageOrNull
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +47,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -73,6 +77,8 @@ data class SettingsUiState(
     val github: GithubAccount? = null,
     /** Where the Telegram link of this phone stands; see [DeviceLinkState]. */
     val deviceLink: DeviceLinkState = DeviceLinkState.Idle,
+    /** The role the server gave this class last time, from disk; see [effectiveRole]. */
+    val cachedRole: ClassRole? = null,
     /** Whether this build can sign in at all; the row hides otherwise. */
     val githubConfigured: Boolean = false,
     /** The device flow, for the sign-in sheet. */
@@ -156,12 +162,20 @@ class SettingsViewModel(
      */
     private val serverStatus = MutableStateFlow<ServerStatus>(ServerStatus.Checking)
 
+    /** The role remembered for the class on screen; see [effectiveRole]. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val cachedRole: Flow<ClassRole?> = sessionRepository.session
+        .map { it?.classId }
+        .distinctUntilChanged()
+        .flatMapLatest { id -> if (id == null) flowOf(null) else deviceLinkRepository.lastRole(id) }
+
     val uiState: StateFlow<SettingsUiState> = combine(
         local,
         remote,
         deviceLink,
         serverStatus,
-    ) { state, remote, link, server ->
+        cachedRole,
+    ) { state, remote, link, server, cached ->
         state.copy(
             serverStatus = server,
             update = remote.update,
@@ -171,6 +185,7 @@ class SettingsViewModel(
             isFilingIssue = remote.filing,
             showReleaseSheet = remote.sheet,
             deviceLink = link,
+            cachedRole = cached,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -233,7 +248,10 @@ class SettingsViewModel(
             // refresh it triggered is the one that will answer.
             if (asked != sessionRepository.current()?.classId) return@launch
             result
-                .onSuccess { deviceLink.value = DeviceLinkState.Ready(it) }
+                .onSuccess {
+                    deviceLink.value = DeviceLinkState.Ready(it)
+                    asked?.let { id -> deviceLinkRepository.rememberRole(id, it.role) }
+                }
                 .onFailure { deviceLink.value = DeviceLinkState.Failed(it, known) }
         }
     }
@@ -243,8 +261,12 @@ class SettingsViewModel(
         val known = deviceLink.value.known
         deviceLink.value = DeviceLinkState.Loading(known)
         viewModelScope.launch {
+            val classId = sessionRepository.current()?.classId
             deviceLinkRepository.unlink()
-                .onSuccess { deviceLink.value = DeviceLinkState.Ready(it) }
+                .onSuccess {
+                    deviceLink.value = DeviceLinkState.Ready(it)
+                    classId?.let { id -> deviceLinkRepository.rememberRole(id, it.role) }
+                }
                 .onFailure { deviceLink.value = DeviceLinkState.Failed(it, known) }
         }
     }
@@ -391,9 +413,15 @@ class SettingsViewModel(
         if (refreshing.value) return
         viewModelScope.launch {
             refreshing.value = true
-            val result = timetableRepository.refresh()
-            refreshing.value = false
-            message.value = result.toMessageOrNull()
+            try {
+                message.value = timetableRepository.refresh().toMessageOrNull()
+            } finally {
+                // A cancelled or failed refresh must not leave the flag up: with
+                // the guard above it would also refuse every later one, and the
+                // indicator would stay where it is for the life of the screen
+                // (#224).
+                refreshing.value = false
+            }
         }
     }
 
@@ -648,4 +676,20 @@ val DeviceLinkState.role: ClassRole?
         is DeviceLinkState.Loading -> known?.role
         is DeviceLinkState.Ready -> link.role
         is DeviceLinkState.Failed -> known?.role
+    }
+
+/**
+ * The role to draw with: the server's answer once this launch has one, and
+ * until then the one it gave last time for this class.
+ *
+ * What decides whether the settings root has its debug button, and the page
+ * its «Управление классом» row. Read from [DeviceLinkState.role] alone, both
+ * started every launch as «no role» and waited for `/me` — a moment late when
+ * it answered, and until the page was opened again when it did not (#228). A
+ * fresh answer wins over the remembered one, «no role» included.
+ */
+val SettingsUiState.effectiveRole: ClassRole?
+    get() = when (val link = deviceLink) {
+        is DeviceLinkState.Ready -> link.link.role
+        else -> link.role ?: cachedRole
     }

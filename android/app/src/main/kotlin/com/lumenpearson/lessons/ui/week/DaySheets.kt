@@ -49,6 +49,7 @@ import com.lumenpearson.lessons.ui.common.asFullWeekday
 import com.lumenpearson.lessons.ui.common.timeRange
 import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalTime
 
 /**
  * Which lesson a sheet is about, in a form a bundle takes.
@@ -148,6 +149,8 @@ internal fun ScheduleSheets(
     showTeacher: Boolean,
     showEvents: Boolean,
     showHomework: Boolean,
+    /** The school's wall time, for today's sheet only; see [DaySheet]. */
+    nowToday: LocalTime? = null,
 ) {
     sheets.lesson?.let { open ->
         val day = days.firstOrNull { it.date == open.date }?.day
@@ -173,6 +176,7 @@ internal fun ScheduleSheets(
             showHomework = showHomework,
             onLessonClick = { tapped -> sheets.show(date, tapped) },
             onDismiss = { sheets.day = null },
+            now = nowToday.takeIf { days.firstOrNull { it.date == date }?.isToday == true },
         )
     }
 }
@@ -292,6 +296,8 @@ fun DaySheet(
     showHomework: Boolean,
     onLessonClick: (Lesson) -> Unit,
     onDismiss: () -> Unit,
+    /** Today's wall time, so the sheet marks the running lesson as the list under it does. */
+    now: LocalTime? = null,
 ) {
     val schoolDay = day?.day
     val lessons = schoolDay?.activeLessons.orEmpty()
@@ -344,6 +350,7 @@ fun DaySheet(
             )
             LessonGroup(
                 lessons = lessons,
+                now = now,
                 showTeacher = showTeacher,
                 onLessonClick = onLessonClick,
                 modifier = Modifier.padding(horizontal = ScreenPadding),

@@ -249,6 +249,19 @@ internal fun SchoolStep(
                 onBack = onBack,
                 enabled = picked != null,
                 onClick = viewModel::proceedFromSchool,
+                // Under the row rather than the list's last item. There the
+                // list's own clip cut it in half whenever the list ran past
+                // the bar — the keyboard up and three skeleton rows were
+                // enough (#231) — and a way out of the step must never be half
+                // drawn.
+                footer = {
+                    TextButton(onClick = viewModel::skipSchool, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = correctedString(R.string.onboarding_school_missing),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                },
             )
         },
     ) {
@@ -313,14 +326,6 @@ internal fun SchoolStep(
                         )
                     }
                 }
-            }
-        }
-        item(key = "missing") {
-            TextButton(onClick = viewModel::skipSchool, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = correctedString(R.string.onboarding_school_missing),
-                    style = MaterialTheme.typography.labelLarge,
-                )
             }
         }
     }

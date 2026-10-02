@@ -337,7 +337,7 @@ class DefaultLessonsContainer(
     }
 
     override val deviceLinkRepository: DeviceLinkRepository by lazy {
-        DeviceLinkRepositoryImpl(api = api)
+        DeviceLinkRepositoryImpl(api = api, preferences = preferences)
     }
 
     override val docsRepository: DocsRepository by lazy {

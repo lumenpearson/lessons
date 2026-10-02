@@ -7,21 +7,20 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189 and #214 are merged**; `main` is at `eb0ab94`, the merge of #214, on
-27 September 2026. **The only thing open is the pull request carrying this paragraph, #218**,
-from `ccr-b537fbdd-oi5djs`, on milestone 10, `v0.9.0 — NetSchool e-diary, onboarding via the
-school's diary`. It takes dependabot's three open bumps (#215, #216, #217) by merging their
-branches, fixes #212, and is this close-out of #214. The section «What the last session
-added» below is that batch. `dev` is still at `eb0ab94`, level with `main`; this batch was
-made on the branch its cloud session was given rather than on `dev`.
+#166, #186, #187, #189, #214 and #218 are merged**; `main` is at `c2f1e94`, the merge of
+#218, on 2 October 2026, and #215, #216 and #217 closed as Merged with it. **The only thing
+open is the pull request carrying this paragraph, #234**, from `dev`, on milestone 9,
+`v0.8.0 — On-device checks, 89-region e-diary survey`. It fixes the fifteen defects the owner
+reported from a phone on 2 October 2026, #219–#233, each filed before its fix, each on a
+branch of its own merged into `dev` with `--no-ff`. The section «What the last session added»
+below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#214 closed the twenty-three issues it named**, #190–#211 and #213: none of them is in the
-open list read back from GitHub on 2 October. **#218 is meant to close #212**, and its merge
-closes #215, #216 and #217 as **Merged** by itself, because their own commits are ancestors
-of its head. Of the device epic **#109**, **#111** and **#113** stay open for what only a
-phone can say, and **#112** (a macrobenchmark module) was not started.
+**#218 closed #212** and the three dependabot pull requests it carried; read back from
+GitHub on 2 October. **#234 is meant to close #219–#233.** Of the device epic **#109**,
+**#111** and **#113** stay open for what only a phone can say, and **#112** (a macrobenchmark
+module) was not started.
 
 **The code expects head `0017`, and production is at `0017` since 26 September 2026 at 12:26 UTC.**
 `EXPECTED_REVISION` in `app/db.py` is `0017`, pinned to the real head by
@@ -130,9 +129,80 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: three dependabot bumps, a lock SQLite writers wait for, and #214's close-out
+## What the last session added: fifteen defects from the owner's phone, #219–#233
 
-Open as #218, from `ccr-b537fbdd-oi5djs`, on milestone 10. Made in a cloud session on 2
+Open as #234, from `dev`, on milestone 9. The owner sent twenty screenshots from their phone
+on 2 October 2026, marked up in red, and asked for every defect to be fixed, merged into `dev`
+fix by fix, then into `main`, and tested synthetically before they check it by eye. Four
+read-only agents traced the causes in parallel; every fix was written and tested here, one
+branch per fix.
+
+- **«Сегодня» and the calendar (#219, #220).** The running lesson is now the «сейчас» line
+  above its row and a gradient of its subject's tint, the same mark a break gets, and the
+  row's trailing end carries the diary's marks for it — read from `diary.db`, matched by date
+  and the folded subject name, on the first lesson of a subject taught twice. The calendar's
+  today, in its list and its day sheet, is marked the same way; it used to pass `now = null`.
+- **The widget after school (#221).** The next school day's lessons fill the height under
+  the homework on every rung with a list, weighted and clipped rather than counted, with the
+  week strip under them; the 4×2 shows the state and plan above its homework.
+- **Sheets (#222).** Material's drag-handle slot wraps anything in a tooltip and a ripple, so
+  the sheets draw their own pill and pass `null`.
+- **Busy states (#223, #224).** A busy action keeps its filled colours, so its spinner is
+  onPrimary on primary; three view models lower their refresh flag in a `finally`, and the
+  pull-to-refresh indicator comes out below the status bar.
+- **The bar (#225, #226, #227).** Every pick-up of a tab is felt; the carried tab stays
+  inside the row and an unselected disc is transparent, so it never bites the selected one;
+  the selected tab is as wide as its measured label.
+- **Settings (#228).** The last role per class is kept in the preferences and drawn until
+  `/me` answers, which the shell now asks at start; the debug button is there from the first
+  frame after the first answer.
+- **Theme reveal (#229).** A wipe on screen is never photographed again, and its job starts
+  undispatched so the photograph always comes down.
+- **First run (#230, #231, #232).** Step bodies fade under the hero instead of being cut,
+  which is what left three dashes above «Дневник»; «Моей школы нет в списке» moved under the
+  buttons; the forgotten-password link heads the server block.
+- **Sign-in deadlines (#233).** 25 s over the whole diary exchange and 10 s on the preflight
+  on the phone, 22 s over the server's upstream adopt, each answered with the message that
+  already existed.
+
+### Gates
+
+On `dev` with this close-out on top: `pytest -q -n auto` **2065** passed, one more than
+#218's 2064; `ruff` clean; `python -m mypy` clean over 153 source files. `./gradlew test`
+**1523** (`:core:model` 125, `:core:data` 571, `:core:designsystem` 122, `:widget` 126,
+`:app` 579), twenty-three more than 1500; `assembleDebug` and `assembleRelease` build;
+`./gradlew detekt` passes. Every new test was run against the old code where it compiles
+there and failed: the sheet handle, the carry and the haptic, the theme reveal, the refresh
+flag, the onboarding fade and gap, and the server's adopt deadline. The project's own
+meta-tests caught two things in this batch's code — a `maxLines = 1` without a reason and two
+compose tests silent about the clock — and `f0c434e` writes the reasons where they ask for them.
+
+### What was deliberately left alone
+
+- The drop of a carried tab still plays `CLOCK_TICK`: changing it to a strength-respecting
+  tap would double with the shell's page-change tap when the drop renumbers the current page.
+- The welcome step's hero stays FULL; dropping it to COMPACT would free 148 dp but
+  `OnboardingFlowTest` pins it, and it is a design question rather than a defect.
+- The calendar's lesson rows get the «сейчас» mark but not the diary's marks; only «Сегодня»
+  was asked for them.
+
+### What nobody has verified in this batch
+
+- None of it has been seen on a phone: there is no emulator in a cloud container. Every one
+  of the fifteen is the owner's to check by eye, which they asked to do.
+- #221's weighted list is clipped at its own bottom edge on purpose; how a half-row sits on
+  each launcher rung is unseen.
+- #230 rests on the owner's welcome page having been scrolled when the dashes showed; the
+  glyph arithmetic says so, the phone has not.
+- #231 has no test: composing the school step mid-search needs a view model walked there.
+- #227: on a 360 dp phone the spare width is about 88 dp, so at the largest text scales
+  «Календарь» can still scroll there.
+- #233: a deadline landing just after the diary accepted the login leaves a session open on
+  the diary's side to idle out.
+
+## What the session before it added: three dependabot bumps, a lock SQLite writers wait for, and #214's close-out
+
+Merged as #218 (`c2f1e94`, 2 October 2026), from `ccr-b537fbdd-oi5djs`, on milestone 10. Made in a cloud session on 2
 October 2026, continuing from where the local session that built #214 stopped.
 
 - **Dependabot's three open pull requests are folded in by merging their branches**, so
@@ -177,159 +247,6 @@ download. On GitHub, #218's CI ran both jobs green on `f23ae3a`.
   verified is the mechanism, on Linux, by shrinking the timeout until it fails.
 - The three bumps have not run on a device or an emulator.
 
-## What the session before it added: the external audit of 27 September, #190–#211
-
-Merged as #214 (`eb0ab94`, 27 September 2026), from `agents/audit-batch-190-211`, on milestone 10. An external audit of the
-repository filed twenty-two issues on 27 September 2026. Nine agents fixed them in parallel,
-each on a branch of its own in a worktree of its own, and this branch merges the nine and
-adds four commits found while merging them. Every defect was fixed test-first — the new
-test run red against the old code, then green — and every refactor changes no behaviour,
-with the existing tests as its proof and, for the three server splits, an OpenAPI dump and
-the aiogram handler order compared before and after.
-
-### The server
-
-- **#190.** `docker-compose.yml` takes the Postgres password from `POSTGRES_PASSWORD` and
-  refuses to start without one, where it carried the literal `lessons` in a public
-  repository. `docs/deploy.md` says where the value goes, that it is spliced into a URL
-  unescaped, and that a volume made under the old password keeps it.
-- **#191.** A compose deployment hands the server every setting it reads, so the diary, the
-  tick and the calendar links work there; before, the list stopped at `TIMEZONE`.
-- **#195.** The server container runs as an unprivileged user, and its package is installed
-  after its code is copied, so it is whole in site-packages rather than found by accident on
-  the working directory.
-- **#196.** `/diary/signin` sends `frame-ancestors 'none'` and `X-Frame-Options: DENY` on all
-  seven answers it draws, so no other site can frame the one page that takes a password.
-- **#193.** Every page after a spent sign-in ticket says the link is spent and names the
-  bot's buttons that make the next one, where it said «Попробуйте ещё раз».
-- **#198.** A «Сетевой город» session that will not open reads «today» in Moscow, not on the
-  host's clock, which on Vercel was yesterday from midnight to three.
-- **#199.** A class code stops minting phones at 300 live devices and answers `409` with a
-  Russian `detail`, which the join screen words as «class full»; the throttle forgives it,
-  as it does the invite-only `403`.
-- **#200.** `/docs`, `/redoc` and `/openapi.json` are served locally and not on Vercel.
-- **#197.** Naive UTC is taken one way everywhere, and never through the deprecated
-  `datetime.utcnow()`.
-- **#194.** A phone invite from the bot is spent with one conditional `UPDATE … WHERE used_at
-  IS NULL`, so a retried update cannot redeem it twice.
-- **#205.** Nothing under `app/services/` imports `app.bot`, directly or through another
-  module. The role ladder moved to `services/roles.py` and the words both shells print to
-  `app/wording.py`; `bot/roles.py` and `bot/render.py` re-export them, and
-  `tests/test_service_layering.py` follows every import chain to hold the rule.
-- **#208, #206, #207.** The three server files one reader could no longer hold are
-  packages: `schemas.py` (1573 lines) is seventeen modules behind the same import;
-  `bot/handlers/manage.py` (3434) and `api/manage.py` (1516) are one module per screen, over
-  a new `services/manage/` that holds the one implementation of every operation both shells
-  perform (#206). Where the two copies had drifted, one rule now answers for both: the bot's
-  time-zone picker writes its audit line, a removed colour is «убран» from both sides, the
-  bot no longer logs a second revoke, its import log says «перестали звонить N», and a
-  switch to the value already in force logs nothing. `@needs(Role.X)` gates the 72
-  «⚙️ Класс» handlers that each carried their own copy of the role check (#207), and no
-  `select(` is left in them.
-- **#204.** `CLAUDE.md`, `docs/architecture.md`, `docs/bot.md`, `AGENTS.md` and the Copilot
-  instructions say that two shells write over one set of services, where they said the API
-  only reads.
-- **#192.** `requirements.txt` is a lock: 34 exact pins, transitive ones included, compiled by
-  uv for CPython 3.12 on Linux from a new `requirements.in` that mirrors pyproject's runtime
-  dependencies. CI installs from it, `test_requirements_mirror.py` holds the two level, and
-  dependabot's root entry is `uv`.
-- **#210, the server half.** `python -m mypy` is a CI step between ruff and the tests.
-
-### Android
-
-- **#203.** Every request is signed from credentials held in memory and refreshed on IO, so
-  no interceptor blocks on DataStore and no coroutine calls `runBlocking`.
-- **#201.** The class and diary bearers are sealed in the preferences file with an
-  AES-256-GCM key the Android Keystore holds. A DataStore migration seals what an older
-  install left in plain text, once; a token that will not open — a restore onto another
-  phone, a wiped Keystore — reads as no token, and the phone lands on the join screen or the
-  diary's sign-in form.
-- **#202.** A release build talks to the server over https only, except to `localhost` and
-  `127.0.0.1`; a `src/debug` override keeps cleartext for development. An `http://` address
-  is refused where it is typed, and one kept from an older version is named as needing https
-  on the join screen, the sync message and the diary's forms. The packaged release APK was
-  read back with aapt2 to confirm which file it carries.
-- **#209.** The four Android files one reader could no longer hold — the settings pages, the
-  calendar, the home shell and the diary — are split, and composables no longer reach the
-  `Graph`: the diary home's first refresh belongs to its view model.
-- **#210, the Kotlin half.** detekt 2.0.0-alpha.6 reads all five modules and fails CI on any
-  finding the module's `detekt-baseline.xml` does not hold. The baselines were regenerated
-  on this branch after the merge, because #209 moved code between files.
-
-### The documents
-
-- **#211.** `HANDOVER.md` went from 337 KB to about 95 KB: what every batch before the last
-  two added moved verbatim to `docs/history.md`, and a line check found none of the 4,077
-  lost. The README and this file stopped contradicting GitHub and #186's walk.
-
-### Found while merging
-
-- **#213.** The test that every document names the schema head walked `.claude/` into the
-  agents' worktrees and read nine stale copies of this file; it failed every local run beside
-  them, and never on CI. It reads only this checkout's documents now.
-- **#212**, filed and **not** fixed: `test_a_parallel_burst_from_one_address_cannot_pass_the_limit`
-  fails at random on Windows with SQLite's «database is locked», two runs in three when run
-  alone. It passes on CI's Linux.
-- The Android comments that named `server/app/schemas.py` name the module each model lives in
-  now, the architecture tree shows the package and `app/wording.py`, and the API takes the
-  shared words from `app.wording` rather than from the bot.
-
-### The machine crashed under the batch
-
-The machine running the agents blue-screened five times on 26–27 September. Each crash
-zero-filled whatever was being written: a git index, a source file in the middle of a
-mutation test, Kotlin incremental caches, fifty-five units of `~/.gradle` (the detekt plugin
-among them) and one file of a rebuilt venv. Every worktree was checked before work resumed:
-no source file was damaged, the mutated files matched their backups byte for byte, and what
-was zero-filled was deleted and rebuilt. Two runs of the suite gave false failures of their
-own — every test that spawns `python.exe` exited `0xC0000142` — from a run that outlived the
-agent that started it; they were run again from a live shell and passed.
-
-### Gates
-
-On `1b0ed1c` with this close-out's documents on top: `pytest -q -n 3` **2063** passed, none
-failed — thirty-nine more than `938e59f`'s 2024; `ruff` clean; `python -m mypy` clean over
-153 source files, where it was 100 before the three splits. `./gradlew test` **1500**
-(`:core:model` 125, `:core:data` 570, `:core:designsystem` 112, `:widget` 123, `:app` 570),
-forty-one more than #189's 1459; `assembleDebug` and `assembleRelease` build; `./gradlew
-detekt` passes against the regenerated baselines. Every branch ran its own gates before the
-merge, and the merge was checked again as a whole. #201, #202 and #203 were also
-mutation-tested: every mutation of each fix turned a test red. On GitHub, #214's CI ran both
-new steps, `Type check` and `Detekt`, green, and its server job passed 2063 on Python 3.12
-in under three minutes.
-
-**The baselines hold only what was already there.** Merged, detekt found twelve things in
-this batch's own Kotlin that no baseline held; `05fc5cf` fixes or suppresses each where it
-stands, with the reason on the annotation, and `1b0ed1c` regenerates the baselines with
-nothing else in the diff, so every entry it adds is one it removes under #209's new file.
-
-### What was deliberately left alone
-
-- `server/Dockerfile` still runs `pip install .`, so a container gets pyproject's floors, not
-  the lock. The dev tools, uvicorn, aiosqlite and alembic are not locked either, so a new ruff
-  or mypy can still turn CI red on its own.
-- `/api/v1/edit` and the bot's day-to-day handlers still write different audit actions for the
-  same change (`day.set` against `dayoverride.set`); #206 was «⚙️ Класс» and `/manage` only.
-- The API and `main.py` still import `app.bot.bot` inside functions, to build a bot on demand.
-  The layer rule binds the services; the API is a shell.
-- The first run's school search still words a kept `http://` address as «no server is set»,
-  and the diary's sign-in form in a release build refuses `http://127.0.0.1` although the
-  request would go through; both sit in screens another branch was splitting.
-- `9181796`'s message says detekt was never run through Gradle; `44d49e2` records that it
-  has been.
-- The six drifts #206 unified are named in its commit body and carry no issues of their own.
-
-### What nobody has verified in this batch
-
-- #201's Keystore key and #202's network configuration have not run on a device: how the
-  platform reads the two configuration files is what its documentation says, and the release
-  APK has not been pointed at a real server.
-- Dependabot's `uv` entry has not opened a pull request, and nothing here runs Docker. The
-  lock itself was installed on Linux and Python 3.12 by #214's CI and its Vercel preview.
-- `./gradlew check` and `build` running detekt is read from the plugin's source.
-- Why two background runs could not start child processes (`0xC0000142`) was not found; it
-  did not happen from a live shell.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -349,8 +266,8 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189; issues #109–#117, #130–#132, #167–#185, #188 — the first whose work needs an emulator or a phone, and #186 the first done on one |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140 and #214 (merged), #218; issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213 |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234; issues #109–#117, #130–#132, #167–#185, #188, #219–#233 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
 #140 left alone on purpose, which belong to whichever version takes them up.
@@ -1318,9 +1235,9 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2064 tests, ~4 min on CI, ~10 on Windows
+cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
-cd android && ./gradlew test                             # 1500 tests across the five modules
+cd android && ./gradlew test                             # 1523 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

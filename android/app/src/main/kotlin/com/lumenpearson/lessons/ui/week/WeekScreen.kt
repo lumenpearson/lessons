@@ -85,6 +85,7 @@ fun WeekScreen(
         showTeacher = state.showTeacher,
         showEvents = state.showEvents,
         showHomework = state.showHomework,
+        nowToday = state.nowAt,
     )
 
     // The ribbon is the one view that owns the page's height instead of adding
@@ -209,6 +210,8 @@ fun WeekScreen(
             showHomework = state.showHomework,
             onLessonClick = { lesson -> sheets.show(state.selected, lesson) },
             onOpenDay = { sheets.day = state.selected },
+            // Set only while the selected day is today; see ScheduleUiState.nowAt.
+            now = state.nowAt,
         )
     }
 }

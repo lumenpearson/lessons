@@ -78,6 +78,17 @@ A 2×2 on a Pixel 10 Pro XL is about 195×226 dp, which is `SMALL_TALL`, not `LA
 does not fit inside it. `SMALL_TALL` lists three homework subjects after school, where it
 used to list two over an empty lower half.
 
+**After school no size is left mostly background** (#221). The after-school layout used to be
+the state, the plan and the homework block and nothing that grew with the height, so a tall
+widget with nothing set for tomorrow was four lines over three quarters of a home screen of
+empty surface. Every rung with a day timeline — and `SMALL_TALL` while its homework leaves
+room — now lists the next school day's lessons under the homework, and the rungs with a week
+strip draw it under them. The list is weighted to take whatever height is left and is
+clipped at its own bottom edge rather than counted in advance, because Glance cannot measure
+and a count is either too few on a tall widget or pushes the week off a short one
+(`restDayLessons`, `RestDayLessonsTest`). The 4×2 draws the state and the plan above its
+homework.
+
 Every block drawn inside the widget takes its corner from the rung's own padding rather than
 from a constant — `WidgetSizeClass.innerCorner()`, the surface's 24 dp less that padding.
 The rule and the four places that deliberately do not follow it are in
@@ -97,7 +108,7 @@ from `timetable.nowAtSchool()`.
 | `InLesson` | a lesson is running | subject, room, time left, progress |
 | `OnBreak` | between lessons | the next lesson and how long until it |
 | `DuringEvent` | canteen, assembly, excursion | the event's name and how long is left |
-| `AfterSchool` | after the last bell | **homework for the next school day** |
+| `AfterSchool` | after the last bell | **homework for the next school day**, then that day's lessons |
 | `DayOff` | day off, holidays | the same |
 | `NoData` | no cache for this date | one of three sentences, by how the phone came in — see below |
 

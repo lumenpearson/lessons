@@ -42,8 +42,9 @@ import com.lumenpearson.lessons.core.designsystem.modifier.LocalLiquidRipple
 import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
 import kotlin.math.hypot
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -130,8 +131,6 @@ class ThemeRevealState internal constructor(
      */
     val revealing: Boolean get() = wipe != null
 
-    private var running: Job? = null
-
     /**
      * Photographs the screen, applies [change], and wipes the photograph away in
      * a circle growing from [origin].
@@ -140,15 +139,21 @@ class ThemeRevealState internal constructor(
      * the animation is then a circle opening onto an identical picture, which
      * costs one frame of work and looks like nothing happened. Safe to call
      * again while one is still running, which is the case that matters: somebody
-     * flipping between light and dark to compare them gets a wave per tap, each
-     * from its own switch, and never a frozen one.
+     * flipping a switch back and forth to compare. The wipe already on screen
+     * carries the new change too — its hole is onto the live tree, which is
+     * about to become the newest theme — so a call during one applies [change]
+     * and photographs nothing. It used to photograph again, and the photograph
+     * of a window with a wipe in it is a half-open circle that no longer moves:
+     * held for the settle timeout, then wiped from the new switch, one frozen
+     * layer per tap (#229). Each tap still gets a wave of its own, because the
+     * anchor fires the ripple before calling this.
      *
      * @param origin in the root composition's coordinates, which is what
      *   [androidx.compose.ui.layout.LayoutCoordinates.positionInRoot] gives.
      *   Unspecified falls back to the middle of the screen.
      */
     fun reveal(origin: Offset, change: () -> Unit) {
-        if (!enabled()) {
+        if (!enabled() || wipe != null || !scope.isActive) {
             change()
             return
         }
@@ -160,13 +165,16 @@ class ThemeRevealState internal constructor(
 
         val wipe = Wipe(shot, origin)
         val photographed = themeKey
-        // Cancelled before the new one is published, so the old animation cannot
-        // land a frame — or its own cleanup — on top of it.
-        running?.cancel()
         this.wipe = wipe
-        change()
 
-        running = scope.launch {
+        // Undispatched, so the try is entered before this returns: a job
+        // cancelled before its first dispatch never runs its finally, and the
+        // photograph published above would stay on screen for good. Launched
+        // before [change] for the same reason — a change that throws cannot
+        // strand it either. The flow below reads the key synchronously, sees the
+        // photographed one and suspends, so the change still lands after the
+        // photograph.
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
             try {
                 // See "Why step 3 waits". The photograph is already on screen at
                 // progress 0 while this runs, so the delay is a still frame of
@@ -182,6 +190,7 @@ class ThemeRevealState internal constructor(
                 if (this@ThemeRevealState.wipe === wipe) this@ThemeRevealState.wipe = null
             }
         }
+        change()
     }
 }
 

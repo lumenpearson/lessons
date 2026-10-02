@@ -1,13 +1,16 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.dto.DeviceMeDto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 
 /**
@@ -20,6 +23,7 @@ import kotlinx.coroutines.withContext
  */
 internal class DeviceLinkRepositoryImpl(
     private val api: LessonsApi,
+    private val preferences: LessonsPreferences? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : DeviceLinkRepository {
 
@@ -34,6 +38,13 @@ internal class DeviceLinkRepositoryImpl(
         // replaces the link is minted by the next /me, so ask for it now
         // rather than showing a card with nothing on it.
         api.me().toDomain()
+    }
+
+    override fun lastRole(classId: Long): Flow<ClassRole?> =
+        preferences?.lastRole(classId) ?: flowOf(null)
+
+    override suspend fun rememberRole(classId: Long, role: ClassRole?) {
+        preferences?.rememberRole(classId, role)
     }
 
     private suspend fun call(block: suspend () -> DeviceLink): Result<DeviceLink> =

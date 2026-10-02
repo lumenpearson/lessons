@@ -42,6 +42,7 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.CalendarViewWeek
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Today
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FloatingToolbarDefaults
@@ -50,6 +51,7 @@ import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.ripple
@@ -68,12 +70,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
@@ -321,6 +325,11 @@ fun LessonsFloatingToolbar(
                         reordering = reordering,
                         onReorderingChange = onReorderingChange,
                         onReorder = onReorder,
+                        labelMax = if (scrollableItems) {
+                            LabelWidth
+                        } else {
+                            spareLabelWidth(screenWidth.dp, items.size, actionButton != null)
+                        },
                     )
                 }
             }
@@ -384,6 +393,7 @@ private fun ToolbarItems(
     reordering: Boolean = false,
     onReorderingChange: (Boolean) -> Unit = {},
     onReorder: (order: List<Int>) -> Unit = {},
+    labelMax: Dp = LabelWidth,
 ) {
     val scrollState = rememberScrollState()
     val view = rememberHapticView()
@@ -494,20 +504,33 @@ private fun ToolbarItems(
                     slotPx = slotPx,
                     offsetPx = if (slot == held) dragPx else shift * slotPx,
                     arrangeable = reorderable,
-                    onOpenArranging = {
-                        // The press that opens the mode, and the only haptic in
-                        // it: `tap` rather than `press`, because this is a state
-                        // change and not a button, and the two should not feel
-                        // the same.
-                        LessonsHaptics.tap(view)
-                        onReorderingChange(true)
-                    },
+                    labelMax = labelMax,
+                    onOpenArranging = { onReorderingChange(true) },
                     onExitReorder = { onReorderingChange(false) },
                     onDragStart = {
+                        // Every pick-up, of every tab. This used to be played
+                        // only by the long press that opens the mode, and inside
+                        // the mode a tab is picked up by a sideways move that
+                        // nothing was felt for — so carrying any tab but the
+                        // selected one was silent, the selected one being felt
+                        // only through the shell's page-change tap on the drop
+                        // (#225). The long press runs onOpen and then this in
+                        // the same event, so it is still felt exactly once.
+                        // `tap` rather than `press`: a state change, not a button.
+                        LessonsHaptics.tap(view)
                         held = slot
                         dragPx = 0f
                     },
-                    onDrag = { delta -> dragPx += delta },
+                    // Not past either end of the row. dropIndex parks a finger
+                    // that has left the bar on the end slot anyway, so anything
+                    // further was only the tab drawn out under the pill's round
+                    // end, cut in half there (#226).
+                    onDrag = { delta ->
+                        dragPx = (dragPx + delta).coerceIn(
+                            -held * slotPx,
+                            (working.lastIndex - held) * slotPx,
+                        )
+                    },
                     onDragEnd = {
                         val from = held
                         val to = landing
@@ -527,6 +550,38 @@ private fun ToolbarItems(
             if (slot < working.lastIndex) key(GapKey to slot) { ToolbarGap(expanded) }
         }
     }
+}
+
+/**
+ * The widest the selected tab's label may grow: the window less everything else
+ * on the row — the margins, the pill's ends, every tab's icon, the gaps, and the
+ * action button with its own gap. The terms are [scrollingItemsMaxWidth]'s.
+ */
+internal fun spareLabelWidth(screenWidth: Dp, items: Int, hasAction: Boolean): Dp {
+    val rest = ToolbarSideMargin * 2 + PillEndPadding * 2 + ItemSize * items +
+        ItemGap * (items - 1).coerceAtLeast(0) +
+        if (hasAction) ItemSize + ItemGap * 2 else 0.dp
+    return (screenWidth - rest).coerceAtLeast(LabelWidth)
+}
+
+/**
+ * A tab's disc. Unselected it is transparent: it used to be the pill's own
+ * colour, invisible everywhere except where a carried tab, drawn above its
+ * neighbours and scaled up, passed over the selected tab's white disc — and
+ * there it showed as a dark bite out of it (#226). Carried, it gets a body of
+ * its own, the action button's pair, so it can be seen over the white disc.
+ */
+internal fun tabContainerColor(selected: Boolean, held: Boolean, scheme: ColorScheme): Color = when {
+    selected -> scheme.background
+    held -> scheme.primaryContainer
+    else -> Color.Transparent
+}
+
+/** @see tabContainerColor */
+internal fun tabContentColor(selected: Boolean, held: Boolean, scheme: ColorScheme): Color = when {
+    selected -> scheme.primary
+    held -> scheme.onPrimaryContainer
+    else -> scheme.background
 }
 
 /** Keeps a gap's key from ever equalling a tab's, which is its label. */
@@ -622,6 +677,7 @@ private fun ToolbarTab(
     slotPx: Float = 0f,
     offsetPx: Float = 0f,
     arrangeable: Boolean = false,
+    labelMax: Dp = LabelWidth,
     onOpenArranging: () -> Unit = {},
     onExitReorder: () -> Unit = {},
     onDragStart: () -> Unit = {},
@@ -662,8 +718,23 @@ private fun ToolbarTab(
         animationSpec = toolbarSpring(),
         label = "toolbar_item_width",
     )
+    // As wide as the label, not a fixed 80 dp: «Календарь» in bold is wider
+    // than that at the app's larger text scales and at a system font scale
+    // from about 1.1, and a label that does not fit is a marquee that never
+    // stops — mid-lap it read «› Кален…» (#227). Never narrower than 80 dp, so
+    // the short labels and the tests' geometry are as they were, and never
+    // wider than the row can spare.
+    val labelStyle = MaterialTheme.typography.labelLarge.emphasised(active = true)
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val labelFits = remember(item.label, labelStyle, density, labelMax) {
+        // A measurement, not a line on screen: one line is what the label is drawn on.
+        val px = measurer.measure(item.label, labelStyle, maxLines = 1, softWrap = false).size.width
+        // A pixel of slack for the round trip through dp.
+        with(density) { (px + 1).toDp() }.coerceIn(LabelWidth, labelMax.coerceAtLeast(LabelWidth))
+    }
     val labelWidth by animateDpAsState(
-        targetValue = if (selected && !hideLabel) LabelWidth else 0.dp,
+        targetValue = if (selected && !hideLabel) labelFits else 0.dp,
         // Without the bounce when the label goes because the tabs are being
         // arranged. The long press that drops it is now also the start of a
         // drag (#181), and a bouncing label dips below nothing: the tab is
@@ -722,8 +793,8 @@ private fun ToolbarTab(
     // selected tab wears, and the same two colour pairs.
     Surface(
         shape = CircleShape,
-        color = if (selected) scheme.background else scheme.primary,
-        contentColor = if (selected) scheme.primary else scheme.background,
+        color = tabContainerColor(selected = selected, held = held, scheme = scheme),
+        contentColor = tabContentColor(selected = selected, held = held, scheme = scheme),
         modifier = Modifier
             // First in the chain, outside the layer that moves and scales the
             // tab: the finger is measured in the row's coordinates, so the held
@@ -745,6 +816,9 @@ private fun ToolbarTab(
                         .semantics {
                             if (!reordering) {
                                 onLongClick {
+                                    // What the pick-up plays for a finger; a
+                                    // screen reader's long press picks nothing up.
+                                    LessonsHaptics.tap(view)
                                     currentOpenArranging()
                                     true
                                 }
@@ -800,7 +874,7 @@ private fun ToolbarTab(
                 Icon(
                     imageVector = item.icon,
                     contentDescription = item.label,
-                    tint = if (selected) scheme.primary else scheme.background,
+                    tint = LocalContentColor.current,
                     modifier = Modifier.size(24.dp),
                 )
                 if (item.badge) {

@@ -86,7 +86,7 @@ fun SettingsRootScreen(
         LaunchedEffect(Unit) { viewModel.refreshDeviceLink() }
     }
 
-    val manager = isClassManager(state.deviceLink.role)
+    val manager = isClassManager(state.effectiveRole)
 
     SettingsPage(
         modifier = modifier,
@@ -306,7 +306,7 @@ fun SettingsSectionScreen(
                 )
             }
             SettingsSection.ADMIN -> adminRows(
-                role = state.deviceLink.role,
+                role = state.effectiveRole,
                 debugEnabled = state.settings.debugMode,
                 onDebugEnabledChange = viewModel::setDebugMode,
             )

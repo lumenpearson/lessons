@@ -41,6 +41,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -657,12 +663,17 @@ internal fun StepScaffold(
     // The keyboard padding on the outer column, as the join screen has it:
     // on the sign-in step the keyboard then shrinks the scrolling body and
     // lifts the row, rather than covering the form it was opened for.
+    val scroll = rememberScrollState()
     Column(modifier = Modifier.fillMaxSize().imePadding()) {
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                // Before the scroll, so the fade stays on the viewport's top
+                // edge — the hero's lower edge — rather than travelling with
+                // the content.
+                .fadeUnderHero(active = { scroll.value > 0 })
+                .verticalScroll(scroll)
                 .padding(horizontal = ScreenPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             content = content,
@@ -670,3 +681,33 @@ internal fun StepScaffold(
         actions()
     }
 }
+
+/** How far a step's body dissolves under the hero; see [fadeUnderHero]. */
+private val HeroFade = 24.dp
+
+/**
+ * Dissolves whatever is scrolled under the hero instead of cutting it along
+ * a line.
+ *
+ * Cut flat, a line of text scrolled to the edge leaves behind whatever hangs
+ * below its baseline: on the welcome step, the feet of «Д» and the stem of «р»
+ * from «Добро пожаловать в», three dashes over «Дневник» that read as a
+ * drawing defect (#230). Faded, the line goes as a whole. Only while the body
+ * is scrolled at all, so a step at rest draws its first line at full strength.
+ *
+ * @param active read at draw time, so scrolling does not recompose the step.
+ */
+internal fun Modifier.fadeUnderHero(active: () -> Boolean): Modifier =
+    graphicsLayer {
+        compositingStrategy = if (active()) CompositingStrategy.Offscreen else CompositingStrategy.Auto
+    }.drawWithContent {
+        drawContent()
+        if (!active() || size.height <= 0f) return@drawWithContent
+        drawRect(
+            brush = Brush.verticalGradient(
+                0f to Color.Transparent,
+                (HeroFade.toPx() / size.height).coerceAtMost(1f) to Color.Black,
+            ),
+            blendMode = BlendMode.DstIn,
+        )
+    }

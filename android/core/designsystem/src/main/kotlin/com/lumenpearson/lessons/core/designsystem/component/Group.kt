@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
@@ -23,10 +25,12 @@ import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -40,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -108,15 +113,23 @@ fun GroupRow(
     container: Color = MaterialTheme.colorScheme.rowContainer,
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
     verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
+    /**
+     * Painted instead of [container] when set — the running lesson's gradient.
+     * A brush rather than a second colour, because what it draws is a fade
+     * from one tint into the row's own, and two flat colours cannot say that.
+     */
+    containerBrush: Brush? = null,
     onClick: (() -> Unit)? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     val view = rememberHapticView()
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (containerBrush != null) Modifier.background(containerBrush) else Modifier),
         shape = RectangleShape,
-        color = container,
+        color = if (containerBrush != null) Color.Transparent else container,
         contentColor = contentColor,
     ) {
         Row(
@@ -319,6 +332,16 @@ fun GroupActionItem(
     busy: Boolean = false,
 ) {
     val view = rememberHapticView()
+    // Busy means «not now», not «unavailable»: presses are refused, but the
+    // filled colours stay. With Material's disabled colours the spinner was
+    // onPrimary on a 10 % grey — a faint arc in the light scheme and all but
+    // gone in the dark one (#223).
+    val base = ButtonDefaults.buttonColors()
+    val colors = if (busy && enabled) {
+        base.copy(disabledContainerColor = base.containerColor, disabledContentColor = base.contentColor)
+    } else {
+        base
+    }
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -331,29 +354,34 @@ fun GroupActionItem(
                 onClick()
             },
             enabled = enabled && !busy,
+            colors = colors,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp)
                 .height(ActionRowHeight),
         ) {
-            if (busy) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
-                Spacer(Modifier.size(10.dp))
-            } else if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.size(10.dp))
+            if (busy || icon != null) {
+                // One slot for the icon and the spinner, so the label does not
+                // move when a sync starts.
+                Box(modifier = Modifier.size(20.dp), contentAlignment = Alignment.Center) {
+                    if (busy) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = LocalContentColor.current,
+                        )
+                    } else if (icon != null) {
+                        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.fillMaxSize())
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
             }
             MarqueeText(
                 text = label,
                 style = MaterialTheme.typography.titleMedium,
+                // MarqueeText asks for a bounded width; without it a long label
+                // at a large font scale scrolled under the spinner.
+                modifier = Modifier.weight(1f, fill = false),
             )
         }
     }

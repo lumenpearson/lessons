@@ -27,6 +27,159 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the external audit of 27 September, #190–#211
+
+Merged as #214 (`eb0ab94`, 27 September 2026), from `agents/audit-batch-190-211`, on milestone 10. An external audit of the
+repository filed twenty-two issues on 27 September 2026. Nine agents fixed them in parallel,
+each on a branch of its own in a worktree of its own, and this branch merges the nine and
+adds four commits found while merging them. Every defect was fixed test-first — the new
+test run red against the old code, then green — and every refactor changes no behaviour,
+with the existing tests as its proof and, for the three server splits, an OpenAPI dump and
+the aiogram handler order compared before and after.
+
+### The server
+
+- **#190.** `docker-compose.yml` takes the Postgres password from `POSTGRES_PASSWORD` and
+  refuses to start without one, where it carried the literal `lessons` in a public
+  repository. `docs/deploy.md` says where the value goes, that it is spliced into a URL
+  unescaped, and that a volume made under the old password keeps it.
+- **#191.** A compose deployment hands the server every setting it reads, so the diary, the
+  tick and the calendar links work there; before, the list stopped at `TIMEZONE`.
+- **#195.** The server container runs as an unprivileged user, and its package is installed
+  after its code is copied, so it is whole in site-packages rather than found by accident on
+  the working directory.
+- **#196.** `/diary/signin` sends `frame-ancestors 'none'` and `X-Frame-Options: DENY` on all
+  seven answers it draws, so no other site can frame the one page that takes a password.
+- **#193.** Every page after a spent sign-in ticket says the link is spent and names the
+  bot's buttons that make the next one, where it said «Попробуйте ещё раз».
+- **#198.** A «Сетевой город» session that will not open reads «today» in Moscow, not on the
+  host's clock, which on Vercel was yesterday from midnight to three.
+- **#199.** A class code stops minting phones at 300 live devices and answers `409` with a
+  Russian `detail`, which the join screen words as «class full»; the throttle forgives it,
+  as it does the invite-only `403`.
+- **#200.** `/docs`, `/redoc` and `/openapi.json` are served locally and not on Vercel.
+- **#197.** Naive UTC is taken one way everywhere, and never through the deprecated
+  `datetime.utcnow()`.
+- **#194.** A phone invite from the bot is spent with one conditional `UPDATE … WHERE used_at
+  IS NULL`, so a retried update cannot redeem it twice.
+- **#205.** Nothing under `app/services/` imports `app.bot`, directly or through another
+  module. The role ladder moved to `services/roles.py` and the words both shells print to
+  `app/wording.py`; `bot/roles.py` and `bot/render.py` re-export them, and
+  `tests/test_service_layering.py` follows every import chain to hold the rule.
+- **#208, #206, #207.** The three server files one reader could no longer hold are
+  packages: `schemas.py` (1573 lines) is seventeen modules behind the same import;
+  `bot/handlers/manage.py` (3434) and `api/manage.py` (1516) are one module per screen, over
+  a new `services/manage/` that holds the one implementation of every operation both shells
+  perform (#206). Where the two copies had drifted, one rule now answers for both: the bot's
+  time-zone picker writes its audit line, a removed colour is «убран» from both sides, the
+  bot no longer logs a second revoke, its import log says «перестали звонить N», and a
+  switch to the value already in force logs nothing. `@needs(Role.X)` gates the 72
+  «⚙️ Класс» handlers that each carried their own copy of the role check (#207), and no
+  `select(` is left in them.
+- **#204.** `CLAUDE.md`, `docs/architecture.md`, `docs/bot.md`, `AGENTS.md` and the Copilot
+  instructions say that two shells write over one set of services, where they said the API
+  only reads.
+- **#192.** `requirements.txt` is a lock: 34 exact pins, transitive ones included, compiled by
+  uv for CPython 3.12 on Linux from a new `requirements.in` that mirrors pyproject's runtime
+  dependencies. CI installs from it, `test_requirements_mirror.py` holds the two level, and
+  dependabot's root entry is `uv`.
+- **#210, the server half.** `python -m mypy` is a CI step between ruff and the tests.
+
+### Android
+
+- **#203.** Every request is signed from credentials held in memory and refreshed on IO, so
+  no interceptor blocks on DataStore and no coroutine calls `runBlocking`.
+- **#201.** The class and diary bearers are sealed in the preferences file with an
+  AES-256-GCM key the Android Keystore holds. A DataStore migration seals what an older
+  install left in plain text, once; a token that will not open — a restore onto another
+  phone, a wiped Keystore — reads as no token, and the phone lands on the join screen or the
+  diary's sign-in form.
+- **#202.** A release build talks to the server over https only, except to `localhost` and
+  `127.0.0.1`; a `src/debug` override keeps cleartext for development. An `http://` address
+  is refused where it is typed, and one kept from an older version is named as needing https
+  on the join screen, the sync message and the diary's forms. The packaged release APK was
+  read back with aapt2 to confirm which file it carries.
+- **#209.** The four Android files one reader could no longer hold — the settings pages, the
+  calendar, the home shell and the diary — are split, and composables no longer reach the
+  `Graph`: the diary home's first refresh belongs to its view model.
+- **#210, the Kotlin half.** detekt 2.0.0-alpha.6 reads all five modules and fails CI on any
+  finding the module's `detekt-baseline.xml` does not hold. The baselines were regenerated
+  on this branch after the merge, because #209 moved code between files.
+
+### The documents
+
+- **#211.** `HANDOVER.md` went from 337 KB to about 95 KB: what every batch before the last
+  two added moved verbatim to `docs/history.md`, and a line check found none of the 4,077
+  lost. The README and this file stopped contradicting GitHub and #186's walk.
+
+### Found while merging
+
+- **#213.** The test that every document names the schema head walked `.claude/` into the
+  agents' worktrees and read nine stale copies of this file; it failed every local run beside
+  them, and never on CI. It reads only this checkout's documents now.
+- **#212**, filed and **not** fixed: `test_a_parallel_burst_from_one_address_cannot_pass_the_limit`
+  fails at random on Windows with SQLite's «database is locked», two runs in three when run
+  alone. It passes on CI's Linux.
+- The Android comments that named `server/app/schemas.py` name the module each model lives in
+  now, the architecture tree shows the package and `app/wording.py`, and the API takes the
+  shared words from `app.wording` rather than from the bot.
+
+### The machine crashed under the batch
+
+The machine running the agents blue-screened five times on 26–27 September. Each crash
+zero-filled whatever was being written: a git index, a source file in the middle of a
+mutation test, Kotlin incremental caches, fifty-five units of `~/.gradle` (the detekt plugin
+among them) and one file of a rebuilt venv. Every worktree was checked before work resumed:
+no source file was damaged, the mutated files matched their backups byte for byte, and what
+was zero-filled was deleted and rebuilt. Two runs of the suite gave false failures of their
+own — every test that spawns `python.exe` exited `0xC0000142` — from a run that outlived the
+agent that started it; they were run again from a live shell and passed.
+
+### Gates
+
+On `1b0ed1c` with this close-out's documents on top: `pytest -q -n 3` **2063** passed, none
+failed — thirty-nine more than `938e59f`'s 2024; `ruff` clean; `python -m mypy` clean over
+153 source files, where it was 100 before the three splits. `./gradlew test` **1500**
+(`:core:model` 125, `:core:data` 570, `:core:designsystem` 112, `:widget` 123, `:app` 570),
+forty-one more than #189's 1459; `assembleDebug` and `assembleRelease` build; `./gradlew
+detekt` passes against the regenerated baselines. Every branch ran its own gates before the
+merge, and the merge was checked again as a whole. #201, #202 and #203 were also
+mutation-tested: every mutation of each fix turned a test red. On GitHub, #214's CI ran both
+new steps, `Type check` and `Detekt`, green, and its server job passed 2063 on Python 3.12
+in under three minutes.
+
+**The baselines hold only what was already there.** Merged, detekt found twelve things in
+this batch's own Kotlin that no baseline held; `05fc5cf` fixes or suppresses each where it
+stands, with the reason on the annotation, and `1b0ed1c` regenerates the baselines with
+nothing else in the diff, so every entry it adds is one it removes under #209's new file.
+
+### What was deliberately left alone
+
+- `server/Dockerfile` still runs `pip install .`, so a container gets pyproject's floors, not
+  the lock. The dev tools, uvicorn, aiosqlite and alembic are not locked either, so a new ruff
+  or mypy can still turn CI red on its own.
+- `/api/v1/edit` and the bot's day-to-day handlers still write different audit actions for the
+  same change (`day.set` against `dayoverride.set`); #206 was «⚙️ Класс» and `/manage` only.
+- The API and `main.py` still import `app.bot.bot` inside functions, to build a bot on demand.
+  The layer rule binds the services; the API is a shell.
+- The first run's school search still words a kept `http://` address as «no server is set»,
+  and the diary's sign-in form in a release build refuses `http://127.0.0.1` although the
+  request would go through; both sit in screens another branch was splitting.
+- `9181796`'s message says detekt was never run through Gradle; `44d49e2` records that it
+  has been.
+- The six drifts #206 unified are named in its commit body and carry no issues of their own.
+
+### What nobody has verified in this batch
+
+- #201's Keystore key and #202's network configuration have not run on a device: how the
+  platform reads the two configuration files is what its documentation says, and the release
+  APK has not been pointed at a real server.
+- Dependabot's `uv` entry has not opened a pull request, and nothing here runs Docker. The
+  lock itself was installed on Linux and Python 3.12 by #214's CI and its Vercel preview.
+- `./gradlew check` and `build` running detekt is read from the plugin's source.
+- Why two background runs could not start child processes (`0xC0000142`) was not found; it
+  did not happen from a live shell.
+
 ## What the batch before added: the widget's two smallest sizes, and a widget that did not follow its settings
 
 Merged as `938e59f`, #189 from `agents/widget-small-sizes`, on milestone 9. Two commits, one per issue,
