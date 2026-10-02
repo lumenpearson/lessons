@@ -14,6 +14,7 @@
 
     <!-- Access -->
     <string name="developer_access_group">Доступ</string>
+    <string name="developer_access_signed_out_title">Вход в GitHub не выполнен</string>
     <string name="developer_access_signed_out">Режим открывается только аккаунту GitHub с правом записи в репозиторий проекта — тем, кто может его развернуть.</string>
     <string name="developer_sign_in">Войти через GitHub</string>
     <string name="developer_github_unavailable">В этой сборке нет входа через GitHub</string>
@@ -87,7 +88,8 @@
     <string name="developer_report_copied">Отчёт скопирован</string>
     <string name="developer_hide">Скрыть режим разработчика</string>
     <string name="developer_hide_summary">Раздел исчезнет из настроек, инструменты выключатся, записи сотрутся</string>
-    <string name="developer_hidden">Раздел скрыт. Семь нажатий на версию в «О приложении» вернут его.</string>
+    <string name="developer_hidden_title">Раздел скрыт</string>
+    <string name="developer_hidden">Семь нажатий на версию в «О приложении» вернут его.</string>
 
     <!-- The request console (#237). -->
     <string name="developer_source_console">Консоль</string>
