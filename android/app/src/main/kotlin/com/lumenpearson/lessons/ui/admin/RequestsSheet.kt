@@ -19,6 +19,7 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -109,7 +110,7 @@ fun RequestsSheet(
                     // "As asked" first, because it is what pressing «Выдать» in
                     // the bot does and what an admin skimming expects to press.
                     GroupItem(
-                        title = correctedString(
+                        title = correctedLine(
                             R.string.admin_request_role_asked,
                             current.request.requestedRole.roleName(),
                         ),
@@ -186,7 +187,7 @@ fun RequestsSheet(
                             modifier = Modifier.padding(horizontal = ScreenPadding),
                         ) {
                             GroupItem(
-                                title = correctedString(
+                                title = correctedLine(
                                     R.string.admin_request_asked,
                                     request.requestedRole.roleName(),
                                 ),

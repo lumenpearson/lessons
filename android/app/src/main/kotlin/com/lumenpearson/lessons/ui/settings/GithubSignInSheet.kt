@@ -53,6 +53,7 @@ import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -327,7 +328,7 @@ private fun ColumnScope.SignedInBlock(
     // A GitHub login can be thirty-nine characters, and this line carries one
     // inside a sentence; cutting it off hid the half a reader is checking.
     MarqueeText(
-        text = correctedString(R.string.github_signed_in_as, account.login),
+        line = correctedLine(R.string.github_signed_in_as, account.login),
         style = MaterialTheme.typography.titleMedium,
         textAlign = TextAlign.Center,
         modifier = Modifier

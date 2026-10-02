@@ -40,6 +40,8 @@ import com.lumenpearson.lessons.core.designsystem.state.icon
 import com.lumenpearson.lessons.core.designsystem.state.tone
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.DataLine
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
@@ -174,7 +176,7 @@ private fun LazyListScope.lessonsSection(state: TodayUiState) {
         } else {
             correctedString(R.string.today_lessons_remaining)
         }
-        SectionHeaderedGroup(title = title) {
+        SectionHeaderedGroup(title = DataLine.of(title)) {
             // Cross-faded from one to the next — the placeholder into the
             // lessons it stood for, the last lesson into «Уроки закончились» —
             // rather than swapped between two frames (#247).
@@ -234,7 +236,7 @@ private fun LazyListScope.eventsSection(state: TodayUiState) {
     if (!state.showEvents || state.events.isEmpty()) return
 
     animatedItem(key = "events") {
-        SectionHeaderedGroup(title = correctedString(R.string.today_events)) {
+        SectionHeaderedGroup(title = DataLine.of(correctedString(R.string.today_events))) {
             RoundedCardContainer {
                 state.events.forEach { event ->
                     GroupItem(
@@ -263,7 +265,9 @@ private fun LazyListScope.homeworkSection(state: TodayUiState, onOpenHomework: (
     if (day.homework.isEmpty()) return
 
     animatedItem(key = "homework") {
-        val title = correctedString(
+        // The day is the data; «Домашнее задание на» stays put if the line has
+        // to scroll (#251).
+        val title = correctedLine(
             R.string.today_homework_for,
             day.date.asRelativeDayLabelAccusative(state.now.toLocalDate()),
         )
@@ -276,7 +280,7 @@ private fun LazyListScope.homeworkSection(state: TodayUiState, onOpenHomework: (
                 // button under it: it is one more thing to read, in the same list.
                 if (day.homework.size > state.homeworkPreview) {
                     GroupItem(
-                        title = correctedString(
+                        title = correctedLine(
                             R.string.today_homework_more,
                             day.homework.size - state.homeworkPreview,
                         ),
@@ -293,7 +297,7 @@ private fun LazyListScope.homeworkSection(state: TodayUiState, onOpenHomework: (
 /** A label and whatever it labels, kept together so the two never wrap apart. */
 @Composable
 private fun SectionHeaderedGroup(
-    title: String,
+    title: DataLine,
     content: @Composable () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {

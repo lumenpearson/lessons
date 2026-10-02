@@ -53,6 +53,7 @@ import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.data.legal.LegalDocument
 import com.lumenpearson.lessons.core.data.repository.ServerStatus
 import com.lumenpearson.lessons.ui.developer.RevealTaps
@@ -319,28 +320,28 @@ private fun Badges(serverStatus: ServerStatus, build: BuildProvenance) {
 
         if (build.repository.isNotBlank()) {
             PillChip(
-                text = correctedString(R.string.about_badge_repository, build.repository),
+                text = correctedLine(R.string.about_badge_repository, build.repository),
                 icon = Icons.Rounded.Code,
                 onClick = build.repositoryUrl?.let { url -> { open(context, view, url) } },
             )
         }
         if (build.ref.isNotBlank()) {
-            PillChip(text = correctedString(R.string.about_badge_ref, build.ref))
+            PillChip(text = correctedLine(R.string.about_badge_ref, build.ref))
         }
         if (build.commit.isNotBlank()) {
             // The chip worth being tappable: it opens the exact diff this APK
             // was built from, which is the question somebody holding a phone
             // and a pull request is actually asking.
             PillChip(
-                text = correctedString(R.string.about_badge_commit, build.shortCommit),
+                text = correctedLine(R.string.about_badge_commit, build.shortCommit),
                 onClick = build.commitUrl?.let { url -> { open(context, view, url) } },
             )
         }
         if (build.number.isNotBlank()) {
-            PillChip(text = correctedString(R.string.about_badge_run, build.number))
+            PillChip(text = correctedLine(R.string.about_badge_run, build.number))
         }
         if (build.builtAt.isNotBlank()) {
-            PillChip(text = correctedString(R.string.about_badge_built_at, build.builtAt))
+            PillChip(text = correctedLine(R.string.about_badge_built_at, build.builtAt))
         }
         if (BuildConfig.DEBUG) {
             PillChip(
@@ -392,9 +393,9 @@ private fun FlowRowScope.ServerBadges(status: ServerStatus) {
                 containerColor = scheme.primaryContainer,
                 contentColor = scheme.onPrimaryContainer,
             )
-            PillChip(text = correctedString(R.string.about_badge_api, status.apiVersion))
+            PillChip(text = correctedLine(R.string.about_badge_api, status.apiVersion))
             status.schema?.let { schema ->
-                PillChip(text = correctedString(R.string.about_badge_schema, schema))
+                PillChip(text = correctedLine(R.string.about_badge_schema, schema))
             }
         }
 
@@ -405,7 +406,7 @@ private fun FlowRowScope.ServerBadges(status: ServerStatus) {
                 contentColor = scheme.onErrorContainer,
             )
             status.schema?.let { schema ->
-                PillChip(text = correctedString(R.string.about_badge_schema, schema))
+                PillChip(text = correctedLine(R.string.about_badge_schema, schema))
             }
             // Both numbers, because one of them is not an answer. «Схема 0013»
             // alone makes «база отстала» and «база впереди кода» the same card,
@@ -414,7 +415,7 @@ private fun FlowRowScope.ServerBadges(status: ServerStatus) {
             // server's own Russian sentence and this card is read in two
             // languages, so the pair of revisions says it instead.
             status.expected?.let { expected ->
-                PillChip(text = correctedString(R.string.about_badge_schema_expected, expected))
+                PillChip(text = correctedLine(R.string.about_badge_schema_expected, expected))
             }
         }
     }

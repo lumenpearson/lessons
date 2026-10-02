@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.lumenpearson.lessons.core.designsystem.text.DataLine
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -43,6 +44,39 @@ import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 @Composable
 fun PillChip(
     text: String,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    selected: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    containerColor: Color = when {
+        selected -> MaterialTheme.colorScheme.primary
+        onClick != null -> MaterialTheme.colorScheme.surfaceContainerHigh
+        else -> MaterialTheme.colorScheme.secondaryContainer
+    },
+    contentColor: Color = when {
+        selected -> MaterialTheme.colorScheme.onPrimary
+        onClick != null -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.onSecondaryContainer
+    },
+    border: BorderStroke? = null,
+) = PillChip(
+    text = DataLine.of(text),
+    modifier = modifier,
+    icon = icon,
+    selected = selected,
+    onClick = onClick,
+    containerColor = containerColor,
+    contentColor = contentColor,
+    border = border,
+)
+
+/**
+ * A chip whose label is the app's words and data — «Схема 0017», «Урок 3» —
+ * where only the data scrolls if it does not fit (#251). See [DataLine].
+ */
+@Composable
+fun PillChip(
+    text: DataLine,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     selected: Boolean = false,
@@ -95,7 +129,7 @@ fun PillChip(
                 )
             }
             MarqueeText(
-                text = text,
+                line = text,
                 style = MaterialTheme.typography.labelSmall.emphasised(selected, resting = FontWeight.Medium),
             )
         }

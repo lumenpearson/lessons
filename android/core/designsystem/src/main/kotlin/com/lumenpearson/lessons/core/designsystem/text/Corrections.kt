@@ -180,6 +180,20 @@ fun correctedString(@StringRes id: Int, vararg formatArgs: Any): String {
     return shown
 }
 
+/**
+ * [correctedString] with arguments, split where the first argument begins.
+ *
+ * The whole sentence is still what is corrected and registered, so the
+ * correction mode finds it as before; the split is read from the pattern the
+ * sentence was formatted from — the corrected one, if there is a correction.
+ */
+@Composable
+fun correctedLine(@StringRes id: Int, vararg formatArgs: Any): DataLine {
+    val whole = correctedString(id, *formatArgs)
+    val pattern = LocalCorrections.current.correctionOf(id, stringResource(id))
+    return splitLine(pattern = pattern, whole = whole)
+}
+
 /** `null` when [pattern] and [args] do not go together. */
 private fun format(locale: Locale, pattern: String, args: Array<out Any>): String? =
     runCatching { String.format(locale, pattern, *args) }.getOrNull()

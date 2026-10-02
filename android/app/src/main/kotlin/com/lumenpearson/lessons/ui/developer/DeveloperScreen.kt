@@ -40,6 +40,7 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
@@ -230,18 +231,18 @@ private fun AccessGroup(
                 }
             }
             is DeveloperAccess.Checking -> GroupItem(
-                title = correctedString(R.string.developer_access_checking, access.login),
+                title = correctedLine(R.string.developer_access_checking, access.login),
                 icon = Icons.Rounded.AccountCircle,
                 tone = neutralTone(),
             )
             is DeveloperAccess.Granted -> GroupItem(
-                title = correctedString(R.string.developer_access_granted, access.login, roleLabel(access.role)),
+                title = correctedLine(R.string.developer_access_granted, access.login, roleLabel(access.role)),
                 subtitle = correctedString(R.string.developer_access_checked_at, clockTime(access.checkedAtMillis)),
                 icon = Icons.Rounded.AccountCircle,
                 tone = accentTone(1),
             )
             is DeveloperAccess.Denied -> GroupItem(
-                title = correctedString(R.string.developer_access_denied, access.login),
+                title = correctedLine(R.string.developer_access_denied, access.login),
                 icon = Icons.Rounded.AccountCircle,
                 tone = errorTone(),
             )

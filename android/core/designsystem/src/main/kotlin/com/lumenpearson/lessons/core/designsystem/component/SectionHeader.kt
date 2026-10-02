@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.lumenpearson.lessons.core.designsystem.text.DataLine
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -41,6 +42,28 @@ fun SectionHeader(
     actionLabel: String? = null,
     onActionClick: (() -> Unit)? = null,
     titleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) = SectionHeader(
+    title = DataLine.of(title),
+    modifier = modifier,
+    subtitle = subtitle,
+    actionLabel = actionLabel,
+    onActionClick = onActionClick,
+    titleColor = titleColor,
+)
+
+/**
+ * A header whose title is the app's words and data — «Домашнее задание на
+ * понедельник, 5 октября» — where only the data scrolls if it does not fit
+ * (#251). See [DataLine].
+ */
+@Composable
+fun SectionHeader(
+    title: DataLine,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    actionLabel: String? = null,
+    onActionClick: (() -> Unit)? = null,
+    titleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
     Row(
         modifier = modifier
@@ -54,7 +77,7 @@ fun SectionHeader(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             MarqueeText(
-                text = title,
+                line = title,
                 // titleMedium, the weight Essentials gives every section label:
                 // large enough to structure the page, muted enough that the
                 // groups under it stay the objects on screen.

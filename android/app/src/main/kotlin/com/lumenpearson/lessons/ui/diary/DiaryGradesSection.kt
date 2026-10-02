@@ -28,6 +28,7 @@ import com.lumenpearson.lessons.core.designsystem.component.RowText
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.subjectTone
 import com.lumenpearson.lessons.ui.common.asDayMonth
@@ -52,7 +53,7 @@ internal fun LazyListScope.diaryGrades(
     if (range != null) {
         item(key = "grades-range") {
             SectionHeader(
-                title = correctedString(
+                title = correctedLine(
                     R.string.diary_grades_range,
                     range.from.asDayMonth(),
                     range.to.asDayMonth(),

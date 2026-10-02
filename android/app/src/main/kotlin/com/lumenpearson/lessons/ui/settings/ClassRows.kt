@@ -38,6 +38,7 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupItem
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.text.correctedLine
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
@@ -118,7 +119,7 @@ internal fun LazyListScope.classRows(
         )
         if (classes.size > 1 && state.session != null) {
             GroupItem(
-                title = correctedString(R.string.settings_class_leave, state.session.className),
+                title = correctedLine(R.string.settings_class_leave, state.session.className),
                 icon = Icons.AutoMirrored.Rounded.Logout,
                 tone = errorTone(),
                 onClick = { onLeaveClass(state.session) },
