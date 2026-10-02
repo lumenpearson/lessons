@@ -22,10 +22,82 @@ the conventions of the file it was written in:
   the file;
 - sections 5 to 8 are `HANDOVER.md`'s, which kept their numbers; sections 1 to 4 are here,
   after the oldest batch;
-- the last three sections hold what was taken out of `HANDOVER.md`'s sections 5, 6 and 7 the
-  same day, because it narrated work that is done or retold a rule `CLAUDE.md` carries.
+- the sections at the end hold what was taken out of `HANDOVER.md`'s sections 5, 6 and 7,
+  each under the date it left: on 27 September because it narrated work that is done or
+  retold a rule `CLAUDE.md` carries, and since then because it stopped being true.
 
 ---
+
+## What the batch before added: fifteen defects from the owner's phone, #219–#233
+
+Merged as #234 (`f2cebbd`, 2 October 2026), from `dev`, on milestone 9. The owner sent twenty screenshots from their phone
+on 2 October 2026, marked up in red, and asked for every defect to be fixed, merged into `dev`
+fix by fix, then into `main`, and tested synthetically before they check it by eye. Four
+read-only agents traced the causes in parallel; every fix was written and tested here, one
+branch per fix.
+
+- **«Сегодня» and the calendar (#219, #220).** The running lesson is now the «сейчас» line
+  above its row and a gradient of its subject's tint, the same mark a break gets, and the
+  row's trailing end carries the diary's marks for it — read from `diary.db`, matched by date
+  and the folded subject name, on the first lesson of a subject taught twice. The calendar's
+  today, in its list and its day sheet, is marked the same way; it used to pass `now = null`.
+- **The widget after school (#221).** The next school day's lessons fill the height under
+  the homework on every rung with a list, weighted and clipped rather than counted, with the
+  week strip under them; the 4×2 shows the state and plan above its homework.
+- **Sheets (#222).** Material's drag-handle slot wraps anything in a tooltip and a ripple, so
+  the sheets draw their own pill and pass `null`.
+- **Busy states (#223, #224).** A busy action keeps its filled colours, so its spinner is
+  onPrimary on primary; three view models lower their refresh flag in a `finally`, and the
+  pull-to-refresh indicator comes out below the status bar.
+- **The bar (#225, #226, #227).** Every pick-up of a tab is felt; the carried tab stays
+  inside the row and an unselected disc is transparent, so it never bites the selected one;
+  the selected tab is as wide as its measured label.
+- **Settings (#228).** The last role per class is kept in the preferences and drawn until
+  `/me` answers, which the shell now asks at start; the debug button is there from the first
+  frame after the first answer.
+- **Theme reveal (#229).** A wipe on screen is never photographed again, and its job starts
+  undispatched so the photograph always comes down.
+- **First run (#230, #231, #232).** Step bodies fade under the hero instead of being cut,
+  which is what left three dashes above «Дневник»; «Моей школы нет в списке» moved under the
+  buttons; the forgotten-password link heads the server block.
+- **Sign-in deadlines (#233).** 25 s over the whole diary exchange and 10 s on the preflight
+  on the phone, 22 s over the server's upstream adopt, each answered with the message that
+  already existed.
+
+### Gates
+
+On `dev` with this close-out on top: `pytest -q -n auto` **2065** passed, one more than
+#218's 2064; `ruff` clean; `python -m mypy` clean over 153 source files. `./gradlew test`
+**1523** (`:core:model` 125, `:core:data` 571, `:core:designsystem` 122, `:widget` 126,
+`:app` 579), twenty-three more than 1500; `assembleDebug` and `assembleRelease` build;
+`./gradlew detekt` passes. Every new test was run against the old code where it compiles
+there and failed: the sheet handle, the carry and the haptic, the theme reveal, the refresh
+flag, the onboarding fade and gap, and the server's adopt deadline. The project's own
+meta-tests caught two things in this batch's code — a `maxLines = 1` without a reason and two
+compose tests silent about the clock — and `f0c434e` writes the reasons where they ask for them.
+
+### What was deliberately left alone
+
+- The drop of a carried tab still plays `CLOCK_TICK`: changing it to a strength-respecting
+  tap would double with the shell's page-change tap when the drop renumbers the current page.
+- The welcome step's hero stays FULL; dropping it to COMPACT would free 148 dp but
+  `OnboardingFlowTest` pins it, and it is a design question rather than a defect.
+- The calendar's lesson rows get the «сейчас» mark but not the diary's marks; only «Сегодня»
+  was asked for them.
+
+### What nobody has verified in this batch
+
+- None of it has been seen on a phone: there is no emulator in a cloud container. Every one
+  of the fifteen is the owner's to check by eye, which they asked to do.
+- #221's weighted list is clipped at its own bottom edge on purpose; how a half-row sits on
+  each launcher rung is unseen.
+- #230 rests on the owner's welcome page having been scrolled when the dashes showed; the
+  glyph arithmetic says so, the phone has not.
+- #231 has no test: composing the school step mid-search needs a view model walked there.
+- #227: on a 360 dp phone the spare width is about 88 dp, so at the largest text scales
+  «Календарь» can still scroll there.
+- #233: a deadline landing just after the diary accepted the login leaves a session open on
+  the diary's side to idle out.
 
 ## What the batch before added: three dependabot bumps, a lock SQLite writers wait for, and #214's close-out
 
@@ -4004,3 +4076,33 @@ repository — so the request to drop it moved here too. Who dropped it is not r
 what the IDE generated rather than work — #187's section, «…the first instrumented tests…»,
 lists it — and
 nothing in a session here drops a stash it did not make.
+
+## Moved out of section 5 on 2 October 2026
+
+#241's session ran both on two API 37 emulators, so the bullet below became the one that
+says what was seen there and what still was not. As it stood until then:
+
+- **#201's Keystore seal and #202's https-only release have never run on a device.** The
+  key is made and used through `AndroidKeystoreKeys`, which `SealedTokensTest` replaces
+  with a key held in memory under the same `AesGcmTokenCipher`; the migration that seals
+  an older install's plain-text tokens is tested that way too, and nobody has upgraded a
+  phone that held one. Which network configuration a
+  build carries was read out of both packaged APKs with aapt2, and how the platform then
+  applies it is its documentation's word. The release APK has not been pointed at a
+  real server.
+
+## Moved out of section 7 on 2 October 2026
+
+Done by the owner. On 2 October the release APK built on the owner's machine and the one the
+APK workflow built from `4d792df` (run 37014696840, `versionCode` 39) were both signed
+`CN=lumenpearson`, certificate SHA-256 `d72c75b0…`, read back with `apksigner`. As it stood
+until then:
+
+**Give the release keystore its passwords, on your machine and nowhere else.** The keystore
+handed over during #186 is PKCS12 and came without them, so nothing was signed
+with it. A local release build reads `lessons.keystore.file`, `lessons.keystore.password`,
+`lessons.key.alias` and `lessons.key.password` from `~/.gradle/gradle.properties` (or the
+`LESSONS_KEYSTORE_*` and `LESSONS_KEY_*` variables); `docs/build.md` has the shape. Not in a
+chat, not in the repository. And before that key replaces the one CI signs with: an APK
+signed by a different key does not install over the one already on a phone — #117 showed the
+refusal on the emulator.

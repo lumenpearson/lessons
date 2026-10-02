@@ -7,29 +7,24 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189, #214, #218 and #234 are merged**; `main` is at `f2cebbd`, the merge
-of #234, on 2 October 2026, and `dev` is level with it. **The only thing open is the pull
-request carrying this paragraph, #239**, from `dev`, on milestone 9, `v0.8.0 — On-device
-checks, 89-region e-diary survey`. It carries #238's two commits unchanged — a hidden
-developer mode (#237), written by a scheduled cloud session, and what that session found
-about the Petersburg diary the same day (#235) — and a request console on top, which the
-owner asked for in another session the same afternoon. #238 is marked merged by GitHub the
-moment #239's merge puts its head in `main`. The section «What the last session added» below
-is that batch, both sessions' halves.
+#166, #186, #187, #189, #214, #218, #234, #238 and #239 are merged**; `main` is at `4d792df`,
+the merge of #239, on 2 October 2026, and `dev` was level with it when this batch began.
+**The only thing open is the pull request carrying this paragraph, #241**, from `dev`, on
+milestone 9, `v0.8.0 — On-device checks, 89-region e-diary survey`. It fixes two things the
+owner saw in the bottom bar that afternoon — the pill 16 dp taller on every page without a
+button beside it (#240), and a short label sitting in a box much wider than itself (#242) —
+and records the first run of #201's Keystore seal and #202's https-only release on a device:
+two API 37 emulators, one of them holding a release build signed with the owner's own key.
+The section «What the last session added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#238 was held as a draft because its session could not install the Android SDK**, so the
-third of the `github-pr` skill's five conditions — gates run locally before the push — was
-unmet for its code. The session that wrote the console had the SDK and ran the full Android
-gates over the combined tree, which is what lets #239 merge on the standing authorisation.
-
-**#234 closed #219–#233**, read back from GitHub on 2 October. **#239 closes
-#237.** **#235** is open: the production server cannot reach Petersburg's diary at all, and
-the fix is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in
-showing nothing for over a minute, was filed the same day and closed as a duplicate of #233,
-which #234 had already fixed. Of the device epic **#109**, **#111** and **#113** stay open
-for what only a phone can say, and **#112** (a macrobenchmark module) was not started.
+**#239 closed #237**, read back from GitHub on 2 October. **#241 closes #240 and #242.**
+**#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
+nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
+Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
+and **#112** (a macrobenchmark module) was not started.
 
 **The code expects head `0017`, and production is at `0017` since 26 September 2026 at 12:26 UTC.**
 `EXPECTED_REVISION` in `app/db.py` is `0017`, pinned to the real head by
@@ -138,10 +133,116 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: a developer mode (#237) with a request console, and the Petersburg diary out of the server's reach (#235)
+## What the last session added: #201 and #202 on two emulators, and a bottom bar that follows its text (#240, #242)
 
-Open as #239, from `dev`, on milestone 9; #238, from `agents/dazzling-davinci-qtw4n8`, is
-its first two commits. Made by two cloud sessions on 2 October 2026. The first began as a
+Open as #241, from `dev`, on milestone 9. Made on the owner's machine on 2 October 2026, with
+the API 37 emulator, a local server and production read only. The owner asked for everything
+the last build needed to be tested to be run; while that walk was under way `main` moved from
+`eb0ab94` to `4d792df` (#234 and #239), so the walk was run again on a build of `4d792df`;
+and twice the owner, watching the emulator, reported the bottom bar.
+
+- **#240, the pill 16 dp taller without a button beside it — filed, then fixed.** Every
+  settings page of a reader who does not manage the class drew the pill holding «←» and the
+  title 80 dp tall, where the tab bar it morphed from, and the same page beside the debug
+  button, drew 64 dp. Only Material's overload *without* a button runs
+  `minimumInteractiveBalancedPadding`, which pads the pill vertically by twice the amount the
+  content's interactive side inset exceeds its top one; since #183 the pill's ends were inside
+  our rows and its top and bottom outside them, so the 48 dp back button read as 8 dp in from
+  the side and 0 from the top. All of Material's padding is now inside the rows, on four
+  sides, and a bar without a button keeps the 80 dp slot Material gives one with a button, so
+  the pill does not drop 8 dp as settings open either — which the extra height had hidden.
+  Measured at 420 dpi: the settings pill 210 px before, 168 px after, as the tab bar's.
+- **#242, a short label in a box much wider than itself — filed, then fixed.** The back
+  pill's title was never under 100 dp and the selected tab's label never under 80 dp (the
+  floor #227 kept), so «← Sync» was as wide a pill as «← Settings» and «Today» half filled
+  its tab. Neither floor is left. The owner set the ceiling the same afternoon, asked and
+  answered in the session: a label or a title grows with its text until, on a tablet
+  (smallest width 600 dp and up), it reaches 30 % of the window, and on a phone until it
+  fills what the row leaves it; past that it scrolls, as `MarqueeText` already did. The
+  documentation's scrolling bar takes the same rule. Seen on the emulator in English and in
+  Russian: «Today», «← Sync», «← Settings», «← Настройки», «← Взаимодействие», each as wide
+  as its text.
+- **#201 on a real upgrade, twice.** The debug build installed before #201 (27 September,
+  this machine's debug key) was cleared, joined to a local `seed_demo` class «9А» with
+  `DEMO24`, and its preferences read with `run-as`: `session_list` held the membership as JSON
+  with `token` in plain text. The debug build of `eb0ab94`, and later of `4d792df`, was
+  installed over it with `install -r`: the class stayed, the first request after the upgrade
+  was a `304` with the migrated token, and the token now starts `gcm1:` over a 72-byte
+  payload whose first byte, the IV's length, is 12. After a `force-stop`, and after a reboot,
+  the server still answered `304`; a made-up bearer gets `401` on the same route, so the
+  `304` is the sealed token opening. Only the shape of the stored value was printed, never
+  the token.
+- **#201 and #202 on the release build signed with the owner's key.** The release APK built
+  here and the one the APK workflow built from `4d792df` (`versionCode` 39) are both signed
+  `CN=lumenpearson`. Neither installs over the release on the first AVD, which CI signed with
+  a throwaway key in #186 and which is linked to production's «11А» as owner, so a second
+  AVD, `Release_Check` (Pixel 9 profile, 1080×2424 at 420 dpi, on F:), took a fresh install.
+  `http://10.0.2.2:8000` was refused at the address field — «The app connects to the server
+  only at a secure address…», «Save» disabled — and `http://127.0.0.1:8000` accepted; «9А»
+  joined (`/join` 200, the year 200, then 304); the class came back after a `force-stop` and
+  after a reboot, each time with a `304`, so the Keystore key survives both. Pointed at
+  `https://lessons-ruddy-zeta.vercel.app`, «About» read «Server is up»: the first time a
+  release build met the real server over TLS. The address went back to the local one at once.
+- **#209's splits, walked on both builds.** The nine settings pages, the calendar's week,
+  month and day ribbon, homework and «Сегодня» opened with no `FATAL EXCEPTION`; on
+  `4d792df` the week list carries #220's «сейчас» line.
+- **«Обновить сейчас» against a host that does not answer** says «Не удалось обновить
+  расписание» after about twenty seconds. On the old build the snackbar came and went
+  between two screenshots, which looked like silence and was not.
+- **`ToolbarOnDeviceTest`**: 3 of 3 on `eb0ab94` and again on `4d792df`.
+
+### Driving the emulators from a shell
+
+- **`10.0.2.2` does not reach the host from the emulator on this machine**: `nc` times out,
+  while the machine's LAN address answers. `adb reverse tcp:8000 tcp:8000` with
+  `http://127.0.0.1:8000` is what works, and it is also the one cleartext address a release
+  build accepts.
+- **The local server ran from the scratchpad, never from `server/`.** `app.config` reads
+  `.env` from the working directory, and the one in `server/` belongs to the deployment; the
+  server took `DATABASE_URL` pointing at a SQLite file, `RUN_BOT=false`, and an empty
+  `BOT_TOKEN` and `WEBHOOK_SECRET`, from its environment.
+- **A fresh AVD's Gboard opened its stylus tutorial** over the first text field and swallowed
+  `input text`; `settings put secure stylus_handwriting_enabled 0` ends it.
+- **Screens were read through `uiautomator dump`**, not through screenshots. A tap has to
+  wait for a sheet or the keyboard to settle, or it lands where the button used to be.
+- **One Gradle daemon died** with `EXCEPTION_ACCESS_VIOLATION` in `jvm.dll`, and the second
+  AVD's first boot exited 139 just after «Boot completed». Both ran clean the second time;
+  the machine still holds the four DIMMs #214's section blamed, and two more unexpected
+  shutdowns were logged on 28 September.
+
+### Gates
+
+On `40889c2`: `./gradlew test assembleDebug assembleRelease detekt` BUILD SUCCESSFUL;
+`./gradlew test` **1587** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 130,
+`:widget` 126, `:app` 591), eight more than #239's 1579 — `ToolbarPillHeightTest` 3 and
+`ToolbarLabelFitTest` 5. Each was run against the toolbar before its fix first: the pill
+80 px for 64 and its centre 40 px for 48; then 84 px for a 4 px «Sync», a 128 px tab for
+«Today», and 322, 322 and 776 px where the caps said 379, 388 and 348. The server was not
+touched, so its gates were not run.
+
+### What was deliberately left alone
+
+- The first AVD's release build, linked to production's «11А» as owner, was not uninstalled
+  to make room for the owner-signed build: a second AVD cost 5 GB on F: and nothing the owner
+  had set up.
+- C: was not cleaned: it stayed between 4.5 and 7 GB free and nothing needed more.
+- The developer mode (#237) was not opened.
+
+### What nobody has verified in this batch
+
+- The pill beside the debug button after #240's fix: the local class gives no manager.
+  Material holds that pill at 64 dp by construction.
+- #242 on a tablet: the 30 % cap is held by `ToolbarLabelFitTest` only. Nor was a title long
+  enough to reach a phone's cap seen scrolling.
+- #201 on a phone, a restore onto another phone, a wiped Keystore, and the diary's bearer,
+  which is sealed the same way and needed a diary session nobody opened.
+- A release build joined to a production class: «11А» takes invitations only, and nothing
+  here wrote to production.
+
+## What the session before it added: a developer mode (#237) with a request console, and the Petersburg diary out of the server's reach (#235)
+
+Merged as #239 (`4d792df`, 2 October 2026), from `dev`, on milestone 9; #238, from
+`agents/dazzling-davinci-qtw4n8`, is its first two commits and was marked merged with it. Made by two cloud sessions on 2 October 2026. The first began as a
 scheduled status check, turned into the owner's report that the real diary would not open,
 and ended with a developer mode to find out why next time. The second, asked by the owner for
 «отправки конкретных запросов с разными заголовками на разные эндпоинты», «ограничь нашим
@@ -241,77 +342,6 @@ fixed rather than baselined. The server was not touched.
 - #235's measurement is from Frankfurt and from a cloud container. Whether the city's network
   answers a Russian VPS — the fix's premise — is unasked.
 
-## What the session before it added: fifteen defects from the owner's phone, #219–#233
-
-Merged as #234 (`f2cebbd`, 2 October 2026), from `dev`, on milestone 9. The owner sent twenty screenshots from their phone
-on 2 October 2026, marked up in red, and asked for every defect to be fixed, merged into `dev`
-fix by fix, then into `main`, and tested synthetically before they check it by eye. Four
-read-only agents traced the causes in parallel; every fix was written and tested here, one
-branch per fix.
-
-- **«Сегодня» and the calendar (#219, #220).** The running lesson is now the «сейчас» line
-  above its row and a gradient of its subject's tint, the same mark a break gets, and the
-  row's trailing end carries the diary's marks for it — read from `diary.db`, matched by date
-  and the folded subject name, on the first lesson of a subject taught twice. The calendar's
-  today, in its list and its day sheet, is marked the same way; it used to pass `now = null`.
-- **The widget after school (#221).** The next school day's lessons fill the height under
-  the homework on every rung with a list, weighted and clipped rather than counted, with the
-  week strip under them; the 4×2 shows the state and plan above its homework.
-- **Sheets (#222).** Material's drag-handle slot wraps anything in a tooltip and a ripple, so
-  the sheets draw their own pill and pass `null`.
-- **Busy states (#223, #224).** A busy action keeps its filled colours, so its spinner is
-  onPrimary on primary; three view models lower their refresh flag in a `finally`, and the
-  pull-to-refresh indicator comes out below the status bar.
-- **The bar (#225, #226, #227).** Every pick-up of a tab is felt; the carried tab stays
-  inside the row and an unselected disc is transparent, so it never bites the selected one;
-  the selected tab is as wide as its measured label.
-- **Settings (#228).** The last role per class is kept in the preferences and drawn until
-  `/me` answers, which the shell now asks at start; the debug button is there from the first
-  frame after the first answer.
-- **Theme reveal (#229).** A wipe on screen is never photographed again, and its job starts
-  undispatched so the photograph always comes down.
-- **First run (#230, #231, #232).** Step bodies fade under the hero instead of being cut,
-  which is what left three dashes above «Дневник»; «Моей школы нет в списке» moved under the
-  buttons; the forgotten-password link heads the server block.
-- **Sign-in deadlines (#233).** 25 s over the whole diary exchange and 10 s on the preflight
-  on the phone, 22 s over the server's upstream adopt, each answered with the message that
-  already existed.
-
-### Gates
-
-On `dev` with this close-out on top: `pytest -q -n auto` **2065** passed, one more than
-#218's 2064; `ruff` clean; `python -m mypy` clean over 153 source files. `./gradlew test`
-**1523** (`:core:model` 125, `:core:data` 571, `:core:designsystem` 122, `:widget` 126,
-`:app` 579), twenty-three more than 1500; `assembleDebug` and `assembleRelease` build;
-`./gradlew detekt` passes. Every new test was run against the old code where it compiles
-there and failed: the sheet handle, the carry and the haptic, the theme reveal, the refresh
-flag, the onboarding fade and gap, and the server's adopt deadline. The project's own
-meta-tests caught two things in this batch's code — a `maxLines = 1` without a reason and two
-compose tests silent about the clock — and `f0c434e` writes the reasons where they ask for them.
-
-### What was deliberately left alone
-
-- The drop of a carried tab still plays `CLOCK_TICK`: changing it to a strength-respecting
-  tap would double with the shell's page-change tap when the drop renumbers the current page.
-- The welcome step's hero stays FULL; dropping it to COMPACT would free 148 dp but
-  `OnboardingFlowTest` pins it, and it is a design question rather than a defect.
-- The calendar's lesson rows get the «сейчас» mark but not the diary's marks; only «Сегодня»
-  was asked for them.
-
-### What nobody has verified in this batch
-
-- None of it has been seen on a phone: there is no emulator in a cloud container. Every one
-  of the fifteen is the owner's to check by eye, which they asked to do.
-- #221's weighted list is clipped at its own bottom edge on purpose; how a half-row sits on
-  each launcher rung is unseen.
-- #230 rests on the owner's welcome page having been scrolled when the dashes showed; the
-  glyph arithmetic says so, the phone has not.
-- #231 has no test: composing the school step mid-search needs a view model walked there.
-- #227: on a 360 dp phone the spare width is about 88 dp, so at the largest text scales
-  «Календарь» can still scroll there.
-- #233: a deadline landing just after the diary accepted the login leaves a session open on
-  the diary's side to idle out.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -331,7 +361,7 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
@@ -545,14 +575,14 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   the image again — a password the stack refuses to start without, every setting passed
   through, a non-root user — and are read by `test_compose.py` and `test_dockerfile.py`,
   not by a container.
-- **#201's Keystore seal and #202's https-only release have never run on a device.** The
-  key is made and used through `AndroidKeystoreKeys`, which `SealedTokensTest` replaces
-  with a key held in memory under the same `AesGcmTokenCipher`; the migration that seals
-  an older install's plain-text tokens is tested that way too, and nobody has upgraded a
-  phone that held one. Which network configuration a
-  build carries was read out of both packaged APKs with aapt2, and how the platform then
-  applies it is its documentation's word. The release APK has not been pointed at a
-  real server.
+- **#201's Keystore seal and #202's https-only release have run on emulators, not on a
+  phone** (2 October 2026, #241). Seen: an upgrade in place sealing a plain-text membership
+  and the sealed token opening after a force-stop and a reboot; a release build refusing
+  `http://` to anything but the loopback names at the address field, joining over
+  `http://127.0.0.1`, and reading production's warmup over TLS. Not seen: a restore onto
+  another phone or a wiped Keystore, which should read as no token; the diary's bearer,
+  sealed the same way, because no diary session was opened; and a release build joined to a
+  production class.
 - **Dependabot's `uv` entry (#192) has not opened a pull request yet**, so the way a bump
   regenerates the lock is read from dependabot-core rather than seen. The lock itself was
   installed on Linux and Python 3.12 by #214's CI, which ran the suite on it, and Vercel
@@ -1075,20 +1105,14 @@ server for a fresh install. Each carries the label `needs:owner`. #119 (`/api/v1
 `/start`) and #156 (the backup) were answered by #186 and closed at its merge on 26 September
 2026.
 
-**Give the release keystore its passwords, on your machine and nowhere else.** The keystore
-handed over during #186 is PKCS12 and came without them, so nothing was signed
-with it. A local release build reads `lessons.keystore.file`, `lessons.keystore.password`,
-`lessons.key.alias` and `lessons.key.password` from `~/.gradle/gradle.properties` (or the
-`LESSONS_KEYSTORE_*` and `LESSONS_KEY_*` variables); `docs/build.md` has the shape. Not in a
-chat, not in the repository. And before that key replaces the one CI signs with: an APK
-signed by a different key does not install over the one already on a phone — #117 showed the
-refusal on the emulator.
-
 **Keep some space on C:.** It had about 1.3 GB left early on 27 September, and 14 GB when #187
 began, the same night; its builds and one emulator boot left 12 GB, and #189's left 9.4 GB,
 so each batch with a device in it costs two or three. The emulator refused to
 start once below 2 GB, and the AVD's Quick Boot image alone is 8.5 GB. The worktrees under
-`.claude/worktrees/` each carry their own Gradle build directories.
+`.claude/worktrees/` each carry their own Gradle build directories. On 2 October it had
+4.5 GB at the start of #241's session and 5.6 GB at its end, nothing having been moved or
+cleaned: both AVDs live on F: (`Pixel_10_Pro_XL` 12 GB, `Release_Check` 5 GB), and the
+Gradle wrapper fetched 9.8.0 for `4d792df`.
 
 **Restart Android Studio once, when it is free.** Three changes wait for it, because the IDE
 rewrites those files on exit: `server/.venv` as the Python SDK, the root module as a Python
@@ -1331,7 +1355,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
-cd android && ./gradlew test                             # 1579 tests across the five modules
+cd android && ./gradlew test                             # 1587 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
