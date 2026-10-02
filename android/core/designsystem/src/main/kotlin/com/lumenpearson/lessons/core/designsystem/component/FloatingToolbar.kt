@@ -1,7 +1,9 @@
 package com.lumenpearson.lessons.core.designsystem.component
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -879,10 +881,28 @@ private fun ToolbarTab(
     // What `IconButton` was giving is reproduced rather than approximated: a
     // circular shape, which on a box wider than it is tall is the pill the
     // selected tab wears, and the same two colour pairs.
+    // The disc and its content fade with the selection instead of flipping on
+    // the frame it changes. The width is a spring, and while the disc flipped,
+    // the tab losing the selection went on being as wide as its label with
+    // nothing behind it — its icon alone at the left of an empty stretch of
+    // the bar, a hole that closed as the new tab opened (#249). Not for the
+    // carried tab: its body has to be there the moment it is picked up, or it
+    // bites the white disc it passes over again (#226).
+    val colorSpec: FiniteAnimationSpec<Color> = if (held) snap() else motion.tweenSpec(TabColorMillis)
+    val containerColor by animateColorAsState(
+        targetValue = tabContainerColor(selected = selected, held = held, scheme = scheme),
+        animationSpec = colorSpec,
+        label = "toolbar_tab_container",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = tabContentColor(selected = selected, held = held, scheme = scheme),
+        animationSpec = colorSpec,
+        label = "toolbar_tab_content",
+    )
     Surface(
         shape = CircleShape,
-        color = tabContainerColor(selected = selected, held = held, scheme = scheme),
-        contentColor = tabContentColor(selected = selected, held = held, scheme = scheme),
+        color = containerColor,
+        contentColor = contentColor,
         modifier = Modifier
             // First in the chain, outside the layer that moves and scales the
             // tab: the finger is measured in the row's coordinates, so the held
@@ -1185,6 +1205,12 @@ private fun MotionSettings.toolbarOffsetSpring() = springSpec<Float>(
  * make it collide with the neighbour it is passing.
  */
 private const val HeldScale = 1.1f
+
+/**
+ * How long a tab's disc takes to fade in or out at the normal speed: about as
+ * long as the label's room takes to open or close most of the way.
+ */
+private const val TabColorMillis = 260
 
 /** The gap between a tab's icon and its label. */
 private val LabelGap: Dp = 8.dp
