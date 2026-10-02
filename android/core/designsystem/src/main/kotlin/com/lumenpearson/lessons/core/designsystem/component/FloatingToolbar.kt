@@ -77,6 +77,7 @@ import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
@@ -324,6 +325,11 @@ fun LessonsFloatingToolbar(
                         reordering = reordering,
                         onReorderingChange = onReorderingChange,
                         onReorder = onReorder,
+                        labelMax = if (scrollableItems) {
+                            LabelWidth
+                        } else {
+                            spareLabelWidth(screenWidth.dp, items.size, actionButton != null)
+                        },
                     )
                 }
             }
@@ -387,6 +393,7 @@ private fun ToolbarItems(
     reordering: Boolean = false,
     onReorderingChange: (Boolean) -> Unit = {},
     onReorder: (order: List<Int>) -> Unit = {},
+    labelMax: Dp = LabelWidth,
 ) {
     val scrollState = rememberScrollState()
     val view = rememberHapticView()
@@ -497,6 +504,7 @@ private fun ToolbarItems(
                     slotPx = slotPx,
                     offsetPx = if (slot == held) dragPx else shift * slotPx,
                     arrangeable = reorderable,
+                    labelMax = labelMax,
                     onOpenArranging = { onReorderingChange(true) },
                     onExitReorder = { onReorderingChange(false) },
                     onDragStart = {
@@ -542,6 +550,18 @@ private fun ToolbarItems(
             if (slot < working.lastIndex) key(GapKey to slot) { ToolbarGap(expanded) }
         }
     }
+}
+
+/**
+ * The widest the selected tab's label may grow: the window less everything else
+ * on the row — the margins, the pill's ends, every tab's icon, the gaps, and the
+ * action button with its own gap. The terms are [scrollingItemsMaxWidth]'s.
+ */
+internal fun spareLabelWidth(screenWidth: Dp, items: Int, hasAction: Boolean): Dp {
+    val rest = ToolbarSideMargin * 2 + PillEndPadding * 2 + ItemSize * items +
+        ItemGap * (items - 1).coerceAtLeast(0) +
+        if (hasAction) ItemSize + ItemGap * 2 else 0.dp
+    return (screenWidth - rest).coerceAtLeast(LabelWidth)
 }
 
 /**
@@ -657,6 +677,7 @@ private fun ToolbarTab(
     slotPx: Float = 0f,
     offsetPx: Float = 0f,
     arrangeable: Boolean = false,
+    labelMax: Dp = LabelWidth,
     onOpenArranging: () -> Unit = {},
     onExitReorder: () -> Unit = {},
     onDragStart: () -> Unit = {},
@@ -697,8 +718,22 @@ private fun ToolbarTab(
         animationSpec = toolbarSpring(),
         label = "toolbar_item_width",
     )
+    // As wide as the label, not a fixed 80 dp: «Календарь» in bold is wider
+    // than that at the app's larger text scales and at a system font scale
+    // from about 1.1, and a label that does not fit is a marquee that never
+    // stops — mid-lap it read «› Кален…» (#227). Never narrower than 80 dp, so
+    // the short labels and the tests' geometry are as they were, and never
+    // wider than the row can spare.
+    val labelStyle = MaterialTheme.typography.labelLarge.emphasised(active = true)
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val labelFits = remember(item.label, labelStyle, density, labelMax) {
+        val px = measurer.measure(item.label, labelStyle, maxLines = 1, softWrap = false).size.width
+        // A pixel of slack for the round trip through dp.
+        with(density) { (px + 1).toDp() }.coerceIn(LabelWidth, labelMax.coerceAtLeast(LabelWidth))
+    }
     val labelWidth by animateDpAsState(
-        targetValue = if (selected && !hideLabel) LabelWidth else 0.dp,
+        targetValue = if (selected && !hideLabel) labelFits else 0.dp,
         // Without the bounce when the label goes because the tabs are being
         // arranged. The long press that drops it is now also the start of a
         // drag (#181), and a bouncing label dips below nothing: the tab is
