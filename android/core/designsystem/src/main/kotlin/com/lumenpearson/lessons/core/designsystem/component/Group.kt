@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -108,15 +109,23 @@ fun GroupRow(
     container: Color = MaterialTheme.colorScheme.rowContainer,
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
     verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
+    /**
+     * Painted instead of [container] when set — the running lesson's gradient.
+     * A brush rather than a second colour, because what it draws is a fade
+     * from one tint into the row's own, and two flat colours cannot say that.
+     */
+    containerBrush: Brush? = null,
     onClick: (() -> Unit)? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     val view = rememberHapticView()
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (containerBrush != null) Modifier.background(containerBrush) else Modifier),
         shape = RectangleShape,
-        color = container,
+        color = if (containerBrush != null) Color.Transparent else container,
         contentColor = contentColor,
     ) {
         Row(

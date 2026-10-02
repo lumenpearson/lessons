@@ -44,6 +44,7 @@
     <string name="ds_lesson_cancelled">cancelled</string>
     <string name="ds_lesson_room">room %1$s</string>
     <string name="ds_lesson_now">now</string>
+    <string name="ds_lesson_grades">Marks: %1$s</string>
 
     <!-- Homework -->
     <string name="ds_homework_title">Homework</string>

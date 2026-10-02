@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lumenpearson.lessons.core.data.di.Graph
+import com.lumenpearson.lessons.core.data.diary.DiaryCache
+import com.lumenpearson.lessons.core.data.repository.DiaryMark
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
@@ -18,16 +20,22 @@ import com.lumenpearson.lessons.core.model.Timetable
 import com.lumenpearson.lessons.core.model.homeworkFocus
 import com.lumenpearson.lessons.ui.common.SyncMessage
 import com.lumenpearson.lessons.ui.common.toMessageOrNull
+import com.lumenpearson.lessons.ui.diary.NoDiaryCache
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -51,6 +59,8 @@ import kotlinx.coroutines.launch
  * @property showEvents draw [events] at all; a user setting.
  * @property syncedAtEpochMillis drives the "обновлено в …" footer so a stale
  *   timetable is visibly stale.
+ * @property grades today's marks from the family's diary, by lesson; empty
+ *   with no diary signed in. See [gradesByLesson].
  */
 data class TodayUiState(
     val isLoading: Boolean = true,
@@ -72,6 +82,7 @@ data class TodayUiState(
     val showEvents: Boolean = true,
     val syncedAtEpochMillis: Long = 0L,
     val message: SyncMessage? = null,
+    val grades: Map<Lesson, List<String>> = emptyMap(),
 )
 
 /**
@@ -85,6 +96,7 @@ data class TodayUiState(
 class TodayViewModel(
     private val timetableRepository: TimetableRepository,
     settingsRepository: SettingsRepository,
+    diaryCache: DiaryCache = NoDiaryCache,
 ) : ViewModel() {
 
     /**
@@ -108,19 +120,48 @@ class TodayViewModel(
     private val refreshing = MutableStateFlow(false)
     private val message = MutableStateFlow<SyncMessage?>(null)
 
+    /**
+     * The marks the diary last answered with, for the pupil it shows.
+     *
+     * Read from the cache and never from the network: this screen is the
+     * class's, and the diary is refreshed when the app opens
+     * (`DiaryImport.refreshIfStale`) and when its own tab is read. The marks
+     * window ends today, so today's marks are in it whenever it is fresh.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val marks: Flow<List<DiaryMark>> = combine(
+        diaryCache.selectedStudentId,
+        diaryCache.students,
+    ) { selected, students -> selected ?: students.students.firstOrNull()?.id }
+        .distinctUntilChanged()
+        .flatMapLatest { id ->
+            if (id == null) flowOf(emptyList()) else diaryCache.marks(id).map { it.marks }
+        }
+
+    /** The two inputs that are not the clock or the timetable, as one flow. */
+    private val extras: Flow<Pair<SyncMessage?, List<DiaryMark>>> =
+        combine(message, marks) { message, marks -> message to marks }
+
     val uiState: StateFlow<TodayUiState> = combine(
         timetableRepository.timetable,
         ticker,
         settingsRepository.settings,
         refreshing,
-        message,
-    ) { timetable, instant, settings, isRefreshing, message ->
-        buildState(
+        extras,
+    ) { timetable, instant, settings, isRefreshing, (message, marks) ->
+        val state = buildState(
             timetable = timetable,
             instant = instant,
             settings = settings,
             isRefreshing = isRefreshing,
             message = message,
+        )
+        state.copy(
+            grades = gradesByLesson(
+                lessons = state.today?.activeLessons.orEmpty(),
+                marks = marks,
+                date = state.now.toLocalDate(),
+            ),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -213,6 +254,7 @@ class TodayViewModel(
                 TodayViewModel(
                     timetableRepository = Graph.container.timetableRepository,
                     settingsRepository = Graph.container.settingsRepository,
+                    diaryCache = Graph.container.diaryCache,
                 )
             }
         }

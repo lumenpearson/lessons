@@ -182,6 +182,7 @@ private fun LazyListScope.lessonsSection(state: TodayUiState) {
                     lessons = state.remainingLessons,
                     now = state.now.toLocalTime(),
                     showTeacher = state.showTeacher,
+                    grades = state.grades,
                 )
 
                 state.state is DayState.NoData -> EmptyState(

@@ -2,10 +2,13 @@ package com.lumenpearson.lessons.core.designsystem.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -17,6 +20,7 @@ import com.lumenpearson.lessons.core.designsystem.state.formatTimeRange
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.neutralTone
@@ -33,9 +37,15 @@ import com.lumenpearson.lessons.core.model.Lesson
  * different *kind* of signal (tinted row, chip, strikethrough) rather than three
  * shades of the same one.
  *
- * @param isCurrent the lesson containing the current wall clock; tints the row.
+ * @param isCurrent the lesson containing the current wall clock. Its row is
+ *   painted with its subject's tint fading into the row colour — the gradient
+ *   the owner asked for on 2 October 2026 — and the «сейчас» mark is the
+ *   separator [LessonGroup] draws above it rather than a chip in this row,
+ *   whose trailing end belongs to the marks.
  * @param showTeacher bound to a user setting: pupils who have had the same five
  *   teachers for years read the row faster without the name in it.
+ * @param grades what the diary gave for this lesson, in the order it gave
+ *   them, drawn at the trailing end. Empty when there is no diary or no mark.
  */
 @Composable
 fun LessonRow(
@@ -43,6 +53,7 @@ fun LessonRow(
     modifier: Modifier = Modifier,
     isCurrent: Boolean = false,
     showTeacher: Boolean = true,
+    grades: List<String> = emptyList(),
     onClick: (() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -52,8 +63,14 @@ fun LessonRow(
     GroupRow(
         modifier = modifier,
         // The running lesson borrows its own subject tint instead of a generic
-        // highlight, which keeps the row inside the palette it already had.
-        container = if (isCurrent) tone.container else scheme.rowContainer,
+        // highlight, which keeps the row inside the palette it already had, and
+        // lets it fade into the row colour so the marks at the trailing end sit
+        // on the same ground as every other row's.
+        containerBrush = if (isCurrent) {
+            Brush.horizontalGradient(listOf(tone.container, scheme.rowContainer))
+        } else {
+            null
+        },
         onClick = onClick,
     ) {
         AccentTile(tone = tone) {
@@ -113,17 +130,40 @@ fun LessonRow(
                 contentColor = scheme.onErrorContainer,
             )
 
-            isCurrent -> PillChip(
-                text = correctedString(R.string.ds_lesson_now),
-                selected = true,
-                containerColor = tone.content,
-                contentColor = tone.container,
-            )
-
             lesson.isReplaced -> PillChip(
                 text = correctedString(R.string.ds_lesson_replaced),
                 containerColor = scheme.tertiaryContainer,
                 contentColor = scheme.onTertiaryContainer,
+            )
+        }
+
+        if (grades.isNotEmpty()) {
+            LessonGrades(grades = grades, tone = tone)
+        }
+    }
+}
+
+/**
+ * The diary's marks for one lesson, side by side at the row's trailing end.
+ *
+ * In the subject's own colours rather than red for a two: the diary screen
+ * made that decision for the same marks (`DiaryMarkKind.toneIndex`), and a mark
+ * drawn two ways in one app is a mark that means two things.
+ */
+@Composable
+private fun LessonGrades(grades: List<String>, tone: AccentTone) {
+    val description = correctedString(R.string.ds_lesson_grades, grades.joinToString(", "))
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.clearAndSetSemantics { contentDescription = description },
+    ) {
+        grades.forEach { grade ->
+            PillChip(
+                text = grade,
+                selected = true,
+                containerColor = tone.content,
+                contentColor = tone.container,
             )
         }
     }
@@ -153,7 +193,7 @@ private fun LessonRowPreview() {
         Column(modifier = Modifier.padding(16.dp)) {
             RoundedCardContainer {
                 LessonRow(lesson = PreviewData.russian)
-                LessonRow(lesson = PreviewData.algebra, isCurrent = true)
+                LessonRow(lesson = PreviewData.algebra, isCurrent = true, grades = listOf("5", "4"))
                 LessonRow(lesson = PreviewData.physics)
                 LessonRow(lesson = PreviewData.history, showTeacher = false)
             }
