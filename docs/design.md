@@ -804,6 +804,11 @@ Two more rules came out of filming the pill.
   #260). A tap two tabs away scrolls the pager through the page between, and while the bar
   read `currentPage` it selected that tab for part of the way. Its label opened and closed,
   and the pill turned towards it and back.
+- **A closing label's room is spelled out** (#262). The label's box used to take whatever
+  the tab's row had left, which included the 8 dp of slack round the icon however shut the
+  label was. The icon stayed off-centre until the label left the composition, then jumped
+  4 dp. Now the gap is `LabelGap` times how far the label is open, and the box is
+  `labelWidth` exactly.
 
 ## How much the widget says at each size
 

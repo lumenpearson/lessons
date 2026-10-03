@@ -10,9 +10,11 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -26,6 +28,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.math.abs
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -91,6 +94,39 @@ class ToolbarLabelRevealTest {
         )
     }
 
+    /**
+     * The icon of a tab losing its label comes to rest with the tab, not after
+     * it (#262). While the label was in the row its box took the icon slot's
+     * slack whatever its own width, holding the icon 4 dp off-centre; when the
+     * spring reached zero the label left and the icon jumped to the centre, in
+     * one frame, after everything else had stopped. Asked frame by frame: in no
+     * frame may the icon move while its tab keeps its width.
+     */
+    @Test
+    fun `an icon whose label closes never moves while its tab holds still`() {
+        selected = 1
+        show(MotionSettings())
+        compose.settle(frames = 60)
+
+        selected = 0
+        val frames = (0 until CloseFrames).map {
+            compose.settle(frames = 1)
+            tabBounds(Labels[1]) to iconBounds(Labels[1])
+        }
+        val jumps = frames.zipWithNext().mapIndexedNotNull { frame, (before, after) ->
+            val (tabBefore, iconBefore) = before
+            val (tabAfter, iconAfter) = after
+            val tabMoved = abs(tabAfter.width - tabBefore.width) + abs(tabAfter.left - tabBefore.left)
+            val iconMoved = abs((iconAfter.center.x - tabAfter.center.x) - (iconBefore.center.x - tabBefore.center.x))
+            "frame ${frame + 1}: icon moved $iconMoved px in a tab that moved $tabMoved px"
+                .takeIf { iconMoved > StillPx && tabMoved <= StillPx }
+        }
+        val (tab, icon) = frames.last()
+
+        assertTrue("the icon jumped while its tab held still: $jumps", jumps.isEmpty())
+        assertEquals("the icon did not come to rest centred in its tab", tab.center.x, icon.center.x, StillPx)
+    }
+
     @Test
     fun `with animations off the selected tab is whole within three frames`() {
         show(MotionSettings(enabled = false))
@@ -149,6 +185,19 @@ class ToolbarLabelRevealTest {
         }
     }
 
+    private fun tabBounds(label: String): Rect = compose
+        .onNode(hasContentDescription(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
+        .fetchSemanticsNode()
+        .boundsInRoot
+
+    private fun iconBounds(label: String): Rect = compose
+        .onNode(
+            hasContentDescription(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Image),
+            useUnmergedTree = true,
+        )
+        .fetchSemanticsNode()
+        .boundsInRoot
+
     private fun labelDrawn(): Boolean =
         compose.onAllNodesWithText(Labels[1], useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
 
@@ -164,6 +213,12 @@ class ToolbarLabelRevealTest {
 
         /** How long the label may take to be composed after the tap. */
         const val MaxFramesToAppear = 10
+
+        /** Longer than the label's spring takes to close. */
+        const val CloseFrames = 90
+
+        /** Less than a pixel is rounding; the jump was four dp. */
+        const val StillPx = 0.5f
 
         /**
          * The second is long, so that at Robolectric's pixel or so a letter it
