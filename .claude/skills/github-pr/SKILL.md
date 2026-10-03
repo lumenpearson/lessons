@@ -79,7 +79,7 @@ matched pull request's body in full.
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | PRs #75–#85, #128; issues #98, #100, #105–#108 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#266 — **open**, the first whose work needs an emulator or a phone |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | PRs #140, #214, #218; issues #135–#139, #141, #145–#165, #190–#213 — **open** |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | PR #274; issues #268–#273 — **open**, the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | PRs #274, #277; issues #268–#273, #275, #276 — **open**, the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 
 The eleventh was created on 3 October 2026 under the name it has. The first ten were all
 renamed on 25 September 2026: every title now names what the version

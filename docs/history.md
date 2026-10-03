@@ -28,6 +28,70 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: one bottom bar for the whole shell, morphing between screens (#264, #265, #266)
+
+Merged as #267 (`b327eb0`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#263, on the owner's request of 3
+October 2026: «сделай так, чтобы нижняя таблетка во всём приложении трансформировалась, а не
+имелись каждая на своем экране … как в GMS Flags Reborn при переходах». The owner filmed the
+build twice while it was being made, and the second time said «всё отлично!».
+
+- **#264: the bar is one bar, drawn once above the pages, and it morphs into each page's form.**
+  `HomeShell` used to draw a bar inside each page of its `AnimatedContent`, so at every change
+  of page two bars passed each other.
+  - **In the shell.** The bar is drawn after the pages' `AnimatedContent`, fed the page being
+    travelled to, and measured once. `ShellScaffold` takes that height and no longer has a
+    toolbar slot.
+  - **Faces carry their own data.** `PillFace` is the back button with its title, or a set of
+    tabs. The face on its way out shows what it showed, though the shell hands a settings page
+    no tabs at all.
+  - **Back to back.** The back button is one face whatever its title says; the title crosses
+    over in place and the arrow stays.
+  - **The button beside the pill** (`ActionSlot`) grows in, shrinks out and changes its icon.
+    It no longer switches between Material's two toolbar overloads, which used to throw the bar
+    away and build another, as it did on a reader's settings with no debug page.
+  - **Direction.** `LessonsFloatingToolbar` takes a `depth`, and a deeper page's form arrives
+    from the right.
+- **#265: the pill came back from settings as a tall oval. Filed, then fixed.** With no
+  Material button slot anywhere any more, every pill went through Material's toolbar without a
+  slot. That toolbar pads its content by the interactive alignment lines inside it, and the
+  back button sliding out of a morph turned its line into 126 px of height that stayed. The
+  pill is a container of the bar's own now (`PillContainer`), with Material's shape, colour,
+  height and shadow.
+- **#266: confirming a new order of tabs replayed the row. Filed, then fixed.** The tabs face
+  was keyed by its labels in order, so the confirmed order was a new face and the old row faded
+  out over the new one. It is keyed by the set now.
+- **On the API 37 emulator, in landscape:**
+  - the tabs morph into «← Сегодня» and back at their own height;
+  - a carried tab passes over its neighbour and the order is confirmed without a second
+    movement.
+
+### Gates
+
+On `045d558`, `./gradlew test assembleDebug assembleRelease detekt` passes. `./gradlew test`
+runs **1635** tests (`:core:model` 125, `:core:data` 615, `:core:designsystem` 161, `:widget` 126, `:app` 608), 6 more than #263's 1629. All the new tests are in `ToolbarMorphTest`, and five of its six were red
+on `main`'s toolbar:
+- the tabs staying on the pill while it becomes a back button;
+- one title giving way to the next;
+- the button growing in;
+- the pill's height after coming back;
+- a reordered row drawn once.
+
+The sixth asks that, with animations off, everything happens at once. The server was not
+touched.
+
+### What was deliberately left alone
+
+- **The shell's pages still slide the way they did.** Only the bar stopped travelling with
+  them.
+- **Material's toolbar a11y actions are gone with its container.** These were expand and
+  collapse, which this bar never offered: its `expanded` is always on in the shell.
+
+### What nobody has verified in this batch
+
+- The morph on a phone.
+- The morph in portrait on the emulator since the last build; the owner's two recordings and
+  this session's were in landscape.
+
 ## What the batch before added: a tab's icon that no longer jumps after its label has closed (#262)
 
 Merged as #263 (`059da7d`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#261, on the owner's
