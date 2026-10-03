@@ -7,20 +7,22 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **3 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261
-and #263 are merged**; `main` is at `059da7d`, the merge of #263, on 3 October 2026, and `dev`
-was restarted from it for this batch. **The only thing open is the pull request carrying this
-paragraph, #267**, from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary
-survey`. The bottom bar is one bar for the whole shell now, drawn once above the pages, and it
-morphs into each page's form as they slide beneath it (#264). Two bugs the owner filmed along
-the way are fixed in the same pull request (#265, #266).
+#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
+#263 and #267 are merged**; `main` is at `b327eb0`, the merge of #267, on 3 October 2026, and
+`dev` is level with it. **The only thing open is the pull request carrying this paragraph,
+#274**, from `spec/one-contract`, on milestone 11, `v0.10.0 — One contract: REST v2, Connect
+and native gRPC, build console`. It changes no code: it is that milestone's design, agreed
+with the owner before anything in it is built
+([docs/specs/2026-10-03-one-contract-design.md](docs/specs/2026-10-03-one-contract-design.md)),
+and the five defects the survey behind it found are filed (#268–#272) under the programme's
+epic, #273.
 
 The section «What the last session added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#263 closed #262**, read back from GitHub on 3 October. **#267 closes #264, #265 and
-#266.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+**#267 closed #264, #265 and #266**, read back from GitHub on 3 October. **#274 closes
+nothing**: it fixes none of the defects it filed. **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -127,15 +129,77 @@ milestone; and #145–#165 are the defects found on its branch, each filed befor
 #167–#185 are what #186's walk on an emulator found and what the owner asked for that
 night, and #188 what #189 found; all twenty are closed. #190–#211 are the external audit of
 27 September 2026, on milestone 10, and #212 and #213 what merging its fixes found.
+#268–#272 are the defects the survey behind milestone 11 found, and #273 that milestone's
+epic.
 
 Labels are `type:` (feature, bug, chore, research, decision, epic), `area:`, `status:` (now,
 next, someday, done) and `needs:` (device, owner). **A session cannot create a GitHub
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: one bottom bar for the whole shell, morphing between screens (#264, #265, #266)
+## What the last session added: one proto contract agreed before anything is built, and the survey's defects filed (#268–#273)
 
-Open as #267, from `dev`, on milestone 9. The same session as #241–#263, on the owner's request of 3
+Open as #274, from `spec/one-contract` rather than `dev`, which was carrying #267 while this
+ran, on milestone 11, `v0.10.0 — One contract: REST v2, Connect and native gRPC, build
+console`, which the owner created for it. A new session, on the owner's request of 3 October
+2026: «необходимо разобраться с god-файлами в проекте … Сделать API RESTFUL, привнести gRPC.
+Перед этим составь план, подумай и спроси». Nothing in it is code.
+
+- **Four read-only surveys came first**: the HTTP API (71 route registrations, 45 called by
+  the current APK, 26 by nothing in the repository's history), the server's long files, the
+  Android ones, and whether gRPC can run where this server does. Their findings are in the
+  spec and are not repeated here, but two are worth knowing before anything else is planned:
+  - **Native gRPC cannot be served from Vercel.** Its Python runtime runs the app under
+    Uvicorn with HTTP/1.1 and passes no response trailers, which gRPC carries its status in;
+    Vercel lists gRPC as unsupported and points at the Connect protocol.
+  - **Line counts overstate the god files here**, because 40–60 % of a long file is comments.
+    The files that really hold several concerns are named in the spec; `models.py`,
+    `schedule.py`, `api/edit.py`, `DiaryViewModel` and the widget bodies are long but
+    cohesive.
+- **The owner's decisions, asked one round at a time**: both deploy targets, chosen at build
+  time (Vercel with Connect, and a long-running host with native gRPC and a streaming beta);
+  REST v2 and RPC side by side; v1 may break, because only the family's phones carry an APK;
+  REST transcoded from `google.api.http` annotations, so that one handler serves both; a
+  local Textual console; and the order of six sub-projects.
+- **`docs/specs/` is new**, for the design, and `docs/README.md` and `CLAUDE.md`'s tree name
+  it. Two sections were added at the owner's request after the first draft: the rules by
+  which the contract grows without breaking, and how the diary grows across all 19 platforms
+  `docs/diaries.md` maps — which names the four places today's code is shaped for exactly two
+  providers.
+- **Filed before any fix, on milestone 11, each re-read in the code first**: #268
+  (`PUT /api/v1/events` duplicates on a retry), #269 (`GET /api/v1/cron/tick` has side
+  effects), #270 (the app tells «not linked» from «role required» by English text), #271 (the
+  callback-prefix check never looks at `editor_keyboard` or `diary_keyboard`) and #272
+  (nothing fails when aiogram reaches the API's cold start). **#273** is the programme's
+  epic, with the six sub-projects as its checklist.
+- **A throwaway spike runs beside the review**, in a worktree on the local, unpushed branch
+  `spike/connect-grpc`: code generation, `connectrpc` mounted beside FastAPI under HTTP/1.1,
+  `google.api.http` read at runtime, native gRPC under an HTTP/2 ASGI server, `connect-kotlin`
+  under AGP 9.4.1 and Kotlin 2.4.20, R8 and the APK's size, and a call from the emulator. What
+  it finds amends the spec's parts marked *spike decides*; its code is not kept.
+
+### Gates
+
+No code changed. Against this branch, the two test modules that read the documents,
+`tests/test_schema_version.py` and `tests/test_env_example.py`, pass: 18 tests. The full gates
+are CI's on #274, and the counts in section 8 and the README stand as #267 left them.
+
+### What was deliberately left alone
+
+- **None of the five defects is fixed here.** #271 and #272 are the first work of
+  sub-project 1, because the moves it makes would widen both; #268–#270 go with the v2
+  contract.
+- **`api/public.py`, `api/diary.py`, `api/edit.py` and the Android network layer will not be
+  split**: v2 replaces them, so splitting them first would be work thrown away.
+
+### What nobody has verified in this batch
+
+- Everything in the spec. It is a design: nothing has been run against Vercel, a device or a
+  second host, and the spike had not reported when this was written.
+
+## What the session before it added: one bottom bar for the whole shell, morphing between screens (#264, #265, #266)
+
+Merged as #267 (`b327eb0`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#263, on the owner's request of 3
 October 2026: «сделай так, чтобы нижняя таблетка во всём приложении трансформировалась, а не
 имелись каждая на своем экране … как в GMS Flags Reborn при переходах». The owner filmed the
 build twice while it was being made, and the second time said «всё отлично!».
@@ -197,65 +261,6 @@ touched.
 - The morph in portrait on the emulator since the last build; the owner's two recordings and
   this session's were in landscape.
 
-## What the session before it added: a tab's icon that no longer jumps after its label has closed (#262)
-
-Merged as #263 (`059da7d`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#261, on the owner's
-report the morning after #261 merged: «проблема всё равно осталась, это будто бы из-за
-исчезающих лейблов у кнопок … запоздало исчезают и без анимаций, оставляя после себя место
-рядом с иконкой». It came with a recording from the device, and the recording showed what a
-frame-by-frame render did.
-
-- **#262: the icon jumped 4 dp, in one frame, a moment after its label had closed. Filed,
-  then fixed.**
-  - **The slack.** A tab's icon slot is 48 dp round a 24 dp icon, so it has 8 dp to spare,
-    and an open label takes that as its gap.
-  - **The cause.** The label's box took "whatever the row has left", so however shut the
-    label was, it filled that slack. The icon sat off-centre beside an empty space until the
-    spring reached zero. Then the label left the composition and the icon jumped to the
-    centre.
-  - **Why it showed only now.** #261's spring without a bounce made the jump come last,
-    about a quarter of a second after everything else had stopped. The old bounce had crossed
-    zero mid-motion and hidden it.
-  - **The fix.** The gap and the label have explicit widths now, both following the spring:
-    `LabelGap` times how far the label is open, and `labelWidth`. The icon glides to the
-    centre as the label closes.
-  - **The test.** A new case in `ToolbarLabelRevealTest` follows the leaving tab frame by
-    frame and refuses any frame in which its icon moves while the tab holds still. It was red
-    on `main`: «frame 35: icon moved 4.0 px in a tab that moved 0.0 px».
-- **How it was seen.** `adb screenrecord` drops runs of frames on this emulator (#261). So
-  the bar was rendered in Robolectric with native graphics, one PNG per frame, from a
-  throwaway test that is not in the tree: Homework, Calendar, Today, from the third tab to
-  the first, at xxhdpi. The owner's own recording from the device then showed the same jump
-  at the same point.
-
-### Gates
-
-On `2a575d4`, `./gradlew test assembleDebug assembleRelease detekt` passes. `./gradlew test`
-runs **1629** tests (`:core:model` 125, `:core:data` 615, `:core:designsystem` 155, `:widget`
-126, `:app` 608), one more than #261's 1628.
-
-This machine's RAM showed up again, so the gates had to be taken in parts:
-- **Two orphaned test workers.** Workers left behind by the daemon that died overnight still
-  held `:core:designsystem`'s `classes.jar`; they were stopped.
-- **The whole-gate run failed twice.** A test JVM died with `EXCEPTION_ACCESS_VIOLATION`,
-  and R8 failed inside itself with a `ClassCastException`. Last time it was a
-  `NoSuchElementException`, so R8 has failed a different way each time.
-- **On a fresh daemon, each part passed.** That was `:core:designsystem`'s tests, then
-  `assembleRelease`, then `assembleDebug` with `detekt`. The other four modules had passed
-  in the whole run.
-
-The server was not touched.
-
-### What was deliberately left alone
-
-- The label still fades by its width, so its last few pixels of room close after its text
-  is all but gone; the icon now moves with them rather than after them.
-
-### What nobody has verified in this batch
-
-- The fix on a phone. The emulator has the build, and the owner's eye is the check that
-  remains.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -277,12 +282,13 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PR #274; issues #268–#273 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
 #140 left alone on purpose, which belong to whichever version takes them up.
 
 **Nothing in a session here can create a milestone**, only attach one — the owner created
-the ninth on 22 September 2026 and the tenth on 25 September. **The ninth was the first
+the ninth on 22 September 2026, the tenth on 25 September and the eleventh on 3 October. **The ninth was the first
 milestone that groups issues rather than pull requests**, and the first whose work cannot be
 done without an emulator or a phone.
 
@@ -1060,6 +1066,13 @@ is a password-protected HTTP proxy on a small Russian VPS and an optional `DIARY
 that only the diary clients use; the code is a session's work once a host exists, and the
 host is the owner's to rent. Moving the whole server to Russian hosting would also settle the
 152-ФЗ question below. The issue has the three options.
+
+**Decide where milestone 11's second host lives, when it is needed.** The design
+(`docs/specs/2026-10-03-one-contract-design.md`, section 2) adds a long-running target beside
+Vercel for native gRPC and the streaming beta, packaged as a `Dockerfile` for Cloud Run,
+Fly.io or a VPS, and deliberately leaves the place open. It is not needed before sub-project
+3, and until then that target is only ever run locally. A host inside Russia would also be
+the egress #235 is waiting for, so the two decisions may be one.
 
 **Give the APK a GitHub client id, or the developer mode stays shut.** The mode (#237) opens
 through «Войти через GitHub», which a build without `LESSONS_GITHUB_CLIENT_ID` hides

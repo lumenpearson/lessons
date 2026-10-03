@@ -508,10 +508,11 @@ Each sub-project is its own pull request (or several), with the gates green and 
   > deployments and the emulator. Design: `docs/specs/2026-10-03-one-contract-design.md`.
 
   No due date: nothing here is promised by a date, and the spike can still move the order.
-- **Defects the survey found get issues before fixes**, on that milestone: the non-idempotent
-  `PUT /api/v1/events`; `GET /api/v1/cron/tick` sending messages; the app branching on English
-  error strings; the callback-prefix check missing two keyboards; nothing guarding aiogram off the
-  API's cold start.
+- **Defects the survey found get issues before fixes**, on that milestone — filed on 3 October
+  2026: #268, the non-idempotent `PUT /api/v1/events`; #269, `GET /api/v1/cron/tick` sending
+  messages; #270, the app branching on English error strings; #271, the callback-prefix check
+  missing two keyboards; #272, nothing guarding aiogram off the API's cold start. **#273** is the
+  programme's epic.
 - `CLAUDE.md` changes with the sub-projects that change what it describes: the deliverables
   (`proto/`, `tools/console/`), the commands, the CI steps, the two targets.
 
