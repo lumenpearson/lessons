@@ -155,6 +155,143 @@ is `FAILED_PRECONDITION` with reason `CLIENT_TOO_OLD` and `metadata.min_version`
 «обновите приложение». Unset, the minimum is zero. This is the mechanism v1 never had, and it is
 what a third-party client will need.
 
+### Evolving the contract
+
+The owner asked whether this contract can grow — in the app, in the bot, in the architecture —
+without breaking what is already running. It can, on the rules below; they are part of the
+contract, not advice, and the contract sub-project turns each one it can into a check.
+
+**Always safe — an addition never needs a version:**
+
+- a new field, under a new number; an old client skips it (protobuf ignores unknown fields, and
+  the REST DTOs decode with `ignoreUnknownKeys`);
+- a new method, a new resource, a new service; the transcoder gives it a REST route the moment
+  it is annotated, so both transports get it in the same change;
+- a new enum value — every enum starts with `<NAME>_UNSPECIFIED = 0`, and every client maps a
+  value it does not know to a stated fallback rather than failing (the rule `docs/api.md` already
+  states for v1, kept);
+- a new optional request field or query parameter, with a default that means what the method did
+  before;
+- a new error `reason` — a client that does not know one acts on the canonical code, which is why
+  every reason sits under a code that already says what to do (`PERMISSION_DENIED`, `UNAVAILABLE`, …).
+
+**Never done in place:** removing, renaming or renumbering a field; changing its type; changing
+what a field *means* under the same name; making an optional field required; changing a method's
+HTTP binding; reusing a number or a name. Buf's `breaking` check, in its strictest category
+(`FILE`, which also protects the generated Kotlin and Python names), refuses all of these but the
+change of meaning, and nothing mechanical can see that one — the golden files and review do. A
+field that has to go is first marked `deprecated`, then no longer read by any client still above
+the minimum version, then removed with its number and name `reserved`.
+
+**A requirement is a version.** proto3 has no required fields, so «this must be present» lives in
+the handler. A new requirement on a request an old client sends is a breaking change by another
+name: it ships together with a raised minimum version, never on its own.
+
+**A breaking change is a new package.** When one is truly needed, `lessons.v3` is added beside
+`lessons.v2`, both are served by handlers over the same `services/`, and v2 is retired by raising
+the minimum version — the path v1 never had and this programme has to take by hand.
+
+**What a server or a diary cannot do, it says.** A capability that depends on the deployment
+target (streaming) or on the diary provider (a datum one diary has and another does not) is
+advertised — the server's capabilities and `diary/capabilities`, which exists for exactly this —
+and a call to something absent answers `UNIMPLEMENTED` with reason `FEATURE_UNSUPPORTED`. A client
+asks before it offers a screen, and a new provider or target never breaks a client that did not
+know about it.
+
+**The bot is not a client of this contract.** It calls `services/` directly, as it does today, so
+a change to the bot never touches the contract; a change to a rule is made once in `services/`
+and both shells get it. Only what the phone (or a third party) must see is added to the proto.
+
+**No state in a process.** Nothing under `rpc/` or `rest/` keeps state between requests — the
+throttles (`app/security.py`, `JoinThrottle`, counted in the database for exactly this reason),
+the bot's FSM and every cache live in Postgres — so both targets scale by adding instances. The
+streaming beta is the one exception, and section 4 says so.
+
+### Growing the diary: every platform, every region
+
+The owner asked this about all the diaries, not one: whether more data — marks, a pupil's meal
+account, attendance and its statistics, marks by quarter — can be added for every platform across
+the 89 regions without rewriting a large part of the project. `docs/diaries.md` maps 19 platforms;
+two are built (Петербург and «Сетевой город»). Growth runs along two axes, and both have to be
+additions.
+
+**A new datum** (one more thing every diary might have) is one cell per platform in a
+datum × platform matrix, and each cell is the only place that knows its upstream:
+
+1. **Provider.** A method on that platform's client calling its route, and a mapper from its
+   shape to a neutral type in `providers/diary/models.py`. Nothing above `models.py` learns a
+   diary's own words; that rule stands for every platform.
+2. **Seam.** One method on `DiaryConnection` (`providers/diary/base.py`). A platform without the
+   datum, or one nobody has written yet, raises the seam's «unsupported» and its capabilities
+   leave the feature out — it never fakes an empty answer, because «no meals account» and «this
+   diary does not say» are different things to a parent.
+3. **Service.** The read, and every bit of arithmetic over it, in `services/`. **Statistics are
+   computed on the server, once, over the neutral types** — an average, attendance by quarter —
+   so one implementation serves all 19 platforms, and the app, a third-party client and the bot
+   cannot disagree about a number.
+4. **Contract.** A message, a method on the diary service, and a value in the `DiaryFeature`
+   enum; the REST route follows from the annotation.
+5. **Phone.** A method on `DiaryRemote` (the compiler makes both bindings implement it), the
+   repository, a `diary.db` table with an additive Room migration, and the screen, shown only
+   where the capability says the feature exists.
+
+The cells fill in one platform at a time, in any order; a cell left empty costs nothing but the
+feature's absence on that platform.
+
+**The neutral types are the union, not the intersection.** Platforms disagree about what a mark
+is: МЭШ weights marks, some journals write «зачёт» or a remark in place of a number, Петербург
+files absences (`30000`) and lateness (`30001`) among the marks. So a neutral `Mark` carries a
+value, the scale or kind it is on, and an optional weight, and every field a platform cannot fill
+is optional. A new platform with a new shade of meaning is a new optional field; the statistics
+use it where it is present (a weighted average where weights exist) and say which rule they used.
+
+**A new platform** (one more diary) must not touch the contract either. Today's code is shaped for
+exactly two, and v2 is where that ends:
+
+- `providers/diary/registry.py` chooses with an `if` per key and a `KEYS` tuple of two. It becomes
+  a table — key, module, the features the provider declares — still imported lazily, so no
+  platform's client lands on the cold start of a request that does not use it.
+- `registry.binding()` has a «Сетевой город» branch for its regional server and school id. Each
+  provider states what a binding needs (a region, a school, nothing) and validates its own; the
+  class columns (`diary_provider`, `diary_region`, `diary_school_id`, `diary_school_name`) are
+  already generic.
+- v1's capabilities answer (`schemas/diary_session.py`) lists the providers as fields, one class
+  per provider, and the session's `provider` is a two-value `Literal`. In v2 a provider is a key,
+  and `diary/capabilities` is a list of
+  `{provider, regions, sign_in_methods, features}` — a provider added on the server appears to the
+  phone with no change to the proto.
+- `services/diary.child_scope`, which files a family's corrections, admits exactly two shapes
+  (`CHILD:petersburg`, `CHILD:netschool:<host>`). Each provider supplies its own scope, under the
+  same rule that two logins of one child must land on one scope.
+- The region catalog the phone reads (`catalog/data/regions.json`, generated from the survey)
+  already says which platform each region runs; a platform being written is a catalog row whose
+  provider is not yet served, which the capabilities list makes visible.
+
+The contract sub-project fixes the capability model and the `DiaryFeature` enum; the server-shell
+sub-project turns the registry, the binding and the scope into the per-provider table. Neither
+adds a platform; each platform is its own later piece of work, and its own issue.
+
+**Signing in is the hard axis, and it is the phone's as well as the server's.** The app opens a
+diary session itself and registers it here (`/diary/session`), so a platform's sign-in lives on the
+phone (`core/data/upstream/`) as well as in its server provider. Platforms differ most here — a
+password, a `passport.` login or СНИЛС, a Госуслуги exchange, a code from the regional node — and a
+platform reachable only through Госуслуги stays out of reach by this project's own decision
+(`docs/diaries.md`, «What it means for this project»). `sign_in_methods` in the capabilities says
+which ways in a provider takes, so the phone draws the right form for each.
+
+**What already exists for Петербург**, as the worked example: periods
+(`/api/group/group/get-list-period`), marks with absences and lateness and remarks
+(`/api/journal/estimate/table`), and turnstile entries and exits (`/api/journal/acs/list`). Marks,
+quarters and attendance are therefore read today, and statistics over them need no upstream call
+at all — a service function and a method. The meal account is a new route
+(`POST /fps/api/netrika/mobile/v1/accounts/`, recorded from one 2026 client).
+
+**What limits this is not the architecture.** Not one route in `docs/diaries/` has been seen
+answering a live account, Петербург's included (#121); production cannot reach Петербург from
+outside Russia (#235), and other regional diaries may well refuse foreign addresses the same way.
+Each platform and each datum is proven against a real account before it is offered, whichever
+contract carries it.
+
 ## 2. The server
 
 ```
@@ -355,9 +492,22 @@ Each sub-project is its own pull request (or several), with the gates green and 
 
 ## 9. Tracking
 
-- **A milestone the owner creates** (a session here cannot): proposed title
-  `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`, description: the
-  first paragraph of this document.
+- **A milestone the owner creates** (a session here cannot list or create one). Title:
+
+  `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`
+
+  Description:
+
+  > One proto contract (`proto/lessons/v2`, checked by Buf) served three ways from one handler
+  > per method: REST v2 transcoded from `google.api.http` annotations, Connect and gRPC-Web on
+  > Vercel, and native gRPC with a streaming beta on a second, long-running host. The app
+  > chooses REST, Connect or gRPC at build time; machine-readable errors replace English
+  > strings; a minimum client version can retire an old APK; v1 is removed once the family's
+  > phones carry the new APK. Alongside it: the god files that outlive v1 are split on both
+  > sides, and a local Textual console runs the builds, the gates, the contract tools, the
+  > deployments and the emulator. Design: `docs/specs/2026-10-03-one-contract-design.md`.
+
+  No due date: nothing here is promised by a date, and the spike can still move the order.
 - **Defects the survey found get issues before fixes**, on that milestone: the non-idempotent
   `PUT /api/v1/events`; `GET /api/v1/cron/tick` sending messages; the app branching on English
   error strings; the callback-prefix check missing two keyboards; nothing guarding aiogram off the
