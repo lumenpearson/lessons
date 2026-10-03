@@ -29,13 +29,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.intl.Locale
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -53,6 +56,7 @@ import com.lumenpearson.lessons.core.designsystem.modifier.LiquidRippleState
 import com.lumenpearson.lessons.core.designsystem.modifier.LocalLiquidRipple
 import com.lumenpearson.lessons.core.designsystem.modifier.liquidRipple
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
 import com.lumenpearson.lessons.core.designsystem.theme.LocalScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScrollOffsetHolder
@@ -73,8 +77,8 @@ import com.lumenpearson.lessons.ui.homework.HomeworkScreen
 import com.lumenpearson.lessons.ui.settings.SettingsRootScreen
 import com.lumenpearson.lessons.ui.settings.SettingsSection
 import com.lumenpearson.lessons.ui.settings.SettingsSectionScreen
-import com.lumenpearson.lessons.ui.settings.UpdateHost
 import com.lumenpearson.lessons.ui.settings.SettingsViewModel
+import com.lumenpearson.lessons.ui.settings.UpdateHost
 import com.lumenpearson.lessons.ui.settings.effectiveRole
 import com.lumenpearson.lessons.ui.today.TodayScreen
 import com.lumenpearson.lessons.ui.week.ScheduleView
@@ -154,6 +158,10 @@ internal fun HomeShell(
     val view = rememberHapticView()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
+    // The one bar's height, measured where it is drawn and handed to every
+    // page, which pads its content by it (#264).
+    val seedBarHeight = LocalBottomBarSpace.current
+    var barHeight by remember { mutableStateOf(seedBarHeight) }
     // Read here rather than inside the transition spec below: `transitionSpec`
     // is a plain lambda, not a composable one, so a composition local cannot be
     // reached from inside it.
@@ -595,149 +603,9 @@ internal fun HomeShell(
                     is ShellPage.Section -> sectionOffsets.getValue(page.section)
                     ShellPage.Docs -> docsOffsets.getOrElse(docsPagerState.currentPage) { docsOffset }
                 },
-                // Everything here is read from `page`, never from the hoisted
-                // state, and that is the whole discipline of this arrangement:
-                // both slots are composed at once while the slide runs, so a
-                // title read from outside would flip the instant you navigated
-                // and the page would leave carrying the name of the one
-                // arriving.
-                toolbar = { barModifier ->
-                    LessonsFloatingToolbar(
-                        modifier = barModifier,
-                        selectedIndex = when (page) {
-                            // Which *tab* is in front, expressed as a position
-                            // in the list this bar is drawing. The two lists
-                            // are the same one outside the arranging mode, and
-                            // inside it the bar's is a frame behind the stored
-                            // one on purpose.
-                            ShellPage.Tabs -> if (home == ShellHome.DIARY) {
-                                diaryTab?.ordinal ?: 0
-                            } else {
-                                // The tab being kept on, while there is one. A
-                                // drop writes the new order, and the frame it
-                                // arrives in still has the pager on the old
-                                // *index* — the keyed pager moves it during its
-                                // own measure, after this was read — so the
-                                // index named the tab that had moved into it,
-                                // and the selected circle hopped to that tab
-                                // for a frame and back (#180).
-                                //
-                                // The page being travelled to, not the one in
-                                // front: a tap two tabs away scrolls the pager
-                                // through the page between, and while that one
-                                // was in front the bar selected a tab nobody
-                                // chose — its label began to open and closed
-                                // again, and the pill turned towards it and
-                                // back (#260). It also moved nothing until the
-                                // page had scrolled halfway.
-                                (keepOnTab ?: tabs.getOrNull(pagerState.targetPage))
-                                    ?.let(barTabs::indexOf) ?: -1
-                            }
-
-                            ShellPage.Docs -> docsToolbarSelection(
-                                // As the tabs' bar, for the same reason (#260).
-                                docsPagerState.targetPage,
-                                docsPages.size,
-                            )
-                            else -> -1
-                        },
-                        items = when (page) {
-                            // Each item carries its tab rather than its
-                            // position: where a tab is drawn and where its page
-                            // is differ for the frames between a drag and the
-                            // order coming back out of storage, and a tap in
-                            // that window has to reach the screen the icon is
-                            // of.
-                            // The diary's own halves, in the diary's order.
-                            ShellPage.Tabs -> if (diaryViewModel != null) {
-                                DiaryTab.entries.map { tab ->
-                                    ToolbarItem(
-                                        icon = tab.icon,
-                                        label = correctedString(tab.labelRes()),
-                                        onClick = { diaryViewModel.setTab(tab) },
-                                    )
-                                }
-                            } else barTabs.map { tab ->
-                                ToolbarItem(
-                                    icon = tab.icon,
-                                    label = correctedString(tab.labelRes),
-                                    onClick = {
-                                        val target = tabs.indexOf(tab).coerceAtLeast(0)
-                                        scope.launch { pagerState.goToPage(motion, target) }
-                                    },
-                                )
-                            }
-
-                            // The bar is the documentation's only navigation,
-                            // so it carries every section rather than a way
-                            // back to a list of them: there is no list. The
-                            // sections come from the fetched guide, so one
-                            // added to the documentation appears here without
-                            // a new build.
-                            ShellPage.Docs -> docsToolbarItems(docsPages, ::openDocsPage)
-
-                            else -> emptyList()
-                        },
-                        // Only the destinations that are peers of each other
-                        // overflow a phone; the three tabs never will.
-                        scrollableItems = page == ShellPage.Docs,
-                        // The tabs only. The documentation's bar is the same
-                        // component, and its order is the document's rather
-                        // than the reader's: a mode that opened there would let
-                        // somebody rearrange a table of contents into one the
-                        // text no longer matches.
-                        reorderable = page == ShellPage.Tabs && home == ShellHome.TIMETABLE,
-                        // Read against the page for the same reason everything
-                        // else here is: both bars are composed at once while a
-                        // slide runs, and the one leaving must not start
-                        // jiggling on its way out.
-                        reordering = reordering && page == ShellPage.Tabs && home == ShellHome.TIMETABLE,
-                        onReorderingChange = { on ->
-                            arranging = if (on) tabs else null
-                        },
-                        onReorder = ::commitTabOrder,
-                        // Where back goes, not where the reader is (#244): the
-                        // page's own name is its heading already. On the root
-                        // that is the tab it was opened from, which does not
-                        // change while settings are open.
-                        title = backLabel(
-                            page = page,
-                            tabLabel = if (diaryViewModel != null) {
-                                (diaryTab ?: DiaryTab.SCHEDULE).labelRes()
-                            } else {
-                                tabs.getOrElse(pagerState.currentPage) { tabs.first() }.labelRes
-                            },
-                        )?.let { correctedString(it) },
-                        onBackClick = when (page) {
-                            // Null keeps the bar in its tabbed mode. On the
-                            // documentation that is deliberate: the pill is the
-                            // table of contents, and back is the button beside
-                            // it — see [shellActionKind].
-                            ShellPage.Tabs, ShellPage.Docs -> null
-                            ShellPage.SettingsRoot -> ::closeSettings
-                            is ShellPage.Section -> ::closeSection
-                        },
-                        action = shellAction(
-                            destination = page.destination,
-                            // The shortcut exists for the people who have the
-                            // page it shortcuts to — never on the diary home,
-                            // where there is no class to manage.
-                            manager = home == ShellHome.TIMETABLE &&
-                                isClassManager(settingsState.effectiveRole),
-                            onOpenSettings = {
-                                settingsOpen = true
-                                stopArranging()
-                            },
-                            onOpenDebug = { at ->
-                                ripple.fire(at)
-                                showDebugSheet = true
-                            },
-                            onBack = ::docsBack,
-                        ),
-                    )
-                },
-                // Read against the page, like `reordering` above: the page
-                // sliding away must not keep a layer that swallows touches.
+                barHeight = barHeight,
+                // Read against the page: the page sliding away must not
+                // keep a layer that swallows touches.
                 onTouchOutsideBar = if (
                     reordering && page == ShellPage.Tabs && home == ShellHome.TIMETABLE
                 ) {
@@ -862,6 +730,150 @@ internal fun HomeShell(
                 }
             }
         }
+        // One bar for every page, outside the pages' own `AnimatedContent`
+        // (#264). The pages slide under it and it morphs into each page's form
+        // — the tabs into a back button and a title, one title into the next,
+        // the tabs into the guide's table of contents — rather than leaving with
+        // its page while another arrives with the next. It reads the page being
+        // travelled to, so it starts to change the moment the page does, and the
+        // change runs alongside the slide instead of being over before the page
+        // has arrived, which is what a bar that merely stood still used to do.
+        val page = destination
+        LessonsFloatingToolbar(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .zIndex(1f)
+                .onSizeChanged { size -> barHeight = with(density) { size.height.toDp() } },
+            depth = page.depth,
+            selectedIndex = when (page) {
+                // Which *tab* is in front, expressed as a position
+                // in the list this bar is drawing. The two lists
+                // are the same one outside the arranging mode, and
+                // inside it the bar's is a frame behind the stored
+                // one on purpose.
+                ShellPage.Tabs -> if (home == ShellHome.DIARY) {
+                    diaryTab?.ordinal ?: 0
+                } else {
+                    // The tab being kept on, while there is one. A
+                    // drop writes the new order, and the frame it
+                    // arrives in still has the pager on the old
+                    // *index* — the keyed pager moves it during its
+                    // own measure, after this was read — so the
+                    // index named the tab that had moved into it,
+                    // and the selected circle hopped to that tab
+                    // for a frame and back (#180).
+                    //
+                    // The page being travelled to, not the one in
+                    // front: a tap two tabs away scrolls the pager
+                    // through the page between, and while that one
+                    // was in front the bar selected a tab nobody
+                    // chose — its label began to open and closed
+                    // again, and the pill turned towards it and
+                    // back (#260). It also moved nothing until the
+                    // page had scrolled halfway.
+                    (keepOnTab ?: tabs.getOrNull(pagerState.targetPage))
+                        ?.let(barTabs::indexOf) ?: -1
+                }
+
+                ShellPage.Docs -> docsToolbarSelection(
+                    // As the tabs' bar, for the same reason (#260).
+                    docsPagerState.targetPage,
+                    docsPages.size,
+                )
+                else -> -1
+            },
+            items = when (page) {
+                // Each item carries its tab rather than its
+                // position: where a tab is drawn and where its page
+                // is differ for the frames between a drag and the
+                // order coming back out of storage, and a tap in
+                // that window has to reach the screen the icon is
+                // of.
+                // The diary's own halves, in the diary's order.
+                ShellPage.Tabs -> if (diaryViewModel != null) {
+                    DiaryTab.entries.map { tab ->
+                        ToolbarItem(
+                            icon = tab.icon,
+                            label = correctedString(tab.labelRes()),
+                            onClick = { diaryViewModel.setTab(tab) },
+                        )
+                    }
+                } else barTabs.map { tab ->
+                    ToolbarItem(
+                        icon = tab.icon,
+                        label = correctedString(tab.labelRes),
+                        onClick = {
+                            val target = tabs.indexOf(tab).coerceAtLeast(0)
+                            scope.launch { pagerState.goToPage(motion, target) }
+                        },
+                    )
+                }
+
+                // The bar is the documentation's only navigation,
+                // so it carries every section rather than a way
+                // back to a list of them: there is no list. The
+                // sections come from the fetched guide, so one
+                // added to the documentation appears here without
+                // a new build.
+                ShellPage.Docs -> docsToolbarItems(docsPages, ::openDocsPage)
+
+                else -> emptyList()
+            },
+            // Only the destinations that are peers of each other
+            // overflow a phone; the three tabs never will.
+            scrollableItems = page == ShellPage.Docs,
+            // The tabs only. The documentation's bar is the same
+            // component, and its order is the document's rather
+            // than the reader's: a mode that opened there would let
+            // somebody rearrange a table of contents into one the
+            // text no longer matches.
+            reorderable = page == ShellPage.Tabs && home == ShellHome.TIMETABLE,
+            // Only on the tabs: the bar morphs away from them as
+            // settings open, and must not go on jiggling while it does.
+            reordering = reordering && page == ShellPage.Tabs && home == ShellHome.TIMETABLE,
+            onReorderingChange = { on ->
+                arranging = if (on) tabs else null
+            },
+            onReorder = ::commitTabOrder,
+            // Where back goes, not where the reader is (#244): the
+            // page's own name is its heading already. On the root
+            // that is the tab it was opened from, which does not
+            // change while settings are open.
+            title = backLabel(
+                page = page,
+                tabLabel = if (diaryViewModel != null) {
+                    (diaryTab ?: DiaryTab.SCHEDULE).labelRes()
+                } else {
+                    tabs.getOrElse(pagerState.currentPage) { tabs.first() }.labelRes
+                },
+            )?.let { correctedString(it) },
+            onBackClick = when (page) {
+                // Null keeps the bar in its tabbed mode. On the
+                // documentation that is deliberate: the pill is the
+                // table of contents, and back is the button beside
+                // it — see [shellActionKind].
+                ShellPage.Tabs, ShellPage.Docs -> null
+                ShellPage.SettingsRoot -> ::closeSettings
+                is ShellPage.Section -> ::closeSection
+            },
+            action = shellAction(
+                destination = page.destination,
+                // The shortcut exists for the people who have the
+                // page it shortcuts to — never on the diary home,
+                // where there is no class to manage.
+                manager = home == ShellHome.TIMETABLE &&
+                    isClassManager(settingsState.effectiveRole),
+                onOpenSettings = {
+                    settingsOpen = true
+                    stopArranging()
+                },
+                onOpenDebug = { at ->
+                    ripple.fire(at)
+                    showDebugSheet = true
+                },
+                onBack = ::docsBack,
+            ),
+        )
     }
 }
 
