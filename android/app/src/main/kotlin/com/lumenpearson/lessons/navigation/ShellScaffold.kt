@@ -7,14 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.Dp
 import com.lumenpearson.lessons.core.designsystem.component.ArrangingDismissLayer
 import com.lumenpearson.lessons.core.designsystem.modifier.BottomBlurHeight
 import com.lumenpearson.lessons.core.designsystem.modifier.StatusBarBlurExtent
@@ -26,17 +22,19 @@ import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ScrollOffsetHolder
 
 /**
- * One page of the shell, with its own toolbar riding on it.
+ * One page of the shell, under the shell's one bar.
  *
- * The toolbar used to be drawn once, above everything, and stayed still while
- * the page moved under it — so opening settings slid a page in beneath a bar
- * that was already showing that page's title. Here it belongs to the page, so
- * the two travel together and each screen's bar arrives with it.
+ * The bar is drawn by the shell, once, above every page, and morphs into each
+ * page's form as the pages slide beneath it (#264). It has been both of the
+ * other things. Drawn once and standing still, it showed the arriving page's
+ * title the moment one navigated, while the page itself was still sliding in.
+ * Drawn per page and travelling with it, it was replaced at every change — one
+ * bar leaving with its page while another arrived with the next — which is the
+ * thing the owner asked to have transform instead. The morph is what reconciles
+ * the two: the bar stays, and its change runs alongside the slide.
  *
- * The cost of that is one measurement per page instead of one for the app, and
- * that is deliberate too: during a slide there are two toolbars, and a single
- * shared height would be written twice per frame by two different bars.
- *
+ * @param barHeight the bar's height, measured where it is drawn; the page pads
+ *   its content and its bottom fade by it.
  * @param onTouchOutsideBar while the tabs are being arranged, what a touch
  *   anywhere but the bar does; see [ArrangingDismissLayer]. Null the rest of the
  *   time, when there is no layer and the page takes its own touches.
@@ -46,13 +44,11 @@ internal fun ShellScaffold(
     edgeBlur: Boolean,
     statusBarHeightPx: Float,
     offset: ScrollOffsetHolder,
-    toolbar: @Composable (Modifier) -> Unit,
+    barHeight: Dp,
     onTouchOutsideBar: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
-    val seedBarHeight = LocalBottomBarSpace.current
-    var barHeight by remember { mutableStateOf(seedBarHeight) }
     val barHeightPx = with(density) { barHeight.toPx() }
 
     // Essentials' distance, not the toolbar's height. The bar measures around
@@ -99,16 +95,8 @@ internal fun ShellScaffold(
             }
         }
 
-        // Between the page and the bar, so it takes every touch but the bar's.
+        // Over the page and under the shell's bar, which is drawn above every
+        // page, so it takes every touch but the bar's.
         if (onTouchOutsideBar != null) ArrangingDismissLayer(onDismiss = onTouchOutsideBar)
-
-        toolbar(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .zIndex(1f)
-                .onSizeChanged { size ->
-                    barHeight = with(density) { size.height.toDp() }
-                },
-        )
     }
 }

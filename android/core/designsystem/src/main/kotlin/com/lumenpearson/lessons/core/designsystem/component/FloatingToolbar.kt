@@ -9,6 +9,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.runtime.Immutable
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -48,7 +51,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.FloatingToolbarScrollBehavior
-import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -106,6 +108,8 @@ import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
 import com.lumenpearson.lessons.core.designsystem.theme.MotionSettings
 import com.lumenpearson.lessons.core.designsystem.theme.springSpec
 import com.lumenpearson.lessons.core.designsystem.theme.tweenSpec
+import androidx.compose.material3.FloatingToolbarColors
+import androidx.compose.runtime.CompositionLocalProvider
 
 /**
  * One destination of the toolbar in tabbed mode.
@@ -211,8 +215,10 @@ private const val TabletLabelShare = 0.3f
  *  * **The empty FAB slot.** Essentials always passes `floatingActionButton`,
  *    handing it `{}` when there is no button. `HorizontalFloatingToolbar` still
  *    lays out the slot it was given, so an empty one reserves the button's width
- *    and pins the pill off-centre with a hole beside it. Here the slot is only
- *    passed when there is something to put in it.
+ *    and pins the pill off-centre with a hole beside it. Here there is no
+ *    Material slot at all: the button is laid out beside the pill and shrinks to
+ *    nothing when there is none (see [ActionSlot]), and the pill is a container
+ *    of this file's own (see [PillContainer]).
  *  * **The gaps between collapsed items.** The spacer between two items animates
  *    to 8 dp whenever the item is not the last one — including while the toolbar
  *    is collapsed and every unselected item has animated to zero width. The
@@ -222,6 +228,10 @@ private const val TabletLabelShare = 0.3f
  *
  * @param items tabbed mode: pass these and [selectedIndex].
  * @param title standard mode: pass this with [onBackClick].
+ * @param depth how deep the page this bar is drawn for is, for a caller that
+ *   keeps one bar across its pages (#264): a change to a deeper page morphs the
+ *   bar in from the right, a change back from the left. By default the tabs are
+ *   0 and the back button 1.
  * @param expanded false collapses every unselected item into the selected one.
  * @param scrollableItems for a caller whose destinations do not fit on a phone;
  *   see [scrollingItemsMaxWidth].
@@ -259,6 +269,7 @@ fun LessonsFloatingToolbar(
     selectedIndex: Int = -1,
     title: String? = null,
     onBackClick: (() -> Unit)? = null,
+    depth: Int = if (onBackClick != null) 1 else 0,
     expanded: Boolean = true,
     scrollBehavior: FloatingToolbarScrollBehavior? = null,
     action: ToolbarAction? = null,
@@ -301,19 +312,63 @@ fun LessonsFloatingToolbar(
             .heightIn(min = ActionSlotHeight),
         contentAlignment = Alignment.Center,
     ) {
-        // The two modes cross-fade into each other and the pill resizes with a
-        // spring, rather than the row of tabs being replaced by a back button
-        // between one frame and the next. The bar is the one element that is on
-        // screen the whole time the app is, so it is the one place where a cut
-        // reads as a glitch: opening settings should look like the pill
-        // *becoming* the back button, not like a different bar arriving.
+        // What the pill shows, carried whole. The faces cross-fade into each
+        // other and the pill resizes with a spring, rather than one form being
+        // replaced by another between one frame and the next. The bar is the
+        // one element on screen the whole time the app is, so it is the one
+        // place where a cut reads as a glitch: opening settings should look like
+        // the pill *becoming* the back button, not like a different bar arriving.
+        //
+        // Carried whole, because one bar now serves every page of the shell
+        // (#264): `AnimatedContent` composes the face on its way out with the
+        // lambda it is given *now*, so a face that read `items` or `title` from
+        // here would leave showing the arriving page's — tabs emptied the frame
+        // settings opened, the old title replaced by the new mid-fade.
+        val face: PillFace = if (onBackClick != null) {
+            BackFace(
+                title = title,
+                onBackClick = onBackClick,
+                titleMax = textCap(
+                    screenWidth = screenWidth.dp,
+                    tablet = tablet,
+                    spare = spareTitleWidth(screenWidth.dp, actionButton != null),
+                ),
+                depth = depth,
+            )
+        } else {
+            tabsFace(
+                items = items,
+                selectedIndex = selectedIndex,
+                expanded = expanded,
+                // Every tab the same width while they are being arranged: the
+                // drag arithmetic in `ToolbarReorder` counts slots of one pitch,
+                // and one wide item among narrow ones would make «how many slots
+                // has this travelled» depend on the direction of travel. It also
+                // looks right — in this mode you are arranging icons, not reading
+                // where you are.
+                hideLabel = hideLabel || reordering,
+                scrollable = scrollableItems,
+                hasAction = actionButton != null,
+                reorderable = reorderable,
+                reordering = reordering,
+                onReorderingChange = onReorderingChange,
+                onReorder = onReorder,
+                screenWidth = screenWidth.dp,
+                tablet = tablet,
+                depth = depth,
+            )
+        }
         val content: @Composable RowScope.() -> Unit = {
             AnimatedContent(
-                targetState = onBackClick != null,
+                targetState = face,
+                // A new selection, a new label, a reorder: the same face, drawn
+                // again. Only a different face — tabs for a back button, one set
+                // of tabs for another — morphs.
+                contentKey = { it.key },
                 transitionSpec = {
                     // Going in slides from the right, coming back from the left,
                     // which is the direction the page itself travels.
-                    val forward = targetState
+                    val forward = targetState.depth >= initialState.depth
                     val enter = fadeIn(motion.tweenSpec(ModeFadeMillis)) +
                         slideInHorizontally(motion.tweenSpec(ModeSlideMillis)) { width ->
                             if (forward) width / 3 else -width / 3
@@ -339,86 +394,264 @@ fun LessonsFloatingToolbar(
                     )
                 },
                 label = "toolbar_mode",
-            ) { backMode ->
-                if (backMode) {
-                    Row(
+            ) { shown ->
+                when (shown) {
+                    is BackFace -> Row(
                         // Material's padding, all four sides of it, moved in
                         // here; see [PillContentPadding].
                         modifier = Modifier.padding(PillPadding),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        BackAndTitle(
-                            title = title,
-                            onBackClick = onBackClick ?: {},
-                            titleMax = textCap(
-                                screenWidth = screenWidth.dp,
-                                tablet = tablet,
-                                spare = spareTitleWidth(screenWidth.dp, actionButton != null),
-                            ),
-                        )
+                        BackAndTitle(face = shown)
                     }
-                } else {
-                    ToolbarItems(
-                        items = items,
-                        selectedIndex = selectedIndex,
-                        expanded = expanded,
-                        // Every tab the same width while they are being
-                        // arranged: the drag arithmetic in `ToolbarReorder`
-                        // counts slots of one pitch, and one wide item among
-                        // narrow ones would make «how many slots has this
-                        // travelled» depend on the direction of travel. It also
-                        // looks right — in this mode you are arranging icons,
-                        // not reading where you are.
-                        hideLabel = hideLabel || reordering,
-                        scrollable = scrollableItems,
-                        hasAction = actionButton != null,
-                        reorderable = reorderable,
-                        reordering = reordering,
-                        onReorderingChange = onReorderingChange,
-                        onReorder = onReorder,
-                        labelMax = textCap(
-                            screenWidth = screenWidth.dp,
-                            tablet = tablet,
-                            spare = if (scrollableItems) {
-                                scrollingItemsMaxWidth(actionButton != null) - PillPadding * 2 - ItemSize
-                            } else {
-                                spareLabelWidth(screenWidth.dp, items.size, actionButton != null)
-                            },
-                        ),
+
+                    is TabsFace -> ToolbarItems(
+                        items = shown.items,
+                        selectedIndex = shown.selectedIndex,
+                        expanded = shown.expanded,
+                        hideLabel = shown.hideLabel,
+                        scrollable = shown.scrollable,
+                        hasAction = shown.hasAction,
+                        reorderable = shown.reorderable,
+                        reordering = shown.reordering,
+                        onReorderingChange = shown.onReorderingChange,
+                        onReorder = shown.onReorder,
+                        labelMax = shown.labelMax,
                     )
                 }
             }
         }
 
-        // Nothing but the tag: the mode morph is animated by the size transform
-        // above, and within a mode the pill's width already follows its tabs,
-        // which animate their own widths on a spring.
-        val pillModifier = Modifier.testTag(ToolbarPillTag)
-
-        // Two call sites rather than one with a nullable argument: the overload
-        // without the slot is what keeps a toolbar with no action button centred.
-        if (actionButton != null) {
-            HorizontalFloatingToolbar(
-                modifier = pillModifier,
-                expanded = expanded,
+        // One layout, whether or not there is a button beside the pill. It used
+        // to be two call sites — Material's overload with a button slot and the
+        // one without, because an empty slot pins the pill off-centre — and a
+        // page whose button came or went changed overload, which threw the
+        // whole bar away and built another: no morph could survive it, and with
+        // one bar for every page (#264) the settings of a reader with no debug
+        // page did exactly that. Here the pill is always the overload without a
+        // slot, and the button grows in and shrinks out beside it, so the pill
+        // glides to the centre rather than being rebuilt there.
+        Row(
+            modifier = Modifier.following(scrollBehavior),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PillContainer(
+                // Nothing but the tag: the morph is animated by the size
+                // transform above, and within a face the pill's width already
+                // follows its tabs, which animate their own widths on a spring.
+                modifier = Modifier.testTag(ToolbarPillTag),
                 colors = colors,
-                contentPadding = PillContentPadding,
-                scrollBehavior = scrollBehavior,
-                floatingActionButton = actionButton,
                 content = content,
             )
-        } else {
-            HorizontalFloatingToolbar(
-                modifier = pillModifier,
-                expanded = expanded,
-                colors = colors,
-                contentPadding = PillContentPadding,
-                scrollBehavior = scrollBehavior,
-                content = content,
-            )
+            ActionSlot(action = action, floatingActionButton = floatingActionButton)
         }
     }
 }
+
+/**
+ * The pill itself: Material's floating toolbar container — its shape, its
+ * colour, its height and the shadow it has beside a button — without the rest
+ * of Material's toolbar.
+ *
+ * The rest is `minimumInteractiveBalancedPadding`, which pads the content by
+ * the interactive alignment lines it finds inside it, and it cannot live with
+ * a pill that morphs. The back button leaving slides its line off to one side
+ * with it, the padding turned that distance into height, and the pill came back
+ * from settings to the tabs as a tall oval that stayed one until something made
+ * it measure again (#264, filmed by the owner). It had already been the cause
+ * of #240. Built here, the pill is as tall as its content and never less than
+ * [FloatingToolbarDefaults.ContainerSize], whatever passes through it.
+ */
+@Composable
+private fun PillContainer(
+    modifier: Modifier,
+    colors: FloatingToolbarColors,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val shape = FloatingToolbarDefaults.ContainerShape
+    val elevation = FloatingToolbarDefaults.ContainerExpandedElevationWithFab
+    Row(
+        modifier = modifier
+            .graphicsLayer {
+                shadowElevation = elevation.toPx()
+                this.shape = shape
+                clip = true
+            }
+            .heightIn(min = FloatingToolbarDefaults.ContainerSize)
+            .background(color = colors.toolbarContainerColor, shape = shape)
+            .padding(PillContentPadding),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CompositionLocalProvider(LocalContentColor provides colors.toolbarContentColor) {
+            content()
+        }
+    }
+}
+
+/**
+ * What the pill shows: everything a face needs, so that the face on its way out
+ * draws what it drew (#264). [key] is what makes two faces different ones —
+ * the back button is one face whatever its title says, and a set of tabs is
+ * one face for as long as it is the same set.
+ */
+@Immutable
+private sealed interface PillFace {
+    val key: Any
+
+    /** How deep the page is; a deeper face arrives from the right. */
+    val depth: Int
+}
+
+@Immutable
+private data class BackFace(
+    val title: String?,
+    val onBackClick: () -> Unit,
+    val titleMax: Dp,
+    override val depth: Int,
+) : PillFace {
+    override val key: Any get() = BackFaceKey
+}
+
+@Immutable
+private data class TabsFace(
+    val items: List<ToolbarItem>,
+    val selectedIndex: Int,
+    val expanded: Boolean,
+    val hideLabel: Boolean,
+    val scrollable: Boolean,
+    val hasAction: Boolean,
+    val reorderable: Boolean,
+    val reordering: Boolean,
+    val onReorderingChange: (Boolean) -> Unit,
+    val onReorder: (order: List<Int>) -> Unit,
+    val labelMax: Dp,
+    override val depth: Int,
+) : PillFace {
+    // The set, not the list: the same tabs in a new order are the same face.
+    // Keyed by the order, a confirmed rearrangement was a new face, and the old
+    // row faded out over the new one — every icon seemed to move again after
+    // the drop, which the owner filmed on 3 October.
+    override val key: Any get() = items.mapTo(HashSet()) { it.label }
+}
+
+/**
+ * The tabs' face, with the widest a label may be worked out for them: on a
+ * scrolling row, what the scroll window spares beside one icon; otherwise,
+ * what the whole row can spare.
+ */
+@Composable
+private fun tabsFace(
+    items: List<ToolbarItem>,
+    selectedIndex: Int,
+    expanded: Boolean,
+    hideLabel: Boolean,
+    scrollable: Boolean,
+    hasAction: Boolean,
+    reorderable: Boolean,
+    reordering: Boolean,
+    onReorderingChange: (Boolean) -> Unit,
+    onReorder: (order: List<Int>) -> Unit,
+    screenWidth: Dp,
+    tablet: Boolean,
+    depth: Int,
+): TabsFace = TabsFace(
+    items = items,
+    selectedIndex = selectedIndex,
+    expanded = expanded,
+    hideLabel = hideLabel,
+    scrollable = scrollable,
+    hasAction = hasAction,
+    reorderable = reorderable,
+    reordering = reordering,
+    onReorderingChange = onReorderingChange,
+    onReorder = onReorder,
+    labelMax = textCap(
+        screenWidth = screenWidth,
+        tablet = tablet,
+        spare = if (scrollable) {
+            scrollingItemsMaxWidth(hasAction) - PillPadding * 2 - ItemSize
+        } else {
+            spareLabelWidth(screenWidth, items.size, hasAction)
+        },
+    ),
+    depth = depth,
+)
+
+/** The bar riding [behavior], when there is one; Material's scroll-away, pill and button together. */
+@Composable
+private fun Modifier.following(behavior: FloatingToolbarScrollBehavior?): Modifier =
+    if (behavior == null) this else with(behavior) { this@following.floatingScrollBehavior() }
+
+/** The back button's face is one face, whatever the title beside it. */
+private const val BackFaceKey = "back"
+
+/**
+ * The button beside the pill, growing in, shrinking out and changing its icon
+ * in place (#264), with the gap Material keeps between the two.
+ *
+ * Keyed by what the button is, so that a new click handler for the same button
+ * is not a change anybody sees, and the null state draws nothing at all: its
+ * width is what the size transform shrinks the slot to.
+ */
+@Composable
+private fun ActionSlot(action: ToolbarAction?, floatingActionButton: (@Composable () -> Unit)?) {
+    val motion = LocalMotion.current
+    val slot: ActionFace? = when {
+        action != null -> ActionFace.Button(action)
+        floatingActionButton != null -> ActionFace.Custom(floatingActionButton)
+        else -> null
+    }
+    AnimatedContent(
+        targetState = slot,
+        contentKey = { it?.key },
+        transitionSpec = {
+            val enter = fadeIn(motion.tweenSpec(ModeFadeMillis)) +
+                scaleIn(motion.tweenSpec(ModeFadeMillis), ActionScaleFrom)
+            val exit = fadeOut(motion.tweenSpec(ModeFadeMillis)) +
+                scaleOut(motion.tweenSpec(ModeFadeMillis), ActionScaleFrom)
+            (enter togetherWith exit).using(SizeTransform(clip = false) { _, _ -> motion.toolbarSizeSpring() })
+        },
+        contentAlignment = Alignment.CenterStart,
+        label = "toolbar_action",
+    ) { shown ->
+        when (shown) {
+            null -> Unit
+            is ActionFace.Button -> Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.width(ActionGap))
+                ToolbarActionButton(shown.action)
+            }
+            is ActionFace.Custom -> Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.width(ActionGap))
+                shown.content()
+            }
+        }
+    }
+}
+
+/** What [ActionSlot] holds; see there. */
+@Immutable
+private sealed interface ActionFace {
+    val key: Any
+
+    @Immutable
+    data class Button(val action: ToolbarAction) : ActionFace {
+        override val key: Any get() = action.contentDescription
+    }
+
+    @Immutable
+    data class Custom(val content: @Composable () -> Unit) : ActionFace {
+        override val key: Any get() = CustomActionKey
+    }
+}
+
+private const val CustomActionKey = "custom"
+
+/** Material's gap between the pill and the button beside it (`ToolbarToFabGap`). */
+private val ActionGap: Dp = 8.dp
+
+/** How small the button starts as it grows in, and ends as it shrinks out. */
+private const val ActionScaleFrom = 0.6f
 
 /**
  * The row of destinations inside the pill, optionally able to scroll.
@@ -1169,20 +1402,24 @@ private fun ToolbarActionButton(action: ToolbarAction) {
     }
 }
 
-/** Standard mode: the same inverted pill, holding a back button and a title. */
+/**
+ * Standard mode: the same inverted pill, holding a back button and a title.
+ *
+ * The arrow stays put and only the title changes when the page under it does
+ * (#264) — settings to a section, a section to the one inside it — the words
+ * crossing over each other while the pill resizes round them, in the direction
+ * the page travels.
+ */
 @Composable
-private fun BackAndTitle(
-    title: String?,
-    onBackClick: () -> Unit,
-    titleMax: Dp,
-) {
+private fun BackAndTitle(face: BackFace) {
     val scheme = MaterialTheme.colorScheme
     val view = rememberHapticView()
+    val motion = LocalMotion.current
 
     IconButton(
         onClick = {
             LessonsHaptics.press(view)
-            onBackClick()
+            face.onBackClick()
         },
         modifier = Modifier.size(ItemSize),
         colors = IconButtonDefaults.filledIconButtonColors(
@@ -1198,21 +1435,41 @@ private fun BackAndTitle(
             modifier = Modifier.size(24.dp),
         )
     }
-    if (title != null) {
-        Spacer(Modifier.width(ItemGap))
-        // The cap and the padding go on the box, so the title is measured
-        // against the room it will actually be drawn in rather than against
-        // the toolbar. Same reason as the label above: a title that fits
-        // should sit still. No floor: a short title used to sit in at least
-        // 100 dp, and «← Sync» was as wide a pill as «← Settings» (#242).
-        MarqueeText(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = scheme.background,
-            modifier = Modifier
-                .widthIn(max = titleMax + TitlePadding * 2)
-                .padding(horizontal = TitlePadding),
-        )
+    AnimatedContent(
+        targetState = face,
+        contentKey = { it.title },
+        transitionSpec = {
+            val forward = targetState.depth >= initialState.depth
+            val enter = fadeIn(motion.tweenSpec(ModeFadeMillis)) +
+                slideInHorizontally(motion.tweenSpec(ModeSlideMillis)) { width ->
+                    if (forward) width / 3 else -width / 3
+                }
+            val exit = fadeOut(motion.tweenSpec(ModeFadeMillis)) +
+                slideOutHorizontally(motion.tweenSpec(ModeSlideMillis)) { width ->
+                    if (forward) -width / 3 else width / 3
+                }
+            (enter togetherWith exit).using(SizeTransform(clip = false) { _, _ -> motion.toolbarSizeSpring() })
+        },
+        contentAlignment = Alignment.CenterStart,
+        label = "toolbar_title",
+    ) { shown ->
+        val title = shown.title ?: return@AnimatedContent
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(ItemGap))
+            // The cap and the padding go on the box, so the title is measured
+            // against the room it will actually be drawn in rather than against
+            // the toolbar. Same reason as the label above: a title that fits
+            // should sit still. No floor: a short title used to sit in at least
+            // 100 dp, and «← Sync» was as wide a pill as «← Settings» (#242).
+            MarqueeText(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = scheme.background,
+                modifier = Modifier
+                    .widthIn(max = shown.titleMax + TitlePadding * 2)
+                    .padding(horizontal = TitlePadding),
+            )
+        }
     }
 }
 
