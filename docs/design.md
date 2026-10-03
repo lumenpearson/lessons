@@ -518,10 +518,36 @@ why the conclusion does not change. `AnimatedContent` removes the slot that is n
 current, so the property now follows from the navigation rather than being maintained
 alongside it.
 
-Measuring the bar's height is now each page's own. During a transition there are two bars,
-and one shared height would be written twice a frame by two different bars. The top blur
-became per-page too: the shell used to pick the screen in front and hand one number to
+The top blur is per page: the shell used to pick the screen in front and hand one number to
 everybody, and a departing page carried it for the whole transition.
+
+**The bar is one bar for the whole shell, and it morphs** (#264). The owner asked for it to
+transform between screens, as in GMS Flags Reborn, rather than each screen having its own.
+It has been all three things in turn:
+- **Drawn once and standing still,** it showed the arriving page's title the moment one
+  navigated, while that page was still sliding in.
+- **Drawn per page,** it travelled with its page, so two bars passed each other at every
+  change: the old one leaving, the new one arriving.
+- **Now it is drawn once, above the pages' `AnimatedContent`, and it changes its form.**
+  `HomeShell` hands it the page being travelled to, measures its height once, and passes that
+  height to every `ShellScaffold`.
+
+What that needs of `LessonsFloatingToolbar`:
+- **Every face carries its own data** (`PillFace`: the back button with its title, or a set
+  of tabs). `AnimatedContent` composes the face on its way out with whatever it is given now,
+  and the shell gives a settings page no tabs at all.
+- **A face is keyed by what makes it a different face.** The back button is one face
+  whatever its title, and its title crosses over in place while the arrow stays put. A set
+  of tabs is one face in any order; keyed by the order, a confirmed rearrangement replayed
+  the row (#266).
+- **The button beside the pill grows in, shrinks out and changes its icon** (`ActionSlot`).
+  It used to switch between Material's two toolbar overloads, which threw the bar away and
+  built another.
+- **The pill is a container of the bar's own** (`PillContainer`), with Material's shape,
+  colour, height and shadow. Material's toolbar without a button pads its content by the
+  interactive alignment lines inside it. With the back button sliding out of a morph, that
+  padding turned into height, and the pill came back from settings as a tall oval (#265),
+  the same mechanism as #240.
 
 ## Permissions — a screen that exists only when something is broken
 

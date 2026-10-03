@@ -7,19 +7,20 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **3 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257 and
-#261 are merged**; `main` is at `1ec2ada`, the merge of #261, on 3 October 2026, and `dev` was
-restarted from it for this batch. **The only thing open is the pull request carrying this
-paragraph, #263**, from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary
-survey`. A tab losing the selection no longer leaves its icon off-centre beside an empty
-space and then jumps it into place; the icon glides with the closing label (#262).
+#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261
+and #263 are merged**; `main` is at `059da7d`, the merge of #263, on 3 October 2026, and `dev`
+was restarted from it for this batch. **The only thing open is the pull request carrying this
+paragraph, #267**, from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary
+survey`. The bottom bar is one bar for the whole shell now, drawn once above the pages, and it
+morphs into each page's form as they slide beneath it (#264). Two bugs the owner filmed along
+the way are fixed in the same pull request (#265, #266).
 
 The section «What the last session added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#261 closed #258, #259 and #260**, read back from GitHub on 3 October. **#263 closes
-#262.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+**#263 closed #262**, read back from GitHub on 3 October. **#267 closes #264, #265 and
+#266.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -132,9 +133,73 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: a tab's icon that no longer jumps after its label has closed (#262)
+## What the last session added: one bottom bar for the whole shell, morphing between screens (#264, #265, #266)
 
-Open as #263, from `dev`, on milestone 9. The same session as #241–#261, on the owner's
+Open as #267, from `dev`, on milestone 9. The same session as #241–#263, on the owner's request of 3
+October 2026: «сделай так, чтобы нижняя таблетка во всём приложении трансформировалась, а не
+имелись каждая на своем экране … как в GMS Flags Reborn при переходах». The owner filmed the
+build twice while it was being made, and the second time said «всё отлично!».
+
+- **#264: the bar is one bar, drawn once above the pages, and it morphs into each page's form.**
+  `HomeShell` used to draw a bar inside each page of its `AnimatedContent`, so at every change
+  of page two bars passed each other.
+  - **In the shell.** The bar is drawn after the pages' `AnimatedContent`, fed the page being
+    travelled to, and measured once. `ShellScaffold` takes that height and no longer has a
+    toolbar slot.
+  - **Faces carry their own data.** `PillFace` is the back button with its title, or a set of
+    tabs. The face on its way out shows what it showed, though the shell hands a settings page
+    no tabs at all.
+  - **Back to back.** The back button is one face whatever its title says; the title crosses
+    over in place and the arrow stays.
+  - **The button beside the pill** (`ActionSlot`) grows in, shrinks out and changes its icon.
+    It no longer switches between Material's two toolbar overloads, which used to throw the bar
+    away and build another, as it did on a reader's settings with no debug page.
+  - **Direction.** `LessonsFloatingToolbar` takes a `depth`, and a deeper page's form arrives
+    from the right.
+- **#265: the pill came back from settings as a tall oval. Filed, then fixed.** With no
+  Material button slot anywhere any more, every pill went through Material's toolbar without a
+  slot. That toolbar pads its content by the interactive alignment lines inside it, and the
+  back button sliding out of a morph turned its line into 126 px of height that stayed. The
+  pill is a container of the bar's own now (`PillContainer`), with Material's shape, colour,
+  height and shadow.
+- **#266: confirming a new order of tabs replayed the row. Filed, then fixed.** The tabs face
+  was keyed by its labels in order, so the confirmed order was a new face and the old row faded
+  out over the new one. It is keyed by the set now.
+- **On the API 37 emulator, in landscape:**
+  - the tabs morph into «← Сегодня» and back at their own height;
+  - a carried tab passes over its neighbour and the order is confirmed without a second
+    movement.
+
+### Gates
+
+On `045d558`, `./gradlew test assembleDebug assembleRelease detekt` passes. `./gradlew test`
+runs **1635** tests (`:core:model` 125, `:core:data` 615, `:core:designsystem` 161, `:widget` 126, `:app` 608), 6 more than #263's 1629. All the new tests are in `ToolbarMorphTest`, and five of its six were red
+on `main`'s toolbar:
+- the tabs staying on the pill while it becomes a back button;
+- one title giving way to the next;
+- the button growing in;
+- the pill's height after coming back;
+- a reordered row drawn once.
+
+The sixth asks that, with animations off, everything happens at once. The server was not
+touched.
+
+### What was deliberately left alone
+
+- **The shell's pages still slide the way they did.** Only the bar stopped travelling with
+  them.
+- **Material's toolbar a11y actions are gone with its container.** These were expand and
+  collapse, which this bar never offered: its `expanded` is always on in the shell.
+
+### What nobody has verified in this batch
+
+- The morph on a phone.
+- The morph in portrait on the emulator since the last build; the owner's two recordings and
+  this session's were in landscape.
+
+## What the session before it added: a tab's icon that no longer jumps after its label has closed (#262)
+
+Merged as #263 (`059da7d`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#261, on the owner's
 report the morning after #261 merged: «проблема всё равно осталась, это будто бы из-за
 исчезающих лейблов у кнопок … запоздало исчезают и без анимаций, оставляя после себя место
 рядом с иконкой». It came with a recording from the device, and the recording showed what a
@@ -191,104 +256,6 @@ The server was not touched.
 - The fix on a phone. The emulator has the build, and the owner's eye is the check that
   remains.
 
-## What the session before it added: the selection slides as one pill, a carried tab is glass, and the bar no longer flinches (#258, #259, #260)
-
-Merged as #261 (`1ec2ada`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#257, on four more reports
-from the owner on the night of 2–3 October 2026:
-1. The first asked to take on the pale icon that #249 had left alone: «значок уходящей
-   вкладки бледнеет … сделано? если нет, то займись этим».
-2. The second came with a recording: «всё ещё телепортируется иконки при смене вкладок, всё
-   записал».
-3. A second recording: «прошлая вкладка и затрагиваемая вкладка — дергаются и
-   телепортируются».
-4. A last word on the build after it: «теперь дергает один раз, а не несколько как раньше».
-
-- **#258: halfway through a change of tab, both icons faded into their own discs. Filed, then
-  fixed, at the third attempt.**
-  - **The cause.** A selected tab is an unselected one inverted, the bar's colour on white
-    against white on the bar's colour. A cross-fade of both pairs meets in the middle whatever
-    the easing; the new test measured the icon's contrast falling to 1.14.
-  - **First attempt: a disc grown from the middle.** It kept the contrast, but its last
-    pixels sat inside the leaving icon as a white spot for the slow end of the easing.
-  - **Second attempt: a straight wipe across each tab.** It cut both pills with a hard edge.
-    The owner: «стало хуже».
-  - **What shipped.** Asked, the owner chose a sliding pill. One white pill (`SelectionPill`)
-    is drawn behind the row and slides from the tab left to the tab chosen, heading for that
-    tab's bounds as they are on each frame. Every tab it passes over is drawn the selected way
-    only where it is covered (`inkedUnder`), the tabs in between included. At rest the
-    selected tab wears its own disc as before.
-- **The pill's state is snapshot state, written in composition.** The first build had plain
-  fields there. The tabs learned of a slide from their recomposition, but nothing invalidated
-  the row's drawing until the effect moved the pill. On the emulator that was four frames of
-  icons inked the bar's colour over a pill not yet drawn. No unit test saw it, because a test
-  steps its frames together with the effect.
-- **#259: a tab making room for the carried one seemed to teleport. Filed, then fixed.**
-  - **What the recording shows.** Frames 342–352: «Сегодня» stood still while the carried
-    «Календарь» slid over it, vanished, and was back a slot away two frames later.
-  - **The cause.** The carried tab is about 53 dp on a 56 dp pitch, drawn above its
-    neighbours on an opaque body. The neighbour's whole slide happened beneath it.
-  - **The fix.** Its body, and the white disc when the selected tab is the one carried, is
-    now glass at `HeldBodyAlpha` 0.6. Filmed on the emulator, «Календарь» is seen passing
-    beneath the carried «Задания».
-- **The bar's springs no longer bounce.** The owner's second recording showed neighbours
-  overshooting their places and coming back as the pill arrived: «Сегодня» went from 215 to
-  342 px and back to 322. `toolbarSpring` was `DampingRatioMediumBouncy` on purpose, to give
-  the selected tab a flourish. It is `DampingRatioNoBouncy` at `StiffnessMediumLow` now. The
-  pill's own spring stops at a thousandth of the way rather than a hundredth, which on a slide
-  two tabs long was a three-pixel snap on its last frame.
-- **#260: a tap two tabs away selected the tab between, for part of the scroll. Filed, then
-  fixed.**
-  - **The cause.** The bar read `pagerState.currentPage`, and `animateScrollToPage` passes
-    through the page between. That was the one flinch left after the bounce went.
-  - **The fix.** The bar reads `targetPage` now, and so does the guide's bar. The pill also
-    sets off on the tap instead of when the page is halfway across.
-  - **The test.** `BarSelectionTest` holds the two facts this rests on: during
-    `animateScrollToPage(2)` the page in front passes through 1, and the target never does.
-- **Two things measured on the way, so nobody re-measures them.**
-  - **The emulator's own frame pacing is the same with or without the pill.** Eight changes
-    of tab gave a 90th-percentile frame of 27–29 ms on this branch and 30 ms on `main`'s build.
-  - **`adb shell screenrecord` on this emulator drops whole runs of frames.** It showed the
-    pill arriving in one step while `dumpsys gfxinfo framestats` had the app drawing a frame
-    every 16.7 ms. The owner's own screen recordings are what show motion here.
-- **#249 may have been this same report.** In #249 the owner's words were «поведение
-  соседних кнопок при анимации выбора». They were read as the selection's fade, and #249
-  fixed a real defect that was visible in that recording. «Всё ещё» now suggests the
-  arranging mode was what was meant then too.
-
-### Gates
-
-On `2388684`: `./gradlew test assembleDebug assembleRelease detekt` pass; `./gradlew test`
-**1628** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 154, `:widget` 126, `:app`
-608), eight more than #257's 1620. Of the seven new toolbar tests, every one was red on
-`main`'s toolbar:
-- the two contrast cases, which fell to 1.14;
-- the two direction cases;
-- the pill passing over the tab between;
-- the glass rule and the bar showing through the carried tab.
-
-The eighth, `BarSelectionTest`, pins the behaviour of Compose's pager rather than the bar.
-
-This machine's RAM showed up again (`EXCEPTION_ACCESS_VIOLATION` in `jvm.dll`):
-- two test JVMs and one Gradle daemon died, and their `hs_err` reports were moved out of the
-  tree;
-- the run after the daemon's death failed once inside R8 with a `NoSuchElementException`, and
-  `assembleRelease` on its own then built clean.
-
-The server was not touched.
-
-### What was deliberately left alone
-
-- **A badge would take the bar's colour under the passing pill,** because the tint is
-  all-or-nothing. No tab carries a badge today.
-- **Two tabs that swap on a line still cross.** The neighbour now passes beneath glass rather
-  than beneath an opaque disc, and over the white disc the carried body is faint. 0.6 was
-  chosen by eye on the emulator.
-
-### What nobody has verified in this batch
-
-- The pill and the glass on a phone.
-- The pill in the dark theme on a device: the two contrast tests cover it, and the emulator
-  was in the light theme.
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -308,7 +275,7 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#262 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
@@ -1313,7 +1280,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
-cd android && ./gradlew test                             # 1629 tests across the five modules
+cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

@@ -28,6 +28,104 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the selection slides as one pill, a carried tab is glass, and the bar no longer flinches (#258, #259, #260)
+
+Merged as #261 (`1ec2ada`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#257, on four more reports
+from the owner on the night of 2–3 October 2026:
+1. The first asked to take on the pale icon that #249 had left alone: «значок уходящей
+   вкладки бледнеет … сделано? если нет, то займись этим».
+2. The second came with a recording: «всё ещё телепортируется иконки при смене вкладок, всё
+   записал».
+3. A second recording: «прошлая вкладка и затрагиваемая вкладка — дергаются и
+   телепортируются».
+4. A last word on the build after it: «теперь дергает один раз, а не несколько как раньше».
+
+- **#258: halfway through a change of tab, both icons faded into their own discs. Filed, then
+  fixed, at the third attempt.**
+  - **The cause.** A selected tab is an unselected one inverted, the bar's colour on white
+    against white on the bar's colour. A cross-fade of both pairs meets in the middle whatever
+    the easing; the new test measured the icon's contrast falling to 1.14.
+  - **First attempt: a disc grown from the middle.** It kept the contrast, but its last
+    pixels sat inside the leaving icon as a white spot for the slow end of the easing.
+  - **Second attempt: a straight wipe across each tab.** It cut both pills with a hard edge.
+    The owner: «стало хуже».
+  - **What shipped.** Asked, the owner chose a sliding pill. One white pill (`SelectionPill`)
+    is drawn behind the row and slides from the tab left to the tab chosen, heading for that
+    tab's bounds as they are on each frame. Every tab it passes over is drawn the selected way
+    only where it is covered (`inkedUnder`), the tabs in between included. At rest the
+    selected tab wears its own disc as before.
+- **The pill's state is snapshot state, written in composition.** The first build had plain
+  fields there. The tabs learned of a slide from their recomposition, but nothing invalidated
+  the row's drawing until the effect moved the pill. On the emulator that was four frames of
+  icons inked the bar's colour over a pill not yet drawn. No unit test saw it, because a test
+  steps its frames together with the effect.
+- **#259: a tab making room for the carried one seemed to teleport. Filed, then fixed.**
+  - **What the recording shows.** Frames 342–352: «Сегодня» stood still while the carried
+    «Календарь» slid over it, vanished, and was back a slot away two frames later.
+  - **The cause.** The carried tab is about 53 dp on a 56 dp pitch, drawn above its
+    neighbours on an opaque body. The neighbour's whole slide happened beneath it.
+  - **The fix.** Its body, and the white disc when the selected tab is the one carried, is
+    now glass at `HeldBodyAlpha` 0.6. Filmed on the emulator, «Календарь» is seen passing
+    beneath the carried «Задания».
+- **The bar's springs no longer bounce.** The owner's second recording showed neighbours
+  overshooting their places and coming back as the pill arrived: «Сегодня» went from 215 to
+  342 px and back to 322. `toolbarSpring` was `DampingRatioMediumBouncy` on purpose, to give
+  the selected tab a flourish. It is `DampingRatioNoBouncy` at `StiffnessMediumLow` now. The
+  pill's own spring stops at a thousandth of the way rather than a hundredth, which on a slide
+  two tabs long was a three-pixel snap on its last frame.
+- **#260: a tap two tabs away selected the tab between, for part of the scroll. Filed, then
+  fixed.**
+  - **The cause.** The bar read `pagerState.currentPage`, and `animateScrollToPage` passes
+    through the page between. That was the one flinch left after the bounce went.
+  - **The fix.** The bar reads `targetPage` now, and so does the guide's bar. The pill also
+    sets off on the tap instead of when the page is halfway across.
+  - **The test.** `BarSelectionTest` holds the two facts this rests on: during
+    `animateScrollToPage(2)` the page in front passes through 1, and the target never does.
+- **Two things measured on the way, so nobody re-measures them.**
+  - **The emulator's own frame pacing is the same with or without the pill.** Eight changes
+    of tab gave a 90th-percentile frame of 27–29 ms on this branch and 30 ms on `main`'s build.
+  - **`adb shell screenrecord` on this emulator drops whole runs of frames.** It showed the
+    pill arriving in one step while `dumpsys gfxinfo framestats` had the app drawing a frame
+    every 16.7 ms. The owner's own screen recordings are what show motion here.
+- **#249 may have been this same report.** In #249 the owner's words were «поведение
+  соседних кнопок при анимации выбора». They were read as the selection's fade, and #249
+  fixed a real defect that was visible in that recording. «Всё ещё» now suggests the
+  arranging mode was what was meant then too.
+
+### Gates
+
+On `2388684`: `./gradlew test assembleDebug assembleRelease detekt` pass; `./gradlew test`
+**1628** (`:core:model` 125, `:core:data` 615, `:core:designsystem` 154, `:widget` 126, `:app`
+608), eight more than #257's 1620. Of the seven new toolbar tests, every one was red on
+`main`'s toolbar:
+- the two contrast cases, which fell to 1.14;
+- the two direction cases;
+- the pill passing over the tab between;
+- the glass rule and the bar showing through the carried tab.
+
+The eighth, `BarSelectionTest`, pins the behaviour of Compose's pager rather than the bar.
+
+This machine's RAM showed up again (`EXCEPTION_ACCESS_VIOLATION` in `jvm.dll`):
+- two test JVMs and one Gradle daemon died, and their `hs_err` reports were moved out of the
+  tree;
+- the run after the daemon's death failed once inside R8 with a `NoSuchElementException`, and
+  `assembleRelease` on its own then built clean.
+
+The server was not touched.
+
+### What was deliberately left alone
+
+- **A badge would take the bar's colour under the passing pill,** because the tint is
+  all-or-nothing. No tab carries a badge today.
+- **Two tabs that swap on a line still cross.** The neighbour now passes beneath glass rather
+  than beneath an opaque disc, and over the white disc the carried body is faint. 0.6 was
+  chosen by eye on the emulator.
+
+### What nobody has verified in this batch
+
+- The pill and the glass on a phone.
+- The pill in the dark theme on a device: the two contrast tests cover it, and the emulator
+  was in the light theme.
 ## What the batch before added: a fresh build walked in the light theme and in English, and the three defects it found (#254, #255, #256)
 
 Merged as #257 (`446cc13`, 2 October 2026), from `dev`, on milestone 9. The same session as #241–#252, on the owner's
