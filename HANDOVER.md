@@ -8,21 +8,24 @@ newest first.
 
 Last updated: **3 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
-#263 and #267 are merged**; `main` is at `b327eb0`, the merge of #267, on 3 October 2026, and
-`dev` is level with it. **The only thing open is the pull request carrying this paragraph,
-#274**, from `spec/one-contract`, on milestone 11, `v0.10.0 — One contract: REST v2, Connect
-and native gRPC, build console`. It changes no code: it is that milestone's design, agreed
-with the owner before anything in it is built
-([docs/specs/2026-10-03-one-contract-design.md](docs/specs/2026-10-03-one-contract-design.md)),
-and the five defects the survey behind it found are filed (#268–#272) under the programme's
-epic, #273.
+#263, #267 and #274 are merged**; `main` is at `9d75e68`, the merge of #274, on 3 October
+2026; `dev` is still at `b327eb0`, the merge of #267, because #274 came from a branch of its
+own. **The only thing open is the pull request carrying this paragraph, #277**, from
+`plan/server-decomposition`, on milestone 11, `v0.10.0 — One contract: REST v2, Connect and
+native gRPC, build console`, and it waits on the owner's review of the plan it carries. It
+changes no code: it records what the spike found in the milestone's design
+([docs/specs/2026-10-03-one-contract-design.md](docs/specs/2026-10-03-one-contract-design.md))
+and adds the plan of its first sub-project, the server decomposition
+([docs/specs/2026-10-03-server-decomposition-plan.md](docs/specs/2026-10-03-server-decomposition-plan.md)).
+Writing that plan found that **every Vercel cold start imports aiogram today** (#275).
 
 The section «What the last session added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#267 closed #264, #265 and #266**, read back from GitHub on 3 October. **#274 closes
-nothing**: it fixes none of the defects it filed. **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+**#267 closed #264, #265 and #266**, read back from GitHub on 3 October. **#274 and #277
+close nothing**: neither fixes any of the defects filed on milestone 11 (#268–#272, #275,
+#276), and #273 is that milestone's epic. **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -129,17 +132,80 @@ milestone; and #145–#165 are the defects found on its branch, each filed befor
 #167–#185 are what #186's walk on an emulator found and what the owner asked for that
 night, and #188 what #189 found; all twenty are closed. #190–#211 are the external audit of
 27 September 2026, on milestone 10, and #212 and #213 what merging its fixes found.
-#268–#272 are the defects the survey behind milestone 11 found, and #273 that milestone's
-epic.
+#268–#272 are the defects the survey behind milestone 11 found, #273 that milestone's
+epic, and #275 and #276 what planning its first sub-project found.
 
 Labels are `type:` (feature, bug, chore, research, decision, epic), `area:`, `status:` (now,
 next, someday, done) and `needs:` (device, owner). **A session cannot create a GitHub
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: one proto contract agreed before anything is built, and the survey's defects filed (#268–#273)
+## What the last session added: the spike's answers, and the plan for the server decomposition (#275, #276)
 
-Open as #274, from `spec/one-contract` rather than `dev`, which was carrying #267 while this
+Open as #277, from `plan/server-decomposition`, on milestone 11, waiting on the owner's review
+of the plan. The same session as #274, after the owner approved the design and created the
+milestone: «майлстоун создал, утверждаю».
+
+- **The spike ran and was thrown away.** On the owner's machine and the API 37 emulator, from
+  the local branch `spike/connect-grpc` (never pushed; the worktree is
+  `.claude/worktrees/agent-ab1fed3b13df7822c`). Everything it answered was run: Buf's remote
+  plugins without a login, `connectrpc` mounted inside the real FastAPI app under Uvicorn's
+  HTTP/1.1 with every existing route unchanged and 61 ms more cold import, the
+  `google.api.http` annotation read at runtime by a sixty-line transcoder, native gRPC from the
+  same app under `pyvoy` and `hypercorn`, and `connect-kotlin` 0.9.0 under AGP 9.4.1 and
+  Kotlin 2.4.20 calling all three protocols from the emulator, minified included. The design
+  gains «What the spike found», and every passage that waited on it now says what it decided.
+- **Three things the spike found that the design now answers**: `connectrpc` turns a native
+  gRPC request under HTTP/1.1 and an undecodable body into a `500` with a traceback; the
+  minified app fails at runtime without a keep rule for `GeneratedMessageLite`; and the release
+  APK grows by 611 KB, +13.8 %, most of it `kotlin-reflect` at 2.2.21 against a 2.4.20
+  standard library.
+- **The plan for sub-project 1**, `docs/specs/2026-10-03-server-decomposition-plan.md`:
+  thirteen tasks, guards first — the callback census over all of `app.bot` (#271), a
+  fresh-interpreter cold-start test in both configurations (#272), the path-keyed tests made
+  symbol-keyed, the three pairs of handlers only registration order tells apart pinned — then
+  the moves, each checked by a syntax-tree comparison and a diff of the dispatcher's
+  177-handler order. Drafted by a planning agent and reviewed here; its two placeholder issue
+  numbers were replaced by the real ones.
+- **#275, filed before its fix, which the plan's Task 2 is: every Vercel cold start imports
+  aiogram.** `app/main.py` imports `app.api.telegram` whenever the webhook is enabled, which on
+  Vercel it always is, and that module imports aiogram at its top. Re-measured here before it
+  was filed: 736 aiogram modules and 3.07 s for `import app.main` under Vercel's settings. The
+  comment above the mount says the opposite.
+- **#276, filed, not fixed in this sub-project**: aiogram's `Command` reads `/week@` as the
+  command `week`, and `CommandBreakoutMiddleware` does not, so a form step takes it as its
+  answer. Checked in the venv before it was filed.
+- **On the emulator, the spike's agent made one mistake, which it reported.** It tried to
+  install over the owner's `com.lumenpearson.lessons` (versionCode 32); the install was refused
+  as a downgrade, so nothing changed, but it then launched that app three times and
+  force-stopped it each time. It also restarted `Pixel_10_Pro_XL` with `-memory 3072
+  -no-snapshot` after emulator-5554 had gone, uninstalled its own packages, removed its
+  `adb reverse` rules and shut the emulator down. The design's console now says it never
+  installs over the owner's app.
+
+### Gates
+
+No code changed. The eight server test modules that read the documents pass against this
+branch; the full gates are CI's on #277.
+
+### What was deliberately left alone
+
+- **The plan is not started.** It waits on the owner's review and on the choice of how it is
+  run.
+- **#276 is not in the plan's scope**; the plan keeps the homework ticks' place in the dispatch
+  order because of it, so fixing it later changes nothing the plan moves.
+
+### What nobody has verified in this batch
+
+- The plan as a whole: its commands were checked inline while it was drafted (the census, 30
+  payloads against 27; the walker, 12 functions; the order dump, 177 handlers; the cold-start
+  probe, 736 modules), not run end to end.
+- Vercel's own proxy in front of a deployment, and Buf's rate limits in CI — the spike could not
+  try either.
+
+## What the session before it added: one proto contract agreed before anything is built, and the survey's defects filed (#268–#273)
+
+Merged as #274 (`9d75e68`, 3 October 2026), from `spec/one-contract` rather than `dev`, which was carrying #267 while this
 ran, on milestone 11, `v0.10.0 — One contract: REST v2, Connect and native gRPC, build
 console`, which the owner created for it. A new session, on the owner's request of 3 October
 2026: «необходимо разобраться с god-файлами в проекте … Сделать API RESTFUL, привнести gRPC.
@@ -197,70 +263,6 @@ are CI's on #274, and the counts in section 8 and the README stand as #267 left 
 - Everything in the spec. It is a design: nothing has been run against Vercel, a device or a
   second host, and the spike had not reported when this was written.
 
-## What the session before it added: one bottom bar for the whole shell, morphing between screens (#264, #265, #266)
-
-Merged as #267 (`b327eb0`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#263, on the owner's request of 3
-October 2026: «сделай так, чтобы нижняя таблетка во всём приложении трансформировалась, а не
-имелись каждая на своем экране … как в GMS Flags Reborn при переходах». The owner filmed the
-build twice while it was being made, and the second time said «всё отлично!».
-
-- **#264: the bar is one bar, drawn once above the pages, and it morphs into each page's form.**
-  `HomeShell` used to draw a bar inside each page of its `AnimatedContent`, so at every change
-  of page two bars passed each other.
-  - **In the shell.** The bar is drawn after the pages' `AnimatedContent`, fed the page being
-    travelled to, and measured once. `ShellScaffold` takes that height and no longer has a
-    toolbar slot.
-  - **Faces carry their own data.** `PillFace` is the back button with its title, or a set of
-    tabs. The face on its way out shows what it showed, though the shell hands a settings page
-    no tabs at all.
-  - **Back to back.** The back button is one face whatever its title says; the title crosses
-    over in place and the arrow stays.
-  - **The button beside the pill** (`ActionSlot`) grows in, shrinks out and changes its icon.
-    It no longer switches between Material's two toolbar overloads, which used to throw the bar
-    away and build another, as it did on a reader's settings with no debug page.
-  - **Direction.** `LessonsFloatingToolbar` takes a `depth`, and a deeper page's form arrives
-    from the right.
-- **#265: the pill came back from settings as a tall oval. Filed, then fixed.** With no
-  Material button slot anywhere any more, every pill went through Material's toolbar without a
-  slot. That toolbar pads its content by the interactive alignment lines inside it, and the
-  back button sliding out of a morph turned its line into 126 px of height that stayed. The
-  pill is a container of the bar's own now (`PillContainer`), with Material's shape, colour,
-  height and shadow.
-- **#266: confirming a new order of tabs replayed the row. Filed, then fixed.** The tabs face
-  was keyed by its labels in order, so the confirmed order was a new face and the old row faded
-  out over the new one. It is keyed by the set now.
-- **On the API 37 emulator, in landscape:**
-  - the tabs morph into «← Сегодня» and back at their own height;
-  - a carried tab passes over its neighbour and the order is confirmed without a second
-    movement.
-
-### Gates
-
-On `045d558`, `./gradlew test assembleDebug assembleRelease detekt` passes. `./gradlew test`
-runs **1635** tests (`:core:model` 125, `:core:data` 615, `:core:designsystem` 161, `:widget` 126, `:app` 608), 6 more than #263's 1629. All the new tests are in `ToolbarMorphTest`, and five of its six were red
-on `main`'s toolbar:
-- the tabs staying on the pill while it becomes a back button;
-- one title giving way to the next;
-- the button growing in;
-- the pill's height after coming back;
-- a reordered row drawn once.
-
-The sixth asks that, with animations off, everything happens at once. The server was not
-touched.
-
-### What was deliberately left alone
-
-- **The shell's pages still slide the way they did.** Only the bar stopped travelling with
-  them.
-- **Material's toolbar a11y actions are gone with its container.** These were expand and
-  collapse, which this bar never offered: its `expanded` is always on in the shell.
-
-### What nobody has verified in this batch
-
-- The morph on a phone.
-- The morph in portrait on the emulator since the last build; the owner's two recordings and
-  this session's were in landscape.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -282,7 +284,7 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PR #274; issues #268–#273 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277; issues #268–#273, #275, #276 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
 #140 left alone on purpose, which belong to whichever version takes them up.

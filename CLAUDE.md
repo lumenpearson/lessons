@@ -24,7 +24,8 @@ api/         thin Vercel entry point that re-exports server/app/main.py
 docs/        ten documents plus an index (docs/README.md), all English; nine are current,
              and history.md is the record of every batch HANDOVER.md has handed on;
              docs/diaries/ holds the per-platform reference pages of diaries.md;
-             docs/specs/ holds designs agreed with the owner before they are built;
+             docs/specs/ holds designs agreed with the owner before they are built,
+             and each sub-project's implementation plan beside its design;
              docs/app/ (the in-app guide) and docs/legal/ (the terms and the privacy
              policy) are product text the APK bundles, Russian source and English twin
 ```
