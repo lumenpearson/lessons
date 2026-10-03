@@ -28,6 +28,65 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: a tab's icon that no longer jumps after its label has closed (#262)
+
+Merged as #263 (`059da7d`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#261, on the owner's
+report the morning after #261 merged: «проблема всё равно осталась, это будто бы из-за
+исчезающих лейблов у кнопок … запоздало исчезают и без анимаций, оставляя после себя место
+рядом с иконкой». It came with a recording from the device, and the recording showed what a
+frame-by-frame render did.
+
+- **#262: the icon jumped 4 dp, in one frame, a moment after its label had closed. Filed,
+  then fixed.**
+  - **The slack.** A tab's icon slot is 48 dp round a 24 dp icon, so it has 8 dp to spare,
+    and an open label takes that as its gap.
+  - **The cause.** The label's box took "whatever the row has left", so however shut the
+    label was, it filled that slack. The icon sat off-centre beside an empty space until the
+    spring reached zero. Then the label left the composition and the icon jumped to the
+    centre.
+  - **Why it showed only now.** #261's spring without a bounce made the jump come last,
+    about a quarter of a second after everything else had stopped. The old bounce had crossed
+    zero mid-motion and hidden it.
+  - **The fix.** The gap and the label have explicit widths now, both following the spring:
+    `LabelGap` times how far the label is open, and `labelWidth`. The icon glides to the
+    centre as the label closes.
+  - **The test.** A new case in `ToolbarLabelRevealTest` follows the leaving tab frame by
+    frame and refuses any frame in which its icon moves while the tab holds still. It was red
+    on `main`: «frame 35: icon moved 4.0 px in a tab that moved 0.0 px».
+- **How it was seen.** `adb screenrecord` drops runs of frames on this emulator (#261). So
+  the bar was rendered in Robolectric with native graphics, one PNG per frame, from a
+  throwaway test that is not in the tree: Homework, Calendar, Today, from the third tab to
+  the first, at xxhdpi. The owner's own recording from the device then showed the same jump
+  at the same point.
+
+### Gates
+
+On `2a575d4`, `./gradlew test assembleDebug assembleRelease detekt` passes. `./gradlew test`
+runs **1629** tests (`:core:model` 125, `:core:data` 615, `:core:designsystem` 155, `:widget`
+126, `:app` 608), one more than #261's 1628.
+
+This machine's RAM showed up again, so the gates had to be taken in parts:
+- **Two orphaned test workers.** Workers left behind by the daemon that died overnight still
+  held `:core:designsystem`'s `classes.jar`; they were stopped.
+- **The whole-gate run failed twice.** A test JVM died with `EXCEPTION_ACCESS_VIOLATION`,
+  and R8 failed inside itself with a `ClassCastException`. Last time it was a
+  `NoSuchElementException`, so R8 has failed a different way each time.
+- **On a fresh daemon, each part passed.** That was `:core:designsystem`'s tests, then
+  `assembleRelease`, then `assembleDebug` with `detekt`. The other four modules had passed
+  in the whole run.
+
+The server was not touched.
+
+### What was deliberately left alone
+
+- The label still fades by its width, so its last few pixels of room close after its text
+  is all but gone; the icon now moves with them rather than after them.
+
+### What nobody has verified in this batch
+
+- The fix on a phone. The emulator has the build, and the owner's eye is the check that
+  remains.
+
 ## What the batch before added: the selection slides as one pill, a carried tab is glass, and the bar no longer flinches (#258, #259, #260)
 
 Merged as #261 (`1ec2ada`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#257, on four more reports

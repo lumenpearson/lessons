@@ -24,6 +24,7 @@ api/         thin Vercel entry point that re-exports server/app/main.py
 docs/        ten documents plus an index (docs/README.md), all English; nine are current,
              and history.md is the record of every batch HANDOVER.md has handed on;
              docs/diaries/ holds the per-platform reference pages of diaries.md;
+             docs/specs/ holds designs agreed with the owner before they are built;
              docs/app/ (the in-app guide) and docs/legal/ (the terms and the privacy
              policy) are product text the APK bundles, Russian source and English twin
 ```
@@ -263,16 +264,18 @@ points Hilt does not inject cleanly.
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
 - **Every pull request carries a milestone**, set when it is opened. Nothing in a session
-  here can create a milestone or even list one — when none of the ten fits, ask the owner
+  here can create a milestone or even list one — when none of the eleven fits, ask the owner
   to create it and hand over the title and description already written, rather than
   inventing a version or leaving the pull request bare. The `github-pr` skill has the
-  numbers, the one tool that sets them, and the two ways this was got wrong first. **Two
+  numbers, the one tool that sets them, and the two ways this was got wrong first. **Three
   version milestones are open:** the ninth, `v0.8.0 — On-device checks, 89-region e-diary
   survey`, holds #109–#117 and what #186's walk on an emulator found, the first work that
   needs an emulator or a phone; the tenth, `v0.9.0 — NetSchool e-diary, onboarding via the
   school's diary`, holds PR #140 and its issues, and the external audit of 27 September
-  (#190–#213). All ten were renamed on 25 September 2026, so a title quoted from before then
-  finds nothing when searched.
+  (#190–#213); the eleventh, `v0.10.0 — One contract: REST v2, Connect and native gRPC,
+  build console`, holds the programme of `docs/specs/2026-10-03-one-contract-design.md`
+  (epic #273). The first ten were renamed on 25 September 2026, so a title quoted from
+  before then finds nothing when searched.
 - **A defect that is found gets an issue, always, and before it gets a fix.** The rule is
   new and it is not optional: the moment an audit, a review, a CI failure or a reader finds
   something wrong, it becomes an issue of its own — title saying what is broken rather than
