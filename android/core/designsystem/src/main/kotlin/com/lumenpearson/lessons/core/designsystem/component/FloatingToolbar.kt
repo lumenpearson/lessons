@@ -1060,13 +1060,22 @@ private fun ToolbarTab(
             // closing round the room it had left. It fades with that room now
             // (#247).
             if (labelWidth > 0.dp) {
-                Spacer(Modifier.width(minOf(LabelGap, labelWidth)))
+                // Both widths spelled out, and both following the spring. The
+                // icon's slot has [LabelGap] to spare round the icon, which an
+                // open label takes as its gap. While the label's box took
+                // "whatever is left", it took that slack however shut the label
+                // was: the icon sat 4 dp off-centre beside an empty space until
+                // the spring reached zero, and then jumped to the centre in one
+                // frame, after everything else had stopped (#262). Now the row
+                // holds the icon alone when the label is shut, the whole label
+                // when it is open, and every step between.
+                val open = (labelWidth / labelFits.coerceAtLeast(1.dp)).coerceIn(0f, 1f)
+                Spacer(Modifier.width(LabelGap * open))
                 Box(
                     modifier = Modifier
+                        .width(labelWidth)
                         .clipToBounds()
-                        .graphicsLayer {
-                            alpha = (labelWidth / labelFits.coerceAtLeast(1.dp)).coerceIn(0f, 1f)
-                        }
+                        .graphicsLayer { alpha = open }
                         // A label on its way out is not a second name for a tab
                         // that is no longer the selected one.
                         .then(if (selected) Modifier else Modifier.clearAndSetSemantics {}),
