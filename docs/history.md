@@ -28,6 +28,82 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: a fresh build walked in the light theme and in English, and the three defects it found (#254, #255, #256)
+
+Merged as #257 (`446cc13`, 2 October 2026), from `dev`, on milestone 9. The same session as #241–#252, on the owner's
+«собери новую сборку и тестируй уже ее». It built `main` at `2caf480` and installed the build
+on an API 37 emulator whose data had been wiped. It went through onboarding in English, in the
+light theme, and walked what the last batches had left unverified.
+
+- **Seen, with nothing to change:**
+  - **#251's split lines, in English and with the correction mode on.** At a font scale of
+    1.6, «Homework for» held still while «Monday, 5 October» scrolled. One outline went
+    round the whole line. A long press on the date opened `today_homework_for` whole, and a
+    correction to «Homework set for %1$s» moved the held words with it.
+  - **#243's settings trail across a rotation and a killed process,** on a build of the
+    same code just before. «Разрешения» came back with «← Уведомления», and back went one
+    screen at a time.
+  - **#237's reveal.** Seven taps on the version raised the toast and put «For developers»
+    in the settings. Its signed-out page says, in a build with no GitHub client id, that
+    this build cannot sign in.
+- **#254: the light theme's discs passed through grey. Filed, then fixed.**
+  - The fade #249 gave a tab's disc ran between `scheme.background` and `Color.Transparent`,
+    which is black at zero alpha. A colour animation moves lightness and alpha apart, so
+    halfway was a half-transparent grey.
+  - In the light theme that showed as a grey pill under the leaving label and a dark disc
+    under the arriving one. #249 was filmed in the dark theme, whose background is nearly
+    black, so it did not show there.
+  - The unselected disc is now the background at zero alpha, so only the alpha moves. At
+    rest it is as invisible as before, so #226's carried tab still takes no bite out of the
+    white disc.
+- **#255: two English strings of the developer mode quoted Russian names in guillemets.
+  Filed, then fixed.** One sent an English reader to «О приложении», a section the English
+  interface calls “About”. `ResourceTranslationTest` now refuses a guillemet in any English
+  string. The Russian names the English quotes on purpose, such as the bot's buttons,
+  already use “ ”.
+- **#256: the developer page's explanations were one-line titles. Filed, then fixed.**
+  - Signed out, the page's first row was the whole rule of who may open the mode, sliding
+    past and cut at both ends. Hidden, its only row was the sentence saying how to bring it
+    back.
+  - Each is now a short title with the sentence in the subtitle, which wraps.
+  - The new `RowTitleSentenceTest` reads which string each group row is titled with and
+    refuses one whose Russian ends a sentence. Of 118 rows, it found these two and nothing
+    else.
+
+### Gates
+
+On `d6c49a1`, `./gradlew test assembleDebug assembleRelease detekt` passes. `./gradlew test`
+runs **1620** tests (`:core:model` 125, `:core:data` 615, `:core:designsystem` 147, `:widget`
+126, `:app` 607), four more than #252's 1616.
+
+Each new test was red first:
+- `ToolbarDiscFadeTest`'s light-theme case found discs up to 34 steps of 255 off the line from
+  the bar to white, on frames 4 to 11 after the tap.
+- `ResourceTranslationTest` named the two strings.
+- `RowTitleSentenceTest` named the two rows.
+
+The fixed build was filmed on the emulator in the light theme. The discs now fade through a
+lighter blue, which is white over the bar, and through nothing else. The server was not
+touched.
+
+### What was deliberately left alone
+
+- **Tab labels are dropped above a font scale of 1.25** (`LabelFontScaleLimit`), so at 1.6
+  the bar showed icons only. That is the design, not a defect.
+- **`developer_access_failed` puts GitHub's reason for a failed check into a row's title,**
+  where a long reason scrolls the same way. It is data, the reason GitHub gave, and only an
+  account that has signed in reaches that row — which no build here can.
+- **The about card read «Server: database and code disagree» against the local server.**
+  That is the demo database, made by `create_all` with no `alembic_version`. Production
+  answers `0017`.
+- **The stray `C:\Program Files\Git\tmp_ml.kt` is gone.** #251's section had left it to the
+  owner.
+
+### What nobody has verified in this batch
+
+- The fades and the developer page on a phone.
+- The developer page past sign-in, which needs an APK with `LESSONS_GITHUB_CLIENT_ID`.
+
 ## What the batch before added: a header's words held still while only its data scrolls (#251)
 
 Merged as #252 (`2caf480`, 2 October 2026), from `dev`, on milestone 9. The same session as #241–#250, on the owner's next

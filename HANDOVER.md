@@ -6,23 +6,20 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **2 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
-#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252 and #257
-are merged**; `main` is at `446cc13`, the merge of #257, on 2 October 2026, and `dev` was
+Last updated: **3 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
+#166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257 and
+#261 are merged**; `main` is at `1ec2ada`, the merge of #261, on 3 October 2026, and `dev` was
 restarted from it for this batch. **The only thing open is the pull request carrying this
-paragraph, #261**, from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary
-survey`. It reworks how the bottom bar moves, on the owner's reports and recordings that
-night:
-- a change of tab no longer cross-fades the two inverted tabs (#258);
-- a tab making room in the arranging mode no longer slides out of sight (#259);
-- a tap two tabs away no longer selects the tab between (#260).
+paragraph, #263**, from `dev`, on milestone 9, `v0.8.0 — On-device checks, 89-region e-diary
+survey`. A tab losing the selection no longer leaves its icon off-centre beside an empty
+space and then jumps it into place; the icon glides with the closing label (#262).
 
 The section «What the last session added» below is that batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#257 closed #254, #255 and #256**, read back from GitHub on 2 October. **#261 closes #258,
-#259 and #260.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+**#261 closed #258, #259 and #260**, read back from GitHub on 3 October. **#263 closes
+#262.** **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -135,9 +132,68 @@ next, someday, done) and `needs:` (device, owner). **A session cannot create a G
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: the selection slides as one pill, a carried tab is glass, and the bar no longer flinches (#258, #259, #260)
+## What the last session added: a tab's icon that no longer jumps after its label has closed (#262)
 
-Open as #261, from `dev`, on milestone 9. The same session as #241–#257, on four more reports
+Open as #263, from `dev`, on milestone 9. The same session as #241–#261, on the owner's
+report the morning after #261 merged: «проблема всё равно осталась, это будто бы из-за
+исчезающих лейблов у кнопок … запоздало исчезают и без анимаций, оставляя после себя место
+рядом с иконкой». It came with a recording from the device, and the recording showed what a
+frame-by-frame render did.
+
+- **#262: the icon jumped 4 dp, in one frame, a moment after its label had closed. Filed,
+  then fixed.**
+  - **The slack.** A tab's icon slot is 48 dp round a 24 dp icon, so it has 8 dp to spare,
+    and an open label takes that as its gap.
+  - **The cause.** The label's box took "whatever the row has left", so however shut the
+    label was, it filled that slack. The icon sat off-centre beside an empty space until the
+    spring reached zero. Then the label left the composition and the icon jumped to the
+    centre.
+  - **Why it showed only now.** #261's spring without a bounce made the jump come last,
+    about a quarter of a second after everything else had stopped. The old bounce had crossed
+    zero mid-motion and hidden it.
+  - **The fix.** The gap and the label have explicit widths now, both following the spring:
+    `LabelGap` times how far the label is open, and `labelWidth`. The icon glides to the
+    centre as the label closes.
+  - **The test.** A new case in `ToolbarLabelRevealTest` follows the leaving tab frame by
+    frame and refuses any frame in which its icon moves while the tab holds still. It was red
+    on `main`: «frame 35: icon moved 4.0 px in a tab that moved 0.0 px».
+- **How it was seen.** `adb screenrecord` drops runs of frames on this emulator (#261). So
+  the bar was rendered in Robolectric with native graphics, one PNG per frame, from a
+  throwaway test that is not in the tree: Homework, Calendar, Today, from the third tab to
+  the first, at xxhdpi. The owner's own recording from the device then showed the same jump
+  at the same point.
+
+### Gates
+
+On `2a575d4`, `./gradlew test assembleDebug assembleRelease detekt` passes. `./gradlew test`
+runs **1629** tests (`:core:model` 125, `:core:data` 615, `:core:designsystem` 155, `:widget`
+126, `:app` 608), one more than #261's 1628.
+
+This machine's RAM showed up again, so the gates had to be taken in parts:
+- **Two orphaned test workers.** Workers left behind by the daemon that died overnight still
+  held `:core:designsystem`'s `classes.jar`; they were stopped.
+- **The whole-gate run failed twice.** A test JVM died with `EXCEPTION_ACCESS_VIOLATION`,
+  and R8 failed inside itself with a `ClassCastException`. Last time it was a
+  `NoSuchElementException`, so R8 has failed a different way each time.
+- **On a fresh daemon, each part passed.** That was `:core:designsystem`'s tests, then
+  `assembleRelease`, then `assembleDebug` with `detekt`. The other four modules had passed
+  in the whole run.
+
+The server was not touched.
+
+### What was deliberately left alone
+
+- The label still fades by its width, so its last few pixels of room close after its text
+  is all but gone; the icon now moves with them rather than after them.
+
+### What nobody has verified in this batch
+
+- The fix on a phone. The emulator has the build, and the owner's eye is the check that
+  remains.
+
+## What the session before it added: the selection slides as one pill, a carried tab is glass, and the bar no longer flinches (#258, #259, #260)
+
+Merged as #261 (`1ec2ada`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#257, on four more reports
 from the owner on the night of 2–3 October 2026:
 1. The first asked to take on the pale icon that #249 had left alone: «значок уходящей
    вкладки бледнеет … сделано? если нет, то займись этим».
@@ -233,82 +289,6 @@ The server was not touched.
 - The pill and the glass on a phone.
 - The pill in the dark theme on a device: the two contrast tests cover it, and the emulator
   was in the light theme.
-## What the session before it added: a fresh build walked in the light theme and in English, and the three defects it found (#254, #255, #256)
-
-Merged as #257 (`446cc13`, 2 October 2026), from `dev`, on milestone 9. The same session as #241–#252, on the owner's
-«собери новую сборку и тестируй уже ее». It built `main` at `2caf480` and installed the build
-on an API 37 emulator whose data had been wiped. It went through onboarding in English, in the
-light theme, and walked what the last batches had left unverified.
-
-- **Seen, with nothing to change:**
-  - **#251's split lines, in English and with the correction mode on.** At a font scale of
-    1.6, «Homework for» held still while «Monday, 5 October» scrolled. One outline went
-    round the whole line. A long press on the date opened `today_homework_for` whole, and a
-    correction to «Homework set for %1$s» moved the held words with it.
-  - **#243's settings trail across a rotation and a killed process,** on a build of the
-    same code just before. «Разрешения» came back with «← Уведомления», and back went one
-    screen at a time.
-  - **#237's reveal.** Seven taps on the version raised the toast and put «For developers»
-    in the settings. Its signed-out page says, in a build with no GitHub client id, that
-    this build cannot sign in.
-- **#254: the light theme's discs passed through grey. Filed, then fixed.**
-  - The fade #249 gave a tab's disc ran between `scheme.background` and `Color.Transparent`,
-    which is black at zero alpha. A colour animation moves lightness and alpha apart, so
-    halfway was a half-transparent grey.
-  - In the light theme that showed as a grey pill under the leaving label and a dark disc
-    under the arriving one. #249 was filmed in the dark theme, whose background is nearly
-    black, so it did not show there.
-  - The unselected disc is now the background at zero alpha, so only the alpha moves. At
-    rest it is as invisible as before, so #226's carried tab still takes no bite out of the
-    white disc.
-- **#255: two English strings of the developer mode quoted Russian names in guillemets.
-  Filed, then fixed.** One sent an English reader to «О приложении», a section the English
-  interface calls “About”. `ResourceTranslationTest` now refuses a guillemet in any English
-  string. The Russian names the English quotes on purpose, such as the bot's buttons,
-  already use “ ”.
-- **#256: the developer page's explanations were one-line titles. Filed, then fixed.**
-  - Signed out, the page's first row was the whole rule of who may open the mode, sliding
-    past and cut at both ends. Hidden, its only row was the sentence saying how to bring it
-    back.
-  - Each is now a short title with the sentence in the subtitle, which wraps.
-  - The new `RowTitleSentenceTest` reads which string each group row is titled with and
-    refuses one whose Russian ends a sentence. Of 118 rows, it found these two and nothing
-    else.
-
-### Gates
-
-On `d6c49a1`, `./gradlew test assembleDebug assembleRelease detekt` passes. `./gradlew test`
-runs **1620** tests (`:core:model` 125, `:core:data` 615, `:core:designsystem` 147, `:widget`
-126, `:app` 607), four more than #252's 1616.
-
-Each new test was red first:
-- `ToolbarDiscFadeTest`'s light-theme case found discs up to 34 steps of 255 off the line from
-  the bar to white, on frames 4 to 11 after the tap.
-- `ResourceTranslationTest` named the two strings.
-- `RowTitleSentenceTest` named the two rows.
-
-The fixed build was filmed on the emulator in the light theme. The discs now fade through a
-lighter blue, which is white over the bar, and through nothing else. The server was not
-touched.
-
-### What was deliberately left alone
-
-- **Tab labels are dropped above a font scale of 1.25** (`LabelFontScaleLimit`), so at 1.6
-  the bar showed icons only. That is the design, not a defect.
-- **`developer_access_failed` puts GitHub's reason for a failed check into a row's title,**
-  where a long reason scrolls the same way. It is data, the reason GitHub gave, and only an
-  account that has signed in reaches that row — which no build here can.
-- **The about card read «Server: database and code disagree» against the local server.**
-  That is the demo database, made by `create_all` with no `alembic_version`. Production
-  answers `0017`.
-- **The stray `C:\Program Files\Git\tmp_ml.kt` is gone.** #251's section had left it to the
-  owner.
-
-### What nobody has verified in this batch
-
-- The fades and the developer page on a phone.
-- The developer page past sign-in, which needs an APK with `LESSONS_GITHUB_CLIENT_ID`.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -328,7 +308,7 @@ maps them. The
 | 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#260 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#262 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
@@ -1333,7 +1313,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 153 modules
-cd android && ./gradlew test                             # 1628 tests across the five modules
+cd android && ./gradlew test                             # 1629 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
