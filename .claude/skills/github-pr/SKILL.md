@@ -131,8 +131,8 @@ Three mechanics, each of which costs a wasted call to rediscover:
   when `parent_issue_number` is passed: that path validates them first and fails with
   `failed to resolve label`. Create the issue plainly and link it afterwards.
 - **The Project board is out of reach from a remote session.** Projects v2 is GraphQL-only
-  and those sessions are REST. Label it correctly and the board's auto-add workflow takes
-  it; never report an issue as added to a project. **From a local session it is part of
+  and those sessions are REST. The board's auto-add workflow usually takes it; never report
+  an issue as added to a project. **From a local session it is part of
   filing the issue** — see «The board» below.
 
 **The tie to the pull request goes in the pull request body:** `Closes #NN`, on its own
@@ -166,9 +166,12 @@ A remote session cannot touch it. A local session can, through `gh` signed in wi
 `project` scope, and there putting an item on the board and filling its fields is part of
 filing it, because nothing else does:
 
-- **«Auto-add to project» takes only an item that is open when it runs.** An issue born open
-  arrives on its own. One back-filled closed — created and closed in one step — does not:
-  on 3 October it missed nine of eighteen that way. Add it by hand:
+- **«Auto-add to project» filters on `is:issue,pr`, and is not trusted alone.** Until 4
+  October its filter was `is:issue,pr is:open`, so an issue back-filled closed — created and
+  closed in one step — never arrived: on 3 October it missed nine of eighteen that way. It
+  was changed to `is:issue,pr` on 4 October, in GitHub's interface (Projects → Workflows),
+  because no API edits a workflow. It also missed #294, which was open, for a reason nobody
+  has found. So read the board back after filing, and add what is missing by hand:
   `gh project item-add 6 --owner lumenpearson --url <the issue's URL> --format json --jq .id`.
 - **No rule sets Priority, Size, Estimate or the dates.** `gh project field-list 6 --owner
   lumenpearson --format json` gives the field ids and the options' ids, and `gh project

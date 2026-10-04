@@ -307,10 +307,11 @@ points Hilt does not inject cleanly.
     toolset is REST — so there a session controls the labels and never reports an issue as
     «added to the project» on the strength of having labelled it. A local session has `gh`
     with the `project` scope, and there putting the item on the board and setting its
-    Priority, Size, Estimate and dates is part of filing it: no rule on the board sets those,
-    and its «Auto-add to project» takes only an item still open when it runs, so an issue
-    back-filled closed never arrives by itself. The rule for every field is the project's
-    README; the `github-pr` skill, «The board», has the commands.
+    Priority, Size, Estimate and dates is part of filing it: no rule on the board sets those.
+    Its «Auto-add to project» has filtered on `is:issue,pr`, closed items included, since 4
+    October, but it once missed an open pull request (#294), so read the board back after
+    filing. The rule for every field is the project's README; the `github-pr` skill, «The
+    board», has the commands.
 - **There are issues now, and until #85 there were none.** Forty-two were opened in one go
   to give the history and the backlog a shape the milestones alone could not: twenty-three
   closed, describing what was built and what each bug sweep found, and nineteen open, which

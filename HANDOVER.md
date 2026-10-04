@@ -160,6 +160,10 @@ October opened it on 4 October and held it for #277. A session on the owner's ma
   putting an item on the board and setting its Priority, Size, Estimate and dates is part of
   filing it, because no rule on the board does. The skill's new section «The board» has the
   commands and points at the project's README for the rule each field follows.
+- **«Auto-add to project» filters on `is:issue,pr` now**, not `is:issue,pr is:open`, so an
+  issue back-filled closed in one step arrives by itself. Changed on 4 October in GitHub's
+  interface, from the owner's machine with the owner signed in, and read back after a
+  reload; the documents say so.
 - **#277's Target date is set**: 4 October, its merge, by the README's rule. It was the one
   field #277 lacked; *Done* the board set by itself.
 - **This file's milestone table** gains rows 12 and 13, and loses the sentence that #142–#144
@@ -174,8 +178,6 @@ this branch (#295), so that local run is the only check of them.
 
 ### What was deliberately left alone
 
-- **The board's «Auto-add to project» rule is unchanged.** Its filter can be read and edited
-  only in GitHub's interface (Projects → Workflows), which no session here has reached.
 - **The board is not level with the repository.** #294 is not on it; #296 has no Priority,
   Size, Estimate or dates; #271, #272 and #275 have no Target date, and their Estimates were
   set before the commits that closed them existed. By the README's rule they would be: #296
@@ -186,8 +188,9 @@ this branch (#295), so that local run is the only check of them.
 
 ### What nobody has verified in this batch
 
-- **Why «Auto-add to project» missed #294.** #294 was open when it was created, which the
-  skill says is enough, so the filter excludes something else; nobody has read it.
+- **Why «Auto-add to project» missed #294.** #294 was open when it was created and matched
+  the old filter as well as the new one. Nor has anybody yet seen the new filter take a
+  closed back-fill.
 - **`gh project item-add` as the skill writes it.** `gh project item-edit … --date` was run as
   written, for #277's Target date, and read back.
 
