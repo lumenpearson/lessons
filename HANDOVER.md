@@ -166,6 +166,13 @@ October opened it on 4 October and held it for #277. A session on the owner's ma
   reload; the documents say so.
 - **#277's Target date is set**: 4 October, its merge, by the README's rule. It was the one
   field #277 lacked; *Done* the board set by itself.
+- **The board is level with the repository again**, 296 items, filled by the README's rule on
+  the owner's word: #296 P1, XL, 34 (10 347 lines changed), 4 October to 4 October; #271,
+  #272 and #275 a Target date of 4 October and 2 points each, Size S, re-measured from the
+  commits that name them (94 lines for #271; 134 split between #272 and #275), where their
+  Estimates had been set before those commits existed. #294's own item, which auto-add had
+  made but neither the board's views nor its item list showed, was deleted and added again:
+  *In progress*, P2, M, 5, from 4 October.
 - **This file's milestone table** gains rows 12 and 13, and loses the sentence that #142–#144
   are on no milestone: #142 and #144 are in the twelfth, #143 in the thirteenth.
 
@@ -178,23 +185,16 @@ this branch (#295), so that local run is the only check of them.
 
 ### What was deliberately left alone
 
-- **The board is not level with the repository.** #294's item exists — auto-add made it two
-  seconds after the pull request, and its fields are set — but neither the board's views nor
-  its item list show it; #296 has no Priority,
-  Size, Estimate or dates; #271, #272 and #275 have no Target date, and their Estimates were
-  set before the commits that closed them existed. By the README's rule they would be: #296
-  P1, XL, 34 (10 347 lines changed), 4 October to 4 October; #271, #272 and #275 a Target date
-  of 4 October and 2 points each, Size S (94 lines for #271; 134 split between #272 and #275).
-  Filling them waits on the owner's word.
 - **#295 is filed and not fixed.**
 
 ### What nobody has verified in this batch
 
-- **Why #294's item does not show on the board.** It reads back through the pull request's
-  `projectItems`, on project 6 and not archived, and the project's own item list, 295 items,
-  leaves it out. Nor has anybody yet seen the new filter take a closed back-fill.
-- **`gh project item-add` as the skill writes it.** `gh project item-edit … --date` was run as
-  written, for #277's Target date, and read back.
+- **Why #294's first item did not show on the board.** It read back through the pull
+  request's `projectItems`, on project 6 and not archived, while the project's own item list,
+  295 items, left it out; the item added in its place shows. Nor has anybody yet seen the new
+  filter take a closed back-fill.
+- **Nothing about the skill's `gh project` commands**: `item-add`, `item-edit` and
+  `item-delete` were each run as written on 4 October, and every value read back.
 
 ## What the session before it added: the bot's long modules split into feature modules, and the cold start that imported aiogram (#271, #272, #275)
 

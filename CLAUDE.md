@@ -309,8 +309,8 @@ points Hilt does not inject cleanly.
     with the `project` scope, and there putting the item on the board and setting its
     Priority, Size, Estimate and dates is part of filing it: no rule on the board sets those.
     Its «Auto-add to project» has filtered on `is:issue,pr`, closed items included, since 4
-    October, but #294's item, which it did add, shows in neither the board's views nor its
-    item list, so read the board back after filing. The rule for every field is the project's README; the `github-pr` skill, «The
+    October, but #294's item, which it did add, showed in neither the board's views nor its
+    item list until it was deleted and added again, so read the board back after filing. The rule for every field is the project's README; the `github-pr` skill, «The
     board», has the commands.
 - **There are issues now, and until #85 there were none.** Forty-two were opened in one go
   to give the history and the backlog a shape the milestones alone could not: twenty-three

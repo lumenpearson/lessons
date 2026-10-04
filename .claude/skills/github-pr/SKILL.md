@@ -171,9 +171,10 @@ filing it, because nothing else does:
   closed in one step — never arrived: on 3 October it missed nine of eighteen that way. It
   was changed to `is:issue,pr` on 4 October, in GitHub's interface (Projects → Workflows),
   because no API edits a workflow. And an item it adds can go missing from the board: #294's,
-  made two seconds after the pull request was opened and with its fields set, reads back
-  through the pull request's `projectItems` and shows in neither the board's views nor
-  `gh project item-list`. So read the board back after filing, and add what is missing by hand:
+  made two seconds after the pull request was opened and with its fields set, read back
+  through the pull request's `projectItems` but showed in neither the board's views nor
+  `gh project item-list`, until it was deleted (`gh project item-delete`) and added again.
+  So read the board back after filing, and add what is missing by hand:
   `gh project item-add 6 --owner lumenpearson --url <the issue's URL> --format json --jq .id`.
 - **No rule sets Priority, Size, Estimate or the dates.** `gh project field-list 6 --owner
   lumenpearson --format json` gives the field ids and the options' ids, and `gh project
