@@ -652,6 +652,10 @@ points Hilt does not inject cleanly.
   created a phone invite and said so in a sentence about the number. Split a shared
   payload on a field, never on registration order;
   `test_the_two_role_pickers_never_match_the_same_press` holds it.
+  The pairs that predate the rule — `/start link_…` and `/start`, a shared
+  contact and the create-a-class wizard's text steps, the two `TimezonePick`
+  handlers — are held in their order by `test_bot_commands.py`, so a router
+  split cannot reorder them quietly.
 - **`ResourceTranslationTest` covers every module that ships strings**, not just
   `:app` — `:core:data`, `:core:designsystem` and `:widget` have their own
   `values/` and went unguarded for a long time, which is how the countdown on the
