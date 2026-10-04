@@ -30,16 +30,14 @@ from app.bot import states
 from app.bot.bot import COMMANDS, build_dispatcher
 from app.bot.content_keyboard import HomeworkTick
 from app.bot.handlers.manage import NEED_ADMIN
-from app.bot.handlers.start import (
-    change_timezone_apply,
-    cmd_start,
-    cmd_start_link,
+from app.bot.handlers.start.menu import cmd_start, cmd_start_link, on_contact
+from app.bot.handlers.start.onboarding import (
     create_class_letter,
     create_class_school_search,
     create_class_school_typed,
     create_class_timezone,
-    on_contact,
 )
+from app.bot.handlers.start.timezone import change_timezone_apply
 from app.bot.handlers.unknown import STALE_CARD, UNKNOWN_COMMAND
 from app.bot.manage_keyboards import BellsAction
 from app.bot.manage_states import EditSubject

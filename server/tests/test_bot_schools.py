@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.bot.handlers import start as handlers
+from app.bot.handlers.start import onboarding as handlers
 from app.bot.states import CreateClass
 from app.config import get_settings
 from app.providers.dadata.exceptions import UpstreamUnavailable

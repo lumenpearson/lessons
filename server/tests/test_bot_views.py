@@ -14,7 +14,6 @@ import pytest
 from sqlalchemy import select
 
 from app.bot.access_render import render_access_list
-from app.bot.handlers import start as start_handlers
 from app.bot.handlers import week as week_handlers
 from app.bot.handlers.content.homework import (
     cmd_homework,
@@ -31,13 +30,10 @@ from app.bot.handlers.reminders import (
     reminder_time_prompt,
     reminder_toggle,
 )
-from app.bot.handlers.start import (
-    cmd_help,
-    cmd_start_link,
-    cmd_today,
-    cmd_tomorrow,
-    on_contact,
-)
+from app.bot.handlers.start import days as start_handlers
+from app.bot.handlers.start.days import cmd_today, cmd_tomorrow
+from app.bot.handlers.start.help_page import cmd_help
+from app.bot.handlers.start.menu import cmd_start_link, on_contact
 from app.bot.handlers.tasks import (
     cmd_task,
     cmd_tasks,

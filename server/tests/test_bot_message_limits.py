@@ -42,7 +42,7 @@ from app.bot.handlers.access import JOIN_MODE_TEXT, access_root
 from app.bot.handlers.content.events import event_title
 from app.bot.handlers.content.overrides import override_subject
 from app.bot.handlers.manage import bells_new_rows, cmd_export
-from app.bot.handlers.start import create_class_school_search
+from app.bot.handlers.start.onboarding import create_class_school_search
 from app.bot.handlers.timetable import TIMETABLE_HELP, timetable_pick_day
 from app.bot.keyboards import TimetableAction
 from app.models import (

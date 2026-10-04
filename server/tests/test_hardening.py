@@ -553,7 +553,7 @@ class _State:
 
 
 async def test_a_non_owner_cannot_create_a_class_by_reaching_the_final_step(session):
-    from app.bot.handlers.start import create_class_timezone
+    from app.bot.handlers.start.onboarding import create_class_timezone
 
     callback = _Callback(user_id=2000)  # not in OWNER_IDS
     state = _State({"grade": 9, "letter": "Взлом", "school": None})
@@ -566,7 +566,7 @@ async def test_a_non_owner_cannot_create_a_class_by_reaching_the_final_step(sess
 
 
 async def test_the_owner_can_still_create_a_class(session):
-    from app.bot.handlers.start import create_class_timezone
+    from app.bot.handlers.start.onboarding import create_class_timezone
 
     callback = _Callback(user_id=1000)  # matches OWNER_IDS in conftest
     state = _State({"grade": 9, "letter": "Б", "school": "Школа № 2"})
@@ -582,7 +582,7 @@ async def test_the_owner_can_still_create_a_class(session):
 
 async def test_a_half_finished_create_flow_does_not_raise(session):
     """The grade step never ran, so the data dict has no "grade" key."""
-    from app.bot.handlers.start import create_class_timezone
+    from app.bot.handlers.start.onboarding import create_class_timezone
 
     callback = _Callback(user_id=1000)
     state = _State({})
@@ -597,7 +597,7 @@ async def test_a_forged_grade_is_refused_rather_than_stored(session):
     """The keyboard offers 1..11; the payload it packs is a number an attacker
     types. A class numbered 99 would resolve its term scheme from a comparison
     that happens to be true rather than from a decision."""
-    from app.bot.handlers.start import create_class_grade
+    from app.bot.handlers.start.onboarding import create_class_grade
 
     callback = _Callback(user_id=1000)
     state = _State({})
@@ -611,7 +611,7 @@ async def test_a_forged_grade_is_refused_rather_than_stored(session):
 async def test_creating_a_class_seeds_its_terms(session):
     """A class has terms from the moment it exists; the alternative is an
     empty screen for the first person who opens the calendar."""
-    from app.bot.handlers.start import create_class_timezone
+    from app.bot.handlers.start.onboarding import create_class_timezone
     from app.models import Term, TermKind
 
     callback = _Callback(user_id=1000)

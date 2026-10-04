@@ -50,7 +50,8 @@ from app.bot.handlers.content.overrides import (
     override_pick_index,
     override_subject,
 )
-from app.bot.handlers.start import cmd_code, phone_code, show_day
+from app.bot.handlers.start.codes import cmd_code, phone_code
+from app.bot.handlers.start.days import show_day
 from app.bot.handlers.timetable import bells_apply, timetable_apply
 from app.bot.handlers.week import week_text
 from app.bot.keyboards import shift_days, shift_weeks
