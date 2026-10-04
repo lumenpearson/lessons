@@ -15,7 +15,7 @@ message opened.
 
 Every list is capped by row count, but a row carries free text — a note, an
 assignment, an audit summary — and thirty long ones would overrun a limit no
-row count can express; the budget and its three tools live in ``render``. A
-page's cap is declared beside its renderer and read by the same screen's
-keyboard, so what is drawn is what can be pressed.
+row count can express; the budget and its three tools live in ``app.wording``,
+which ``render`` re-exports. A page's cap is declared beside its renderer and
+read by the same screen's keyboard, so what is drawn is what can be pressed.
 """

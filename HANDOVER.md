@@ -11,7 +11,7 @@ Last updated: **4 October 2026**. **PRs #63 through #85, #128, #129, #133, #134,
 #263, #267, #274 and #277 are merged**; `main` is at `746acc3`, the merge of #277, on 4
 October 2026; `dev` is still at `b327eb0`, the merge of #267, so it is behind `main`: #274 and
 #277 came from branches of their own. **Two pull requests are open: #296, the one carrying
-this paragraph, and #294, another session's.** #296 is from `server-decomposition`, a draft on
+this paragraph, and #294, another session's.** #296 is from `server-decomposition`, on
 milestone 11, `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`. It
 is the first sub-project of that milestone's programme
 ([docs/specs/2026-10-03-one-contract-design.md](docs/specs/2026-10-03-one-contract-design.md)),
@@ -28,7 +28,8 @@ The SHA of its own merge is for the next close-out to write.
 
 **#267 closed #264, #265 and #266**, read back from GitHub on 3 October. **#274 and #277
 closed nothing**: neither fixed any of the defects filed on milestone 11 (#268–#272, #275,
-#276), and #273 is that milestone's epic. #296 is the first to close three of them. **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+#276), and #273 is that milestone's epic. #296 is the first to close three of them.
+**#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -146,12 +147,13 @@ the owner's to make, and these labels are what its views filter on.
 
 ## What the last session added: the bot's long modules split into feature modules, and the cold start that imported aiogram (#271, #272, #275)
 
-Opened as #296, from `server-decomposition`, on milestone 11, as a draft. It is the first
+Opened as #296, from `server-decomposition`, on milestone 11, open. It is the first
 sub-project of the milestone's programme, the one the plan merged as #277 described. It will
 close #271, #272 and #275, and it refers to #276 and #273.
 
-- **The callback census covers all of `app.bot`.** The check that every button's prefix has a
-  handler never looked at `editor_keyboard` or `diary_keyboard`; it now walks every module of
+- **The callback census covers all of `app.bot`.** It is the prefix-collision check — no two
+  `CallbackData` classes share a prefix — plus the check that every button the class menu
+  draws is a packed payload, and it never looked at `editor_keyboard` or `diary_keyboard`; it now walks every module of
   the package and counts 30 payloads where it counted 27 (#271).
 - **A fresh interpreter proves aiogram stays off the API's cold start**, in both
   configurations, the bot switched off and on (#272).
@@ -211,7 +213,12 @@ positions and the move of the `start:back_root` callback within the start packag
 - **The cold-start fix on Vercel itself.** The 736 modules were measured on Windows, in a
   fresh interpreter, under Vercel's settings; no deployment has been read.
 - **Anything on a device.** Nothing here touches the phone.
-- **The whole-branch review is still to come** at the time this was written.
+- **The whole-branch review has run.** The final review, on the most capable model over all 13
+  commits, approved the branch with three small fixes (two stale test counts, three HANDOVER
+  sentences, one comment in `manage_render/__init__.py`), which the last commit makes. It
+  re-checked the dispatch order against the first baseline, that every moved function binds
+  the same objects, the import graph, the monkeypatches' reach, the census and the cold start
+  (736 → 0 aiogram modules).
 
 ## What the session before it added: the spike's answers, and the plan for the server decomposition (#275, #276)
 
