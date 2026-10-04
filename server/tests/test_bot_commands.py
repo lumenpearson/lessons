@@ -28,6 +28,7 @@ from sqlalchemy import select
 
 from app.bot import states
 from app.bot.bot import COMMANDS, build_dispatcher
+from app.bot.content_keyboard import HomeworkTick
 from app.bot.handlers.manage import NEED_ADMIN
 from app.bot.handlers.start import (
     change_timezone_apply,
@@ -409,6 +410,17 @@ async def test_a_press_a_handler_owns_never_reaches_the_catch_all(bot, sent):
     answers = [m for m in sent.sent if type(m).__name__ == "AnswerCallbackQuery"]
     assert answers, "the press was not answered at all"
     assert STALE_CARD not in [a.text for a in answers]
+
+
+async def test_a_tick_still_reaches_the_homework_flow(bot, sent, editor):
+    """The «сделал» ticks moved from `tasks` into `content/homework.py`. What a
+    tick on an assignment that is no longer there answers is the homework
+    flow's own sentence, so the press went where it always went — not to the
+    catch-all and not to a screen asked earlier."""
+    await dispatcher().feed_update(bot, _press(HomeworkTick(action="toggle", value="999").pack()))
+
+    answers = [m for m in sent.sent if type(m).__name__ == "AnswerCallbackQuery"]
+    assert [a.text for a in answers] == ["Это задание уже удалено"]
 
 
 @pytest.mark.parametrize(

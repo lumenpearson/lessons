@@ -638,7 +638,7 @@ points Hilt does not inject cleanly.
   a small bug.** `int(callback_data.value)` does not refuse a press it cannot parse
   — it raises out of the handler, so `callback.answer()` is never reached and the
   button keeps its spinner until Telegram gives up. Every handler module carries a
-  guard for this: `_int_or_none` in `manage/_common.py`, `tasks.py` and `access.py`,
+  guard for this: `_int_or_none` in `manage/_common.py`, `tasks.py`, `content/homework.py` and `access.py`,
   `_date_or_none` in `calendar.py` and `content/_common.py`, `_role_or_none` in
   `access.py`, `_kind_or_none` and `_index_or_none` in `content/_common.py`, and
   `shift_days`/`shift_weeks` in `keyboards.py` for the offsets (`timedelta(

@@ -16,6 +16,12 @@ from sqlalchemy import select
 from app.bot.access_render import render_access_list
 from app.bot.handlers import start as start_handlers
 from app.bot.handlers import week as week_handlers
+from app.bot.handlers.content.homework import (
+    cmd_homework,
+    homework_tick_keyboard,
+    homework_toggle,
+    homework_view,
+)
 from app.bot.handlers.manage import cmd_link
 from app.bot.handlers.reminders import (
     cmd_remind,
@@ -33,12 +39,8 @@ from app.bot.handlers.start import (
     on_contact,
 )
 from app.bot.handlers.tasks import (
-    cmd_homework,
     cmd_task,
     cmd_tasks,
-    homework_tick_keyboard,
-    homework_toggle,
-    homework_view,
     remind_at_for,
     task_add_text,
     task_delete,

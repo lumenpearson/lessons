@@ -1,32 +1,56 @@
-"""«📝 Домашнее задание»: setting it, and the digest it lands in.
+"""«📝 Домашнее задание»: setting it, the digest it lands in, and the «сделал»
+ticks each reader makes on it.
 
 Part of :mod:`app.bot.handlers.content`; the order every write here follows —
-save, audit line, then announce — is in that package's docstring.
+save, audit line, then announce — is in that package's docstring. A tick is
+not a write to the class: it is a row keyed by the presser's Telegram id, and
+an id out of a button is re-scoped to the class before it is believed.
 """
 
 from __future__ import annotations
 
 from datetime import date as Date
+from datetime import timedelta
 from html import escape
 
 from aiogram import F, Router
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.content_keyboard import HomeworkAction
+from app.bot.button_style import SUCCESS
+from app.bot.content_keyboard import HomeworkAction, HomeworkTick
 from app.bot.handlers.calendar import open_month
 from app.bot.handlers.content._common import BAD_DATE, _date_or_none, _index_or_none, _today
-from app.bot.handlers.tasks import homework_view
-from app.bot.keyboards import Menu, back_to_menu, cancel_keyboard
-from app.bot.render import clamp, human_date, relative_day_name
+from app.bot.handlers.tasks import NO_ACCESS
+from app.bot.homework_render import homework_digest_keys, render_homework_digest
+from app.bot.keyboards import Menu, back_to_menu, cancel_keyboard, cut
+from app.bot.render import WEEKDAYS_SHORT, clamp, human_date, relative_day_name
 from app.bot.states import AddHomework
-from app.models import Role, SchoolClass
-from app.schedule import ScheduleResolver
+from app.models import Homework, Role, SchoolClass
+from app.schedule import ResolvedDay, ScheduleResolver
 from app.services import audit, notify
 from app.services import homework as homework_service
+from app.services import tasks as task_service
+
+#: How far ahead the digest looks, in days - the same window the app shows.
+HOMEWORK_DAYS = 14
 
 router = Router(name="content.homework")
+
+#: The «сделал» ticks' own router. `handlers/__init__.py` includes it where
+#: `tasks` used to offer these two handlers updates, not with `router` above:
+#: the comment there says why.
+ticks = Router(name="content.homework.ticks")
+
+def _int_or_none(raw: str) -> int | None:
+    """An id from callback data, or ``None`` for anything a crafted one might carry."""
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 # --------------------------------------------------------------------------
@@ -43,8 +67,8 @@ async def homework_root(
 ) -> None:
     """The digest with this reader's own «сделал» ticks.
 
-    The same view the /homework command and the tick buttons render, from
-    ``handlers/tasks.py`` — one function, so a tick made from the menu and a
+    The same view the /homework command and the tick buttons render —
+    :func:`homework_view`, below — one function, so a tick made from the menu and a
     tick made from the command cannot disagree about what is done.
     """
     if school_class is None or role is None:
@@ -243,3 +267,143 @@ async def homework_text(
         # The author already knows; they just typed it.
         exclude=message.from_user.id,
     )
+
+
+# --------------------------------------------------------------------------
+# Homework ticks
+# --------------------------------------------------------------------------
+
+
+def _day_short(day: Date, today: Date) -> str:
+    delta = (day - today).days
+    if delta == 0:
+        return "сегодня"
+    if delta == 1:
+        return "завтра"
+    return f"{WEEKDAYS_SHORT[day.weekday()]} {day:%d.%m}"
+
+
+def homework_tick_keyboard(
+    days: list[ResolvedDay],
+    today: Date,
+    done: set[tuple[Date, str]],
+    ids: dict[tuple[Date, str], int],
+    extra_rows: list[list[InlineKeyboardButton]] | None = None,
+) -> InlineKeyboardMarkup:
+    """One «☐/✅ Предмет · день» button per drawn homework row, in digest order.
+
+    Built from ``homework_render.homework_digest_keys`` rather than from ``days``, so
+    the buttons are exactly the rows the message above them shows. Walking
+    ``days`` here and capping separately is how the two came apart: the digest
+    drew a whole fortnight and the keyboard stopped at twelve, leaving the rest
+    visible, untickable and unmentioned by any «… и ещё N».
+
+    ``ids`` maps (due date, subject) to the homework row id; an item the
+    resolver shows but ``ids`` does not know (a race with a deletion) gets no
+    button rather than a broken one.
+    """
+    rows: list[list[InlineKeyboardButton]] = []
+    for key in homework_digest_keys(days, today, done):
+        homework_id = ids.get(key)
+        if homework_id is None:
+            continue
+        due, subject = key
+        mark = "✅" if key in done else "☐"
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{mark} {cut(subject, 20)} · {_day_short(due, today)}",
+                    callback_data=HomeworkTick(action="toggle", value=str(homework_id)).pack(),
+                    style=SUCCESS if key in done else None,
+                )
+            ]
+        )
+    rows.extend(extra_rows or [])
+    rows.append([InlineKeyboardButton(text="‹ Меню", callback_data=Menu(action="root").pack())])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def homework_view(
+    session: AsyncSession, school_class: SchoolClass, telegram_id: int, role: Role
+) -> tuple[str, InlineKeyboardMarkup]:
+    """The digest with this person's ticks, and the keyboard to flip them."""
+    today = _today(school_class)
+    days = await ScheduleResolver(session, school_class).resolve_range(today, HOMEWORK_DAYS)
+
+    rows = await session.scalars(
+        select(Homework).where(
+            Homework.class_id == school_class.id,
+            Homework.due_date >= today,
+            Homework.due_date <= today + timedelta(days=HOMEWORK_DAYS - 1),
+        )
+    )
+    ids = {(item.due_date, item.subject_name): item.id for item in rows}
+    ticks = await task_service.homework_ticks(session, telegram_id, list(ids.values()))
+    done = {key for key, homework_id in ids.items() if homework_id in ticks}
+
+    extra: list[list[InlineKeyboardButton]] = []
+    if role.at_least(Role.EDITOR):
+        extra.append(
+            [
+                InlineKeyboardButton(
+                    text="➕ Добавить ДЗ",
+                    callback_data=HomeworkAction(action="add").pack(),
+                    style=SUCCESS,
+                )
+            ]
+        )
+    return (
+        render_homework_digest(days, today, done),
+        homework_tick_keyboard(days, today, done, ids, extra),
+    )
+
+
+@ticks.message(Command("homework"))
+async def cmd_homework(
+    message: Message,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if school_class is None or role is None:
+        await message.answer(NO_ACCESS)
+        return
+    text, keyboard = await homework_view(session, school_class, message.from_user.id, role)
+    await message.answer(text, reply_markup=keyboard)
+
+
+@ticks.callback_query(HomeworkTick.filter(F.action == "toggle"))
+async def homework_toggle(
+    callback: CallbackQuery,
+    callback_data: HomeworkTick,
+    session: AsyncSession,
+    school_class: SchoolClass | None,
+    role: Role | None,
+) -> None:
+    if school_class is None or role is None:
+        await callback.answer("Нет доступа", show_alert=True)
+        return
+    homework_id = _int_or_none(callback_data.value)
+    homework = (
+        await session.scalar(
+            select(Homework).where(
+                Homework.id == homework_id, Homework.class_id == school_class.id
+            )
+        )
+        if homework_id is not None
+        else None
+    )
+    if homework is None:
+        await callback.answer("Это задание уже удалено", show_alert=True)
+        text, keyboard = await homework_view(
+            session, school_class, callback.from_user.id, role
+        )
+        await callback.message.edit_text(text, reply_markup=keyboard)
+        return
+
+    now_done = await task_service.toggle_homework_done(
+        session, homework, callback.from_user.id
+    )
+    text, keyboard = await homework_view(session, school_class, callback.from_user.id, role)
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer("Сделано ✅" if now_done else "Отметка снята")
