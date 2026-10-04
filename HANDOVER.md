@@ -8,27 +8,24 @@ newest first.
 
 Last updated: **4 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
-#263, #267, #274 and #277 are merged**; `main` is at `746acc3`, the merge of #277, on 4
-October 2026; `dev` is still at `b327eb0`, the merge of #267, so it is behind `main`: #274 and
-#277 came from branches of their own. **Two pull requests are open: #296, the one carrying
-this paragraph, and #294, another session's.** #296 is from `server-decomposition`, on
-milestone 11, `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`. It
-is the first sub-project of that milestone's programme
-([docs/specs/2026-10-03-one-contract-design.md](docs/specs/2026-10-03-one-contract-design.md)),
-the plan of which (#277,
-[docs/specs/2026-10-03-server-decomposition-plan.md](docs/specs/2026-10-03-server-decomposition-plan.md))
-it carries out: the bot's long modules become feature modules inside their layers, and
-the cold start stops importing aiogram. It will close #271, #272 and #275 and refers to #276
-and #273. **#294**, «Tell a session where the tracker stands now: thirteen milestones, and a
-board it can fill», is not this session's; milestones 12 and 13 exist, and #294 describes them.
+#263, #267, #274, #277 and #296 are merged**; `main` is at `92dbd0b`, the merge of #296, on 4
+October 2026. `dev` had stayed at `b327eb0`, the merge of #267, because #274, #277 and #296
+came from branches of their own; on the owner's word it was fast-forwarded to this pull
+request's head, so it holds everything `main` has and this batch, and it moves to the merge
+once this lands. **The only pull request open is #294, the one
+carrying this paragraph**, from `tracker/milestones-and-board`, on milestone 11, `v0.10.0 —
+One contract: REST v2, Connect and native gRPC, build console`. It changes no code: it brings
+`CLAUDE.md`, the `github-pr` skill and this file up to date with the thirteen milestones and
+with a board that a local session fills, and it will close #293.
 
-The section «What the last session added» below is #296's batch.
+The section «What the last session added» below is #294's batch.
 
 The SHA of its own merge is for the next close-out to write.
 
-**#267 closed #264, #265 and #266**, read back from GitHub on 3 October. **#274 and #277
-closed nothing**: neither fixed any of the defects filed on milestone 11 (#268–#272, #275,
-#276), and #273 is that milestone's epic. #296 is the first to close three of them.
+**#267 closed #264, #265 and #266**, read back from GitHub on 3 October, and **#296 closed
+#271, #272 and #275**, read back on 4 October. **#274 and #277 closed nothing.** Of the
+defects the survey and the plan filed on milestone 11, #268–#270 and #276 are open, and #273
+is that milestone's epic.
 **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
@@ -137,19 +134,75 @@ milestone; and #145–#165 are the defects found on its branch, each filed befor
 night, and #188 what #189 found; all twenty are closed. #190–#211 are the external audit of
 27 September 2026, on milestone 10, and #212 and #213 what merging its fixes found.
 #268–#272 are the defects the survey behind milestone 11 found, #273 that milestone's
-epic, and #275 and #276 what planning its first sub-project found. #293 and #295, on the
-same milestone, are another session's.
+epic, and #275 and #276 what planning its first sub-project found. #293, on the same
+milestone, is the stale tracker documents #294 closes, and #295 what writing #294 found: CI
+skips the server job when only a document its tests read changes.
 
 Labels are `type:` (feature, bug, chore, research, decision, epic), `area:`, `status:` (now,
-next, someday, done) and `needs:` (device, owner). **A session cannot create a GitHub
-Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
-the owner's to make, and these labels are what its views filter on.
+next, someday, done) and `needs:` (device, owner). **The board is the owner's project 6,
+«lessons»**, and it holds every issue and pull request. A remote session cannot reach it; a
+local one fills it with `gh`, by the rule in the project's README, as «The board» in the
+`github-pr` skill says.
 
-## What the last session added: the bot's long modules split into feature modules, and the cold start that imported aiogram (#271, #272, #275)
+## What the last session added: the tracker's documents caught up with thirteen milestones and a board a local session fills (#293)
 
-Opened as #296, from `server-decomposition`, on milestone 11, open. It is the first
-sub-project of the milestone's programme, the one the plan merged as #277 described. It will
-close #271, #272 and #275, and it refers to #276 and #273.
+Opened as #294, from `tracker/milestones-and-board`, on milestone 11, open, a draft. Two
+sessions wrote it. The one that created milestones 12 and 13 and filled the board on 3
+October opened it on 4 October and held it for #277. A session on the owner's machine took
+`main` into it after #277 and again after #296, and wrote this section. It will close #293.
+
+- **The `github-pr` skill's milestone table matches the API again.** It gains rows 12,
+  `v1.0.0 — A build somebody else can install`, and 13, `Backlog — not scheduled`; the
+  fifteen issues back-filled into milestones 1, 2, 6 and 8 (#278–#292); #119 in the ninth and
+  #235 and #236 in the tenth, which the old rows missed; and row 11 as it stands after #296.
+- **`CLAUDE.md` names four open version milestones (9–12)** and the two buckets that are not
+  versions (7 and 13), and says which one is being worked on: the eleventh.
+- **Both tell a remote session from a local one about the board.** A remote session still
+  cannot reach project 6. A local session has `gh` with the `project` scope, and there
+  putting an item on the board and setting its Priority, Size, Estimate and dates is part of
+  filing it, because no rule on the board does. The skill's new section «The board» has the
+  commands and points at the project's README for the rule each field follows.
+- **«Auto-add to project» filters on `is:issue,pr` now**, not `is:issue,pr is:open`, so an
+  issue back-filled closed in one step arrives by itself. Changed on 4 October in GitHub's
+  interface, from the owner's machine with the owner signed in, and read back after a
+  reload; the documents say so.
+- **#277's Target date is set**: 4 October, its merge, by the README's rule. It was the one
+  field #277 lacked; *Done* the board set by itself.
+- **The board is level with the repository again**, 296 items, filled by the README's rule on
+  the owner's word: #296 P1, XL, 34 (10 347 lines changed), 4 October to 4 October; #271,
+  #272 and #275 a Target date of 4 October and 2 points each, Size S, re-measured from the
+  commits that name them (94 lines for #271; 134 split between #272 and #275), where their
+  Estimates had been set before those commits existed. #294's own item, which auto-add had
+  made but neither the board's views nor its item list showed, was deleted and added again:
+  *In progress*, P2, M, 5, from 4 October.
+- **This file's milestone table** gains rows 12 and 13, and loses the sentence that #142–#144
+  are on no milestone: #142 and #144 are in the twelfth, #143 in the thirteenth.
+
+### Gates
+
+No code changed. The four server test modules that read `CLAUDE.md` and the skills
+(`test_schema_version`, `test_test_imports`, `test_diary_provider_revision` and
+`test_corrections_per_child_revision`) pass on this branch: 31 tests. CI's server job skips
+this branch (#295), so that local run is the only check of them.
+
+### What was deliberately left alone
+
+- **#295 is filed and not fixed.**
+
+### What nobody has verified in this batch
+
+- **Why #294's first item did not show on the board.** It read back through the pull
+  request's `projectItems`, on project 6 and not archived, while the project's own item list,
+  295 items, left it out; the item added in its place shows. Nor has anybody yet seen the new
+  filter take a closed back-fill.
+- **Nothing about the skill's `gh project` commands**: `item-add`, `item-edit` and
+  `item-delete` were each run as written on 4 October, and every value read back.
+
+## What the session before it added: the bot's long modules split into feature modules, and the cold start that imported aiogram (#271, #272, #275)
+
+Merged as #296 (`92dbd0b`, 4 October 2026), from `server-decomposition`, on milestone 11. It
+is the first sub-project of the milestone's programme, the one the plan merged as #277
+described. It closed #271, #272 and #275, and it refers to #276 and #273.
 
 - **The callback census covers all of `app.bot`.** It is the prefix-collision check — no two
   `CallbackData` classes share a prefix — plus the check that every button the class menu
@@ -220,97 +273,39 @@ positions and the move of the `start:back_root` callback within the start packag
   the same objects, the import graph, the monkeypatches' reach, the census and the cold start
   (736 → 0 aiogram modules).
 
-## What the session before it added: the spike's answers, and the plan for the server decomposition (#275, #276)
-
-Merged as #277 (`746acc3`, 4 October 2026), from `plan/server-decomposition`, on milestone 11, after the owner's review
-of the plan. The same session as #274, after the owner approved the design and created the
-milestone: «майлстоун создал, утверждаю».
-
-- **The spike ran and was thrown away.** On the owner's machine and the API 37 emulator, from
-  the local branch `spike/connect-grpc` (never pushed; the worktree is
-  `.claude/worktrees/agent-ab1fed3b13df7822c`). Everything it answered was run: Buf's remote
-  plugins without a login, `connectrpc` mounted inside the real FastAPI app under Uvicorn's
-  HTTP/1.1 with every existing route unchanged and 61 ms more cold import, the
-  `google.api.http` annotation read at runtime by a sixty-line transcoder, native gRPC from the
-  same app under `pyvoy` and `hypercorn`, and `connect-kotlin` 0.9.0 under AGP 9.4.1 and
-  Kotlin 2.4.20 calling all three protocols from the emulator, minified included. The design
-  gains «What the spike found», and every passage that waited on it now says what it decided.
-- **Three things the spike found that the design now answers**: `connectrpc` turns a native
-  gRPC request under HTTP/1.1 and an undecodable body into a `500` with a traceback; the
-  minified app fails at runtime without a keep rule for `GeneratedMessageLite`; and the release
-  APK grows by 611 KB, +13.8 %, most of it `kotlin-reflect` at 2.2.21 against a 2.4.20
-  standard library.
-- **The plan for sub-project 1**, `docs/specs/2026-10-03-server-decomposition-plan.md`:
-  thirteen tasks, guards first — the callback census over all of `app.bot` (#271), a
-  fresh-interpreter cold-start test in both configurations (#272), the path-keyed tests made
-  symbol-keyed, the three pairs of handlers only registration order tells apart pinned — then
-  the moves, each checked by a syntax-tree comparison and a diff of the dispatcher's
-  177-handler order. Drafted by a planning agent and reviewed here; its two placeholder issue
-  numbers were replaced by the real ones.
-- **#275, filed before its fix, which the plan's Task 2 is: every Vercel cold start imports
-  aiogram.** `app/main.py` imports `app.api.telegram` whenever the webhook is enabled, which on
-  Vercel it always is, and that module imports aiogram at its top. Re-measured here before it
-  was filed: 736 aiogram modules and 3.07 s for `import app.main` under Vercel's settings. The
-  comment above the mount says the opposite.
-- **#276, filed, not fixed in this sub-project**: aiogram's `Command` reads `/week@` as the
-  command `week`, and `CommandBreakoutMiddleware` does not, so a form step takes it as its
-  answer. Checked in the venv before it was filed.
-- **On the emulator, the spike's agent made one mistake, which it reported.** It tried to
-  install over the owner's `com.lumenpearson.lessons` (versionCode 32); the install was refused
-  as a downgrade, so nothing changed, but it then launched that app three times and
-  force-stopped it each time. It also restarted `Pixel_10_Pro_XL` with `-memory 3072
-  -no-snapshot` after emulator-5554 had gone, uninstalled its own packages, removed its
-  `adb reverse` rules and shut the emulator down. The design's console now says it never
-  installs over the owner's app.
-
-### Gates
-
-No code changed. The eight server test modules that read the documents pass against this
-branch; the full gates are CI's on #277.
-
-### What was deliberately left alone
-
-- **The plan is not started.** It waits on the owner's review and on the choice of how it is
-  run.
-- **#276 is not in the plan's scope**; the plan keeps the homework ticks' place in the dispatch
-  order because of it, so fixing it later changes nothing the plan moves.
-
-### What nobody has verified in this batch
-
-- The plan as a whole: its commands were checked inline while it was drafted (the census, 30
-  payloads against 27; the walker, 12 functions; the order dump, 177 handlers; the cold-start
-  probe, 736 modules), not run end to end.
-- Vercel's own proxy in front of a deployment, and Buf's rate limits in CI — the spike could not
-  try either.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
 every title names what its version delivered and every description names its pull requests
-and issues, and created the tenth the same day. The older batch sections, in `docs/history.md`
+and issues, and created the tenth the same day, and the eleventh, twelfth and thirteenth on 3
+October. The older batch sections, in `docs/history.md`
 now, quote the titles of their own time, which a search no longer finds; the third column
 maps them. The
 `github-pr` skill carries the same table.
 
 | # | Title | Called before 25 September | State | Covers |
 | --- | --- | --- | --- | --- |
-| 1 | `v0.1.0 — App, widget, admin bot and read API` | `v0.1.0 — First run on a phone` | closed | PRs #1–#14; issues #86, #88, #89 |
-| 2 | `v0.2.0 — Petersburg e-diary, class run from bot and phone` | `v0.2.0 — The diary, and the class run from the bot` | closed | PRs #15–#17, #28–#31; issues #87, #90, #91, #102 |
+| 1 | `v0.1.0 — App, widget, admin bot and read API` | `v0.1.0 — First run on a phone` | closed | PRs #1–#14; issues #86, #88, #89, #278–#281 |
+| 2 | `v0.2.0 — Petersburg e-diary, class run from bot and phone` | `v0.2.0 — The diary, and the class run from the bot` | closed | PRs #15–#17, #28–#31; issues #87, #90, #91, #102, #282, #283 |
 | 3 | `v0.3.0 — School year, terms, school search, several classes` | `v0.3.0 — The school year` | closed | PRs #27, #32–#35, #43; issue #92 |
 | 4 | `v0.4.0 — 67-defect sweep, first audit, app-wide correction mode` | `v0.4.0 — Nothing breaks in silence` | closed | PRs #44, #45, #50; issues #93, #94 |
 | 5 | `v0.5.0 — Public repo: secrets audit, English docs, font licence` | `v0.5.0 — A public repository` | closed | PRs #46–#49, #51, #55–#57, #59; issue #95 |
-| 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
+| 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | `v0.6.0 — One container, and nothing cut off` | closed | PRs #60–#74; issues #96, #97, #99, #101, #103, #104, #284–#291 |
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
-| 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
+| 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #296 (and #294, another session's, open); issues #268–#273, #275, #276, and #293, #295 (another session's) — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296; issues #268–#273, #275, #276, #293, #295 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | issues #120–#122, #127, #142, #144 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
-**#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
-#140 left alone on purpose, which belong to whichever version takes them up.
+**#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
+on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
+thirteenth.
 
-**Nothing in a session here can create a milestone**, only attach one — the owner created
-the ninth on 22 September 2026, the tenth on 25 September and the eleventh on 3 October. **The ninth was the first
+**Creating a milestone is the owner's decision**, and a session only attaches one — the owner
+created the ninth on 22 September 2026, the tenth on 25 September and the eleventh, twelfth
+and thirteenth on 3 October. **The ninth was the first
 milestone that groups issues rather than pull requests**, and the first whose work cannot be
 done without an emulator or a phone.
 

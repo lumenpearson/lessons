@@ -10,6 +10,10 @@ GitHub MCP tools (`mcp__github__*`): `create_pull_request`, `pull_request_read`,
 `list_pull_requests`, `add_issue_comment`, `pull_request_review_write`,
 `get_job_logs`, `actions_list`.
 
+A local session — on the owner's machine, beside the emulator — has `gh` as well, signed in
+with the `project` scope. What that adds is «The board», below; everything else on this page
+holds for both.
+
 ## Opening one
 
 - Branch: `dev` → `main`. Push with `git push -u origin dev`.
@@ -37,9 +41,10 @@ mcp__github__issue_write(method="update", owner=…, repo=…,
                          issue_number=<the PR number>, milestone=<the milestone number>)
 ```
 
-**Nothing in these sessions creates a milestone, or even lists one.** There is no tool for
-it and no `gh` CLI, and `issue_write` takes only a number that already exists. So when no
-existing milestone fits the change, do **not** invent a version and do **not** leave the
+**Nothing in a remote session creates a milestone, or even lists one.** There is no tool
+for it and no `gh` CLI, and `issue_write` takes only a number that already exists. A local
+session has `gh` and can do both, but whether a milestone exists is still the owner's
+decision, so the rule is the same there. When no existing milestone fits the change, do **not** invent a version and do **not** leave the
 pull request bare — ask the owner to create it, and hand them the title and the description
 already written, with the command, so it is one paste:
 
@@ -69,27 +74,34 @@ matched pull request's body in full.
 
 | # | Title | Covers |
 | --- | --- | --- |
-| 1 | `v0.1.0 — App, widget, admin bot and read API` | PRs #1–#14; issues #86, #88, #89 |
-| 2 | `v0.2.0 — Petersburg e-diary, class run from bot and phone` | PRs #15–#17, #28–#31; issues #87, #90, #91, #102 |
+| 1 | `v0.1.0 — App, widget, admin bot and read API` | PRs #1–#14; issues #86, #88, #89, #278–#281 |
+| 2 | `v0.2.0 — Petersburg e-diary, class run from bot and phone` | PRs #15–#17, #28–#31; issues #87, #90, #91, #102, #282, #283 |
 | 3 | `v0.3.0 — School year, terms, school search, several classes` | PRs #27, #32–#35, #43; issue #92 |
 | 4 | `v0.4.0 — 67-defect sweep, first audit, app-wide correction mode` | PRs #44, #45, #50; issues #93, #94 |
 | 5 | `v0.5.0 — Public repo: secrets audit, English docs, font licence` | PRs #46–#49, #51, #55–#57, #59; issue #95 |
-| 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | PRs #60–#74; issues #96, #97, #99, #101, #103, #104 |
+| 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | PRs #60–#74; issues #96, #97, #99, #101, #103, #104, #284–#291 |
 | 7 | `Dependencies — dependabot bumps` | every dependabot bump; deliberately not a version, and open for good |
-| 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | PRs #75–#85, #128; issues #98, #100, #105–#108 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#266 — **open**, the first whose work needs an emulator or a phone |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | PRs #140, #214, #218; issues #135–#139, #141, #145–#165, #190–#213 — **open** |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | PRs #274, #277, #296 (and #294, another session's, open); issues #268–#273, #275, #276, and #293, #295 (another session's) — **open**, the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — **open**, the first whose work needs an emulator or a phone |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | PRs #140, #214, #218; issues #135–#139, #141, #145–#165, #190–#213, #235, #236 — **open** |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | PRs #274, #277, #294, #296; issues #268–#273, #275, #276, #293, #295 — **open**, the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 12 | `v1.0.0 — A build somebody else can install` | issues #120–#122, #127, #142, #144 — **open**, the steps epic #127 names between one class on one phone and a build a second family could use |
+| 13 | `Backlog — not scheduled` | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for, each saying why it was left |
 
-The eleventh was created on 3 October 2026 under the name it has. The first ten were all
+The eleventh, twelfth and thirteenth were created on 3 October 2026 under the names they
+have — 12 and 13 for the twelve open issues that had no milestone at all, on the owner's
+word. The first ten were all
 renamed on 25 September 2026: every title now names what the version
 delivered, and each description names its pull requests and issues. A title quoted from
 before that date — «On a device», «Оптимизация», «Nothing breaks in silence» — finds
 nothing when searched, so take titles from this table or from a milestone object, never
 from an old commit message.
 
-New work goes in the newest version milestone unless it plainly opens the next one; a
-dependabot bump goes in milestone 7, `Dependencies — dependabot bumps`, whatever else is in flight.
+New work goes in the version milestone being worked on — the eleventh, today — unless it
+plainly belongs to a later one: v1.0.0 holds what epic #127 names, and an issue nobody is
+waiting for goes in milestone 13, `Backlog — not scheduled`, until somebody decides to do
+it. A dependabot bump goes in milestone 7, `Dependencies — dependabot bumps`, whatever else
+is in flight.
 
 They are **retrospective**. The boundaries were read off the history in September 2026
 rather than declared at the time, and **nothing in this repository has ever been tagged or
@@ -118,9 +130,10 @@ Three mechanics, each of which costs a wasted call to rediscover:
 - **Labels are created by being used** — an unknown name in `labels` is made. But **not**
   when `parent_issue_number` is passed: that path validates them first and fails with
   `failed to resolve label`. Create the issue plainly and link it afterwards.
-- **The Project board is out of reach.** Projects v2 is GraphQL-only and these sessions are
-  REST. Label it correctly and the board's auto-add workflow takes it; without one it is
-  the owner's click. Never report an issue as added to a project.
+- **The Project board is out of reach from a remote session.** Projects v2 is GraphQL-only
+  and those sessions are REST. The board's auto-add workflow usually takes it; never report
+  an issue as added to a project. **From a local session it is part of
+  filing the issue** — see «The board» below.
 
 **The tie to the pull request goes in the pull request body:** `Closes #NN`, on its own
 line, one line per issue. GitHub links them both ways and closes the issue when the pull
@@ -140,6 +153,40 @@ plain `#NN` reference for one it merely touches.
 
 `needs:owner` means no session can close it: it wants a browser, a key or a live service.
 `needs:device` means it wants an emulator or a phone, which is what milestone 9 is about.
+
+## The board
+
+Project 6, «lessons» (`https://github.com/users/lumenpearson/projects/6`), holds every issue
+and pull request of this repository. Its Status, Priority, Size, Estimate, Start date and
+Target date were filled for all of them on 3 October 2026 by one rule, and **the rule is the
+project's README** — read it there, where the board's own readers see it, rather than from
+memory.
+
+A remote session cannot touch it. A local session can, through `gh` signed in with the
+`project` scope, and there putting an item on the board and filling its fields is part of
+filing it, because nothing else does:
+
+- **«Auto-add to project» filters on `is:issue,pr`, and is not trusted alone.** Until 4
+  October its filter was `is:issue,pr is:open`, so an issue back-filled closed — created and
+  closed in one step — never arrived: on 3 October it missed nine of eighteen that way. It
+  was changed to `is:issue,pr` on 4 October, in GitHub's interface (Projects → Workflows),
+  because no API edits a workflow. And an item it adds can go missing from the board: #294's,
+  made two seconds after the pull request was opened and with its fields set, read back
+  through the pull request's `projectItems` but showed in neither the board's views nor
+  `gh project item-list`, until it was deleted (`gh project item-delete`) and added again.
+  So read the board back after filing, and add what is missing by hand:
+  `gh project item-add 6 --owner lumenpearson --url <the issue's URL> --format json --jq .id`.
+- **No rule sets Priority, Size, Estimate or the dates.** `gh project field-list 6 --owner
+  lumenpearson --format json` gives the field ids and the options' ids, and `gh project
+  item-edit --project-id <PVT_…> --id <PVTI_…> --field-id <…>` sets one value with
+  `--single-select-option-id`, `--number` or `--date`. Status needs nothing for a closed or
+  merged item: the board's own workflows set *Done*.
+- **A sub-issue needs its parent named** (`addSubIssue` in GraphQL, or the issue page).
+  Open work goes under an open epic — #127, #109, #273 — and a defect found by a batch under
+  the issue that batch was for.
+- **Read it back before saying it is done**: `gh project item-list 6 --owner lumenpearson
+  --format json`, or a GraphQL read of the item's `fieldValues`. The search index lags a
+  write by up to a minute, and the board's own views do too.
 
 ## Writing the body
 

@@ -268,19 +268,24 @@ points Hilt does not inject cleanly.
   Commits prefix (none of the 288 commits has one), and the body explains the reasoning and
   names what is left uncovered. Unlike the owner's other repositories, this history does
   carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
-- **Every pull request carries a milestone**, set when it is opened. Nothing in a session
-  here can create a milestone or even list one — when none of the eleven fits, ask the owner
-  to create it and hand over the title and description already written, rather than
-  inventing a version or leaving the pull request bare. The `github-pr` skill has the
-  numbers, the one tool that sets them, and the two ways this was got wrong first. **Three
-  version milestones are open:** the ninth, `v0.8.0 — On-device checks, 89-region e-diary
+- **Every pull request carries a milestone**, set when it is opened, and so does every
+  issue. A remote session can neither create a milestone nor list one, and a local one with
+  `gh` could, but creating one is the owner's decision either way — when none of the
+  thirteen fits, ask the owner and hand over the title and description already written,
+  rather than inventing a version or leaving the pull request bare. The `github-pr` skill
+  has the numbers, the one tool that sets them, and the two ways this was got wrong first.
+  **Four version milestones are open:** the ninth, `v0.8.0 — On-device checks, 89-region e-diary
   survey`, holds #109–#117 and what #186's walk on an emulator found, the first work that
   needs an emulator or a phone; the tenth, `v0.9.0 — NetSchool e-diary, onboarding via the
   school's diary`, holds PR #140 and its issues, and the external audit of 27 September
   (#190–#213); the eleventh, `v0.10.0 — One contract: REST v2, Connect and native gRPC,
   build console`, holds the programme of `docs/specs/2026-10-03-one-contract-design.md`
-  (epic #273). The first ten were renamed on 25 September 2026, so a title quoted from
-  before then finds nothing when searched.
+  (epic #273), and is the one being worked on; the twelfth, `v1.0.0 — A build somebody
+  else can install`, holds epic #127 and the open steps it names. Beside them stand two
+  buckets that are deliberately not versions: the seventh, `Dependencies — dependabot
+  bumps`, and the thirteenth, `Backlog — not scheduled`, for known gaps and decisions no
+  release is waiting for. The first ten were renamed on 25 September 2026, so a title quoted
+  from before then finds nothing when searched.
 - **A defect that is found gets an issue, always, and before it gets a fix.** The rule is
   new and it is not optional: the moment an audit, a review, a CI failure or a reader finds
   something wrong, it becomes an issue of its own — title saying what is broken rather than
@@ -297,10 +302,16 @@ points Hilt does not inject cleanly.
     label that does not exist yet. It does **not** when `parent_issue_number` is passed:
     that path validates the labels first and fails on an unknown one. Create the issue
     plainly, then link it.
-  - **Adding it to the Project board cannot be done from a session here** — Projects v2 is
-    GraphQL-only and this toolset is REST. What a session controls is the labels, and the
-    board's auto-add workflow filters on them; a board without one is the owner's click.
-    Never report an issue as «added to the project» on the strength of having labelled it.
+  - **The Project board is project 6, «lessons», and it holds every issue and pull
+    request.** A remote session cannot reach it — Projects v2 is GraphQL-only and that
+    toolset is REST — so there a session controls the labels and never reports an issue as
+    «added to the project» on the strength of having labelled it. A local session has `gh`
+    with the `project` scope, and there putting the item on the board and setting its
+    Priority, Size, Estimate and dates is part of filing it: no rule on the board sets those.
+    Its «Auto-add to project» has filtered on `is:issue,pr`, closed items included, since 4
+    October, but #294's item, which it did add, showed in neither the board's views nor its
+    item list until it was deleted and added again, so read the board back after filing. The rule for every field is the project's README; the `github-pr` skill, «The
+    board», has the commands.
 - **There are issues now, and until #85 there were none.** Forty-two were opened in one go
   to give the history and the backlog a shape the milestones alone could not: twenty-three
   closed, describing what was built and what each bug sweep found, and nineteen open, which
@@ -308,10 +319,9 @@ points Hilt does not inject cleanly.
   what was *deliberately* left and why, so that a later session does not re-discover a
   decision as if it were an oversight. The labels are `type:` (feature, bug, chore,
   research, decision, epic), `area:` (android, widget, server, bot, db, ci, docs, design,
-  data), `status:` (now, next, someday, done) and `needs:` (device, owner). **A session
-  here cannot create a GitHub Project board** — Projects v2 is GraphQL-only and this
-  toolset is REST — so the board, if there is one, is the owner's, and these labels are
-  what a saved view filters on.
+  data), `status:` (now, next, someday, done) and `needs:` (device, owner). The board
+  is the owner's (project 6, above); these labels are what its saved views filter on, and
+  its fields are what a local session keeps filled.
 - **A release explains itself, fix by fix.** When a version is tagged, the notes name every
   change in it with **its issue and its pull request** — «what was wrong, what it does now,
   #NN / #MM» — rather than a list of commit subjects. The milestone is what says which

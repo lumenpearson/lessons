@@ -28,6 +28,69 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the spike's answers, and the plan for the server decomposition (#275, #276)
+
+Merged as #277 (`746acc3`, 4 October 2026), from `plan/server-decomposition`, on milestone 11, after the owner's review
+of the plan. The same session as #274, after the owner approved the design and created the
+milestone: «майлстоун создал, утверждаю».
+
+- **The spike ran and was thrown away.** On the owner's machine and the API 37 emulator, from
+  the local branch `spike/connect-grpc` (never pushed; the worktree is
+  `.claude/worktrees/agent-ab1fed3b13df7822c`). Everything it answered was run: Buf's remote
+  plugins without a login, `connectrpc` mounted inside the real FastAPI app under Uvicorn's
+  HTTP/1.1 with every existing route unchanged and 61 ms more cold import, the
+  `google.api.http` annotation read at runtime by a sixty-line transcoder, native gRPC from the
+  same app under `pyvoy` and `hypercorn`, and `connect-kotlin` 0.9.0 under AGP 9.4.1 and
+  Kotlin 2.4.20 calling all three protocols from the emulator, minified included. The design
+  gains «What the spike found», and every passage that waited on it now says what it decided.
+- **Three things the spike found that the design now answers**: `connectrpc` turns a native
+  gRPC request under HTTP/1.1 and an undecodable body into a `500` with a traceback; the
+  minified app fails at runtime without a keep rule for `GeneratedMessageLite`; and the release
+  APK grows by 611 KB, +13.8 %, most of it `kotlin-reflect` at 2.2.21 against a 2.4.20
+  standard library.
+- **The plan for sub-project 1**, `docs/specs/2026-10-03-server-decomposition-plan.md`:
+  thirteen tasks, guards first — the callback census over all of `app.bot` (#271), a
+  fresh-interpreter cold-start test in both configurations (#272), the path-keyed tests made
+  symbol-keyed, the three pairs of handlers only registration order tells apart pinned — then
+  the moves, each checked by a syntax-tree comparison and a diff of the dispatcher's
+  177-handler order. Drafted by a planning agent and reviewed here; its two placeholder issue
+  numbers were replaced by the real ones.
+- **#275, filed before its fix, which the plan's Task 2 is: every Vercel cold start imports
+  aiogram.** `app/main.py` imports `app.api.telegram` whenever the webhook is enabled, which on
+  Vercel it always is, and that module imports aiogram at its top. Re-measured here before it
+  was filed: 736 aiogram modules and 3.07 s for `import app.main` under Vercel's settings. The
+  comment above the mount says the opposite.
+- **#276, filed, not fixed in this sub-project**: aiogram's `Command` reads `/week@` as the
+  command `week`, and `CommandBreakoutMiddleware` does not, so a form step takes it as its
+  answer. Checked in the venv before it was filed.
+- **On the emulator, the spike's agent made one mistake, which it reported.** It tried to
+  install over the owner's `com.lumenpearson.lessons` (versionCode 32); the install was refused
+  as a downgrade, so nothing changed, but it then launched that app three times and
+  force-stopped it each time. It also restarted `Pixel_10_Pro_XL` with `-memory 3072
+  -no-snapshot` after emulator-5554 had gone, uninstalled its own packages, removed its
+  `adb reverse` rules and shut the emulator down. The design's console now says it never
+  installs over the owner's app.
+
+### Gates
+
+No code changed. The eight server test modules that read the documents pass against this
+branch; the full gates are CI's on #277.
+
+### What was deliberately left alone
+
+- **The plan is not started.** It waits on the owner's review and on the choice of how it is
+  run.
+- **#276 is not in the plan's scope**; the plan keeps the homework ticks' place in the dispatch
+  order because of it, so fixing it later changes nothing the plan moves.
+
+### What nobody has verified in this batch
+
+- The plan as a whole: its commands were checked inline while it was drafted (the census, 30
+  payloads against 27; the walker, 12 functions; the order dump, 177 handlers; the cold-start
+  probe, 736 modules), not run end to end.
+- Vercel's own proxy in front of a deployment, and Buf's rate limits in CI — the spike could not
+  try either.
+
 ## What the batch before added: one proto contract agreed before anything is built, and the survey's defects filed (#268–#273)
 
 Merged as #274 (`9d75e68`, 3 October 2026), from `spec/one-contract` rather than `dev`, which was carrying #267 while this
