@@ -56,7 +56,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2100 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2172 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -84,7 +84,10 @@ v2 contract and Buf»; the binary never enters the repository):
   change, because CI regenerates and fails on any difference
 - `python -m pytest -q tests/test_contract.py` (from `server/`): what Buf cannot check.
   Every method's REST binding, credential, least role and idempotency, against the resource
-  map of `docs/specs/2026-10-04-contract-v2-design.md`
+  map of `docs/specs/2026-10-04-contract-v2-design.md`. Buf reads no options, so an edit to
+  that map **is** a breaking change (#299). Beside it, `test_contract_json.py` holds the
+  documented JSON against the runtime and `test_contract_mirror.py` holds the messages level
+  with the v1 schemas they mirror
 
 Android, from `android/`:
 
