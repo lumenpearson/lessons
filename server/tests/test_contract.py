@@ -53,10 +53,14 @@ JAVA_PACKAGE = "com.lumenpearson.lessons.contract.v2"
 #: proto file added without regenerating, or a module left behind by a deleted
 #: file, fails here before CI's regeneration finds it.
 FILES = {
+    "access_request",
+    "audit",
     "bell",
+    "class_device",
     "common",
     "day",
     "device",
+    "directory",
     "errors",
     "event",
     "homework",
@@ -72,9 +76,13 @@ FILES = {
 #: The files that declare a service, beside which ``buf.build/connectrpc/py``
 #: also writes a ``_connect`` module.
 SERVICE_FILES = {
+    "access_request",
+    "audit",
     "bell",
+    "class_device",
     "day",
     "device",
+    "directory",
     "event",
     "homework",
     "me",
@@ -228,6 +236,29 @@ METHODS: dict[tuple[str, str], Row] = {
     ("DayService", "UpdateDay"): Row(
         "patch", "/v2/class/days/{day.date}", "day", DEVICE, EDITOR
     ),
+    ("ClassDeviceService", "ListClassDevices"): Row(
+        "get", "/v2/class/devices", "", DEVICE, ADMIN
+    ),
+    ("ClassDeviceService", "RevokeClassDevice"): Row(
+        "post", "/v2/class/devices/{device_id}:revoke", "*", DEVICE, ADMIN
+    ),
+    ("ClassDeviceService", "UnlinkClassDevice"): Row(
+        "post", "/v2/class/devices/{device_id}:unlink", "*", DEVICE, ADMIN
+    ),
+    ("AccessRequestService", "ListAccessRequests"): Row(
+        "get", "/v2/class/accessRequests", "", DEVICE, ADMIN
+    ),
+    ("AccessRequestService", "ApproveAccessRequest"): Row(
+        "post", "/v2/class/accessRequests/{request_id}:approve", "*", DEVICE, ADMIN
+    ),
+    ("AccessRequestService", "DeclineAccessRequest"): Row(
+        "post", "/v2/class/accessRequests/{request_id}:decline", "*", DEVICE, ADMIN
+    ),
+    ("AuditService", "ListAuditEntries"): Row(
+        "get", "/v2/class/auditEntries", "", DEVICE, ADMIN
+    ),
+    ("DirectoryService", "ListSchoolRegions"): Row("get", "/v2/schoolRegions", "", NONE, None),
+    ("DirectoryService", "ListSchools"): Row("get", "/v2/schools", "", DEVICE, ADMIN),
 }
 
 #: ErrorReason, name for number: the design's decision 6, completed from every

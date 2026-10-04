@@ -1,0 +1,48 @@
+// «📜 Журнал»: who changed what in the class. Replaces v1's GET /manage/log.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service AuditService {
+  // Newest first, `page_size` lines at a time: 30 when unset, 100 at most.
+  // `next_page_token` is empty on the last page. There is no total, because
+  // the log only grows and counting it would scan it on every page turn.
+  rpc ListAuditEntries(ListAuditEntriesRequest) returns (ListAuditEntriesResponse) {
+    option (google.api.http) = {get: "/v2/class/auditEntries"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+}
+
+// v1: AuditEntryOut.
+message AuditEntry {
+  int32 id = 1;
+  // A machine tag: homework.add, subject.rename, timetable.import, …
+  string action = 2;
+  // The line as the bot prints it, in Russian.
+  string summary = 3;
+  // A display name; absent when nobody is known.
+  optional string who = 4;
+  // An instant. v1 sent it as the class's wall time; a client converts with
+  // the class's zone.
+  google.protobuf.Timestamp at = 5;
+}
+
+// AIP-158, which replaces v1's limit, offset and has_more.
+message ListAuditEntriesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListAuditEntriesResponse {
+  repeated AuditEntry audit_entries = 1;
+  string next_page_token = 2;
+}

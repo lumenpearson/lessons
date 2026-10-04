@@ -1,0 +1,109 @@
+// The school directory: a search over the ЕГРЮЛ company register, because no
+// downloadable register of Russian schools exists. Replaces v1's
+// GET /directory/school-regions and GET /manage/schools.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service DirectoryService {
+  // Which regions a school called `query` may be in, best first, at most
+  // ten; the order is the contract. For a phone that belongs to no class
+  // yet, so anonymous, and therefore metered twice:
+  // - twenty searches per caller in fifteen minutes (THROTTLED);
+  // - the anonymous share of the directory's daily allowance (DIRECTORY_SPENT).
+  // A query under three characters is VALIDATION_FAILED and is not counted.
+  // Picking the region from the list always works, so every failure says so.
+  rpc ListSchoolRegions(ListSchoolRegionsRequest) returns (ListSchoolRegionsResponse) {
+    option (google.api.http) = {get: "/v2/schoolRegions"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_NONE;
+  }
+  // Schools matching `query`, looked up before UpdateClass names one, as
+  // «⚙️ Класс» does in the bot. An admin's, because every call spends an
+  // allowance somebody else pays for. Every call is one upstream search
+  // whatever the page, because the directory has no offset: a client asks
+  // once with page_size 20 and cuts the answer up itself. v1 and the design
+  // called it a search; as a List of schools with a query it is a standard
+  // method, which a method named Search on a GET is not.
+  rpc ListSchools(ListSchoolsRequest) returns (ListSchoolsResponse) {
+    option (google.api.http) = {get: "/v2/schools"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+}
+
+// One region the search found schools in. v1: SchoolRegionOut.
+message SchoolRegion {
+  // The region catalog's key («tatarstan»); absent when the directory named
+  // a region the catalog cannot place, and then `label` says what it called
+  // it.
+  optional string region = 1;
+  // The two-digit subject code.
+  optional string code = 2;
+  // The directory's own name, only for an unplaced region.
+  optional string label = 3;
+  // Hits in this region among the twenty the directory returns at most.
+  int32 schools = 4;
+  // Up to three towns, best first.
+  repeated string cities = 5;
+  // Up to three school names, as a person writes them.
+  repeated string examples = 6;
+}
+
+// One row of the directory. v1: SchoolOut.
+message School {
+  string name = 1;
+  string full_name = 2;
+  // The OGRN: thirteen digits, assigned once and never reused, so a client
+  // tells two «Гимназия № 3» apart.
+  optional string ogrn = 3;
+  optional string inn = 4;
+  optional string address = 5;
+  optional string city = 6;
+  optional string region = 7;
+  // False for a school the register has closed: shown, not hidden.
+  bool active = 8;
+}
+
+message ListSchoolRegionsRequest {
+  // The school's name as people write it. v1: the query field `q`.
+  string query = 1;
+}
+
+// v1: SchoolRegionsOut.
+message ListSchoolRegionsResponse {
+  // As searched: whitespace collapsed, cut to 150 characters.
+  string query = 1;
+  repeated SchoolRegion regions = 2;
+  // The directory's ceiling of twenty was reached: these are the first
+  // twenty's regions.
+  bool truncated = 3;
+  // Too common to place («школа № 5» is in every region).
+  bool generic = 4;
+}
+
+message ListSchoolsRequest {
+  string query = 1;
+  // Narrows the search to a region's name.
+  optional string region = 2;
+  // 1 to 20; 20 returns everything one search found.
+  int32 page_size = 3;
+  string page_token = 4;
+}
+
+// v1: SchoolSearchOut, with AIP-158 paging instead of page and pages.
+message ListSchoolsResponse {
+  repeated School schools = 1;
+  string next_page_token = 2;
+  int32 total_size = 3;
+  // The directory's own ceiling of twenty was reached: the way forward is a
+  // longer query, not a next page.
+  bool truncated = 4;
+}
