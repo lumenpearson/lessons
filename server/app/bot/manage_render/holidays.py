@@ -10,7 +10,8 @@ from app.models import DayKind, DayOverride
 
 #: Rows listed before «… и ещё N». Twenty lines is about a phone screen and a
 #: half; past that the reader scrolls instead of reading. «🏖 Особые дни» draws
-#: this many, and ``manage_keyboards`` builds this many 🗑 buttons under them.
+#: this many, and ``manage_keyboards.holidays`` builds this many 🗑 buttons under
+#: them.
 LIST_MAX = 20
 
 

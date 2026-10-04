@@ -6,8 +6,9 @@ from html import escape
 
 from app.bot.render import clamp, more_line, plural
 
-#: Schedules drawn on «🔔 Звонки», and the rows ``manage_keyboards`` builds for
-#: them; ``subjects.SUBJECTS_MAX`` says why each page has a number of its own.
+#: Schedules drawn on «🔔 Звонки», and the rows ``manage_keyboards.bells``
+#: builds for them; ``subjects.SUBJECTS_MAX`` says why each page has a number of
+#: its own.
 BELLS_MAX = 10
 
 

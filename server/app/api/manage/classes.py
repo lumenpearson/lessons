@@ -106,11 +106,12 @@ async def class_update(
         await classes_service.set_timezone(session, school_class, actor.telegram_id, zone)
     if ("grade" in changes or "letter" in changes) and "name" not in changes:
         # A class moved from 9 to 10 is not called «9А» any more. The name was
-        # composed from these two at creation (`bot/handlers/start/onboarding.py`), and a
-        # move that left the old name standing showed the wrong class on every
-        # screen that prints one. Unless the same request also names the class:
-        # an admin who typed a name has said what they want, and recomposing
-        # over it would overrule them within the one request.
+        # composed from these two at creation
+        # (`bot/handlers/start/onboarding.py`), and a move that left the old
+        # name standing showed the wrong class on every screen that prints one.
+        # Unless the same request also names the class: an admin who typed a
+        # name has said what they want, and recomposing over it would overrule
+        # them within the one request.
         composed = terms_service.compose_name(
             school_class.grade, school_class.letter, fallback=school_class.name
         )

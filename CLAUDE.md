@@ -515,8 +515,8 @@ points Hilt does not inject cleanly.
   number and drops what has none, so a row at a number the day does not ring is
   stored, logged, announced and drawn nowhere. Three ways in had to learn this
   separately: the week import, the button editor, and — later — the substitution
-  (`api/edit.py`, `bot/handlers/content/overrides.py`) and the bot's single-day paste,
-  which used to write the template itself instead of going through
+  (`api/edit.py`, `bot/handlers/content/overrides.py`) and the bot's single-day
+  paste, which used to write the template itself instead of going through
   `services/structure.apply_timetable`. Check with `timetable_edit.can_ring`,
   and for a dated write use `rung_indexes_on`, because a shortened day points
   at a shorter schedule than the class's usual. Two more ways in were closed

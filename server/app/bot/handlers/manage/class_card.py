@@ -121,7 +121,8 @@ async def class_root(
 
 
 #: field tag -> (column, prompt, limit). Only these three are typed; the zone
-#: and the join code have pickers of their own in ``handlers/start/`` (``timezone``, ``codes``).
+#: and the join code have pickers of their own in ``handlers/start/``
+#: (``timezone``, ``codes``).
 _CLASS_FIELDS = {
     "rename": ("name", "Новое название класса:", 64),
     "school": ("school", "Название школы («-» — убрать):", 200),

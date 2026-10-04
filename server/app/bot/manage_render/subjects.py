@@ -6,13 +6,13 @@ from html import escape
 
 from app.bot.render import clamp, more_line
 
-#: Subjects drawn on «📚 Предметы», and the ✏️ buttons ``manage_keyboards``
-#: builds under them — one number for both. Three of the four list pages used
-#: to draw more rows than they offered buttons for — forty subjects above
-#: thirty ✏️ buttons, twenty bell schedules above ten — so the tail was
-#: visible, unreachable, and unmentioned by «… и ещё N». The caps differ per
-#: page because the rows do: a schedule carries three buttons and twelve lines
-#: of times, a subject one button and one line.
+#: Subjects drawn on «📚 Предметы», and the ✏️ buttons
+#: ``manage_keyboards.subjects`` builds under them — one number for both. Three
+#: of the four list pages used to draw more rows than they offered buttons for —
+#: forty subjects above thirty ✏️ buttons, twenty bell schedules above ten — so
+#: the tail was visible, unreachable, and unmentioned by «… и ещё N». The caps
+#: differ per page because the rows do: a schedule carries three buttons and
+#: twelve lines of times, a subject one button and one line.
 SUBJECTS_MAX = 30
 
 

@@ -29,8 +29,10 @@ import pytest
 
 SERVER = Path(__file__).resolve().parents[1]
 
-#: Imports one module and prints, as JSON, every aiogram module left loaded
-#: and every `app` module holding an aiogram object or module.
+#: Imports one module and prints, as JSON, every aiogram module left loaded,
+#: every `app` module holding an aiogram object or module, and whether the
+#: webhook module `app.api.telegram` was loaded — which is what tells the two
+#: configurations apart.
 _PROBE = """
 import json, sys, types
 import MODULE
@@ -52,7 +54,15 @@ holders = sorted(
     and name.partition(".")[0] == "app"
     and any(from_aiogram(value) for value in vars(module).values())
 )
-print(json.dumps({"aiogram": loaded, "holders": holders}))
+print(
+    json.dumps(
+        {
+            "aiogram": loaded,
+            "holders": holders,
+            "webhook": "app.api.telegram" in sys.modules,
+        }
+    )
+)
 """
 
 #: The suite's own settings (`conftest.py`): no token, so no webhook and no bot.
@@ -72,7 +82,7 @@ _VERCEL = {
 }
 
 
-def _import_in_a_fresh_interpreter(module: str, settings: dict[str, str]) -> dict[str, list[str]]:
+def _import_in_a_fresh_interpreter(module: str, settings: dict[str, str]) -> dict:
     # `VERCEL` dropped first, so the local case is local even in a shell that
     # happens to carry it; the Vercel case sets it again.
     env = {name: value for name, value in os.environ.items() if name != "VERCEL"}
@@ -88,9 +98,21 @@ def _import_in_a_fresh_interpreter(module: str, settings: dict[str, str]) -> dic
     return json.loads(result.stdout.strip().splitlines()[-1])
 
 
-@pytest.mark.parametrize("settings", [_LOCAL, _VERCEL], ids=["webhook-unmounted", "vercel"])
-def test_importing_the_api_leaves_aiogram_out(settings):
+@pytest.mark.parametrize(
+    ("settings", "webhook_mounted"),
+    [(_LOCAL, False), (_VERCEL, True)],
+    ids=["webhook-unmounted", "vercel"],
+)
+def test_importing_the_api_leaves_aiogram_out(settings, webhook_mounted):
     found = _import_in_a_fresh_interpreter("app.main", settings)
+
+    # Each case proves it is the configuration it claims: were settings to stop
+    # mounting the webhook, the Vercel case would quietly become a copy of the
+    # unmounted one and the assertion below would be asked of the wrong thing.
+    assert found["webhook"] is webhook_mounted, (
+        f"app.api.telegram {'was not' if webhook_mounted else 'was'} loaded, so "
+        "this case is not the configuration it names"
+    )
 
     assert found["aiogram"] == [], (
         f"importing app.main loaded {len(found['aiogram'])} aiogram modules; "

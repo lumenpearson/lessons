@@ -1,9 +1,9 @@
 """Creating the first class: grade, letter, school, time zone.
 
-Part of :mod:`app.bot.handlers.start`. Every step but the first is filtered by
-its ``CreateClass`` state, and the last one takes a ``TimezonePick`` — the
-payload ``timezone`` takes without a state — so this router is included before
-that one.
+Part of :mod:`app.bot.handlers.start`. Every step here is filtered by its
+``CreateClass`` state; the first question, the grade, is asked by ``menu``'s
+``/start``. The last step takes a ``TimezonePick`` — the payload ``timezone``
+takes without a state — so this router is included before that one.
 """
 
 from __future__ import annotations
@@ -77,13 +77,11 @@ async def create_class_letter(message: Message, state: FSMContext) -> None:
 
 SKIP_ANSWERS = {"-", "—", ""}
 
-
 SEARCH_PROMPT = (
     "Теперь школа. Напишите название или номер — «гимназия 3», "
     "«школа 197 Санкт-Петербург» — и бот поищет её в реестре.\n\n"
     "Или отправьте <code>-</code>, чтобы пропустить."
 )
-
 
 MANUAL_PROMPT = (
     "Введите название школы так, как оно должно стоять в карточке класса "

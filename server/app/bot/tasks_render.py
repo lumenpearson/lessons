@@ -21,9 +21,9 @@ TASK_LINES_MAX = 40
 #: Task buttons in one keyboard. Telegram allows a hundred; a phone shows about
 #: ten before the message scrolls out of view.
 #:
-#: Declared here rather than in `tasks_keyboard`, the way `manage_render` declares
-#: `SUBJECTS_MAX` and `manage_keyboards` reads it: what is drawn and what can
-#: be pressed have to read one number, and this pair had two.
+#: Declared here rather than in `tasks_keyboard`, the way `manage_render.subjects`
+#: declares `SUBJECTS_MAX` and `manage_keyboards.subjects` reads it: what is drawn
+#: and what can be pressed have to read one number, and this pair had two.
 TASK_BUTTONS_MAX = 10
 
 #: Drawn once, where the buttons stop, when the list is longer than they are.

@@ -275,7 +275,7 @@ def _bot_callback_payloads() -> list[type]:
     ``diary_keyboard``'s one were never asked whether their prefixes collided
     with anything (#271), and a payload moved into a module of its own would
     have dropped out the same way. Each class is counted once, in the module
-    that defines it: ``manage_keyboards`` importing ``Menu`` from
+    that defines it: ``manage_keyboards.class_card`` importing ``Menu`` from
     ``keyboards`` is one payload, not two.
     """
     import importlib
@@ -286,8 +286,11 @@ def _bot_callback_payloads() -> list[type]:
     import app.bot
 
     def unreadable(name: str) -> None:
-        # pkgutil's default swallows an ImportError in a subpackage, which here
-        # would leave that package's every payload quietly out of the count.
+        # What this guards is a *package* that cannot be imported just to list
+        # its children: pkgutil's default swallows that ImportError and moves
+        # on, which here would leave every payload under that package quietly
+        # out of the count. A plain module that fails to import is not covered
+        # by this hook — ``importlib.import_module`` below raises for it anyway.
         raise ImportError(f"{name} could not be imported, so its payloads would go uncounted")
 
     found: list[type] = []

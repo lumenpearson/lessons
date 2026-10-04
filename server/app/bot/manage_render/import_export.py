@@ -13,11 +13,12 @@ CHUNK_LIMIT = 4000
 
 
 #: Unparsed lines echoed back under «⚠️ Не разобрал строки». The same rule as
-#: the pages above — what is drawn is what «… и ещё N» counts from — but here
-#: the number was written twice into the body of ``render_import_preview``,
-#: which is the arrangement that let the four pages disagree with their own
-#: keyboards. Ten, because a rejected line is shown to be corrected and a
-#: paste that got more than ten wrong is a paste to rewrite, not to fix.
+#: the list pages (``subjects``, ``bells``, ``devices`` and ``holidays``) —
+#: what is drawn is what «… и ещё N» counts from — but here the number was
+#: written twice into the body of ``render_import_preview``, which is the
+#: arrangement that let the four pages disagree with their own keyboards. Ten,
+#: because a rejected line is shown to be corrected and a paste that got more
+#: than ten wrong is a paste to rewrite, not to fix.
 REJECTED_MAX = 10
 
 

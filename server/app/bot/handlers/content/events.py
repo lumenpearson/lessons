@@ -163,7 +163,7 @@ async def event_title(
         await message.answer("Пришлите название события:")
         return
 
-    # Cut once, like the substitution above, and then stored, logged, shown
+    # Cut once, like the substitution in ``overrides.py``, and then stored, logged, shown
     # back and announced as the same string. Echoed whole it both promised a
     # name the row had not kept and, at 4096 characters typed here, made the
     # confirmation 4164 — a message Telegram refuses, sent after the event was
@@ -206,7 +206,8 @@ async def event_title(
         session,
         getattr(message, "bot", None),
         school_class,
-        # ``shorten`` for the same reason the two announcements above use it.
+        # ``shorten`` for the same reason the announcements in ``homework.py``
+        # and ``overrides.py`` use it.
         f"{EVENT_KIND_LABELS.get(kind, '🎉')} <b>{escape(notify.shorten(title))}</b> "
         f"{relative_day_name(day, today)}, {when}.",
         kind="changes",

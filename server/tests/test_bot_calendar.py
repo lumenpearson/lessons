@@ -390,7 +390,8 @@ async def test_a_day_payload_that_is_not_a_date_is_refused_not_raised(
     """
     flow_module = {"hw": homework_flow, "ovr": overrides_flow, "ev": events_flow}[flow]
     # On the module whose handler reads it: the name is imported into each
-    # flow, so patching it on `_common` or on the package changes nothing.
+    # flow, so patching it on `_common` changes nothing, and patching it on
+    # the package raises `AttributeError`: the package re-exports only `router`.
     monkeypatch.setattr(flow_module, "_today", lambda *_: TODAY)
     callback = CardCallback()
     handler = {

@@ -272,8 +272,8 @@ async def override_subject(
         session,
         getattr(message, "bot", None),
         school_class,
-        # Through ``shorten`` like the homework announcement above, so that one
-        # rule bounds what this bot pushes to a lock screen whatever wrote it.
+        # Through ``shorten`` like the homework announcement in ``homework.py``,
+        # so that one rule bounds what this bot pushes to a lock screen whatever wrote it.
         f"🔄 Замена {relative_day_name(day, today)}, урок №{index} — "
         f"<b>{escape(notify.shorten(subject))}</b>.",
         kind="changes",

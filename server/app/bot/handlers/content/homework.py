@@ -45,6 +45,7 @@ router = Router(name="content.homework")
 #: the comment there says why.
 ticks = Router(name="content.homework.ticks")
 
+
 def _int_or_none(raw: str) -> int | None:
     """An id from callback data, or ``None`` for anything a crafted one might carry."""
     try:
@@ -68,8 +69,8 @@ async def homework_root(
     """The digest with this reader's own «сделал» ticks.
 
     The same view the /homework command and the tick buttons render —
-    :func:`homework_view`, below — one function, so a tick made from the menu and a
-    tick made from the command cannot disagree about what is done.
+    :func:`homework_view`, below — one function, so a tick made from the menu
+    and a tick made from the command cannot disagree about what is done.
     """
     if school_class is None or role is None:
         await callback.answer("Нет доступа", show_alert=True)
@@ -174,11 +175,12 @@ async def homework_pick_subject(
     # chosen again. Saying so beats writing homework for whatever subject
     # happens to sit at that position now.
     #
-    # Through the module's own guard rather than ``isdigit`` + ``int``: the two
-    # do not ask the same question. «²» is a digit to ``str.isdigit`` and a
-    # ``ValueError`` to ``int``, so that spelling let a payload past the check
-    # and into the conversion, which raises out of the handler — and a press
-    # that reaches a traceback never reaches ``callback.answer``.
+    # Through ``_index_or_none`` (``content/_common.py``) rather than
+    # ``isdigit`` + ``int``: the two do not ask the same question. «²» is a
+    # digit to ``str.isdigit`` and a ``ValueError`` to ``int``, so that spelling
+    # let a payload past the check and into the conversion, which raises out of
+    # the handler — and a press that reaches a traceback never reaches
+    # ``callback.answer``.
     index = _index_or_none(callback_data.value)
     if index is None or index >= len(subjects):
         await callback.answer("Список устарел. Выберите день заново.", show_alert=True)
@@ -338,8 +340,8 @@ async def homework_view(
         )
     )
     ids = {(item.due_date, item.subject_name): item.id for item in rows}
-    ticks = await task_service.homework_ticks(session, telegram_id, list(ids.values()))
-    done = {key for key, homework_id in ids.items() if homework_id in ticks}
+    ticked = await task_service.homework_ticks(session, telegram_id, list(ids.values()))
+    done = {key for key, homework_id in ids.items() if homework_id in ticked}
 
     extra: list[list[InlineKeyboardButton]] = []
     if role.at_least(Role.EDITOR):

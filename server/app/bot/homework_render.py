@@ -12,9 +12,9 @@ from app.wording import human_date, plural
 #:
 #: The number the keyboard under it can offer, and the keyboard is built from
 #: the very rows this file decided on — ``handlers/content/homework`` reads
-#: :func:`homework_digest_keys`, the way ``manage_keyboards`` reads the caps
-#: ``manage_render`` declares. A row past the last button is a tick nobody can
-#: make, with nothing on the screen saying so.
+#: :func:`homework_digest_keys`, the way ``manage_keyboards.subjects`` reads
+#: the cap ``manage_render.subjects`` declares. A row past the last button is a
+#: tick nobody can make, with nothing on the screen saying so.
 HOMEWORK_ITEMS_MAX = 12
 
 #: How much of one assignment a row shows. ``handlers/content`` already cuts an

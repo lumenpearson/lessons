@@ -7,9 +7,12 @@ password reset flow.
 Everything below is what the code in `server/app/bot/` actually does. Handlers
 live in `handlers/`, the structural half of them in `handlers/manage/` — one
 module per screen of «⚙️ Класс», over `services/manage/`, each handler gated by
-`@needs(Role.X)`; the wording lives in one `*_render.py` per screen, in `render.py` (what is said about the class, and the door to `app/wording.py`) and in `manage_render/`, one module per screen like `handlers/manage/`; the
+`@needs(Role.X)`; the wording lives in one `*_render.py` per screen, in
+`render.py` (what is said about the class, and the door to `app/wording.py`)
+and in `manage_render/`, one module per screen like `handlers/manage/`; the
 buttons in `keyboards.py` (the menu, and what every screen ends with), one
-`*_keyboard.py` per feature beside it, and `manage_keyboards/`, one module per screen the same way.
+`*_keyboard.py` per feature beside it, and `manage_keyboards/`, one module per
+screen the same way.
 
 ## Button colours
 
@@ -695,8 +698,11 @@ renderer.
   count includes the tags Telegram does not count, which makes it conservative
   rather than exact, and the margin also covers what nothing here measures:
   Telegram counts UTF-16 code units, so every emoji outside the BMP — «📝»,
-  «📥», «🗓» — is two where Python sees one. A number in `render.py` is a budget,
-  never a measurement, and it is not to be tidied up towards 4096.
+  «📥», «🗓» — is two where Python sees one. A number in a renderer is a
+  budget, never a measurement, and it is not to be tidied up towards 4096. The
+  budgets live in the per-screen renderer modules (`app/bot/*_render.py` and
+  `app/bot/manage_render/*`); `render.py` keeps only the role sentence,
+  `silenced_lessons` and the `app.wording` door.
 * **What is cut is announced.** `clamp` and `more_line` live in `app/bot/render.py`
   and the per-page caps beside each page's renderer in `manage_render/`; every list that stops early says
   «… и ещё N». The caps differ per page on purpose — a bell schedule's row carries

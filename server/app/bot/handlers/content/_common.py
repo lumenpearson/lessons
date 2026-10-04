@@ -29,14 +29,16 @@ BAD_PICK = "Не понял, что выбрано. Откройте экран 
 def _date_or_none(raw: str) -> Date | None:
     """A date out of a callback payload, or ``None``.
 
-    Every «на какой день?» in this module used to call
+    Every «на какой день?» in this package used to call
     ``Date.fromisoformat(callback_data.value)`` straight, which is correct for
     every payload this bot builds and an unhandled ``ValueError`` for every
     other one — and a callback payload is whatever the client sends, not only
-    what was put on a button. The three handlers below are the boundary: past
-    them the date travels in the FSM state and the five places that read it
-    back can go on trusting it. `manage.py` and `timetable.py` already did this;
-    this is the same guard under the same name.
+    what was put on a button. The three handlers that ask it —
+    ``homework.homework_pick_day``, ``overrides.override_pick_day`` and
+    ``events.event_pick_day`` — are the boundary: past them the date travels
+    in the FSM state and the five places that read it back can go on trusting
+    it. ``handlers/manage/_common.py`` and ``handlers/timetable.py`` already
+    did this; this is the same guard under the same ``_or_none`` naming.
     """
     try:
         return Date.fromisoformat(raw)
@@ -46,13 +48,13 @@ def _date_or_none(raw: str) -> Date | None:
 
 def _kind_or_none(raw: str) -> EventKind | None:
     """The boundary ``_date_or_none`` draws, for the other two things this
-    module carries through the FSM state.
+    package carries through the FSM state.
 
     The date obeys it and the kind, on the very next screen, did not: it was
     stored raw and turned into an ``EventKind`` three questions later, in the
-    handler that saves the event. That is exactly the failure the comment above
-    ``event_pick_day`` warns about — the person had by then typed a time and a
-    title, and what broke was the press before all of it.
+    handler that saves the event. That is exactly the failure the comment in
+    ``events.event_pick_day`` warns about — the person had by then typed a time
+    and a title, and what broke was the press before all of it.
     """
     try:
         return EventKind(raw)

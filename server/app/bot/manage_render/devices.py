@@ -8,8 +8,9 @@ from html import escape
 from app.bot.render import clamp, more_line
 from app.models import Role
 
-#: Phones drawn on «📱 Устройства», and the rows ``manage_keyboards`` builds
-#: for them; ``subjects.SUBJECTS_MAX`` says why each page has a number of its own.
+#: Phones drawn on «📱 Устройства», and the rows ``manage_keyboards.devices``
+#: builds for them; ``subjects.SUBJECTS_MAX`` says why each page has a number of
+#: its own.
 DEVICES_MAX = 15
 
 
