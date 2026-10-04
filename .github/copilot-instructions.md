@@ -17,8 +17,9 @@ guillemets.
 
 **Checks.** From `server/`: `ruff check app tests scripts migrations`, `python -m mypy`,
 `pytest -q -n auto` (not `python -m pytest`, which hides a broken import on CI). From `android/`: `./gradlew test`, `./gradlew assembleDebug`,
-`./gradlew assembleRelease`, `./gradlew detekt`. CI is exactly those, plus the path-filtered
-«Contract (Buf)» job when the contract changed; `./gradlew lint` is not a gate.
+`./gradlew assembleRelease`, `./gradlew detekt`. CI is exactly those, path-filtered (a half runs
+when a file it reads changed), plus the «Contract (Buf)» job when the contract changed;
+`./gradlew lint` is not a gate.
 
 **Do not suggest:**
 

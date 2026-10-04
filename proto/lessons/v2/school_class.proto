@@ -62,7 +62,8 @@ service ClassService {
     option (lessons.v2.min_role) = ROLE_ADMIN;
   }
   // Switches between quarters and half-years and reseeds the year: four
-  // quarters and two halves do not map onto each other.
+  // quarters and two halves do not map onto each other. It takes no
+  // update_mask because the request has one writable field, the scheme itself.
   rpc UpdateTermScheme(UpdateTermSchemeRequest) returns (UpdateTermSchemeResponse) {
     option (google.api.http) = {
       patch: "/v2/class/termScheme"

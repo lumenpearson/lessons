@@ -274,7 +274,8 @@ class ListSchoolsRequest(Message[_ListSchoolsRequestFields]):
             optional string region = 2;
             ```
         page_size:
-            1 to 20; 20 returns everything one search found.
+            1 to 20; 20 returns everything one search found. Unset means 5, v1's
+            page size.
 
             ```proto
             int32 page_size = 3;

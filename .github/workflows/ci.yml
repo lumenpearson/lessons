@@ -18,11 +18,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Which halves of the repository this change can possibly have broken.
+  # Which parts of the repository this change can possibly have broken.
   #
   # The Android job is ten minutes and the server job is two; a commit that
-  # edits only `docs/` used to pay both. This job costs about fifteen seconds
-  # and decides which of them has anything to do.
+  # edits only `docs/` used to pay both. This job costs a few seconds and
+  # decides, as three outputs, which of Android, the server and the contract
+  # check has anything to do.
   #
   # It fails open on purpose. If the range cannot be worked out — a force push,
   # a first push of a branch, a re-run after history moved — every job runs.

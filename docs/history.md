@@ -28,6 +28,81 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the bot's long modules split into feature modules, and the cold start that imported aiogram (#271, #272, #275)
+
+Merged as #296 (`92dbd0b`, 4 October 2026), from `server-decomposition`, on milestone 11. It
+is the first sub-project of the milestone's programme, the one the plan merged as #277
+described. It closed #271, #272 and #275, and it refers to #276 and #273.
+
+- **The callback census covers all of `app.bot`.** It is the prefix-collision check — no two
+  `CallbackData` classes share a prefix — plus the check that every button the class menu
+  draws is a packed payload, and it never looked at `editor_keyboard` or `diary_keyboard`; it now walks every module of
+  the package and counts 30 payloads where it counted 27 (#271).
+- **A fresh interpreter proves aiogram stays off the API's cold start**, in both
+  configurations, the bot switched off and on (#272).
+- **Every Vercel cold start imported 736 aiogram modules, and no longer does.**
+  `app/api/telegram.py` imported aiogram at its top and Vercel always mounts the webhook; it
+  now imports it where an update is handled. The comment above the mount had said the
+  opposite (#275).
+- **The announcement and throttle tests are keyed by object, not by file path**, so a module
+  can move without the test going quiet, and five handler-order pins hold the pairs of
+  handlers that only registration order tells apart.
+- **The corrections laid over the diary live in `services/diary_corrections.py`**, beside
+  `diary_overrides.py`, and no longer in `services/diary.py`.
+- **Keyboards and renderers are one module per feature.** Each feature outside «⚙️ Класс» has
+  its own `*_render.py` and `*_keyboard.py` beside `render.py` (which still re-exports
+  `app/wording.py`) and `keyboards.py`.
+- **`handlers/content/` and `handlers/start/` are packages**, one module per concern,
+  included in one written-down order like `handlers/manage/`.
+- **The homework ticks sit beside the homework**, on a router of their own at the tasks'
+  old position in the dispatch order, because of #276, which is filed and not fixed here.
+- **`manage_render/` and `manage_keyboards/` hold one module per screen**, as the handlers
+  they serve do.
+- **A final wording pass** made the comments the moves carried say where things are now, and
+  pinned each cold-start case to its configuration. In `docs/bot.md`, `clamp` and
+  `more_line` are now said to live in `app/wording.py`, which `render.py` re-exports.
+- **How it was done.** One fresh implementer and one fresh reviewer per task, thirteen tasks
+  and a wording pass. Every move was checked by a syntax-tree comparison and by a diff of the
+  177-handler dispatch order. The machine switched itself off once, during Task 1; a scan of
+  10,409 files found nothing zero-filled. Task 11's first implementer was stopped by the
+  owner mid-task and a second finished from the working tree.
+
+### Gates
+
+At the head before this paragraph: `ruff check app tests scripts migrations` clean;
+`python -m mypy` clean, 197 source files; `pytest -q -n auto` 2075 passed in 9 minutes 51 seconds on
+this machine on 4 October, against the documented four minutes (`2065` before the batch, ten
+more tests since: one for the census, three for the cold start, five order pins and one
+more in the ticks' task). The dispatch order, 177 handlers, differs from the first baseline in
+exactly the two homework handlers relabelled from `tasks:` to `content:` at the same
+positions and the move of the `start:back_root` callback within the start package.
+
+### What was deliberately left alone
+
+- **`api/public.py`, `api/diary.py`, `api/edit.py`, `models.py`, `schedule.py`, the providers
+  and Android are not split**: v2 replaces the API's three, and the others are long but
+  cohesive.
+- **#276 is filed and not fixed**: aiogram's `Command` reads `/week@` as a command and
+  `CommandBreakoutMiddleware` does not. The ticks keep their place in the dispatch order
+  for it; once it is fixed they can join `content`'s router.
+- **Revision `0017`'s text stays as the record** of the key it files corrections under.
+- **No old name is re-exported**, except `render`'s wording names. `ruff format` would
+  reformat seven files in the new packages; it is not a gate and it was not run.
+- **Milestones 12 and 13 exist**, created by another session; its pull request, #294,
+  describes them, and `HANDOVER.md`'s milestone table does not.
+
+### What nobody has verified in this batch
+
+- **The cold-start fix on Vercel itself.** The 736 modules were measured on Windows, in a
+  fresh interpreter, under Vercel's settings; no deployment has been read.
+- **Anything on a device.** Nothing here touches the phone.
+- **The whole-branch review has run.** The final review, on the most capable model over all 13
+  commits, approved the branch with three small fixes (two stale test counts, three HANDOVER
+  sentences, one comment in `manage_render/__init__.py`), which the last commit makes. It
+  re-checked the dispatch order against the first baseline, that every moved function binds
+  the same objects, the import graph, the monkeypatches' reach, the census and the cold start
+  (736 → 0 aiogram modules).
+
 ## What the batch before added: the spike's answers, and the plan for the server decomposition (#275, #276)
 
 Merged as #277 (`746acc3`, 4 October 2026), from `plan/server-decomposition`, on milestone 11, after the owner's review

@@ -62,6 +62,9 @@ class MeService(Protocol):
         Mints the class's feed when it has none, and answers the existing feed
         when it has one. v2 has no rotation: the feed is the whole class's, and a
         new secret would cut off every calendar subscribed to the old one.
+        Both feed methods are AUTH_KIND_DEVICE_LINKED with no min_role, on
+        purpose: v1 let any device, an anonymous one included, mint the feed, and
+        v2 asks for a linked account.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -376,6 +379,9 @@ class MeServiceClient(ConnectClient):
         Mints the class's feed when it has none, and answers the existing feed
         when it has one. v2 has no rotation: the feed is the whole class's, and a
         new secret would cut off every calendar subscribed to the old one.
+        Both feed methods are AUTH_KIND_DEVICE_LINKED with no min_role, on
+        purpose: v1 let any device, an anonymous one included, mint the feed, and
+        v2 asks for a linked account.
         """
         return await self.execute_unary(
             request=request,
@@ -595,6 +601,9 @@ class MeServiceSync(Protocol):
         Mints the class's feed when it has none, and answers the existing feed
         when it has one. v2 has no rotation: the feed is the whole class's, and a
         new secret would cut off every calendar subscribed to the old one.
+        Both feed methods are AUTH_KIND_DEVICE_LINKED with no min_role, on
+        purpose: v1 let any device, an anonymous one included, mint the feed, and
+        v2 asks for a linked account.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -903,6 +912,9 @@ class MeServiceClientSync(ConnectClientSync):
         Mints the class's feed when it has none, and answers the existing feed
         when it has one. v2 has no rotation: the feed is the whole class's, and a
         new secret would cut off every calendar subscribed to the old one.
+        Both feed methods are AUTH_KIND_DEVICE_LINKED with no min_role, on
+        purpose: v1 let any device, an anonymous one included, mint the feed, and
+        v2 asks for a linked account.
         """
         return self.execute_unary(
             request=request,

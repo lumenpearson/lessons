@@ -180,6 +180,10 @@ where per-write facts live (`silenced_lessons` on a bell write). The diary's tur
 `ListTurnstileEvents` (`DiaryFeature.TURNSTILE`), so that `ATTENDANCE` stays free for absences
 and lateness when a method reads them.
 
+`ListHomework`, `ListSubstitutions` and `ListEvents` default to a 21-day range and refuse more than
+62 days: those are v1's homework limits, and v1 had no list of substitutions or events to take
+limits from.
+
 What v1 has that v2 does not, on purpose:
 - `GET /now` — a developer-console preset and nothing else; the console will read v2 like any client.
 - `POST /diary/login` — a password through this server, kept in v1 for APKs built before

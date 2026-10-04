@@ -208,8 +208,8 @@ step costs a minute. Measured here:
 | Server (`ruff` + `pytest`) | 12 min 43 s | 13 | 3 min 56 s |
 | **A full CI run** | | **21** | |
 
-The «Contract (Buf)» job is not in the table: it runs only when the contract changes, and it
-had not been timed when it was added (`docs/specs/2026-10-04-contract-v2-plan.md`, Task 8).
+The «Contract (Buf)» job is not in the table: it runs only when the contract, the workflow or
+an unknown commit range says so (see «Path filters», below), and it had not been timed when it was added (`docs/specs/2026-10-04-contract-v2-plan.md`, Task 8).
 
 2000 minutes was about 95 full runs, and nearly two thirds of each went into one `pytest`
 step. What stayed in CI for good:
@@ -237,7 +237,7 @@ step. What stayed in CI for good:
   them at once — which is the storage problem this section is about. For the same reason as
   the short life, uploading the test reports is marked `continue-on-error`: the gate is
   `./gradlew test`, not where the report landed.
-- **Path filters.** The "What changed" job decides in eight seconds which halves could
+- **Path filters.** The "What changed" job decides in a few seconds which halves could
   possibly have broken, and a half runs when a file **its tests read** changed, not only a
   file in its own folder. So a change confined to `docs/` usually runs neither — but
   `docs/app/` and `docs/legal/` are packaged into the APK and run Android; `docs/build.md`,

@@ -3,6 +3,8 @@
 Version `1`. Base path `/api/v1`. Every change since the first release is
 additive - new endpoints, new optional fields - so the version has not moved
 and a client built against the original `/bundle` keeps working unchanged.
+A second version, v2, is written down as a proto contract and served by nothing yet:
+«v2: the contract», at the end of this page.
 
 There is no user account and no password. A device holds a bearer token; a
 device that has been **linked** to a Telegram account through the bot acts
@@ -1573,3 +1575,131 @@ exists for the case where they do not; the subject codes 90, 93, 94 and 95 of th
 regions admitted in 2022, which the catalog marks as unverified; every one of the catalog's
 DaData spellings; DaData's own day boundary; and two requests racing for the last unit on
 Postgres, which has been checked on SQLite only. Nothing here has been asked of a live DaData.
+
+## v2: the contract
+
+**Written down, not served.** Everything above this section is v1, and v1 is what every
+request to this server reaches today. v2 is the contract the server will answer next:
+`proto/lessons/v2/` at the root of the repository, checked by Buf, with its Python generated
+into `server/app/contract/` and imported by nothing the deployment runs. Sub-project 3 of
+[the programme](specs/2026-10-03-one-contract-design.md) serves it, and this section changes
+from «will» to «does» then. The proto files are the reference: every service, method,
+message and field there carries the comment that says what it means and what v1 sent in its
+place. This section says only what a file cannot.
+
+### One contract, three ways to call it
+
+v2 is one package, `lessons.v2`: seventeen services in twenty files, one file per service
+plus `options.proto`, `errors.proto` and `common.proto`. Each method will be reachable three
+ways, from one handler:
+
+- **REST, under `/api/v2/…`.** A method's `google.api.http` annotation is its route. It is
+  written `/v2/…` and served under `/api`, because this deployment is one function and every
+  path that works on it is there. Standard methods use their verbs: `GET` reads, `POST`
+  creates, `PATCH` updates the fields an `update_mask` names, `DELETE` carries no body.
+  Anything else is `POST …:verb`, as in `POST /api/v2/me:unlink`. Path fields are written
+  in the path, and the rest of a `GET` or a `DELETE` in the query string.
+- **Connect and gRPC-Web**, as `POST /api/rpc/lessons.v2.<Service>/<Method>`. Every `Get`
+  and `List` is marked `NO_SIDE_EFFECTS`, so Connect may send it as a `GET`. Nothing else is
+  marked.
+- **Native gRPC**, on the same path, on the long-running host target only: Vercel passes no
+  response trailers, and gRPC carries its status in them.
+
+One method, `WatchService.WatchClass`, is a server stream: a beta of the host target, with
+no REST binding.
+
+### What the values look like
+
+- JSON, on REST and on Connect alike, is canonical proto3 JSON: field names in
+  lowerCamelCase (`createdAt`, where the proto and v1 write `created_at`), 64-bit integers
+  as strings, and enums by name. v1's snake_case does not carry over.
+- A date is `"YYYY-MM-DD"` and a time of day is `"HH:MM"`: naive wall time in the class's
+  zone, as in v1, except that v1 wrote times with seconds (`"08:30:00"`) and v2 does not. A
+  wall-clock moment, such as a task's reminder, is `"YYYY-MM-DDTHH:MM"`.
+- What really is an instant (when something was written, done or last seen) is a
+  `google.protobuf.Timestamp`: an RFC 3339 string in UTC in JSON. v1 sent several of these
+  as the class's wall time with no zone, such as a device's `created_at` and an audit
+  entry's `at`. A client converts them with the class's zone.
+- An id this server assigns is a 32-bit number. An id a diary assigns is 64-bit, and proto3
+  JSON writes a 64-bit number as a string.
+- An enum is its value's name: `"DAY_KIND_HOLIDAY"`, not v1's `"holiday"`. Every enum starts
+  at `…_UNSPECIFIED`, which is how a field says «none» where v1 said `null`. A client maps a
+  value it does not know to a fallback it states.
+- Every method answers a `<Method>Response`, even where it holds a single resource, so one
+  method's answer can grow without touching another's.
+
+### Who may call a method
+
+Each method says so itself, in two options declared in `options.proto`:
+
+| `(lessons.v2.auth)` | Credential | Who gets through |
+| --- | --- | --- |
+| `AUTH_KIND_NONE` | none | anybody: `CreateDevice`, `GetDiaryCapabilities`, `CreateDiarySession`, `ListSchoolRegions` |
+| `AUTH_KIND_DEVICE` | `Authorization: Bearer` with the device token | any phone in the class, linked or not |
+| `AUTH_KIND_DEVICE_LINKED` | the device token | a phone linked to an account; any other is refused with `DEVICE_NOT_LINKED` |
+| `AUTH_KIND_DIARY` | `Authorization: Bearer` with the diary token | a diary session |
+
+The two tokens stay independent, as in v1 («Authentication», above). Which one a method
+takes is part of the method, not of its path.
+
+`(lessons.v2.min_role)` is the least role a device method needs:
+- `ROLE_VIEWER` is any holder of the class's token, the class code's anonymous one
+  included, and asks no role.
+- `ROLE_EDITOR`, `ROLE_ADMIN` and `ROLE_OWNER` ask the linked account's role in the class on
+  every request, so a role taken away in the bot is gone here in the same instant.
+
+Every method that acts on the class names one, reads included.
+
+### Errors
+
+A refusal is a `google.rpc.Status`. It carries:
+- a canonical code;
+- the server's own sentence for a person;
+- in its details, a `google.rpc.ErrorInfo` with `domain` `"lessons.app"`, a `reason`, and
+  `metadata`.
+
+RPC sends it as the protocol's error. REST sends Google's JSON error body
+(`{"error": {"code", "message", "status", "details"}}`) under the standard status:
+
+| Code | HTTP |
+| --- | --- |
+| `INVALID_ARGUMENT`, `FAILED_PRECONDITION` | 400 |
+| `UNAUTHENTICATED` | 401 |
+| `PERMISSION_DENIED` | 403 |
+| `NOT_FOUND` | 404 |
+| `ALREADY_EXISTS` | 409 |
+| `RESOURCE_EXHAUSTED` | 429 |
+| `UNIMPLEMENTED` | 501 |
+| `UNAVAILABLE` | 503 |
+
+The reasons are `ErrorReason` in `errors.proto`: thirty-three of them, each with its code,
+its metadata and what v1 sent instead.
+
+**A client acts on the reason, never on the message.** The app's habit of matching
+`"device is not linked"` (#270) ends here. A reason a client does not know, it handles by the
+code. `VALIDATION_FAILED` names each wrong request field in a `google.rpc.BadRequest`. No
+error repeats a request field back: a password or a diary session sent by mistake is never
+in a refusal.
+
+### Not in v2, on purpose
+
+- `GET /now`: it served a developer-console preset and nothing else.
+- `POST /diary/login`: a password through this server, kept in v1 for APKs from before
+  `/diary/session`. Every APK v2 serves opens its diary session itself.
+- `/subjects` without ids beside `/manage/subjects`: v2 has one `SubjectService`, with ids,
+  readable by a viewer.
+
+The calendar feed itself (`/api/v1/calendar/{token}.ics`), the Telegram webhook, the cron
+tick, `/diary/signin/{code}`, `/api/v1/health` and `/api/v1/warmup` stay plain HTTP at their
+v1 paths.
+
+### Changing it
+
+The contract grows by addition only: a new field under a new number, a new method, a new
+enum value, a new reason. It never renames, renumbers or retypes in place
+([the programme](specs/2026-10-03-one-contract-design.md), «Evolving the contract»).
+
+- CI's «Contract» job holds the mechanical half, with Buf's `FILE` breaking rules.
+- `server/tests/test_contract.py` holds each method's route, credential, role and
+  idempotency against the resource map.
+- [build.md](build.md), «The v2 contract and Buf», has the commands.

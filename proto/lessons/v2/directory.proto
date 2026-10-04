@@ -93,7 +93,8 @@ message ListSchoolsRequest {
   string query = 1;
   // Narrows the search to a region's name.
   optional string region = 2;
-  // 1 to 20; 20 returns everything one search found.
+  // 1 to 20; 20 returns everything one search found. Unset means 5, v1's
+  // page size.
   int32 page_size = 3;
   string page_token = 4;
 }

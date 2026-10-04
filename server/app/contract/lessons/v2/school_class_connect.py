@@ -72,7 +72,8 @@ class ClassService(Protocol):
     async def update_term_scheme(self, request: UpdateTermSchemeRequest, ctx: RequestContext[UpdateTermSchemeRequest, UpdateTermSchemeResponse], /) -> UpdateTermSchemeResponse:
         """
         Switches between quarters and half-years and reseeds the year: four
-        quarters and two halves do not map onto each other.
+        quarters and two halves do not map onto each other. It takes no
+        update_mask because the request has one writable field, the scheme itself.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -343,7 +344,8 @@ class ClassServiceClient(ConnectClient):
     ) -> UpdateTermSchemeResponse:
         """
         Switches between quarters and half-years and reseeds the year: four
-        quarters and two halves do not map onto each other.
+        quarters and two halves do not map onto each other. It takes no
+        update_mask because the request has one writable field, the scheme itself.
         """
         return await self.execute_unary(
             request=request,
@@ -453,7 +455,8 @@ class ClassServiceSync(Protocol):
     def update_term_scheme(self, request: UpdateTermSchemeRequest, ctx: RequestContext[UpdateTermSchemeRequest, UpdateTermSchemeResponse], /) -> UpdateTermSchemeResponse:
         """
         Switches between quarters and half-years and reseeds the year: four
-        quarters and two halves do not map onto each other.
+        quarters and two halves do not map onto each other. It takes no
+        update_mask because the request has one writable field, the scheme itself.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -717,7 +720,8 @@ class ClassServiceClientSync(ConnectClientSync):
     ) -> UpdateTermSchemeResponse:
         """
         Switches between quarters and half-years and reseeds the year: four
-        quarters and two halves do not map onto each other.
+        quarters and two halves do not map onto each other. It takes no
+        update_mask because the request has one writable field, the scheme itself.
         """
         return self.execute_unary(
             request=request,
