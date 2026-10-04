@@ -45,13 +45,9 @@ from httpx import ASGITransport
 from sqlalchemy import delete as sa_delete
 
 from app.api import edit
-from app.bot.handlers.content import (
-    event_title,
-    homework_text,
-    override_cancel,
-    override_clear,
-    override_subject,
-)
+from app.bot.handlers.content.events import event_title
+from app.bot.handlers.content.homework import homework_text
+from app.bot.handlers.content.overrides import override_cancel, override_clear, override_subject
 from app.config import get_settings
 from app.main import app
 from app.models import BotUser, DeviceToken, Homework, ReminderSettings, Role

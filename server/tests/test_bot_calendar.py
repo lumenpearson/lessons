@@ -23,9 +23,12 @@ from app.bot.calendar_keyboard import (
 from app.bot.content_keyboard import EventAction, HomeworkAction
 from app.bot.content_keyboard import OverrideAction as OverrideCB
 from app.bot.handlers import calendar as handlers
-from app.bot.handlers import content
 from app.bot.handlers.calendar import calendar_card, calendar_nav, calendar_open, cmd_day
-from app.bot.handlers.content import homework_pick_day
+from app.bot.handlers.content import _common as content_common
+from app.bot.handlers.content import events as events_flow
+from app.bot.handlers.content import homework as homework_flow
+from app.bot.handlers.content import overrides as overrides_flow
+from app.bot.handlers.content.homework import homework_pick_day
 from app.models import DayKind, DayOverride, Role
 
 # A Sunday in the middle of the 2026/27 school year, so every month of that
@@ -385,12 +388,15 @@ async def test_a_day_payload_that_is_not_a_date_is_refused_not_raised(
     later, at the step that finally read it, so the failure looked like it
     belonged to whatever the user had just typed.
     """
-    monkeypatch.setattr(content, "_today", lambda *_: TODAY)
+    flow_module = {"hw": homework_flow, "ovr": overrides_flow, "ev": events_flow}[flow]
+    # On the module whose handler reads it: the name is imported into each
+    # flow, so patching it on `_common` or on the package changes nothing.
+    monkeypatch.setattr(flow_module, "_today", lambda *_: TODAY)
     callback = CardCallback()
     handler = {
-        "hw": content.homework_pick_day,
-        "ovr": content.override_pick_day,
-        "ev": content.event_pick_day,
+        "hw": homework_flow.homework_pick_day,
+        "ovr": overrides_flow.override_pick_day,
+        "ev": events_flow.event_pick_day,
     }[flow]
 
     state = FakeState()
@@ -400,7 +406,7 @@ async def test_a_day_payload_that_is_not_a_date_is_refused_not_raised(
     else:
         await handler(callback, payload, state, session, school_class, Role.EDITOR)
 
-    assert [text for text, _ in callback.answers] == [content.BAD_DATE]
+    assert [text for text, _ in callback.answers] == [content_common.BAD_DATE]
     assert callback.message.markups == []
     # Nothing was written down, so the next tap starts clean rather than on a
     # half-filled flow whose date is a string that will not parse.

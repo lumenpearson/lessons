@@ -515,7 +515,7 @@ points Hilt does not inject cleanly.
   number and drops what has none, so a row at a number the day does not ring is
   stored, logged, announced and drawn nowhere. Three ways in had to learn this
   separately: the week import, the button editor, and — later — the substitution
-  (`api/edit.py`, `bot/handlers/content.py`) and the bot's single-day paste,
+  (`api/edit.py`, `bot/handlers/content/overrides.py`) and the bot's single-day paste,
   which used to write the template itself instead of going through
   `services/structure.apply_timetable`. Check with `timetable_edit.can_ring`,
   and for a dated write use `rung_indexes_on`, because a shortened day points
@@ -638,9 +638,9 @@ points Hilt does not inject cleanly.
   a small bug.** `int(callback_data.value)` does not refuse a press it cannot parse
   — it raises out of the handler, so `callback.answer()` is never reached and the
   button keeps its spinner until Telegram gives up. Every handler module carries a
-  guard for this: `_int_or_none` in `manage.py`, `tasks.py` and `access.py`,
-  `_date_or_none` in `calendar.py` and `content.py`, `_role_or_none` in
-  `access.py`, `_kind_or_none` and `_index_or_none` in `content.py`, and
+  guard for this: `_int_or_none` in `manage/_common.py`, `tasks.py` and `access.py`,
+  `_date_or_none` in `calendar.py` and `content/_common.py`, `_role_or_none` in
+  `access.py`, `_kind_or_none` and `_index_or_none` in `content/_common.py`, and
   `shift_days`/`shift_weeks` in `keyboards.py` for the offsets (`timedelta(
   days=999999999)` is an OverflowError, not a far-away day). Check the value
   **where it is picked**, not where it is finally read: a value carried through

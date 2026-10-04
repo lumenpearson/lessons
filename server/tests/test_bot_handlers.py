@@ -20,7 +20,6 @@ from sqlalchemy import func, select
 from app.bot import render
 from app.bot.access_keyboard import AccessAction, RolePick
 from app.bot.content_keyboard import EventAction, HomeworkAction
-from app.bot.handlers import content
 from app.bot.handlers.access import (
     JOIN_MODE_TEXT,
     access_root,
@@ -31,15 +30,21 @@ from app.bot.handlers.access import (
     switch_join_mode,
 )
 from app.bot.handlers.access import router as access_router
-from app.bot.handlers.content import (
+from app.bot.handlers.content._common import _date_or_none
+from app.bot.handlers.content.events import (
     _parse_time_range,
     event_pick_kind,
     event_time,
     event_title,
+)
+from app.bot.handlers.content.homework import (
     homework_pick_day,
     homework_pick_subject,
     homework_text,
     homework_typed_subject,
+)
+from app.bot.handlers.content.overrides import (
+    _save_override,
     override_cancel,
     override_clear,
     override_pick_index,
@@ -213,7 +218,7 @@ async def test_the_bot_refuses_a_substitution_on_a_day_marked_as_a_day_off(
     session.add(DayOverride(class_id=school_class.id, date=day, kind=DayKind.HOLIDAY))
     await session.commit()
 
-    refusal = await content._save_override(
+    refusal = await _save_override(
         session, school_class.id, day, 1, OverrideActionEnum.REPLACE, subject="Алгебра"
     )
 
@@ -229,7 +234,7 @@ async def test_the_bot_refuses_a_substitution_out_of_the_school_year(session, sc
     `schedule.school_year_bounds`, under the same name in another module — so
     a summer day is two taps away. Without this check the row is written.
     """
-    refusal = await content._save_override(
+    refusal = await _save_override(
         session, school_class.id, Date(2026, 6, 15), 1, OverrideActionEnum.REPLACE,
         subject="Алгебра",
     )
@@ -242,7 +247,7 @@ async def test_the_bot_refuses_a_substitution_out_of_the_school_year(session, sc
 async def test_both_shells_refuse_such_a_day_in_the_same_words(session, school_class):
     """One rule, two shells — the thing that was missing, not the sentence."""
     day = Date(2026, 6, 15)
-    assert await content._save_override(
+    assert await _save_override(
         session, school_class.id, day, 1, OverrideActionEnum.REPLACE, subject="Алгебра"
     ) == await timetable_edit.why_no_lesson_can_be_drawn(session, school_class.id, day)
 
@@ -397,9 +402,9 @@ def test_a_date_out_of_a_callback_payload_is_never_trusted():
     the middleware and «что-то пошло не так» for a person who pressed a
     calendar. The guard exists for that; this is what it has to swallow.
     """
-    assert content._date_or_none("2026-09-07") == date(2026, 9, 7)
+    assert _date_or_none("2026-09-07") == date(2026, 9, 7)
     for bad in ("", "вчера", "2026-13-40", "2026-09-07T10:00", None, "07.09.2026"):
-        assert content._date_or_none(bad) is None, bad
+        assert _date_or_none(bad) is None, bad
 
 
 def test_a_notification_is_shortened_without_losing_the_start():
