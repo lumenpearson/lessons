@@ -1,0 +1,67 @@
+// Getting a phone into a class: a code in, the device token out.
+// Replaces v1's POST /join.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service DeviceService {
+  // Exchanges a code for a long-lived device token. The class code (eight
+  // characters) buys an anonymous, read-only token; a personal code from the
+  // bot's «📱 Подключить телефон» (ten characters, fifteen minutes, one phone)
+  // buys one already linked to the account that minted it. The class code is
+  // looked up first, and the lengths keep the two apart. REST answers 201.
+  //
+  // Refusals: JOIN_CODE_UNKNOWN, which is counted against the caller;
+  // CLASS_INVITE_ONLY and DEVICE_LIMIT_REACHED, which are not, because the
+  // caller had a real code; THROTTLED.
+  rpc CreateDevice(CreateDeviceRequest) returns (CreateDeviceResponse) {
+    option (google.api.http) = {
+      post: "/v2/devices"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_NONE;
+  }
+}
+
+message CreateDeviceRequest {
+  // The class code or a personal code: 4 to 16 characters once control
+  // characters are dropped; case does not matter. v1: JoinRequest.code.
+  string code = 1;
+  // What the person calls this phone, up to 120 characters, shown on
+  // «📱 Устройства». v1: JoinRequest.device_name.
+  optional string device_name = 2;
+}
+
+message CreateDeviceResponse {
+  // The device token, for `Authorization: Bearer`. Sent once: the server
+  // keeps only its hash.
+  string token = 1;
+  int32 class_id = 2;
+  string class_name = 3;
+  optional string school = 4;
+  // The class's IANA zone, e.g. "Europe/Moscow": where its days are cut.
+  string timezone = 5;
+  // The diary the class is bound to in the bot, when this server can reach
+  // it, so the phone signs in there without searching for its school.
+  DiaryBinding diary = 6;
+}
+
+// Which diary a class reads. v1: DiaryBindingOut.
+message DiaryBinding {
+  // A provider key, "petersburg" or "netschool" today: a string rather than
+  // an enum, so a provider added on the server reaches the phone with no
+  // change here (the design's decision 8).
+  string provider = 1;
+  // The allow-list key, which is the region catalog's key; absent for
+  // Petersburg, which is one city's server.
+  optional string region = 2;
+  // The diary's own school id («scid»), which the phone signs in with.
+  optional int64 school_id = 3;
+  optional string school_name = 4;
+}

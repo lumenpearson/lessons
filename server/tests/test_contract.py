@@ -52,11 +52,11 @@ JAVA_PACKAGE = "com.lumenpearson.lessons.contract.v2"
 #: Every file of ``proto/lessons/v2``, by the stem of its generated module. A
 #: proto file added without regenerating, or a module left behind by a deleted
 #: file, fails here before CI's regeneration finds it.
-FILES = {"common", "errors", "options"}
+FILES = {"common", "device", "errors", "me", "options", "schedule"}
 
 #: The files that declare a service, beside which ``buf.build/connectrpc/py``
 #: also writes a ``_connect`` module.
-SERVICE_FILES: set[str] = set()
+SERVICE_FILES = {"device", "me", "schedule"}
 
 # AuthKind's and Role's numbers, so the table below reads the way the design's
 # does; test_the_option_enums_are_numbered_as_this_file_reads_them pins them to
@@ -85,7 +85,36 @@ class Row(NamedTuple):
 #: The resource map (the design's decision 7), one row per method. A method
 #: added, moved, re-verbed or re-permissioned changes its row here in the same
 #: commit, or the suite fails.
-METHODS: dict[tuple[str, str], Row] = {}
+METHODS: dict[tuple[str, str], Row] = {
+    ("DeviceService", "CreateDevice"): Row("post", "/v2/devices", "*", NONE, None),
+    ("MeService", "GetMe"): Row("get", "/v2/me", "", DEVICE, None),
+    ("MeService", "UnlinkMe"): Row("post", "/v2/me:unlink", "*", DEVICE, None),
+    ("MeService", "CreateLinkCode"): Row("post", "/v2/me/linkCodes", "*", DEVICE, None),
+    ("MeService", "GetCalendarFeed"): Row(
+        "get", "/v2/me/calendarFeed", "", DEVICE_LINKED, None
+    ),
+    ("MeService", "CreateCalendarFeed"): Row(
+        "post", "/v2/me/calendarFeed", "*", DEVICE_LINKED, None
+    ),
+    ("MeService", "ListTasks"): Row("get", "/v2/me/tasks", "", DEVICE_LINKED, None),
+    ("MeService", "GetTask"): Row("get", "/v2/me/tasks/{task_id}", "", DEVICE_LINKED, None),
+    ("MeService", "CreateTask"): Row("post", "/v2/me/tasks", "task", DEVICE_LINKED, None),
+    ("MeService", "UpdateTask"): Row(
+        "patch", "/v2/me/tasks/{task.id}", "task", DEVICE_LINKED, None
+    ),
+    ("MeService", "DeleteTask"): Row(
+        "delete", "/v2/me/tasks/{task_id}", "", DEVICE_LINKED, None
+    ),
+    ("MeService", "CreateHomeworkTick"): Row(
+        "post", "/v2/me/homeworkTicks", "homework_tick", DEVICE_LINKED, None
+    ),
+    ("MeService", "DeleteHomeworkTick"): Row(
+        "delete", "/v2/me/homeworkTicks/{homework_id}", "", DEVICE_LINKED, None
+    ),
+    ("ScheduleService", "GetScheduleWindow"): Row(
+        "get", "/v2/class/scheduleWindows/{year}", "", DEVICE, VIEWER
+    ),
+}
 
 #: ErrorReason, name for number: the design's decision 6, completed from every
 #: refusal v1 makes. A reason is added, never renamed or renumbered.
@@ -670,3 +699,33 @@ def test_the_cold_start_probe_sees_generated_code() -> None:
     loaded = _loaded_after_importing("app.contract.lessons.v2.options_pb", _LOCAL)
     assert "app.contract.lessons.v2.options_pb" in loaded
     assert any(name.partition(".")[0] == "protobuf" for name in loaded)
+
+
+def test_the_readers_see_what_they_are_written_for() -> None:
+    """Held here rather than trusted: a reader that always answered None would
+    pass every check above that asks whether something is absent."""
+    found = {(service.name, method.name): (service, method) for service, method in _methods()}
+    _, get_me = found[("MeService", "GetMe")]
+    _, unlink_me = found[("MeService", "UnlinkMe")]
+    window_service, window = found[("ScheduleService", "GetScheduleWindow")]
+
+    assert _binding(get_me) == ("get", "/v2/me", "")
+    assert _enum_option(get_me, options_pb.ext_auth) == DEVICE
+    assert _enum_option(get_me, options_pb.ext_min_role) is None
+    assert _enum_option(window, options_pb.ext_min_role) == VIEWER
+    assert _on_the_class(window_service, window)
+    assert _side_effect_free(get_me)
+    assert not _side_effect_free(unlink_me)
+    assert not _streams(get_me)
+
+    assert _VARIABLE.findall("/v2/class/subjects/{subject.id}") == ["subject.id"]
+    assert _CUSTOM_VERB.search("/v2/class/devices/{device_id}:revoke").group(1) == "revoke"
+    assert _CUSTOM_VERB.search("/v2/class/subjects/{subject.id}") is None
+    assert _standard("GetMe") == "Get"
+    assert _standard("Getaway") is None
+    assert _upper_snake("SignInMethod") == "SIGN_IN_METHOD"
+
+    messages = _messages()
+    update_task = messages["lessons.v2.UpdateTaskRequest"]
+    assert _resolves(update_task, "task.id", messages)
+    assert not _resolves(update_task, "task.nothing", messages)

@@ -5,6 +5,10 @@
 version: v2
 modules:
   - path: proto
+deps:
+  # google/api/annotations.proto and http.proto: every method's REST binding.
+  # The commit is pinned in buf.lock.
+  - buf.build/googleapis/googleapis
 lint:
   use:
     - STANDARD
