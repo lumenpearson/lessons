@@ -72,6 +72,7 @@ FILES = {
     "subject",
     "substitution",
     "timetable",
+    "watch",
 }
 
 #: The files that declare a service, beside which ``buf.build/connectrpc/py``
@@ -93,6 +94,7 @@ SERVICE_FILES = {
     "subject",
     "substitution",
     "timetable",
+    "watch",
 }
 
 # AuthKind's and Role's numbers, so the table below reads the way the design's
@@ -302,6 +304,7 @@ METHODS: dict[tuple[str, str], Row] = {
     ("DiaryService", "ClearCorrections"): Row(
         "post", "/v2/diary/students/{student_id}/corrections:clear", "*", DIARY, None
     ),
+    ("WatchService", "WatchClass"): Row(None, None, "", DEVICE, VIEWER),
 }
 
 #: ErrorReason, name for number: the design's decision 6, completed from every
@@ -917,3 +920,9 @@ def test_the_readers_see_what_they_are_written_for() -> None:
     update_task = messages["lessons.v2.UpdateTaskRequest"]
     assert _resolves(update_task, "task.id", messages)
     assert not _resolves(update_task, "task.nothing", messages)
+
+    watch_service, watch = found[("WatchService", "WatchClass")]
+    assert _binding(watch) == (None, None, "")
+    assert _streams(watch)
+    assert _on_the_class(watch_service, watch)
+    assert _enum_option(watch, options_pb.ext_min_role) == VIEWER
