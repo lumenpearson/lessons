@@ -55,13 +55,17 @@ JAVA_PACKAGE = "com.lumenpearson.lessons.contract.v2"
 FILES = {
     "bell",
     "common",
+    "day",
     "device",
     "errors",
+    "event",
+    "homework",
     "me",
     "options",
     "school_class",
     "schedule",
     "subject",
+    "substitution",
     "timetable",
 }
 
@@ -69,11 +73,15 @@ FILES = {
 #: also writes a ``_connect`` module.
 SERVICE_FILES = {
     "bell",
+    "day",
     "device",
+    "event",
+    "homework",
     "me",
     "school_class",
     "schedule",
     "subject",
+    "substitution",
     "timetable",
 }
 
@@ -178,6 +186,47 @@ METHODS: dict[tuple[str, str], Row] = {
     ),
     ("TimetableService", "ImportTimetable"): Row(
         "post", "/v2/class/timetable:import", "*", DEVICE, ADMIN
+    ),
+    ("HomeworkService", "ListHomework"): Row("get", "/v2/class/homework", "", DEVICE, VIEWER),
+    ("HomeworkService", "GetHomework"): Row(
+        "get", "/v2/class/homework/{homework_id}", "", DEVICE, VIEWER
+    ),
+    ("HomeworkService", "CreateHomework"): Row(
+        "post", "/v2/class/homework", "homework", DEVICE, EDITOR
+    ),
+    ("HomeworkService", "UpdateHomework"): Row(
+        "patch", "/v2/class/homework/{homework.id}", "homework", DEVICE, EDITOR
+    ),
+    ("HomeworkService", "DeleteHomework"): Row(
+        "delete", "/v2/class/homework/{homework_id}", "", DEVICE, EDITOR
+    ),
+    ("SubstitutionService", "ListSubstitutions"): Row(
+        "get", "/v2/class/substitutions", "", DEVICE, EDITOR
+    ),
+    ("SubstitutionService", "GetSubstitution"): Row(
+        "get", "/v2/class/substitutions/{substitution_id}", "", DEVICE, EDITOR
+    ),
+    ("SubstitutionService", "CreateSubstitution"): Row(
+        "post", "/v2/class/substitutions", "substitution", DEVICE, EDITOR
+    ),
+    ("SubstitutionService", "UpdateSubstitution"): Row(
+        "patch", "/v2/class/substitutions/{substitution.id}", "substitution", DEVICE, EDITOR
+    ),
+    ("SubstitutionService", "DeleteSubstitution"): Row(
+        "delete", "/v2/class/substitutions/{substitution_id}", "", DEVICE, EDITOR
+    ),
+    ("EventService", "ListEvents"): Row("get", "/v2/class/events", "", DEVICE, EDITOR),
+    ("EventService", "GetEvent"): Row("get", "/v2/class/events/{event_id}", "", DEVICE, EDITOR),
+    ("EventService", "CreateEvent"): Row("post", "/v2/class/events", "event", DEVICE, EDITOR),
+    ("EventService", "UpdateEvent"): Row(
+        "patch", "/v2/class/events/{event.id}", "event", DEVICE, EDITOR
+    ),
+    ("EventService", "DeleteEvent"): Row(
+        "delete", "/v2/class/events/{event_id}", "", DEVICE, EDITOR
+    ),
+    ("DayService", "GetDay"): Row("get", "/v2/class/days/{date}", "", DEVICE, EDITOR),
+    ("DayService", "UpdateDay"): Row(
+        "patch", "/v2/class/days/{day.date}", "day", DEVICE, EDITOR
     ),
 }
 

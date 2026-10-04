@@ -1,0 +1,119 @@
+// The class's events: a trip, an exam, a canteen break. Replaces v1's
+// PUT /events, which always inserted (#268), and DELETE /events/{id}.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "lessons/v2/common.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service EventService {
+  // Events on dates in a window: today and 21 days on when unset, 62 days at
+  // most.
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse) {
+    option (google.api.http) = {get: "/v2/class/events"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+  rpc GetEvent(GetEventRequest) returns (GetEventResponse) {
+    option (google.api.http) = {get: "/v2/class/events/{event_id}"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+  // A POST, so a retried create can be told apart from a second event. Events
+  // have no natural key: two «Обед» on one day are two breaks. Announced to
+  // the class's subscribers. REST answers 201.
+  rpc CreateEvent(CreateEventRequest) returns (CreateEventResponse) {
+    option (google.api.http) = {
+      post: "/v2/class/events"
+      body: "event"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+  // `update_mask` takes date, starts_at, ends_at, title, kind, location and
+  // covers_lesson.
+  rpc UpdateEvent(UpdateEventRequest) returns (UpdateEventResponse) {
+    option (google.api.http) = {
+      patch: "/v2/class/events/{event.id}"
+      body: "event"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+  rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse) {
+    option (google.api.http) = {delete: "/v2/class/events/{event_id}"};
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+}
+
+// v1: EventIn and EventCreatedOut.
+message Event {
+  // Assigned by the server; ignored on create.
+  int32 id = 1;
+  // "YYYY-MM-DD".
+  string date = 2;
+  // "HH:MM".
+  string starts_at = 3;
+  // "HH:MM", after starts_at.
+  string ends_at = 4;
+  // 1 to 200 characters, one line.
+  string title = 5;
+  // EVENT_KIND_EVENT when unset, as v1 defaulted.
+  EventKind kind = 6;
+  // Up to 120 characters.
+  optional string location = 7;
+  // Whether it stands in for the lessons it overlaps. Absent on create means
+  // what the bot means: yes for an event or a trip, no otherwise.
+  optional bool covers_lesson = 8;
+}
+
+message ListEventsRequest {
+  // "YYYY-MM-DD"; today when absent.
+  optional string start_date = 1;
+  // "YYYY-MM-DD"; 21 days after start_date when absent.
+  optional string end_date = 2;
+}
+
+message ListEventsResponse {
+  repeated Event events = 1;
+}
+
+message GetEventRequest {
+  int32 event_id = 1;
+}
+
+message GetEventResponse {
+  Event event = 1;
+}
+
+message CreateEventRequest {
+  Event event = 1;
+}
+
+message CreateEventResponse {
+  Event event = 1;
+}
+
+message UpdateEventRequest {
+  Event event = 1;
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateEventResponse {
+  Event event = 1;
+}
+
+message DeleteEventRequest {
+  int32 event_id = 1;
+}
+
+message DeleteEventResponse {}

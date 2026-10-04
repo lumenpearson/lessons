@@ -1,0 +1,72 @@
+// How a whole date departs from the weekly rhythm: a holiday, a shortened
+// day, remote teaching. Replaces v1's PUT /days.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "lessons/v2/common.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service DayService {
+  // A date nobody marked is DAY_KIND_NORMAL, not NOT_FOUND: every date has a
+  // kind.
+  rpc GetDay(GetDayRequest) returns (GetDayResponse) {
+    option (google.api.http) = {get: "/v2/class/days/{date}"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+  // Marks a date, or takes the mark off with DAY_KIND_NORMAL: a day never
+  // carries a row that says nothing. With `allow_missing`, a date with no
+  // mark is created, which makes this an idempotent upsert by date.
+  // `update_mask` takes kind, note and bell_schedule_id.
+  //
+  // As v1's PUT /days did, it takes NORMAL, HOLIDAY, SHORTENED and REMOTE;
+  // SELF_STUDY and DAY_OFF are set from the bot and only read here. A
+  // shortened day names the bell schedule it rings, and that schedule must
+  // ring something (EMPTY_BELL_SCHEDULE).
+  rpc UpdateDay(UpdateDayRequest) returns (UpdateDayResponse) {
+    option (google.api.http) = {
+      patch: "/v2/class/days/{day.date}"
+      body: "day"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+}
+
+// v1: DayIn and DayOverrideOut.
+message Day {
+  // "YYYY-MM-DD".
+  string date = 1;
+  DayKind kind = 2;
+  // Up to 500 characters.
+  optional string note = 3;
+  // The bell schedule the day rings; required for a shortened day.
+  optional int32 bell_schedule_id = 4;
+}
+
+message GetDayRequest {
+  // "YYYY-MM-DD".
+  string date = 1;
+}
+
+message GetDayResponse {
+  Day day = 1;
+}
+
+message UpdateDayRequest {
+  Day day = 1;
+  google.protobuf.FieldMask update_mask = 2;
+  // Create the mark when the date has none (AIP-134).
+  bool allow_missing = 3;
+}
+
+message UpdateDayResponse {
+  Day day = 1;
+}
