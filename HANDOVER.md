@@ -9,8 +9,10 @@ newest first.
 Last updated: **4 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277 and #296 are merged**; `main` is at `92dbd0b`, the merge of #296, on 4
-October 2026; `dev` is still at `b327eb0`, the merge of #267, so it is behind `main`: #274,
-#277 and #296 came from branches of their own. **The only pull request open is #294, the one
+October 2026. `dev` had stayed at `b327eb0`, the merge of #267, because #274, #277 and #296
+came from branches of their own; on the owner's word it was fast-forwarded to this pull
+request's head, so it holds everything `main` has and this batch, and it moves to the merge
+once this lands. **The only pull request open is #294, the one
 carrying this paragraph**, from `tracker/milestones-and-board`, on milestone 11, `v0.10.0 —
 One contract: REST v2, Connect and native gRPC, build console`. It changes no code: it brings
 `CLAUDE.md`, the `github-pr` skill and this file up to date with the thirteen milestones and
