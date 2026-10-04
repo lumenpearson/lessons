@@ -86,7 +86,7 @@ this design stands on.
 | Stage | Merges | Waits for |
 | --- | --- | --- |
 | **3a. The shells** | see below | the owner's approval of this document |
-| **3b. Every other method** | the other seventy-one unary methods, service by service. Each brings its v1 rules into `services/` first (decision 2). Also the per-provider registry table, the Telegram notices as effects, and the read-only repairs this sub-project allows | 3a |
+| **3b. Every other method** | the other seventy-one unary methods, service by service. Each brings its v1 rules into `services/` first (decision 2). Also the per-provider registry table and the Telegram notices as effects | 3a |
 | **3c. The host and the beta** | `host.py`, the `Dockerfile`, native gRPC, `WatchClass` and its bus, and a CI job that starts the host | 3b |
 
 **3a merges:**
@@ -400,8 +400,9 @@ promise. v1's endpoints keep their writes until v1 is deleted.
   each row through `subjects.canonical`: `structure.apply_timetable` and the `timetable_edit`
   mutations. What v2 drops is v1's repair of rows written before the link existed.
   - The repair also runs in the bot's editor and in «📚 Предметы».
-  - Before 3a, the session counts `timetable_entries` with no `subject_id` on Neon, read-only.
-    If there are any, a one-time repair is question 6.
+  - Nothing is left for it to repair. A read-only count on production on 5 October 2026 found 35
+    timetable rows in one class, **none** without a `subject_id`, so dropping the repair from
+    v2's reads loses nothing.
 - **The link code and the calendar secret** are minted only by `CreateLinkCode` and
   `CreateCalendarFeed`, as the contract already has it. `GetMe` and `GetCalendarFeed` read.
 - **Kept on purpose:**
@@ -542,11 +543,6 @@ itself») and whose words the errors carry («the shell's own»), so neither is 
    contract. *Recommended: not now.* v2 sends no CORS headers until a web client exists, and
    then the origins it names are added. This keeps a credential-bearing API closed to pages on
    other sites by default.
-6. **May the session repair unlinked timetable rows on production, once, if there are any?** v2's
-   reads do not adopt subjects (decision 10). If the read-only count finds rows with no
-   `subject_id`, one `sync_from_timetable` per affected class would write the missing `subjects`
-   rows and links on Neon before v1, which repairs them on every read, is deleted.
-   *Recommended: yes,* as its own reviewed step, saying beforehand what it writes.
 
 ## Risks
 
