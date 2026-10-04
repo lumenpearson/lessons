@@ -1,0 +1,152 @@
+// Why a request was refused (the design's decision 6).
+//
+// Every refusal carries a google.rpc.ErrorInfo whose `domain` is "lessons.app"
+// and whose `reason` is one of these names exactly: the server sends the
+// string "DEVICE_NOT_LINKED", and the enum exists so that both sides get a
+// generated constant rather than a retyped string. That is why the values
+// carry no ERROR_REASON_ prefix, as google/api/error_reason.proto does it;
+// buf.yaml lets this one file off ENUM_VALUE_PREFIX, and only it.
+//
+// A client acts on the reason, never on the message, which is the server's
+// own sentence for a person. A reason it does not know it handles by the
+// canonical code, which is why every reason sits under a code that already
+// says what to do. A reason is added, never renamed, renumbered or reused.
+//
+// Each value says its canonical code, the ErrorInfo metadata it carries, and
+// what v1 sent in its place.
+syntax = "proto3";
+
+package lessons.v2;
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+enum ErrorReason {
+  // Never sent.
+  ERROR_REASON_UNSPECIFIED = 0;
+  // UNAUTHENTICATED. No device token, or one that is unknown or revoked.
+  // v1: the 401 of api/deps.py («Missing bearer token», «Invalid token»).
+  DEVICE_TOKEN_INVALID = 1;
+  // UNAUTHENTICATED. No diary session token, or one that is not valid.
+  // v1: the 401 of api/diary.py current_diary.
+  DIARY_TOKEN_INVALID = 2;
+  // PERMISSION_DENIED. The method needs a linked phone and this one is not.
+  // v1: 403 «device is not linked».
+  DEVICE_NOT_LINKED = 3;
+  // PERMISSION_DENIED. metadata `role`: the least role the method needs, as a
+  // Role value name ("ROLE_ADMIN"). v1: 403 «<role> role required».
+  ROLE_REQUIRED = 4;
+  // NOT_FOUND. Neither a class code nor a live personal code; counted against
+  // the caller. v1: 404 from /join.
+  JOIN_CODE_UNKNOWN = 5;
+  // PERMISSION_DENIED. A real class code for a class that takes personal codes
+  // only; not counted, because the caller had a real code. v1: 403 from /join.
+  CLASS_INVITE_ONLY = 6;
+  // RESOURCE_EXHAUSTED. metadata `limit`: how many live phones the class code
+  // admits (#199). A personal code from the bot still works.
+  // v1: 409 from /join.
+  DEVICE_LIMIT_REACHED = 7;
+  // RESOURCE_EXHAUSTED. metadata `retry_after_seconds`.
+  // v1: every 429, with Retry-After.
+  THROTTLED = 8;
+  // NOT_FOUND. metadata `resource`: "class", "subject", "bell_schedule",
+  // "homework", "substitution", "event", "task", "device", "access_request"
+  // or "student". An id from another class finds nothing, by design.
+  // v1: every other 404.
+  RESOURCE_NOT_FOUND = 9;
+  // ALREADY_EXISTS. metadata `resource` and `field`: what is taken, and by
+  // which field ("subject" and "name", "homework" and "subject",
+  // "substitution" and "index"). v1: the 409 «a subject with that name is
+  // already in this class».
+  RESOURCE_EXISTS = 10;
+  // INVALID_ARGUMENT. A google.rpc.BadRequest in the details names each
+  // request field that was wrong, so a client tells them apart without the
+  // message. v1: every 422.
+  VALIDATION_FAILED = 11;
+  // FAILED_PRECONDITION. metadata `index`: a lesson number the day rings no
+  // bell for, so nothing would draw it. v1: 422 «нет звонка для урока №N в
+  // этот день».
+  NO_BELL_FOR_LESSON = 12;
+  // FAILED_PRECONDITION. A day, or the class default, pointed at a bell
+  // schedule with no rows. v1: 422 «в этом расписании звонков нет ни одного
+  // урока».
+  EMPTY_BELL_SCHEDULE = 13;
+  // UNAVAILABLE. The deployment has no DIARY_SECRET, so the diary does not
+  // run; nothing the person types will help.
+  // v1: 503 with X-Diary-Unavailable: disabled.
+  DIARY_DISABLED = 14;
+  // UNAVAILABLE. metadata `upstream`: "upstream" (the diary is down or will
+  // not take this way in: try later) or "address-refused" (the region drops
+  // this server's address: not the password, not worth retrying).
+  // v1: 503 with X-Diary-Unavailable.
+  DIARY_UNAVAILABLE = 15;
+  // UNAUTHENTICATED. The diary ended the session: sign in to it again.
+  // v1: 401 with X-Diary-Reauth: required.
+  DIARY_REAUTH = 16;
+  // PERMISSION_DENIED. The diary would not take the session the phone opened
+  // from this server. Asking for the password again would loop: the session
+  // was good on the phone seconds ago. v1: 409 from /diary/session.
+  DIARY_CREDENTIALS_REJECTED = 17;
+  // UNAVAILABLE. The deployment has no DADATA_TOKEN: pick the region from the
+  // list, or type the school. v1: 503 with X-Directory-Unavailable: disabled.
+  DIRECTORY_DISABLED = 18;
+  // RESOURCE_EXHAUSTED. metadata `retry_after_seconds`, until the next Moscow
+  // day: today's anonymous share of the directory is spent.
+  // v1: 503 with X-Directory-Unavailable: spent, and Retry-After.
+  DIRECTORY_SPENT = 19;
+  // UNAVAILABLE. The directory failed.
+  // v1: 503 with X-Directory-Unavailable: upstream.
+  DIRECTORY_UNAVAILABLE = 20;
+  // FAILED_PRECONDITION. metadata `min_version`: the oldest client version
+  // code the server still serves; the app says «обновите приложение».
+  // New in v2.
+  CLIENT_TOO_OLD = 21;
+  // UNIMPLEMENTED. metadata `feature`: a DiaryFeature value name, or a server
+  // capability, that this server or this diary does not have. New in v2.
+  FEATURE_UNSUPPORTED = 22;
+  // INVALID_ARGUMENT. The request could not be decoded at all: bad JSON, a
+  // bad varint, a string where a number belongs. New in v2: the spike's 500.
+  REQUEST_UNDECODABLE = 23;
+  // PERMISSION_DENIED. The diary account lists no pupil, so there is nothing
+  // to read. v1: 403 from /diary/session (api/diary.py, NoStudents).
+  DIARY_NO_STUDENTS = 24;
+  // UNAVAILABLE. The diary answered something nobody can read, often a login
+  // page where data belongs. v1: 502 (api/diary.py, UnexpectedResponse and
+  // DiaryError, in _guard and in register_session).
+  DIARY_UPSTREAM_UNREADABLE = 25;
+  // FAILED_PRECONDITION. This pupil can have no corrections: the diary lists
+  // them outside its own numbering. v1: 422 «Для этого ученика правки
+  // недоступны» (api/diary.py, put_override).
+  CORRECTIONS_UNAVAILABLE = 26;
+  // FAILED_PRECONDITION. metadata `resource`, `used_by` and, where there is
+  // one, `count`: a subject the weekly template still teaches ("lessons"), a
+  // bell schedule special days point at ("days"), or the class default
+  // ("class"). v1: 409 from DELETE /manage/subjects/{id} (SubjectInUse) and
+  // DELETE /manage/bells/{id} (ScheduleIsDefault, ScheduleInUse).
+  RESOURCE_IN_USE = 27;
+  // FAILED_PRECONDITION. metadata `dates`: comma-separated "YYYY-MM-DD", the
+  // days on which both names have homework, which a rename would merge.
+  // v1: 409 «homework under both names on the same day» (HomeworkClash).
+  SUBJECT_RENAME_CLASH = 28;
+  // FAILED_PRECONDITION. The device an admin asked to unlink is not linked.
+  // v1: 409 from POST /manage/devices/{id}/unlink (DeviceNotLinked).
+  CLASS_DEVICE_NOT_LINKED = 29;
+  // PERMISSION_DENIED. metadata `why`: "role_too_high" (nobody grants at or
+  // above their own role) or "member_senior" (the member is the admin's peer
+  // or senior). v1: 403 from POST /manage/requests/{id}/approve (GrantRefused).
+  ROLE_GRANT_REFUSED = 30;
+  // FAILED_PRECONDITION. A term's dates the school year cannot hold: past
+  // 31 May, overlapping a neighbour, ending before they start. The message is
+  // the service's own Russian sentence. v1: 422 from PUT /manage/terms/{index}
+  // (TermError).
+  TERM_BOUNDS_REFUSED = 31;
+  // FAILED_PRECONDITION. metadata `why`: "out_of_year", "between_terms",
+  // "public_holiday" or "marked_day_off". The day draws no lessons at all, so
+  // a substitution on it would be announced and drawn nowhere. v1: 422 from
+  // PUT /overrides (timetable_edit.why_no_lesson_can_be_drawn).
+  NO_LESSON_ON_DAY = 32;
+  // FAILED_PRECONDITION. metadata `index`: cancelling, or substituting without
+  // a subject, a lesson number the day's template does not have.
+  // v1: 422 «в этот день нет урока №N…» from PUT /overrides.
+  LESSON_NOT_ON_TIMETABLE = 33;
+}

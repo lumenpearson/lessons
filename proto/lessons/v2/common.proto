@@ -1,0 +1,72 @@
+// What several files of lessons.v2 share, and the conventions the package keeps.
+//
+// - A date is a string "YYYY-MM-DD" and a time of day a string "HH:MM": naive
+//   wall time in the class's zone, because a bell rings at 08:30 whether or
+//   not the clocks changed, and google.protobuf.Timestamp is an instant in UTC.
+//   A wall-clock moment is "YYYY-MM-DDTHH:MM". Timestamp is kept for what
+//   really is an instant: when something was written, done or last seen.
+// - An id this server assigns is int32, the width of its columns. An id a
+//   diary assigns is int64, because nothing bounds it; proto3 JSON writes an
+//   int64 as a string.
+// - `optional` marks a field that may be absent: v1's null. An enum field says
+//   «none» with its _UNSPECIFIED value instead, so absence has one spelling.
+// - Every enum starts at <NAME>_UNSPECIFIED = 0, and a client maps a value it
+//   does not know to a fallback it states, never to a failure.
+// - Every method answers <Method>Response, even where it holds one resource:
+//   one method's answer can then grow a field without touching another's.
+syntax = "proto3";
+
+package lessons.v2;
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+// How a whole date departs from the weekly rhythm. v1: DayKind's values.
+enum DayKind {
+  DAY_KIND_UNSPECIFIED = 0;
+  // An ordinary teaching day. Setting it takes a mark off.
+  DAY_KIND_NORMAL = 1;
+  // A holiday or a day off for everybody: no lessons.
+  DAY_KIND_HOLIDAY = 2;
+  // Shortened lessons, on the bell schedule the day names.
+  DAY_KIND_SHORTENED = 3;
+  // Remote teaching, at the usual times.
+  DAY_KIND_REMOTE = 4;
+  // Set work, nobody at school.
+  DAY_KIND_SELF_STUDY = 5;
+  // A day off this class alone was given («🌿 Отгул»): no lessons.
+  DAY_KIND_DAY_OFF = 6;
+}
+
+// What an event is. v1: EventKindName.
+enum EventKind {
+  EVENT_KIND_UNSPECIFIED = 0;
+  // «мероприятие»: stands in for the lessons it overlaps unless told otherwise.
+  EVENT_KIND_EVENT = 1;
+  // A canteen break: sits in a break.
+  EVENT_KIND_CANTEEN = 2;
+  EVENT_KIND_EXAM = 3;
+  // A trip: stands in for lessons unless told otherwise.
+  EVENT_KIND_TRIP = 4;
+  EVENT_KIND_MEETING = 5;
+}
+
+// How the school year is cut. v1: "quarter" | "semester".
+enum TermKind {
+  TERM_KIND_UNSPECIFIED = 0;
+  // Four quarters: what younger classes are taught in.
+  TERM_KIND_QUARTER = 1;
+  // Two half-years: usual in 10 and 11, for the leaving exams.
+  TERM_KIND_SEMESTER = 2;
+}
+
+// One quarter or half-year, as the class actually runs it. v1: TermOut.
+message Term {
+  // 1-based within the school year.
+  int32 index = 1;
+  TermKind kind = 2;
+  // "YYYY-MM-DD", the term's first day.
+  string starts_on = 3;
+  // "YYYY-MM-DD", the term's last day.
+  string ends_on = 4;
+}

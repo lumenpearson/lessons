@@ -1,0 +1,21 @@
+# The v2 contract (docs/specs/2026-10-04-contract-v2-design.md). One module,
+# proto/, whose files are imported as lessons/v2/<file>.proto. CI's «Contract»
+# job lints it, checks it for breaking changes against the base branch, and
+# regenerates server/app/contract from it (.github/workflows/ci.yml).
+version: v2
+modules:
+  - path: proto
+lint:
+  use:
+    - STANDARD
+  ignore_only:
+    # ErrorReason's value names are the ErrorInfo.reason strings the server
+    # sends -- "DEVICE_NOT_LINKED" -- as google/api/error_reason.proto does it,
+    # so they carry no ERROR_REASON_ prefix. Only this rule, only this file.
+    ENUM_VALUE_PREFIX:
+      - proto/lessons/v2/errors.proto
+breaking:
+  use:
+    # The strictest category: it also protects the generated Python and Kotlin
+    # names, which a field moved between files would change.
+    - FILE
