@@ -25,7 +25,7 @@ jobs:
   # and decides which of them has anything to do.
   #
   # It fails open on purpose. If the range cannot be worked out — a force push,
-  # a first push of a branch, a re-run after history moved — both halves run.
+  # a first push of a branch, a re-run after history moved — every job runs.
   # A wasted ten minutes is an annoyance; a change that skipped the build that
   # would have caught it is a bad release.
   changes:

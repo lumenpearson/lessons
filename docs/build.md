@@ -243,11 +243,12 @@ step. What stayed in CI for good:
   `docs/app/` and `docs/legal/` are packaged into the APK and run Android; `docs/build.md`,
   `docs/deploy.md`, `docs/diaries.md` and `docs/diaries/` are read by server tests and run
   the server; a change to `proto/`, `buf.yaml`, `buf.gen.yaml`, `buf.lock` or
-  `server/app/contract/` runs the «Contract» job, which nothing else runs; and the region catalog and the protocol vectors, which live under `server/`
+  `server/app/contract/` runs the «Contract» job, which only those files, a workflow edit or
+  an unknown range run; and the region catalog and the protocol vectors, which live under `server/`
   and are the phone's inputs too, run both. A commit touching only one of those documents
   used to run nothing and come back green (#159); `ci.yml` names each file beside the test
   that reads it. If the commit range cannot be worked out (a force push, a branch's first
-  push), both run — a skipped build costs more than ten wasted minutes.
+  push), all three run — a skipped build costs more than ten wasted minutes.
 
 And one thing that did **not** stay: for a while, release was not built on a pull request.
 That saved about two minutes per push at the cost of finding a broken R8 at the merge

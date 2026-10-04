@@ -44,7 +44,8 @@ From `android/` (JDK 21, compileSdk 37, wrapper Gradle):
 ./gradlew assembleRelease
 ```
 
-CI is exactly: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both assembles.
+CI is exactly: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both assembles,
+`./gradlew detekt`, and the path-filtered «Contract (Buf)» job when `proto/` or `buf.*` changed.
 `./gradlew lint` is **not** a gate.
 `--offline` is needed for Gradle in a sandbox.
 
