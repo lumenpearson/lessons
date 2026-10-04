@@ -25,18 +25,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.button_style import SUCCESS
-from app.bot.keyboards import (
-    HomeworkAction,
-    HomeworkTick,
-    Menu,
-    TaskAction,
-    cancel_keyboard,
-    cut,
-    task_delete_confirm,
-    task_delete_picker,
-    task_list_keyboard,
-    task_remind_keyboard,
-)
+from app.bot.content_keyboard import HomeworkAction, HomeworkTick
+from app.bot.keyboards import Menu, cancel_keyboard, cut
 from app.bot.render import (
     WEEKDAYS_SHORT,
     homework_digest_keys,
@@ -46,6 +36,13 @@ from app.bot.render import (
     render_task_saved,
 )
 from app.bot.states import AddTask
+from app.bot.tasks_keyboard import (
+    TaskAction,
+    task_delete_confirm,
+    task_delete_picker,
+    task_list_keyboard,
+    task_remind_keyboard,
+)
 from app.models import Homework, PersonalTask, Role, SchoolClass
 from app.schedule import ResolvedDay, ScheduleResolver
 from app.services import tasks as task_service

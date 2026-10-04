@@ -20,12 +20,12 @@ from app.bot.calendar_keyboard import (
     month_keyboard,
     pickable_months,
 )
+from app.bot.content_keyboard import EventAction, HomeworkAction
+from app.bot.content_keyboard import OverrideAction as OverrideCB
 from app.bot.handlers import calendar as handlers
 from app.bot.handlers import content
 from app.bot.handlers.calendar import calendar_card, calendar_nav, calendar_open, cmd_day
 from app.bot.handlers.content import homework_pick_day
-from app.bot.keyboards import EventAction, HomeworkAction
-from app.bot.keyboards import OverrideAction as OverrideCB
 from app.models import DayKind, DayOverride, Role
 
 # A Sunday in the middle of the 2026/27 school year, so every month of that

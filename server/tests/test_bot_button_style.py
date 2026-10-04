@@ -13,13 +13,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from app.bot.button_style import DANGER, PRIMARY, SUCCESS
-from app.bot.keyboards import (
-    main_menu,
-    reminder_keyboard,
-    task_delete_confirm,
-    task_list_keyboard,
-)
+from app.bot.keyboards import main_menu
 from app.bot.manage_keyboards import bells_list_keyboard, colour_keyboard, device_keyboard
+from app.bot.reminders_keyboard import reminder_keyboard
+from app.bot.tasks_keyboard import task_delete_confirm, task_list_keyboard
 from app.models import Role
 
 

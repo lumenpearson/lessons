@@ -46,7 +46,7 @@ from app.bot.handlers.tasks import (
     task_view,
 )
 from app.bot.handlers.week import cmd_next, cmd_week, distinct_from, menu_next, show_week
-from app.bot.keyboards import main_menu, task_list_keyboard
+from app.bot.keyboards import main_menu
 from app.bot.render import (
     INVISIBLE,
     MESSAGE_LIMIT,
@@ -66,6 +66,7 @@ from app.bot.render import (
     render_week,
 )
 from app.bot.states import AddTask, SetReminderTime
+from app.bot.tasks_keyboard import task_list_keyboard
 from app.models import (
     BotUser,
     DayKind,

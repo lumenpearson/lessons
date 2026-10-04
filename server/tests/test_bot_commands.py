@@ -40,10 +40,10 @@ from app.bot.handlers.start import (
     on_contact,
 )
 from app.bot.handlers.unknown import STALE_CARD, UNKNOWN_COMMAND
-from app.bot.keyboards import WeekNav
 from app.bot.manage_keyboards import BellsAction
 from app.bot.manage_states import EditSubject
 from app.bot.middlewares import FORM_DROPPED
+from app.bot.week_keyboard import WeekNav
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
 from app.models import AuditEntry, BotUser, DayEvent, Homework, Role, SchoolClass

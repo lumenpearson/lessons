@@ -21,18 +21,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.button_style import DANGER
+from app.bot.content_keyboard import EventAction, HomeworkAction
+from app.bot.content_keyboard import OverrideAction as OverrideCB
 from app.bot.handlers.calendar import open_month
 from app.bot.handlers.tasks import homework_view
-from app.bot.keyboards import (
-    EventAction,
-    HomeworkAction,
-    Menu,
-    back_to_menu,
-    cancel_keyboard,
-)
-from app.bot.keyboards import (
-    OverrideAction as OverrideCB,
-)
+from app.bot.keyboards import Menu, back_to_menu, cancel_keyboard
 from app.bot.render import clamp, human_date, relative_day_name
 from app.bot.states import AddEvent, AddHomework, AddOverride
 from app.config import get_settings

@@ -8,7 +8,8 @@ Everything below is what the code in `server/app/bot/` actually does. Handlers
 live in `handlers/`, the structural half of them in `handlers/manage/` — one
 module per screen of «⚙️ Класс», over `services/manage/`, each handler gated by
 `@needs(Role.X)`; the wording lives in `render.py` and `manage_render.py`; the
-buttons in `keyboards.py`, `manage_keyboards.py` and `calendar_keyboard.py`.
+buttons in `keyboards.py` (the menu, and what every screen ends with), one
+`*_keyboard.py` per feature beside it, and `manage_keyboards.py`.
 
 ## Button colours
 

@@ -19,8 +19,9 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.keyboards import Menu, WeekNav, next_keyboard, shift_weeks, week_nav
+from app.bot.keyboards import Menu, shift_weeks
 from app.bot.render import INVISIBLE, render_next, render_week
+from app.bot.week_keyboard import WeekNav, next_keyboard, week_nav
 from app.models import Role, SchoolClass, TimetableEntry, WeekParity
 from app.schedule import ScheduleResolver
 

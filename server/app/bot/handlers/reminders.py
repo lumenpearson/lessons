@@ -17,7 +17,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.keyboards import Menu, ReminderAction, cancel_keyboard, reminder_keyboard
+from app.bot.keyboards import Menu, cancel_keyboard
+from app.bot.reminders_keyboard import ReminderAction, reminder_keyboard
 from app.bot.render import render_reminder_card
 from app.bot.states import SetReminderTime
 from app.models import ReminderSettings, Role, SchoolClass

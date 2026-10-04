@@ -17,15 +17,9 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.access_keyboard import AccessAction, RolePick, role_picker
 from app.bot.button_style import DANGER, SUCCESS
-from app.bot.keyboards import (
-    AccessAction,
-    Menu,
-    RolePick,
-    back_to_menu,
-    cancel_keyboard,
-    role_picker,
-)
+from app.bot.keyboards import Menu, back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import RequestAction
 from app.bot.manage_render import person
 from app.bot.render import (

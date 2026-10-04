@@ -19,23 +19,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot.keyboards import (
     ClassAction,
     DayNav,
-    GradePick,
     Menu,
-    SchoolPick,
-    TimezonePick,
     back_to_menu,
     cancel_keyboard,
     day_nav,
-    grade_picker,
     main_menu,
     request_contact,
-    school_fallback,
-    school_picker,
     shift_days,
-    timezone_picker,
 )
 from app.bot.render import cut, plural, render_day, render_role_help
 from app.bot.roles import claim_phone_invites, get_role, is_env_owner
+from app.bot.start_keyboard import (
+    GradePick,
+    SchoolPick,
+    TimezonePick,
+    grade_picker,
+    school_fallback,
+    school_picker,
+    timezone_picker,
+)
 from app.bot.states import CreateClass
 from app.config import get_settings
 from app.models import (

@@ -18,6 +18,8 @@ from aiogram.types import CallbackQuery, User
 from sqlalchemy import func, select
 
 from app.bot import render
+from app.bot.access_keyboard import AccessAction, RolePick
+from app.bot.content_keyboard import EventAction, HomeworkAction
 from app.bot.handlers import content
 from app.bot.handlers.access import (
     JOIN_MODE_TEXT,
@@ -46,14 +48,7 @@ from app.bot.handlers.content import (
 from app.bot.handlers.start import cmd_code, phone_code, show_day
 from app.bot.handlers.timetable import bells_apply, timetable_apply
 from app.bot.handlers.week import week_text
-from app.bot.keyboards import (
-    AccessAction,
-    EventAction,
-    HomeworkAction,
-    RolePick,
-    shift_days,
-    shift_weeks,
-)
+from app.bot.keyboards import shift_days, shift_weeks
 from app.bot.roles import list_memberships
 from app.models import (
     AuditEntry,
