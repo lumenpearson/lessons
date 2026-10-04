@@ -1,6 +1,7 @@
 # Sub-project 2: the v2 contract
 
-Status: **proposed on 4 October 2026, for the owner's review.** This is the detailed design of
+Status: **approved by the owner on 4 October 2026**; amended the same day by what writing its
+plan found (decision 10 and the renames in decision 7, each with its reason). This is the detailed design of
 sub-project 2 of `2026-10-03-one-contract-design.md` (the programme; read its section 1 first —
 this document settles what that section left as a draft and does not repeat its reasons). It
 delivers the contract and nothing that serves it: the proto files, their generated Python code,
@@ -73,8 +74,9 @@ no proto.
 Time here is **naive local wall time in the class's zone** (CLAUDE.md, «What will bite you»).
 `google.protobuf.Timestamp` is an instant in UTC, which is the wrong type for «08:30 on a school
 day», and `google.type.Date` is an object of three numbers in JSON. A date is
-`string … // "YYYY-MM-DD"` and a time `string … // "HH:MM"`, exactly as v1 sends them, and every
-such field's comment says so. Server-side instants that really are instants (an audit entry's
+`string … // "YYYY-MM-DD"` and a time `string … // "HH:MM"`, and every such field's comment says
+so. (v1 sends times with seconds, `"08:30:00"`, because Pydantic serialises `datetime.time` that
+way; v2 drops the seconds nothing uses, and sub-project 3 formats with `%H:%M`.) Server-side instants that really are instants (an audit entry's
 moment, a token's expiry) are `google.protobuf.Timestamp`.
 
 ### 5. Who may call a method is in the contract
@@ -142,7 +144,7 @@ path field; «auth/role» is decision 5. Every `Get` and `List` that changes not
 | | `UnlinkMe` | `POST /v2/me:unlink` | DEVICE |
 | | `CreateLinkCode` | `POST /v2/me/linkCodes` | DEVICE |
 | | `GetCalendarFeed` (never mints) | `GET /v2/me/calendarFeed` | DEVICE_LINKED |
-| | `RotateCalendarFeed` (mints) | `POST /v2/me/calendarFeed:rotate` | DEVICE_LINKED |
+| | `CreateCalendarFeed` (mints when absent, answers the existing feed when present — no rotation: the feed is the class's, and rotating it would cut every subscriber) | `POST /v2/me/calendarFeed` | DEVICE_LINKED |
 | | `ListTasks` · `GetTask` · `CreateTask` · `UpdateTask` · `DeleteTask` | `/v2/me/tasks[/{task_id}]` | DEVICE_LINKED |
 | | `CreateHomeworkTick` · `DeleteHomeworkTick` | `POST /v2/me/homeworkTicks` · `DELETE /v2/me/homeworkTicks/{homework_id}` | DEVICE_LINKED |
 | `ScheduleService` | `GetScheduleWindow` (`if_none_match` → `not_modified`) | `GET /v2/class/scheduleWindows/{year}` | DEVICE |
@@ -161,13 +163,22 @@ path field; «auth/role» is decision 5. Every `Get` and `List` that changes not
 | `AccessRequestService` | `ListAccessRequests` · `ApproveAccessRequest` · `DeclineAccessRequest` | `/v2/class/accessRequests[/{request_id}:approve\|:decline]` | DEVICE · ADMIN |
 | `AuditService` | `ListAuditEntries` (`page_token`) | `GET /v2/class/auditEntries` | DEVICE · ADMIN |
 | `DirectoryService` | `ListSchoolRegions` (the order is the contract) | `GET /v2/schoolRegions` | NONE |
-| | `SearchSchools` (`page_token`) | `GET /v2/schools` | DEVICE · ADMIN |
+| | `ListSchools` (a `query` and `page_token`; a List with a query, because a «Search» on a GET is neither a standard method nor a `POST …:verb`) | `GET /v2/schools` | DEVICE · ADMIN |
 | `DiaryService` | `GetDiaryCapabilities` (decision 8) | `GET /v2/diary/capabilities` | NONE |
 | | `CreateDiarySession` (a session the phone opened; `201`) · `DeleteDiarySession` (`current`) | `POST /v2/diary/sessions` · `DELETE /v2/diary/sessions/current` | NONE · DIARY |
 | | `ListStudents` | `GET /v2/diary/students` | DIARY |
-| | `ListScheduleDays` · `ListHomework` · `ListMarks` · `ListPeriods` · `ListSubjects` · `ListTeachers` · `ListAttendance` | `GET /v2/diary/students/{student_id}/…` | DIARY |
+| | `ListScheduleDays` · `ListDiaryHomework` · `ListMarks` · `ListPeriods` · `ListDiarySubjects` · `ListTeachers` · `ListTurnstileEvents` | `GET /v2/diary/students/{student_id}/…` (`schedule`, `homework`, `marks`, `periods`, `subjects`, `teachers`, `turnstileEvents`) | DIARY |
 | | `ListCorrections` · `BatchUpdateCorrections` · `ResetCorrections` · `ClearCorrections` | `/v2/diary/students/{student_id}/corrections[:batchUpdate\|:reset\|:clear]` | DIARY |
 | `WatchService` (beta) | `WatchClass` — server streaming, **no REST binding** | — | DEVICE |
+
+Renames that Buf's `STANDARD` lint forces, decided while writing the plan: the diary's
+`ListHomework` and `ListSubjects` become `ListDiaryHomework` and `ListDiarySubjects`, because one
+package cannot hold two `ListHomeworkRequest`s; and every method answers a `<Method>Response`
+that wraps the resource (`GetSubjectResponse{subject}`), where AIP returns the bare resource,
+because `RPC_RESPONSE_STANDARD_NAME` and `RPC_REQUEST_RESPONSE_UNIQUE` require it — which is also
+where per-write facts live (`silenced_lessons` on a bell write). The diary's turnstile records are
+`ListTurnstileEvents` (`DiaryFeature.TURNSTILE`), so that `ATTENDANCE` stays free for absences
+and lateness when a method reads them.
 
 What v1 has that v2 does not, on purpose:
 - `GET /now` — a developer-console preset and nothing else; the console will read v2 like any client.
@@ -195,6 +206,21 @@ sub-project 3's handlers map one to the other mechanically and sub-project 5's R
 the least. Where v1 used a name that v2's rules reject (a verb, a plural mismatch, an id in a
 body that the path carries), the plan lists the rename. Every enum starts with
 `<NAME>_UNSPECIFIED = 0`.
+
+### 10. JSON on the wire is canonical proto3 JSON
+
+REST v2 and Connect's JSON both write canonical proto3 JSON: field names in lowerCamelCase
+(`startDate`, `ifNoneMatch`), `int64` as strings, enums by name. Both parsers accept the proto
+field names too. This is a change from v1's snake_case, made once, for one rule on both
+transports; sub-project 3's transcoder writes it, and sub-project 5's REST DTOs read it.
+
+### Reads stop writing
+
+v1 has reads that write: `/bundle` seeds terms and adopts subjects, `/manage/subjects` adopts,
+`/manage/terms` seeds. The contract marks every `Get` and `List` `NO_SIDE_EFFECTS`, so
+sub-project 3 moves those writes off the reads (to the writes that make them necessary, or to
+the class's creation). Touching a device's `last_seen_at` on every request is telemetry no client
+observes, and stays.
 
 ## Checks
 
