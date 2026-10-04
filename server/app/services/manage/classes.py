@@ -1,7 +1,7 @@
 """«⚙️ Класс» and ``/manage/class``: the class's own card and settings.
 
 Three ways in change the class itself - the card's typed fields, the zone
-picker in ``handlers/start.py`` and the join switch in ``handlers/access.py``
+picker in ``handlers/start/timezone.py`` and the join switch in ``handlers/access.py``
 - and ``PATCH /manage/class`` changes all of them at once. One audit line per
 field changed, with the same action names and the same words from either
 side, because that is what the log is read for: «что изменилось», not «кто

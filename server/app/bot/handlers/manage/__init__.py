@@ -1,7 +1,7 @@
 """Running the class: subjects, special days, bells, devices, the log, import.
 
 This is the structural half of the bot - everything that shapes what the
-day-to-day flows in ``content.py`` and ``timetable.py`` are allowed to say.
+day-to-day flows in ``content/`` and ``timetable.py`` are allowed to say.
 
 Three rules hold everywhere in this package, and each of them is the answer to
 a way the previous shape of this code could be abused:

@@ -53,7 +53,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2065 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2075 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -61,7 +61,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 153 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 197 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. A CI step since
   27 September 2026, right after ruff, because the owner asked for it through that day's
@@ -175,7 +175,11 @@ Server modules:
   have had a schema built from a string)
 - `bot/` — aiogram routers, roles, keyboards, renderers. «⚙️ Класс» is `handlers/manage/`,
   one module per screen, each with a router of its own included in one written-down order
-  by the package's `__init__`. Every handler there says what it needs with
+  by the package's `__init__`. `handlers/start/` and `handlers/content/` are packages the
+  same way, and `manage_render/` and `manage_keyboards/` mirror the screens; each feature
+  outside «⚙️ Класс» has its own `*_render.py` and `*_keyboard.py` beside
+  `render.py` (which re-exports `app/wording.py`) and `keyboards.py`.
+  Every handler there says what it needs with
   `@needs(Role.X)` (`handlers/manage/_common.py`) under its `@router…` line — one decorator
   instead of seventy-two copies of the check, and a decorator rather than a filter or a
   middleware flag because the check has to travel with the function: a failed filter hands
@@ -450,7 +454,7 @@ points Hilt does not inject cleanly.
   `0017` changes no schema: it files the corrections over the diary under the
   **child** rather than under a login (#165, the owner's decision of 26
   September) — `diary_overrides.login` keeps its name and holds the scope
-  `services/diary.child_scope` builds, `CHILD:petersburg` or `CHILD:netschool:`
+  `services/diary_corrections.child_scope` builds, `CHILD:petersburg` or `CHILD:netschool:`
   and the regional server's host and no other shape (a child the diary lists
   outside its own numbering gets no corrections at all), upper case so that
   no casefolded login can ever equal one. It **destroys rows**: every legacy
@@ -515,8 +519,8 @@ points Hilt does not inject cleanly.
   number and drops what has none, so a row at a number the day does not ring is
   stored, logged, announced and drawn nowhere. Three ways in had to learn this
   separately: the week import, the button editor, and — later — the substitution
-  (`api/edit.py`, `bot/handlers/content.py`) and the bot's single-day paste,
-  which used to write the template itself instead of going through
+  (`api/edit.py`, `bot/handlers/content/overrides.py`) and the bot's single-day
+  paste, which used to write the template itself instead of going through
   `services/structure.apply_timetable`. Check with `timetable_edit.can_ring`,
   and for a dated write use `rung_indexes_on`, because a shortened day points
   at a shorter schedule than the class's usual. Two more ways in were closed
@@ -606,7 +610,7 @@ points Hilt does not inject cleanly.
   пошло не так» and `/homework` — a plain `answer`, with no callback to
   apologise on — answered nothing at all. Every renderer that grows with the
   data carries a budget (`WEEK_TEXT_LIMIT`, `TASK_LINES_MAX`,
-  `HOMEWORK_DIGEST_LIMIT`, `manage_render.clamp`) and says «… и ещё N». Cut a
+  `HOMEWORK_DIGEST_LIMIT`, `render.clamp`) and says «… и ещё N». Cut a
   string **before** escaping it: cutting after can leave «&am», which is a
   refused message of its own.
 - **Everything from outside is escaped before it goes into a message.** The bot sends
@@ -615,8 +619,9 @@ points Hilt does not inject cleanly.
   and no error anybody sees. The strings that come from outside are: anything the
   Petersburg diary sends (subject, room, teacher, topic, homework), anything typed into
   the bot or pasted into the timetable grammar (a subject really can be «Алгебра <7>»),
-  and anything out of the schools registry. `render.py` always did this; `diary_render.py`
-  and `editor_render.py` never did, and both shipped that way.
+  and anything out of the schools registry. `render.py`, and the per-screen renderers split
+  out of it (`week_render`, `homework_render`, `tasks_render`, `access_render`), always did this;
+  `diary_render.py` and `editor_render.py` never did, and both shipped that way.
   Two related traps in the same family: `plural(n, …)` already contains the number, so
   `f"{n} {plural(n, …)}"` prints «10 10 минут» — three callers had it, and one had a test
   that passed because «10 минут» is a substring. And `answerCallbackQuery` takes no parse
@@ -624,8 +629,8 @@ points Hilt does not inject cleanly.
   `editor_render.as_alert` instead — which also cuts at 200 characters, because past
   that Telegram answers 400 and the press answers nothing at all.
 - **A list page and the keyboard under it read the same number.** `manage_render`
-  declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX` and `LIST_MAX`, and
-  `manage_keyboards` builds its rows from those same names. While there were two
+  declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX` and `LIST_MAX` beside each page's
+  renderer, and `manage_keyboards` builds that page's rows from the same names. While there were two
   numbers, three pages of four drew rows no button could reach and «… и ещё N» said
   nothing, because it counted from the renderer's number. The values differ on
   purpose — a bell schedule's row carries three buttons and twelve lines of times, a
@@ -637,9 +642,9 @@ points Hilt does not inject cleanly.
   a small bug.** `int(callback_data.value)` does not refuse a press it cannot parse
   — it raises out of the handler, so `callback.answer()` is never reached and the
   button keeps its spinner until Telegram gives up. Every handler module carries a
-  guard for this: `_int_or_none` in `manage.py`, `tasks.py` and `access.py`,
-  `_date_or_none` in `calendar.py` and `content.py`, `_role_or_none` in
-  `access.py`, `_kind_or_none` and `_index_or_none` in `content.py`, and
+  guard for this: `_int_or_none` in `manage/_common.py`, `tasks.py`, `content/homework.py` and `access.py`,
+  `_date_or_none` in `calendar.py` and `content/_common.py`, `_role_or_none` in
+  `access.py`, `_kind_or_none` and `_index_or_none` in `content/_common.py`, and
   `shift_days`/`shift_weeks` in `keyboards.py` for the offsets (`timedelta(
   days=999999999)` is an OverflowError, not a far-away day). Check the value
   **where it is picked**, not where it is finally read: a value carried through
@@ -652,6 +657,10 @@ points Hilt does not inject cleanly.
   created a phone invite and said so in a sentence about the number. Split a shared
   payload on a field, never on registration order;
   `test_the_two_role_pickers_never_match_the_same_press` holds it.
+  The pairs that predate the rule — `/start link_…` and `/start`, a shared
+  contact and the create-a-class wizard's text steps, the two `TimezonePick`
+  handlers — are held in their order by `test_bot_commands.py`, so a router
+  split cannot reorder them quietly.
 - **`ResourceTranslationTest` covers every module that ships strings**, not just
   `:app` — `:core:data`, `:core:designsystem` and `:widget` have their own
   `values/` and went unguarded for a long time, which is how the countdown on the

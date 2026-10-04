@@ -34,12 +34,12 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
 from app.db import EXPECTED_REVISION
-from app.services import diary as service
+from app.services import diary_corrections as service
 
 SERVER_ROOT = Path(__file__).resolve().parent.parent
 REVISION = SERVER_ROOT / "migrations" / "versions" / "0017_corrections_per_child.py"
 
-#: What `services/diary.child_scope` answers for Petersburg — asserted below,
+#: What `services/diary_corrections.child_scope` answers for Petersburg — asserted below,
 #: so the revision's literal and the function cannot drift apart.
 PETERSBURG = "CHILD:petersburg"
 #: Keys the branch's old `owner_key` built for «Сетевой город»: 74 characters,

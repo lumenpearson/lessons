@@ -15,7 +15,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot import manage_render as mr
 from app.bot.handlers.calendar import open_month
 from app.bot.handlers.manage._common import (
     _date_or_none,
@@ -26,7 +25,7 @@ from app.bot.handlers.manage._common import (
     needs,
 )
 from app.bot.keyboards import back_to_menu, cancel_keyboard
-from app.bot.manage_keyboards import (
+from app.bot.manage_keyboards.holidays import (
     PERIOD_KINDS,
     DayKindAction,
     bells_pick_keyboard,
@@ -34,6 +33,7 @@ from app.bot.manage_keyboards import (
     holiday_list_keyboard,
     period_kind_keyboard,
 )
+from app.bot.manage_render import holidays as mr
 from app.bot.manage_states import AddHoliday
 from app.models import DayKind, Role, SchoolClass
 from app.services import audit

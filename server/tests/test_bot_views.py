@@ -13,8 +13,14 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import select
 
-from app.bot.handlers import start as start_handlers
+from app.bot.access_render import render_access_list
 from app.bot.handlers import week as week_handlers
+from app.bot.handlers.content.homework import (
+    cmd_homework,
+    homework_tick_keyboard,
+    homework_toggle,
+    homework_view,
+)
 from app.bot.handlers.manage import cmd_link
 from app.bot.handlers.reminders import (
     cmd_remind,
@@ -24,20 +30,13 @@ from app.bot.handlers.reminders import (
     reminder_time_prompt,
     reminder_toggle,
 )
-from app.bot.handlers.start import (
-    cmd_help,
-    cmd_start_link,
-    cmd_today,
-    cmd_tomorrow,
-    on_contact,
-)
+from app.bot.handlers.start import days as start_handlers
+from app.bot.handlers.start.days import cmd_today, cmd_tomorrow
+from app.bot.handlers.start.help_page import cmd_help
+from app.bot.handlers.start.menu import cmd_start_link, on_contact
 from app.bot.handlers.tasks import (
-    cmd_homework,
     cmd_task,
     cmd_tasks,
-    homework_tick_keyboard,
-    homework_toggle,
-    homework_view,
     remind_at_for,
     task_add_text,
     task_delete,
@@ -46,26 +45,19 @@ from app.bot.handlers.tasks import (
     task_view,
 )
 from app.bot.handlers.week import cmd_next, cmd_week, distinct_from, menu_next, show_week
-from app.bot.keyboards import main_menu, task_list_keyboard
-from app.bot.render import (
-    INVISIBLE,
-    MESSAGE_LIMIT,
+from app.bot.homework_render import render_homework_digest
+from app.bot.keyboards import main_menu
+from app.bot.reminders_render import render_reminder_card
+from app.bot.render import MESSAGE_LIMIT, plural, render_day, render_role_help
+from app.bot.states import AddTask, SetReminderTime
+from app.bot.tasks_keyboard import task_list_keyboard
+from app.bot.tasks_render import (
     TASK_BUTTONS_MAX,
     TASKS_UNREACHABLE,
-    WEEK_TEXT_LIMIT,
-    duration,
-    plural,
-    render_access_list,
-    render_day,
-    render_homework_digest,
-    render_next,
-    render_reminder_card,
-    render_role_help,
     render_task_list,
     render_task_saved,
-    render_week,
 )
-from app.bot.states import AddTask, SetReminderTime
+from app.bot.week_render import INVISIBLE, WEEK_TEXT_LIMIT, duration, render_next, render_week
 from app.models import (
     BotUser,
     DayKind,

@@ -16,6 +16,7 @@ from app.bot.handlers import (
     unknown,
     week,
 )
+from app.bot.handlers.content.homework import ticks as homework_ticks
 
 
 def build_router() -> Router:
@@ -29,6 +30,13 @@ def build_router() -> Router:
     router.include_router(timetable.router)
     router.include_router(week.router)
     router.include_router(tasks.router)
+    # The «сделал» ticks live with the homework they tick, in
+    # `content/homework.py`, and are asked here — where they stood while they
+    # were `tasks`'s — rather than with the rest of `content`. aiogram's
+    # `Command` reads «/homework@» as /homework and `CommandBreakoutMiddleware`
+    # does not, so a form step asked between the two places has always taken
+    # it as its answer; asking the ticks earlier would change who answers.
+    router.include_router(homework_ticks)
     router.include_router(reminders.router)
     router.include_router(manage.router)
     # Last, and it has to be: it matches any command at all, so anything above

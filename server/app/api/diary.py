@@ -75,6 +75,7 @@ from app.schemas import (
 )
 from app.security import Admission, JoinThrottle
 from app.services import diary as service
+from app.services import diary_corrections
 from app.services import diary_overrides as overrides
 
 router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1/diary", tags=["diary"])
@@ -671,7 +672,7 @@ async def _corrections(
 ) -> dict[str, dict[str, tuple[str, str | None]]]:
     if scope is None:
         return {}
-    return await service.load_corrections(session, scope, student_id)
+    return await diary_corrections.load_corrections(session, scope, student_id)
 
 
 @router.get("/students/{student_id}/schedule", response_model=list[DiaryLessonOut])
@@ -795,7 +796,7 @@ async def attendance(
 # would be producing a false record that looks official.
 #
 # Filed under the child — the diary's server and the pupil's id on it
-# (`services/diary.child_scope`) — rather than under the session or the login,
+# (`services/diary_corrections.child_scope`) — rather than under the session or the login,
 # so signing out and back in finds them where they were left, and everyone
 # whose own diary lists the child reads and writes the same set: both parents,
 # the pupil's own account if it lists itself, and any other account the diary
@@ -821,7 +822,7 @@ async def list_overrides(
     _, scope = await _child(svc, student_id)
     if scope is None:
         return []
-    found = await service.list_overrides(session, scope, student_id)
+    found = await diary_corrections.list_overrides(session, scope, student_id)
     return [DiaryOverrideOut.of(item) for item in found]
 
 
@@ -875,7 +876,7 @@ async def put_override(
             detail="Это поле не может быть пустым",
         ) from failure
 
-    stored = await service.put_override(
+    stored = await diary_corrections.put_override(
         session,
         scope=scope,
         student_id=student_id,
@@ -911,7 +912,9 @@ async def reset_override(
     """
     _, scope = await _child(svc, student_id)
     if scope is not None:
-        await service.drop_override(session, scope, student_id, payload.target, payload.field)
+        await diary_corrections.drop_override(
+            session, scope, student_id, payload.target, payload.field
+        )
 
 
 @router.delete(
@@ -929,4 +932,4 @@ async def reset_all_overrides(
     for itself again."""
     _, scope = await _child(svc, student_id)
     if scope is not None:
-        await service.drop_overrides(session, scope, student_id)
+        await diary_corrections.drop_overrides(session, scope, student_id)

@@ -822,7 +822,7 @@ class DiarySession(Base):
     # Who signed in, as typed: shown on the "you are signed in as" line and
     # nothing more. A phone's registration names it and nothing upstream
     # vouches for it, so it decides nothing — a family's corrections are filed
-    # under the child (`services/diary.py:child_scope`), not under this (#165).
+    # under the child (`services/diary_corrections.child_scope`), not under this (#165).
     login: Mapped[str] = mapped_column(String(200), nullable=False)
     # The Telegram account this session belongs to. Set when the session was
     # opened from the bot's sign-in ticket (`api/diary_web.py`); NULL for a
@@ -996,7 +996,7 @@ class DiaryOverride(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     #: **Not a login any more**, whatever the name says: the diary a child's
-    #: corrections belong to, as ``services/diary.py:child_scope`` spells it —
+    #: corrections belong to, as ``services/diary_corrections.child_scope`` spells it —
     #: ``CHILD:petersburg``, or ``CHILD:netschool:`` and the regional server's
     #: host, and nothing else: a child listed outside its diary's own
     #: numbering gets no row at all (``DiaryService.scope_of``). So one child's

@@ -37,7 +37,7 @@ from app.services import audit, structure, timetable_io
 
 #: Rejected lines echoed back before «… и ещё N».
 #:
-#: Every sibling caps this — `manage_render.render_import_preview` at ten, and
+#: Every sibling caps this — `manage_render.import_export.render_import_preview` at ten, and
 #: `manage.bells_rows_apply` and `manage.bells_new_rows`, which import this
 #: number rather than writing it again — and these two did not. A timetable
 #: copied out of an HTML table arrives as four hundred one-word lines, of which

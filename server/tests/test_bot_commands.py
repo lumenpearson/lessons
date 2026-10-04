@@ -12,7 +12,7 @@ fake Telegram session is what the reader would have seen.
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -28,12 +28,21 @@ from sqlalchemy import select
 
 from app.bot import states
 from app.bot.bot import COMMANDS, build_dispatcher
+from app.bot.content_keyboard import HomeworkTick
 from app.bot.handlers.manage import NEED_ADMIN
+from app.bot.handlers.start.menu import cmd_start, cmd_start_link, on_contact
+from app.bot.handlers.start.onboarding import (
+    create_class_letter,
+    create_class_school_search,
+    create_class_school_typed,
+    create_class_timezone,
+)
+from app.bot.handlers.start.timezone import change_timezone_apply
 from app.bot.handlers.unknown import STALE_CARD, UNKNOWN_COMMAND
-from app.bot.keyboards import WeekNav
-from app.bot.manage_keyboards import BellsAction
+from app.bot.manage_keyboards.bells import BellsAction
 from app.bot.manage_states import EditSubject
 from app.bot.middlewares import FORM_DROPPED
+from app.bot.week_keyboard import WeekNav
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
 from app.models import AuditEntry, BotUser, DayEvent, Homework, Role, SchoolClass
@@ -401,6 +410,17 @@ async def test_a_press_a_handler_owns_never_reaches_the_catch_all(bot, sent):
     assert STALE_CARD not in [a.text for a in answers]
 
 
+async def test_a_tick_still_reaches_the_homework_flow(bot, sent, editor):
+    """The «сделал» ticks moved from `tasks` into `content/homework.py`. What a
+    tick on an assignment that is no longer there answers is the homework
+    flow's own sentence, so the press went where it always went — not to the
+    catch-all and not to a screen asked earlier."""
+    await dispatcher().feed_update(bot, _press(HomeworkTick(action="toggle", value="999").pack()))
+
+    answers = [m for m in sent.sent if type(m).__name__ == "AnswerCallbackQuery"]
+    assert [a.text for a in answers] == ["Это задание уже удалено"]
+
+
 @pytest.mark.parametrize(
     ("role", "drawn"), [(Role.VIEWER, False), (Role.ADMIN, True)], ids=["viewer", "admin"]
 )
@@ -450,3 +470,61 @@ async def test_a_refused_form_step_through_the_dispatcher_drops_the_form_quietly
     assert sent.texts == []
     async with SessionLocal() as db:
         assert (await db.scalars(select(AuditEntry))).all() == []
+
+
+# --------------------------------------------------------------------------
+# Which of two handlers an update reaches
+# --------------------------------------------------------------------------
+
+
+def _offered(observer: str) -> list[Any]:
+    """Every handler on ``observer``, in the order the dispatcher offers an
+    update to them.
+
+    A router asks its own handlers first, in registration order, then each
+    router included under it, in include order — depth first (aiogram's
+    ``Router._propagate_event``). A module split into a package of routers
+    keeps every update where it went only while this order holds.
+    """
+
+    def walk(router: Any) -> Iterator[Any]:
+        yield from (handler.callback for handler in router.observers[observer].handlers)
+        for child in router.sub_routers:
+            yield from walk(child)
+
+    return list(walk(dispatcher()))
+
+
+#: Handlers that can both match one update, the one that must win first.
+#: Nothing but registration order tells each pair apart — the shape «Two
+#: screens can match one press» in CLAUDE.md warns against — so they are held
+#: here, where splitting their module into several routers would otherwise
+#: reorder them without a word.
+_FIRST_WINS = [
+    # «/start link_…» is a «/start» too: the bare handler would open the menu
+    # instead of linking the phone.
+    ("message", cmd_start_link, cmd_start),
+    # A shared contact while the wizard waits for text: its steps are
+    # filtered by state alone and would take the contact as the answer.
+    ("message", on_contact, create_class_letter),
+    ("message", on_contact, create_class_school_search),
+    ("message", on_contact, create_class_school_typed),
+    # Both take a TimezonePick, and only the wizard's state tells them apart:
+    # the class card's handler would answer the wizard's last question as a
+    # change to an existing class — a refusal, for somebody who has none yet.
+    ("callback_query", create_class_timezone, change_timezone_apply),
+]
+
+
+@pytest.mark.parametrize(
+    ("observer", "first", "then"),
+    _FIRST_WINS,
+    ids=[f"{first.__name__}-before-{then.__name__}" for _, first, then in _FIRST_WINS],
+)
+def test_of_two_handlers_for_one_update_the_right_one_is_asked_first(observer, first, then):
+    offered = _offered(observer)
+
+    assert offered.index(first) < offered.index(then), (
+        f"{then.__module__}.{then.__name__} is now offered {observer} updates before "
+        f"{first.__module__}.{first.__name__}"
+    )

@@ -29,13 +29,22 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 
-from app.bot import diary_render, editor_render, manage_render, render
+from app.bot import (
+    access_render,
+    diary_render,
+    editor_render,
+    render,
+    tasks_render,
+    week_render,
+)
 from app.bot.handlers.access import JOIN_MODE_TEXT, access_root
-from app.bot.handlers.content import event_title, override_subject
+from app.bot.handlers.content.events import event_title
+from app.bot.handlers.content.overrides import override_subject
 from app.bot.handlers.manage import bells_new_rows, cmd_export
-from app.bot.handlers.start import create_class_school_search
+from app.bot.handlers.start.onboarding import create_class_school_search
 from app.bot.handlers.timetable import TIMETABLE_HELP, timetable_pick_day
 from app.bot.keyboards import TimetableAction
+from app.bot.manage_render.stats import render_search
 from app.models import (
     AccessRequest,
     BellPeriod,
@@ -130,7 +139,7 @@ def test_the_access_list_of_a_class_where_both_parents_joined_still_sends():
         )
         for n in range(60)
     ]
-    text = render.render_access_list(members, [], render.MESSAGE_LIMIT)
+    text = access_render.render_access_list(members, [], render.MESSAGE_LIMIT)
     assert len(text) <= TELEGRAM_LIMIT
 
 
@@ -149,9 +158,9 @@ def test_no_member_is_named_whose_role_no_button_can_change():
         )
         for n in range(25)
     ]
-    text = render.render_access_list(members, [], render.MESSAGE_LIMIT)
-    assert text.count("Ученик ") == render.ACCESS_MEMBERS_MAX
-    assert f"… и ещё {25 - render.ACCESS_MEMBERS_MAX}" in text
+    text = access_render.render_access_list(members, [], render.MESSAGE_LIMIT)
+    assert text.count("Ученик ") == access_render.ACCESS_MEMBERS_MAX
+    assert f"… и ещё {25 - access_render.ACCESS_MEMBERS_MAX}" in text
 
 
 def test_forty_tasks_with_real_titles_still_send():
@@ -170,7 +179,7 @@ def test_forty_tasks_with_real_titles_still_send():
         )
         for n in range(40)
     ]
-    assert len(render.render_task_list(tasks, TODAY)) <= TELEGRAM_LIMIT
+    assert len(tasks_render.render_task_list(tasks, TODAY)) <= TELEGRAM_LIMIT
 
 
 @pytest.mark.parametrize("per_day", [3, 6])
@@ -373,7 +382,7 @@ def test_a_week_of_subjects_written_out_in_full_still_sends():
         )
         for offset in range(6)
     ]
-    text = render.render_week(days, monday, False)
+    text = week_render.render_week(days, monday, False)
     assert len(text) <= TELEGRAM_LIMIT
     assert "… и ещё" in text
 
@@ -400,7 +409,7 @@ def test_a_week_that_fits_is_not_cut():
         )
         for offset in range(6)
     ]
-    text = render.render_week(days, monday, False)
+    text = week_render.render_week(days, monday, False)
     assert "… и ещё" not in text
     assert "214" in text and "Иванова А. П." in text
 
@@ -616,7 +625,7 @@ async def test_a_request_note_is_cut_before_it_eats_the_member_list(
     """
     body = await _crowded_access_page(session, school_class)
 
-    assert "о" * (render.ACCESS_REQUEST_NOTE_MAX + 1) not in body
+    assert "о" * (access_render.ACCESS_REQUEST_NOTE_MAX + 1) not in body
     assert body.count(escape(LONG_MEMBER_NAME)) > 12
 
 
@@ -753,7 +762,7 @@ def test_a_search_for_something_long_answers_something():
     with no budget at all, and `cmd_find` is a `Message` handler with no
     callback for the error middleware to apologise on: the answer was nothing.
     """
-    text = manage_render.render_search("я" * 4090, [], TODAY)
+    text = render_search("я" * 4090, [], TODAY)
 
     assert len(text) <= render.MESSAGE_LIMIT
     assert "Ничего не нашлось" in text
@@ -778,7 +787,7 @@ def test_a_long_search_still_shows_what_it_found():
     ]
 
     for needle in ("я" * 3900, '"' * 800):
-        text = manage_render.render_search(needle, rows, TODAY)
+        text = render_search(needle, rows, TODAY)
         assert len(text) <= render.MESSAGE_LIMIT
         for row in rows:
             assert row.subject_name in text, needle

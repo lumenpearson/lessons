@@ -15,10 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.handlers.manage._common import NEED_ADMIN, needs
 from app.bot.handlers.manage.class_card import _class_card
-from app.bot.keyboards import DiarySchoolPick
-from app.bot.manage_keyboards import (
+from app.bot.manage_keyboards._common import ManageAction
+from app.bot.manage_keyboards.diary_binding import (
     DIARY_SCHOOLS_MAX,
-    ManageAction,
+    DiarySchoolPick,
     diary_provider_menu,
     diary_region_menu,
     diary_school_menu,
