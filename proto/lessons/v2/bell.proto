@@ -1,0 +1,124 @@
+// The bell schedules a class runs on, as «🔔 Звонки» edits them. Replaces
+// v1's /manage/bells… and PUT /manage/bells/{id}/periods.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service BellService {
+  // Every schedule the class keeps («Обычное», «Сокращённое», «Суббота»),
+  // with the default marked.
+  rpc ListBellSchedules(ListBellSchedulesRequest) returns (ListBellSchedulesResponse) {
+    option (google.api.http) = {get: "/v2/class/bellSchedules"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  rpc GetBellSchedule(GetBellScheduleRequest) returns (GetBellScheduleResponse) {
+    option (google.api.http) = {get: "/v2/class/bellSchedules/{schedule_id}"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // A new named schedule, with its rows if they come with it. It does not
+  // become the default: a shortened schedule exists to be pointed at by
+  // particular days. REST answers 201.
+  rpc CreateBellSchedule(CreateBellScheduleRequest) returns (CreateBellScheduleResponse) {
+    option (google.api.http) = {
+      post: "/v2/class/bellSchedules"
+      body: "schedule"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // `update_mask` takes name, is_default and periods. Periods are replaced
+  // wholesale, because the lessons after the one that moved shift with it,
+  // and must hold at least one row. is_default false is VALIDATION_FAILED:
+  // make another schedule the default instead. A schedule with no rows cannot
+  // become it (EMPTY_BELL_SCHEDULE).
+  rpc UpdateBellSchedule(UpdateBellScheduleRequest) returns (UpdateBellScheduleResponse) {
+    option (google.api.http) = {
+      patch: "/v2/class/bellSchedules/{schedule.id}"
+      body: "schedule"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // RESOURCE_IN_USE for the class default and for a schedule special days
+  // point at: deleting either would silently move those days onto another.
+  rpc DeleteBellSchedule(DeleteBellScheduleRequest) returns (DeleteBellScheduleResponse) {
+    option (google.api.http) = {delete: "/v2/class/bellSchedules/{schedule_id}"};
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+}
+
+// v1: BellScheduleOut, BellScheduleIn and BellSchedulePatch.
+message BellSchedule {
+  // Assigned by the server; ignored on create.
+  int32 id = 1;
+  // 1 to 64 characters.
+  string name = 2;
+  // The one the class runs on when no day says otherwise.
+  bool is_default = 3;
+  // At most 20, numbers unique, ordered by number.
+  repeated BellPeriod periods = 4;
+}
+
+// v1: BellPeriodIn and BellPeriodOut.
+message BellPeriod {
+  // The lesson number, 1 to 20.
+  int32 index = 1;
+  // "HH:MM".
+  string starts_at = 2;
+  // "HH:MM", after starts_at.
+  string ends_at = 3;
+}
+
+message ListBellSchedulesRequest {}
+
+message ListBellSchedulesResponse {
+  repeated BellSchedule schedules = 1;
+}
+
+message GetBellScheduleRequest {
+  int32 schedule_id = 1;
+}
+
+message GetBellScheduleResponse {
+  BellSchedule schedule = 1;
+}
+
+message CreateBellScheduleRequest {
+  BellSchedule schedule = 1;
+}
+
+message CreateBellScheduleResponse {
+  BellSchedule schedule = 1;
+}
+
+message UpdateBellScheduleRequest {
+  BellSchedule schedule = 1;
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateBellScheduleResponse {
+  BellSchedule schedule = 1;
+  // Lessons this write stopped ringing, counted in rows: one number under two
+  // weekdays is two lessons nobody will see. Zero on almost every write.
+  // v1: BellScheduleOut.silenced_lessons, a fact of the write rather than of
+  // the schedule.
+  int32 silenced_lessons = 2;
+}
+
+message DeleteBellScheduleRequest {
+  int32 schedule_id = 1;
+}
+
+message DeleteBellScheduleResponse {}

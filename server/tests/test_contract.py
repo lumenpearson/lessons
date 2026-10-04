@@ -52,11 +52,30 @@ JAVA_PACKAGE = "com.lumenpearson.lessons.contract.v2"
 #: Every file of ``proto/lessons/v2``, by the stem of its generated module. A
 #: proto file added without regenerating, or a module left behind by a deleted
 #: file, fails here before CI's regeneration finds it.
-FILES = {"common", "device", "errors", "me", "options", "schedule"}
+FILES = {
+    "bell",
+    "common",
+    "device",
+    "errors",
+    "me",
+    "options",
+    "school_class",
+    "schedule",
+    "subject",
+    "timetable",
+}
 
 #: The files that declare a service, beside which ``buf.build/connectrpc/py``
 #: also writes a ``_connect`` module.
-SERVICE_FILES = {"device", "me", "schedule"}
+SERVICE_FILES = {
+    "bell",
+    "device",
+    "me",
+    "school_class",
+    "schedule",
+    "subject",
+    "timetable",
+}
 
 # AuthKind's and Role's numbers, so the table below reads the way the design's
 # does; test_the_option_enums_are_numbered_as_this_file_reads_them pins them to
@@ -113,6 +132,52 @@ METHODS: dict[tuple[str, str], Row] = {
     ),
     ("ScheduleService", "GetScheduleWindow"): Row(
         "get", "/v2/class/scheduleWindows/{year}", "", DEVICE, VIEWER
+    ),
+    ("ClassService", "GetClass"): Row("get", "/v2/class", "", DEVICE, ADMIN),
+    ("ClassService", "UpdateClass"): Row("patch", "/v2/class", "school_class", DEVICE, ADMIN),
+    ("ClassService", "DeleteClass"): Row("delete", "/v2/class", "", DEVICE, OWNER),
+    ("ClassService", "GetClassStats"): Row("get", "/v2/class/stats", "", DEVICE, EDITOR),
+    ("ClassService", "GetTermScheme"): Row("get", "/v2/class/termScheme", "", DEVICE, ADMIN),
+    ("ClassService", "UpdateTermScheme"): Row(
+        "patch", "/v2/class/termScheme", "term_scheme", DEVICE, ADMIN
+    ),
+    ("ClassService", "ListTerms"): Row("get", "/v2/class/terms", "", DEVICE, ADMIN),
+    ("ClassService", "UpdateTerm"): Row(
+        "patch", "/v2/class/terms/{term.index}", "term", DEVICE, ADMIN
+    ),
+    ("SubjectService", "ListSubjects"): Row("get", "/v2/class/subjects", "", DEVICE, VIEWER),
+    ("SubjectService", "GetSubject"): Row(
+        "get", "/v2/class/subjects/{subject_id}", "", DEVICE, VIEWER
+    ),
+    ("SubjectService", "CreateSubject"): Row(
+        "post", "/v2/class/subjects", "subject", DEVICE, ADMIN
+    ),
+    ("SubjectService", "UpdateSubject"): Row(
+        "patch", "/v2/class/subjects/{subject.id}", "subject", DEVICE, ADMIN
+    ),
+    ("SubjectService", "DeleteSubject"): Row(
+        "delete", "/v2/class/subjects/{subject_id}", "", DEVICE, ADMIN
+    ),
+    ("BellService", "ListBellSchedules"): Row(
+        "get", "/v2/class/bellSchedules", "", DEVICE, ADMIN
+    ),
+    ("BellService", "GetBellSchedule"): Row(
+        "get", "/v2/class/bellSchedules/{schedule_id}", "", DEVICE, ADMIN
+    ),
+    ("BellService", "CreateBellSchedule"): Row(
+        "post", "/v2/class/bellSchedules", "schedule", DEVICE, ADMIN
+    ),
+    ("BellService", "UpdateBellSchedule"): Row(
+        "patch", "/v2/class/bellSchedules/{schedule.id}", "schedule", DEVICE, ADMIN
+    ),
+    ("BellService", "DeleteBellSchedule"): Row(
+        "delete", "/v2/class/bellSchedules/{schedule_id}", "", DEVICE, ADMIN
+    ),
+    ("TimetableService", "GetTimetable"): Row(
+        "get", "/v2/class/timetable", "", DEVICE, ADMIN
+    ),
+    ("TimetableService", "ImportTimetable"): Row(
+        "post", "/v2/class/timetable:import", "*", DEVICE, ADMIN
     ),
 }
 

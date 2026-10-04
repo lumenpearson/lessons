@@ -1,0 +1,84 @@
+// The weekly template as text, out and back in: «📤 Экспорт» and «📥 Импорт».
+// Replaces v1's /manage/timetable and /manage/timetable/import.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service TimetableService {
+  // The weekly template in the bot's paste format, byte for byte what
+  // «📤 Экспорт» sends, so a text saved from either goes back in through the
+  // other. An empty timetable is an empty text, not NOT_FOUND.
+  rpc GetTimetable(GetTimetableRequest) returns (GetTimetableResponse) {
+    option (google.api.http) = {get: "/v2/class/timetable"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // Parses a paste and replaces exactly the weekdays it names; a day named
+  // with nothing under it is emptied, and a «== Звонки ==» block replaces the
+  // default schedule's rows. With `validate_only` nothing is written and the
+  // answer is the preview the bot shows before «Применить» (AIP-163). Without
+  // it, a paste that would overwrite a weekday that has lessons writes
+  // nothing either and lists the conflicts, unless `replace` is set: the
+  // second tap. A paste with no weekday header and no bells block is
+  // VALIDATION_FAILED.
+  rpc ImportTimetable(ImportTimetableRequest) returns (ImportTimetableResponse) {
+    option (google.api.http) = {
+      post: "/v2/class/timetable:import"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+}
+
+// v1: TimetableExportOut.
+message Timetable {
+  string text = 1;
+  int32 lessons = 2;
+}
+
+// One weekday the paste would overwrite. v1: ImportConflictOut.
+message ImportConflict {
+  // 1 is Monday, 7 is Sunday.
+  int32 weekday = 1;
+  int32 existing = 2;
+  int32 incoming = 3;
+}
+
+message GetTimetableRequest {}
+
+message GetTimetableResponse {
+  Timetable timetable = 1;
+}
+
+// v1: TimetableImportIn, with the preview made explicit.
+message ImportTimetableRequest {
+  // 1 to 20000 characters.
+  string text = 1;
+  // Overwrite weekdays that already have lessons.
+  bool replace = 2;
+  // Parse and answer, write nothing.
+  bool validate_only = 3;
+}
+
+// v1: TimetableImportOut.
+message ImportTimetableResponse {
+  // False when nothing was written.
+  bool applied = 1;
+  // The weekdays the paste names, 1 to 7.
+  repeated int32 days = 2;
+  int32 lessons = 3;
+  int32 bells = 4;
+  repeated ImportConflict conflicts = 5;
+  // Lines the parser could not read, then one line per lesson dropped for
+  // having no bell and per stored lesson the new bells no longer ring: an
+  // admin fixes the typos rather than re-reading the whole paste.
+  repeated string rejected = 6;
+}

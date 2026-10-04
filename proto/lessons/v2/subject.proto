@@ -1,0 +1,114 @@
+// The class's subject dictionary, as «📚 Предметы» edits it. Replaces v1's
+// GET /subjects (no ids) and /manage/subjects… (with ids): one resource with
+// ids, readable by any phone in the class.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service SubjectService {
+  // The dictionary, alphabetically.
+  rpc ListSubjects(ListSubjectsRequest) returns (ListSubjectsResponse) {
+    option (google.api.http) = {get: "/v2/class/subjects"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_VIEWER;
+  }
+  rpc GetSubject(GetSubjectRequest) returns (GetSubjectResponse) {
+    option (google.api.http) = {get: "/v2/class/subjects/{subject_id}"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_VIEWER;
+  }
+  // RESOURCE_EXISTS for a name the class already has, ignoring case: that
+  // uniqueness is the whole point of the dictionary. REST answers 201.
+  rpc CreateSubject(CreateSubjectRequest) returns (CreateSubjectResponse) {
+    option (google.api.http) = {
+      post: "/v2/class/subjects"
+      body: "subject"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // `update_mask` takes name, short_name, teacher and color. A rename carries
+  // the timetable, the homework and the substitutions with it in one
+  // transaction, and `moved` says how many rows. Renaming onto a taken name is
+  // RESOURCE_EXISTS; onto one with homework on the same days,
+  // SUBJECT_RENAME_CLASH.
+  rpc UpdateSubject(UpdateSubjectRequest) returns (UpdateSubjectResponse) {
+    option (google.api.http) = {
+      patch: "/v2/class/subjects/{subject.id}"
+      body: "subject"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // RESOURCE_IN_USE while the weekly template still teaches it; take it out
+  // of the timetable first, or the next read would adopt it again without its
+  // colour or teacher.
+  rpc DeleteSubject(DeleteSubjectRequest) returns (DeleteSubjectResponse) {
+    option (google.api.http) = {delete: "/v2/class/subjects/{subject_id}"};
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+}
+
+// v1: SubjectOut, ManagedSubjectOut, SubjectIn and SubjectPatch.
+message Subject {
+  // Assigned by the server; ignored on create.
+  int32 id = 1;
+  // 1 to 120 characters, one line, single-spaced.
+  string name = 2;
+  // Up to 16 characters.
+  optional string short_name = 3;
+  // Up to 120 characters.
+  optional string teacher = 4;
+  // "#RRGGBB" as stored; "#5b6abf" or "5B6ABF" are taken and normalised.
+  optional string color = 5;
+}
+
+message ListSubjectsRequest {}
+
+message ListSubjectsResponse {
+  repeated Subject subjects = 1;
+}
+
+message GetSubjectRequest {
+  int32 subject_id = 1;
+}
+
+message GetSubjectResponse {
+  Subject subject = 1;
+}
+
+message CreateSubjectRequest {
+  Subject subject = 1;
+}
+
+message CreateSubjectResponse {
+  Subject subject = 1;
+}
+
+message UpdateSubjectRequest {
+  Subject subject = 1;
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateSubjectResponse {
+  Subject subject = 1;
+  // How many timetable, homework and substitution rows a rename moved; zero
+  // for any other edit. v1: SubjectSavedOut.moved.
+  int32 moved = 2;
+}
+
+message DeleteSubjectRequest {
+  int32 subject_id = 1;
+}
+
+message DeleteSubjectResponse {}
