@@ -208,6 +208,9 @@ step costs a minute. Measured here:
 | Server (`ruff` + `pytest`) | 12 min 43 s | 13 | 3 min 56 s |
 | **A full CI run** | | **21** | |
 
+The «Contract (Buf)» job is not in the table: it runs only when the contract changes, and it
+had not been timed when it was added (`docs/specs/2026-10-04-contract-v2-plan.md`, Task 8).
+
 2000 minutes was about 95 full runs, and nearly two thirds of each went into one `pytest`
 step. What stayed in CI for good:
 
@@ -239,7 +242,8 @@ step. What stayed in CI for good:
   file in its own folder. So a change confined to `docs/` usually runs neither — but
   `docs/app/` and `docs/legal/` are packaged into the APK and run Android; `docs/build.md`,
   `docs/deploy.md`, `docs/diaries.md` and `docs/diaries/` are read by server tests and run
-  the server; and the region catalog and the protocol vectors, which live under `server/`
+  the server; a change to `proto/`, `buf.yaml`, `buf.gen.yaml`, `buf.lock` or
+  `server/app/contract/` runs the «Contract» job, which nothing else runs; and the region catalog and the protocol vectors, which live under `server/`
   and are the phone's inputs too, run both. A commit touching only one of those documents
   used to run nothing and come back green (#159); `ci.yml` names each file beside the test
   that reads it. If the commit range cannot be worked out (a force push, a branch's first
@@ -668,6 +672,46 @@ lessons.key.password=...
 The same four values are read from the environment variables `LESSONS_KEYSTORE_FILE`,
 `LESSONS_KEYSTORE_PASSWORD`, `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD` — which is what
 CI uses.
+
+## The v2 contract and Buf
+
+`proto/lessons/v2/` is the v2 contract ([api.md](api.md), «v2: the contract»). Buf checks it
+and generates the Python under `server/app/contract/` from it. Buf is not in the repository
+and nothing installs it. CI's «Contract» job fetches **Buf 1.73.0** through
+`bufbuild/buf-action` v1.6.0, pinned in `ci.yml` by version and by checksum. A local copy
+is fetched by hand at the same version and kept outside the repository:
+
+| Platform | Download | SHA-256 |
+| --- | --- | --- |
+| Windows x86-64 | `https://github.com/bufbuild/buf/releases/download/v1.73.0/buf-Windows-x86_64.exe` | `13542f2892c4f774150ddb525266d6421d457b3e741297056b64427853526e36` |
+| Linux x86-64 | `https://github.com/bufbuild/buf/releases/download/v1.73.0/buf-Linux-x86_64` | `8f2986298ad08f0cc1bf999b9797b7c383adf32d7edf0f73d6f1e1a701baeac1` |
+
+From the repository root:
+
+- `buf lint`: the STANDARD rules, with the one exception `buf.yaml` names and why.
+- `buf generate`: rewrites `server/app/contract/` whole (`clean: true`). Commit it in the
+  same change as the proto, because CI regenerates and fails on any difference.
+- `buf breaking --against "$(git rev-parse --git-common-dir)#branch=main"`: the FILE rules
+  against `main`, once `main` has a contract. Before that there is nothing to compare
+  against, which is also why CI skips the check on the pull request that adds the contract
+  and says so.
+
+**The plugins are remote and pinned.** `buf.gen.yaml` names `buf.build/bufbuild/py:v0.6.0`
+and `buf.build/connectrpc/py:v0.12.1`. An unpinned plugin takes Buf's latest release, so
+CI would regenerate something else one morning with nothing changed here.
+`server/tests/test_contract.py` holds each pin level with its runtime's floor in
+`requirements.in` (`protobuf-py>=0.6.0`, `connectrpc>=0.12.1`) and with the header of every
+generated module. Moving one is three edits and a regeneration, in one commit.
+
+**Unauthenticated, for now.** Generation, and the `googleapis` dependency pinned in
+`buf.lock`, come from the Buf Schema Registry without a login, as the spike did it. Buf
+rate-limits anonymous use, and CI has not met the limit. If it does, the generate step says
+so, and the fix is the owner's:
+- a `BUF_TOKEN` repository secret holding a Buf token;
+- `token: ${{ secrets.BUF_TOKEN }}` on the `buf-action` step.
+
+That is also the day `ci.yml` stops reading no secret, and the table in «The other place
+variables live» gains a row.
 
 ## detekt
 

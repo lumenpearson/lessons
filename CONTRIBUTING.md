@@ -49,7 +49,9 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 The first six run from `server/`, the rest from `android/`.
 
 CI (`.github/workflows/ci.yml`) runs exactly this: `ruff`, `python -m mypy`,
-`pytest -n auto`, `./gradlew test`, `assembleDebug` and `assembleRelease`. The release
+`pytest -n auto`, `./gradlew test`, `assembleDebug` and `assembleRelease`; and, when the
+contract changed, `buf lint`, `buf breaking` and a check that `server/app/contract/` is what
+`buf generate` writes. The release
 build runs on every push, not only on a release: R8 and resource shrinking are the classic
 "it worked in debug and broke in the installed APK", and catching that on a pull request is
 cheaper than catching it on people.

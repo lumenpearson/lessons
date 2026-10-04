@@ -47,10 +47,22 @@ In a sandbox with no network every Gradle invocation needs `--offline`.
 `./gradlew lint` runs the AGP Android lint. **CI does not run it — do not report it as a
 gate.**
 
+## Contract, from the repository root
+
+Only when `proto/` changed. Buf 1.73.0 is fetched by hand and kept outside the repository
+(`docs/build.md`, «The v2 contract and Buf»).
+
+1. `buf lint`: STANDARD, as CI runs it.
+2. `buf generate`, then commit `server/app/contract/` with the proto change. CI regenerates
+   and fails on any difference.
+3. `python -m pytest -q -p no:xdist tests/test_contract.py` from `server/`: every method's
+   route, credential, least role and idempotency against the resource map.
+
 ## What CI is
 
 `.github/workflows/ci.yml`: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both
-assembles, and `./gradlew detekt` as a step of its own after them. Nothing else.
+assembles, and `./gradlew detekt` as a step of its own after them; and «Contract (Buf)» when
+the contract changed. Nothing else.
 
 ## Two rules about evidence
 
