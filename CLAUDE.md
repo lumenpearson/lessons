@@ -615,8 +615,9 @@ points Hilt does not inject cleanly.
   and no error anybody sees. The strings that come from outside are: anything the
   Petersburg diary sends (subject, room, teacher, topic, homework), anything typed into
   the bot or pasted into the timetable grammar (a subject really can be «Алгебра <7>»),
-  and anything out of the schools registry. `render.py` always did this; `diary_render.py`
-  and `editor_render.py` never did, and both shipped that way.
+  and anything out of the schools registry. `render.py`, and the per-screen renderers split
+  out of it (`week_render`, `homework_render`, `tasks_render`, `access_render`), always did this;
+  `diary_render.py` and `editor_render.py` never did, and both shipped that way.
   Two related traps in the same family: `plural(n, …)` already contains the number, so
   `f"{n} {plural(n, …)}"` prints «10 10 минут» — three callers had it, and one had a test
   that passed because «10 минут» is a substring. And `answerCallbackQuery` takes no parse

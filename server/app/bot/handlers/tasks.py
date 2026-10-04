@@ -26,15 +26,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.button_style import SUCCESS
 from app.bot.content_keyboard import HomeworkAction, HomeworkTick
+from app.bot.homework_render import homework_digest_keys, render_homework_digest
 from app.bot.keyboards import Menu, cancel_keyboard, cut
-from app.bot.render import (
-    WEEKDAYS_SHORT,
-    homework_digest_keys,
-    human_date,
-    render_homework_digest,
-    render_task_list,
-    render_task_saved,
-)
+from app.bot.render import WEEKDAYS_SHORT, human_date
 from app.bot.states import AddTask
 from app.bot.tasks_keyboard import (
     TaskAction,
@@ -43,6 +37,7 @@ from app.bot.tasks_keyboard import (
     task_list_keyboard,
     task_remind_keyboard,
 )
+from app.bot.tasks_render import render_task_list, render_task_saved
 from app.models import Homework, PersonalTask, Role, SchoolClass
 from app.schedule import ResolvedDay, ScheduleResolver
 from app.services import tasks as task_service
@@ -452,7 +447,7 @@ def homework_tick_keyboard(
 ) -> InlineKeyboardMarkup:
     """One «☐/✅ Предмет · день» button per drawn homework row, in digest order.
 
-    Built from ``render.homework_digest_keys`` rather than from ``days``, so
+    Built from ``homework_render.homework_digest_keys`` rather than from ``days``, so
     the buttons are exactly the rows the message above them shows. Walking
     ``days`` here and capping separately is how the two came apart: the digest
     drew a whole fortnight and the keyboard stopped at twelve, leaving the rest

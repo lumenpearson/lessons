@@ -11,7 +11,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.bot.button_style import DANGER, PRIMARY, SUCCESS
 from app.bot.keyboards import Menu, cut
-from app.bot.render import TASK_BUTTONS_MAX
+from app.bot.tasks_render import TASK_BUTTONS_MAX
 
 
 class TaskAction(CallbackData, prefix="task"):

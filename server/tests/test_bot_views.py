@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import select
 
+from app.bot.access_render import render_access_list
 from app.bot.handlers import start as start_handlers
 from app.bot.handlers import week as week_handlers
 from app.bot.handlers.manage import cmd_link
@@ -46,27 +47,19 @@ from app.bot.handlers.tasks import (
     task_view,
 )
 from app.bot.handlers.week import cmd_next, cmd_week, distinct_from, menu_next, show_week
+from app.bot.homework_render import render_homework_digest
 from app.bot.keyboards import main_menu
-from app.bot.render import (
-    INVISIBLE,
-    MESSAGE_LIMIT,
-    TASK_BUTTONS_MAX,
-    TASKS_UNREACHABLE,
-    WEEK_TEXT_LIMIT,
-    duration,
-    plural,
-    render_access_list,
-    render_day,
-    render_homework_digest,
-    render_next,
-    render_reminder_card,
-    render_role_help,
-    render_task_list,
-    render_task_saved,
-    render_week,
-)
+from app.bot.reminders_render import render_reminder_card
+from app.bot.render import MESSAGE_LIMIT, plural, render_day, render_role_help
 from app.bot.states import AddTask, SetReminderTime
 from app.bot.tasks_keyboard import task_list_keyboard
+from app.bot.tasks_render import (
+    TASK_BUTTONS_MAX,
+    TASKS_UNREACHABLE,
+    render_task_list,
+    render_task_saved,
+)
+from app.bot.week_render import INVISIBLE, WEEK_TEXT_LIMIT, duration, render_next, render_week
 from app.models import (
     BotUser,
     DayKind,

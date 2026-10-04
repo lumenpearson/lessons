@@ -33,7 +33,9 @@ Escape everything from outside:
   «Алгебра <7>»)
 - anything out of the schools registry
 
-`render.py` always did this. `diary_render.py` and `editor_render.py` never did, and both
+`render.py`, and the per-screen renderers split out of it (`week_render`, `homework_render`,
+`tasks_render`, `access_render`), always did this. `diary_render.py` and `editor_render.py` never
+did, and both
 shipped that way.
 
 ## Two traps in the same family
