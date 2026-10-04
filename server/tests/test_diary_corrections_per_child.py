@@ -35,7 +35,7 @@ from app.providers.diary.registry import NETSCHOOL, PETERSBURG
 from app.providers.netschool import client as nsclient
 from app.providers.netschool import regions
 from app.providers.petersburg import client as pbclient
-from app.services import diary as service
+from app.services import diary_corrections as service
 
 CHILDREN_PATH = "/api/journal/person/related-child-list"
 SCHEDULE_PATH = "/api/journal/schedule/list-by-education"

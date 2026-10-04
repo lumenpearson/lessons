@@ -6,26 +6,30 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **3 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
+Last updated: **4 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
-#263, #267 and #274 are merged**; `main` is at `9d75e68`, the merge of #274, on 3 October
-2026; `dev` is still at `b327eb0`, the merge of #267, because #274 came from a branch of its
-own. **The only thing open is the pull request carrying this paragraph, #277**, from
-`plan/server-decomposition`, on milestone 11, `v0.10.0 — One contract: REST v2, Connect and
-native gRPC, build console`, and it waits on the owner's review of the plan it carries. It
-changes no code: it records what the spike found in the milestone's design
-([docs/specs/2026-10-03-one-contract-design.md](docs/specs/2026-10-03-one-contract-design.md))
-and adds the plan of its first sub-project, the server decomposition
-([docs/specs/2026-10-03-server-decomposition-plan.md](docs/specs/2026-10-03-server-decomposition-plan.md)).
-Writing that plan found that **every Vercel cold start imports aiogram today** (#275).
+#263, #267, #274 and #277 are merged**; `main` is at `746acc3`, the merge of #277, on 4
+October 2026; `dev` is still at `b327eb0`, the merge of #267, so it is behind `main`: #274 and
+#277 came from branches of their own. **Two pull requests are open: #296, the one carrying
+this paragraph, and #294, another session's.** #296 is from `server-decomposition`, on
+milestone 11, `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`. It
+is the first sub-project of that milestone's programme
+([docs/specs/2026-10-03-one-contract-design.md](docs/specs/2026-10-03-one-contract-design.md)),
+the plan of which (#277,
+[docs/specs/2026-10-03-server-decomposition-plan.md](docs/specs/2026-10-03-server-decomposition-plan.md))
+it carries out: the bot's long modules become feature modules inside their layers, and
+the cold start stops importing aiogram. It will close #271, #272 and #275 and refers to #276
+and #273. **#294**, «Tell a session where the tracker stands now: thirteen milestones, and a
+board it can fill», is not this session's; milestones 12 and 13 exist, and #294 describes them.
 
-The section «What the last session added» below is that batch.
+The section «What the last session added» below is #296's batch.
 
 The SHA of its own merge is for the next close-out to write.
 
 **#267 closed #264, #265 and #266**, read back from GitHub on 3 October. **#274 and #277
-close nothing**: neither fixes any of the defects filed on milestone 11 (#268–#272, #275,
-#276), and #273 is that milestone's epic. **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
+closed nothing**: neither fixed any of the defects filed on milestone 11 (#268–#272, #275,
+#276), and #273 is that milestone's epic. #296 is the first to close three of them.
+**#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
 nothing for over a minute, was closed as a duplicate of #233, which #234 had already fixed.
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
@@ -133,16 +137,92 @@ milestone; and #145–#165 are the defects found on its branch, each filed befor
 night, and #188 what #189 found; all twenty are closed. #190–#211 are the external audit of
 27 September 2026, on milestone 10, and #212 and #213 what merging its fixes found.
 #268–#272 are the defects the survey behind milestone 11 found, #273 that milestone's
-epic, and #275 and #276 what planning its first sub-project found.
+epic, and #275 and #276 what planning its first sub-project found. #293 and #295, on the
+same milestone, are another session's.
 
 Labels are `type:` (feature, bug, chore, research, decision, epic), `area:`, `status:` (now,
 next, someday, done) and `needs:` (device, owner). **A session cannot create a GitHub
 Project board** — Projects v2 is GraphQL-only and the toolset here is REST — so the board is
 the owner's to make, and these labels are what its views filter on.
 
-## What the last session added: the spike's answers, and the plan for the server decomposition (#275, #276)
+## What the last session added: the bot's long modules split into feature modules, and the cold start that imported aiogram (#271, #272, #275)
 
-Open as #277, from `plan/server-decomposition`, on milestone 11, waiting on the owner's review
+Opened as #296, from `server-decomposition`, on milestone 11, open. It is the first
+sub-project of the milestone's programme, the one the plan merged as #277 described. It will
+close #271, #272 and #275, and it refers to #276 and #273.
+
+- **The callback census covers all of `app.bot`.** It is the prefix-collision check — no two
+  `CallbackData` classes share a prefix — plus the check that every button the class menu
+  draws is a packed payload, and it never looked at `editor_keyboard` or `diary_keyboard`; it now walks every module of
+  the package and counts 30 payloads where it counted 27 (#271).
+- **A fresh interpreter proves aiogram stays off the API's cold start**, in both
+  configurations, the bot switched off and on (#272).
+- **Every Vercel cold start imported 736 aiogram modules, and no longer does.**
+  `app/api/telegram.py` imported aiogram at its top and Vercel always mounts the webhook; it
+  now imports it where an update is handled. The comment above the mount had said the
+  opposite (#275).
+- **The announcement and throttle tests are keyed by object, not by file path**, so a module
+  can move without the test going quiet, and five handler-order pins hold the pairs of
+  handlers that only registration order tells apart.
+- **The corrections laid over the diary live in `services/diary_corrections.py`**, beside
+  `diary_overrides.py`, and no longer in `services/diary.py`.
+- **Keyboards and renderers are one module per feature.** Each feature outside «⚙️ Класс» has
+  its own `*_render.py` and `*_keyboard.py` beside `render.py` (which still re-exports
+  `app/wording.py`) and `keyboards.py`.
+- **`handlers/content/` and `handlers/start/` are packages**, one module per concern,
+  included in one written-down order like `handlers/manage/`.
+- **The homework ticks sit beside the homework**, on a router of their own at the tasks'
+  old position in the dispatch order, because of #276, which is filed and not fixed here.
+- **`manage_render/` and `manage_keyboards/` hold one module per screen**, as the handlers
+  they serve do.
+- **A final wording pass** made the comments the moves carried say where things are now, and
+  pinned each cold-start case to its configuration. In `docs/bot.md`, `clamp` and
+  `more_line` are now said to live in `app/wording.py`, which `render.py` re-exports.
+- **How it was done.** One fresh implementer and one fresh reviewer per task, thirteen tasks
+  and a wording pass. Every move was checked by a syntax-tree comparison and by a diff of the
+  177-handler dispatch order. The machine switched itself off once, during Task 1; a scan of
+  10,409 files found nothing zero-filled. Task 11's first implementer was stopped by the
+  owner mid-task and a second finished from the working tree.
+
+### Gates
+
+At the head before this paragraph: `ruff check app tests scripts migrations` clean;
+`python -m mypy` clean, 197 source files; `pytest -q -n auto` 2075 passed in 9 minutes 51 seconds on
+this machine on 4 October, against the documented four minutes (`2065` before the batch, ten
+more tests since: one for the census, three for the cold start, five order pins and one
+more in the ticks' task). The dispatch order, 177 handlers, differs from the first baseline in
+exactly the two homework handlers relabelled from `tasks:` to `content:` at the same
+positions and the move of the `start:back_root` callback within the start package.
+
+### What was deliberately left alone
+
+- **`api/public.py`, `api/diary.py`, `api/edit.py`, `models.py`, `schedule.py`, the providers
+  and Android are not split**: v2 replaces the API's three, and the others are long but
+  cohesive.
+- **#276 is filed and not fixed**: aiogram's `Command` reads `/week@` as a command and
+  `CommandBreakoutMiddleware` does not. The ticks keep their place in the dispatch order
+  for it; once it is fixed they can join `content`'s router.
+- **Revision `0017`'s text stays as the record** of the key it files corrections under.
+- **No old name is re-exported**, except `render`'s wording names. `ruff format` would
+  reformat seven files in the new packages; it is not a gate and it was not run.
+- **Milestones 12 and 13 exist**, created by another session; its pull request, #294,
+  describes them, and this file's milestone table does not.
+
+### What nobody has verified in this batch
+
+- **The cold-start fix on Vercel itself.** The 736 modules were measured on Windows, in a
+  fresh interpreter, under Vercel's settings; no deployment has been read.
+- **Anything on a device.** Nothing here touches the phone.
+- **The whole-branch review has run.** The final review, on the most capable model over all 13
+  commits, approved the branch with three small fixes (two stale test counts, three HANDOVER
+  sentences, one comment in `manage_render/__init__.py`), which the last commit makes. It
+  re-checked the dispatch order against the first baseline, that every moved function binds
+  the same objects, the import graph, the monkeypatches' reach, the census and the cold start
+  (736 → 0 aiogram modules).
+
+## What the session before it added: the spike's answers, and the plan for the server decomposition (#275, #276)
+
+Merged as #277 (`746acc3`, 4 October 2026), from `plan/server-decomposition`, on milestone 11, after the owner's review
 of the plan. The same session as #274, after the owner approved the design and created the
 milestone: «майлстоун создал, утверждаю».
 
@@ -203,66 +283,6 @@ branch; the full gates are CI's on #277.
 - Vercel's own proxy in front of a deployment, and Buf's rate limits in CI — the spike could not
   try either.
 
-## What the session before it added: one proto contract agreed before anything is built, and the survey's defects filed (#268–#273)
-
-Merged as #274 (`9d75e68`, 3 October 2026), from `spec/one-contract` rather than `dev`, which was carrying #267 while this
-ran, on milestone 11, `v0.10.0 — One contract: REST v2, Connect and native gRPC, build
-console`, which the owner created for it. A new session, on the owner's request of 3 October
-2026: «необходимо разобраться с god-файлами в проекте … Сделать API RESTFUL, привнести gRPC.
-Перед этим составь план, подумай и спроси». Nothing in it is code.
-
-- **Four read-only surveys came first**: the HTTP API (71 route registrations, 45 called by
-  the current APK, 26 by nothing in the repository's history), the server's long files, the
-  Android ones, and whether gRPC can run where this server does. Their findings are in the
-  spec and are not repeated here, but two are worth knowing before anything else is planned:
-  - **Native gRPC cannot be served from Vercel.** Its Python runtime runs the app under
-    Uvicorn with HTTP/1.1 and passes no response trailers, which gRPC carries its status in;
-    Vercel lists gRPC as unsupported and points at the Connect protocol.
-  - **Line counts overstate the god files here**, because 40–60 % of a long file is comments.
-    The files that really hold several concerns are named in the spec; `models.py`,
-    `schedule.py`, `api/edit.py`, `DiaryViewModel` and the widget bodies are long but
-    cohesive.
-- **The owner's decisions, asked one round at a time**: both deploy targets, chosen at build
-  time (Vercel with Connect, and a long-running host with native gRPC and a streaming beta);
-  REST v2 and RPC side by side; v1 may break, because only the family's phones carry an APK;
-  REST transcoded from `google.api.http` annotations, so that one handler serves both; a
-  local Textual console; and the order of six sub-projects.
-- **`docs/specs/` is new**, for the design, and `docs/README.md` and `CLAUDE.md`'s tree name
-  it. Two sections were added at the owner's request after the first draft: the rules by
-  which the contract grows without breaking, and how the diary grows across all 19 platforms
-  `docs/diaries.md` maps — which names the four places today's code is shaped for exactly two
-  providers.
-- **Filed before any fix, on milestone 11, each re-read in the code first**: #268
-  (`PUT /api/v1/events` duplicates on a retry), #269 (`GET /api/v1/cron/tick` has side
-  effects), #270 (the app tells «not linked» from «role required» by English text), #271 (the
-  callback-prefix check never looks at `editor_keyboard` or `diary_keyboard`) and #272
-  (nothing fails when aiogram reaches the API's cold start). **#273** is the programme's
-  epic, with the six sub-projects as its checklist.
-- **A throwaway spike runs beside the review**, in a worktree on the local, unpushed branch
-  `spike/connect-grpc`: code generation, `connectrpc` mounted beside FastAPI under HTTP/1.1,
-  `google.api.http` read at runtime, native gRPC under an HTTP/2 ASGI server, `connect-kotlin`
-  under AGP 9.4.1 and Kotlin 2.4.20, R8 and the APK's size, and a call from the emulator. What
-  it finds amends the spec's parts marked *spike decides*; its code is not kept.
-
-### Gates
-
-No code changed. Against this branch, the two test modules that read the documents,
-`tests/test_schema_version.py` and `tests/test_env_example.py`, pass: 18 tests. The full gates
-are CI's on #274, and the counts in section 8 and the README stand as #267 left them.
-
-### What was deliberately left alone
-
-- **None of the five defects is fixed here.** #271 and #272 are the first work of
-  sub-project 1, because the moves it makes would widen both; #268–#270 go with the v2
-  contract.
-- **`api/public.py`, `api/diary.py`, `api/edit.py` and the Android network layer will not be
-  split**: v2 replaces them, so splitting them first would be work thrown away.
-
-### What nobody has verified in this batch
-
-- Everything in the spec. It is a design: nothing has been run against Vercel, a device or a
-  second host, and the spike had not reported when this was written.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -284,7 +304,7 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277; issues #268–#273, #275, #276 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #296 (and #294, another session's, open); issues #268–#273, #275, #276, and #293, #295 (another session's) — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 
 **#142, #143 and #144 are on no milestone, deliberately**: two follow-ups and a decision that
 #140 left alone on purpose, which belong to whichever version takes them up.
@@ -322,6 +342,10 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
+- **The cold-start fix (#275) has not been read on Vercel.** The 736 aiogram modules were
+  measured in a fresh interpreter on Windows under Vercel's settings, and
+  `tests/test_cold_start.py` holds the answer there; no deployment of this branch has been
+  asked how long its first request takes.
 - **The developer mode (#237) past its door has been seen by nobody.** #257's session saw
   the reveal on an API 37 emulator, along with the toast, the section in the settings, the
   signed-out page and hiding it again; that walk is what found #255 and #256. Everything
@@ -1293,8 +1317,8 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2065 tests, ~4 min on CI, ~10 on Windows
-cd server  && python -m mypy                             # clean, 153 modules
+cd server  && pytest -q -n auto                          # 2075 tests, ~4 min on CI, ~10 on Windows
+cd server  && python -m mypy                             # clean, 197 modules
 cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles

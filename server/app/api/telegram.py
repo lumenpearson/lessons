@@ -8,12 +8,19 @@ same dispatcher, the same routers, the same database-backed FSM storage.
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
-from aiogram import Bot, Dispatcher
-from aiogram.types import Update
 from fastapi import APIRouter, Header, HTTPException, Request, status
 
 from app.config import get_settings
+
+if TYPE_CHECKING:
+    # Names for the annotations below, and nothing more. `app.main` imports
+    # this module on every cold start of a deployment that mounts the
+    # webhook — every Vercel one — and aiogram is seconds of import for a
+    # request that is usually not an update, so it is imported where an
+    # update is handled.
+    from aiogram import Bot, Dispatcher
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +74,9 @@ async def handle_update(payload: dict, secret_header: str | None) -> None:
     building an `Update`.
     """
     authorise(secret_header)
+
+    # Here, after the secret, rather than at the top: see the imports.
+    from aiogram.types import Update
 
     bot, dispatcher = _instances()
     update = Update.model_validate(payload, context={"bot": bot})

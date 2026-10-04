@@ -10,7 +10,8 @@ not exist in this product, so a missing card is a missing feature, not a missing
 ## Layout
 
 - `handlers/` — `access`, `calendar`, `content`, `diary`, `editor`, `manage`, `reminders`,
-  `start`, `tasks`, `timetable`, `week`.
+  `start`, `tasks`, `timetable`, `week` — `content`, `manage` and `start` are packages, one
+  module per flow, each assembling its routers in a written-down order.
 - The weekly template has **two** editors and both are wanted: `timetable.py` pastes a whole
   weekday (fastest way to enter a term), `editor.py` changes one lesson with buttons. They
   share one grammar (`services/timetable_io.py`) and one set of mutations
@@ -45,9 +46,10 @@ so run a card through `editor_render.as_alert`, which also cuts at 200 character
 
 ## A list page and the keyboard under it read the same number
 
-`manage_render` declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX`, `LIST_MAX` and
-`manage_keyboards` builds its rows from those same names. The values differ on purpose. Do
-not tidy them into one constant; the rule is that what is drawn is what can be pressed, and
+`manage_render` declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX`, `LIST_MAX`
+beside each page's renderer, and `manage_keyboards` builds that page's rows from
+the same names. The values differ on purpose. Do not tidy them into one
+constant; the rule is that what is drawn is what can be pressed, and
 `test_no_list_page_draws_a_row_the_keyboard_cannot_reach` holds it.
 
 ## Gates

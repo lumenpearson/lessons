@@ -31,6 +31,7 @@ go red.
 from __future__ import annotations
 
 import ast
+import importlib
 from dataclasses import dataclass, field
 from datetime import date as Date
 from datetime import timedelta
@@ -44,13 +45,9 @@ from httpx import ASGITransport
 from sqlalchemy import delete as sa_delete
 
 from app.api import edit
-from app.bot.handlers.content import (
-    event_title,
-    homework_text,
-    override_cancel,
-    override_clear,
-    override_subject,
-)
+from app.bot.handlers.content.events import event_title
+from app.bot.handlers.content.homework import homework_text
+from app.bot.handlers.content.overrides import override_cancel, override_clear, override_subject
 from app.config import get_settings
 from app.main import app
 from app.models import BotUser, DeviceToken, Homework, ReminderSettings, Role
@@ -342,25 +339,28 @@ async def test_what_the_api_pushes_grows_by_no_more_than_the_cap(
 #: to agree with; the list itself is derived from the source by the test below
 #: and fails naming anything that is not here. Adding a ninth announcement is
 #: then a decision — measure it, or say in one line what already bounds it.
-ANNOUNCED_HERE = {
-    "api/edit.py:_tell": "the wrapper the endpoints below announce through; no text of its own",
-    "api/edit.py:homework_put": "measured below — `HomeworkIn.text` accepts 4000",
-    "api/edit.py:homework_delete": "a subject name, `max_length=120`",
-    "api/edit.py:override_put": "subject/room/teacher 120 each and `note` 500, all schema-capped",
-    "api/edit.py:event_put": "`title` 200 and `location` 120, both schema-capped",
-    "api/edit.py:event_delete": "a stored title, `max_length=200`",
-    "api/edit.py:day_put": "`DayIn.note`, `max_length=500`",
-    "bot/handlers/content.py:homework_text": "measured below — free text, only `shorten`",
-    "bot/handlers/content.py:override_subject": "measured below — a subject cut to 120 going in",
-    "bot/handlers/content.py:event_title": "measured below — a title cut to 200 on the way in",
-    "bot/handlers/content.py:override_cancel": "pressed below — a lesson number and a date",
-    "bot/handlers/content.py:override_clear": "pressed below — a lesson number and a date",
+#: Keyed by the function rather than by its file, so that moving one to
+#: another module changes the import above and nothing here.
+ANNOUNCED_HERE: dict[object, str] = {
+    edit._tell: "the wrapper the endpoints below announce through; no text of its own",
+    edit.homework_put: "measured below — `HomeworkIn.text` accepts 4000",
+    edit.homework_delete: "a subject name, `max_length=120`",
+    edit.override_put: "subject/room/teacher 120 each and `note` 500, all schema-capped",
+    edit.event_put: "`title` 200 and `location` 120, both schema-capped",
+    edit.event_delete: "a stored title, `max_length=200`",
+    edit.day_put: "`DayIn.note`, `max_length=500`",
+    homework_text: "measured below — free text, only `shorten`",
+    override_subject: "measured below — a subject cut to 120 going in",
+    event_title: "measured below — a title cut to 200 on the way in",
+    override_cancel: "pressed below — a lesson number and a date",
+    override_clear: "pressed below — a lesson number and a date",
 }
 
 
-def _announcing_call_sites() -> set[str]:
+def _announcing_call_sites() -> dict[object, str]:
     """Every function in `app/` that pushes to the class, directly or through a
-    wrapper in its own file.
+    wrapper in its own file — as the object the module hands out, with a
+    `module:name` label for the failure message.
 
     One file's worth of indirection, and no more: `api/edit.py` announces
     through its own ``_tell``, so a walk that only looked for
@@ -368,7 +368,7 @@ def _announcing_call_sites() -> set[str]:
     behind it. Resolving names across files instead would start matching any
     function that happens to share a name with a wrapper somewhere else.
     """
-    found: set[str] = set()
+    found: dict[object, str] = {}
     for path in sorted(APP_ROOT.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
 
@@ -392,10 +392,18 @@ def _announcing_call_sites() -> set[str]:
                 break
             announcing |= grown
 
-        where = path.relative_to(APP_ROOT).as_posix()
         # Its own definition is not a call site; every caller of it is.
         callers = (announcing & set(calls)) - {"notify_subscribers"}
-        found |= {f"{where}:{name}" for name in callers}
+        if not callers:
+            continue
+        parts = path.relative_to(APP_ROOT.parent).with_suffix("").parts
+        module_name = ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+        module = importlib.import_module(module_name)
+        for name in callers:
+            label = f"{module_name}:{name}"
+            # A name the module does not hand out — a function nested in
+            # another — stays a label, so it fails below naming itself.
+            found[getattr(module, name, label)] = label
     return found
 
 
@@ -410,12 +418,14 @@ def test_every_place_that_pushes_to_the_class_is_read_in_this_file():
     real = _announcing_call_sites()
 
     assert real, "found no notify_subscribers call at all — the AST walk is broken"
-    unread = real - set(ANNOUNCED_HERE)
+    unread = sorted(label for found, label in real.items() if found not in ANNOUNCED_HERE)
     assert not unread, (
         "these push to the class and nothing here measures them or says what bounds them: "
-        + ", ".join(sorted(unread))
+        + ", ".join(unread)
     )
-    gone = set(ANNOUNCED_HERE) - real
-    assert not gone, "ANNOUNCED_HERE names call sites that no longer exist: " + ", ".join(
-        sorted(gone)
+    gone = sorted(
+        f"{function.__module__}:{function.__name__}"
+        for function in ANNOUNCED_HERE
+        if function not in real
     )
+    assert not gone, "ANNOUNCED_HERE names call sites that no longer exist: " + ", ".join(gone)

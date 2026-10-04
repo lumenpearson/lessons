@@ -14,10 +14,10 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot import manage_render as mr
 from app.bot.handlers.manage._common import needs
 from app.bot.keyboards import WEEKDAY_FULL, back_to_menu, cancel_keyboard
-from app.bot.manage_keyboards import ImportAction, import_keyboard
+from app.bot.manage_keyboards.import_export import ImportAction, import_keyboard
+from app.bot.manage_render import import_export as mr
 from app.bot.manage_states import ImportTimetable
 from app.models import Role, SchoolClass
 from app.services import timetable_io

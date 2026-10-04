@@ -22,6 +22,7 @@ keeps what was sent.
 from __future__ import annotations
 
 import ast
+import importlib
 from pathlib import Path
 
 import httpx
@@ -497,19 +498,42 @@ async def test_a_directory_failure_is_503_and_offers_the_list(client, upstream, 
 # ---- the table it shares -----------------------------------------------------
 
 
-def _throttles_built_in_app() -> list[tuple[str, ast.Call]]:
-    """Every ``JoinThrottle(...)`` written anywhere under ``app/``."""
-    found = []
+def _throttles_built_in_app() -> list[tuple[object, ast.Call]]:
+    """Every ``JoinThrottle(...)`` written anywhere under ``app/``, as the
+    object it built.
+
+    Resolved to the object rather than named by file, so that a limiter moving
+    to another module — `api/public.py`'s helpers are due to move with the v2
+    layer — is still the same limiter here. A call that builds no module-level
+    name (one inside a function, say) stays a `path:line` label and fails
+    below as one.
+    """
+    found: list[tuple[object, ast.Call]] = []
     for path in sorted(APP.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
+        named = {
+            id(node.value): node.targets[0].id
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and isinstance(node.value, ast.Call)
+        }
+        parts = path.relative_to(APP.parent).with_suffix("").parts
+        module_name = ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
             name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
-            if name == "JoinThrottle":
-                # as_posix: on Windows str() of a relative path has backslashes,
-                # and the list below is written with slashes (#178).
-                found.append((path.relative_to(APP).as_posix(), node))
+            if name != "JoinThrottle":
+                continue
+            target = named.get(id(node))
+            if target is None:
+                # as_posix: on Windows str() of a relative path has
+                # backslashes (#178).
+                found.append((f"{path.relative_to(APP).as_posix()}:{node.lineno}", node))
+            else:
+                found.append((getattr(importlib.import_module(module_name), target), node))
     return found
 
 
@@ -519,30 +543,27 @@ def test_every_throttle_on_the_attempts_table_uses_one_window():
     than the others would have its history silently cut to theirs; one with a
     shorter window would cut theirs. So there is one window, and it is here.
 
-    Found by reading the source rather than by listing the three known
-    limiters, so a fourth cannot arrive without being asked this.
+    Found by reading the source rather than by listing the known limiters, so
+    a fifth cannot arrive without being asked this.
     """
     built = _throttles_built_in_app()
-    assert sorted(path for path, _ in built) == [
-        "api/diary.py",
-        "api/diary.py",
-        "api/directory.py",
-        "api/public.py",
-    ]
-
-    for path, call in built:
-        window = next((k.value for k in call.keywords if k.arg == "window"), None)
-        if window is None and len(call.args) >= 2:
-            window = call.args[1]
-        assert isinstance(window, ast.Constant), path
-        assert float(window.value) == 900.0, path
-
     live = [
         public.join_limiter,
         diary.diary_login_limiter,
         diary.diary_open_limiter,
         directory.directory_limiter,
     ]
+    unknown = [limiter for limiter, _ in built if not any(limiter is known for known in live)]
+    assert unknown == [], unknown
+    assert len(built) == len(live)
+
+    for limiter, call in built:
+        window = next((k.value for k in call.keywords if k.arg == "window"), None)
+        if window is None and len(call.args) >= 2:
+            window = call.args[1]
+        assert isinstance(window, ast.Constant), limiter
+        assert float(window.value) == 900.0, limiter
+
     assert {limiter.window for limiter in live} == {900.0}
     assert cron.JOIN_ATTEMPT_TTL.total_seconds() >= 900.0
     assert directory.directory_limiter.limit == 20

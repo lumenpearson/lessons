@@ -17,25 +17,17 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.button_style import DANGER, SUCCESS
-from app.bot.keyboards import (
-    AccessAction,
-    Menu,
-    RolePick,
-    back_to_menu,
-    cancel_keyboard,
-    role_picker,
-)
-from app.bot.manage_keyboards import RequestAction
-from app.bot.manage_render import person
-from app.bot.render import (
+from app.bot.access_keyboard import AccessAction, RolePick, role_picker
+from app.bot.access_render import (
     ACCESS_MEMBERS_MAX,
     ACCESS_REQUEST_NOTE_MAX,
-    MESSAGE_LIMIT,
-    clamp,
-    cut,
     render_access_list,
 )
+from app.bot.button_style import DANGER, SUCCESS
+from app.bot.keyboards import Menu, back_to_menu, cancel_keyboard
+from app.bot.manage_keyboards.requests import RequestAction
+from app.bot.manage_render._common import person
+from app.bot.render import MESSAGE_LIMIT, clamp, cut
 from app.bot.roles import can_grant
 from app.bot.states import AddInvite
 from app.models import AccessRequest, BotUser, JoinMode, PhoneInvite, Role, SchoolClass

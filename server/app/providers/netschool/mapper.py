@@ -74,7 +74,7 @@ def _json_int(value: Any) -> int | None:
 
     `bool` is an `int` in Python, so a JSON ``true`` passes
     ``isinstance(value, int)`` as 1. A pupil's id is half of the key the
-    child's corrections are filed under (`services/diary.child_scope`), so a
+    child's corrections are filed under (`services/diary_corrections.child_scope`), so a
     ``true`` read as pupil 1 would lay pupil 1's corrections over another
     child. Petersburg's `number` refuses a bool too, and the client's
     `_json_int` is the same rule — not imported, because the client brings the

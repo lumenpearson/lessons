@@ -49,7 +49,7 @@ def _clean_login_value(value: str) -> str:
     from there — and the phone cleans it character for character the same way
     (`DiaryLogin.clean`), so a login pasted with an invisible character is not
     a wrong password on one side only. It keys nothing: corrections are filed
-    under the child (`services/diary.child_scope`).
+    under the child (`services/diary_corrections.child_scope`).
     """
     cleaned = _strip_control_chars(value).strip()
     if len(cleaned) < 3:

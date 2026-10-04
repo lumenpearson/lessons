@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.handlers.manage._common import _int_or_none, needs
 from app.bot.keyboards import back_to_menu, cancel_keyboard
-from app.bot.manage_keyboards import TermAction, terms_menu
+from app.bot.manage_keyboards.terms import TermAction, terms_menu
 from app.bot.manage_states import EditTerm
 from app.models import Role, SchoolClass, TermKind
 from app.services import terms as terms_service
