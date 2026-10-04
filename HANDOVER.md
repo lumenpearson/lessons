@@ -8,14 +8,21 @@ newest first.
 
 Last updated: **4 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
-#263, #267, #274, #277, #294 and #296 are merged**; `main` is at `d243624`, the merge of #294,
-on 4 October 2026, and `dev` is level with it. **The only pull request open is #297, the one
-carrying this paragraph**, from `contract/spec`, on milestone 11, `v0.10.0 — One
-contract: REST v2, Connect and native gRPC, build console`. It is sub-project 2 of #273's
-programme: it writes the v2 contract down as proto, generates its Python and checks it in
-CI, serves none of it, and closes nothing. The schema head did not move: it is still `0017`.
+#263, #267, #274, #277, #294, #296 and #297 are merged**; `main` is at `45f0680`, the merge of
+#297, on 4 October 2026, and `dev` is level with it. **The only pull request open is #300, the
+one carrying this paragraph**, from `contract/coverage`, on milestone 11, `v0.10.0 — One
+contract: REST v2, Connect and native gRPC, build console`. It holds the v2 contract to what
+its documents promise (the JSON, the v1 mirror and the Buf gate), serves none of it, and closes
+#298 and #299. The schema head did not move: it is still `0017`, and `EXPECTED_REVISION` did
+not move either. Production, after #297's automatic deploy, answered `/api/v1/warmup` with
+`{"status":"ok","api_version":1,"schema":"0017"}` and a `/api/v2/…` path with `404`, as
+nothing serves v2.
 
-The section «What the last session added» below is #297's batch.
+#300 is the first pull request whose base carries `buf.yaml`, so its «Contract (Buf)» run is
+the gate's first real comparison in CI; nothing here claims what that run says.
+
+The section «What the last session added» below is #300's batch, and «What the session
+before it added» is #297's.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -141,9 +148,89 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: the v2 contract written down — `proto/lessons/v2`, its Python, and Buf in CI (sub-project 2 of #273)
+## What the last session added: the v2 contract held to what its documents promise — the JSON, the v1 mirror and the Buf gate (#298, #299)
 
-Open as #297, from `contract/spec`, on milestone 11. Sub-project 2 of
+Open as #300, from `contract/coverage`, on milestone 11. It refers to #273 and closes #298 and
+#299. Four agents took the four things sub-project 2 left unverified on 5 October 2026. It
+serves no v2: nothing under `/api` answers differently, v1 is untouched and the schema head did
+not move.
+
+- **The documented JSON is read against the runtime that will write it.**
+  `server/tests/test_contract_json.py` (16 tests) runs `docs/api.md`, «What the values look
+  like», through protobuf-py: names are lowerCamelCase, 64-bit integers are strings, enums are
+  written by name with `UNSPECIFIED` as an absent key, a Timestamp is RFC 3339 in UTC, and a
+  JSON unknown name refuses the message unless parsed leniently. Every claim held. It pins one
+  behaviour no document said: a relayed unknown enum value is written as its number.
+- **The v1 mirror is held field by field.** `server/tests/test_contract_mirror.py` (58 tests)
+  compares the 54 messages that name a v1 schema with that schema. Every rename, drop and
+  addition cites where it was decided, and none was undocumented; a field added to v1 during
+  the transition now fails there until v2 has it.
+- **`buf breaking` was run, for the first time, against a base that has a contract** (`main`
+  at `45f0680`), over 25 mutations in a scratch copy. It found two defects, each filed as an
+  issue before its fix.
+  - **#298**: the one documented way to remove a field, with its number and name reserved,
+    failed FILE's `FIELD_NO_DELETE`. `buf.yaml` swaps that rule for
+    `FIELD_NO_DELETE_UNLESS_NUMBER_RESERVED` and `FIELD_NO_DELETE_UNLESS_NAME_RESERVED`,
+    checked against all 25 mutations: the reserved removal passes, an unreserved removal and a
+    renumbering still fail. `test_the_gate_lets_a_reserved_removal_through_and_nothing_else` in
+    `test_contract.py` holds the configuration.
+  - **#299**: «Evolving the contract» said Buf refuses a change to a method's HTTP binding.
+    Buf reads no options, so the resource map in `test_contract.py` is the only check on a
+    binding, a credential and a role. The design, `docs/api.md` and `CLAUDE.md` now say so, and
+    `docs/build.md` has a table of what catches what.
+- **The contract was generated once for Android, as a dry run.** protocolbuffers java and
+  kotlin v36.2 (lite) and connectrpc/kotlin v0.9.0, the spike's versions: no clash and no
+  warning. A suspected javalite problem was ruled out from the jar, since protobuf-javalite
+  4.36.2 carries `DescriptorProtos.MethodOptions`. What sub-project 5 inherits is in the
+  programme design's section 3, «What a dry generation found».
+- **A read-only smoke collection exists outside the repository**, «lessons — API smoke
+  (read-only)», with an environment «lessons — production», in the owner's **personal**
+  Postman workspace («My Workspace»). Folder «Anonymous»: health, warmup (the schema compared
+  with `expectedSchema`, `0017`), diary capabilities and two `401`s. Folder «With a device
+  token»: `/bundle` with its `ETag`, the same with `If-None-Match` expecting `304`, and `/now`;
+  it skips itself unless `deviceToken` has a current value, which stays on that machine. It
+  never writes, never calls `/join`, a diary sign-in, the school directory (DaData's anonymous
+  quota) or the cron tick. It is not in the repository on purpose: running it needs Postman or
+  Newman, and the project has no Node.
+
+### Gates
+
+At `7e96c96`, the head before this paragraph, **not run by the session that wrote this file**
+(the machine has faulty RAM, so the full suite is run once, by the controller, after the
+close-out); what is recorded here is what the batch's commit message and its documents claim:
+- the server suite becomes **2175** tests: 2100, plus 1 in `test_contract.py`, 16 in
+  `test_contract_json.py` and 58 in `test_contract_mirror.py`. The README, `docs/architecture.md`,
+  `CLAUDE.md`, `CONTRIBUTING.md` and the `gates` skill already say 2175;
+- mypy unchanged, 197 modules (tests are outside its scope); Android unchanged, 1635 tests,
+  because nothing under `android/` changed;
+- `buf breaking` against `45f0680`: run locally over 25 mutations, as above; CI's own first
+  comparison is #300's «Contract (Buf)» run.
+
+### What was deliberately left alone
+
+- **`ruff format` is not a gate.** `test_contract.py` on `main` would reformat, and nothing was
+  reformatted.
+- **`java_outer_classname` was not set on every file**, which the Kotlin agent suggested. It
+  would be a FILE breaking change now, and nothing references the outer classes.
+- **v1 schemas named only in field-level comments** (`SubjectSavedOut`, `ClassDeleteIn`,
+  `RequestDecisionIn`, `AuditPageOut`) are not compared by the mirror test.
+- **Serving v2 is still sub-project 3**, which needs its own design, approved by the owner
+  before any code.
+
+### What nobody has verified in this batch
+
+- **The Android generation was never compiled.** It was generated and read, no more.
+- **The Postman collection was never run in Postman.** The same anonymous requests were made
+  with curl against production and answered as its tests expect; the second folder has not
+  been exercised at all.
+- **CI's first real `buf breaking` comparison** is #300's own run, and nothing here claims its
+  result.
+- **v2 is served by nothing**, so every behaviour above is a property of the contract and the
+  runtime library, not of a deployment.
+
+## What the session before it added: the v2 contract written down — `proto/lessons/v2`, its Python, and Buf in CI (sub-project 2 of #273)
+
+Merged as #297 (`45f0680`, 4 October 2026), from `contract/spec`, on milestone 11. Sub-project 2 of
 `docs/specs/2026-10-03-one-contract-design.md`, built from
 `docs/specs/2026-10-04-contract-v2-design.md`, which the owner approved on 4 October 2026,
 by the plan beside it. It refers to #273 and closes nothing. It adds a contract and serves
@@ -229,61 +316,6 @@ At the head before this paragraph:
   true.
 - **Anything on a device.**
 
-## What the session before it added: the tracker's documents caught up with thirteen milestones and a board a local session fills (#293)
-
-Merged as #294 (`d243624`, 4 October 2026), from `tracker/milestones-and-board`, on
-milestone 11. Two sessions wrote it. The one that created milestones 12 and 13 and filled the board on 3
-October opened it on 4 October and held it for #277. A session on the owner's machine took
-`main` into it after #277 and again after #296, and wrote this section. It carried
-`Closes #293`.
-
-- **The `github-pr` skill's milestone table matches the API again.** It gains rows 12,
-  `v1.0.0 — A build somebody else can install`, and 13, `Backlog — not scheduled`; the
-  fifteen issues back-filled into milestones 1, 2, 6 and 8 (#278–#292); #119 in the ninth and
-  #235 and #236 in the tenth, which the old rows missed; and row 11 as it stands after #296.
-- **`CLAUDE.md` names four open version milestones (9–12)** and the two buckets that are not
-  versions (7 and 13), and says which one is being worked on: the eleventh.
-- **Both tell a remote session from a local one about the board.** A remote session still
-  cannot reach project 6. A local session has `gh` with the `project` scope, and there
-  putting an item on the board and setting its Priority, Size, Estimate and dates is part of
-  filing it, because no rule on the board does. The skill's new section «The board» has the
-  commands and points at the project's README for the rule each field follows.
-- **«Auto-add to project» filters on `is:issue,pr` now**, not `is:issue,pr is:open`, so an
-  issue back-filled closed in one step arrives by itself. Changed on 4 October in GitHub's
-  interface, from the owner's machine with the owner signed in, and read back after a
-  reload; the documents say so.
-- **#277's Target date is set**: 4 October, its merge, by the README's rule. It was the one
-  field #277 lacked; *Done* the board set by itself.
-- **The board is level with the repository again**, 296 items, filled by the README's rule on
-  the owner's word: #296 P1, XL, 34 (10 347 lines changed), 4 October to 4 October; #271,
-  #272 and #275 a Target date of 4 October and 2 points each, Size S, re-measured from the
-  commits that name them (94 lines for #271; 134 split between #272 and #275), where their
-  Estimates had been set before those commits existed. #294's own item, which auto-add had
-  made but neither the board's views nor its item list showed, was deleted and added again:
-  *In progress*, P2, M, 5, from 4 October.
-- **This file's milestone table** gains rows 12 and 13, and loses the sentence that #142–#144
-  are on no milestone: #142 and #144 are in the twelfth, #143 in the thirteenth.
-
-### Gates
-
-No code changed. The four server test modules that read `CLAUDE.md` and the skills
-(`test_schema_version`, `test_test_imports`, `test_diary_provider_revision` and
-`test_corrections_per_child_revision`) pass on this branch: 31 tests. CI's server job skips
-this branch (#295), so that local run is the only check of them.
-
-### What was deliberately left alone
-
-- **#295 is filed and not fixed.**
-
-### What nobody has verified in this batch
-
-- **Why #294's first item did not show on the board.** It read back through the pull
-  request's `projectItems`, on project 6 and not archived, while the project's own item list,
-  295 items, left it out; the item added in its place shows. Nor has anybody yet seen the new
-  filter take a closed back-fill.
-- **Nothing about the skill's `gh project` commands**: `item-add`, `item-edit` and
-  `item-delete` were each run as written on 4 October, and every value read back.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -306,7 +338,7 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297; issues #268–#273, #275, #276, #293, #295 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300; issues #268–#273, #275, #276, #293, #295, #298, #299 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | issues #120–#122, #127, #142, #144 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -357,9 +389,20 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   either step can be the one that fails (the buf-action step fetches `googleapis` from the
   Schema Registry before generate runs, and says nothing of what to do), and the remedy is the
   same `BUF_TOKEN` (section 7).
-- **`buf breaking` has never compared anything.** The pull request that adds the contract
-  skips it with a notice, because `main` had no contract. The first pull request that
-  touches `proto/` is its first run.
+- **`buf breaking` has been run once, locally, and not yet in CI.** It compared a scratch copy
+  of the contract with `main` at `45f0680` over 25 mutations (#300, which found #298). CI's own
+  first comparison is #300's «Contract (Buf)» run, because its base is the first to carry
+  `buf.yaml`; until that is read, the CI half is unverified. Buf reads no options either (#299),
+  so a binding, a credential or a role changed in `proto/` is caught by the resource map in
+  `test_contract.py` and by nothing in Buf.
+- **The Android generation of the contract was never compiled** (#300). The protocolbuffers
+  java and kotlin (lite) and connectrpc/kotlin plugins were run once into a scratch directory
+  with no clash and no warning; no Gradle module has seen the output, and what sub-project 5
+  inherits is in the programme design's section 3.
+- **The Postman smoke collection has never been run in Postman** (#300). It lives in the
+  owner's personal workspace and is not in the repository; its anonymous requests were made
+  with curl against production and answered as its tests expect, and its second folder, which
+  needs a device token, has not run at all.
 - **The cold-start fix (#275) has not been read on Vercel.** The 736 aiogram modules were
   measured in a fresh interpreter on Windows under Vercel's settings, and
   `tests/test_cold_start.py` holds the answer there; no deployment of this branch has been
@@ -1101,6 +1144,16 @@ job reads no secret today. If its log says Buf refused an unauthenticated reques
 resource exhausted), create a token at buf.build and pass it to the job as `BUF_TOKEN`;
 `docs/build.md`, «The v2 contract and Buf», says where. Nothing is needed until then.
 
+**Optional: give the Postman collection a device token.** The second folder of «lessons — API
+smoke (read-only)», «With a device token», skips itself until the environment «lessons —
+production» has a **current value** for `deviceToken`; type one there from a phone joined to
+a class, and leave the initial value empty so that it stays on that machine. The collection has
+never been run in Postman, so the first run is also its first test.
+
+**Next for the programme: sub-project 3 (server shells and targets) needs its own design,
+which the owner approves before any code.** It is where v2 is first served, and the questions
+in section 5 about Vercel's proxy and the second host (above) are its first inputs.
+
 **The tenth milestone exists, and #140 is on it.** The owner created
 `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` on 25 September and renamed
 the other nine the same day. Its description is behind: it names issues #145–#159, and
@@ -1340,7 +1393,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2100 tests, ~4 min on CI, ~10 on Windows
+cd server  && pytest -q -n auto                          # 2175 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 197 modules
 cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

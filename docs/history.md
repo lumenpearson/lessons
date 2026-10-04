@@ -28,6 +28,61 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the tracker's documents caught up with thirteen milestones and a board a local session fills (#293)
+
+Merged as #294 (`d243624`, 4 October 2026), from `tracker/milestones-and-board`, on
+milestone 11. Two sessions wrote it. The one that created milestones 12 and 13 and filled the board on 3
+October opened it on 4 October and held it for #277. A session on the owner's machine took
+`main` into it after #277 and again after #296, and wrote this section. It carried
+`Closes #293`.
+
+- **The `github-pr` skill's milestone table matches the API again.** It gains rows 12,
+  `v1.0.0 — A build somebody else can install`, and 13, `Backlog — not scheduled`; the
+  fifteen issues back-filled into milestones 1, 2, 6 and 8 (#278–#292); #119 in the ninth and
+  #235 and #236 in the tenth, which the old rows missed; and row 11 as it stands after #296.
+- **`CLAUDE.md` names four open version milestones (9–12)** and the two buckets that are not
+  versions (7 and 13), and says which one is being worked on: the eleventh.
+- **Both tell a remote session from a local one about the board.** A remote session still
+  cannot reach project 6. A local session has `gh` with the `project` scope, and there
+  putting an item on the board and setting its Priority, Size, Estimate and dates is part of
+  filing it, because no rule on the board does. The skill's new section «The board» has the
+  commands and points at the project's README for the rule each field follows.
+- **«Auto-add to project» filters on `is:issue,pr` now**, not `is:issue,pr is:open`, so an
+  issue back-filled closed in one step arrives by itself. Changed on 4 October in GitHub's
+  interface, from the owner's machine with the owner signed in, and read back after a
+  reload; the documents say so.
+- **#277's Target date is set**: 4 October, its merge, by the README's rule. It was the one
+  field #277 lacked; *Done* the board set by itself.
+- **The board is level with the repository again**, 296 items, filled by the README's rule on
+  the owner's word: #296 P1, XL, 34 (10 347 lines changed), 4 October to 4 October; #271,
+  #272 and #275 a Target date of 4 October and 2 points each, Size S, re-measured from the
+  commits that name them (94 lines for #271; 134 split between #272 and #275), where their
+  Estimates had been set before those commits existed. #294's own item, which auto-add had
+  made but neither the board's views nor its item list showed, was deleted and added again:
+  *In progress*, P2, M, 5, from 4 October.
+- **`HANDOVER.md`'s milestone table** gains rows 12 and 13, and loses the sentence that #142–#144
+  are on no milestone: #142 and #144 are in the twelfth, #143 in the thirteenth.
+
+### Gates
+
+No code changed. The four server test modules that read `CLAUDE.md` and the skills
+(`test_schema_version`, `test_test_imports`, `test_diary_provider_revision` and
+`test_corrections_per_child_revision`) pass on this branch: 31 tests. CI's server job skips
+this branch (#295), so that local run is the only check of them.
+
+### What was deliberately left alone
+
+- **#295 is filed and not fixed.**
+
+### What nobody has verified in this batch
+
+- **Why #294's first item did not show on the board.** It read back through the pull
+  request's `projectItems`, on project 6 and not archived, while the project's own item list,
+  295 items, left it out; the item added in its place shows. Nor has anybody yet seen the new
+  filter take a closed back-fill.
+- **Nothing about the skill's `gh project` commands**: `item-add`, `item-edit` and
+  `item-delete` were each run as written on 4 October, and every value read back.
+
 ## What the batch before added: the bot's long modules split into feature modules, and the cold start that imported aiogram (#271, #272, #275)
 
 Merged as #296 (`92dbd0b`, 4 October 2026), from `server-decomposition`, on milestone 11. It
@@ -5034,3 +5089,12 @@ with it. A local release build reads `lessons.keystore.file`, `lessons.keystore.
 chat, not in the repository. And before that key replaces the one CI signs with: an APK
 signed by a different key does not install over the one already on a phone — #117 showed the
 refusal on the emulator.
+
+## Moved out of section 5 on 5 October 2026
+
+#300 ran `buf breaking` against a base with a contract, locally, so the bullet below stopped
+being true and section 5 carries a narrower one. As it stood until then:
+
+- **`buf breaking` has never compared anything.** The pull request that adds the contract
+  skips it with a notice, because `main` had no contract. The first pull request that
+  touches `proto/` is its first run.
