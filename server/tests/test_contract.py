@@ -60,6 +60,7 @@ FILES = {
     "common",
     "day",
     "device",
+    "diary",
     "directory",
     "errors",
     "event",
@@ -82,6 +83,7 @@ SERVICE_FILES = {
     "class_device",
     "day",
     "device",
+    "diary",
     "directory",
     "event",
     "homework",
@@ -259,6 +261,47 @@ METHODS: dict[tuple[str, str], Row] = {
     ),
     ("DirectoryService", "ListSchoolRegions"): Row("get", "/v2/schoolRegions", "", NONE, None),
     ("DirectoryService", "ListSchools"): Row("get", "/v2/schools", "", DEVICE, ADMIN),
+    ("DiaryService", "GetDiaryCapabilities"): Row(
+        "get", "/v2/diary/capabilities", "", NONE, None
+    ),
+    ("DiaryService", "CreateDiarySession"): Row("post", "/v2/diary/sessions", "*", NONE, None),
+    ("DiaryService", "DeleteDiarySession"): Row(
+        "delete", "/v2/diary/sessions/current", "", DIARY, None
+    ),
+    ("DiaryService", "ListStudents"): Row("get", "/v2/diary/students", "", DIARY, None),
+    ("DiaryService", "ListScheduleDays"): Row(
+        "get", "/v2/diary/students/{student_id}/scheduleDays", "", DIARY, None
+    ),
+    ("DiaryService", "ListDiaryHomework"): Row(
+        "get", "/v2/diary/students/{student_id}/homework", "", DIARY, None
+    ),
+    ("DiaryService", "ListMarks"): Row(
+        "get", "/v2/diary/students/{student_id}/marks", "", DIARY, None
+    ),
+    ("DiaryService", "ListPeriods"): Row(
+        "get", "/v2/diary/students/{student_id}/periods", "", DIARY, None
+    ),
+    ("DiaryService", "ListDiarySubjects"): Row(
+        "get", "/v2/diary/students/{student_id}/subjects", "", DIARY, None
+    ),
+    ("DiaryService", "ListTeachers"): Row(
+        "get", "/v2/diary/students/{student_id}/teachers", "", DIARY, None
+    ),
+    ("DiaryService", "ListTurnstileEvents"): Row(
+        "get", "/v2/diary/students/{student_id}/turnstileEvents", "", DIARY, None
+    ),
+    ("DiaryService", "ListCorrections"): Row(
+        "get", "/v2/diary/students/{student_id}/corrections", "", DIARY, None
+    ),
+    ("DiaryService", "BatchUpdateCorrections"): Row(
+        "post", "/v2/diary/students/{student_id}/corrections:batchUpdate", "*", DIARY, None
+    ),
+    ("DiaryService", "ResetCorrections"): Row(
+        "post", "/v2/diary/students/{student_id}/corrections:reset", "*", DIARY, None
+    ),
+    ("DiaryService", "ClearCorrections"): Row(
+        "post", "/v2/diary/students/{student_id}/corrections:clear", "*", DIARY, None
+    ),
 }
 
 #: ErrorReason, name for number: the design's decision 6, completed from every

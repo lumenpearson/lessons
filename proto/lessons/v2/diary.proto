@@ -1,0 +1,554 @@
+// A family's electronic diary, through the diary session token. It covers
+// what this server's diary can do, registering a session the phone opened
+// with the diary itself, what the diary says about each pupil, and the
+// corrections a family lays over it. The diary token is independent of the
+// device token: a phone may hold either without the other. Replaces v1's
+// /diary/….
+//
+// What is not here, on purpose: v1's POST /diary/login, a password through
+// this server, kept in v1 for APKs from before /diary/session. Every APK v2
+// serves opens its diary session itself.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service DiaryService {
+  // What this server's diary can do, asked before the phone shows a sign-in
+  // form: whether it runs at all, and for each provider the regions, the ways
+  // in, and the data it has. Anonymous and database-free.
+  rpc GetDiaryCapabilities(GetDiaryCapabilitiesRequest) returns (GetDiaryCapabilitiesResponse) {
+    option (google.api.http) = {get: "/v2/diary/capabilities"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_NONE;
+  }
+  // Keeps a session the phone opened with the diary itself, and answers a
+  // diary token of ours. The session is read with once, from this server's
+  // address (that read is the check), then sealed, and it is never echoed
+  // back, not even in a refusal. The caller is counted under v1's
+  // /diary/session limits. REST answers 201.
+  //
+  // Refusals:
+  // - DIARY_DISABLED and DIARY_UNAVAILABLE: not counted, because nothing
+  //   judged the session;
+  // - DIARY_CREDENTIALS_REJECTED, DIARY_NO_STUDENTS and
+  //   DIARY_UPSTREAM_UNREADABLE: counted;
+  // - VALIDATION_FAILED: a region outside the allow-list, before any
+  //   upstream call;
+  // - THROTTLED.
+  rpc CreateDiarySession(CreateDiarySessionRequest) returns (CreateDiarySessionResponse) {
+    option (google.api.http) = {
+      post: "/v2/diary/sessions"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_NONE;
+  }
+  // Signs this session out: the token stops working and the sealed upstream
+  // session goes.
+  rpc DeleteDiarySession(DeleteDiarySessionRequest) returns (DeleteDiarySessionResponse) {
+    option (google.api.http) = {delete: "/v2/diary/sessions/current"};
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // Every pupil this diary account may see: one, for most parents.
+  rpc ListStudents(ListStudentsRequest) returns (ListStudentsResponse) {
+    option (google.api.http) = {get: "/v2/diary/students"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // A pupil's lessons, day by day, with the family's corrections laid over
+  // them. The range is the diary's today and 14 days on when unset, and
+  // spans 62 days at most. A student id this session's diary does not list
+  // is RESOURCE_NOT_FOUND, on every method below: an id from another family
+  // must reach nothing. DIARY_FEATURE_SCHEDULE.
+  rpc ListScheduleDays(ListScheduleDaysRequest) returns (ListScheduleDaysResponse) {
+    option (google.api.http) = {get: "/v2/diary/students/{student_id}/scheduleDays"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // A pupil's homework by due date, with corrections laid over it. Named for
+  // the diary because HomeworkService's ListHomework is the class's.
+  // DIARY_FEATURE_HOMEWORK.
+  rpc ListDiaryHomework(ListDiaryHomeworkRequest) returns (ListDiaryHomeworkResponse) {
+    option (google.api.http) = {get: "/v2/diary/students/{student_id}/homework"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // A pupil's marks, absences and lateness, which a diary files together.
+  // Never corrected: a family rewriting a mark would be producing a false
+  // record that looks official. DIARY_FEATURE_MARKS.
+  rpc ListMarks(ListMarksRequest) returns (ListMarksResponse) {
+    option (google.api.http) = {get: "/v2/diary/students/{student_id}/marks"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // A pupil's quarters or terms as the diary has them. DIARY_FEATURE_PERIODS.
+  rpc ListPeriods(ListPeriodsRequest) returns (ListPeriodsResponse) {
+    option (google.api.http) = {get: "/v2/diary/students/{student_id}/periods"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // The subjects of a period, the current one when none is named. Named for
+  // the diary because SubjectService's ListSubjects is the class's.
+  // DIARY_FEATURE_SUBJECTS.
+  rpc ListDiarySubjects(ListDiarySubjectsRequest) returns (ListDiarySubjectsResponse) {
+    option (google.api.http) = {get: "/v2/diary/students/{student_id}/subjects"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // DIARY_FEATURE_TEACHERS.
+  rpc ListTeachers(ListTeachersRequest) returns (ListTeachersResponse) {
+    option (google.api.http) = {get: "/v2/diary/students/{student_id}/teachers"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // Turnstile entries and exits, newest first: what v1's /attendance served.
+  // Absences and lateness are not here; a diary files those with the marks.
+  // DIARY_FEATURE_TURNSTILE.
+  rpc ListTurnstileEvents(ListTurnstileEventsRequest) returns (ListTurnstileEventsResponse) {
+    option (google.api.http) = {get: "/v2/diary/students/{student_id}/turnstileEvents"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // Every correction anybody who sees this pupil made, both parents' alike;
+  // no row says whose.
+  rpc ListCorrections(ListCorrectionsRequest) returns (ListCorrectionsResponse) {
+    option (google.api.http) = {get: "/v2/diary/students/{student_id}/corrections"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // Writes or replaces corrections, all or none. Each target is the string a
+  // read handed down, echoed back; the last writer wins, `original`
+  // included. CORRECTIONS_UNAVAILABLE for a pupil who can have none.
+  // VALIDATION_FAILED, naming `corrections[i].target`, `.field` or `.value`,
+  // for a target this server would never produce, a field that cannot be
+  // corrected, or an empty value where one is required.
+  rpc BatchUpdateCorrections(BatchUpdateCorrectionsRequest) returns (BatchUpdateCorrectionsResponse) {
+    option (google.api.http) = {
+      post: "/v2/diary/students/{student_id}/corrections:batchUpdate"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // Takes the named corrections off, for everyone who sees the pupil. It
+  // answers the same whether or not there was one: «no correction here» is
+  // what was asked for. A POST with a body, because a target is free text,
+  // and a value that must match byte for byte does not travel in a URL.
+  rpc ResetCorrections(ResetCorrectionsRequest) returns (ResetCorrectionsResponse) {
+    option (google.api.http) = {
+      post: "/v2/diary/students/{student_id}/corrections:reset"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // Takes every correction for this pupil off, and nothing of any other's.
+  rpc ClearCorrections(ClearCorrectionsRequest) returns (ClearCorrectionsResponse) {
+    option (google.api.http) = {
+      post: "/v2/diary/students/{student_id}/corrections:clear"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+}
+
+// What a provider has (the design's decision 8). A new datum is a new value,
+// which an old client ignores by the enum rule; a diary method whose feature
+// a provider lacks answers FEATURE_UNSUPPORTED.
+enum DiaryFeature {
+  DIARY_FEATURE_UNSPECIFIED = 0;
+  DIARY_FEATURE_SCHEDULE = 1;
+  DIARY_FEATURE_HOMEWORK = 2;
+  DIARY_FEATURE_MARKS = 3;
+  DIARY_FEATURE_PERIODS = 4;
+  DIARY_FEATURE_SUBJECTS = 5;
+  DIARY_FEATURE_TEACHERS = 6;
+  // Absences and lateness by lesson, with their statistics: no method reads
+  // it yet.
+  DIARY_FEATURE_ATTENDANCE = 7;
+  // Turnstile entries and exits: ListTurnstileEvents.
+  DIARY_FEATURE_TURNSTILE = 8;
+  DIARY_FEATURE_MEAL_ACCOUNT = 9;
+  DIARY_FEATURE_FINAL_MARKS = 10;
+}
+
+// How the phone gets into a provider's diary, so it draws the right form.
+enum SignInMethod {
+  SIGN_IN_METHOD_UNSPECIFIED = 0;
+  // A login and a password, typed into the phone's own form.
+  SIGN_IN_METHOD_PASSWORD = 1;
+  // A session the phone opened elsewhere and hands to CreateDiarySession.
+  SIGN_IN_METHOD_SESSION_ADOPT = 2;
+}
+
+message GetDiaryCapabilitiesRequest {}
+
+message GetDiaryCapabilitiesResponse {
+  DiaryCapabilities capabilities = 1;
+}
+
+// v1: DiaryCapabilitiesOut. Its `registration` is gone: every v2 server
+// registers sessions.
+message DiaryCapabilities {
+  // False without DIARY_SECRET: nothing anybody types will help.
+  bool enabled = 1;
+  repeated ProviderCapabilities providers = 2;
+}
+
+message ProviderCapabilities {
+  // A provider key, "petersburg" or "netschool" today: a string, so a
+  // provider added on the server reaches the phone with no proto change.
+  string provider = 1;
+  // The allow-list keys this server signs in to for the provider. A region
+  // missing here is one the phone should not send a password to.
+  repeated string regions = 2;
+  repeated SignInMethod sign_in_methods = 3;
+  repeated DiaryFeature features = 4;
+}
+
+// The session Petersburg handed the phone. v1: PetersburgCredentialIn.
+message PetersburgCredential {
+  // The X-JWT-Token cookie, or data.token when the answer carried no cookie:
+  // a JWT, 16 to 4096 characters, one cookie value.
+  string token = 1;
+}
+
+// What the phone's «Сетевой город» sign-in ended holding.
+// v1: NetSchoolCredentialIn.
+message NetSchoolCredential {
+  // The bearer sent in the `at` header: 8 to 512 characters, one header
+  // value.
+  string at = 1;
+  NetSchoolCookies cookies = 2;
+  // Up to 32 characters of [A-Za-z0-9._-].
+  optional string ver = 3;
+  // The login's timeOut. Stored and read by nothing.
+  optional int32 time_out = 4;
+}
+
+// The two session cookies «Сетевой город» sets, and no other.
+// v1: NetSchoolCookiesIn, whose upper-case field names v2's lint refuses.
+message NetSchoolCookies {
+  // v1: NSSESSIONID.
+  string ns_session_id = 1;
+  // v1: ESRNSec.
+  optional string esrn_sec = 2;
+}
+
+// v1: DiarySessionBody, told apart by `provider`; here the credential's case
+// says which.
+message CreateDiarySessionRequest {
+  // What the person typed into the phone's form, 3 to 200 characters. It only
+  // names the session: what the session reaches is what its own diary lists.
+  string login = 1;
+  oneof credential {
+    PetersburgCredential petersburg = 2;
+    NetSchoolCredential netschool = 3;
+  }
+  // «Сетевой город» only: an allow-list key that still takes a password.
+  optional string region = 4;
+  // «Сетевой город» only: the diary's own school id («scid»).
+  optional int64 school_id = 5;
+}
+
+message CreateDiarySessionResponse {
+  DiarySession session = 1;
+}
+
+// Our bearer for the session, and what the phone needs to keep reading it.
+// Never the upstream credential, which stays here, sealed. v1: DiarySessionOut.
+message DiarySession {
+  // The diary token, for `Authorization: Bearer`.
+  string token = 1;
+  string login = 2;
+  string provider = 3;
+  optional string region = 4;
+  optional int64 school_id = 5;
+  // What the diary calls the school, where it says; absent for Petersburg.
+  optional string school_name = 6;
+  // The zone the diary cuts its days at.
+  string zone = 7;
+  // The pupils the validating read already fetched, so the phone does not
+  // ask again straight away.
+  repeated DiaryStudent students = 8;
+}
+
+message DeleteDiarySessionRequest {}
+
+message DeleteDiarySessionResponse {}
+
+// v1: DiaryStudentOut. Never the upstream's own handles: the server resolves
+// them from the id on every call, and a client that learned them could be
+// pointed at somebody else's child.
+message DiaryStudent {
+  int64 id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  optional string middle_name = 4;
+  string full_name = 5;
+  optional string school = 6;
+  optional string class_name = 7;
+}
+
+message ListStudentsRequest {}
+
+message ListStudentsResponse {
+  repeated DiaryStudent students = 1;
+}
+
+// One field a family corrected, as the client draws it. v1: DiaryEditOut.
+message DiaryEdit {
+  string field = 1;
+  string value = 2;
+  // What the diary says now, not what it said when the correction was
+  // written: the client shows it as «в дневнике: …».
+  optional string original = 3;
+  // The diary changed this field since the correction was made.
+  bool changed_upstream = 4;
+}
+
+// A day of a pupil's lessons.
+message DiaryScheduleDay {
+  // "YYYY-MM-DD".
+  string date = 1;
+  repeated DiaryLesson lessons = 2;
+}
+
+// v1: DiaryLessonOut, whose date is its day's now.
+message DiaryLesson {
+  optional int32 number = 1;
+  string subject = 2;
+  // "HH:MM".
+  optional string starts_at = 3;
+  // "HH:MM".
+  optional string ends_at = 4;
+  optional string room = 5;
+  optional string teacher = 6;
+  optional string homework = 7;
+  optional string topic = 8;
+  // The key a correction for this lesson is filed under: sent down so the
+  // client echoes it back rather than building its own.
+  string target = 9;
+  repeated DiaryEdit edits = 10;
+  // Another lesson the same day carries the same key, so no correction is
+  // applied to either.
+  bool ambiguous = 11;
+}
+
+message ListScheduleDaysRequest {
+  int64 student_id = 1;
+  // "YYYY-MM-DD"; the diary's today when absent. v1: the query field `from`.
+  optional string start_date = 2;
+  // "YYYY-MM-DD"; 14 days after start_date when absent. v1: `to`.
+  optional string end_date = 3;
+}
+
+message ListScheduleDaysResponse {
+  repeated DiaryScheduleDay schedule_days = 1;
+}
+
+// v1: DiaryHomeworkOut.
+message DiaryHomework {
+  optional int64 id = 1;
+  // "YYYY-MM-DD".
+  string due_date = 2;
+  string subject = 3;
+  string text = 4;
+  optional string teacher = 5;
+  // @see DiaryLesson.target
+  string target = 6;
+  repeated DiaryEdit edits = 7;
+  // Two assignments due the same day share this key, so neither is corrected.
+  bool ambiguous = 8;
+}
+
+message ListDiaryHomeworkRequest {
+  int64 student_id = 1;
+  // "YYYY-MM-DD"; the diary's today when absent.
+  optional string start_date = 2;
+  // "YYYY-MM-DD"; 14 days after start_date when absent.
+  optional string end_date = 3;
+}
+
+message ListDiaryHomeworkResponse {
+  repeated DiaryHomework homework = 1;
+}
+
+// What a register entry is. v1: DiaryMarkOut.kind's strings.
+enum MarkKind {
+  MARK_KIND_UNSPECIFIED = 0;
+  MARK_KIND_GRADE = 1;
+  MARK_KIND_ABSENCE = 2;
+  MARK_KIND_LATE = 3;
+  MARK_KIND_REMARK = 4;
+  MARK_KIND_OTHER = 5;
+}
+
+// One register entry: `value` is what belongs in the cell, `kind` what it
+// means. v1: DiaryMarkOut.
+message DiaryMark {
+  optional int64 id = 1;
+  optional int64 subject_id = 2;
+  string subject = 3;
+  // "YYYY-MM-DD".
+  optional string date = 4;
+  // «5», «Н», «!», already normalised.
+  string value = 5;
+  MarkKind kind = 6;
+  // The teacher's word for the occasion: «Контрольная работа».
+  optional string reason = 7;
+  optional string comment = 8;
+}
+
+message ListMarksRequest {
+  int64 student_id = 1;
+  // "YYYY-MM-DD"; the diary's today when absent.
+  optional string start_date = 2;
+  // "YYYY-MM-DD"; 14 days after start_date when absent.
+  optional string end_date = 3;
+}
+
+message ListMarksResponse {
+  repeated DiaryMark marks = 1;
+}
+
+// v1: DiaryPeriodOut.
+message DiaryPeriod {
+  int64 id = 1;
+  string name = 2;
+  // "YYYY-MM-DD".
+  optional string starts_on = 3;
+  // "YYYY-MM-DD".
+  optional string ends_on = 4;
+  bool is_current = 5;
+}
+
+message ListPeriodsRequest {
+  int64 student_id = 1;
+}
+
+message ListPeriodsResponse {
+  repeated DiaryPeriod periods = 1;
+}
+
+// v1: DiarySubjectOut.
+message DiarySubject {
+  optional int64 id = 1;
+  string name = 2;
+}
+
+message ListDiarySubjectsRequest {
+  int64 student_id = 1;
+  // The period; the current one when absent.
+  optional int64 period_id = 2;
+}
+
+message ListDiarySubjectsResponse {
+  repeated DiarySubject subjects = 1;
+}
+
+// v1: DiaryTeacherOut.
+message DiaryTeacher {
+  optional int64 id = 1;
+  string name = 2;
+  optional string position = 3;
+  repeated string subjects = 4;
+}
+
+message ListTeachersRequest {
+  int64 student_id = 1;
+}
+
+message ListTeachersResponse {
+  repeated DiaryTeacher teachers = 1;
+}
+
+// Which way a turnstile was passed. v1: "in" | "out" | "unknown".
+enum AttendanceDirection {
+  ATTENDANCE_DIRECTION_UNSPECIFIED = 0;
+  ATTENDANCE_DIRECTION_IN = 1;
+  ATTENDANCE_DIRECTION_OUT = 2;
+  // The diary did not say which way: a spelling this server has not seen
+  // must not be drawn as the child leaving the building.
+  ATTENDANCE_DIRECTION_UNKNOWN = 3;
+}
+
+// A turnstile record. v1: DiaryAttendanceOut.
+message DiaryAttendance {
+  // "YYYY-MM-DDTHH:MM", the diary's own wall time, to the minute.
+  string at = 1;
+  AttendanceDirection direction = 2;
+}
+
+message ListTurnstileEventsRequest {
+  int64 student_id = 1;
+}
+
+message ListTurnstileEventsResponse {
+  repeated DiaryAttendance turnstile_events = 1;
+}
+
+// A stored correction. v1: DiaryOverrideOut.
+message DiaryCorrection {
+  string target = 1;
+  string field = 2;
+  string value = 3;
+  // What the diary said when this was written, not what it says now; spelled
+  // apart from DiaryEdit.original on purpose.
+  optional string original_when_written = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+// A correction being written. v1: DiaryOverrideIn.
+message CorrectionUpdate {
+  // The target a read handed down, 1 to 300 characters.
+  string target = 1;
+  // 1 to 40 characters.
+  string field = 2;
+  // Up to 4000 characters. Empty is a real answer and is stored; taking a
+  // correction off is ResetCorrections.
+  string value = 3;
+  // What the person was looking at when they wrote it, up to 4000
+  // characters.
+  optional string original = 4;
+}
+
+// Which correction to take off. v1: DiaryResetIn.
+message CorrectionKey {
+  string target = 1;
+  string field = 2;
+}
+
+message ListCorrectionsRequest {
+  int64 student_id = 1;
+}
+
+message ListCorrectionsResponse {
+  repeated DiaryCorrection corrections = 1;
+}
+
+message BatchUpdateCorrectionsRequest {
+  int64 student_id = 1;
+  repeated CorrectionUpdate corrections = 2;
+}
+
+message BatchUpdateCorrectionsResponse {
+  repeated DiaryCorrection corrections = 1;
+}
+
+message ResetCorrectionsRequest {
+  int64 student_id = 1;
+  repeated CorrectionKey corrections = 2;
+}
+
+message ResetCorrectionsResponse {}
+
+message ClearCorrectionsRequest {
+  int64 student_id = 1;
+}
+
+message ClearCorrectionsResponse {}
