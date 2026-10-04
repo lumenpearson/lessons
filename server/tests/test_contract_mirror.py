@@ -11,12 +11,14 @@ silently miss the ones that speak v2. This file is where that fails instead.
 the message was derived from (several when v1 had a separate In, Out and Patch
 for one thing) and the whole difference between the two field sets:
 
-- ``renamed``: v1 name to v2 name, where the lint rules or the resource
-  vocabulary of the design changed the name;
+- ``renamed``: v1 name to ``(v2 name, reason)``, where the lint rules or the
+  resource vocabulary of the design changed the name;
 - ``dropped``: a v1 field v2 does not carry, with the reason;
 - ``added``: a v2 field v1 does not have, with the reason.
 
-Every reason cites the document or the proto comment that gives it. A
+Every rename, drop and addition carries a reason, checked non-empty, that names
+where it was decided: a row of the plan's table (``_PLAN``) or the comment in
+``proto/lessons/v2`` that says it. A
 difference nobody wrote down is not entered here to make the test pass: it
 fails, because it may be a v1 capability v2 forgot, and that is a defect to
 file rather than a row to add.
@@ -72,15 +74,16 @@ from app.contract.lessons.v2 import (
 
 PROTO = Path(__file__).resolve().parents[2] / "proto" / "lessons" / "v2"
 
-_DESIGN = "design decision 9"
-_PLAN = "plan «Renames and reshapes»"
+#: The heading in docs/specs/2026-10-04-contract-v2-plan.md whose table holds
+#: the rename decisions; a reason that cites a row of it starts with this.
+_PLAN = "plan «From v1 to v2: every rename and reshape, with its reason»"
 
 
 class Mirror(NamedTuple):
     #: The v1 schemas the message was derived from; their fields are unioned.
     v1: tuple[str, ...]
-    #: v1 field name to v2 field name.
-    renamed: dict[str, str] = {}
+    #: v1 field name to (v2 field name, why the name changed).
+    renamed: dict[str, tuple[str, str]] = {}
     #: v1 field name to why v2 has no such field.
     dropped: dict[str, str] = {}
     #: v2 field name to why v1 has no such field.
@@ -92,11 +95,16 @@ MIRRORS: dict[str, Mirror] = {
     "AccessRequest": Mirror(("AccessRequestOut",)),
     "ApproveAccessRequestResponse": Mirror(
         ("RequestDecisionOut",),
-        renamed={"id": "request_id"},
+        renamed={
+            "id": (
+                "request_id",
+                f"{_PLAN}, row RequestDecisionOut: «{{request_id, role, who}}»",
+            )
+        },
         dropped={
             "status": (
-                "proto comment on ApproveAccessRequestResponse and plan: "
-                "«status implied by the method»"
+                f"{_PLAN}, row RequestDecisionOut: «status implied by the "
+                "method»; proto comment on ApproveAccessRequestResponse"
             )
         },
     ),
@@ -105,8 +113,9 @@ MIRRORS: dict[str, Mirror] = {
         ("BellScheduleOut", "BellScheduleIn", "BellSchedulePatch"),
         dropped={
             "silenced_lessons": (
-                "plan Task 4 renames: a fact of the write, so it is "
-                "UpdateBellScheduleResponse.silenced_lessons"
+                f"{_PLAN}, row BellScheduleOut.silenced_lessons: «a fact of the "
+                "write», so it is UpdateBellScheduleResponse.silenced_lessons; "
+                "proto comment on that field"
             )
         },
     ),
@@ -128,7 +137,16 @@ MIRRORS: dict[str, Mirror] = {
     "NetSchoolCredential": Mirror(("NetSchoolCredentialIn",)),
     "NetSchoolCookies": Mirror(
         ("NetSchoolCookiesIn",),
-        renamed={"NSSESSIONID": "ns_session_id", "ESRNSec": "esrn_sec"},
+        renamed={
+            "NSSESSIONID": (
+                "ns_session_id",
+                f"{_PLAN}, row NetSchoolCookiesIn: «FIELD_LOWER_SNAKE_CASE»",
+            ),
+            "ESRNSec": (
+                "esrn_sec",
+                f"{_PLAN}, row NetSchoolCookiesIn: «FIELD_LOWER_SNAKE_CASE»",
+            ),
+        },
     ),
     "DiarySession": Mirror(("DiarySessionOut",)),
     "DiaryStudent": Mirror(("DiaryStudentOut",)),
@@ -151,12 +169,26 @@ MIRRORS: dict[str, Mirror] = {
     "ListSchoolRegionsResponse": Mirror(("SchoolRegionsOut",)),
     "ListSchoolsResponse": Mirror(
         ("SchoolSearchOut",),
-        renamed={"items": "schools", "total": "total_size"},
+        renamed={
+            "items": (
+                "schools",
+                f"{_PLAN}, row SchoolSearchOut: «ListSchools{{schools,…}}»",
+            ),
+            "total": (
+                "total_size",
+                f"{_PLAN}, row SchoolSearchOut: «total_size»; AIP-158 paging",
+            ),
+        },
         dropped={
             "page": "proto comment on ListSchoolsResponse: AIP-158 paging",
             "pages": "proto comment on ListSchoolsResponse: AIP-158 paging",
         },
-        added={"next_page_token": "plan renames: AIP-158 paging in place of page and pages"},
+        added={
+            "next_page_token": (
+                f"{_PLAN}, row SchoolSearchOut: «next_page_token»; proto comment "
+                "on ListSchoolsResponse: AIP-158 paging instead of page and pages"
+            )
+        },
     ),
     "Event": Mirror(("EventIn", "EventCreatedOut")),
     "Homework": Mirror(("HomeworkItemOut", "HomeworkIn")),
@@ -169,9 +201,18 @@ MIRRORS: dict[str, Mirror] = {
     ),
     "LinkCode": Mirror(
         ("MeOut",),
-        renamed={"link_code": "code"},
+        renamed={
+            "link_code": (
+                "code",
+                f"{_PLAN}, row MeOut.link_code: «CreateLinkCode → LinkCode»; "
+                "proto comment on LinkCode.code",
+            )
+        },
         dropped={
-            name: "proto comment on LinkCode: only link_code and bot_deep_link; Me has the rest"
+            name: (
+                "proto comment on LinkCode: «v1: MeOut.link_code and "
+                "MeOut.bot_deep_link.», so the rest of MeOut stays on Me"
+            )
             for name in ("device_name", "linked", "role", "can_edit")
         },
     ),
@@ -179,9 +220,17 @@ MIRRORS: dict[str, Mirror] = {
     "Task": Mirror(("TaskOut", "TaskIn", "TaskPatch")),
     "HomeworkTick": Mirror(
         ("DoneIn", "DoneOut"),
-        renamed={"id": "homework_id"},
+        renamed={
+            "id": (
+                "homework_id",
+                f"{_PLAN}, row DoneIn/DoneOut; proto comment on HomeworkTick",
+            )
+        },
         dropped={
-            "done": "plan renames: a tick is a resource, CreateHomeworkTick and DeleteHomeworkTick"
+            "done": (
+                f"{_PLAN}, row DoneIn/DoneOut: «a tick is a resource», "
+                "CreateHomeworkTick and DeleteHomeworkTick"
+            )
         },
     ),
     "ScheduleWindow": Mirror(
@@ -201,13 +250,23 @@ MIRRORS: dict[str, Mirror] = {
     "SchoolClass": Mirror(("ManagedClassOut", "ClassPatch")),
     "ClassStats": Mirror(
         ("StatsOut",),
-        renamed={"overrides_upcoming": "substitutions_upcoming"},
+        renamed={
+            "overrides_upcoming": (
+                "substitutions_upcoming",
+                f"{_PLAN}, row StatsOut.overrides_upcoming: «'overrides' meant "
+                "corrections on the diary side»; proto comment on the field",
+            )
+        },
     ),
     "SubjectHours": Mirror(("SubjectHoursOut",)),
     "TermScheme": Mirror(
         ("TermsOut",),
         dropped={
-            "terms": "proto comment on TermScheme: its kind and year only; the terms are ListTerms'"
+            "terms": (
+                "proto comment on TermScheme: «v1: TermsOut's kind and year»; "
+                f"{_PLAN}, row TermsOut: TermsOut becomes TermScheme and "
+                "ListTerms, and ListTermsResponse.terms carries them"
+            )
         },
     ),
     "Subject": Mirror(("SubjectOut", "ManagedSubjectOut", "SubjectIn", "SubjectPatch")),
@@ -219,7 +278,12 @@ MIRRORS: dict[str, Mirror] = {
     "ImportConflict": Mirror(("ImportConflictOut",)),
     "ImportTimetableRequest": Mirror(
         ("TimetableImportIn",),
-        added={"validate_only": "design resource map and plan: explicit preview (AIP-163)"},
+        added={
+            "validate_only": (
+                f"{_PLAN}, row TimetableImportIn: «ImportTimetableRequest"
+                "{validate_only}», AIP-163 preview; proto comment on the request"
+            )
+        },
     ),
     "ImportTimetableResponse": Mirror(("TimetableImportOut",)),
 }
@@ -396,14 +460,18 @@ def test_a_v2_message_carries_every_field_of_the_v1_schema_it_came_from(
         "renamed (v1 side)": sorted(row.renamed.keys() - v1),
         "dropped": sorted(row.dropped.keys() - v1),
         "added": sorted(row.added.keys() & v1),
-        "renamed (v2 side)": sorted(set(row.renamed.values()) - v2),
+        "renamed (v2 side)": sorted({new for new, _ in row.renamed.values()} - v2),
     }
     for kind, names in stale.items():
         assert names == [], f"{where}: stale {kind} entries {names}: table and code differ"
     overlap = sorted(row.renamed.keys() & row.dropped.keys())
     assert overlap == [], f"{where}: {overlap} are both renamed and dropped"
 
-    carried = {row.renamed.get(name, name) for name in v1 if name not in row.dropped}
+    carried = {
+        row.renamed[name][0] if name in row.renamed else name
+        for name in v1
+        if name not in row.dropped
+    }
 
     lost = sorted(carried - v2)
     assert lost == [], (
@@ -417,5 +485,9 @@ def test_a_v2_message_carries_every_field_of_the_v1_schema_it_came_from(
         f"v1 field (`renamed`), or record it in this row's `added` with the "
         f"document that says why it is new."
     )
-    reasons = [*row.dropped.values(), *row.added.values()]
+    reasons = [
+        *(reason for _, reason in row.renamed.values()),
+        *row.dropped.values(),
+        *row.added.values(),
+    ]
     assert all(reason.strip() for reason in reasons), f"{where}: a reason is empty"

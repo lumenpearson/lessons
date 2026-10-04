@@ -6,7 +6,7 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **4 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
+Last updated: **5 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296 and #297 are merged**; `main` is at `45f0680`, the merge of
 #297, on 4 October 2026, and `dev` is level with it. **The only pull request open is #300, the
@@ -19,7 +19,9 @@ not move either. Production, after #297's automatic deploy, answered `/api/v1/wa
 nothing serves v2.
 
 #300 is the first pull request whose base carries `buf.yaml`, so its «Contract (Buf)» run is
-the gate's first real comparison in CI; nothing here claims what that run says.
+the gate's first real comparison in CI. On `ded3da2` (run 37239214776) it passed in nine
+seconds, without the notice it gives when the base has no contract, so it compared against
+`main` and found nothing breaking.
 
 The section «What the last session added» below is #300's batch, and «What the session
 before it added» is #297's.
@@ -156,15 +158,16 @@ serves no v2: nothing under `/api` answers differently, v1 is untouched and the 
 not move.
 
 - **The documented JSON is read against the runtime that will write it.**
-  `server/tests/test_contract_json.py` (16 tests) runs `docs/api.md`, «What the values look
+  `server/tests/test_contract_json.py` (13 tests) runs `docs/api.md`, «What the values look
   like», through protobuf-py: names are lowerCamelCase, 64-bit integers are strings, enums are
   written by name with `UNSPECIFIED` as an absent key, a Timestamp is RFC 3339 in UTC, and a
   JSON unknown name refuses the message unless parsed leniently. Every claim held. It pins one
   behaviour no document said: a relayed unknown enum value is written as its number.
 - **The v1 mirror is held field by field.** `server/tests/test_contract_mirror.py` (58 tests)
   compares the 54 messages that name a v1 schema with that schema. Every rename, drop and
-  addition cites where it was decided, and none was undocumented; a field added to v1 during
-  the transition now fails there until v2 has it.
+  addition carries a reason naming the row of the plan's table or the proto comment that decided
+  it, and none was undocumented; a field added to v1 during the transition now fails there until
+  v2 has it.
 - **`buf breaking` was run, for the first time, against a base that has a contract** (`main`
   at `45f0680`), over 25 mutations in a scratch copy. It found two defects, each filed as an
   issue before its fix.
@@ -195,16 +198,22 @@ not move.
 
 ### Gates
 
-At `7e96c96`, the head before this paragraph, **not run by the session that wrote this file**
-(the machine has faulty RAM, so the full suite is run once, by the controller, after the
-close-out); what is recorded here is what the batch's commit message and its documents claim:
-- the server suite becomes **2175** tests: 2100, plus 1 in `test_contract.py`, 16 in
-  `test_contract_json.py` and 58 in `test_contract_mirror.py`. The README, `docs/architecture.md`,
-  `CLAUDE.md`, `CONTRIBUTING.md` and the `gates` skill already say 2175;
-- mypy unchanged, 197 modules (tests are outside its scope); Android unchanged, 1635 tests,
-  because nothing under `android/` changed;
-- `buf breaking` against `45f0680`: run locally over 25 mutations, as above; CI's own first
-  comparison is #300's «Contract (Buf)» run.
+On this machine, 5 October 2026:
+- **The server suite.** At `ded3da2`, `pytest -q -n auto` gave 2175 passed in 10 minutes 29
+  seconds. A review of #300 then removed three test cases that duplicated
+  `test_contract.py`'s sweep of every enum, which leaves **2172**:
+  - 2100;
+  - plus 1 in `test_contract.py`;
+  - plus 13 in `test_contract_json.py`;
+  - plus 58 in `test_contract_mirror.py`.
+  The full suite, run again after that change, gave 2172 passed in 10 minutes 38 seconds. The
+  README, `docs/architecture.md`, `CLAUDE.md`, `CONTRIBUTING.md` and the `gates` skill say 2172.
+- **ruff and mypy.** `ruff check` is clean. mypy is clean on 197 modules; tests are outside its
+  scope.
+- **Android.** Unchanged, 1635 tests, because nothing under `android/` changed.
+- **`buf breaking`.**
+  - Against `45f0680`, run locally over 25 mutations, as above.
+  - Then in CI, on `ded3da2`, its first real comparison (run 37239214776), which passed.
 
 ### What was deliberately left alone
 
@@ -389,12 +398,13 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   either step can be the one that fails (the buf-action step fetches `googleapis` from the
   Schema Registry before generate runs, and says nothing of what to do), and the remedy is the
   same `BUF_TOKEN` (section 7).
-- **`buf breaking` has been run once, locally, and not yet in CI.** It compared a scratch copy
-  of the contract with `main` at `45f0680` over 25 mutations (#300, which found #298). CI's own
-  first comparison is #300's «Contract (Buf)» run, because its base is the first to carry
-  `buf.yaml`; until that is read, the CI half is unverified. Buf reads no options either (#299),
-  so a binding, a credential or a role changed in `proto/` is caught by the resource map in
-  `test_contract.py` and by nothing in Buf.
+- **`buf breaking` has refused a change only locally.**
+  - Locally, it compared a scratch copy of the contract with `main` at `45f0680` over 25
+    mutations (#300, which found #298).
+  - In CI it has compared once, on #300 (run 37239214776), and found nothing breaking, as
+    there was none. No CI run has yet refused a breaking change.
+  - Buf reads no options (#299), so a binding, a credential or a role changed in `proto/` is
+    caught by the resource map in `test_contract.py` and by nothing in Buf.
 - **The Android generation of the contract was never compiled** (#300). The protocolbuffers
   java and kotlin (lite) and connectrpc/kotlin plugins were run once into a scratch directory
   with no clash and no warning; no Gradle module has seen the output, and what sub-project 5
@@ -1393,7 +1403,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2175 tests, ~4 min on CI, ~10 on Windows
+cd server  && pytest -q -n auto                          # 2172 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 197 modules
 cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

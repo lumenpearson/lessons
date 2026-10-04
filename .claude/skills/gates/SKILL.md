@@ -21,7 +21,7 @@ the `-r` you test on whatever is newest today, which production does not run.
    after ruff — the owner asked for it through that day's audit (#210) — and still worth
    running before a push: seconds here, minutes there. It is the thing that reproduces the
    «🗓 Четверти» crash.
-3. `python -m pytest -q -n auto` — 2175 tests today. Serial takes about five minutes;
+3. `python -m pytest -q -n auto` — 2172 tests today. Serial takes about five minutes;
    `-n auto` finishes in a third of that and is what CI runs.
 
 Narrower while iterating: `python -m pytest -q tests/test_schedule.py -k parity`.

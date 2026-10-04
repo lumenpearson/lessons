@@ -82,16 +82,6 @@ def test_an_enum_is_its_name_and_unspecified_is_left_out():
     assert parsed.direction is diary_pb.AttendanceDirection.OUT
 
 
-# «Every enum starts at …_UNSPECIFIED»: the first declared value is number 0 and
-# is named so. The descriptor is the runtime's own record of it.
-@pytest.mark.parametrize("enum", [diary_pb.DiaryFeature, diary_pb.SignInMethod, diary_pb.MarkKind])
-def test_an_enum_starts_at_unspecified(enum):
-    first = enum.desc().values[0]
-
-    assert first.number == 0
-    assert first.name.endswith("_UNSPECIFIED")
-
-
 # An instant is a google.protobuf.Timestamp, and in JSON that is an RFC 3339
 # string in UTC, not a wall time with no zone as v1 sent.
 def test_a_timestamp_is_rfc3339_in_utc():
