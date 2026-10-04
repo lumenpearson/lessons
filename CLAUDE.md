@@ -450,7 +450,7 @@ points Hilt does not inject cleanly.
   `0017` changes no schema: it files the corrections over the diary under the
   **child** rather than under a login (#165, the owner's decision of 26
   September) — `diary_overrides.login` keeps its name and holds the scope
-  `services/diary.child_scope` builds, `CHILD:petersburg` or `CHILD:netschool:`
+  `services/diary_corrections.child_scope` builds, `CHILD:petersburg` or `CHILD:netschool:`
   and the regional server's host and no other shape (a child the diary lists
   outside its own numbering gets no corrections at all), upper case so that
   no casefolded login can ever equal one. It **destroys rows**: every legacy

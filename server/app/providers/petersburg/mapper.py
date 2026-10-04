@@ -282,7 +282,7 @@ def to_students(items: list[dict[str, Any]]) -> list[Student]:
         # third-party clients document carries (none of it from a live diary
         # here), and it is taken to be city-wide — that two parents' accounts
         # name one child by it is assumed, not observed (see
-        # `services/diary.child_scope`). A plain `id` is `identity_id`'s
+        # `services/diary_corrections.child_scope`). A plain `id` is `identity_id`'s
         # fallback for endpoints that send one instead, and nothing says what
         # it numbers — so a child found by it is marked, and gets no
         # corrections at all (`services/diary.DiaryService.scope_of`), rather
