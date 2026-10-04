@@ -32,7 +32,8 @@ One validated push beats three speculative ones.
 ## What a CI failure here usually is
 
 `.github/workflows/ci.yml` is ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`,
-and **both** assembles. If `assembleRelease` is the one that failed and `assembleDebug` passed, look at
+**both** assembles and `./gradlew detekt` after them, and, when `proto/`, `buf.*` or
+`server/app/contract/` changed, the «Contract (Buf)» job. If `assembleRelease` is the one that failed and `assembleDebug` passed, look at
 R8 and resource shrinking before anything else — that is what the second assemble exists to
 catch.
 

@@ -45,6 +45,12 @@ to match the same day.
 - **Approval.** The design is approved (owner, 4 October 2026); the Self-review's point 12 no longer
   gates the merge. The merge follows the owner's standing instruction and the five checks.
 
+## Changed by the final review
+
+- **`ScheduleWindow.next_school_day` is dropped and field 4 reserved.** v1 looked up to 21 days past
+  a window of a few days; a v2 window is a whole school year, 21 days past its last lesson is June,
+  and the field could never be filled, so the phone answers «what is next» from the year it holds.
+
 ## Global Constraints
 
 - One package, `lessons.v2`, in `proto/lessons/v2/`. One file per service, plus `options.proto`, `errors.proto` and `common.proto`.

@@ -10,7 +10,7 @@ Last updated: **4 October 2026**. **PRs #63 through #85, #128, #129, #133, #134,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294 and #296 are merged**; `main` is at `d243624`, the merge of #294,
 on 4 October 2026, and `dev` is level with it. **The only pull request open is #297, the one
-carrying this paragraph**, from `contract/spec`, a draft, on milestone 11, `v0.10.0 — One
+carrying this paragraph**, from `contract/spec`, on milestone 11, `v0.10.0 — One
 contract: REST v2, Connect and native gRPC, build console`. It is sub-project 2 of #273's
 programme: it writes the v2 contract down as proto, generates its Python and checks it in
 CI, serves none of it, and closes nothing. The schema head did not move: it is still `0017`.
@@ -143,7 +143,7 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
 
 ## What the last session added: the v2 contract written down — `proto/lessons/v2`, its Python, and Buf in CI (sub-project 2 of #273)
 
-Open as #297, a draft, from `contract/spec`, on milestone 11. Sub-project 2 of
+Open as #297, from `contract/spec`, on milestone 11. Sub-project 2 of
 `docs/specs/2026-10-03-one-contract-design.md`, built from
 `docs/specs/2026-10-04-contract-v2-design.md`, which the owner approved on 4 October 2026,
 by the plan beside it. It refers to #273 and closes nothing. It adds a contract and serves
@@ -190,7 +190,9 @@ did not move.
   why `CreateCalendarFeed` has no `min_role`, why `UpdateTermScheme` has no `update_mask` and
   what an unset `page_size` of `ListSchools` means.
 - **How it was done.** A fresh implementer and a fresh reviewer per task, and one fix round
-  in all.
+  in all. A whole-branch review (opus) found nothing Critical or Important, and its minors
+  were fixed before the merge — including `next_school_day` dropped from `ScheduleWindow`,
+  its field 4 reserved, because a window is a school year and the field could never be filled.
 
 ### Gates
 
@@ -352,7 +354,9 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   question, and native gRPC is off the Vercel target for a reason `docs/api.md` states.
 - **Buf's unauthenticated rate limit has not been met.** CI's «Contract (Buf)» job fetches two
   remote plugins without a token; one run, 37230983817, was not throttled. If it ever is,
-  the failure message says what to do (section 7).
+  either step can be the one that fails (the buf-action step fetches `googleapis` from the
+  Schema Registry before generate runs, and says nothing of what to do), and the remedy is the
+  same `BUF_TOKEN` (section 7).
 - **`buf breaking` has never compared anything.** The pull request that adds the contract
   skips it with a notice, because `main` had no contract. The first pull request that
   touches `proto/` is its first run.

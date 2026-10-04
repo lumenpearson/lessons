@@ -107,12 +107,13 @@ class GetScheduleWindowResponse(Message[_GetScheduleWindowResponseFields]):
         etag: str
         window: ScheduleWindow | None
 
-_ScheduleWindowFields: TypeAlias = Literal["school_class", "generated_at", "days", "next_school_day", "device"]
+_ScheduleWindowFields: TypeAlias = Literal["school_class", "generated_at", "days", "device"]
 
 class ScheduleWindow(Message[_ScheduleWindowFields]):
     """
     v1: BundleOut. `api_version` is gone, because the package name is the
-    version, and the window is a school year rather than v1's `start` and `days`.
+    version, `next_school_day` is gone (see the reservation below), and the
+    window is a school year rather than v1's `start` and `days`.
 
     ```proto
     message lessons.v2.ScheduleWindow
@@ -133,21 +134,13 @@ class ScheduleWindow(Message[_ScheduleWindowFields]):
             ```proto
             repeated lessons.v2.ScheduleDay days = 3;
             ```
-        next_school_day:
-            The first day with lessons after the last one in `days`, looked for up to
-            21 days past it, so «homework for the next school day» resolves across a
-            holiday. Absent when there is none.
-
-            ```proto
-            optional lessons.v2.ScheduleDay next_school_day = 4;
-            ```
         device:
             ```proto
             optional lessons.v2.DeviceAccess device = 5;
             ```
     """
 
-    __slots__ = ("school_class", "generated_at", "days", "next_school_day", "device")
+    __slots__ = ("school_class", "generated_at", "days", "device")
 
     if TYPE_CHECKING:
 
@@ -157,7 +150,6 @@ class ScheduleWindow(Message[_ScheduleWindowFields]):
             school_class: ClassSummary | None = None,
             generated_at: Timestamp | None = None,
             days: list[ScheduleDay] | None = None,
-            next_school_day: ScheduleDay | None = None,
             device: DeviceAccess | None = None,
         ) -> None:
             pass
@@ -165,7 +157,6 @@ class ScheduleWindow(Message[_ScheduleWindowFields]):
         school_class: ClassSummary | None
         generated_at: Timestamp | None
         days: list[ScheduleDay]
-        next_school_day: ScheduleDay | None
         device: DeviceAccess | None
 
 _ClassSummaryFields: TypeAlias = Literal["id", "name", "grade", "letter", "school", "city", "timezone", "term_kind", "terms"]
@@ -682,7 +673,7 @@ class DayOffReason(Enum):
 
 
 _DESC = file_desc(
-    b'\n\x19lessons/v2/schedule.proto\x12\nlessons.v2\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17lessons/v2/common.proto\x1a\x18lessons/v2/options.proto"i\n\x18GetScheduleWindowRequest\x12\x12\n\x04year\x18\x01 \x01(\x05R\x04year\x12\'\n\rif_none_match\x18\x02 \x01(\tH\x00R\x0bifNoneMatch\x88\x01\x01B\x10\n\x0e_if_none_match"\x86\x01\n\x19GetScheduleWindowResponse\x12!\n\x0cnot_modified\x18\x01 \x01(\x08R\x0bnotModified\x12\x12\n\x04etag\x18\x02 \x01(\tR\x04etag\x122\n\x06window\x18\x03 \x01(\x0b2\x1a.lessons.v2.ScheduleWindowR\x06window"\xac\x02\n\x0eScheduleWindow\x12;\n\x0cschool_class\x18\x01 \x01(\x0b2\x18.lessons.v2.ClassSummaryR\x0bschoolClass\x12=\n\x0cgenerated_at\x18\x02 \x01(\x0b2\x1a.google.protobuf.TimestampR\x0bgeneratedAt\x12+\n\x04days\x18\x03 \x03(\x0b2\x17.lessons.v2.ScheduleDayR\x04days\x12?\n\x0fnext_school_day\x18\x04 \x01(\x0b2\x17.lessons.v2.ScheduleDayR\rnextSchoolDay\x120\n\x06device\x18\x05 \x01(\x0b2\x18.lessons.v2.DeviceAccessR\x06device"\xc0\x02\n\x0cClassSummary\x12\x0e\n\x02id\x18\x01 \x01(\x05R\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n\x05grade\x18\x03 \x01(\x05H\x00R\x05grade\x88\x01\x01\x12\x1b\n\x06letter\x18\x04 \x01(\tH\x01R\x06letter\x88\x01\x01\x12\x1b\n\x06school\x18\x05 \x01(\tH\x02R\x06school\x88\x01\x01\x12\x17\n\x04city\x18\x06 \x01(\tH\x03R\x04city\x88\x01\x01\x12\x1a\n\x08timezone\x18\x07 \x01(\tR\x08timezone\x121\n\tterm_kind\x18\x08 \x01(\x0e2\x14.lessons.v2.TermKindR\x08termKind\x12&\n\x05terms\x18\t \x03(\x0b2\x10.lessons.v2.TermR\x05termsB\x08\n\x06_gradeB\t\n\x07_letterB\t\n\x07_schoolB\x07\n\x05_city"g\n\x0cDeviceAccess\x12\x16\n\x06linked\x18\x01 \x01(\x08R\x06linked\x12$\n\x04role\x18\x02 \x01(\x0e2\x10.lessons.v2.RoleR\x04role\x12\x19\n\x08can_edit\x18\x03 \x01(\x08R\x07canEdit"\x89\x03\n\x0bScheduleDay\x12\x12\n\x04date\x18\x01 \x01(\tR\x04date\x12\x18\n\x07weekday\x18\x02 \x01(\x05R\x07weekday\x12\'\n\x04kind\x18\x03 \x01(\x0e2\x13.lessons.v2.DayKindR\x04kind\x12,\n\x07lessons\x18\x04 \x03(\x0b2\x12.lessons.v2.LessonR\x07lessons\x121\n\x06events\x18\x05 \x03(\x0b2\x19.lessons.v2.ScheduleEventR\x06events\x128\n\x08homework\x18\x06 \x03(\x0b2\x1c.lessons.v2.ScheduleHomeworkR\x08homework\x12\x17\n\x04note\x18\x07 \x01(\tH\x00R\x04note\x88\x01\x01\x12-\n\x07holiday\x18\x08 \x01(\x0b2\x13.lessons.v2.HolidayR\x07holiday\x127\n\noff_reason\x18\t \x01(\x0e2\x18.lessons.v2.DayOffReasonR\toffReasonB\x07\n\x05_note"X\n\x07Holiday\x12\x12\n\x04code\x18\x01 \x01(\tR\x04code\x12\x14\n\x05title\x18\x02 \x01(\tR\x05title\x12#\n\rstops_lessons\x18\x03 \x01(\x08R\x0cstopsLessons"\xc6\x02\n\x06Lesson\x12\x14\n\x05index\x18\x01 \x01(\x05R\x05index\x12\x18\n\x07subject\x18\x02 \x01(\tR\x07subject\x12\x1b\n\tstarts_at\x18\x03 \x01(\tR\x08startsAt\x12\x17\n\x07ends_at\x18\x04 \x01(\tR\x06endsAt\x12\x17\n\x04room\x18\x05 \x01(\tH\x00R\x04room\x88\x01\x01\x12\x1d\n\x07teacher\x18\x06 \x01(\tH\x01R\x07teacher\x88\x01\x01\x12\x19\n\x05color\x18\x07 \x01(\tH\x02R\x05color\x88\x01\x01\x12\x1f\n\x0bis_replaced\x18\x08 \x01(\x08R\nisReplaced\x12!\n\x0cis_cancelled\x18\t \x01(\x08R\x0bisCancelled\x12\x17\n\x04note\x18\n \x01(\tH\x03R\x04note\x88\x01\x01B\x07\n\x05_roomB\n\n\x08_teacherB\x08\n\x06_colorB\x07\n\x05_note"\xd9\x01\n\rScheduleEvent\x12\x14\n\x05title\x18\x01 \x01(\tR\x05title\x12)\n\x04kind\x18\x02 \x01(\x0e2\x15.lessons.v2.EventKindR\x04kind\x12\x1b\n\tstarts_at\x18\x03 \x01(\tR\x08startsAt\x12\x17\n\x07ends_at\x18\x04 \x01(\tR\x06endsAt\x12\x1f\n\x08location\x18\x05 \x01(\tH\x00R\x08location\x88\x01\x01\x12#\n\rcovers_lesson\x18\x06 \x01(\x08R\x0ccoversLessonB\x0b\n\t_location"\x7f\n\x10ScheduleHomework\x12\x18\n\x07subject\x18\x01 \x01(\tR\x07subject\x12\x12\n\x04text\x18\x02 \x01(\tR\x04text\x12*\n\x0eattachment_url\x18\x03 \x01(\tH\x00R\rattachmentUrl\x88\x01\x01B\x11\n\x0f_attachment_url*\x93\x01\n\x0cDayOffReason\x12\x1e\n\x1aDAY_OFF_REASON_UNSPECIFIED\x10\x00\x12\x1e\n\x1aDAY_OFF_REASON_OUT_OF_YEAR\x10\x01\x12 \n\x1cDAY_OFF_REASON_BETWEEN_TERMS\x10\x02\x12!\n\x1dDAY_OFF_REASON_PUBLIC_HOLIDAY\x10\x032\xa9\x01\n\x0fScheduleService\x12\x95\x01\n\x11GetScheduleWindow\x12$.lessons.v2.GetScheduleWindowRequest\x1a%.lessons.v2.GetScheduleWindowResponse"3\x90\x02\x01\x88\xb5\x18\x02\x90\xb5\x18\x01\x82\xd3\xe4\x93\x02"\x12 /v2/class/scheduleWindows/{year}B(\n$com.lumenpearson.lessons.contract.v2P\x01b\x06proto3',
+    b'\n\x19lessons/v2/schedule.proto\x12\nlessons.v2\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17lessons/v2/common.proto\x1a\x18lessons/v2/options.proto"i\n\x18GetScheduleWindowRequest\x12\x12\n\x04year\x18\x01 \x01(\x05R\x04year\x12\'\n\rif_none_match\x18\x02 \x01(\tH\x00R\x0bifNoneMatch\x88\x01\x01B\x10\n\x0e_if_none_match"\x86\x01\n\x19GetScheduleWindowResponse\x12!\n\x0cnot_modified\x18\x01 \x01(\x08R\x0bnotModified\x12\x12\n\x04etag\x18\x02 \x01(\tR\x04etag\x122\n\x06window\x18\x03 \x01(\x0b2\x1a.lessons.v2.ScheduleWindowR\x06window"\x82\x02\n\x0eScheduleWindow\x12;\n\x0cschool_class\x18\x01 \x01(\x0b2\x18.lessons.v2.ClassSummaryR\x0bschoolClass\x12=\n\x0cgenerated_at\x18\x02 \x01(\x0b2\x1a.google.protobuf.TimestampR\x0bgeneratedAt\x12+\n\x04days\x18\x03 \x03(\x0b2\x17.lessons.v2.ScheduleDayR\x04days\x120\n\x06device\x18\x05 \x01(\x0b2\x18.lessons.v2.DeviceAccessR\x06deviceJ\x04\x08\x04\x10\x05R\x0fnext_school_day"\xc0\x02\n\x0cClassSummary\x12\x0e\n\x02id\x18\x01 \x01(\x05R\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x19\n\x05grade\x18\x03 \x01(\x05H\x00R\x05grade\x88\x01\x01\x12\x1b\n\x06letter\x18\x04 \x01(\tH\x01R\x06letter\x88\x01\x01\x12\x1b\n\x06school\x18\x05 \x01(\tH\x02R\x06school\x88\x01\x01\x12\x17\n\x04city\x18\x06 \x01(\tH\x03R\x04city\x88\x01\x01\x12\x1a\n\x08timezone\x18\x07 \x01(\tR\x08timezone\x121\n\tterm_kind\x18\x08 \x01(\x0e2\x14.lessons.v2.TermKindR\x08termKind\x12&\n\x05terms\x18\t \x03(\x0b2\x10.lessons.v2.TermR\x05termsB\x08\n\x06_gradeB\t\n\x07_letterB\t\n\x07_schoolB\x07\n\x05_city"g\n\x0cDeviceAccess\x12\x16\n\x06linked\x18\x01 \x01(\x08R\x06linked\x12$\n\x04role\x18\x02 \x01(\x0e2\x10.lessons.v2.RoleR\x04role\x12\x19\n\x08can_edit\x18\x03 \x01(\x08R\x07canEdit"\x89\x03\n\x0bScheduleDay\x12\x12\n\x04date\x18\x01 \x01(\tR\x04date\x12\x18\n\x07weekday\x18\x02 \x01(\x05R\x07weekday\x12\'\n\x04kind\x18\x03 \x01(\x0e2\x13.lessons.v2.DayKindR\x04kind\x12,\n\x07lessons\x18\x04 \x03(\x0b2\x12.lessons.v2.LessonR\x07lessons\x121\n\x06events\x18\x05 \x03(\x0b2\x19.lessons.v2.ScheduleEventR\x06events\x128\n\x08homework\x18\x06 \x03(\x0b2\x1c.lessons.v2.ScheduleHomeworkR\x08homework\x12\x17\n\x04note\x18\x07 \x01(\tH\x00R\x04note\x88\x01\x01\x12-\n\x07holiday\x18\x08 \x01(\x0b2\x13.lessons.v2.HolidayR\x07holiday\x127\n\noff_reason\x18\t \x01(\x0e2\x18.lessons.v2.DayOffReasonR\toffReasonB\x07\n\x05_note"X\n\x07Holiday\x12\x12\n\x04code\x18\x01 \x01(\tR\x04code\x12\x14\n\x05title\x18\x02 \x01(\tR\x05title\x12#\n\rstops_lessons\x18\x03 \x01(\x08R\x0cstopsLessons"\xc6\x02\n\x06Lesson\x12\x14\n\x05index\x18\x01 \x01(\x05R\x05index\x12\x18\n\x07subject\x18\x02 \x01(\tR\x07subject\x12\x1b\n\tstarts_at\x18\x03 \x01(\tR\x08startsAt\x12\x17\n\x07ends_at\x18\x04 \x01(\tR\x06endsAt\x12\x17\n\x04room\x18\x05 \x01(\tH\x00R\x04room\x88\x01\x01\x12\x1d\n\x07teacher\x18\x06 \x01(\tH\x01R\x07teacher\x88\x01\x01\x12\x19\n\x05color\x18\x07 \x01(\tH\x02R\x05color\x88\x01\x01\x12\x1f\n\x0bis_replaced\x18\x08 \x01(\x08R\nisReplaced\x12!\n\x0cis_cancelled\x18\t \x01(\x08R\x0bisCancelled\x12\x17\n\x04note\x18\n \x01(\tH\x03R\x04note\x88\x01\x01B\x07\n\x05_roomB\n\n\x08_teacherB\x08\n\x06_colorB\x07\n\x05_note"\xd9\x01\n\rScheduleEvent\x12\x14\n\x05title\x18\x01 \x01(\tR\x05title\x12)\n\x04kind\x18\x02 \x01(\x0e2\x15.lessons.v2.EventKindR\x04kind\x12\x1b\n\tstarts_at\x18\x03 \x01(\tR\x08startsAt\x12\x17\n\x07ends_at\x18\x04 \x01(\tR\x06endsAt\x12\x1f\n\x08location\x18\x05 \x01(\tH\x00R\x08location\x88\x01\x01\x12#\n\rcovers_lesson\x18\x06 \x01(\x08R\x0ccoversLessonB\x0b\n\t_location"\x7f\n\x10ScheduleHomework\x12\x18\n\x07subject\x18\x01 \x01(\tR\x07subject\x12\x12\n\x04text\x18\x02 \x01(\tR\x04text\x12*\n\x0eattachment_url\x18\x03 \x01(\tH\x00R\rattachmentUrl\x88\x01\x01B\x11\n\x0f_attachment_url*\x93\x01\n\x0cDayOffReason\x12\x1e\n\x1aDAY_OFF_REASON_UNSPECIFIED\x10\x00\x12\x1e\n\x1aDAY_OFF_REASON_OUT_OF_YEAR\x10\x01\x12 \n\x1cDAY_OFF_REASON_BETWEEN_TERMS\x10\x02\x12!\n\x1dDAY_OFF_REASON_PUBLIC_HOLIDAY\x10\x032\xa9\x01\n\x0fScheduleService\x12\x95\x01\n\x11GetScheduleWindow\x12$.lessons.v2.GetScheduleWindowRequest\x1a%.lessons.v2.GetScheduleWindowResponse"3\x90\x02\x01\x88\xb5\x18\x02\x90\xb5\x18\x01\x82\xd3\xe4\x93\x02"\x12 /v2/class/scheduleWindows/{year}B(\n$com.lumenpearson.lessons.contract.v2P\x01b\x06proto3',
     [
         annotations_pb.desc(),
         timestamp_pb.desc(),

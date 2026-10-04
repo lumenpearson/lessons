@@ -46,16 +46,21 @@ message GetScheduleWindowResponse {
 }
 
 // v1: BundleOut. `api_version` is gone, because the package name is the
-// version, and the window is a school year rather than v1's `start` and `days`.
+// version, `next_school_day` is gone (see the reservation below), and the
+// window is a school year rather than v1's `start` and `days`.
 message ScheduleWindow {
   ClassSummary school_class = 1;
   google.protobuf.Timestamp generated_at = 2;
   // Every day of the school year, in order.
   repeated ScheduleDay days = 3;
-  // The first day with lessons after the last one in `days`, looked for up to
-  // 21 days past it, so «homework for the next school day» resolves across a
-  // holiday. Absent when there is none.
-  ScheduleDay next_school_day = 4;
+  // Field 4 was `next_school_day`. v1's bundle looked up to 21 days past a
+  // window of a few days, so «homework for the next school day» resolved
+  // across a holiday; a v2 window is a whole school year, and 21 days past its
+  // last lesson is June, which is out of season for every class, so the field
+  // could never be filled. The phone answers «what is next» from the year it
+  // holds.
+  reserved 4;
+  reserved "next_school_day";
   DeviceAccess device = 5;
 }
 

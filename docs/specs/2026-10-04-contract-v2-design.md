@@ -1,7 +1,7 @@
 # Sub-project 2: the v2 contract
 
 Status: **approved by the owner on 4 October 2026**; amended the same day by what writing its
-plan found (decision 10 and the renames in decision 7, each with its reason). This is the detailed design of
+plan found (decision 10 and the renames in decision 7, each with its reason), and again after its final review (`ScheduleWindow.next_school_day` dropped, field 4 reserved: a window is a school year, so 21 days past it is June and the field could never be filled). This is the detailed design of
 sub-project 2 of `2026-10-03-one-contract-design.md` (the programme; read its section 1 first —
 this document settles what that section left as a draft and does not repeat its reasons). It
 delivers the contract and nothing that serves it: the proto files, their generated Python code,
@@ -27,7 +27,7 @@ it on the phone.
 **Does not deliver:** any handler, route or mount (sub-project 3); any Kotlin (sub-project 5 —
 see «Kotlin waits»); any change to v1. Nothing here is reachable from the deployed server: the
 generated modules are imported by nothing in `app.main`, so the cold start is unchanged and
-`tests/test_cold_start.py` holds it.
+`tests/test_contract.py` holds it, in a fresh interpreter.
 
 ## Decisions this document makes
 
@@ -199,8 +199,11 @@ sign_in_methods; repeated DiaryFeature features; }`. `provider` is a string key,
 so a provider added on the server reaches the phone without a proto change (the programme's
 «Growing the diary»). `DiaryFeature` (`SCHEDULE`, `HOMEWORK`, `MARKS`, `PERIODS`, `SUBJECTS`,
 `TEACHERS`, `ATTENDANCE`, `TURNSTILE`, `MEAL_ACCOUNT`, `FINAL_MARKS`, …) and `SignInMethod`
-(`PASSWORD`, `SESSION_ADOPT`, …) are enums: a new feature is a new value, which an old client
-ignores by the enum rule. A diary method whose feature a provider lacks answers
+(`PASSWORD`, `SESSION_ADOPT`, …) are enums: a new feature is a new value. In binary protobuf an
+old client keeps an unknown value as a number; in canonical JSON it arrives as a name the client
+has never seen, so a client decodes enum names leniently, elements of a list included, and drops
+what it does not know. A new platform's credential is one more case of the `credential` oneof of
+`CreateDiarySessionRequest`, the one contract change a platform makes. A diary method whose feature a provider lacks answers
 `UNIMPLEMENTED` / `FEATURE_UNSUPPORTED`.
 
 ### 9. Field names and messages mirror v1 where v1 was right

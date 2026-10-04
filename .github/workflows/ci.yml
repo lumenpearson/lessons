@@ -142,9 +142,11 @@ jobs:
   # nothing for it. It reads no secret, like the rest of this file, so a pull
   # request from a fork runs it whole. Buf's remote plugins and the Schema
   # Registry are used unauthenticated, as the spike used them. If Buf ever
-  # throttles this job, the generate step says so, and the fix is a BUF_TOKEN
-  # repository secret handed to the buf-action step: the owner's step,
-  # docs/build.md, «The v2 contract and Buf».
+  # throttles this job, either step can be the one that fails: the buf-action
+  # step fetches googleapis from the Schema Registry before generate runs, and
+  # a throttle there fails with Buf's own message and no hint. The remedy is
+  # the same either way, a BUF_TOKEN repository secret handed to the buf-action
+  # step: the owner's step, docs/build.md, «The v2 contract and Buf».
   contract:
     name: Contract (Buf)
     needs: changes
@@ -174,9 +176,12 @@ jobs:
             echo "::notice::The base of this pull request has no buf.yaml: buf breaking has nothing to compare against and is skipped, not passed."
           fi
 
-      # Pinned twice: the action by its exact tag, and Buf by version and by
-      # the SHA-256 of the Linux binary the action downloads (the release's
-      # sha256.txt), so neither moves without a commit here.
+      # Buf is pinned by version and by the SHA-256 of the Linux binary the
+      # action downloads (the release's sha256.txt), so Buf cannot move without
+      # a commit here. The action itself is pinned by its tag, like every other
+      # action in these workflows, and a tag is something its owner could move;
+      # the job reads no secret and has `contents: read`, which is what bounds
+      # that.
       - id: buf
         uses: bufbuild/buf-action@v1.6.0
         with:

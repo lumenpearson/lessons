@@ -310,8 +310,10 @@ value, the scale or kind it is on, and an optional weight, and every field a pla
 is optional. A new platform with a new shade of meaning is a new optional field; the statistics
 use it where it is present (a weighted average where weights exist) and say which rule they used.
 
-**A new platform** (one more diary) must not touch the contract either. Today's code is shaped for
-exactly two, and v2 is where that ends:
+**A new platform** (one more diary) touches the contract in one place only: its credential is one
+more case of `CreateDiarySessionRequest.credential`, an additive change (sub-project 2's design,
+decision 8), and nothing else does. Today's code is shaped for exactly two, and v2 is where that
+ends:
 
 - `providers/diary/registry.py` chooses with an `if` per key and a `KEYS` tuple of two. It becomes
   a table — key, module, the features the provider declares — still imported lazily, so no

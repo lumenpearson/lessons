@@ -53,6 +53,8 @@ app/
 ├── wording.py     the words both shells print: dates, plurals, a day's card
 ├── catalog/       the region catalog — generated data, never edited by hand
 ├── services/      the rules both shells call — pure async functions over a session
+├── providers/     the foreign services: the diaries (petersburg, netschool) and dadata
+├── contract/      the v2 contract's Python, generated from proto/ — imported by nothing in app.main
 ├── api/           the client API: reads, and the writes in the table above
 ├── bot/           aiogram routers, roles, keyboards, renderers
 └── main.py        FastAPI app; its lifespan owns the bot's polling task

@@ -49,7 +49,7 @@ gate.**
 
 ## Contract, from the repository root
 
-Only when `proto/` changed. Buf 1.73.0 is fetched by hand and kept outside the repository
+Only when `proto/`, `buf.*` or `server/app/contract/` changed, which is CI's own filter. Buf 1.73.0 is fetched by hand and kept outside the repository
 (`docs/build.md`, «The v2 contract and Buf»).
 
 1. `buf lint`: STANDARD, as CI runs it.

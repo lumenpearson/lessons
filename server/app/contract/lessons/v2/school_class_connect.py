@@ -87,7 +87,9 @@ class ClassService(Protocol):
     async def update_term(self, request: UpdateTermRequest, ctx: RequestContext[UpdateTermRequest, UpdateTermResponse], /) -> UpdateTermResponse:
         """
         Moves one term's edges. TERM_BOUNDS_REFUSED, with the service's own
-        sentence, when the year cannot hold them.
+        sentence, when the year cannot hold them. It takes no update_mask because
+        v1 requires both edges in one write: they are validated against the year
+        and the other terms together, so a single edge is not a change to ask for.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -395,7 +397,9 @@ class ClassServiceClient(ConnectClient):
     ) -> UpdateTermResponse:
         """
         Moves one term's edges. TERM_BOUNDS_REFUSED, with the service's own
-        sentence, when the year cannot hold them.
+        sentence, when the year cannot hold them. It takes no update_mask because
+        v1 requires both edges in one write: they are validated against the year
+        and the other terms together, so a single edge is not a change to ask for.
         """
         return await self.execute_unary(
             request=request,
@@ -470,7 +474,9 @@ class ClassServiceSync(Protocol):
     def update_term(self, request: UpdateTermRequest, ctx: RequestContext[UpdateTermRequest, UpdateTermResponse], /) -> UpdateTermResponse:
         """
         Moves one term's edges. TERM_BOUNDS_REFUSED, with the service's own
-        sentence, when the year cannot hold them.
+        sentence, when the year cannot hold them. It takes no update_mask because
+        v1 requires both edges in one write: they are validated against the year
+        and the other terms together, so a single edge is not a change to ask for.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -769,7 +775,9 @@ class ClassServiceClientSync(ConnectClientSync):
     ) -> UpdateTermResponse:
         """
         Moves one term's edges. TERM_BOUNDS_REFUSED, with the service's own
-        sentence, when the year cannot hold them.
+        sentence, when the year cannot hold them. It takes no update_mask because
+        v1 requires both edges in one write: they are validated against the year
+        and the other terms together, so a single edge is not a change to ask for.
         """
         return self.execute_unary(
             request=request,

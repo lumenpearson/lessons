@@ -118,8 +118,8 @@ call a deployed server.
 
 Four things about that table are worth more than the table.
 
-**`ci.yml` reads no secret and no variable at all.** The gate — ruff, pytest, `./gradlew
-test`, both assembles and detekt — needs nothing configured, which is why a pull request
+**`ci.yml` reads no secret and no variable at all.** The gate — ruff, mypy, pytest, `./gradlew
+test`, both assembles, detekt and, when the contract changed, the «Contract» job — needs nothing configured, which is why a pull request
 from a fork runs the whole of it. The one consequence worth knowing: its APKs are built with the legal
 link's default, so they link *this* repository's terms, whoever's CI built them.
 
@@ -692,8 +692,9 @@ From the repository root:
 - `buf lint`: the STANDARD rules, with the one exception `buf.yaml` names and why.
 - `buf generate`: rewrites `server/app/contract/` whole (`clean: true`). Commit it in the
   same change as the proto, because CI regenerates and fails on any difference.
-- `buf breaking --against "$(git rev-parse --git-common-dir)#branch=main"`: the FILE rules
-  against `main`, once `main` has a contract. Before that there is nothing to compare
+- `git fetch origin main`, then `buf breaking --against '.git#ref=origin/main'`: the FILE
+  rules against `origin/main` rather than a local `main` that may be stale, once `main` has a
+  contract. Before that there is nothing to compare
   against, which is also why CI skips the check on the pull request that adds the contract
   and says so.
 
@@ -706,8 +707,10 @@ generated module. Moving one is three edits and a regeneration, in one commit.
 
 **Unauthenticated, for now.** Generation, and the `googleapis` dependency pinned in
 `buf.lock`, come from the Buf Schema Registry without a login, as the spike did it. Buf
-rate-limits anonymous use, and CI has not met the limit. If it does, the generate step says
-so, and the fix is the owner's:
+rate-limits anonymous use, and CI has not met the limit. If it does, either step can be the
+one that fails (the buf-action step fetches `googleapis` from the Schema Registry before
+generate runs, and a throttle there fails with Buf's own message and no hint), and the
+remedy is the same, and the owner's:
 - a `BUF_TOKEN` repository secret holding a Buf token;
 - `token: ${{ secrets.BUF_TOKEN }}` on the `buf-action` step.
 

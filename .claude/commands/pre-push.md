@@ -23,6 +23,10 @@ Then run, and report the real output of, every gate that applies:
 **android/** — `./gradlew test`, `./gradlew assembleDebug`, `./gradlew assembleRelease`
 (add `--offline` if there is no network)
 
+**contract** — when `proto/`, `buf.*` or `server/app/contract/` changed, from the repository
+root `buf lint`, then `buf generate` followed by `git diff --exit-code server/app/contract`,
+and from `server/` `python -m pytest -q tests/test_contract.py`
+
 Rules:
 
 - `assembleRelease` is not optional. R8 and resource shrinking are where "worked in debug"

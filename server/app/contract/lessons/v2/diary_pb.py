@@ -292,7 +292,9 @@ _CreateDiarySessionRequestFields: TypeAlias = Literal["login", "petersburg", "ne
 class CreateDiarySessionRequest(Message[_CreateDiarySessionRequestFields]):
     """
     v1: DiarySessionBody, told apart by `provider`; here the credential's case
-    says which.
+    says which. A new platform whose sign-in adopts a session adds one case to
+    `credential`: additive, and the only change to the contract a new platform
+    makes; its key, regions, features and binding travel as data.
 
     ```proto
     message lessons.v2.CreateDiarySessionRequest
@@ -964,7 +966,8 @@ class ListDiaryHomeworkRequest(Message[_ListDiaryHomeworkRequestFields]):
             optional string start_date = 2;
             ```
         end_date:
-            "YYYY-MM-DD"; 14 days after start_date when absent.
+            "YYYY-MM-DD"; 14 days after start_date when absent, and no more than 62
+            days after it.
 
             ```proto
             optional string end_date = 3;
@@ -1115,7 +1118,8 @@ class ListMarksRequest(Message[_ListMarksRequestFields]):
             optional string start_date = 2;
             ```
         end_date:
-            "YYYY-MM-DD"; 14 days after start_date when absent.
+            "YYYY-MM-DD"; 14 days after start_date when absent, and no more than 62
+            days after it.
 
             ```proto
             optional string end_date = 3;
@@ -1948,9 +1952,12 @@ class ClearCorrectionsResponse(Message[_ClearCorrectionsResponseFields]):
 
 class DiaryFeature(Enum):
     """
-    What a provider has (the design's decision 8). A new datum is a new value,
-    which an old client ignores by the enum rule; a diary method whose feature
-    a provider lacks answers FEATURE_UNSUPPORTED.
+    What a provider has (the design's decision 8). A new datum is a new value.
+    In binary protobuf an old client keeps an unknown value as a number; in
+    canonical JSON it arrives as a name the client has never seen, so a client
+    decodes enum names leniently, elements of a repeated field included, and
+    drops what it does not know (docs/api.md, «What the values look like»). A
+    diary method whose feature a provider lacks answers FEATURE_UNSUPPORTED.
 
     ```proto
     enum lessons.v2.DiaryFeature
@@ -1999,10 +2006,15 @@ class DiaryFeature(Enum):
             DIARY_FEATURE_TURNSTILE = 8
             ```
         MEAL_ACCOUNT:
+            The pupil's canteen account and its balance: no method reads it yet.
+
             ```proto
             DIARY_FEATURE_MEAL_ACCOUNT = 9
             ```
         FINAL_MARKS:
+            Term and year marks, as opposed to the marks of single lessons: no method
+            reads it yet.
+
             ```proto
             DIARY_FEATURE_FINAL_MARKS = 10
             ```

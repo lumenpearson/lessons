@@ -81,7 +81,9 @@ service ClassService {
     option (lessons.v2.min_role) = ROLE_ADMIN;
   }
   // Moves one term's edges. TERM_BOUNDS_REFUSED, with the service's own
-  // sentence, when the year cannot hold them.
+  // sentence, when the year cannot hold them. It takes no update_mask because
+  // v1 requires both edges in one write: they are validated against the year
+  // and the other terms together, so a single edge is not a change to ask for.
   rpc UpdateTerm(UpdateTermRequest) returns (UpdateTermResponse) {
     option (google.api.http) = {
       patch: "/v2/class/terms/{term.index}"

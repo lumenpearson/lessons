@@ -1624,7 +1624,10 @@ no REST binding.
   JSON writes a 64-bit number as a string.
 - An enum is its value's name: `"DAY_KIND_HOLIDAY"`, not v1's `"holiday"`. Every enum starts
   at `…_UNSPECIFIED`, which is how a field says «none» where v1 said `null`. A client maps a
-  value it does not know to a fallback it states.
+  value it does not know to a fallback it states, and that holds inside lists too: a client
+  decodes enum names leniently, element by element, because a new value is an additive change on
+  the server. A strict decoder (kotlinx's `coerceInputValues` does not reach list elements) would
+  fail the whole read on the first new `DiaryFeature`.
 - Every method answers a `<Method>Response`, even where it holds a single resource, so one
   method's answer can grow without touching another's.
 
