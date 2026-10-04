@@ -7,7 +7,7 @@ password reset flow.
 Everything below is what the code in `server/app/bot/` actually does. Handlers
 live in `handlers/`, the structural half of them in `handlers/manage/` — one
 module per screen of «⚙️ Класс», over `services/manage/`, each handler gated by
-`@needs(Role.X)`; the wording lives in one `*_render.py` per screen, in `render.py` (what is said about the class, and the door to `app/wording.py`) and in `manage_render.py`; the
+`@needs(Role.X)`; the wording lives in one `*_render.py` per screen, in `render.py` (what is said about the class, and the door to `app/wording.py`) and in `manage_render/`, one module per screen like `handlers/manage/`; the
 buttons in `keyboards.py` (the menu, and what every screen ends with), one
 `*_keyboard.py` per feature beside it, and `manage_keyboards.py`.
 
@@ -698,7 +698,7 @@ renderer.
   «📥», «🗓» — is two where Python sees one. A number in `render.py` is a budget,
   never a measurement, and it is not to be tidied up towards 4096.
 * **What is cut is announced.** `clamp` and `more_line` live in `app/bot/render.py`
-  and the per-page caps in `manage_render.py`; every list that stops early says
+  and the per-page caps beside each page's renderer in `manage_render/`; every list that stops early says
   «… и ещё N». The caps differ per page on purpose — a bell schedule's row carries
   three buttons and twelve lines of times, a subject's one of each — and each one
   is read by both the renderer and `manage_keyboards`, because a row that is drawn

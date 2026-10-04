@@ -14,7 +14,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot import manage_render as mr
 from app.bot.handlers.manage._common import (
     NEED_OWNER,
     _int_or_none,
@@ -22,6 +21,7 @@ from app.bot.handlers.manage._common import (
 )
 from app.bot.keyboards import Menu, back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import ManageAction, class_menu, switch_keyboard
+from app.bot.manage_render import class_card as mr
 from app.bot.manage_states import DeleteClass, EditClassField
 from app.bot.middlewares import prefs_key
 from app.bot.roles import list_memberships

@@ -46,8 +46,8 @@ so run a card through `editor_render.as_alert`, which also cuts at 200 character
 
 ## A list page and the keyboard under it read the same number
 
-`manage_render` declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX`, `LIST_MAX` and
-`manage_keyboards` builds its rows from those same names. The values differ on purpose. Do
+`manage_render` declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX`, `LIST_MAX`
+beside each page's renderer, and `manage_keyboards` builds that page's rows from the same names. The values differ on purpose. Do
 not tidy them into one constant; the rule is that what is drawn is what can be pressed, and
 `test_no_list_page_draws_a_row_the_keyboard_cannot_reach` holds it.
 

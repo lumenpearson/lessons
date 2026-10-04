@@ -18,7 +18,7 @@ from typing import ParamSpec
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot import manage_render as mr
+from app.bot.manage_render import _common as mr
 from app.models import DayKind, Role, SchoolClass
 from app.services.manage import classes as classes_service
 

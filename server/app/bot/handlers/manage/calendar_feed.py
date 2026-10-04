@@ -12,10 +12,10 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot import manage_render as mr
 from app.bot.handlers.manage._common import needs
 from app.bot.keyboards import back_to_menu
 from app.bot.manage_keyboards import ManageAction, back_to
+from app.bot.manage_render import calendar_feed as mr
 from app.config import get_settings
 from app.models import Role, SchoolClass
 from app.services import audit

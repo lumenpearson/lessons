@@ -294,7 +294,7 @@ def test_every_day_kind_can_be_said():
     """
     from app.bot.handlers.manage import _KIND_BY_TAG, _KIND_SUMMARY
     from app.bot.manage_keyboards import PERIOD_KINDS, day_kind_keyboard
-    from app.bot.manage_render import KIND_LABELS
+    from app.bot.manage_render.holidays import KIND_LABELS
     from app.bot.render import DAY_KIND_LABELS
 
     special = [kind for kind in DayKind if kind is not DayKind.NORMAL]

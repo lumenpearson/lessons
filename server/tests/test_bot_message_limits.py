@@ -33,7 +33,6 @@ from app.bot import (
     access_render,
     diary_render,
     editor_render,
-    manage_render,
     render,
     tasks_render,
     week_render,
@@ -45,6 +44,7 @@ from app.bot.handlers.manage import bells_new_rows, cmd_export
 from app.bot.handlers.start.onboarding import create_class_school_search
 from app.bot.handlers.timetable import TIMETABLE_HELP, timetable_pick_day
 from app.bot.keyboards import TimetableAction
+from app.bot.manage_render.stats import render_search
 from app.models import (
     AccessRequest,
     BellPeriod,
@@ -762,7 +762,7 @@ def test_a_search_for_something_long_answers_something():
     with no budget at all, and `cmd_find` is a `Message` handler with no
     callback for the error middleware to apologise on: the answer was nothing.
     """
-    text = manage_render.render_search("я" * 4090, [], TODAY)
+    text = render_search("я" * 4090, [], TODAY)
 
     assert len(text) <= render.MESSAGE_LIMIT
     assert "Ничего не нашлось" in text
@@ -787,7 +787,7 @@ def test_a_long_search_still_shows_what_it_found():
     ]
 
     for needle in ("я" * 3900, '"' * 800):
-        text = manage_render.render_search(needle, rows, TODAY)
+        text = render_search(needle, rows, TODAY)
         assert len(text) <= render.MESSAGE_LIMIT
         for row in rows:
             assert row.subject_name in text, needle

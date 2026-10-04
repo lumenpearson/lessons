@@ -49,8 +49,8 @@ shipped that way.
 
 ## A list page and its keyboard
 
-`manage_render` declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX`, `LIST_MAX`;
-`manage_keyboards` builds its rows from the same names. The values differ on purpose — a bell
+`manage_render` declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX`, `LIST_MAX` beside
+each page's renderer; `manage_keyboards` builds that page's rows from the same names. The values differ on purpose — a bell
 schedule's row carries three buttons and twelve lines of times, a subject's one of each. Do
 not tidy them into one constant. What is drawn is what can be pressed, and
 `test_no_list_page_draws_a_row_the_keyboard_cannot_reach` holds it. Nothing paginates, so

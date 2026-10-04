@@ -14,9 +14,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot import manage_render as mr
 from app.bot.handlers.manage._common import _today, needs
 from app.bot.keyboards import back_to_menu
+from app.bot.manage_render import stats as mr
 from app.models import Role, SchoolClass
 from app.services import stats as stats_service
 from app.services.manage import search

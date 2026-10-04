@@ -115,18 +115,11 @@ from app.bot.manage_keyboards import (
     holiday_list_keyboard,
     subject_list_keyboard,
 )
-from app.bot.manage_render import (
-    BELLS_MAX,
-    DEVICES_MAX,
-    LIST_MAX,
-    SUBJECTS_MAX,
-    render_bells,
-    render_devices,
-    render_holidays,
-    render_subjects,
-    split_text,
-    time_ago,
-)
+from app.bot.manage_render.bells import BELLS_MAX, render_bells
+from app.bot.manage_render.devices import DEVICES_MAX, render_devices, time_ago
+from app.bot.manage_render.holidays import LIST_MAX, render_holidays
+from app.bot.manage_render.import_export import split_text
+from app.bot.manage_render.subjects import SUBJECTS_MAX, render_subjects
 from app.bot.middlewares import active_class, prefs_key
 from app.bot.states import BindDiary
 from app.db import SessionLocal

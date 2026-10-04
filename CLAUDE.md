@@ -606,7 +606,7 @@ points Hilt does not inject cleanly.
   пошло не так» and `/homework` — a plain `answer`, with no callback to
   apologise on — answered nothing at all. Every renderer that grows with the
   data carries a budget (`WEEK_TEXT_LIMIT`, `TASK_LINES_MAX`,
-  `HOMEWORK_DIGEST_LIMIT`, `manage_render.clamp`) and says «… и ещё N». Cut a
+  `HOMEWORK_DIGEST_LIMIT`, `render.clamp`) and says «… и ещё N». Cut a
   string **before** escaping it: cutting after can leave «&am», which is a
   refused message of its own.
 - **Everything from outside is escaped before it goes into a message.** The bot sends
@@ -625,8 +625,8 @@ points Hilt does not inject cleanly.
   `editor_render.as_alert` instead — which also cuts at 200 characters, because past
   that Telegram answers 400 and the press answers nothing at all.
 - **A list page and the keyboard under it read the same number.** `manage_render`
-  declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX` and `LIST_MAX`, and
-  `manage_keyboards` builds its rows from those same names. While there were two
+  declares `SUBJECTS_MAX`, `BELLS_MAX`, `DEVICES_MAX` and `LIST_MAX` beside each page's
+  renderer, and `manage_keyboards` builds that page's rows from the same names. While there were two
   numbers, three pages of four drew rows no button could reach and «… и ещё N» said
   nothing, because it counted from the renderer's number. The values differ on
   purpose — a bell schedule's row carries three buttons and twelve lines of times, a

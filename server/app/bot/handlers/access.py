@@ -26,7 +26,7 @@ from app.bot.access_render import (
 from app.bot.button_style import DANGER, SUCCESS
 from app.bot.keyboards import Menu, back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import RequestAction
-from app.bot.manage_render import person
+from app.bot.manage_render._common import person
 from app.bot.render import MESSAGE_LIMIT, clamp, cut
 from app.bot.roles import can_grant
 from app.bot.states import AddInvite

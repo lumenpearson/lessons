@@ -14,7 +14,11 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.bot.button_style import DANGER, PRIMARY, SUCCESS
 from app.bot.keyboards import ClassAction, DiarySchoolPick, Menu, back_to_menu
-from app.bot.manage_render import AUDIT_PAGE, BELLS_MAX, DEVICES_MAX, LIST_MAX, SUBJECTS_MAX
+from app.bot.manage_render.audit_log import AUDIT_PAGE
+from app.bot.manage_render.bells import BELLS_MAX
+from app.bot.manage_render.devices import DEVICES_MAX
+from app.bot.manage_render.holidays import LIST_MAX
+from app.bot.manage_render.subjects import SUBJECTS_MAX
 from app.models import DayKind
 
 

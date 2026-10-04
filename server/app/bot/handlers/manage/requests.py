@@ -15,7 +15,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot import manage_render as mr
 from app.bot.handlers.manage._common import (
     _bot_of,
     _int_or_none,
@@ -23,6 +22,7 @@ from app.bot.handlers.manage._common import (
 )
 from app.bot.keyboards import back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards import RequestAction, request_keyboard
+from app.bot.manage_render import _common as mr
 from app.bot.manage_states import RequestAccess
 from app.models import AccessRequest, Role, SchoolClass
 from app.services import access as access_service
