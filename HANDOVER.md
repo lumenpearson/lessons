@@ -178,7 +178,9 @@ this branch (#295), so that local run is the only check of them.
 
 ### What was deliberately left alone
 
-- **The board is not level with the repository.** #294 is not on it; #296 has no Priority,
+- **The board is not level with the repository.** #294's item exists — auto-add made it two
+  seconds after the pull request, and its fields are set — but neither the board's views nor
+  its item list show it; #296 has no Priority,
   Size, Estimate or dates; #271, #272 and #275 have no Target date, and their Estimates were
   set before the commits that closed them existed. By the README's rule they would be: #296
   P1, XL, 34 (10 347 lines changed), 4 October to 4 October; #271, #272 and #275 a Target date
@@ -188,9 +190,9 @@ this branch (#295), so that local run is the only check of them.
 
 ### What nobody has verified in this batch
 
-- **Why «Auto-add to project» missed #294.** #294 was open when it was created and matched
-  the old filter as well as the new one. Nor has anybody yet seen the new filter take a
-  closed back-fill.
+- **Why #294's item does not show on the board.** It reads back through the pull request's
+  `projectItems`, on project 6 and not archived, and the project's own item list, 295 items,
+  leaves it out. Nor has anybody yet seen the new filter take a closed back-fill.
 - **`gh project item-add` as the skill writes it.** `gh project item-edit … --date` was run as
   written, for #277's Target date, and read back.
 
