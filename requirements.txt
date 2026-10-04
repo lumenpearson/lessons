@@ -29,6 +29,8 @@ certifi==2026.7.22
     #   httpx
 cffi==2.1.1
     # via cryptography
+connectrpc==0.12.1
+    # via -r requirements.in
 cryptography==50.0.1
     # via -r requirements.in
 dishka==1.10.1
@@ -58,10 +60,18 @@ multidict==6.9.1
     # via
     #   aiohttp
     #   yarl
+opentelemetry-api==1.45.0
+    # via pyqwest
 propcache==0.5.4
     # via
     #   aiohttp
     #   yarl
+protobuf-py==0.6.0
+    # via
+    #   -r requirements.in
+    #   connectrpc
+protobuf-py-ext==0.6.0
+    # via protobuf-py
 pycparser==3.0
     # via cffi
 pydantic==2.13.5
@@ -74,6 +84,8 @@ pydantic-core==2.46.5
     # via pydantic
 pydantic-settings==2.15.0
     # via -r requirements.in
+pyqwest==0.11.0
+    # via connectrpc
 python-dotenv==1.2.3
     # via pydantic-settings
 sqlalchemy==2.1.1
@@ -87,6 +99,8 @@ typing-extensions==4.16.0
     #   aiosignal
     #   anyio
     #   fastapi
+    #   opentelemetry-api
+    #   protobuf-py
     #   pydantic
     #   pydantic-core
     #   sqlalchemy

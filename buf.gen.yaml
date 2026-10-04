@@ -1,0 +1,21 @@
+# Python only: Kotlin and Java lite wait for sub-project 5, which adds them
+# with the bindings that use them (the design's decision 3).
+#
+# Every remote plugin is pinned. An unpinned one takes Buf's latest release,
+# and CI regenerates and fails on any difference, so a release on Buf's side
+# would turn CI red with nothing changed here. Each pin is the floor of its
+# runtime in requirements.in, and tests/test_contract.py holds the two level.
+version: v2
+# server/app/contract is deleted and rewritten whole, so nothing hand-written
+# may live there.
+clean: true
+plugins:
+  # Messages, for protobuf-py. include_imports brings google/api/annotations
+  # and http along, which every service file imports; the well-known types are
+  # protobuf-py's own (`protobuf.wkt.google.protobuf`) and are not generated.
+  - remote: buf.build/bufbuild/py:v0.6.0
+    out: server/app/contract
+    include_imports: true
+  # Services: connectrpc's interfaces and clients over those messages.
+  - remote: buf.build/connectrpc/py:v0.12.1
+    out: server/app/contract

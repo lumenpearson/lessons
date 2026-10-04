@@ -1,0 +1,83 @@
+// A member asking the admins for a higher role («Хочу редактировать»): not a
+// request to join, which is CreateDevice. Replaces v1's /manage/requests….
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service AccessRequestService {
+  // Everybody waiting for a role, oldest first.
+  rpc ListAccessRequests(ListAccessRequestsRequest) returns (ListAccessRequestsResponse) {
+    option (google.api.http) = {get: "/v2/class/accessRequests"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // Grants the role through the same rules as «👥 Доступ» in the bot, and
+  // tells the requester in Telegram, where they asked. ROLE_GRANT_REFUSED
+  // when the ladder does not allow it. RESOURCE_NOT_FOUND for a request
+  // already answered, so two admins cannot grant twice.
+  rpc ApproveAccessRequest(ApproveAccessRequestRequest) returns (ApproveAccessRequestResponse) {
+    option (google.api.http) = {
+      post: "/v2/class/accessRequests/{request_id}:approve"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // Says no, and tells the requester; they keep whatever role they had.
+  rpc DeclineAccessRequest(DeclineAccessRequestRequest) returns (DeclineAccessRequestResponse) {
+    option (google.api.http) = {
+      post: "/v2/class/accessRequests/{request_id}:decline"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+}
+
+// v1: AccessRequestOut.
+message AccessRequest {
+  int32 id = 1;
+  // A display name, never the Telegram id.
+  string who = 2;
+  Role requested_role = 3;
+  optional string message = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message ListAccessRequestsRequest {}
+
+message ListAccessRequestsResponse {
+  repeated AccessRequest access_requests = 1;
+}
+
+message ApproveAccessRequestRequest {
+  int32 request_id = 1;
+  // The role to grant; ROLE_UNSPECIFIED grants the one asked for, which is
+  // what pressing «Выдать» in the bot does. v1: RequestDecisionIn.role.
+  Role role = 2;
+}
+
+// v1: RequestDecisionOut, whose `status` is the method's name now.
+message ApproveAccessRequestResponse {
+  int32 request_id = 1;
+  // The role actually granted: an existing member is never lowered.
+  Role role = 2;
+  string who = 3;
+}
+
+message DeclineAccessRequestRequest {
+  int32 request_id = 1;
+}
+
+message DeclineAccessRequestResponse {
+  int32 request_id = 1;
+  string who = 2;
+}

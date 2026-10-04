@@ -1,0 +1,136 @@
+// Substitutions: one lesson on one date replaced or cancelled. Replaces v1's
+// PUT /overrides; «overrides» is the diary's word for corrections, so v2 calls
+// these by their own name.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service SubstitutionService {
+  // Substitutions on dates in a window: today and 21 days on when unset, 62
+  // days at most.
+  rpc ListSubstitutions(ListSubstitutionsRequest) returns (ListSubstitutionsResponse) {
+    option (google.api.http) = {get: "/v2/class/substitutions"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+  rpc GetSubstitution(GetSubstitutionRequest) returns (GetSubstitutionResponse) {
+    option (google.api.http) = {get: "/v2/class/substitutions/{substitution_id}"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+  // One per date and lesson number: a second is RESOURCE_EXISTS. Refused
+  // with:
+  // - NO_LESSON_ON_DAY on a day that draws no lessons;
+  // - NO_BELL_FOR_LESSON at a number the day rings no bell for;
+  // - LESSON_NOT_ON_TIMETABLE when cancelling, or replacing without a
+  //   subject, a lesson the day's template does not have.
+  // Otherwise the write would be stored, announced to every subscriber, and
+  // drawn nowhere. REST answers 201.
+  rpc CreateSubstitution(CreateSubstitutionRequest) returns (CreateSubstitutionResponse) {
+    option (google.api.http) = {
+      post: "/v2/class/substitutions"
+      body: "substitution"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+  // `update_mask` takes action, subject, room, teacher and note; the date and
+  // the number are the row. A row at a number that no longer rings stays
+  // editable, which is how a class gets out of one.
+  rpc UpdateSubstitution(UpdateSubstitutionRequest) returns (UpdateSubstitutionResponse) {
+    option (google.api.http) = {
+      patch: "/v2/class/substitutions/{substitution.id}"
+      body: "substitution"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+  // The lesson goes back to the timetable. v1: PUT /overrides with "clear".
+  rpc DeleteSubstitution(DeleteSubstitutionRequest) returns (DeleteSubstitutionResponse) {
+    option (google.api.http) = {delete: "/v2/class/substitutions/{substitution_id}"};
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+}
+
+// v1: OverrideActionName without "clear", which is DeleteSubstitution. The
+// model's ADD is not here because nothing writes it; adding it later is safe.
+enum SubstitutionAction {
+  SUBSTITUTION_ACTION_UNSPECIFIED = 0;
+  // Another subject, room or teacher in this lesson; at least one of the
+  // three is set. At a number the template leaves empty, this adds a lesson,
+  // and then it needs a subject.
+  SUBSTITUTION_ACTION_REPLACE = 1;
+  // The lesson does not happen.
+  SUBSTITUTION_ACTION_CANCEL = 2;
+}
+
+// v1: OverrideIn and OverrideOut, now with an id.
+message Substitution {
+  // Assigned by the server; ignored on create.
+  int32 id = 1;
+  // "YYYY-MM-DD".
+  string date = 2;
+  // The lesson number, 1 to 20.
+  int32 index = 3;
+  SubstitutionAction action = 4;
+  // Up to 120 characters; stored in the class's own spelling of the subject.
+  optional string subject = 5;
+  // Up to 32 characters.
+  optional string room = 6;
+  // Up to 120 characters.
+  optional string teacher = 7;
+  // Up to 500 characters.
+  optional string note = 8;
+}
+
+message ListSubstitutionsRequest {
+  // "YYYY-MM-DD"; today when absent.
+  optional string start_date = 1;
+  // "YYYY-MM-DD"; 21 days after start_date when absent.
+  optional string end_date = 2;
+}
+
+message ListSubstitutionsResponse {
+  repeated Substitution substitutions = 1;
+}
+
+message GetSubstitutionRequest {
+  int32 substitution_id = 1;
+}
+
+message GetSubstitutionResponse {
+  Substitution substitution = 1;
+}
+
+message CreateSubstitutionRequest {
+  Substitution substitution = 1;
+}
+
+message CreateSubstitutionResponse {
+  Substitution substitution = 1;
+}
+
+message UpdateSubstitutionRequest {
+  Substitution substitution = 1;
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateSubstitutionResponse {
+  Substitution substitution = 1;
+}
+
+message DeleteSubstitutionRequest {
+  int32 substitution_id = 1;
+}
+
+message DeleteSubstitutionResponse {}

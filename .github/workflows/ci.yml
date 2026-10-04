@@ -18,14 +18,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Which halves of the repository this change can possibly have broken.
+  # Which parts of the repository this change can possibly have broken.
   #
   # The Android job is ten minutes and the server job is two; a commit that
-  # edits only `docs/` used to pay both. This job costs about fifteen seconds
-  # and decides which of them has anything to do.
+  # edits only `docs/` used to pay both. This job costs a few seconds and
+  # decides, as three outputs, which of Android, the server and the contract
+  # check has anything to do.
   #
   # It fails open on purpose. If the range cannot be worked out — a force push,
-  # a first push of a branch, a re-run after history moved — both halves run.
+  # a first push of a branch, a re-run after history moved — every job runs.
   # A wasted ten minutes is an annoyance; a change that skipped the build that
   # would have caught it is a bad release.
   changes:
@@ -35,6 +36,7 @@ jobs:
     outputs:
       android: ${{ steps.filter.outputs.android }}
       server: ${{ steps.filter.outputs.server }}
+      contract: ${{ steps.filter.outputs.contract }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -65,6 +67,7 @@ jobs:
             echo "::notice::Change range unknown; building everything."
             echo "android=true" >> "$GITHUB_OUTPUT"
             echo "server=true" >> "$GITHUB_OUTPUT"
+            echo "contract=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -72,10 +75,11 @@ jobs:
           echo "Changed files:"
           echo "$files"
 
-          # The workflow files themselves count as both: a change to how the
-          # build runs has to be proved by running it.
+          # The workflow files themselves count as all three: a change to how
+          # the build runs has to be proved by running it.
           android=false
           server=false
+          contract=false
           while IFS= read -r file; do
             case "$file" in
               # `docs/app/` is Android: `:core:data` packages it as assets
@@ -107,12 +111,107 @@ jobs:
               # test_compose, which is all that checks it: nothing here runs Docker.
               # `requirements.in` is the input of the lock `requirements.txt`, and
               # test_requirements_mirror holds the two level with pyproject.toml.
-              server/*|api/*|requirements.txt|requirements.in|docker-compose.yml|docs/deploy.md|docs/build.md|docs/diaries.md|docs/diaries/*|.github/workflows/*) server=true ;;
+              # `buf.gen.yaml` is read by test_contract, which holds its pinned
+              # plugin versions level with the runtime floors in requirements.in.
+              server/*|api/*|requirements.txt|requirements.in|docker-compose.yml|docs/deploy.md|docs/build.md|docs/diaries.md|docs/diaries/*|buf.gen.yaml|.github/workflows/*) server=true ;;
+            esac
+            case "$file" in
+              # The v2 contract and what is generated from it: the job below.
+              # `server/app/contract/` is here as well as under the server,
+              # because a hand edit there, with no proto change, is exactly what
+              # the regeneration check exists to refuse.
+              proto/*|buf.yaml|buf.gen.yaml|buf.lock|server/app/contract/*|.github/workflows/*) contract=true ;;
             esac
           done <<< "$files"
 
           echo "android=$android" >> "$GITHUB_OUTPUT"
           echo "server=$server" >> "$GITHUB_OUTPUT"
+          echo "contract=$contract" >> "$GITHUB_OUTPUT"
+
+  # The v2 contract (docs/specs/2026-10-04-contract-v2-design.md, «Checks»).
+  #
+  # Generated code is committed, because Vercel runs no code generation, so a
+  # proto change merged without its regenerated Python would deploy the old
+  # contract with nothing anywhere saying so. This job regenerates from proto/
+  # and fails on any difference. It lints with Buf's STANDARD rules. On a pull
+  # request it checks the proto against the base with the FILE category, the
+  # mechanical half of «Evolving the contract»: no field renamed, renumbered
+  # or retyped in place.
+  #
+  # Only when the contract changed (the filter above), so every other run pays
+  # nothing for it. It reads no secret, like the rest of this file, so a pull
+  # request from a fork runs it whole. Buf's remote plugins and the Schema
+  # Registry are used unauthenticated, as the spike used them. If Buf ever
+  # throttles this job, either step can be the one that fails: the buf-action
+  # step fetches googleapis from the Schema Registry before generate runs, and
+  # a throttle there fails with Buf's own message and no hint. The remedy is
+  # the same either way, a BUF_TOKEN repository secret handed to the buf-action
+  # step: the owner's step, docs/build.md, «The v2 contract and Buf».
+  contract:
+    name: Contract (Buf)
+    needs: changes
+    if: needs.changes.outputs.contract == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The base commit has to be here to be asked whether it has a contract.
+          fetch-depth: 0
+
+      # On the pull request that adds the contract, the base has no buf.yaml
+      # and there is nothing to compare against. That is said, not passed off
+      # as a green check.
+      - name: Does the base have a contract
+        id: base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if git cat-file -e "$BASE_SHA:buf.yaml" 2>/dev/null; then
+            echo "proto=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proto=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::The base of this pull request has no buf.yaml: buf breaking has nothing to compare against and is skipped, not passed."
+          fi
+
+      # Buf is pinned by version and by the SHA-256 of the Linux binary the
+      # action downloads (the release's sha256.txt), so Buf cannot move without
+      # a commit here. The action itself is pinned by its tag, like every other
+      # action in these workflows, and a tag is something its owner could move;
+      # the job reads no secret and has `contents: read`, which is what bounds
+      # that.
+      - id: buf
+        uses: bufbuild/buf-action@v1.6.0
+        with:
+          version: 1.73.0
+          checksum: 8f2986298ad08f0cc1bf999b9797b7c383adf32d7edf0f73d6f1e1a701baeac1
+          lint: true
+          breaking: ${{ github.event_name == 'pull_request' && steps.base.outputs.proto == 'true' }}
+          # Not asked for by the design; the proto files are formatted by hand.
+          format: false
+          # This repository publishes nothing to the Buf Schema Registry.
+          push: false
+          archive: false
+          # A comment needs pull-requests: write, and this workflow asks for
+          # read only.
+          pr_comment: false
+
+      - name: Generated code is what proto/ generates
+        env:
+          BUF: ${{ steps.buf.outputs.buf_path }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/generated"
+          if ! "$BUF" generate --output "$out"; then
+            echo "::error::buf generate failed. If the log says Buf refused an unauthenticated request (429, resource exhausted), the remote plugins need a BUF_TOKEN repository secret passed to this job: docs/build.md, «The v2 contract and Buf»."
+            exit 1
+          fi
+          if ! diff -r --exclude=__pycache__ "$out/server/app/contract" server/app/contract; then
+            echo "::error::server/app/contract is not what proto/ generates. From the repository root run: buf generate, then commit server/app/contract with the proto change."
+            exit 1
+          fi
 
   server:
     name: Server (API + bot)

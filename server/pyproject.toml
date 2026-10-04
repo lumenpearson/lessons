@@ -51,6 +51,16 @@ dependencies = [
     # already present as somebody's transitive dependency; a security floor is
     # not something to inherit by accident.
     "cryptography>=50.0.1",
+    # The v2 contract's runtime (docs/specs/2026-10-04-contract-v2-design.md,
+    # decision 2). The code generated into app/contract imports protobuf-py's
+    # `protobuf` package, and its services import `connectrpc`; each floor is the
+    # version of the Buf plugin that generates for it, which buf.gen.yaml pins
+    # and tests/test_contract.py holds level. Nothing in app.main imports either
+    # yet, so the cold start does not change until sub-project 3 serves v2.
+    # connectrpc brings pyqwest, a Rust HTTP client of about 16 MB it requires
+    # even on a server, and pyqwest brings opentelemetry-api.
+    "connectrpc>=0.12.1",
+    "protobuf-py>=0.6.0",
     # Schema changes. Not in requirements.txt: migrations are run from a
     # workstation against the database, never from inside a request, and the
     # function bundle is smaller without it.
@@ -136,6 +146,10 @@ dev = [
 # Turning a code back on is one line here.
 [tool.mypy]
 files = ["app"]
+# The generated contract is not ours to type-check: regeneration rewrites it
+# whole. Excluded from the walk here, and silenced below where hand-written code
+# imports it (sub-project 3's rpc/ and rest/), so its types still reach that code.
+exclude = ["^app/contract/"]
 ignore_missing_imports = true
 disable_error_code = [
     "union-attr",
@@ -146,6 +160,10 @@ disable_error_code = [
     "override",
 ]
 
+[[tool.mypy.overrides]]
+module = ["app.contract.*"]
+ignore_errors = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
@@ -153,6 +171,10 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# The generated contract: buf generate rewrites server/app/contract whole, so a
+# finding in it has nobody to fix it. Every generated file already says
+# `# ruff: noqa`; this keeps it out of every future rule and of `ruff format`.
+extend-exclude = ["app/contract"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

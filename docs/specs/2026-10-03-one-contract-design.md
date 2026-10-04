@@ -139,9 +139,11 @@ through the protobuf Gradle plugin. `buf.gen.yaml` pins every remote plugin's ve
 `java_multiple_files`. Ruff, mypy and detekt skip the generated directories. CI regenerates and
 fails on any difference, so a proto change without its generated code cannot merge.
 
-**One package, one version:** `lessons.v2`. REST lives under `/v2/…`, RPC under
-`/lessons.v2.<Service>/<Method>`. Bumping to `v3` is a new package, never an edit of this one —
-Buf's breaking check holds that.
+**One package, one version:** `lessons.v2`. REST lives under `/api/v2/…`, RPC under
+`/api/rpc/lessons.v2.<Service>/<Method>` — under `/api` because the deployment is one function
+and every path that works today is there (sub-project 2's design,
+`2026-10-04-contract-v2-design.md`, decision 1). Bumping to `v3` is a new package, never an edit
+of this one — Buf's breaking check holds that.
 
 **The class is implied by the token**, as today: `class` is a singleton resource, not
 `classes/{id}`. A phone acts on its own class only, and a resource name that pretends otherwise
@@ -308,8 +310,10 @@ value, the scale or kind it is on, and an optional weight, and every field a pla
 is optional. A new platform with a new shade of meaning is a new optional field; the statistics
 use it where it is present (a weighted average where weights exist) and say which rule they used.
 
-**A new platform** (one more diary) must not touch the contract either. Today's code is shaped for
-exactly two, and v2 is where that ends:
+**A new platform** (one more diary) touches the contract in one place only: its credential is one
+more case of `CreateDiarySessionRequest.credential`, an additive change (sub-project 2's design,
+decision 8), and nothing else does. Today's code is shaped for exactly two, and v2 is where that
+ends:
 
 - `providers/diary/registry.py` chooses with an `if` per key and a `KEYS` tuple of two. It becomes
   a table — key, module, the features the provider declares — still imported lazily, so no

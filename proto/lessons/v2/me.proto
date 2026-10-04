@@ -1,0 +1,264 @@
+// What a phone does for itself: who it is, linking it to an account, the
+// class's calendar feed, and the linked account's own tasks and homework
+// ticks, which nobody else in the class sees. Nothing here changes the class.
+// Replaces v1's /me, /me/unlink, /calendar, /tasks… and
+// POST /homework/{id}/done.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service MeService {
+  // Who this device is. Mints nothing: v1's GET /me issued a link code as a
+  // side effect, which CreateLinkCode does now.
+  rpc GetMe(GetMeRequest) returns (GetMeResponse) {
+    option (google.api.http) = {get: "/v2/me"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+  }
+  // Back to read-only, keeping the phone in the class. Unlinking a phone that
+  // is not linked is not an error.
+  rpc UnlinkMe(UnlinkMeRequest) returns (UnlinkMeResponse) {
+    option (google.api.http) = {
+      post: "/v2/me:unlink"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+  }
+  // A code that links this phone to the Telegram account that sends it to the
+  // bot. A phone already linked gets none: a code left on a linked row could
+  // be typed by somebody else and re-home the phone.
+  rpc CreateLinkCode(CreateLinkCodeRequest) returns (CreateLinkCodeResponse) {
+    option (google.api.http) = {
+      post: "/v2/me/linkCodes"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+  }
+  // The class's calendar subscription, when the class has a feed secret.
+  // Never mints one.
+  rpc GetCalendarFeed(GetCalendarFeedRequest) returns (GetCalendarFeedResponse) {
+    option (google.api.http) = {get: "/v2/me/calendarFeed"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE_LINKED;
+  }
+  // Mints the class's feed when it has none, and answers the existing feed
+  // when it has one. v2 has no rotation: the feed is the whole class's, and a
+  // new secret would cut off every calendar subscribed to the old one.
+  // Both feed methods are AUTH_KIND_DEVICE_LINKED with no min_role, on
+  // purpose: v1 let any device, an anonymous one included, mint the feed, and
+  // v2 asks for a linked account.
+  rpc CreateCalendarFeed(CreateCalendarFeedRequest) returns (CreateCalendarFeedResponse) {
+    option (google.api.http) = {
+      post: "/v2/me/calendarFeed"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE_LINKED;
+  }
+  // The linked account's tasks in this class, at most 200; done ones only
+  // when asked for.
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {
+    option (google.api.http) = {get: "/v2/me/tasks"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE_LINKED;
+  }
+  // RESOURCE_NOT_FOUND for somebody else's task as for one that never
+  // existed: an id must not reveal that a classmate keeps a list.
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {
+    option (google.api.http) = {get: "/v2/me/tasks/{task_id}"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE_LINKED;
+  }
+  // `homework_id`, when set, names homework of this class (VALIDATION_FAILED
+  // otherwise). REST answers 201.
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse) {
+    option (google.api.http) = {
+      post: "/v2/me/tasks"
+      body: "task"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE_LINKED;
+  }
+  // `update_mask` takes title, notes, subject_name, due_date, due_time,
+  // priority, homework_id, remind_at and done; v1's POST /tasks/{id}/done is
+  // this with `done`. A path whose field is absent clears it, except title
+  // and priority, which cannot be cleared.
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse) {
+    option (google.api.http) = {
+      patch: "/v2/me/tasks/{task.id}"
+      body: "task"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE_LINKED;
+  }
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse) {
+    option (google.api.http) = {delete: "/v2/me/tasks/{task_id}"};
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE_LINKED;
+  }
+  // Ticks homework off for the linked account. Ticking it twice is not an
+  // error: the app sends the state it shows, so a retry lands on the same
+  // answer.
+  rpc CreateHomeworkTick(CreateHomeworkTickRequest) returns (CreateHomeworkTickResponse) {
+    option (google.api.http) = {
+      post: "/v2/me/homeworkTicks"
+      body: "homework_tick"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE_LINKED;
+  }
+  // Takes the tick off; taking off one that is not there is not an error.
+  rpc DeleteHomeworkTick(DeleteHomeworkTickRequest) returns (DeleteHomeworkTickResponse) {
+    option (google.api.http) = {delete: "/v2/me/homeworkTicks/{homework_id}"};
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE_LINKED;
+  }
+}
+
+// This device, as it sees itself. Never carries the Telegram id behind it.
+// v1: MeOut without the code, which is CreateLinkCode's now.
+message Me {
+  optional string device_name = 1;
+  bool linked = 2;
+  // ROLE_UNSPECIFIED for an unlinked device.
+  Role role = 3;
+  // Editor or above.
+  bool can_edit = 4;
+}
+
+// v1: MeOut.link_code and MeOut.bot_deep_link.
+message LinkCode {
+  // What the bot takes as «/start link_<code>».
+  string code = 1;
+  // https://t.me/<bot>?start=link_<code>; absent when the deployment names
+  // no bot.
+  optional string bot_deep_link = 2;
+}
+
+// v1: CalendarOut.
+message CalendarFeed {
+  // The subscription address, …/api/v1/calendar/<secret>.ics: the feed
+  // itself stays plain HTTP at its v1 path. Absent while the class has no
+  // secret.
+  optional string url = 1;
+}
+
+// One of the linked account's own tasks. v1: TaskOut, TaskIn and TaskPatch.
+message Task {
+  // Assigned by the server; ignored on create.
+  int32 id = 1;
+  // 1 to 200 characters, one line.
+  string title = 2;
+  // Up to 2000 characters; line breaks kept.
+  optional string notes = 3;
+  optional string subject_name = 4;
+  // "YYYY-MM-DD".
+  optional string due_date = 5;
+  // "HH:MM".
+  optional string due_time = 6;
+  // 0, 1 or 2; absent on create means 1.
+  optional int32 priority = 7;
+  bool done = 8;
+  // When it was done. Output only.
+  google.protobuf.Timestamp done_at = 9;
+  optional int32 homework_id = 10;
+  // "YYYY-MM-DDTHH:MM", the class's wall time.
+  optional string remind_at = 11;
+  // Output only.
+  google.protobuf.Timestamp created_at = 12;
+  // Output only.
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// The linked account has done this homework. v1: DoneIn/DoneOut on
+// POST /homework/{id}/done.
+message HomeworkTick {
+  int32 homework_id = 1;
+}
+
+message GetMeRequest {}
+
+message GetMeResponse {
+  Me me = 1;
+}
+
+message UnlinkMeRequest {}
+
+message UnlinkMeResponse {
+  // Unlinked now. v1 answered {"linked": false}.
+  Me me = 1;
+}
+
+message CreateLinkCodeRequest {}
+
+message CreateLinkCodeResponse {
+  // Absent for a phone that is already linked.
+  LinkCode link_code = 1;
+}
+
+message GetCalendarFeedRequest {}
+
+message GetCalendarFeedResponse {
+  CalendarFeed calendar_feed = 1;
+}
+
+message CreateCalendarFeedRequest {}
+
+message CreateCalendarFeedResponse {
+  CalendarFeed calendar_feed = 1;
+}
+
+message ListTasksRequest {
+  bool include_done = 1;
+}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+}
+
+message GetTaskRequest {
+  int32 task_id = 1;
+}
+
+message GetTaskResponse {
+  Task task = 1;
+}
+
+message CreateTaskRequest {
+  Task task = 1;
+}
+
+message CreateTaskResponse {
+  Task task = 1;
+}
+
+message UpdateTaskRequest {
+  Task task = 1;
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateTaskResponse {
+  Task task = 1;
+}
+
+message DeleteTaskRequest {
+  int32 task_id = 1;
+}
+
+message DeleteTaskResponse {}
+
+message CreateHomeworkTickRequest {
+  HomeworkTick homework_tick = 1;
+}
+
+message CreateHomeworkTickResponse {
+  HomeworkTick homework_tick = 1;
+}
+
+message DeleteHomeworkTickRequest {
+  int32 homework_id = 1;
+}
+
+message DeleteHomeworkTickResponse {}

@@ -1,0 +1,241 @@
+// The class itself, as «⚙️ Класс» runs it: its card and settings, deleting
+// it, its numbers, and how its year is cut into terms. Replaces v1's
+// /manage/class, /manage/stats and /manage/terms….
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "lessons/v2/common.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service ClassService {
+  // What «⚙️ Класс» shows, as data: the join code included, which is why it
+  // is an admin's.
+  rpc GetClass(GetClassRequest) returns (GetClassResponse) {
+    option (google.api.http) = {get: "/v2/class"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // Renames the class, re-homes it, moves its zone or changes who may join,
+  // one audit line per field. Moving the grade or the letter recomposes the
+  // name unless the same request names it. `update_mask` takes name, grade,
+  // letter, school, city, timezone and join_mode; a path whose field is
+  // absent clears it, except name and timezone, which cannot be cleared.
+  // Changing the zone moves no stored time: a bell rings at 08:30 whatever
+  // the zone says.
+  rpc UpdateClass(UpdateClassRequest) returns (UpdateClassResponse) {
+    option (google.api.http) = {
+      patch: "/v2/class"
+      body: "school_class"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // Deletes the class and everything hanging off it, every device token
+  // included: the caller's own next request is DEVICE_TOKEN_INVALID.
+  // `confirmation` is a query field, because a DELETE carries no body.
+  rpc DeleteClass(DeleteClassRequest) returns (DeleteClassResponse) {
+    option (google.api.http) = {delete: "/v2/class"};
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_OWNER;
+  }
+  // The numbers «📊 Статистика» shows. An editor may read them, as in the bot:
+  // they say whether the timetable is complete and homework is being entered.
+  rpc GetClassStats(GetClassStatsRequest) returns (GetClassStatsResponse) {
+    option (google.api.http) = {get: "/v2/class/stats"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_EDITOR;
+  }
+  // Quarters or half-years, and the school year they are for. Never seeds:
+  // v1's GET /manage/terms wrote the conventional terms on read.
+  rpc GetTermScheme(GetTermSchemeRequest) returns (GetTermSchemeResponse) {
+    option (google.api.http) = {get: "/v2/class/termScheme"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // Switches between quarters and half-years and reseeds the year: four
+  // quarters and two halves do not map onto each other. It takes no
+  // update_mask because the request has one writable field, the scheme itself.
+  rpc UpdateTermScheme(UpdateTermSchemeRequest) returns (UpdateTermSchemeResponse) {
+    option (google.api.http) = {
+      patch: "/v2/class/termScheme"
+      body: "term_scheme"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // This school year's terms: the conventional ones when the class has none
+  // stored, without storing them.
+  rpc ListTerms(ListTermsRequest) returns (ListTermsResponse) {
+    option (google.api.http) = {get: "/v2/class/terms"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+  // Moves one term's edges. TERM_BOUNDS_REFUSED, with the service's own
+  // sentence, when the year cannot hold them. It takes no update_mask because
+  // v1 requires both edges in one write: they are validated against the year
+  // and the other terms together, so a single edge is not a change to ask for.
+  rpc UpdateTerm(UpdateTermRequest) returns (UpdateTermResponse) {
+    option (google.api.http) = {
+      patch: "/v2/class/terms/{term.index}"
+      body: "term"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_ADMIN;
+  }
+}
+
+// Who vouches for a phone. v1: "open" | "invite".
+enum JoinMode {
+  JOIN_MODE_UNSPECIFIED = 0;
+  // The class code admits whoever types it.
+  JOIN_MODE_OPEN = 1;
+  // Only a personal code from the bot admits a phone. Switching revokes no
+  // device, in either direction.
+  JOIN_MODE_INVITE = 2;
+}
+
+// The class card. v1: ManagedClassOut, with ClassPatch's grade and letter.
+message SchoolClass {
+  // Output only.
+  int32 id = 1;
+  // 1 to 64 characters: what every message calls the class, and what
+  // DeleteClass is confirmed against.
+  string name = 2;
+  // 1 to 11.
+  optional int32 grade = 3;
+  // Up to 8 characters; «-» means none, as the bot reads it.
+  optional string letter = 4;
+  // Up to 200 characters.
+  optional string school = 5;
+  // Up to 120 characters.
+  optional string city = 6;
+  // An IANA zone this deployment offers.
+  string timezone = 7;
+  // «МСК+2 (UTC+5) · Екатеринбург», the label the bot prints. Output only.
+  string timezone_label = 8;
+  // The class code an admin reads out to the class. Output only.
+  string join_code = 9;
+  JoinMode join_mode = 10;
+  // Output only, as are the next five.
+  int32 members = 11;
+  int32 devices = 12;
+  int32 pending_requests = 13;
+  // The default bell schedule; BellService's is_default changes it.
+  optional int32 bell_schedule_id = 14;
+  // Whether the class has a calendar feed secret yet.
+  bool calendar_ready = 15;
+}
+
+// v1: StatsOut.
+message ClassStats {
+  // "YYYY-MM-DD", the class's today.
+  string today = 1;
+  // A subject that alternates weeks counts a half, as a school's own papers
+  // write «часов в неделю».
+  double lessons_per_week = 2;
+  int32 subjects_count = 3;
+  repeated SubjectHours subjects = 4;
+  int32 homework_open = 5;
+  int32 homework_total = 6;
+  // v1 sent a dictionary keyed by role; a map key cannot be an enum.
+  repeated RoleCount members_by_role = 7;
+  int32 devices_active = 8;
+  // v1: overrides_upcoming. «Overrides» meant substitutions here and
+  // corrections in the diary; v2 calls each by its own name.
+  int32 substitutions_upcoming = 9;
+  int32 events_upcoming = 10;
+}
+
+// v1: SubjectHoursOut.
+message SubjectHours {
+  string name = 1;
+  double hours = 2;
+}
+
+message RoleCount {
+  Role role = 1;
+  int32 count = 2;
+}
+
+// v1: TermsOut's kind and year.
+message TermScheme {
+  TermKind kind = 1;
+  // The calendar year the school year opens in. Output only.
+  int32 year = 2;
+}
+
+message GetClassRequest {}
+
+message GetClassResponse {
+  SchoolClass school_class = 1;
+}
+
+message UpdateClassRequest {
+  SchoolClass school_class = 1;
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateClassResponse {
+  SchoolClass school_class = 1;
+}
+
+message DeleteClassRequest {
+  // The class's name, typed back, as the bot makes an owner type it: a
+  // confirmation button is pressed by the same thumb that pressed the one
+  // before it, while a name has to be read off the screen first.
+  // v1: ClassDeleteIn.confirm_name.
+  string confirmation = 1;
+}
+
+message DeleteClassResponse {}
+
+message GetClassStatsRequest {}
+
+message GetClassStatsResponse {
+  ClassStats stats = 1;
+}
+
+message GetTermSchemeRequest {}
+
+message GetTermSchemeResponse {
+  TermScheme term_scheme = 1;
+}
+
+message UpdateTermSchemeRequest {
+  TermScheme term_scheme = 1;
+}
+
+message UpdateTermSchemeResponse {
+  TermScheme term_scheme = 1;
+  // The year's terms as the switch reseeded them.
+  repeated Term terms = 2;
+}
+
+message ListTermsRequest {}
+
+message ListTermsResponse {
+  // The calendar year the school year opens in.
+  int32 year = 1;
+  repeated Term terms = 2;
+}
+
+message UpdateTermRequest {
+  // `index` names the term; `starts_on` and `ends_on` are its new edges;
+  // `kind` is ignored.
+  Term term = 1;
+}
+
+message UpdateTermResponse {
+  int32 year = 1;
+  repeated Term terms = 2;
+}

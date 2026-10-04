@@ -8,17 +8,14 @@ newest first.
 
 Last updated: **4 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
-#263, #267, #274, #277 and #296 are merged**; `main` is at `92dbd0b`, the merge of #296, on 4
-October 2026. `dev` had stayed at `b327eb0`, the merge of #267, because #274, #277 and #296
-came from branches of their own; on the owner's word it was fast-forwarded to this pull
-request's head, so it holds everything `main` has and this batch, and it moves to the merge
-once this lands. **The only pull request open is #294, the one
-carrying this paragraph**, from `tracker/milestones-and-board`, on milestone 11, `v0.10.0 —
-One contract: REST v2, Connect and native gRPC, build console`. It changes no code: it brings
-`CLAUDE.md`, the `github-pr` skill and this file up to date with the thirteen milestones and
-with a board that a local session fills, and it will close #293.
+#263, #267, #274, #277, #294 and #296 are merged**; `main` is at `d243624`, the merge of #294,
+on 4 October 2026, and `dev` is level with it. **The only pull request open is #297, the one
+carrying this paragraph**, from `contract/spec`, on milestone 11, `v0.10.0 — One
+contract: REST v2, Connect and native gRPC, build console`. It is sub-project 2 of #273's
+programme: it writes the v2 contract down as proto, generates its Python and checks it in
+CI, serves none of it, and closes nothing. The schema head did not move: it is still `0017`.
 
-The section «What the last session added» below is #294's batch.
+The section «What the last session added» below is #297's batch.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -144,12 +141,101 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: the tracker's documents caught up with thirteen milestones and a board a local session fills (#293)
+## What the last session added: the v2 contract written down — `proto/lessons/v2`, its Python, and Buf in CI (sub-project 2 of #273)
 
-Opened as #294, from `tracker/milestones-and-board`, on milestone 11, open, a draft. Two
-sessions wrote it. The one that created milestones 12 and 13 and filled the board on 3
+Open as #297, from `contract/spec`, on milestone 11. Sub-project 2 of
+`docs/specs/2026-10-03-one-contract-design.md`, built from
+`docs/specs/2026-10-04-contract-v2-design.md`, which the owner approved on 4 October 2026,
+by the plan beside it. It refers to #273 and closes nothing. It adds a contract and serves
+none of it: nothing under `/api` answers differently, v1 is untouched and the schema head
+did not move.
+
+- **The design and its plan came first.** `docs/specs/2026-10-04-contract-v2-design.md` and
+  the plan beside it are in the pull request. Writing the plan amended the design: decision
+  10 (canonical proto3 JSON on both transports) and the renames in decision 7 are what it
+  found, each with its reason. The close-out added one sentence to decision 7: `ListHomework`,
+  `ListSubstitutions` and `ListEvents` default to 21 days and refuse more than 62.
+- **The toolchain was proved before anything was written.** Task 0 ran Buf 1.73.0 with the
+  remote Python plugins (protobuf-py 0.6.0 and connectrpc 0.12.1) over a throwaway proto and
+  found the path the well-known-types import must take; the plan's later tasks
+  rely on what it measured.
+- **The contract exists**: `proto/lessons/v2/`, seventeen services in twenty files,
+  seventy-six methods. Each method carries its REST route (`/v2/…`, served under `/api`
+  once something serves it), its credential (`(lessons.v2.auth)`), its least role on the
+  class (`(lessons.v2.min_role)`) and its idempotency. `ErrorReason` has thirty-three reasons
+  (thirty-four values, with `UNSPECIFIED`): the design's twenty-three and ten more, each
+  found in a v1 refusal.
+- **Its Python is generated and committed** into `server/app/contract/` by two pinned remote
+  Buf plugins. `connectrpc` and `protobuf-py` joined `pyproject.toml`, `requirements.in` and
+  the lock, which also gained `protobuf-py-ext`, `pyqwest` and `opentelemetry-api`: five
+  packages, and no pin already there moved. Ruff and mypy skip the tree.
+- **`server/tests/test_contract.py`** holds what Buf cannot, in 25 tests. Every method's
+  route, credential, role and idempotency are read back from the descriptors and pinned
+  against the design's resource map, row for row. The generic rules hold too (standard
+  verbs, `POST …:verb`, path fields that exist, no client streams). It also checks that the
+  generated code was written by the pinned plugins and keeps its imports inside
+  `app.contract`, and that `app.main` imports none of it, in both deployment configurations.
+- **CI gained a «Contract (Buf)» job**, run only when the contract changes (or the workflow
+  does, or the commit range is unknown). It does `buf lint` (STANDARD), `buf breaking`
+  against the base (FILE), and regenerates and diffs. It reads no secret. Its first run, in
+  the pull request (37230983817), was green, with the «no buf.yaml» notice that skips
+  `buf breaking` on the pull request that adds the contract. The «What changed» job took 4 s.
+- **The documents say so**: «v2: the contract» ends `docs/api.md`, `CLAUDE.md` names `proto/`
+  and `server/app/contract/` and gives the three commands, and the README's «Honest status»
+  has a row for the job. Reviewing the CI documents cost one fix round, and it is the only
+  one in the whole sub-project: Task 8's documents. The close-out folded in the last
+  corrections the reviews deferred: `CONTRIBUTING.md`, `AGENTS.md` and
+  `.github/copilot-instructions.md` now say what CI runs and when the Contract job runs,
+  `ci.yml`'s `changes` comment says it decides three outputs, and three proto comments say
+  why `CreateCalendarFeed` has no `min_role`, why `UpdateTermScheme` has no `update_mask` and
+  what an unset `page_size` of `ListSchools` means.
+- **How it was done.** A fresh implementer and a fresh reviewer per task, and one fix round
+  in all. A whole-branch review (opus) found nothing Critical or Important, and its minors
+  were fixed before the merge — including `next_school_day` dropped from `ScheduleWindow`,
+  its field 4 reserved, because a window is a school year and the field could never be filled.
+
+### Gates
+
+At the head before this paragraph:
+- `ruff check app tests scripts migrations` clean;
+- `python -m mypy` clean, 197 source files;
+- `pytest -q -n auto`: 2100 passed in 9 minutes 1 second on this machine on 4 October (2075 before the
+  batch, 25 more in `test_contract.py`; a full run takes nine to twelve minutes here, against the
+  documented four on CI);
+- `buf lint` clean, and `buf generate` into a scratch directory differs from
+  `server/app/contract/` by nothing;
+- the Contract job's first run, 37230983817, green;
+- Android not run, because nothing under `android/` changed.
+
+### What was deliberately left alone
+
+- **Serving v2** is sub-project 3. Kotlin and Java lite are sub-project 5, with the bindings
+  that use them (the design's decision 3); every file already carries the Java options.
+- **v1 is unchanged.** #268, #269 and #270 stay open: they are v1 defects the contract
+  avoids, not ones it fixes.
+- Extending `tests/test_service_layering.py` to `rpc/` and `rest/`: those packages do not exist
+  yet. The generated tree has its own stricter rule.
+- `ruff format` is not a gate and was not run. `buf format` is not asked for by the design,
+  and the action's format step is off.
+
+### What nobody has verified in this batch
+
+- **Vercel's proxy in front of Connect.** The route is written down; nothing has been sent
+  through it.
+- **Buf's unauthenticated rate limit in CI**, which one run did not meet.
+- **`buf breaking` against a base that has a contract**: the first run of it is the next
+  pull request that touches `proto/`.
+- **Every behaviour the proto comments describe**: they are sub-project 3's handlers to make
+  true.
+- **Anything on a device.**
+
+## What the session before it added: the tracker's documents caught up with thirteen milestones and a board a local session fills (#293)
+
+Merged as #294 (`d243624`, 4 October 2026), from `tracker/milestones-and-board`, on
+milestone 11. Two sessions wrote it. The one that created milestones 12 and 13 and filled the board on 3
 October opened it on 4 October and held it for #277. A session on the owner's machine took
-`main` into it after #277 and again after #296, and wrote this section. It will close #293.
+`main` into it after #277 and again after #296, and wrote this section. It carried
+`Closes #293`.
 
 - **The `github-pr` skill's milestone table matches the API again.** It gains rows 12,
   `v1.0.0 — A build somebody else can install`, and 13, `Backlog — not scheduled`; the
@@ -198,81 +284,6 @@ this branch (#295), so that local run is the only check of them.
 - **Nothing about the skill's `gh project` commands**: `item-add`, `item-edit` and
   `item-delete` were each run as written on 4 October, and every value read back.
 
-## What the session before it added: the bot's long modules split into feature modules, and the cold start that imported aiogram (#271, #272, #275)
-
-Merged as #296 (`92dbd0b`, 4 October 2026), from `server-decomposition`, on milestone 11. It
-is the first sub-project of the milestone's programme, the one the plan merged as #277
-described. It closed #271, #272 and #275, and it refers to #276 and #273.
-
-- **The callback census covers all of `app.bot`.** It is the prefix-collision check — no two
-  `CallbackData` classes share a prefix — plus the check that every button the class menu
-  draws is a packed payload, and it never looked at `editor_keyboard` or `diary_keyboard`; it now walks every module of
-  the package and counts 30 payloads where it counted 27 (#271).
-- **A fresh interpreter proves aiogram stays off the API's cold start**, in both
-  configurations, the bot switched off and on (#272).
-- **Every Vercel cold start imported 736 aiogram modules, and no longer does.**
-  `app/api/telegram.py` imported aiogram at its top and Vercel always mounts the webhook; it
-  now imports it where an update is handled. The comment above the mount had said the
-  opposite (#275).
-- **The announcement and throttle tests are keyed by object, not by file path**, so a module
-  can move without the test going quiet, and five handler-order pins hold the pairs of
-  handlers that only registration order tells apart.
-- **The corrections laid over the diary live in `services/diary_corrections.py`**, beside
-  `diary_overrides.py`, and no longer in `services/diary.py`.
-- **Keyboards and renderers are one module per feature.** Each feature outside «⚙️ Класс» has
-  its own `*_render.py` and `*_keyboard.py` beside `render.py` (which still re-exports
-  `app/wording.py`) and `keyboards.py`.
-- **`handlers/content/` and `handlers/start/` are packages**, one module per concern,
-  included in one written-down order like `handlers/manage/`.
-- **The homework ticks sit beside the homework**, on a router of their own at the tasks'
-  old position in the dispatch order, because of #276, which is filed and not fixed here.
-- **`manage_render/` and `manage_keyboards/` hold one module per screen**, as the handlers
-  they serve do.
-- **A final wording pass** made the comments the moves carried say where things are now, and
-  pinned each cold-start case to its configuration. In `docs/bot.md`, `clamp` and
-  `more_line` are now said to live in `app/wording.py`, which `render.py` re-exports.
-- **How it was done.** One fresh implementer and one fresh reviewer per task, thirteen tasks
-  and a wording pass. Every move was checked by a syntax-tree comparison and by a diff of the
-  177-handler dispatch order. The machine switched itself off once, during Task 1; a scan of
-  10,409 files found nothing zero-filled. Task 11's first implementer was stopped by the
-  owner mid-task and a second finished from the working tree.
-
-### Gates
-
-At the head before this paragraph: `ruff check app tests scripts migrations` clean;
-`python -m mypy` clean, 197 source files; `pytest -q -n auto` 2075 passed in 9 minutes 51 seconds on
-this machine on 4 October, against the documented four minutes (`2065` before the batch, ten
-more tests since: one for the census, three for the cold start, five order pins and one
-more in the ticks' task). The dispatch order, 177 handlers, differs from the first baseline in
-exactly the two homework handlers relabelled from `tasks:` to `content:` at the same
-positions and the move of the `start:back_root` callback within the start package.
-
-### What was deliberately left alone
-
-- **`api/public.py`, `api/diary.py`, `api/edit.py`, `models.py`, `schedule.py`, the providers
-  and Android are not split**: v2 replaces the API's three, and the others are long but
-  cohesive.
-- **#276 is filed and not fixed**: aiogram's `Command` reads `/week@` as a command and
-  `CommandBreakoutMiddleware` does not. The ticks keep their place in the dispatch order
-  for it; once it is fixed they can join `content`'s router.
-- **Revision `0017`'s text stays as the record** of the key it files corrections under.
-- **No old name is re-exported**, except `render`'s wording names. `ruff format` would
-  reformat seven files in the new packages; it is not a gate and it was not run.
-- **Milestones 12 and 13 exist**, created by another session; its pull request, #294,
-  describes them, and this file's milestone table does not.
-
-### What nobody has verified in this batch
-
-- **The cold-start fix on Vercel itself.** The 736 modules were measured on Windows, in a
-  fresh interpreter, under Vercel's settings; no deployment has been read.
-- **Anything on a device.** Nothing here touches the phone.
-- **The whole-branch review has run.** The final review, on the most capable model over all 13
-  commits, approved the branch with three small fixes (two stale test counts, three HANDOVER
-  sentences, one comment in `manage_render/__init__.py`), which the last commit makes. It
-  re-checked the dispatch order against the first baseline, that every moved function binds
-  the same objects, the import graph, the monkeypatches' reach, the census and the cold start
-  (736 → 0 aiogram modules).
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -295,7 +306,7 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296; issues #268–#273, #275, #276, #293, #295 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297; issues #268–#273, #275, #276, #293, #295 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | issues #120–#122, #127, #142, #144 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -337,6 +348,18 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
+- **Vercel's proxy in front of Connect has been asked nothing.** The v2 contract (#297)
+  writes `/api/rpc/lessons.v2.<Service>/<Method>` down, and no deployment serves it. Whether
+  Vercel passes a Connect request and its streaming body through is sub-project 3's first
+  question, and native gRPC is off the Vercel target for a reason `docs/api.md` states.
+- **Buf's unauthenticated rate limit has not been met.** CI's «Contract (Buf)» job fetches two
+  remote plugins without a token; one run, 37230983817, was not throttled. If it ever is,
+  either step can be the one that fails (the buf-action step fetches `googleapis` from the
+  Schema Registry before generate runs, and says nothing of what to do), and the remedy is the
+  same `BUF_TOKEN` (section 7).
+- **`buf breaking` has never compared anything.** The pull request that adds the contract
+  skips it with a notice, because `main` had no contract. The first pull request that
+  touches `proto/` is its first run.
 - **The cold-start fix (#275) has not been read on Vercel.** The 736 aiogram modules were
   measured in a fresh interpreter on Windows under Vercel's settings, and
   `tests/test_cold_start.py` holds the answer there; no deployment of this branch has been
@@ -1073,6 +1096,11 @@ plugin disabled, since it fails to load on every start. Everything else in the I
 is already in place (see «…the first walk of the app on a device», the section on #186, in
 `docs/history.md` now).
 
+**Add a `BUF_TOKEN` repository secret if CI's «Contract (Buf)» job is ever throttled.** The
+job reads no secret today. If its log says Buf refused an unauthenticated request (429,
+resource exhausted), create a token at buf.build and pass it to the job as `BUF_TOKEN`;
+`docs/build.md`, «The v2 contract and Buf», says where. Nothing is needed until then.
+
 **The tenth milestone exists, and #140 is on it.** The owner created
 `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` on 25 September and renamed
 the other nine the same day. Its description is behind: it names issues #145–#159, and
@@ -1312,7 +1340,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2075 tests, ~4 min on CI, ~10 on Windows
+cd server  && pytest -q -n auto                          # 2100 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 197 modules
 cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

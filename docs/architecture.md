@@ -53,6 +53,8 @@ app/
 ├── wording.py     the words both shells print: dates, plurals, a day's card
 ├── catalog/       the region catalog — generated data, never edited by hand
 ├── services/      the rules both shells call — pure async functions over a session
+├── providers/     the foreign services: the diaries (petersburg, netschool) and dadata
+├── contract/      the v2 contract's Python, generated from proto/ — imported by nothing in app.main
 ├── api/           the client API: reads, and the writes in the table above
 ├── bot/           aiogram routers, roles, keyboards, renderers
 └── main.py        FastAPI app; its lifespan owns the bot's polling task
@@ -862,7 +864,7 @@ with the host.
 
 ## Testing
 
-2075 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
+2100 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 122, `:widget` 126, `:app` 591.
 

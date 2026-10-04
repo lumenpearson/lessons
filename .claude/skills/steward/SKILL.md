@@ -32,9 +32,16 @@ One validated push beats three speculative ones.
 ## What a CI failure here usually is
 
 `.github/workflows/ci.yml` is ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`,
-and **both** assembles. If `assembleRelease` is the one that failed and `assembleDebug` passed, look at
+**both** assembles and `./gradlew detekt` after them, and, when `proto/`, `buf.*` or
+`server/app/contract/` changed, the «Contract (Buf)» job. If `assembleRelease` is the one that failed and `assembleDebug` passed, look at
 R8 and resource shrinking before anything else — that is what the second assemble exists to
 catch.
+
+A red «Contract (Buf)» is one of four things, and its log says which. A lint finding: fix the
+proto. A breaking change: the contract grows by addition, so the fix is a new field or method,
+never an edit in place. «server/app/contract is not what proto/ generates»: run `buf generate`
+and commit. A 429 from Buf: unauthenticated use was throttled, and a `BUF_TOKEN` secret is the
+owner's step (`docs/build.md`).
 
 `./gradlew lint` is **not** in CI. A finding from it is real, but it is not the thing that
 turned the check red. `python -m mypy` **is**, since 27 September 2026 (#210): a red

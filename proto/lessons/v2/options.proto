@@ -1,0 +1,62 @@
+// Who may call a method, said by the method itself (the design's decision 5).
+//
+// Every method sets (lessons.v2.auth); every method that acts on the class sets
+// (lessons.v2.min_role), reads included. Sub-project 3's RPC layer enforces both
+// from the descriptor in one place, so a method cannot be added without saying
+// who may call it, and which of the two bearer tokens a method takes is a
+// property of the method rather than of a path prefix.
+// server/tests/test_contract.py fails on a method that leaves either out.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/protobuf/descriptor.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+// The credential a method takes.
+enum AuthKind {
+  // Never set on purpose: a method left here is a method nobody decided about.
+  AUTH_KIND_UNSPECIFIED = 0;
+  // No credential: exchanging a code for a token, the diary's capabilities,
+  // the anonymous region search.
+  AUTH_KIND_NONE = 1;
+  // The class device token, linked to an account or not.
+  AUTH_KIND_DEVICE = 2;
+  // A device token whose phone is linked to an account. An unlinked phone is
+  // refused with DEVICE_NOT_LINKED, as v1's personal endpoints refuse it.
+  AUTH_KIND_DEVICE_LINKED = 3;
+  // The diary session token, the other bearer. A phone may hold either
+  // without the other, so neither implies the other.
+  AUTH_KIND_DIARY = 4;
+}
+
+// A member's role in a class, weakest first: the ladder of services/roles.py.
+// Declared here rather than in common.proto because (min_role) is typed by
+// it, and every file that sets the option already imports this one.
+enum Role {
+  // No role: an unlinked device. v1 sent null.
+  ROLE_UNSPECIFIED = 0;
+  // «Наблюдатель».
+  ROLE_VIEWER = 1;
+  // «Редактор»: homework, substitutions, events and marked days.
+  ROLE_EDITOR = 2;
+  // «Администратор»: subjects, bells, the timetable, devices, requests,
+  // terms and the class itself.
+  ROLE_ADMIN = 3;
+  // «Владелец»: an admin's rights, and deleting the class.
+  ROLE_OWNER = 4;
+}
+
+extend google.protobuf.MethodOptions {
+  // The credential the method takes.
+  AuthKind auth = 50001;
+  // The least role the linked account must hold, read only when `auth` is a
+  // device kind. ROLE_VIEWER is any holder of the class's device token, the
+  // class code's anonymous read-only token included, and asks no role; the
+  // other three ask linking.effective_role on every request, as v1 does, so
+  // an unlinked phone reaches none of them and a role taken away in the bot
+  // is gone here in the same instant.
+  Role min_role = 50002;
+}

@@ -1,0 +1,33 @@
+// The class changing, as it happens: a beta of the long-running host target
+// (the programme's section 4). The app opens it while it is in the foreground
+// and syncs the moment the class changes, instead of at the next periodic
+// sync. Nothing else depends on it. One host instance serves it, and Vercel
+// never does.
+syntax = "proto3";
+
+package lessons.v2;
+
+import "google/protobuf/timestamp.proto";
+import "lessons/v2/options.proto";
+
+option java_multiple_files = true;
+option java_package = "com.lumenpearson.lessons.contract.v2";
+
+service WatchService {
+  // A server stream of revisions, never the data: on each, the phone fetches
+  // the schedule window as it already does. No REST binding, because REST
+  // cannot carry a stream. A target without streaming answers
+  // FEATURE_UNSUPPORTED.
+  rpc WatchClass(WatchClassRequest) returns (stream WatchClassResponse) {
+    option (lessons.v2.auth) = AUTH_KIND_DEVICE;
+    option (lessons.v2.min_role) = ROLE_VIEWER;
+  }
+}
+
+message WatchClassRequest {}
+
+message WatchClassResponse {
+  // Changes whenever the class does. Opaque: compare it, never parse it.
+  string revision = 1;
+  google.protobuf.Timestamp changed_at = 2;
+}
