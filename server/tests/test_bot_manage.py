@@ -276,6 +276,56 @@ def _command(args: str | None):
 # --------------------------------------------------------------------------
 
 
+def _bot_callback_payloads() -> list[type]:
+    """Every ``CallbackData`` class the bot defines, found by walking ``app.bot``.
+
+    Discovered rather than listed. The two checks below used to scan three
+    modules by name — ``keyboards``, ``manage_keyboards`` and
+    ``calendar_keyboard`` — so ``editor_keyboard``'s two payloads and
+    ``diary_keyboard``'s one were never asked whether their prefixes collided
+    with anything (#271), and a payload moved into a module of its own would
+    have dropped out the same way. Each class is counted once, in the module
+    that defines it: ``manage_keyboards`` importing ``Menu`` from
+    ``keyboards`` is one payload, not two.
+    """
+    import importlib
+    import pkgutil
+
+    from aiogram.filters.callback_data import CallbackData
+
+    import app.bot
+
+    def unreadable(name: str) -> None:
+        # pkgutil's default swallows an ImportError in a subpackage, which here
+        # would leave that package's every payload quietly out of the count.
+        raise ImportError(f"{name} could not be imported, so its payloads would go uncounted")
+
+    found: list[type] = []
+    for info in pkgutil.walk_packages(app.bot.__path__, prefix="app.bot.", onerror=unreadable):
+        module = importlib.import_module(info.name)
+        found.extend(
+            value
+            for value in vars(module).values()
+            if isinstance(value, type)
+            and issubclass(value, CallbackData)
+            and value is not CallbackData
+            and value.__module__ == module.__name__
+        )
+    return found
+
+
+def test_the_prefix_census_reaches_every_keyboard_module():
+    """The checks below are only as good as what they walk. These three
+    prefixes are ``editor_keyboard``'s and ``diary_keyboard``'s, which the
+    list of three module names never opened (#271)."""
+    prefixes = {payload.__prefix__ for payload in _bot_callback_payloads()}
+
+    assert {"ted", "tes", "dry"} <= prefixes
+    # Thirty on 3 October 2026. A new payload raises it; a module the walk
+    # stopped reaching would lower it, which is the failure this line is for.
+    assert len(prefixes) >= 30
+
+
 def test_every_button_on_the_class_menu_is_one_its_payload_class_packed():
     """«⚙️ Класс» → «🕒 Часовой пояс» carried a hand-written
     ``"cls:timezone:"``. It was the right string, and nothing said so: a
@@ -283,19 +333,9 @@ def test_every_button_on_the_class_menu_is_one_its_payload_class_packed():
     a button whose press matches no filter, which is a spinner and then
     silence.
     """
-    from aiogram.filters.callback_data import CallbackData
-
-    from app.bot import calendar_keyboard, keyboards, manage_keyboards
     from app.bot.manage_keyboards import class_menu
 
-    payloads = [
-        value
-        for module in (keyboards, manage_keyboards, calendar_keyboard)
-        for value in vars(module).values()
-        if isinstance(value, type)
-        and issubclass(value, CallbackData)
-        and value is not CallbackData
-    ]
+    payloads = _bot_callback_payloads()
     menu = class_menu(is_owner=True, many_classes=True, pending=2, diary_bound=True)
 
     for row in menu.inline_keyboard:
@@ -317,31 +357,15 @@ def _unpacks(payload: type, data: str) -> bool:
 
 def test_management_callbacks_do_not_collide_with_the_everyday_ones():
     """A duplicate prefix would not fail a build - it would route one
-    feature's button into another feature's handler."""
-    from aiogram.filters.callback_data import CallbackData
-
-    from app.bot import calendar_keyboard, keyboards, manage_keyboards
-
+    feature's button into another feature's handler. Every payload in the
+    bot, not only the two families the name still mentions."""
     prefixes: dict[str, str] = {}
-    seen: set[type] = set()
-    for module in (keyboards, manage_keyboards, calendar_keyboard):
-        for name in dir(module):
-            value = getattr(module, name)
-            if (
-                not isinstance(value, type)
-                or not issubclass(value, CallbackData)
-                or value is CallbackData
-                # ``manage_keyboards`` imports Menu from ``keyboards``; the same
-                # class under two names is not a collision.
-                or value in seen
-            ):
-                continue
-            seen.add(value)
-            prefix = value.__prefix__
-            assert prefix not in prefixes, (
-                f"{value.__name__} reuses the prefix {prefix!r} of {prefixes[prefix]}"
-            )
-            prefixes[prefix] = value.__name__
+    for payload in _bot_callback_payloads():
+        name = f"{payload.__module__}.{payload.__name__}"
+        assert payload.__prefix__ not in prefixes, (
+            f"{name} reuses the prefix {payload.__prefix__!r} of {prefixes[payload.__prefix__]}"
+        )
+        prefixes[payload.__prefix__] = name
 
     # And every payload packs: a value holding its own separator raises at the
     # moment the keyboard is built, which is a page that cannot be drawn.
