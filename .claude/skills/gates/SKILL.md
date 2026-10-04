@@ -15,7 +15,7 @@ the `-r` you test on whatever is newest today, which production does not run.
 
 1. `ruff check app tests scripts migrations` — exactly what CI lints. `ruff check .` from
    `server/` covers the same tree.
-2. `python -m mypy` — one question of all 153 modules, in seconds: does anything reach for an
+2. `python -m mypy` — one question of all 197 modules, in seconds: does anything reach for an
    attribute its type does not have? Every other error code is switched off by name in
    `pyproject.toml`, with its count and its reason. **In CI** since 27 September 2026, right
    after ruff — the owner asked for it through that day's audit (#210) — and still worth

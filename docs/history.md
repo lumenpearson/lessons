@@ -28,6 +28,66 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: one proto contract agreed before anything is built, and the survey's defects filed (#268–#273)
+
+Merged as #274 (`9d75e68`, 3 October 2026), from `spec/one-contract` rather than `dev`, which was carrying #267 while this
+ran, on milestone 11, `v0.10.0 — One contract: REST v2, Connect and native gRPC, build
+console`, which the owner created for it. A new session, on the owner's request of 3 October
+2026: «необходимо разобраться с god-файлами в проекте … Сделать API RESTFUL, привнести gRPC.
+Перед этим составь план, подумай и спроси». Nothing in it is code.
+
+- **Four read-only surveys came first**: the HTTP API (71 route registrations, 45 called by
+  the current APK, 26 by nothing in the repository's history), the server's long files, the
+  Android ones, and whether gRPC can run where this server does. Their findings are in the
+  spec and are not repeated here, but two are worth knowing before anything else is planned:
+  - **Native gRPC cannot be served from Vercel.** Its Python runtime runs the app under
+    Uvicorn with HTTP/1.1 and passes no response trailers, which gRPC carries its status in;
+    Vercel lists gRPC as unsupported and points at the Connect protocol.
+  - **Line counts overstate the god files here**, because 40–60 % of a long file is comments.
+    The files that really hold several concerns are named in the spec; `models.py`,
+    `schedule.py`, `api/edit.py`, `DiaryViewModel` and the widget bodies are long but
+    cohesive.
+- **The owner's decisions, asked one round at a time**: both deploy targets, chosen at build
+  time (Vercel with Connect, and a long-running host with native gRPC and a streaming beta);
+  REST v2 and RPC side by side; v1 may break, because only the family's phones carry an APK;
+  REST transcoded from `google.api.http` annotations, so that one handler serves both; a
+  local Textual console; and the order of six sub-projects.
+- **`docs/specs/` is new**, for the design, and `docs/README.md` and `CLAUDE.md`'s tree name
+  it. Two sections were added at the owner's request after the first draft: the rules by
+  which the contract grows without breaking, and how the diary grows across all 19 platforms
+  `docs/diaries.md` maps — which names the four places today's code is shaped for exactly two
+  providers.
+- **Filed before any fix, on milestone 11, each re-read in the code first**: #268
+  (`PUT /api/v1/events` duplicates on a retry), #269 (`GET /api/v1/cron/tick` has side
+  effects), #270 (the app tells «not linked» from «role required» by English text), #271 (the
+  callback-prefix check never looks at `editor_keyboard` or `diary_keyboard`) and #272
+  (nothing fails when aiogram reaches the API's cold start). **#273** is the programme's
+  epic, with the six sub-projects as its checklist.
+- **A throwaway spike runs beside the review**, in a worktree on the local, unpushed branch
+  `spike/connect-grpc`: code generation, `connectrpc` mounted beside FastAPI under HTTP/1.1,
+  `google.api.http` read at runtime, native gRPC under an HTTP/2 ASGI server, `connect-kotlin`
+  under AGP 9.4.1 and Kotlin 2.4.20, R8 and the APK's size, and a call from the emulator. What
+  it finds amends the spec's parts marked *spike decides*; its code is not kept.
+
+### Gates
+
+No code changed. Against this branch, the two test modules that read the documents,
+`tests/test_schema_version.py` and `tests/test_env_example.py`, pass: 18 tests. The full gates
+are CI's on #274, and the counts in section 8 of `HANDOVER.md` and the README stand as #267 left them.
+
+### What was deliberately left alone
+
+- **None of the five defects is fixed here.** #271 and #272 are the first work of
+  sub-project 1, because the moves it makes would widen both; #268–#270 go with the v2
+  contract.
+- **`api/public.py`, `api/diary.py`, `api/edit.py` and the Android network layer will not be
+  split**: v2 replaces them, so splitting them first would be work thrown away.
+
+### What nobody has verified in this batch
+
+- Everything in the spec. It is a design: nothing has been run against Vercel, a device or a
+  second host, and the spike had not reported when this was written.
+
 ## What the batch before added: one bottom bar for the whole shell, morphing between screens (#264, #265, #266)
 
 Merged as #267 (`b327eb0`, 3 October 2026), from `dev`, on milestone 9. The same session as #241–#263, on the owner's request of 3

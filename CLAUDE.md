@@ -53,7 +53,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2065 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2075 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -61,7 +61,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 153 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 197 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. A CI step since
   27 September 2026, right after ruff, because the owner asked for it through that day's
@@ -175,7 +175,11 @@ Server modules:
   have had a schema built from a string)
 - `bot/` — aiogram routers, roles, keyboards, renderers. «⚙️ Класс» is `handlers/manage/`,
   one module per screen, each with a router of its own included in one written-down order
-  by the package's `__init__`. Every handler there says what it needs with
+  by the package's `__init__`. `handlers/start/` and `handlers/content/` are packages the
+  same way, and `manage_render/` and `manage_keyboards/` mirror the screens; each feature
+  outside «⚙️ Класс» has its own `*_render.py` and `*_keyboard.py` beside
+  `render.py` (which re-exports `app/wording.py`) and `keyboards.py`.
+  Every handler there says what it needs with
   `@needs(Role.X)` (`handlers/manage/_common.py`) under its `@router…` line — one decorator
   instead of seventy-two copies of the check, and a decorator rather than a filter or a
   middleware flag because the check has to travel with the function: a failed filter hands

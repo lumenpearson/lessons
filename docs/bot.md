@@ -703,8 +703,8 @@ renderer.
   budgets live in the per-screen renderer modules (`app/bot/*_render.py` and
   `app/bot/manage_render/*`); `render.py` keeps only the role sentence,
   `silenced_lessons` and the `app.wording` door.
-* **What is cut is announced.** `clamp` and `more_line` live in `app/bot/render.py`
-  and the per-page caps beside each page's renderer in `manage_render/`; every list that stops early says
+* **What is cut is announced.** `clamp` and `more_line` live in `app/wording.py`
+  (`render.py` re-exports them) and the per-page caps beside each page's renderer in `manage_render/`; every list that stops early says
   «… и ещё N». The caps differ per page on purpose — a bell schedule's row carries
   three buttons and twelve lines of times, a subject's one of each — and each one
   is read by both the renderer and `manage_keyboards`, because a row that is drawn
