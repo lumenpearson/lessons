@@ -25,7 +25,7 @@ from app.bot.handlers.manage._common import (
     needs,
 )
 from app.bot.keyboards import back_to_menu, cancel_keyboard
-from app.bot.manage_keyboards import (
+from app.bot.manage_keyboards.holidays import (
     PERIOD_KINDS,
     DayKindAction,
     bells_pick_keyboard,

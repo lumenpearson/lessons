@@ -21,7 +21,7 @@ from app.bot.handlers.manage._common import (
     needs,
 )
 from app.bot.keyboards import back_to_menu, cancel_keyboard
-from app.bot.manage_keyboards import RequestAction, request_keyboard
+from app.bot.manage_keyboards.requests import RequestAction, request_keyboard
 from app.bot.manage_render import _common as mr
 from app.bot.manage_states import RequestAccess
 from app.models import AccessRequest, Role, SchoolClass

@@ -293,7 +293,7 @@ def test_every_day_kind_can_be_said():
     ordinary day is, so it never has a row, a button or a line of its own.
     """
     from app.bot.handlers.manage import _KIND_BY_TAG, _KIND_SUMMARY
-    from app.bot.manage_keyboards import PERIOD_KINDS, day_kind_keyboard
+    from app.bot.manage_keyboards.holidays import PERIOD_KINDS, day_kind_keyboard
     from app.bot.manage_render.holidays import KIND_LABELS
     from app.bot.render import DAY_KIND_LABELS
 
@@ -407,7 +407,7 @@ async def test_a_crafted_filter_narrows_to_nothing_rather_than_raising(
 async def test_the_filter_row_offers_every_kind_the_list_can_hold(session, school_class):
     """A kind that can be marked and cannot be filtered is one that hides in a
     list of five, which is the thing this row exists to prevent."""
-    from app.bot.manage_keyboards import holiday_list_keyboard
+    from app.bot.manage_keyboards.holidays import holiday_list_keyboard
 
     keyboard = holiday_list_keyboard([], can_edit=True, can_period=True)
     values = {

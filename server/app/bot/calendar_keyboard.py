@@ -25,7 +25,7 @@ from app.bot.button_style import DANGER, SUCCESS
 from app.bot.content_keyboard import EventAction, HomeworkAction
 from app.bot.content_keyboard import OverrideAction as OverrideCB
 from app.bot.keyboards import Menu, back_to_menu
-from app.bot.manage_keyboards import DayKindAction
+from app.bot.manage_keyboards.holidays import DayKindAction
 from app.bot.render import MONTHS_NOMINATIVE, WEEKDAYS_SHORT
 from app.models import Role
 

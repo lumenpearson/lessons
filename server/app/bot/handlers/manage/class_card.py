@@ -20,7 +20,8 @@ from app.bot.handlers.manage._common import (
     needs,
 )
 from app.bot.keyboards import Menu, back_to_menu, cancel_keyboard
-from app.bot.manage_keyboards import ManageAction, class_menu, switch_keyboard
+from app.bot.manage_keyboards._common import ManageAction
+from app.bot.manage_keyboards.class_card import class_menu, switch_keyboard
 from app.bot.manage_render import class_card as mr
 from app.bot.manage_states import DeleteClass, EditClassField
 from app.bot.middlewares import prefs_key

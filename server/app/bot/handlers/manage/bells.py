@@ -18,7 +18,7 @@ from app.bot import render
 from app.bot.handlers.manage._common import _int_or_none, needs
 from app.bot.handlers.timetable import REJECTED_MAX
 from app.bot.keyboards import back_to_menu, cancel_keyboard
-from app.bot.manage_keyboards import BellsAction, bells_list_keyboard
+from app.bot.manage_keyboards.bells import BellsAction, bells_list_keyboard
 from app.bot.manage_render import bells as mr
 from app.bot.manage_states import EditBellRows, NewBellSchedule
 from app.bot.render import clamp, more_line, plural

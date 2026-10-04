@@ -108,13 +108,10 @@ from app.bot.handlers.manage import (
     router as manage_router,
 )
 from app.bot.handlers.timetable import timetable_apply
-from app.bot.manage_keyboards import (
-    DayKindAction,
-    bells_list_keyboard,
-    device_keyboard,
-    holiday_list_keyboard,
-    subject_list_keyboard,
-)
+from app.bot.manage_keyboards.bells import bells_list_keyboard
+from app.bot.manage_keyboards.devices import device_keyboard
+from app.bot.manage_keyboards.holidays import DayKindAction, holiday_list_keyboard
+from app.bot.manage_keyboards.subjects import subject_list_keyboard
 from app.bot.manage_render.bells import BELLS_MAX, render_bells
 from app.bot.manage_render.devices import DEVICES_MAX, render_devices, time_ago
 from app.bot.manage_render.holidays import LIST_MAX, render_holidays
@@ -326,7 +323,7 @@ def test_every_button_on_the_class_menu_is_one_its_payload_class_packed():
     a button whose press matches no filter, which is a spinner and then
     silence.
     """
-    from app.bot.manage_keyboards import class_menu
+    from app.bot.manage_keyboards.class_card import class_menu
 
     payloads = _bot_callback_payloads()
     menu = class_menu(is_owner=True, many_classes=True, pending=2, diary_bound=True)
@@ -362,12 +359,8 @@ def test_management_callbacks_do_not_collide_with_the_everyday_ones():
 
     # And every payload packs: a value holding its own separator raises at the
     # moment the keyboard is built, which is a page that cannot be drawn.
-    from app.bot.manage_keyboards import (
-        bells_pick_keyboard,
-        colour_keyboard,
-        day_kind_keyboard,
-        subject_card_keyboard,
-    )
+    from app.bot.manage_keyboards.holidays import bells_pick_keyboard, day_kind_keyboard
+    from app.bot.manage_keyboards.subjects import colour_keyboard, subject_card_keyboard
 
     subject_card_keyboard(12)
     colour_keyboard(12)
@@ -1704,7 +1697,7 @@ async def test_a_shortened_day_always_names_the_schedule_it_rings(session, schoo
 
 def test_the_picker_for_a_shortened_day_offers_no_way_to_leave_it_unrung():
     """The button that created the state the API refuses is not drawn."""
-    from app.bot.manage_keyboards import bells_pick_keyboard
+    from app.bot.manage_keyboards.holidays import bells_pick_keyboard
 
     markup = bells_pick_keyboard(
         [SimpleNamespace(id=3, name="Сокращённое")], "2026-10-26"

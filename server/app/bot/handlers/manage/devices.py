@@ -13,7 +13,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.handlers.manage._common import _int_or_none, _member_names, needs
-from app.bot.manage_keyboards import DeviceAction, device_keyboard
+from app.bot.manage_keyboards.devices import DeviceAction, device_keyboard
 from app.bot.manage_render import devices as mr
 from app.models import DeviceToken, Role, SchoolClass
 from app.services import linking

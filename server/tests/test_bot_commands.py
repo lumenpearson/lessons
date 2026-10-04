@@ -39,7 +39,7 @@ from app.bot.handlers.start.onboarding import (
 )
 from app.bot.handlers.start.timezone import change_timezone_apply
 from app.bot.handlers.unknown import STALE_CARD, UNKNOWN_COMMAND
-from app.bot.manage_keyboards import BellsAction
+from app.bot.manage_keyboards.bells import BellsAction
 from app.bot.manage_states import EditSubject
 from app.bot.middlewares import FORM_DROPPED
 from app.bot.week_keyboard import WeekNav
