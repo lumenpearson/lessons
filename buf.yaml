@@ -23,3 +23,12 @@ breaking:
     # The strictest category: it also protects the generated Python and Kotlin
     # names, which a field moved between files would change.
     - FILE
+    # FILE's FIELD_NO_DELETE refuses a removed field even when its number and
+    # name are reserved, which is the one way «Evolving the contract» lets a
+    # field go (#298). These two refuse only an unreserved removal, so that
+    # procedure passes and a renumbering, which deletes the old number
+    # unreserved, still does not.
+    - FIELD_NO_DELETE_UNLESS_NUMBER_RESERVED
+    - FIELD_NO_DELETE_UNLESS_NAME_RESERVED
+  except:
+    - FIELD_NO_DELETE

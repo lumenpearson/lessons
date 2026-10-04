@@ -1702,7 +1702,13 @@ The contract grows by addition only: a new field under a new number, a new metho
 enum value, a new reason. It never renames, renumbers or retypes in place
 ([the programme](specs/2026-10-03-one-contract-design.md), «Evolving the contract»).
 
-- CI's «Contract» job holds the mechanical half, with Buf's `FILE` breaking rules.
+- CI's «Contract» job holds the mechanical half, with Buf's `FILE` breaking rules. A field
+  leaves only with its number and name `reserved`, which those rules let through (#298).
 - `server/tests/test_contract.py` holds each method's route, credential, role and
-  idempotency against the resource map.
+  idempotency against the resource map. Buf reads no options, so this is the only check on
+  a method's route, credential and role, and an edit to the map is a breaking change (#299).
+- `server/tests/test_contract_json.py` holds what «What the values look like» says against
+  the runtime that will serve it, and `server/tests/test_contract_mirror.py` holds every
+  message that names its v1 schema level with that schema, field by field. A field added to
+  v1 fails there until v2 has it or a row says why not.
 - [build.md](build.md), «The v2 contract and Buf», has the commands.

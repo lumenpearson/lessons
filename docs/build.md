@@ -692,11 +692,35 @@ From the repository root:
 - `buf lint`: the STANDARD rules, with the one exception `buf.yaml` names and why.
 - `buf generate`: rewrites `server/app/contract/` whole (`clean: true`). Commit it in the
   same change as the proto, because CI regenerates and fails on any difference.
-- `git fetch origin main`, then `buf breaking --against '.git#ref=origin/main'`: the FILE
-  rules against `origin/main` rather than a local `main` that may be stale, once `main` has a
-  contract. Before that there is nothing to compare
-  against, which is also why CI skips the check on the pull request that adds the contract
-  and says so.
+- `git fetch origin main`, then `buf breaking --against '.git#ref=origin/main'`: the
+  breaking rules against `origin/main` rather than a local `main` that may be stale. `main`
+  has had a contract since #297, and the pull request that added it was the one CI skipped
+  the check on, saying so.
+
+**What the gate catches, and what catches the rest.** `buf.yaml` runs the `FILE` category
+with one rule swapped: `FIELD_NO_DELETE` refuses a removed field even when its number and
+name are reserved, the one way «Evolving the contract» lets a field go, so its two
+reserved-aware variants stand in for it (#298). Buf reads no options. A method's binding,
+credential and role are held only by the resource map in `server/tests/test_contract.py`, so
+**an edit to that map is a breaking change** and is reviewed as one (#299). Every row below
+was tried against `main` on 5 October 2026, in a scratch copy:
+
+| A change to the contract | Caught by |
+| --- | --- |
+| renumber, rename or retype a field; move it into a oneof | Buf: `FIELD_NO_DELETE_UNLESS_*`, `FIELD_SAME_NAME`, `FIELD_SAME_TYPE`, `FIELD_SAME_ONEOF` |
+| remove a field without reserving its number and name | Buf: `FIELD_NO_DELETE_UNLESS_NUMBER_RESERVED`, `…_NAME_RESERVED` |
+| remove a field, number and name reserved | nothing — the documented way, and it passes |
+| re-use a reserved number or name | Buf: `RESERVED_MESSAGE_NO_DELETE` |
+| renumber or rename an enum value | Buf: `ENUM_VALUE_NO_DELETE`, `ENUM_VALUE_SAME_NAME` |
+| rename or delete a message; delete an rpc; change its request type | Buf: `MESSAGE_NO_DELETE`, `RPC_NO_DELETE`, `RPC_SAME_REQUEST_TYPE` |
+| change a file's `java_package` | Buf: `FILE_SAME_JAVA_PACKAGE` |
+| take `NO_SIDE_EFFECTS` off an rpc | Buf: `RPC_SAME_IDEMPOTENCY_LEVEL`; for a Get or List, `test_contract.py` too |
+| change an rpc's verb, path or body, its `auth` or its `min_role` | `test_contract.py` only, through the resource map |
+| leave a new rpc out of the resource map | `test_contract.py` (`test_the_methods_are_the_resource_map`) |
+| edit the proto and not regenerate | the «Contract» job's regenerate-and-diff step |
+| add a field, an enum value, an rpc, a message or a service | nothing, by design |
+| add a case to `CreateDiarySessionRequest.credential` (a new diary platform) | nothing, by design: the only contract change a platform makes |
+| change what a field means under the same name | review and, from sub-project 5, the golden files |
 
 **The plugins are remote and pinned.** `buf.gen.yaml` names `buf.build/bufbuild/py:v0.6.0`
 and `buf.build/connectrpc/py:v0.12.1`. An unpinned plugin takes Buf's latest release, so

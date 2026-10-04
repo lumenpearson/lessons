@@ -580,6 +580,38 @@ def test_the_generated_code_is_the_pinned_plugins_and_their_runtimes() -> None:
     assert stale == []
 
 
+def test_the_gate_lets_a_reserved_removal_through_and_nothing_else() -> None:
+    """«Evolving the contract» removes a field with its number and name
+    reserved, and a bare FILE refuses that, because its FIELD_NO_DELETE does
+    not ask whether they were (#298). The gate keeps FILE and swaps that one
+    rule for the two that do ask. Buf is not run here: this holds the
+    configuration that was checked against twenty-five mutations on 5 October
+    2026, so that tidying it back to a bare FILE fails here, not on the first
+    pull request that removes a field."""
+    config = (REPOSITORY / "buf.yaml").read_text(encoding="utf-8")
+    section = config.split("\nbreaking:\n", 1)[1]
+    lists: dict[str, list[str]] = {}
+    key = None
+    for line in section.splitlines():
+        heading = re.fullmatch(r"  (\w+):\s*", line)
+        item = re.fullmatch(r"    - ([A-Z_]+)\s*", line)
+        if heading:
+            key = heading.group(1)
+            lists[key] = []
+        elif item and key:
+            lists[key].append(item.group(1))
+        elif line and not line.startswith(" "):
+            break
+    assert lists == {
+        "use": [
+            "FILE",
+            "FIELD_NO_DELETE_UNLESS_NUMBER_RESERVED",
+            "FIELD_NO_DELETE_UNLESS_NAME_RESERVED",
+        ],
+        "except": ["FIELD_NO_DELETE"],
+    }
+
+
 # ---- the files --------------------------------------------------------------
 
 

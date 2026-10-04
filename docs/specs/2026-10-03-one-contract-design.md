@@ -243,10 +243,15 @@ contract, not advice, and the contract sub-project turns each one it can into a 
 **Never done in place:** removing, renaming or renumbering a field; changing its type; changing
 what a field *means* under the same name; making an optional field required; changing a method's
 HTTP binding; reusing a number or a name. Buf's `breaking` check, in its strictest category
-(`FILE`, which also protects the generated Kotlin and Python names), refuses all of these but the
-change of meaning, and nothing mechanical can see that one — the golden files and review do. A
-field that has to go is first marked `deprecated`, then no longer read by any client still above
-the minimum version, then removed with its number and name `reserved`.
+(`FILE`, which also protects the generated Kotlin and Python names), refuses the changes to
+fields, numbers and names. It reads no options, so a method's HTTP binding — and its credential
+and role — is held by the resource map in `server/tests/test_contract.py` instead, which makes
+an edit to that map a breaking change, reviewed as one (#299). Nothing mechanical sees a change
+of meaning; the golden files and review do. A field that has to go is first marked
+`deprecated`, then no longer read by any client still above the minimum version, then removed
+with its number and name `reserved` — which the gate lets through, because `buf.yaml` swaps
+`FILE`'s `FIELD_NO_DELETE` for its two reserved-aware variants (#298); a bare `FILE` refused it.
+`docs/build.md`, «The v2 contract and Buf», has the table of what catches what.
 
 **A requirement is a version.** proto3 has no required fields, so «this must be present» lives in
 the handler. A new requirement on a request an old client sends is a breaking change by another
@@ -464,6 +469,26 @@ version forced into line with a dependency constraint.
 of every message into golden files; an Android unit test decodes each one strictly with the DTOs.
 A field renamed in proto and not in Kotlin fails a test on the next run of both suites, rather than
 in front of somebody.
+
+**What a dry generation found (5 October 2026).** The finished contract was generated once, in a
+scratch directory, with the spike's plugins: `protocolbuffers/java:v36.2` and
+`protocolbuffers/kotlin:v36.2`, both `lite`, and `connectrpc/kotlin:v0.9.0`. Nothing was compiled.
+It yielded 443 Java, 225 Kotlin and 34 Connect files, with no warning and no clash among the
+generated names or with a Kotlin or Java keyword or standard type. What sub-project 5 inherits:
+
+- `Options.java` (the custom method options) names `DescriptorProtos.MethodOptions`, which
+  `protobuf-javalite` 4.36.2 does carry. Lite builds it, and `connect-kotlin` ignores the options.
+- Twenty-one generated names are also names of the app's own types under `android/`:
+  `Lesson`, `Term`, `Timetable`, `DayKind`, `DiaryMark` and others. The `Rpc*` mappers import
+  one side under an alias (`import … as Proto…`).
+- Every enum gets `UNRECOGNIZED`, whose `getNumber()` throws, so a mapper reads the `…Value`
+  int or handles that constant. `ErrorReason.valueOf(reason)` throws on a name it does not
+  know, and a newer server sends one, so `RemoteError` looks the name up without throwing.
+- protoc names a file's outer class after the file and renames it `…OuterClass` when a message
+  takes that name. Nothing references the outer classes today, so a later rename is harmless.
+- The canonical JSON a REST DTO meets is pinned by `server/tests/test_contract_json.py`. An
+  unknown enum name refuses the whole message unless it is parsed leniently, and a relayed
+  unknown value is written as its number.
 
 **Streaming (beta).** With `grpc` and `streaming`, the sync worker opens `WatchClass` while the
 app is in the foreground and syncs the moment the class changes, instead of waiting for the next
