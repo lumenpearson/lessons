@@ -135,14 +135,21 @@ The walk sees imports inside functions too, which is why `build_bot` has to move
 calls the moved code. Each move keeps v1's answers byte for byte, and v1's own tests are the
 proof. For 3a:
 - `services/join.py`: the join flow, which v1's `/join` then calls;
-- `services/window.py`: the window builder and its ETag;
+- `services/window.py`: the tag rules and v2's school-year window.
+  - v1 and v2 share the rules and the role check (`linking.Access`), not one builder. v1's
+    `/bundle` resolves its days, looks ahead, seeds terms, adopts subjects and commits, in that
+    order, and a shared builder would move those steps.
+  - This was found when 3a's plan was written.
 - the limiter instances, `MAX_DEVICES_PER_CLASS` and the diary's `_Attempt`, moved to
   `security.py` and re-exported where tests import them, so v1 and v2 share **one instance**
   each;
 - `caller_bucket` to `api/deps.py`, rewritten over a header mapping and a peer address:
   - it reads every `X-Forwarded-For` line, as v1 does with `getall`;
-  - it strips a port, IPv6 included, from the peer. `connectrpc` reports the peer as
-    `host:port`, so without this every connection off Vercel would get a bucket of its own;
+  - the adapter strips the port from the peer before `caller_bucket` sees it. `connectrpc`
+    reports the peer as `host:port`, so without this every connection off Vercel would get a
+    bucket of its own.
+  - The strip is done where that format is known, not on an arbitrary string, because
+    `::1:4321` is itself a valid IPv6 address;
 - the date bounds and the clock to `services/`. The tests that patch `public._now` follow it.
 
 3b moves the substitution rules and the rest the same way, one service at a time.
@@ -235,6 +242,12 @@ A refusal v1 raised inline becomes a `Refusal(reason, message, **metadata)` rais
 - a throttle is `RESOURCE_EXHAUSTED` / `THROTTLED`, with `retry_after_seconds` in the metadata
   as the proto says, and a `google.rpc.RetryInfo` beside it. REST also sends `Retry-After`.
 
+**One status changes from v1 because the contract says so.** `errors.proto` files
+`DEVICE_LIMIT_REACHED` (a class at its 300 phones) under `RESOURCE_EXHAUSTED`. REST therefore
+answers `429` where v1's `/join` answered `409`, and a generic HTTP client may retry a 429. The
+app acts on the reason and will not, but whoever writes a third-party client should read it
+there. Changing the code would be a contract change, and this design does not make one.
+
 **The message is the shell's own words**, as the programme says. Where v1 had a sentence, it is
 v1's sentence. The app acts on the reason.
 
@@ -256,7 +269,10 @@ FastAPI:
 - an error is always a JSON body, even for a binary request;
 - it carries `{"code": "failed_precondition", "message": …, "details": [{"type":
   "google.rpc.ErrorInfo", "value": <base64>}]}` under the protocol's own HTTP status;
-- there is no `debug` rendering, so a client decodes the detail's bytes itself.
+- with a hand-encoded `Any` there is no `debug` rendering, but with the generated classes there
+  is. `connectrpc` keeps the message a detail was built from and writes it as `debug` JSON
+  beside `value`, which 3a's plan observed. A client should still decode `value`, because
+  `debug` is the library's courtesy, not the protocol's promise.
 
 Three tests hold the table:
 - every row raises its exception through a real method and is read back on both paths;
@@ -307,8 +323,10 @@ import. Annotations say `/v2/…` and are served under `/api`.
 - A list of tags, `*` and the `W/` prefix match exactly as v1's `_matches` does.
 - A response with `not_modified` set answers `304`, with its `etag` as `ETag` and no body. Any
   other response with an `etag` sends it as `ETag`.
-- The tag is a strong validator: a SHA-256 of the response's canonical JSON with
-  `generated_at` cleared, quoted.
+- The tag is a strong validator, quoted: a SHA-256 of the response's canonical JSON, taken
+  **before** `generated_at` is set. Clearing the field on a copy is not an option, because
+  protobuf-py's copy is shallow and clearing a nested field on it cleared the original, which
+  3a's plan observed.
 
 What the transcoder's tests cover:
 - every unary method has its route with its verb;
@@ -352,7 +370,10 @@ There is no flag that could claim gRPC on Vercel.
 ### 8. The cold start grows, and its guard changes shape
 
 `app.main` now imports `app.rpc`, `app.rest`, `app.contract`, `connectrpc` and the protobuf
-runtime. The spike measured that at about 61 ms of cold import, which the programme accepted.
+runtime. The spike measured about 61 ms of cold import for one service, which the programme
+accepted. Writing 3a's plan measured more: the seventeen generated service modules alone took
+117–180 ms on this machine. That is still a fraction of a cold start that already pays for
+FastAPI and SQLAlchemy, and the programme's decision stands, but the number is the larger one.
 Two tests change:
 - `test_contract.py`'s `test_the_api_cold_start_imports_no_generated_code` is turned round: the
   generated code is on the cold path now, on purpose.
@@ -450,7 +471,9 @@ call. The features each provider declares are read from what its `DiaryConnectio
 implements, in 3b's plan.
 
 In 3a, `GetDiaryCapabilities` is served from today's registry and the NetSchool allow-list, the
-same answer v1's `/diary/capabilities` gives in v2's shape.
+same answer v1's `/diary/capabilities` gives in v2's shape. Its `sign_in_methods` and `features`
+stay empty until 3b fills them from the table. **Sub-project 5 therefore must not ship against
+3a alone**: a client that hides the screens of an undeclared feature would hide the whole diary.
 
 ### 13. The host and the streaming beta (3c)
 
