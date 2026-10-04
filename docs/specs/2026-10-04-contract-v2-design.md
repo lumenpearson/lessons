@@ -167,7 +167,7 @@ path field; «auth/role» is decision 5. Every `Get` and `List` that changes not
 | `DiaryService` | `GetDiaryCapabilities` (decision 8) | `GET /v2/diary/capabilities` | NONE |
 | | `CreateDiarySession` (a session the phone opened; `201`) · `DeleteDiarySession` (`current`) | `POST /v2/diary/sessions` · `DELETE /v2/diary/sessions/current` | NONE · DIARY |
 | | `ListStudents` | `GET /v2/diary/students` | DIARY |
-| | `ListScheduleDays` · `ListDiaryHomework` · `ListMarks` · `ListPeriods` · `ListDiarySubjects` · `ListTeachers` · `ListTurnstileEvents` | `GET /v2/diary/students/{student_id}/…` (`schedule`, `homework`, `marks`, `periods`, `subjects`, `teachers`, `turnstileEvents`) | DIARY |
+| | `ListScheduleDays` · `ListDiaryHomework` · `ListMarks` · `ListPeriods` · `ListDiarySubjects` · `ListTeachers` · `ListTurnstileEvents` | `GET /v2/diary/students/{student_id}/…` (`scheduleDays`, `homework`, `marks`, `periods`, `subjects`, `teachers`, `turnstileEvents`) | DIARY |
 | | `ListCorrections` · `BatchUpdateCorrections` · `ResetCorrections` · `ClearCorrections` | `/v2/diary/students/{student_id}/corrections[:batchUpdate\|:reset\|:clear]` | DIARY |
 | `WatchService` (beta) | `WatchClass` — server streaming, **no REST binding** | — | DEVICE |
 
