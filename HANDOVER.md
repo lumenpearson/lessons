@@ -1396,6 +1396,13 @@ Either give Preview its own set (a Neon branch, a second BotFather bot, its own 
 turn Preview deployments off in the project's Git settings; nothing here is a web page, so
 there is nothing for a preview to show. Only the owner can do either — this session can read
 which keys exist per environment but must not create them.
+**On 5 October 2026 this changed, and it is not known how.** The preview of #342 started and
+answered `/api/v1/warmup`, so Preview now has the mandatory variables. The owner added
+`DIARY_PROXY_URL` to Preview that day, but which `DATABASE_URL` and `BOT_TOKEN` Preview holds is
+not known here. If they are Production's, every pull request's preview reads and writes the real
+database. The code never registers the Telegram webhook itself — that is done by hand — so a
+preview cannot take the bot's updates, but `RUN_BOT` must stay `false` there. Check in Vercel
+which values Preview has, and decide this paragraph's question with that in view.
 
 **The APK's own badges are new in #80 and they are worth one press.** The about page now
 names the server's state, the repository, the ref and the commit the build came from. Two
