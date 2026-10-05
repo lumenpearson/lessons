@@ -70,6 +70,7 @@ read back in the interface.
 | `PUBLIC_BASE_URL` | `https://your-project.vercel.app` — for the calendar and the diary sign-in page |
 | `DIARY_SECRET` | a random string, see "The electronic diary" below |
 | `DADATA_TOKEN` | a DaData key, see "The schools registry" below — without it the school search is simply off |
+| `DIARY_PROXY_URL` | optional: `http://user:password@host:port` of an HTTP proxy in Russia, for the Petersburg diary's requests alone, which the city drops from abroad (#235, #334). Empty means direct; see "The electronic diary" below |
 
 Vercel applies them **at deploy time**: changing a value without rebuilding changes
 nothing, and the running deployment goes on holding the old one.
@@ -216,6 +217,26 @@ Three things worth knowing about this key:
 
 The diary also needs `PUBLIC_BASE_URL`: without it the bot has nowhere to get the sign-in
 page's address from, and it says so honestly rather than printing a link that would 404.
+
+**From abroad, the Petersburg diary needs a Russian proxy.** `dnevnik2.petersburgedu.ru`
+drops connections from outside Russia (#235), and Vercel is outside Russia. The whole
+server cannot simply move there, because Telegram is blocked from Russian data centres. So
+the owner's decision of 5 October 2026 is that the bot and the API stay on Vercel and Neon,
+and only the diary's requests go through Russia: `DIARY_PROXY_URL` names an HTTP proxy on
+a small Russian VPS (RUVDS was chosen), and the Petersburg client sends its requests
+through it as a `CONNECT` tunnel (#334).
+- TLS stays end to end, so the proxy sees the diary's host name and never the family's
+  credential.
+- The bot, Telegram, the database, DaData and the other diaries go direct as before.
+- The value can carry the proxy's password, so it is a secret like the others, and never
+  logged.
+- An empty value means direct, which is right for a deployment inside Russia.
+- An unusable one (not `http://` or `https://`, or no host) is ignored, and the startup log
+  says so without quoting it.
+
+The proxy should accept `CONNECT` to `dnevnik2.petersburgedu.ru:443` alone and ask for a
+password, or it is an open proxy on the internet. One request through it to the diary is
+the test that it works.
 
 `BOT_USERNAME` and `PUBLIC_BASE_URL` are not secrets, but they are not guessable either. The
 first is needed so the app can show a `t.me/<bot>?start=link_<code>` link; without it the

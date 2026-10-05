@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from pydantic import Field
@@ -127,6 +128,18 @@ class Settings(BaseSettings):
     # refusal-at-the-door as ``diary_secret``: a bundled snapshot would answer
     # confidently with last year's schools and nothing would say which it was.
     dadata_token: str = ""
+
+    # An HTTP proxy for the Petersburg diary's requests, and only theirs (#334).
+    # The city's network drops connections from outside Russia (#235), and the
+    # whole server cannot move there, because Telegram is blocked from Russian
+    # data centres. So the API stays where it is and this one upstream goes
+    # through a small Russian VPS, as a ``CONNECT`` tunnel. TLS stays end to
+    # end, so the proxy sees the diary's host name and never the credential.
+    #
+    # ``http://user:password@host:port``. It may carry a password, so it is
+    # never logged, and the startup line names the setting without quoting it.
+    # Empty means direct, which is what it always was.
+    diary_proxy_url: str = ""
 
     # Public origin of this deployment ("https://lessons.example.com"), for the
     # calendar feed URL the bot shows. Configured rather than read off a
@@ -301,6 +314,29 @@ class Settings(BaseSettings):
         """Whether the school search has a key — the question `dadata` asks."""
         return bool(self.dadata_token_value)
 
+    @property
+    def diary_proxy(self) -> str | None:
+        """``DIARY_PROXY_URL`` if the Petersburg client can use it, else ``None``.
+
+        An unusable value is treated as unset rather than raised: httpx refuses
+        an unknown scheme when the client is built, and that would take the
+        whole diary down where today it merely cannot reach its upstream. The
+        startup log says which of the two it is (``disabled_features``).
+        """
+        value = self.diary_proxy_url.strip()
+        if not value:
+            return None
+        parts = urlsplit(value)
+        try:
+            # Reading the port is what checks it: ``urlsplit`` parses lazily,
+            # and «host:port» with a word for a port raises only here.
+            _ = parts.port
+        except ValueError:
+            return None
+        if parts.scheme not in ("http", "https") or not parts.hostname:
+            return None
+        return value
+
     def disabled_features(self) -> list[str]:
         """What an empty optional setting has switched off, for the startup log.
 
@@ -314,6 +350,15 @@ class Settings(BaseSettings):
             off.append("DIARY_SECRET is unusable: the Petersburg diary is off")
         if not self.dadata_configured:
             off.append("DADATA_TOKEN is unusable: the school search is off, entry is manual")
+        # Only an unusable value is announced. Empty is not a feature switched
+        # off but a route: direct is right for a deployment inside Russia, and
+        # a fully configured one must still announce nothing. Never the value:
+        # it may carry the proxy's password.
+        if self.diary_proxy is None and self.diary_proxy_url.strip():
+            off.append(
+                "DIARY_PROXY_URL is set but unusable (it must be an http:// or https:// "
+                "address with a host): the Petersburg diary is called directly"
+            )
         if not self.public_base_url:
             off.append(
                 "PUBLIC_BASE_URL is empty: the calendar feed and the diary sign-in page "
