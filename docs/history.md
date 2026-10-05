@@ -28,6 +28,68 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the signing values and CI's test command are named exactly where agents learn them (#309, #310), and sub-projects 4, 5 and 6 are drafted for the owner (#306, #307, #308)
+
+Merged as #311 (`8497766`, 5 October 2026), from `fix/agent-instructions`, on milestone 11. It closed #309 and #310
+and refers to #273. Written on 5 October 2026, after #305 merged. The schema head did not
+move, and nothing under `/api/v2` exists.
+
+- **The signing values are named as they are (#309).** `apk.yml` checks four repository
+  secrets, `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`, and Gradle
+  reads four variables, `LESSONS_KEYSTORE_FILE`, `LESSONS_KEYSTORE_PASSWORD`,
+  `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD`. `CLAUDE.md`, four agents, the `release`
+  skill, `.github/SECURITY.md` and `docs/build.md` called all of them `LESSONS_KEYSTORE_*`,
+  which matches two of the variables and none of the secrets, so a redaction written from it
+  left the key's own password in the clear. The `build-ci` agent's review of the console's
+  design (#308) found it.
+- **`CLAUDE.md` and the security reviewer say never to read or print
+  `~/.gradle/gradle.properties`.** On 5 October 2026 an agent of this session, looking in that
+  file for a Gradle setting, printed a signing password into the session's transcript. It
+  entered no file, issue, commit or pull request; what to do about it is the owner's, in
+  `HANDOVER.md`'s section 7.
+- **The `gates` skill gives the command CI runs (#310).** It said `python -m pytest -q -n
+  auto`, the form `CLAUDE.md` («Commands») explains once let a test pass here and fail at
+  collection on CI; it now says bare `pytest -q -n auto`, and why.
+- **Three more designs of the programme are drafted and wait for the owner**, each a draft on
+  milestone 11, **none merged**, each revised the same night for every finding of an
+  independent review:
+  - **#306**, sub-project 4, the Android splits, from `android/decomposition-design`:
+    `docs/specs/2026-10-05-android-decomposition-design.md`. Pure moves in three pull requests,
+    the detekt baseline rewritten in a commit of its own, `HomeShell` giving up only its pure
+    rules, the large view models split into collaborators behind one view model. Three
+    questions.
+  - **#307**, sub-project 5, the app on v2, from `android/transports-design`:
+    `docs/specs/2026-10-05-android-transports-design.md`. Six remotes behind the repositories,
+    one error contract for all three transports, the bearer chosen per method rather than per
+    path, golden files for the wire, stages 5a to 5d. Four questions.
+  - **#308**, sub-project 6, the build console, from `console/design`:
+    `docs/specs/2026-10-05-build-console-design.md`. A closed table of tasks held level with
+    `ci.yml` both ways, one heavy job at a time on this machine, redaction of every signing
+    name. Six questions.
+
+### Gates
+
+- **The server suite** was not run in full on this machine: the batch changes no code and no
+  test. The tests that read the changed documents (`test_schema_version.py`,
+  `test_ci_paths.py`, `test_env_example.py`) gave **21 passed**. The total stays 2207, as
+  #305's run counted it.
+- **CI on `66c7ba1`**, the batch's first commit, started the server job on a change confined
+  to `CLAUDE.md`, `.claude/` and `docs/build.md`, which is #295's filter doing what it was
+  written for (`HANDOVER.md`, section 5).
+- **ruff, mypy and Android** are unchanged, because nothing they read changed.
+
+### What was deliberately left alone
+
+- **`docs/history.md` keeps `LESSONS_KEYSTORE_*`** where it records what was true then.
+- **A `Read(~/.gradle/gradle.properties)` deny rule in `.claude/settings.json`** would hold the
+  file tools to the new sentence mechanically. Editing the agent's own permissions is not a
+  session's to do, so it is in `HANDOVER.md`'s section 7; a shell `cat` would pass it either way.
+- **#301, #306, #307 and #308 are not merged and not executed**: they wait for the owner.
+
+### What nobody has verified in this batch
+
+- **That an agent obeys the new sentence.** Nothing can test an instruction.
+
 ## What the batch before added: a form no longer takes «/week@» for an answer (#276, #304), and CI runs the server's tests when a document they read changes (#295)
 
 Merged as #305 (`26769c6`, 5 October 2026), from `fix/breakout-mention-and-ci-documents`, on milestone 11. It closes
@@ -64,8 +126,8 @@ schema head did not move, and nothing under `/api/v2` exists.
 - **The server suite.** At `5b7f5cb`, `pytest -q -n auto`, run once and alone on this machine
   on 5 October 2026, gave **2207 passed** in 9 minutes 1 second: 2175 plus 32 (29 in
   `test_bot_commands.py`, 3 in `test_ci_paths.py`). The README, `docs/architecture.md`,
-  `CLAUDE.md`, `CONTRIBUTING.md`, the `gates` skill and the cheat-sheet at the end of section 8
-  say 2207.
+  `CLAUDE.md`, `CONTRIBUTING.md`, the `gates` skill and the cheat-sheet at the end of
+  `HANDOVER.md`'s section 8 say 2207.
 - **ruff and mypy.** Both are clean; mypy covers 197 modules.
 - **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
 - **CI on #305's head** is not claimed here.
@@ -83,8 +145,10 @@ schema head did not move, and nothing under `/api/v2` exists.
 
 ### What nobody has verified in this batch
 
-- **The new filter on a GitHub runner**, beyond #305's own CI, as section 5 says.
-- **Whether Telegram delivers a message that starts with whitespace** (#304), as section 5 says.
+- **The new filter on a GitHub runner**, beyond #305's own CI, as `HANDOVER.md`'s section 5
+  says.
+- **Whether Telegram delivers a message that starts with whitespace** (#304), as
+  `HANDOVER.md`'s section 5 says.
 
 ## What the batch before added: a deployment without a diary key keeps its sessions (#302), and the design of serving v2 is drafted for the owner (#301)
 
