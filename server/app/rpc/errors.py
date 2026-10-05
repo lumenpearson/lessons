@@ -34,6 +34,7 @@ from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.services import diary as diary_service
 from app.services import join, window
 from app.services.manage import devices as devices_service
+from app.services.manage import subjects as subjects_service
 
 log = logging.getLogger(__name__)
 
@@ -150,6 +151,33 @@ def _class_device_not_linked(_error: devices_service.DeviceNotLinked) -> Refusal
     return Refusal(ErrorReason.CLASS_DEVICE_NOT_LINKED, wording.CLASS_DEVICE_NOT_LINKED_DETAIL)
 
 
+def _subject_exists(_error: subjects_service.SubjectExists) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_EXISTS,
+        wording.SUBJECT_EXISTS_DETAIL,
+        resource="subject",
+        field="name",
+    )
+
+
+def _subject_rename_clash(error: subjects_service.HomeworkClash) -> Refusal:
+    return Refusal(
+        ErrorReason.SUBJECT_RENAME_CLASH,
+        wording.subject_rename_clash_detail(error.days),
+        dates=",".join(day.isoformat() for day in error.days),
+    )
+
+
+def _subject_in_use(error: subjects_service.SubjectInUse) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_IN_USE,
+        wording.subject_in_use_detail(error.lessons),
+        resource="subject",
+        used_by="lessons",
+        count=error.lessons,
+    )
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -162,6 +190,9 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     diary_service.DiaryDisabled: _diary_disabled,
     window.YearOutOfBounds: _year_out_of_bounds,
     devices_service.DeviceNotLinked: _class_device_not_linked,
+    subjects_service.SubjectExists: _subject_exists,
+    subjects_service.HomeworkClash: _subject_rename_clash,
+    subjects_service.SubjectInUse: _subject_in_use,
 }
 
 
@@ -219,20 +250,23 @@ def undecodable() -> Refusal:
     return Refusal(ErrorReason.REQUEST_UNDECODABLE, UNDECODABLE_MESSAGE)
 
 
-def validate(model: type[M], data: Mapping[str, object]) -> M:
+def validate(model: type[M], data: Mapping[str, object], *, at: str = "") -> M:
     """``model`` validated from ``data``, or ``VALIDATION_FAILED`` naming each
     field — and never the value, which pydantic keeps under ``input``.
 
     A handler validates with v1's own schema where one exists, so v1 and v2
     refuse the same requests; only the words differ. pydantic's own messages
     never quote the value; a custom validator's are its author's words, so a
-    ``ValueError`` raised in one must not quote it either.
+    ``ValueError`` raised in one must not quote it either. ``at`` is where
+    ``data`` sits in the request — ``"subject."`` for ``CreateSubject``'s
+    ``subject`` — so that each violation names the field as the request spells
+    it.
     """
     try:
         return model.model_validate(dict(data))
     except ValidationError as failure:
         violations = [
-            (".".join(str(part) for part in error["loc"]), error["msg"])
+            (at + ".".join(str(part) for part in error["loc"]), error["msg"])
             for error in failure.errors(include_input=False, include_url=False)
         ]
         fields = ", ".join(sorted({field for field, _ in violations}))

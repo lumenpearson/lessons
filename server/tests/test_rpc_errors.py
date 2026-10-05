@@ -23,10 +23,11 @@ from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.rest.errors import STATUS, error_response
 from app.rpc import errors
 from app.rpc.errors import CODES, Refusal, connect_error, validate
-from app.schemas import JoinRequest
+from app.schemas import JoinRequest, SubjectIn
 from app.services import diary as diary_service
 from app.services import join, window
 from app.services.manage import devices as devices_service
+from app.services.manage import subjects as subjects_service
 
 SERVER = Path(__file__).resolve().parents[1]
 ERRORS_PROTO = SERVER.parent / "proto" / "lessons" / "v2" / "errors.proto"
@@ -37,12 +38,11 @@ RPC = SERVER / "app" / "rpc"
 #: produces the last reason it brings, and a reason still listed under it in
 #: ``LATER`` then fails below
 #: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
-STAGES = {"3b-1", "3b-2", "3b-3", "3b-4", "3b-5", "3b-6", "3b-7", "3b-8"}
+STAGES = {"3b-2", "3b-3", "3b-4", "3b-5", "3b-6", "3b-7", "3b-8"}
 
 #: The reasons no served method produces yet, and the stage that brings each.
 #: A reason leaves this table in the commit whose handler raises it.
 LATER = {
-    "RESOURCE_EXISTS": "3b-1",
     "NO_BELL_FOR_LESSON": "3b-6",
     "EMPTY_BELL_SCHEDULE": "3b-2",
     "DIARY_UNAVAILABLE": "3b-7",
@@ -54,8 +54,6 @@ LATER = {
     "DIARY_NO_STUDENTS": "3b-7",
     "DIARY_UPSTREAM_UNREADABLE": "3b-7",
     "CORRECTIONS_UNAVAILABLE": "3b-8",
-    "RESOURCE_IN_USE": "3b-1",
-    "SUBJECT_RENAME_CLASH": "3b-1",
     "ROLE_GRANT_REFUSED": "3b-3",
     "TERM_BOUNDS_REFUSED": "3b-2",
     "NO_LESSON_ON_DAY": "3b-6",
@@ -89,6 +87,18 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     devices_service.DeviceNotLinked: (
         "test_v2_class_devices.py",
         "test_unlinking_a_phone_with_nothing_to_unlink_is_refused_in_v1_s_words",
+    ),
+    subjects_service.SubjectExists: (
+        "test_v2_subject_writes.py",
+        "test_a_name_the_class_has_in_any_case_is_refused_as_existing",
+    ),
+    subjects_service.HomeworkClash: (
+        "test_v2_subject_writes.py",
+        "test_a_rename_onto_a_name_with_homework_the_same_day_is_a_clash",
+    ),
+    subjects_service.SubjectInUse: (
+        "test_v2_subject_writes.py",
+        "test_a_subject_the_timetable_teaches_is_refused_as_in_use",
     ),
     # The gate raises it for a diary method, and none is served before 3b-7:
     # test_rpc_gate.py holds the gate raising it until then.
@@ -240,6 +250,18 @@ def test_validation_names_the_field_and_never_the_value() -> None:
         assert all(secret not in description for _, description in refusal.violations)
     else:
         raise AssertionError("a 48-character code was accepted")
+
+
+def test_validation_names_a_nested_field_by_its_request_path() -> None:
+    """``CreateSubject`` validates its ``subject`` with v1's ``SubjectIn``; a
+    violation names ``subject.name``, the field as the request spells it."""
+    try:
+        validate(SubjectIn, {"name": "   "}, at="subject.")
+    except Refusal as refusal:
+        assert [field for field, _ in refusal.violations] == ["subject.name"]
+        assert refusal.message == "invalid request field: subject.name"
+    else:
+        raise AssertionError("a blank name was accepted")
 
 
 def test_rest_writes_google_s_error_body_through_the_type_registry() -> None:

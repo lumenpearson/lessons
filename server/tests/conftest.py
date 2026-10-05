@@ -630,6 +630,8 @@ class _V2:
 
         from protobuf import message_to_json_value
 
+        from app.rpc.methods import message_class
+
         method = self.method(name)
         request = request if request is not None else method.input()
         binding = method.binding
@@ -643,7 +645,13 @@ class _V2:
             parts = variable.split(".")
             for index, part in enumerate(parts):
                 field_desc = next(f for f in leaf.desc().fields if f.name == part)
-                leaf = leaf[field_desc]
+                nested = leaf[field_desc]
+                if nested is None:
+                    # An unset message on the way to a path variable, as in an
+                    # empty `UpdateSubjectRequest`: the variable is its field's
+                    # default, the URL a client writes from an empty resource.
+                    nested = message_class(field_desc.value.message)()
+                leaf = nested
                 if index < len(parts) - 1:
                     container = container.get(field_desc.json_name, {})
                 else:

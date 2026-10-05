@@ -30,7 +30,10 @@ HANDLERS: dict[str, Handler] = {
     "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
     "lessons.v2.MeService/GetMe": me.get_me,
     "lessons.v2.ScheduleService/GetScheduleWindow": schedule.get_schedule_window,
+    "lessons.v2.SubjectService/CreateSubject": subject.create_subject,
+    "lessons.v2.SubjectService/DeleteSubject": subject.delete_subject,
     "lessons.v2.SubjectService/GetSubject": subject.get_subject,
     "lessons.v2.SubjectService/ListSubjects": subject.list_subjects,
+    "lessons.v2.SubjectService/UpdateSubject": subject.update_subject,
     "lessons.v2.WatchService/WatchClass": watch.watch_class,
 }
