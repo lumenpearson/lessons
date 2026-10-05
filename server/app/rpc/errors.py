@@ -113,7 +113,6 @@ class Refusal(Exception):
         self.metadata = {key: str(value) for key, value in metadata.items()}
 
 
-E = TypeVar("E", bound=Exception)
 M = TypeVar("M", bound=BaseModel)
 
 
@@ -194,11 +193,19 @@ def connect_error(error: BaseException) -> ConnectError:
     """What ``error`` is on the wire. Never raises, and never quotes ``error``'s text."""
     if isinstance(error, ConnectError):
         return error
-    refusal = refusal_of(error)
-    if refusal is None:
-        log.error("v2 call failed", exc_info=error)
+    try:
+        refusal = refusal_of(error)
+        if refusal is not None:
+            return ConnectError(CODES[refusal.reason], refusal.message, details=_details(refusal))
+    except Exception:
+        # A row that cannot word its error — a ``retry_after_seconds`` that is
+        # not a number — is our bug, and the caller is still owed an answer:
+        # the same INTERNAL as an error no row knows, rather than a raise out
+        # of the one function every failure goes through.
+        log.exception("v2 refusal could not be worded")
         return ConnectError(Code.INTERNAL, INTERNAL_MESSAGE)
-    return ConnectError(CODES[refusal.reason], refusal.message, details=_details(refusal))
+    log.error("v2 call failed", exc_info=error)
+    return ConnectError(Code.INTERNAL, INTERNAL_MESSAGE)
 
 
 def undecodable() -> Refusal:
@@ -211,7 +218,9 @@ def validate(model: type[M], data: Mapping[str, object]) -> M:
     field — and never the value, which pydantic keeps under ``input``.
 
     A handler validates with v1's own schema where one exists, so v1 and v2
-    refuse the same requests; only the words differ.
+    refuse the same requests; only the words differ. pydantic's own messages
+    never quote the value; a custom validator's are its author's words, so a
+    ``ValueError`` raised in one must not quote it either.
     """
     try:
         return model.model_validate(dict(data))

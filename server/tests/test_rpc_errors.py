@@ -158,6 +158,17 @@ def test_an_unknown_failure_is_internal_and_says_nothing_of_itself(caplog) -> No
     assert any(record.exc_info for record in caplog.records)
 
 
+def test_a_refusal_that_cannot_be_worded_is_internal_rather_than_a_raise(caplog) -> None:
+    # Every failure of every call goes through connect_error, so a raise here
+    # would turn a refusal into a dropped connection.
+    unwordable = Refusal(ErrorReason.THROTTLED, "Too many", retry_after_seconds="soon")
+    with caplog.at_level(logging.ERROR, logger="app.rpc.errors"):
+        error = connect_error(unwordable)
+    assert error.code is Code.INTERNAL
+    assert error.message == errors.INTERNAL_MESSAGE
+    assert any(record.exc_info for record in caplog.records)
+
+
 def test_validation_names_the_field_and_never_the_value() -> None:
     secret = "Pa55w0rd-s3cret-" * 3
     try:
