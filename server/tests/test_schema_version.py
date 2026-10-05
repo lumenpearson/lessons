@@ -94,28 +94,12 @@ _HEAD_SENTENCES = (
 _WARMUP_OK = re.compile(r'"status": ?"ok"[^}\n]*"schema": ?"(\d{4})"')
 
 
-#: The record of past batches, moved verbatim out of HANDOVER.md: it quotes the
-#: head of every commit it describes, true of that commit, and is never
-#: brought up to date.
-_HISTORY = Path("docs") / "history.md"
+# Which documents are read is `conftest.head_documents`, not a list here:
+# test_ci_paths holds that a change to any of them runs this file on CI, and
+# one list is what keeps the two from meaning different documents.
 
 
-def _documents(repository: Path = REPOSITORY) -> list[Path]:
-    """Everything a person or an agent reads to learn the head — not
-    HANDOVER.md or docs/history.md, which between them hold every head
-    there has been, and not `.claude/worktrees/`, which holds other
-    branches' checkouts rather than this one's."""
-    found = [repository / name for name in ("README.md", "CLAUDE.md", "AGENTS.md")]
-    found.append(repository / ".github" / "copilot-instructions.md")
-    found += sorted((repository / "docs").rglob("*.md"))
-    worktrees = repository / ".claude" / "worktrees"
-    found += sorted(document for document in (repository / ".claude").rglob("*.md")
-                    if not document.is_relative_to(worktrees))
-    return [document for document in found
-            if document.is_file() and document != repository / _HISTORY]
-
-
-def test_the_documents_are_this_checkouts_and_not_an_agents_worktree(tmp_path):
+def test_the_documents_are_this_checkouts_and_not_an_agents_worktree(tmp_path, head_documents):
     """Claude Code keeps parallel agents' git worktrees under
     `.claude/worktrees/`, untracked, each with its own branch's HANDOVER.md
     and docs. Read as part of this checkout, nine of them named a head four
@@ -129,21 +113,21 @@ def test_the_documents_are_this_checkouts_and_not_an_agents_worktree(tmp_path):
     elsewhere.parent.mkdir(parents=True)
     elsewhere.write_text("expects `0013`", "utf-8")
 
-    found = _documents(tmp_path)
+    found = head_documents(tmp_path)
 
     assert skill in found
     assert tmp_path / "docs" / "deploy.md" in found
     assert elsewhere not in found
 
 
-def test_every_document_that_names_the_head_names_this_one():
+def test_every_document_that_names_the_head_names_this_one(head_documents):
     """The constant is pinned above; the documents quoting it were not, and a
     batch that moved the head to `0017` left the README telling the operator to
     expect `0016` from `/warmup` — which after the merge answers «degraded» —
     and the migration skill, the procedure the next revision follows, a head
     behind. A document that names a head names this one."""
     named: dict[str, set[str]] = {}
-    for document in _documents():
+    for document in head_documents():
         text = document.read_text("utf-8")
         patterns = list(_HEAD_SENTENCES)
         if document.is_relative_to(REPOSITORY / "docs"):

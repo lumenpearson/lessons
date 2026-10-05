@@ -20,6 +20,7 @@ import pytest
 from aiogram import Bot, Dispatcher
 from aiogram.client.session.base import BaseSession
 from aiogram.dispatcher.event.bases import UNHANDLED
+from aiogram.filters import Command
 from aiogram.fsm.storage.base import StorageKey
 from aiogram.methods import TelegramMethod
 from aiogram.types import CallbackQuery, Chat, Message, Update
@@ -41,7 +42,7 @@ from app.bot.handlers.start.timezone import change_timezone_apply
 from app.bot.handlers.unknown import STALE_CARD, UNKNOWN_COMMAND
 from app.bot.manage_keyboards.bells import BellsAction
 from app.bot.manage_states import EditSubject
-from app.bot.middlewares import FORM_DROPPED
+from app.bot.middlewares import FORM_DROPPED, looks_like_command
 from app.bot.week_keyboard import WeekNav
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
@@ -470,6 +471,162 @@ async def test_a_refused_form_step_through_the_dispatcher_drops_the_form_quietly
     assert sent.texts == []
     async with SessionLocal() as db:
         assert (await db.scalars(select(AuditEntry))).all() == []
+
+
+# --------------------------------------------------------------------------
+# What counts as a command: aiogram's answer, not a second one
+# --------------------------------------------------------------------------
+
+
+async def test_a_command_with_a_bare_mention_gets_out_of_the_form(bot, sent, editor):
+    """«/week@» is «/week» to aiogram, so it has to be a command to the breakout.
+
+    aiogram's `Command` reads an empty mention as no mention and hands «/week@»
+    to the week. The breakout read it as text, so the form stayed open, and the
+    step - whose router is included before the week's - took «/week@» as the
+    assignment: committed, audited and announced (#276).
+    """
+    await _set_state(bot, states.AddHomework.text, due="2026-09-07", subject="Алгебра")
+
+    await dispatcher().feed_update(bot, _message("/week@"))
+
+    async with SessionLocal() as db:
+        assert (await db.scalars(select(Homework))).all() == []
+    assert await _state_of(bot) is None
+    assert FORM_DROPPED in sent.texts
+    assert _week_card_drawn(sent)
+
+
+#: The username `Command` is told this bot has, when a text mentions one.
+_BOT_USERNAME = "lessons_test_bot"
+
+
+class _BotNamed:
+    """All that `Command` asks of a bot, and only when the text carries a
+    mention: who it is. The `bot` fixture would send getMe through the fake
+    session, which answers every method with a message."""
+
+    def __init__(self, username: str) -> None:
+        self.username = username
+
+    async def me(self) -> TgUser:
+        return TgUser(id=1, is_bot=True, first_name="Дневник", username=self.username)
+
+
+def _command_filters() -> list[Command]:
+    """Every `Command` filter the dispatcher runs, `CommandStart` included.
+
+    Discovered, as the states are above, so a command added tomorrow joins the
+    comparison without anybody listing it.
+    """
+
+    def walk(router: Any) -> Iterator[Command]:
+        for handler in router.observers["message"].handlers:
+            for found in handler.filters or ():
+                if isinstance(found.callback, Command):
+                    yield found.callback
+        for child in router.sub_routers:
+            yield from walk(child)
+
+    filters = list(walk(dispatcher()))
+    assert len(filters) > 20, "the discovery stopped finding the bot's commands"
+    return filters
+
+
+def _as_message(text: str) -> Message:
+    return Message(
+        message_id=1,
+        date=datetime.now(UTC),
+        chat=Chat(id=USER_ID, type="private"),
+        text=text,
+    )
+
+
+async def _aiogram_dispatches(text: str) -> bool:
+    """Whether aiogram itself hands this text to one of this bot's commands.
+
+    Asked of the real filters, with aiogram's own parser, rather than of a
+    restatement of it: a restatement is how the breakout came to disagree.
+    """
+    message = _as_message(text)
+    bot: Any = _BotNamed(_BOT_USERNAME)
+    for command in _command_filters():
+        if await command(message, bot):
+            return True
+    return False
+
+
+#: Texts on which the breakout and aiogram must give one answer: a command to
+#: this bot closes the form, and anything else may be the form's answer.
+_SAME_ANSWER = [
+    ("/week", True),
+    ("/week на завтра", True),
+    # #276: aiogram reads an empty mention as no mention at all.
+    ("/week@", True),
+    ("/week@ на завтра", True),
+    ("/week@\nна завтра", True),
+    ("/homework@", True),
+    ("/start@", True),
+    (f"/week@{_BOT_USERNAME}", True),
+    (f"/week@{_BOT_USERNAME.upper()}", True),
+    # aiogram splits on any whitespace before it looks, so what comes before
+    # the slash, and a no-break space after the name, are whitespace to it.
+    (" /week", True),
+    ("\n/week", True),
+    ("/week на завтра", True),
+    # A mention that is no username: aiogram compares it with this bot's and
+    # refuses, and nothing else would take it.
+    ("/week@@", False),
+    ("/week@@ на завтра", False),
+    (f"/week@{_BOT_USERNAME}@", False),
+    ("/week@.", False),
+    (f"/@{_BOT_USERNAME}", False),
+    ("/week,", False),
+    ("/недели", False),
+    ("/ week", False),
+    ("/", False),
+    ("week", False),
+    ("", False),
+    ("стр. 5, упр. 3/4", False),
+]
+
+
+@pytest.mark.parametrize(("text", "is_command"), _SAME_ANSWER, ids=repr)
+async def test_the_breakout_reads_a_command_as_aiogram_does(text, is_command):
+    """What closes a form is what aiogram would dispatch as a command.
+
+    Wherever the two disagree, one of two things goes wrong. A text aiogram
+    dispatches and the breakout does not is taken by the open step as its
+    answer, which is #276. The reverse closes a form on text that was meant as
+    its answer, which is what «/ 5 стр» must never do.
+    """
+    assert await _aiogram_dispatches(text) is is_command, "the table is wrong about aiogram"
+    assert looks_like_command(text) is is_command
+
+
+#: Texts the breakout counts as commands and this bot does not answer - wider
+#: on purpose, and only in *which* command and *which* bot, never in shape.
+_WIDER_ON_PURPOSE = [
+    # A typo for «/week»: the form closes and the catch-all says so.
+    "/wek",
+    "/wek@",
+    # aiogram compares names as written, and the menu only ever sends lower case.
+    "/Week",
+    # A command to another bot is still somebody addressing a bot.
+    "/week@other_bot",
+]
+
+
+@pytest.mark.parametrize("text", _WIDER_ON_PURPOSE, ids=repr)
+async def test_the_breakout_is_wider_than_this_bot_only_in_name_and_addressee(text):
+    """Each of these is a command that aiogram would dispatch, to a bot with
+    that command and that username, and only this bot's list says no."""
+    assert looks_like_command(text)
+    assert not await _aiogram_dispatches(text)
+
+    named = Command.extract_command(text)
+    elsewhere: Any = _BotNamed(named.mention or _BOT_USERNAME)
+    assert await Command(named.command)(_as_message(text), elsewhere)
 
 
 # --------------------------------------------------------------------------
