@@ -26,6 +26,9 @@ from collections.abc import Awaitable, Callable, MutableMapping
 from typing import Any
 
 from connectrpc.codec import Codec, proto_binary_codec, proto_json_codec
+from connectrpc.compression import Compression
+from connectrpc.compression.gzip import GzipCompression
+from connectrpc.errors import ConnectError
 from starlette.responses import PlainTextResponse, Response
 
 from app.api.deps import peer_host
@@ -73,6 +76,40 @@ class _Decoding:
 CODECS: tuple[Codec, ...] = (_Decoding(proto_binary_codec()), _Decoding(proto_json_codec()))
 
 
+class _Decompressing:
+    """A compression that answers ``REQUEST_UNDECODABLE`` where the library's raises.
+
+    A body that claims ``Content-Encoding: gzip`` and is not gzip makes
+    ``gzip``/``zlib`` raise ``zlib.error`` out of ``connectrpc``'s request
+    reader, ahead of any codec, and that is a ``500`` with a traceback (#337).
+    The library's own refusals are ``ConnectError``s and pass unchanged — a body
+    past the read limit stays ``RESOURCE_EXHAUSTED``.
+    """
+
+    def __init__(self, inner: Compression) -> None:
+        self._inner = inner
+
+    def name(self) -> str:
+        return self._inner.name()
+
+    def compress(self, data: bytes | bytearray | memoryview) -> bytes:
+        return self._inner.compress(data)
+
+    def decompress(
+        self, data: bytes | bytearray | memoryview, read_max_bytes: int | None = None
+    ) -> bytes:
+        try:
+            return self._inner.decompress(data, read_max_bytes)
+        except ConnectError:
+            raise
+        except Exception:
+            raise connect_error(undecodable()) from None
+
+
+#: What the library accepts by default (gzip; identity is always added), wrapped.
+COMPRESSIONS: tuple[Compression, ...] = (_Decompressing(GzipCompression()),)
+
+
 def _unary(method: Method) -> Callable[..., Awaitable[Any]]:
     async def call(self: object, request: Any, ctx: Any) -> Any:
         return await invoke(
@@ -114,7 +151,7 @@ def _service_app(service: str, methods: list[Method]) -> Any:
             _server_stream(method) if method.streaming else _unary(method)
         )
     adapter = type(f"{short}Adapter", (protocol,), namespace)
-    return application(adapter(), codecs=CODECS)
+    return application(adapter(), codecs=CODECS, compressions=COMPRESSIONS)
 
 
 def _is_native_grpc(scope: Scope) -> bool:

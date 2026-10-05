@@ -127,6 +127,43 @@ async def test_a_body_that_does_not_decode_is_invalid_argument_not_500(
     assert error["details"][0]["debug"]["reason"] == "REQUEST_UNDECODABLE"
 
 
+async def test_a_body_that_claims_gzip_and_is_not_is_undecodable_not_500(v2) -> None:
+    """#337: ``zlib.error`` came out of the library's request reader as a 500."""
+    response = await v2.http.post(
+        "/api/rpc/lessons.v2.MeService/GetMe",
+        content=b"not gzip at all",
+        headers={
+            "Content-Type": "application/json",
+            "Content-Encoding": "gzip",
+            "Connect-Protocol-Version": "1",
+        },
+    )
+    assert response.status_code == 400
+    error = response.json()
+    assert error["code"] == "invalid_argument"
+    assert error["message"] == "The request could not be decoded"
+    assert error["details"][0]["debug"]["reason"] == "REQUEST_UNDECODABLE"
+
+
+async def test_a_gzip_body_that_is_gzip_is_still_decompressed_and_decoded(v2) -> None:
+    """No unary method has a handler yet, so the proof that the body got through
+    is the answer it earns: a valid one is the method's UNIMPLEMENTED, and one
+    that decompresses into garbage is the codec's refusal, not the gzip one's."""
+    import gzip
+
+    headers = {
+        "Content-Type": "application/json",
+        "Content-Encoding": "gzip",
+        "Connect-Protocol-Version": "1",
+    }
+    url = "/api/rpc/lessons.v2.MeService/GetMe"
+    valid = await v2.http.post(url, content=gzip.compress(b"{}"), headers=headers)
+    assert valid.status_code == 501
+    assert valid.json()["code"] == "unimplemented"
+    garbage = await v2.http.post(url, content=gzip.compress(b"[1, 2]"), headers=headers)
+    assert garbage.status_code == 400
+
+
 async def test_an_unknown_service_is_404_and_a_get_of_a_write_is_405(v2) -> None:
     unknown = await v2.http.post(
         "/api/rpc/lessons.v2.NoSuchService/Nothing",
