@@ -86,9 +86,18 @@ remembering them:
   «Moved out of section …» part at the end of `docs/history.md` rather than being deleted.
 - **The milestone table**, under «The milestones», whose last row grows with every pull
   request the milestone takes.
-- **The test counts, which live in three places** — this file's cheat-sheet («How to
-  continue», at the end of section 8), the README's «Honest status» table and
-  `docs/architecture.md`. Take them from a real run, not from the last document that
+- **The test counts, which live in seven places**:
+  - this file's cheat-sheet («How to continue», at the end of section 8);
+  - the README's «Honest status» table;
+  - `docs/architecture.md`, whose total also stands beside `:core:model`'s own count;
+  - `CLAUDE.md` («Commands»);
+  - `CONTRIBUTING.md`'s table of commands;
+  - the `gates` skill, for both suites;
+  - the `server-tests` agent.
+
+  This list said «three» until #317, and the four it left out drifted: the `gates` skill said
+  770 Android tests when there were 1635. Grep for the old number before
+  you write the new one. Take them from a real run, not from the last document that
   mentioned them: `docs/architecture.md` once carried a corrected total over a per-module
   breakdown that still summed to the old one, and the total hid it.
 - **Section 5, what nobody has verified**, which grows with every path that shipped without

@@ -28,7 +28,7 @@ authority:
 
 | Family | Writes | Authority |
 |---|---|---|
-| `/api/v1/edit` | homework, substitutions, events, special days | the device token; the linked account's role, editor or above |
+| the edit routes (`/api/v1/homework`, `/overrides`, `/events`, `/days`; `api/edit.py`) | homework, substitutions, events, special days | the device token; the linked account's role, editor or above |
 | `/api/v1/manage` | subjects, bells, the timetable, devices, access requests, terms, the class itself | the device token; the linked account's role — admin, and owner to delete the class |
 | `/api/v1` (`public.py`) | the account's own tasks and ticked-off homework, a phone unlinking itself; `POST /join` mints the token | the device token — linked, any role, for the account's own rows; `/join` takes a code |
 | `/api/v1/diary` | a diary session, a family's corrections over the diary | the diary token; `/login` and `/session` take the diary's own credentials |
@@ -64,8 +64,10 @@ app/
 
 A session used to be made in three places: a FastAPI dependency for an
 endpoint, `SessionLocal()` inside the bot's middleware, and `session_scope()`
-for the cron tick — three answers to one question, each with its own view of
-whether the caller or the maker commits. `app/di.py` is a
+in `scripts/seed_demo` (#325) — three answers to one question, each with its own
+view of whether the caller or the maker commits. The script keeps
+`session_scope()`, because a script is not a request and has no scope to take a
+session from; the other two are `app/di.py` now, a
 [dishka](https://github.com/reagento/dishka) container holding what has a
 lifetime: the settings and the session factory for as long as the process runs,
 and one `AsyncSession` for as long as one HTTP request or one Telegram update.
@@ -100,7 +102,7 @@ Response` and took the name for a response model. The route class resolves the
 annotation before the wrapping.
 
 `schedule.py` is deliberately free of framework imports. It takes ORM rows and
-returns plain dataclasses, which is why its twenty-two tests run in two seconds
+returns plain dataclasses, which is why its twenty-four tests (#325) run in two seconds
 with no HTTP client involved.
 
 ### The resolution model
@@ -158,7 +160,7 @@ without dragging the app's entire UI graph into its process.
 
 ```
 Telegram bot ──writes──▶ Postgres/SQLite ──/api/v1/bundle──▶ Room ──▶ UI
-linked phone ──writes──▶ (/api/v1/edit, /api/v1/manage)
+linked phone ──writes──▶ (the edit routes, /api/v1/manage)
                                                               │
                                                               └──▶ Glance widget
 ```
@@ -242,9 +244,11 @@ lesson, and look far enough to cross the summer), not a client one.
 The server needed nothing for any of this. `/api/v1/bundle` has always taken an
 arbitrary `start` and up to `MAX_BUNDLE_DAYS = 280`, and a school year is 274.
 
-After a successful sync, `SyncWorker` sends a package-internal broadcast
+After a successful sync, the background one or a refresh from inside the app, the
+timetable repository's `onDataChanged` (`DataSyncBroadcast.send`, wired in
+`LessonsContainer`) sends a package-internal broadcast
 (`com.lumenpearson.lessons.action.DATA_SYNCED`) that the widget receiver listens
-for. That is why `:core:data` does not depend on `:widget` — the dependency would
+for; `SyncWorker` no longer sends it itself (#331). That is why `:core:data` does not depend on `:widget` — the dependency would
 otherwise be circular.
 
 ### Notifications
@@ -423,9 +427,10 @@ tool that would need more than that does not belong here.
 What it switches on, all of it off until chosen, and all of it off whenever the access does
 not stand:
 
-- **The network record** (`NetworkLog`): one interceptor on each of the three clients — our
-  server's, the diaries' and GitHub's. On our server's client it sits after
-  `BaseUrlInterceptor`, so it records where a request really went. It keeps the method, the
+- **The network record** (`NetworkLog`): one interceptor on each of the four clients — our
+  server's, the diaries', GitHub's and the request console's own, below (#325). On our
+  server's client it sits after `BaseUrlInterceptor`, so it records where a request really
+  went. It keeps the method, the
   host, the path with any token-like or long numeric segment masked, the *names* of the query
   parameters, the status, the duration and the failure's class. Of the response headers it
   keeps only a short list that explains an answer: `Retry-After`, `X-Diary-*`, `X-Vercel-Id`.
@@ -494,15 +499,18 @@ can swap wholesale.
 
 ## The service layer, and why the phone does not log in
 
-`server/app/services/` is thirty-two modules of pure async functions over a session, and
-they exist for exactly one reason: every feature of the product now has two entrances, the
-bot and the app. Homework is added by a command in a chat and by a button on a phone; so
-are a substitution, an event and a special day. Two implementations of one rule would have
-drifted apart inside a month, so there is one rule and the handlers and endpoints are two
-thin shells over it — the change log, device linking, personal tasks, ticking homework off,
-reminders and their idempotence, the broadcast to subscribers, the calendar feed, the
-statistics, the timetable export and import, and granting the role somebody asked for, which
-was forty lines of permission rules carried in both shells until it was not.
+`server/app/services/` is thirty-four modules (#325), ten of them under `manage/`, of pure
+async functions over a session, and they exist for exactly one reason: every feature of the
+product now has two entrances, the bot and the API. Homework is added by a command in a chat
+and by a call to the API's edit routes; so are a substitution, an event and a special day.
+The app does not make those calls yet — it runs «Управление» through `/manage`, and the rest
+stays in the bot (#324) — but the rule is written once for whichever client does. Two
+implementations of one rule would have drifted apart inside a month, so there is one rule
+and the handlers and endpoints are two thin shells over it — the change log, device linking,
+personal tasks, ticking homework off, reminders and their idempotence, the broadcast to
+subscribers, the calendar feed, the statistics, the timetable export and import, and
+granting the role somebody asked for, which was forty lines of permission rules carried in
+both shells until it was not.
 
 **Running a class has one module per screen, three times over.** «⚙️ Класс» in the bot is
 `bot/handlers/manage/`, `/api/v1/manage` is `api/manage/`, and what both of them do is
@@ -711,11 +719,13 @@ requests with our bearers by path; a diary request through that one would go to 
 or carry our bearer to somebody else's. This one has no cookie jar (the session travels per
 request, so two sign-ins cannot meet), follows no redirect (a `302` to another host is the
 one way around an allow-list), does not retry a failed connection (`getdata`'s salt is
-one-shot, and a silent re-POST reads as a wrong password), and carries exactly two
-interceptors: `OriginGuard`, which refuses any origin not on the allow-list before a byte is
-sent, and one that refuses an `Authorization` header outright. The failures are classified
-once: only a failure that examined the certificate is "untrusted" — a handshake the network
-broke is "unavailable", with a retry.
+one-shot, and a silent re-POST reads as a wrong password), and carries exactly three
+interceptors (#325): the developer mode's network record, first, so that a refused request is
+on the record too; `OriginGuard`, which refuses any origin not on the allow-list before a
+byte is sent; and `BrowserHeaders`, which sets a browser's `User-Agent` and refuses an
+`Authorization` header outright. The failures are classified once: only a failure that
+examined the certificate is "untrusted" — a handshake the network broke is "unavailable",
+with a retry.
 
 **The bundled catalog is the only source of a diary host.** The app bundles
 `server/app/catalog/data/regions.json` in place as an asset, never a copy, and
@@ -864,9 +874,9 @@ with the host.
 
 ## Testing
 
-2207 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
+2208 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
-`:core:designsystem` 122, `:widget` 126, `:app` 591.
+`:core:designsystem` 161, `:widget` 126, `:app` 608 (#325).
 
 The table below is the load-bearing part of that rather than the whole of it:
 

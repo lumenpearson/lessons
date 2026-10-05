@@ -194,23 +194,24 @@ can be switched off separately under «Эффекты».
 
 ### If there is a mistake in the app's text
 
-**«Настройки → Перевод → Режим исправления»** turns on correcting right there on the
-screens. All the text written inside the app itself gets a thin outline; a long press on
-any of it — a heading, a settings line, a button's caption, an empty screen — opens an
-editor with the string's key, what it says now, and a field for what it should say.
-Subject names, teachers and homework get no outline: those are the class's data rather
-than the app's text, and they are edited in the bot.
+**«Настройки → О приложении → Перевод → Режим исправления»** turns on correcting right
+there on the screens; «Перевод» is the last group on the page about the app. All the text
+written inside the app itself gets a thin outline; a long press on any of it — a heading, a
+settings line, a button's caption, an empty screen — opens an editor with the string's key,
+what it says now, and a field for what it should say. Subject names, teachers and homework
+get no outline: those are the class's data rather than the app's text, and they are edited
+in the bot.
 
 Turning the mode off removes the outlines but **leaves the corrections on the screen**:
 that is intended — it is the only way to see that a corrected heading no longer fits on
 its line.
 
-What accumulates sits under «Настройки → Перевод → Исправления» and comes out as a ready
-piece of XML — it can be copied or sent: it does not have to be pasted anywhere, only sent
-in. Above each group of strings is the file they belong to, including the module: some of
-the app's text lives in the design system, and a correction from there fixes nothing in
-another folder. Corrections live until the app is closed and are deliberately not saved
-anywhere, so send them while the app is still open.
+What accumulates sits under «Настройки → О приложении → Перевод → Исправления» and comes
+out as a ready piece of XML — it can be copied or sent: it does not have to be pasted
+anywhere, only sent in. Above each group of strings is the file they belong to, including
+the module: some of the app's text lives in the design system, and a correction from there
+fixes nothing in another folder. Corrections live until the app is closed and are
+deliberately not saved anywhere, so send them while the app is still open.
 
 ## Linking the phone to Telegram
 
@@ -220,10 +221,12 @@ are: for an administrator and an owner this opens the «Управление» s
 where the class is configured exactly as it is from the bot.
 
 A six-character code appears there, with an «Открыть бота» button. Send the bot
-`/link <code>` and from that moment the app can do exactly what you can do in the bot. The
-rights are checked on the server at the moment of the press, so there are no separate
-rights on the phone: if the bot moves you down to observer, the app becomes read-only in
-the same second.
+`/link <code>` and from that moment the app acts with your role in the class — which, for
+an administrator, means «Управление»: the class, its subjects, bells and timetable, the
+phones and the access requests. Homework, substitutions and events are still made in the
+bot, whatever your role. The rights are checked on the server at the moment of the press,
+so there are no separate rights on the phone: if the bot moves you down to observer, the
+app becomes read-only in the same second.
 
 «Отвязать» returns the app to reading; it goes on showing the timetable exactly as it did
 before it was linked.

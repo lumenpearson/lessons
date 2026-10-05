@@ -104,9 +104,15 @@ exists so that nobody exports the logs a second time to find that out.
 
 ### What is missing is said at the door
 
-Six of that table are ones a deployment does not survive, and each missing one used to
+Six of that table are ones a deployment does not survive, and each wrong one used to
 surface far from its cause. Now the process refuses to start and lists **all of them at
-once** — you do not pay another deploy to find the next:
+once** — you do not pay another deploy to find the next. Four are refused when missing;
+`WEBHOOK_SECRET` is asked about only once `BOT_TOKEN` is set, because without a token
+there is no webhook to protect, so with both empty only the token is listed (#331).
+The other two are refused only when set to something that cannot be used (#322): an empty
+`OWNER_IDS` is left alone on purpose, because after the first owner the roles live in the
+database, and an unset `TIMEZONE` takes its default, `Europe/Moscow`. What stops the
+process is an `OWNER_IDS` with no readable id in it, or a `TIMEZONE` that is not a zone:
 
 | Variable | What happened without it |
 | --- | --- |
@@ -603,8 +609,12 @@ and `alembic` was already a runtime dependency.
 
 A service rather than a line in the server's command, so that a failed migration stops the
 stack instead of being buried in the API's log, and so that a migration can be run by hand
-with `docker compose run --rm migrate`. It needs only `DATABASE_URL`: `get_settings()` is
-never called there, so `BOT_TOKEN` and `OWNER_IDS` are not its business.
+with `docker compose run --rm migrate`. It needs only `DATABASE_URL`. `get_settings()` *is*
+called there — `migrations/env.py` imports `app.db`, which builds the engine from it at
+import — but its refusal hangs on `VERCEL`, and nothing sets `VERCEL` in the compose file,
+so `BOT_TOKEN` and `OWNER_IDS` are not its business (#322). The same import is why
+`alembic upgrade head` refuses wherever `VERCEL` *is* set and the deployment's settings
+are not.
 `GET /api/v1/warmup` is what confirms the result, and it is the endpoint that can: it says
 `{"status": "ok", "schema": "0017"}` when the two agree and names both revisions when they
 do not.

@@ -6,7 +6,8 @@ Short on purpose: this file is read on every request. The full picture is in `AG
 «Дневник» (`lessons`) is a school diary: an Android app (`android/`, five Gradle modules), a
 FastAPI API with an aiogram bot in one process (`server/`), and a thin Vercel entry point
 (`api/`). No npm, no web frontend. **Two shells write** — the bot, and a linked phone
-through `/api/v1/edit` and `/api/v1/manage` — over one set of rules in
+through the edit routes (`/api/v1/homework`, `/overrides`, `/events`, `/days`) and
+`/api/v1/manage` — over one set of rules in
 `server/app/services/`, so they cannot disagree; nothing there may import `app.bot`.
 
 **Language.** The product speaks Russian: user-facing strings live in `values/` with an
@@ -33,8 +34,9 @@ when a file it reads changed), plus the «Contract (Buf)» job when the contract
   wall time in the *class's* zone
 - applying `org.jetbrains.kotlin.android` in an Android module — AGP 9 compiles Kotlin itself
   and this is a hard build failure
-- a dependency from `:core:data` on `:widget` — the sync worker broadcasts
-  `com.lumenpearson.lessons.action.DATA_SYNCED` precisely so that edge does not exist
+- a dependency from `:core:data` on `:widget` — the timetable repository's
+  `onDataChanged` broadcasts `com.lumenpearson.lessons.action.DATA_SYNCED` after every
+  successful sync precisely so that edge does not exist
 - a library version you cannot name the source of; four invented versions failed this
   project's first CI run
 - any secret in the tree. The repository is public. Redact as `<redacted>`.

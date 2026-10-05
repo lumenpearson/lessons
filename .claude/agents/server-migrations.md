@@ -48,7 +48,7 @@ no-op `0011` was, because the columns really were nullable there.
 Through the Neon connector, from the session. The owner does not run `alembic upgrade head`
 by hand, and a session has no `DATABASE_URL`. The project is the one **named `lessons`** on
 the Neon MCP server — the account has two, so read the name rather than guessing an id, and
-keep the id out of the repository. `0005` through `0013` were all applied that way.
+keep the id out of the repository. `0005` through `0017` were all applied that way.
 
 It is not alembic running. It is the revision's DDL executed as one transaction with
 `alembic_version` stamped in the same transaction, so:

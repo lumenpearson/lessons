@@ -46,5 +46,5 @@ every caller before you change a signature.
 ## Before you hand anything back
 
 From `server/`: `ruff check app tests scripts migrations`, `python -m mypy`,
-`python -m pytest -q -n auto`. A new endpoint without a test that exercises its auth
+`pytest -q -n auto` (bare, as CI runs it). A new endpoint without a test that exercises its auth
 dependency is not finished.

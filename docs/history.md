@@ -28,6 +28,387 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the documents say what the code and CI do (#320–#325), and the refusal points at a real heading
+
+Merged as #328 (`912821f`, 5 October 2026), from `fix/doc-facts`, on milestone 11. It closed #320–#325 and refers to
+#273. Written on 5 October 2026, after #319 merged. The schema head did not move, and nothing
+under `/api/v2` exists.
+
+- **A sweep of `docs/` and `README.md` against the tree** found about thirty stale or wrong
+  facts, after the sweep of `.claude/`. They were filed as six issues by document, and a
+  `docs-keeper` agent corrected them after checking each against the code; every line of its
+  diff was reviewed here. The ones that mattered:
+  - **#320: signing.** Every `apk.yml` run signs with the real key once the secrets are set,
+    a manual dispatch as much as a tag, and puts the APK in the public `lessons-apk`
+    artifact; only the Release waits for a tag. `docs/build.md` said only a tag signs. It
+    also now warns at its signing passage never to read `~/.gradle/gradle.properties`.
+  - **#321: the v1 API.** There is no `/api/v1/edit`, which `CLAUDE.md` and
+    `docs/architecture.md` named; the edit routes are `/api/v1/homework`, `/overrides`,
+    `/events` and `/days`. `docs/api.md` corrects six behaviours.
+  - **#322: deployment.** An empty `OWNER_IDS` and an unset `TIMEZONE` pass the refusal on
+    purpose (`test_an_empty_owner_ids_is_left_alone`), which `docs/deploy.md` and `CLAUDE.md`
+    denied. The migrate service does call `get_settings()`, and `docker-compose.yml`'s
+    comment said otherwise too. **The refusal's message pointed at «Переменные окружения»**,
+    a heading the translation of `docs/deploy.md` removed; it names «Secrets» now, and
+    `test_the_refusal_names_a_heading_the_document_has` holds the pointer, red on the old
+    message and green on the new.
+  - **#323–#325**: `docs/bot.md`'s editor entry and class card; the guide's paths, the
+    widget's broadcast sender and the design's fonts; and counts, among them Android's
+    per-module counts, which summed to 1579 under a total of 1635.
+  - **Beyond the list**: `CLAUDE.md` and `docs/architecture.md` now say the app calls only
+    `/join`, `/me/unlink`, `/manage` and the diary. Homework, substitutions and events come
+    from the bot, which they had called «a button on a phone».
+- **Two product strings were found wrong and filed, not changed**, because each needs the
+  Android gates: **#326**, the licences sheet credits Google Sans Flex and not Onest; **#327**,
+  «О приложении» says the bot is the only way to write the timetable. Both are on milestone
+  12, `Ready`.
+- **#301's stage 3a plan was repointed at the worktree's own venv** (`db807ff`, on
+  `server-v2/design`). It had prescribed the main checkout's venv under `python -m`, which
+  #313's guard now refuses, so every step of it would have stopped at exit 4.
+- **After #319's merge**, `dev` was fast-forwarded to `580b475`, Vercel reported the deploy
+  successful, production answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}`, and the board reads Done, P2, M, 5 for
+  #319 and #314–#318.
+
+### Gates
+
+- **The server suite.** `pytest -q -n auto`, run alone from this worktree's own venv, gave
+  **2208 passed** in 9 minutes 39 seconds: 2207 and the new test. The seven places the
+  `handover` skill names say 2208.
+- **ruff** is clean. mypy was not rerun: the only change under `app/` is a string.
+- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
+
+### What was deliberately left alone
+
+- **The detekt findings behind the baselines' 492 entries** were not recounted; that takes a
+  detekt run, and `docs/build.md` says so.
+- **#326 and #327**, above.
+
+### What nobody has verified in this batch
+
+- **That every corrected sentence is the last stale one.** Two sweeps found forty facts
+  between them; a third would find fewer, not none.
+
+## What the batch before added: the agents are told what the tree and CI actually do (#314–#318)
+
+Merged as #319 (`580b475`, 5 October 2026), from `fix/agent-facts`, on milestone 11. It closed #314, #315, #316,
+#317 and #318 and refers to #273. Written on 5 October 2026, after #313 merged. The schema
+head did not move, and nothing under `/api/v2` exists.
+
+- **A sweep of `.claude/`, `AGENTS.md` and `CONTRIBUTING.md` against the tree** found ten stale
+  facts after #309 and #310. Each was filed before the fix, grouped by kind, and is corrected
+  here:
+  - **CI's gates (#314).** Eleven places still gave `python -m pytest -q -n auto`, because #310
+    had fixed the `gates` skill alone; they give the bare command now. Seven Android gate lists
+    left out `./gradlew detekt`, which CI fails on; each has it now.
+  - **The check for Russian in Kotlin (#315)**, in `CLAUDE.md`, `android-strings`,
+    `android-ui` and the `strings` skill. `*/src/main` never reached `core/*/src/main`,
+    matched every comment that quotes Russian, and in Git Bash does not run without a UTF-8
+    locale. Corrected, and run as written, it finds only the documented exceptions. Every hit
+    in `:core:designsystem` sits inside its file's previews.
+  - **Code described wrongly (#316).** `ScheduleEngine` resolves no template, and the
+    server's mirror is `SchoolYear`; `_resolve_day` asks `off_reason_for`; the two fonts are a
+    pair.
+  - **Counts and states (#317):** 1635 Android tests, 2207 server, `0017`, the `androidTest`
+    source set, two hooks, and eleven string files. The `handover` skill now names the seven
+    places a test count lives rather than three, which is why four of them had drifted.
+  - **The passwords' file (#318).** `android-build` says never to read or print it, and the
+    README says what the deny list holds and that this file is not on it.
+- **`docs/history.md`'s two newest sections**, #311's and #305's, now name `HANDOVER.md` where
+  they say «section 5», «7» or «8», as the `handover` skill asks of a moved sentence. The moves
+  had left six such references pointing at sections of a file they are no longer in.
+- **After #313's merge**, `dev` was fast-forwarded to `c070b97`, production answered
+  `/api/v1/warmup` with `{"status":"ok","api_version":1,"schema":"0017"}`, and the board reads
+  Done, P2, S, 3 and 2026-10-05 for #313 and #312.
+
+### Gates
+
+- **Documents only.** The tests that read them (`test_schema_version.py`, `test_ci_paths.py`,
+  `test_env_example.py`) gave **21 passed** from this worktree's own venv. The suite stays
+  2207, as #313's two runs counted it. CI's server job runs on the change, because
+  `CLAUDE.md`, `.claude/*.md` and `CONTRIBUTING.md` are on its filter.
+- **The corrected Russian-in-Kotlin check** was run as written, from `android/`.
+- **`:core:model`'s «125 tests, in ten files»** in `docs/architecture.md` was counted again
+  (`@Test` across its ten test files) and stands.
+
+### What was deliberately left alone
+
+- **`.claude/settings.json`.** A session may not edit its own permissions, so three changes
+  are in `HANDOVER.md`'s section 7 for the owner.
+- **The `github-pr` skill's `dev → main`**, which the sweep noted: every merge to `main`
+  tonight came from a named branch, with `dev` fast-forwarded after. That is practice drifting
+  from the skill, not a fact the skill states wrongly, and it is the owner's to settle.
+
+### What nobody has verified in this batch
+
+- **That agents follow the corrected text.** Nothing can test an instruction.
+
+## What the batch before added: the server's tests refuse another checkout's code (#312), and the four designs agree with one another
+
+Merged as #313 (`c070b97`, 5 October 2026), from `fix/tests-import-own-tree`, on milestone 11. It closed #312 and
+refers to #273. Written on 5 October 2026, after #311 merged. The schema head did not move,
+and nothing under `/api/v2` exists.
+
+- **The server's tests refuse to run against another checkout's code (#312).** `tests/` has no
+  `__init__.py` and the bare `pytest` CI runs adds no current directory, so `app` comes from
+  the venv, whose editable install is the checkout it was made in. A worktree borrowing the
+  main checkout's venv ran its tests against the main checkout's `app`; the document tests run
+  for #311 did exactly that. `conftest.py`'s `pytest_configure` now raises `pytest.UsageError`,
+  before any test and before an xdist worker starts, on either of two answers: `app` is not
+  this tree's `server/app` exactly, or an editable install of `lessons-server` records another
+  tree as its source. The second catches `python -m pytest` with a borrowed venv, where the
+  current directory supplies `app` but the borrowed finder still answers for any module this
+  tree lacks. It reads every install record, because the build leaves a
+  `lessons_server.egg-info` without one in `server/`, first on that path. The `gates` skill,
+  `docs/build.md` and `CLAUDE.md` («Commands», which now gives CI's install with `-r`) say a
+  worktree needs a venv in its own `server/`, and this worktree has one now, on Python 3.12 as
+  CI runs.
+- **Reviewed before the merge by the server-tests agent**: no Critical or Important finding,
+  and no legitimate setup it refuses (CI's install, `python -m pytest`, xdist workers, Windows
+  case and 8.3 names, junctions, single files, the suite's child processes). Its two Minor
+  findings on what the guard let through, `app` installed non-editable under `server/` and the
+  borrowed finder under `-m`, are the two questions above. Its wording point is in the message.
+- **A sweep of the agents' instructions against the tree** found ten stale facts, filed as
+  **#314–#318** on milestone 11 for the next batch: eleven places still give `python -m pytest`
+  as CI's gate and seven Android lists leave out detekt (#314); the documented check for
+  Russian in Kotlin never searches `core/*` and matches comments (#315; run corrected, it finds
+  only the documented exceptions); three agents describe changed code (#316); stale counts and
+  states, and the `handover` skill naming three of the seven places a count lives (#317); the
+  Gradle agent naming the passwords' file without the rule never to read it (#318).
+- **The four design drafts were cross-checked against one another**, by an agent that read
+  them beside the programme, the proto and the code, and **every seam it found was fixed on its
+  own draft branch, none merged**:
+  - **#307** (`714cd52`): the APK's streaming flag reads `LESSONS_APP_STREAMING`, because
+    `LESSONS_STREAMING` is the host's switch and the console runs both on one machine; question
+    1 no longer misquotes #301's decision 12 and asks whether a 5a release goes onto the phones;
+    the stages start after sub-project 4 merges, as the programme orders; `DiarySignInProblem`
+    reads the three reasons it maps from 502 and 401 today; a reasonless 501 is «no v2» too.
+    Its title now says six remotes, as its text always did.
+  - **#306** (`39cc47f`): sub-project 5's error mapping no longer «lands» in its collaborators,
+    and the workers cap is `--max-workers=2`, the spelling the console strips.
+  - **#308** (`403a930`): a CI job added later gets its console row in the same pull request,
+    6c carries the host's row and «Prepare» variant, every Gradle run carries the cap, and 6c
+    waits for 5c for the gRPC and streaming APKs.
+  - **#301** (`7676d70`): the host's marker is set by the `Dockerfile`, never by `app.host`,
+    because decision 7's settings refusal would otherwise stop decision 13's own CI job against
+    SQLite (a contradiction inside #301, which the code confirmed); a device's last client
+    version would be written inside the `last_seen_at` touch, so reads still write nothing else.
+- **Production after #311's automatic deploy** answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}` and `/api/v2/me` with `404`. The board reads
+  Done, P2, S, 3 and 2026-10-05 for #311, #309 and #310.
+
+### Gates
+
+- **The server suite.** `pytest -q -n auto`, run alone on this machine from a venv made in this
+  worktree's own `server/` (Python 3.12.13, installed as CI installs), gave **2207 passed** at
+  `de61d77` in 10 minutes 6 seconds, and again at `cf8964d`, the guard as reviewed, in 11
+  minutes 30 seconds. No test was added.
+- **ruff and mypy.** Both are clean; mypy covers 197 modules.
+- **The refusal**, on one test file, in six ways: this worktree's venv bare, under `-m` and
+  with `-n 2` passed; the main checkout's venv bare, under `-m` and with `-n 2` printed the
+  `ERROR:` line and exited 4, naming the wrong `app` for the first and third and the wrong
+  editable install for the second.
+- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
+
+### What was deliberately left alone
+
+- **A test of the refusal.** No test may import `conftest.py`, and one that starts a second
+  pytest against a second tree was not written; CI proves the passing side on every run.
+- **The review's third Minor finding**: `conftest.py` imports `app.db` and `app.models` above
+  the hook, so another tree whose modules cannot satisfy those imports fails with «ImportError
+  while loading conftest» into that tree, and the guard never speaks. It still fails loudly.
+- **#314–#318 are filed, not fixed**: they are the next batch.
+- **The four drafts are revised, not approved**: they still wait for the owner, with the same
+  number of questions each.
+
+### What nobody has verified in this batch
+
+- **Whether the local suites run earlier in this session imported this tree's `app`.** Those
+  that used `python -m pytest` did, by the current directory; the bare runs depended on the venv.
+  Every merged head was proved by CI, which installs its own checkout.
+
+## What the batch before added: the signing values and CI's test command are named exactly where agents learn them (#309, #310), and sub-projects 4, 5 and 6 are drafted for the owner (#306, #307, #308)
+
+Merged as #311 (`8497766`, 5 October 2026), from `fix/agent-instructions`, on milestone 11. It closed #309 and #310
+and refers to #273. Written on 5 October 2026, after #305 merged. The schema head did not
+move, and nothing under `/api/v2` exists.
+
+- **The signing values are named as they are (#309).** `apk.yml` checks four repository
+  secrets, `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`, and Gradle
+  reads four variables, `LESSONS_KEYSTORE_FILE`, `LESSONS_KEYSTORE_PASSWORD`,
+  `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD`. `CLAUDE.md`, four agents, the `release`
+  skill, `.github/SECURITY.md` and `docs/build.md` called all of them `LESSONS_KEYSTORE_*`,
+  which matches two of the variables and none of the secrets, so a redaction written from it
+  left the key's own password in the clear. The `build-ci` agent's review of the console's
+  design (#308) found it.
+- **`CLAUDE.md` and the security reviewer say never to read or print
+  `~/.gradle/gradle.properties`.** On 5 October 2026 an agent of this session, looking in that
+  file for a Gradle setting, printed a signing password into the session's transcript. It
+  entered no file, issue, commit or pull request; what to do about it is the owner's, in
+  `HANDOVER.md`'s section 7.
+- **The `gates` skill gives the command CI runs (#310).** It said `python -m pytest -q -n
+  auto`, the form `CLAUDE.md` («Commands») explains once let a test pass here and fail at
+  collection on CI; it now says bare `pytest -q -n auto`, and why.
+- **Three more designs of the programme are drafted and wait for the owner**, each a draft on
+  milestone 11, **none merged**, each revised the same night for every finding of an
+  independent review:
+  - **#306**, sub-project 4, the Android splits, from `android/decomposition-design`:
+    `docs/specs/2026-10-05-android-decomposition-design.md`. Pure moves in three pull requests,
+    the detekt baseline rewritten in a commit of its own, `HomeShell` giving up only its pure
+    rules, the large view models split into collaborators behind one view model. Three
+    questions.
+  - **#307**, sub-project 5, the app on v2, from `android/transports-design`:
+    `docs/specs/2026-10-05-android-transports-design.md`. Six remotes behind the repositories,
+    one error contract for all three transports, the bearer chosen per method rather than per
+    path, golden files for the wire, stages 5a to 5d. Four questions.
+  - **#308**, sub-project 6, the build console, from `console/design`:
+    `docs/specs/2026-10-05-build-console-design.md`. A closed table of tasks held level with
+    `ci.yml` both ways, one heavy job at a time on this machine, redaction of every signing
+    name. Six questions.
+
+### Gates
+
+- **The server suite** was not run in full on this machine: the batch changes no code and no
+  test. The tests that read the changed documents (`test_schema_version.py`,
+  `test_ci_paths.py`, `test_env_example.py`) gave **21 passed**. The total stays 2207, as
+  #305's run counted it.
+- **CI on `66c7ba1`**, the batch's first commit, started the server job on a change confined
+  to `CLAUDE.md`, `.claude/` and `docs/build.md`, which is #295's filter doing what it was
+  written for (`HANDOVER.md`, section 5).
+- **ruff, mypy and Android** are unchanged, because nothing they read changed.
+
+### What was deliberately left alone
+
+- **`docs/history.md` keeps `LESSONS_KEYSTORE_*`** where it records what was true then.
+- **A `Read(~/.gradle/gradle.properties)` deny rule in `.claude/settings.json`** would hold the
+  file tools to the new sentence mechanically. Editing the agent's own permissions is not a
+  session's to do, so it is in `HANDOVER.md`'s section 7; a shell `cat` would pass it either way.
+- **#301, #306, #307 and #308 are not merged and not executed**: they wait for the owner.
+
+### What nobody has verified in this batch
+
+- **That an agent obeys the new sentence.** Nothing can test an instruction.
+
+## What the batch before added: a form no longer takes «/week@» for an answer (#276, #304), and CI runs the server's tests when a document they read changes (#295)
+
+Merged as #305 (`26769c6`, 5 October 2026), from `fix/breakout-mention-and-ci-documents`, on milestone 11. It closes
+#276, #295 and #304 and refers to #273. Written on 5 October 2026, after #303 merged. The
+schema head did not move, and nothing under `/api/v2` exists.
+
+- **An open form is dropped by «/week@», as aiogram dispatches it (#276).** The breakout's
+  `_COMMAND` accepted a mention only with a name, while aiogram reads «/week@» as «/week»; so
+  the form stayed open and an editor at «Теперь пришлите текст задания:» got an assignment
+  called «/week@», committed, audited and announced. The pattern is now
+  `^\s*/[A-Za-z0-9_]+(@[A-Za-z0-9_]*)?(\s|$)`, no looser than aiogram: «/week@@», «/ week» and
+  «/недели» are still text.
+- **Leading whitespace counts as well (#304).** #276's own test found it: aiogram splits on
+  whitespace before it looks, so «  /week» is a command to it. It was filed that night and
+  fixed in the same pull request, because the pin cannot hold without it.
+- **The two readings are pinned against each other.** `test_bot_commands.py` sends a 24-row
+  table both to `looks_like_command` and to each of aiogram's 26 `Command` filters in the real
+  dispatcher, discovered rather than listed, plus a real-dispatcher test that «/week@» at the
+  homework step drops the form. A comment in `bot/handlers/__init__.py` on the ticks router's
+  position was rewritten: the position no longer decides anything.
+- **CI's server job runs when a file the suite reads outside `server/` changes (#295).**
+  `ci.yml`'s server `case` arm names `docs/*.md`, `.claude/*.md`, `proto/*`, `buf.yaml`,
+  `vercel.json`, `.vercelignore`, `.python-version` and the root documents; found by grep and
+  confirmed under an `open`/`scandir` audit hook. Comment and filter only: no step, job, `if:`
+  or output is new. `server/tests/test_ci_paths.py` (3 tests) holds the patterns level with the
+  suite; `_documents` moved into `conftest.py` as the `head_documents` fixture; `docs/build.md`,
+  «Path filters», and `.claude/agents/build-ci.md` say so.
+- **Reviewed before the merge by the build-ci agent**: ready, no Critical or Important
+  finding. A commit that touches only `docs/history.md` now runs the server job, which is
+  acceptable, runners being free on a public repository.
+
+### Gates
+
+- **The server suite.** At `5b7f5cb`, `pytest -q -n auto`, run once and alone on this machine
+  on 5 October 2026, gave **2207 passed** in 9 minutes 1 second: 2175 plus 32 (29 in
+  `test_bot_commands.py`, 3 in `test_ci_paths.py`). The README, `docs/architecture.md`,
+  `CLAUDE.md`, `CONTRIBUTING.md`, the `gates` skill and the cheat-sheet at the end of
+  `HANDOVER.md`'s section 8 say 2207.
+- **ruff and mypy.** Both are clean; mypy covers 197 modules.
+- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
+- **CI on #305's head** is not claimed here.
+
+### What was deliberately left alone
+
+- **Moving the ticks router into `content`'s router** is a change of its own and not done.
+- **A guard that sees a new file under an already-listed root**: the root-name check reads only
+  the first part of a path, and a stronger one was not written.
+- **#301 is not merged and its plan is not executed.** It was reviewed independently (ready
+  after fixes: `MIN_CLIENT_VERSION` also in `docker-compose.yml`, a guard that every error-table
+  row has a both-path test, nine Minor findings, the client header accepting ten digits up to
+  2,100,000,000, and the join's sentences living in `app/wording.py`), every finding was applied
+  (`aa2253d`), and it waits for the owner's approval.
+
+### What nobody has verified in this batch
+
+- **The new filter on a GitHub runner**, beyond #305's own CI, as `HANDOVER.md`'s section 5
+  says.
+- **Whether Telegram delivers a message that starts with whitespace** (#304), as
+  `HANDOVER.md`'s section 5 says.
+
+## What the batch before added: a deployment without a diary key keeps its sessions (#302), and the design of serving v2 is drafted for the owner (#301)
+
+Merged as #303 (`aba88f8`, 5 October 2026), from `fix/diary-secret-keeps-sessions`, on
+milestone 10, `v0.9.0`, because the fix is the diary's. It closed #302. Written on the night of 4 to 5 October 2026, in the same
+session that merged #300. The schema head did not move, and nothing under `/api/v2` exists.
+
+- **A deployment without `DIARY_SECRET` no longer expires every diary session it is asked
+  about (#302).** The independent review of sub-project 3's design (#301) found it, and it was
+  filed as an issue before the fix: with no key, every sealed credential looked unreadable, so
+  the first read of a session deleted it for good, and the key coming back could not bring it
+  back. `services/diary.unusable` now expires a session only when a configured key cannot open
+  it, and with no key it expires nothing. `api/diary.current_diary` answers `503` with
+  `X-Diary-Unavailable: disabled` before the token is looked at, and the bot's `_session_for`
+  shows no session and keeps the row.
+- **Three tests, each failing on `main` before the fix**: the service in
+  `test_diary_crypto.py`, the endpoint in `test_diary_api.py`, the bot in `test_bot_diary.py`.
+  `docs/api.md`'s diary error table and `CLAUDE.md`'s «The diary needs `DIARY_SECRET`…» say so.
+- **The design of sub-project 3 was drafted and is waiting for the owner**, as #301, a draft on
+  milestone 11, from `server-v2/design`, **not merged**:
+  `docs/specs/2026-10-05-server-v2-design.md`, and the implementation plan of its stage 3a,
+  `docs/specs/2026-10-05-server-v2-3a-plan.md` (11 tasks). Every module and test the plan
+  quotes was built and run in a scratch copy: 165 new tests and 4 in existing files, ruff and
+  mypy clean there; the full suite was not run in it. The design was revised after an
+  independent review the same night, and again where writing the plan proved it wrong. It ends
+  with five questions for the owner: the stages; a complete host or a sidecar; where the host
+  runs; a missing `X-Lessons-Client`; browsers and CORS. A read-only count on production (Neon,
+  5 October) found 35 timetable rows in one class, none without a `subject_id`, and the design
+  records it. **Nothing that serves v2 merges before the owner approves it.**
+- **Production after #300's automatic deploy** answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}` and a `/api/v2/…` path with `404`. The
+  board reads Done, P2, M, 8 and 2026-10-04 to 2026-10-04 for #300, #298 and #299.
+
+### Gates
+
+- **The server suite.** At `7525818`, `pytest -q -n auto` gave **2175 passed** in 8 minutes 42
+  seconds on this machine, on 5 October 2026: 2172 plus the 3 tests above. The six diary test
+  files gave 222 passed on their own. The README, `docs/architecture.md`, `CLAUDE.md`,
+  `CONTRIBUTING.md` and the `gates` skill say 2175.
+- **ruff and mypy.** Both are clean; mypy covers 197 modules.
+- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
+
+### What was deliberately left alone
+
+- **The v2 half of #302**, the gate's own diary check, is in #301's design and not built,
+  because nothing serves v2.
+- **#301 is not merged and its plan is not executed**: it waits for the owner's approval.
+
+### What nobody has verified in this batch
+
+- **The app's handling of a `503 disabled` on a diary read with a token has not been checked
+  on a device.** The app parses `X-Diary-Unavailable` for every diary call, but a read that
+  carries a token and is still answered «disabled» is a case it had not met.
+- **Every module in #301's plan ran in a scratch copy**, not in the repository, and the full
+  suite did not run there.
+- **The five answers #301 waits for are guesses until the owner gives them.**
+- **After #303's merge**, a security review made before it had found no other path that loses a
+  session without the key, `dev` was fast-forwarded to `aba88f8`, and production's
+  `/api/v1/warmup` answered `{"status":"ok","api_version":1,"schema":"0017"}`. The board reads
+  Done, P1, M, 5 and 2026-10-05 for #303 and #302 (#302 started on 2026-10-04).
+
 ## What the batch before added: the v2 contract held to what its documents promise — the JSON, the v1 mirror and the Buf gate (#298, #299)
 
 Merged as #300 (`ab646ad`, 4 October 2026), from `contract/coverage`, on milestone 11. It refers to #273 and closes #298 and

@@ -26,6 +26,13 @@ production runs (#192), and CI adds the package on top —
 fails there, or the other way round; `test_requirements_mirror.py` skips one check, and says
 so, in an environment that is not the lock's.
 
+A second working tree of the same repository (a `git worktree`, which is how agents work here)
+needs a venv of its own in its own `server/`. The install is editable, so a venv's `app` is
+the tree it was made in, and the bare `pytest` CI runs takes `app` from the venv rather than
+from the current directory. Borrowing another tree's venv would test that tree's code under
+this tree's tests; `server/tests/conftest.py` refuses to start when it would, and names both
+trees (#312).
+
 ### Four steps, and you can stop after any of them
 
 Each is worth doing before the next: everything in a later one depends on the earlier ones
@@ -291,12 +298,16 @@ runners, or a private one with your own.
   configuration time, so under **Settings → Actions → General → Fork pull request workflows
   from outside collaborators** it is worth choosing *Require approval for all outside
   collaborators*.
-- **Anybody can download a run's artifacts** — here that is the debug APK, the release APK
-  signed with the debug key, and the test reports. Only `apk.yml` on a tag signs with the
-  real key, and only when the secrets are configured.
+- **Anybody can download a run's artifacts** — for `ci.yml` that is the debug APK, the
+  release APK signed with the debug key, and the test reports. `apk.yml` is another matter:
+  once the four signing secrets are set, **every** run of it that builds release signs with
+  the real key, **Actions → APK → Run workflow** as much as a tag, because «Decode keystore»
+  has no event condition and the build is handed the keystore whenever that step decoded
+  one. So a manual run puts a real-key-signed APK into the `lessons-apk` artifact, where
+  anybody can download it; only the GitHub Release waits for a tag (#320).
 - **The whole history is visible, including what was removed from the working tree.** There
   are no credentials in it: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET` and `CRON_SECRET`
-  always lived in the environment, the signing key in `LESSONS_KEYSTORE_*`, `.gitignore`
+  always lived in the environment, the signing key in `LESSONS_KEYSTORE_*` and `LESSONS_KEY_*`, `.gitignore`
   covers `.env`, `*.keystore`, `*.jks`, `*.p12` and `keystore.properties`, and
   `server/.env.example` contains nothing but placeholders. But the production Neon
   endpoint's host and the project id did spend time in the tests and the documentation, and
@@ -488,9 +499,10 @@ came from, so the only thing that can say is whatever ran it.
 `github.sha` and `github.run_number`, plus a UTC timestamp it generates in the build step.
 From the runner rather than from repository settings on purpose: a build of a fork or of a
 branch then describes itself honestly instead of repeating this repository's name. A local
-build sets them in `~/.gradle/gradle.properties` as `lessons.build.repository` and so on,
-or sets none of them — every badge hides itself when its value is empty, and the card says
-«Собрано вручную» instead of drawing a row of blanks.
+build sets them in `~/.gradle/gradle.properties` (which no agent reads — "Locally", below)
+as `lessons.build.repository` and so on, or sets none of them — every badge hides itself
+when its value is empty, and the card says «Собрано вручную» instead of drawing a row of
+blanks.
 
 None of them is secret. On a public repository the name, the ref and the commit are public
 by definition, and they are exactly the three facts somebody holding a phone needs in order
@@ -563,7 +575,7 @@ An APK that was built without it cannot be given one afterwards; it has to be bu
   «off» for the sign-in; «off» means the secret was empty or named differently.
 - **A build on your own machine.** One line in `~/.gradle/gradle.properties` — the file in
   your home directory, not the one in `android/`, which is in the repository and is the
-  same for every fork:
+  same for every fork, and the one an agent must never read ("Locally", below):
 
   ```properties
   lessons.github.clientId=Ov23li…
@@ -597,7 +609,8 @@ mailbox is the answer, not leaving it empty.
 ### Setting them for a local build
 
 Both are ordinary build properties: `lessons.github.clientId` and `lessons.contactEmail` in
-`~/.gradle/gradle.properties`, or the environment variables above.
+`~/.gradle/gradle.properties` (not for an agent to read — "Locally", below), or the
+environment variables above.
 
 ## The terms and the privacy policy the app links
 
@@ -605,7 +618,8 @@ The first screen of the first run says «Продолжая, вы принима
 Политику конфиденциальности» under its «Продолжить» button, always, and «О приложении» has a
 row for each document. Both names are links, and where they lead is a build setting:
 `LESSONS_LEGAL_BASE_URL` in the environment or `lessons.legal.baseUrl` in
-`~/.gradle/gradle.properties`, compiled into `BuildConfig.LEGAL_BASE_URL`.
+`~/.gradle/gradle.properties` (not for an agent to read — "Locally", below), compiled into
+`BuildConfig.LEGAL_BASE_URL`.
 
 **What it is.** The `https://` address of a folder holding `terms.ru.md`, `terms.en.md`,
 `privacy.ru.md` and `privacy.en.md` — the four files of [docs/legal/](legal/). The app
@@ -670,7 +684,10 @@ cd android
 ```
 
 To sign locally with your own key, put this in `~/.gradle/gradle.properties` (a file
-outside the repository, where secrets usually go):
+outside the repository, where secrets usually go). **Once it holds these, it holds the
+signing passwords, and an agent must never read or print it** — not even for an unrelated
+Gradle setting. On 5 October 2026 an agent looking in it for one put a signing password into
+its transcript (#318). Ask whoever owns the machine what the file says instead.
 
 ```properties
 lessons.keystore.file=/absolute/path/release.jks
@@ -770,10 +787,13 @@ argue with how Compose is written rather than with how this code is: `FunctionNa
 and `MagicNumber` does not look inside a `@Preview`. The file gives the reason for each.
 
 **What it forgives.** Each module has a `detekt-baseline.xml` holding the findings the code
-already had when detekt was switched on — 576 of them under 488 entries, most of them
-`MagicNumber` (292), `ReturnCount` (82) and `MaxLineLength` (65). They pass; a new one does
-not. The baseline is a record of the past rather than a place to put the next finding: fix
-that one, or, if it is right as written, suppress it where it stands —
+already had when detekt was switched on — 492 entries as the five files stand (#325), most of
+them `MagicNumber` (218), `ReturnCount` (81) and `MaxLineLength` (65). An entry names a rule,
+a file and a declaration, so one entry can forgive several findings: when the baselines were
+first written, 576 findings sat under 488 entries, and the findings have not been recounted
+since — that takes a detekt run, and these numbers are a count of the files. They pass; a
+new one does not. The baseline is a record of the past rather than a place to put the next
+finding: fix that one, or, if it is right as written, suppress it where it stands —
 `@Suppress("MagicNumber")` on the declaration, with the comment saying why.
 
 **When to regenerate, and how.** `./gradlew detektBaseline` is the whole of it: one command,

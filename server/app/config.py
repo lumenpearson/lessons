@@ -337,8 +337,8 @@ def get_settings() -> Settings:
         problems = settings.deployment_problems()
         if problems:
             raise DeploymentNotConfigured(
-                "This deployment is not configured; see docs/deploy.md, «Переменные "
-                "окружения». All of it, rather than one at a time, because finding the "
+                "This deployment is not configured; see docs/deploy.md, «Secrets». "
+                "All of it, rather than one at a time, because finding the "
                 "next one costs another deploy:\n"
                 + "\n".join(f"  - {problem}" for problem in problems)
             )
