@@ -483,8 +483,10 @@ implements, in 3b's plan.
 
 In 3a, `GetDiaryCapabilities` is served from today's registry and the NetSchool allow-list, the
 same answer v1's `/diary/capabilities` gives in v2's shape. Its `sign_in_methods` and `features`
-stay empty until 3b fills them from the table. **Sub-project 5 therefore must not ship against
-3a alone**: a client that hides the screens of an undeclared feature would hide the whole diary.
+stay empty until 3b fills them from the table. **Sub-project 5 therefore must not move the diary
+before 3b**: a client that hides the screens of an undeclared feature would hide the whole diary.
+Its design (#307) moves only the schedule window and the join against 3a, and everything else
+after 3b.
 
 ### 13. The host and the streaming beta (3c)
 
@@ -548,6 +550,22 @@ single-instance, as the programme says.
   - the bulk-touch rule (decision 13).
 - **The host's** native gRPC and streaming tests run only in the CI job of decision 13, behind a
   pytest marker the ordinary run skips.
+
+### 15. What sub-project 5 asks of this one
+
+The app's design ([#307](2026-10-05-android-transports-design.md)) was written the same night,
+and leans on this sub-project in three places. None of them changes a decision above.
+- **Golden files.** Its stage 5a adds, to `server/tests`, the writer of the golden JSON files
+  (`server/tests/golden/v2/`) and the table of each method's credential. They are built on this
+  sub-project's test harness (decision 14), so the harness must be able to return each call's
+  request and response as canonical JSON.
+- **`google/rpc` on the phone too.** 3a's `google/rpc` input in `buf.gen.yaml` (decision 5) is
+  run through the Android plugins as well, when 5a adds them.
+- **A device's last client version, if the owner wants it.** Question 3 of the app's design
+  proposes that the gate record the last `X-Lessons-Client` each device sent, so that
+  «📱 Устройства» can show which phones still run an old APK before v1 is deleted. That is an
+  additive column on `device_tokens`, a migration of its own, and 3b would carry it. It is built
+  only if the owner says yes there.
 
 ## Questions for the owner
 
