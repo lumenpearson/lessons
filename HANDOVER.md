@@ -237,10 +237,14 @@ All at `d501b42`.
 
 ### What nobody has verified in this batch
 
-- **v2 on Vercel.** `connectrpc`, `protobuf-py-ext` and `pyqwest` have never been imported
-  there. The check after the merge, Task 11 Step 10 of
-  `docs/specs/2026-10-05-server-v2-3a-plan.md`, is the first look; the fail-safe mount is there
-  for a failure.
+- **v2 on production, and Connect on any deployment.** `connectrpc`, the generated contract,
+  `protobuf-py-ext` and `pyqwest` do import on Vercel, and `mount_v2` mounted v2 there: Vercel's
+  Preview deployment of `d501b42`, `lessons-git-server-v2-3a-codeilluminators.vercel.app`,
+  behind Vercel Authentication, was read by the owner in their own browser on 5 October. It
+  answered `/api/v1/warmup` with `"v2": true`, and REST `GET /api/v2/diary/capabilities` with
+  JSON naming the NetSchool regions. Only those two were read; Connect was not called. The
+  production deployment is checked after the merge, Task 11 Step 10 of
+  `docs/specs/2026-10-05-server-v2-3a-plan.md`, and the fail-safe mount is there for a failure.
 - **v2 against Postgres**: every v2 test ran on SQLite.
 - **`x-vercel-forwarded-for` reaching a v2 call's bucket**: held by unit tests of
   `caller_bucket`, never through Vercel's proxy.
@@ -426,11 +430,14 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   (#304). The form breakout now treats «  /week» as a command because aiogram's `Command`
   filter does, after `text.split()`; its clients are not known to keep plain spaces there, but
   a no-break space is whitespace to `str.split`, and nobody has sent one.
-- **v2 as #342 serves it has been asked nothing outside the test client** (stage 3a; its
+- **v2 as #342 serves it has been asked little outside the test client** (stage 3a; its
   section above has the detail):
-  - **on Vercel**: `connectrpc`, `protobuf-py-ext` and `pyqwest` have never been imported
-    there, and the check after the merge, Task 11 Step 10 of
-    `docs/specs/2026-10-05-server-v2-3a-plan.md`, is the first look;
+  - **on Vercel, a preview and REST only**: `connectrpc`, the generated contract,
+    `protobuf-py-ext` and `pyqwest` import on a Vercel preview of `d501b42`, read by the owner
+    on 5 October, which answered `/api/v1/warmup` with `"v2": true` and REST
+    `GET /api/v2/diary/capabilities` with the NetSchool regions. Connect was not called there,
+    and the production deployment is checked after the merge, Task 11 Step 10 of
+    `docs/specs/2026-10-05-server-v2-3a-plan.md`;
   - **against Postgres**: every v2 test ran on SQLite;
   - **`x-vercel-forwarded-for` reaching a v2 call's bucket**: held by unit tests of
     `caller_bucket`, never through Vercel's proxy;
@@ -441,9 +448,9 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     import that raises into the `503`, and an interpreter that crashes raises nothing.
 - **Vercel's proxy in front of Connect has been asked nothing.** The v2 contract (#297)
   writes `/api/rpc/lessons.v2.<Service>/<Method>` down, #342 serves four methods there, and
-  no deployment has been asked one. Whether
-  Vercel passes a Connect request and its streaming body through is sub-project 3's first
-  question, and native gRPC is off the Vercel target for a reason `docs/api.md` states.
+  no deployment has been asked one over Connect: a preview was asked over REST only (above).
+  Whether Vercel passes a Connect request and its streaming body through is sub-project 3's
+  first question, and native gRPC is off the Vercel target for a reason `docs/api.md` states.
 - **Buf's unauthenticated rate limit has not been met.** CI's «Contract (Buf)» job fetches two
   remote plugins without a token; one run, 37230983817, was not throttled. If it ever is,
   either step can be the one that fails (the buf-action step fetches `googleapis` from the
