@@ -322,10 +322,10 @@ private val Credits = listOf(
         tone = 5,
         note = R.string.credit_jetpack_storage_note,
     ),
-    // Nine rows over six hues, so three of them wrap. Each lands as far as the
+    // Ten rows over six hues, so four of them wrap. Each lands as far as the
     // list allows from the row it comes to share a hue with: slot 6 meets
     // Essentials at the top, slot 7 meets Compose one below it, slot 8 meets
-    // Glance.
+    // Glance, slot 9 meets Retrofit.
     Credit(
         name = R.string.credit_material_symbols,
         licence = R.string.licence_apache,
@@ -350,8 +350,21 @@ private val Credits = listOf(
         tone = 7,
         note = R.string.credit_google_sans_note,
     ),
+    // The second face, which draws every Russian word: Google Sans Flex has no
+    // Cyrillic, and `FallbackTypeface` hands each glyph to whichever of the two
+    // carries it. Its notice travels in the APK beside the first one's, and it
+    // went uncredited here while it did (#326). The link is the one its own
+    // notice names.
+    Credit(
+        name = R.string.credit_onest,
+        licence = R.string.licence_ofl,
+        url = "https://github.com/simpals/onest",
+        icon = Icons.Rounded.TextFields,
+        tone = 8,
+        note = R.string.credit_onest_note,
+    ),
     // The second app this one borrowed from, and the only other one. Its
-    // licence travels in the APK for the same reason the font's does: what was
+    // licence travels in the APK for the same reason the fonts' do: what was
     // taken is source rather than a dependency, and Apache 2.0 asks whoever
     // passes the work on to pass the licence with it — see
     // app/src/main/assets/notices/.
@@ -360,7 +373,7 @@ private val Credits = listOf(
         licence = R.string.licence_apache,
         url = "https://github.com/polodarb/GMS-Flags-Reborn",
         icon = Icons.Rounded.Animation,
-        tone = 8,
+        tone = 9,
         note = R.string.credit_gms_flags_note,
     ),
 )

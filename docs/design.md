@@ -630,12 +630,11 @@ and failed under `apk.yml`, which sets them all — so the workflow whose whole 
 produce an APK could not build one.
 
 **The facts block** is six lines under «Любопытное» about the decisions a reader can
-actually feel: the timetable living on the phone, the bot as the way to write it — the line
-still says the *only* way, which stopped being true when an admin's linked phone began
-writing the timetable, the subjects and the bells through `ManageApi`, and is the line to
-move next (#324, #327) — three school years in the cache, the school's clock rather than the
-phone's, two typefaces because one has no Cyrillic, and twelve widget sizes because the
-launcher picks the nearest rung. It is the one place in the interface where this
+actually feel: the timetable living on the phone, the bot and an admin's phone as the only
+ways to write it — the line said the bot alone until #327, long after an admin's linked
+phone began writing the timetable, the subjects and the bells through `ManageApi` — three
+school years in the cache, the school's clock rather than the phone's, two typefaces because
+one has no Cyrillic, and twelve widget sizes because the launcher picks the nearest rung. It is the one place in the interface where this
 documentation is quoted back at the user, so it moves when the decision does.
 
 The mark is drawn the way a launcher draws it: an adaptive icon is a 108 dp canvas of which
@@ -964,7 +963,8 @@ may be sold by themselves or bundled with software" — on one condition: a copy
 and the copyright must accompany every copy of the font. So the text lives not in a document
 but in `:core:designsystem/src/main/assets/licenses/google_sans_flex_OFL.txt`, that is, inside
 the APK next to the typeface itself; and the licence is named in the app, on the «Лицензии»
-sheet.
+sheet. Onest's notice, `onest_OFL.txt`, lies beside it, and Onest has its own row on that
+sheet since #326; until then it was bundled with nothing in the interface naming it.
 
 A test holds this rather than memory: `FontLicenceTest` in `:core:designsystem` parses the
 `name` table of every font in the tree and requires that a notice with the same copyright and
