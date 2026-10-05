@@ -28,6 +28,90 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the server's tests refuse another checkout's code (#312), and the four designs agree with one another
+
+Merged as #313 (`c070b97`, 5 October 2026), from `fix/tests-import-own-tree`, on milestone 11. It closed #312 and
+refers to #273. Written on 5 October 2026, after #311 merged. The schema head did not move,
+and nothing under `/api/v2` exists.
+
+- **The server's tests refuse to run against another checkout's code (#312).** `tests/` has no
+  `__init__.py` and the bare `pytest` CI runs adds no current directory, so `app` comes from
+  the venv, whose editable install is the checkout it was made in. A worktree borrowing the
+  main checkout's venv ran its tests against the main checkout's `app`; the document tests run
+  for #311 did exactly that. `conftest.py`'s `pytest_configure` now raises `pytest.UsageError`,
+  before any test and before an xdist worker starts, on either of two answers: `app` is not
+  this tree's `server/app` exactly, or an editable install of `lessons-server` records another
+  tree as its source. The second catches `python -m pytest` with a borrowed venv, where the
+  current directory supplies `app` but the borrowed finder still answers for any module this
+  tree lacks. It reads every install record, because the build leaves a
+  `lessons_server.egg-info` without one in `server/`, first on that path. The `gates` skill,
+  `docs/build.md` and `CLAUDE.md` («Commands», which now gives CI's install with `-r`) say a
+  worktree needs a venv in its own `server/`, and this worktree has one now, on Python 3.12 as
+  CI runs.
+- **Reviewed before the merge by the server-tests agent**: no Critical or Important finding,
+  and no legitimate setup it refuses (CI's install, `python -m pytest`, xdist workers, Windows
+  case and 8.3 names, junctions, single files, the suite's child processes). Its two Minor
+  findings on what the guard let through, `app` installed non-editable under `server/` and the
+  borrowed finder under `-m`, are the two questions above. Its wording point is in the message.
+- **A sweep of the agents' instructions against the tree** found ten stale facts, filed as
+  **#314–#318** on milestone 11 for the next batch: eleven places still give `python -m pytest`
+  as CI's gate and seven Android lists leave out detekt (#314); the documented check for
+  Russian in Kotlin never searches `core/*` and matches comments (#315; run corrected, it finds
+  only the documented exceptions); three agents describe changed code (#316); stale counts and
+  states, and the `handover` skill naming three of the seven places a count lives (#317); the
+  Gradle agent naming the passwords' file without the rule never to read it (#318).
+- **The four design drafts were cross-checked against one another**, by an agent that read
+  them beside the programme, the proto and the code, and **every seam it found was fixed on its
+  own draft branch, none merged**:
+  - **#307** (`714cd52`): the APK's streaming flag reads `LESSONS_APP_STREAMING`, because
+    `LESSONS_STREAMING` is the host's switch and the console runs both on one machine; question
+    1 no longer misquotes #301's decision 12 and asks whether a 5a release goes onto the phones;
+    the stages start after sub-project 4 merges, as the programme orders; `DiarySignInProblem`
+    reads the three reasons it maps from 502 and 401 today; a reasonless 501 is «no v2» too.
+    Its title now says six remotes, as its text always did.
+  - **#306** (`39cc47f`): sub-project 5's error mapping no longer «lands» in its collaborators,
+    and the workers cap is `--max-workers=2`, the spelling the console strips.
+  - **#308** (`403a930`): a CI job added later gets its console row in the same pull request,
+    6c carries the host's row and «Prepare» variant, every Gradle run carries the cap, and 6c
+    waits for 5c for the gRPC and streaming APKs.
+  - **#301** (`7676d70`): the host's marker is set by the `Dockerfile`, never by `app.host`,
+    because decision 7's settings refusal would otherwise stop decision 13's own CI job against
+    SQLite (a contradiction inside #301, which the code confirmed); a device's last client
+    version would be written inside the `last_seen_at` touch, so reads still write nothing else.
+- **Production after #311's automatic deploy** answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}` and `/api/v2/me` with `404`. The board reads
+  Done, P2, S, 3 and 2026-10-05 for #311, #309 and #310.
+
+### Gates
+
+- **The server suite.** `pytest -q -n auto`, run alone on this machine from a venv made in this
+  worktree's own `server/` (Python 3.12.13, installed as CI installs), gave **2207 passed** at
+  `de61d77` in 10 minutes 6 seconds, and again at `cf8964d`, the guard as reviewed, in 11
+  minutes 30 seconds. No test was added.
+- **ruff and mypy.** Both are clean; mypy covers 197 modules.
+- **The refusal**, on one test file, in six ways: this worktree's venv bare, under `-m` and
+  with `-n 2` passed; the main checkout's venv bare, under `-m` and with `-n 2` printed the
+  `ERROR:` line and exited 4, naming the wrong `app` for the first and third and the wrong
+  editable install for the second.
+- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
+
+### What was deliberately left alone
+
+- **A test of the refusal.** No test may import `conftest.py`, and one that starts a second
+  pytest against a second tree was not written; CI proves the passing side on every run.
+- **The review's third Minor finding**: `conftest.py` imports `app.db` and `app.models` above
+  the hook, so another tree whose modules cannot satisfy those imports fails with «ImportError
+  while loading conftest» into that tree, and the guard never speaks. It still fails loudly.
+- **#314–#318 are filed, not fixed**: they are the next batch.
+- **The four drafts are revised, not approved**: they still wait for the owner, with the same
+  number of questions each.
+
+### What nobody has verified in this batch
+
+- **Whether the local suites run earlier in this session imported this tree's `app`.** Those
+  that used `python -m pytest` did, by the current directory; the bare runs depended on the venv.
+  Every merged head was proved by CI, which installs its own checkout.
+
 ## What the batch before added: the signing values and CI's test command are named exactly where agents learn them (#309, #310), and sub-projects 4, 5 and 6 are drafted for the owner (#306, #307, #308)
 
 Merged as #311 (`8497766`, 5 October 2026), from `fix/agent-instructions`, on milestone 11. It closed #309 and #310
