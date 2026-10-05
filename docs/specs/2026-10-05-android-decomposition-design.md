@@ -1,6 +1,8 @@
 # Splitting the Android god files: sub-project 4
 
-Status: **drafted on 5 October 2026 while the owner was away, not yet approved.** Sub-project 4
+Status: **approved by the owner on 5 October 2026**, every question answered with its
+recommendation (#306): the workers cap is `--max-workers=2` on the command line, the settings
+view model splits into collaborators, and the work comes in three pull requests. Sub-project 4
 of [the programme](2026-10-03-one-contract-design.md), whose section 5 already decided what this
 sub-project does:
 - split files within their feature packages, with no feature Gradle modules;
