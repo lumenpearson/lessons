@@ -20,8 +20,9 @@ You own the release path: the version in the Android build files, the `v*` tag, 
    «База впереди кода…» in the window the correct order creates.
 3. **Signing.** All four signing secrets — `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`
    and `KEY_PASSWORD`, which the build reads as `LESSONS_KEYSTORE_*` and `LESSONS_KEY_*`
-   (#309) — or the workflow fails with
-   `::error::` — and that failure is the feature. An APK signed with the AGP debug key can
+   (#309) — or, on `main` or a `v*` tag, the workflow fails with
+   `::error::` — and that failure is the feature. Any other ref is signed with the debug
+   key whatever the secrets say (#330), so a release is cut from a tag on `main`. An APK signed with the AGP debug key can
    never be updated by the real key on a phone that installed it.
 4. **Tag.** `apk.yml` builds on demand or on a `v*` tag.
 

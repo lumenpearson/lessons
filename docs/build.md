@@ -299,12 +299,22 @@ runners, or a private one with your own.
   from outside collaborators** it is worth choosing *Require approval for all outside
   collaborators*.
 - **Anybody can download a run's artifacts** — for `ci.yml` that is the debug APK, the
-  release APK signed with the debug key, and the test reports. `apk.yml` is another matter:
-  once the four signing secrets are set, **every** run of it that builds release signs with
-  the real key, **Actions → APK → Run workflow** as much as a tag, because «Decode keystore»
-  has no event condition and the build is handed the keystore whenever that step decoded
-  one. So a manual run puts a real-key-signed APK into the `lessons-apk` artifact, where
-  anybody can download it; only the GitHub Release waits for a tag (#320).
+  release APK signed with the debug key, and the test reports. `apk.yml` signs with the real
+  key only on `main` or a `v*` tag (#330, the owner's decision of 5 October 2026). Until then,
+  once the four signing secrets were set, every run of it signed with the real key (#320):
+  **Actions → APK → Run workflow** pointed at any branch put a real-key-signed APK of that
+  branch into the `lessons-apk` artifact, where anybody can download it, and a family's
+  phone would have taken it as an update. «Decode keystore» now hands the build no keystore,
+  and the build no passwords, for any other ref, and says so in a notice. A manual run of
+  `main` still signs with the real key, and its APK is still downloadable by anybody,
+  because that is what `main` holds; only the GitHub Release waits for a tag.
+
+  **The guard stops an accident, not a person with push access.** «Run workflow» runs the
+  `apk.yml` committed on the ref it is pointed at, and the four secrets are repository
+  secrets that every branch's workflow can read, so a branch that deletes the guard and is
+  then run still signs with the real key. Making it a rule would mean moving the four
+  secrets into a GitHub Environment that only `main` and `v*` tags may use, with a ruleset
+  on `v*` tags; that is the owner's to set up, and it is in `HANDOVER.md`'s section 7.
 - **The whole history is visible, including what was removed from the working tree.** There
   are no credentials in it: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET` and `CRON_SECRET`
   always lived in the environment, the signing key in `LESSONS_KEYSTORE_*` and `LESSONS_KEY_*`, `.gitignore`
@@ -349,14 +359,18 @@ There are exactly two ways out, and the first is not a fix:
   the phone — the classes it is connected to, its device token, the diary session and any
   translation corrections — and the class has to be joined again with a class code or a
   personal code;
-* **configure the four secrets below.** Then every build is signed with one key that is
-  yours, updates install over each other for ever, and none of this arises again.
+* **configure the four secrets below.** Then every build of `main` and of a `v*` tag is
+  signed with one key that is yours, updates install over each other for ever, and none of
+  this arises again. A build of any other branch is signed with the debug key by design
+  (#330): a phone that holds the real app refuses it as an update, and that is not the
+  secrets failing. To try a branch on such a phone, build it with `build_type: debug` — its
+  application id carries `.debug`, so it installs beside the real app instead of over it.
 
 **The switch to your own key costs one uninstall, once.** Your key is not the debug key
 either, so the first build signed with it cannot install over a debug-signed one any more
 than two debug builds can, and it takes the same things with it — the classes, the device
-token, the diary session, the corrections. It is the last time: every build after that
-updates the one before it.
+token, the diary session, the corrections. It is the last time: every build of `main` or of
+a `v*` tag after that updates the one before it.
 
 What publishing a debug-signed APK actually costs is worth being precise about, because it
 is not what it looks like. Nobody can push a fake update over it: the private key it was
@@ -475,10 +489,12 @@ The last one is `keytool` opening the rebuilt file before the build starts, so a
 password or a base64 of the wrong file is caught in seconds rather than eight minutes later
 inside Gradle, where the message blames the password whatever the cause.
 
-You can check the result without cutting a release: **Actions → APK → Run workflow**. If
-`KEYSTORE_BASE64` is not set, the run does not fail — it prints `::warning::` and signs with
-the debug key. Pushing a tag with the secrets unconfigured fails deliberately, before the
-build, so that a debug-signed APK cannot go out in a public release.
+You can check the result without cutting a release: **Actions → APK → Run workflow**, on
+`main` — any other branch is signed with the debug key whatever the secrets say, and its
+notice says so (#330). If `KEYSTORE_BASE64` is not set, the run does not fail — it prints
+`::warning::` and signs with the debug key. Pushing a tag with the secrets unconfigured
+fails deliberately, before the build, so that a debug-signed APK cannot go out in a public
+release.
 
 After that it is automatic. The workflow decodes the keystore into a temporary directory on
 the runner rather than into the working copy, and deletes it before anything is uploaded —

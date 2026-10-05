@@ -5,9 +5,11 @@
 #   * push a tag like v0.2.0, which additionally publishes a GitHub Release
 #     with the APK attached.
 #
-# Signing: if the four keystore secrets are set the release APK is signed with
-# your key. If they are not, it is signed with the debug key so it still
-# installs; the job summary says which happened. See docs/build.md.
+# Signing: on main or a v* tag, with the four keystore secrets set, the release
+# APK is signed with your key. A run of any other ref is signed with the debug
+# key so it still installs (#330), and so is a run of main without the secrets;
+# a v* tag without them fails rather than publish a debug-signed release. The
+# job summary says which happened. See docs/build.md.
 #
 # Legal links: the APK links the terms and the privacy policy in docs/legal/ of
 # the repository this runs in, unless the LESSONS_LEGAL_BASE_URL repository
@@ -183,7 +185,32 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          REF: ${{ github.ref }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
+          # The real key signs a tag or `main`, and nothing else (#330, the
+          # owner's decision of 5 October 2026). "Run workflow" can be pointed
+          # at any branch, and its APK lands in an artifact anybody can
+          # download, which a family's phone would accept as an update of the
+          # installed app because the certificate is the same. A branch build
+          # is signed with the debug key now, so a phone holding the real app
+          # refuses it as an update, which is what an unreviewed build should get.
+          # The `v*` tags only, as the push trigger has it: «Run workflow» can be
+          # pointed at any tag too.
+          #
+          # This binds the workflow as committed on the ref being run, so it
+          # stops an accident, not somebody with push access: the secrets are
+          # repository secrets, and a branch that deletes these lines still
+          # reads them. A GitHub Environment open to `main` and `v*` alone would
+          # make it a rule (docs/build.md says so).
+          case "$REF" in
+            refs/heads/main|refs/tags/v*) ;;
+            *)
+              echo "signed=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::$REF is neither main nor a v* tag, so this APK is signed with the debug key (#330)."
+              exit 0
+              ;;
+          esac
           if [ -z "$KEYSTORE_BASE64" ]; then
             echo "signed=false" >> "$GITHUB_OUTPUT"
             echo "::warning::No KEYSTORE_BASE64 secret; the release APK will be signed with the debug key and must not be published."
@@ -277,9 +304,11 @@ jobs:
       - name: Build
         env:
           LESSONS_KEYSTORE_FILE: ${{ steps.keystore.outputs.signed == 'true' && format('{0}/release.jks', runner.temp) || '' }}
-          LESSONS_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          LESSONS_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          LESSONS_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          # Gated like the file: a build that is not signed with the real key
+          # has no use for its passwords either (#330).
+          LESSONS_KEYSTORE_PASSWORD: ${{ steps.keystore.outputs.signed == 'true' && secrets.KEYSTORE_PASSWORD || '' }}
+          LESSONS_KEY_ALIAS: ${{ steps.keystore.outputs.signed == 'true' && secrets.KEY_ALIAS || '' }}
+          LESSONS_KEY_PASSWORD: ${{ steps.keystore.outputs.signed == 'true' && secrets.KEY_PASSWORD || '' }}
           LESSONS_VERSION_NAME: ${{ steps.version.outputs.name }}
           LESSONS_VERSION_CODE: ${{ steps.version.outputs.code }}
           # Two optional build properties that each switch a button on, and
