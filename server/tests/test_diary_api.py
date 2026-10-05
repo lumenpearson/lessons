@@ -277,6 +277,36 @@ def no_diary_secret(monkeypatch):
     get_settings.cache_clear()
 
 
+async def test_a_missing_key_refuses_a_signed_in_phone_and_keeps_its_session(
+    client, upstream, LOGIN_PATH, with_token, monkeypatch
+):
+    """#302: a deployment that lost ``DIARY_SECRET`` answered a signed-in
+    phone «Diary session is not valid» and expired the row on the way, so the
+    app signed the family out and putting the key back brought nothing back.
+    It says «disabled» now, as ``/login`` does, and touches nothing."""
+    token = await sign_in(client, upstream, LOGIN_PATH, with_token)
+    key = get_settings().diary_secret
+    monkeypatch.setattr(get_settings(), "diary_secret", "", raising=False)
+
+    response = await client.get(
+        "/api/v1/diary/students", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 503, response.text
+    assert response.headers["X-Diary-Unavailable"] == "disabled"
+    assert response.json()["detail"] == "Дневник на этом сервере выключен."
+    async with SessionLocal() as db:
+        row = await db.scalar(
+            select(DiarySession).where(DiarySession.token_hash == hash_token(token))
+        )
+        assert row is not None
+        assert row.expired_at is None
+
+    monkeypatch.setattr(get_settings(), "diary_secret", key, raising=False)
+    async with SessionLocal() as db:
+        assert await service.find_session(db, token) is not None
+
+
 async def test_signing_in_without_a_key_is_refused_rather_than_crashing(
     client, upstream, no_diary_secret, LOGIN_PATH, with_token
 ):

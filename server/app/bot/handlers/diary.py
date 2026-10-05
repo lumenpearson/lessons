@@ -100,9 +100,7 @@ async def _session_for(
     )
     if row is None:
         return None
-    if diary_service.upstream_of(row) is None:
-        row.expired_at = diary_service.utcnow()
-        await session.commit()
+    if await diary_service.unusable(session, row):
         return None
     return row
 

@@ -146,6 +146,11 @@ async def current_diary(
             detail="Missing bearer token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    # With no key the diary is off, and «off» is the answer — the one `/login`
+    # and `/session` give. A 401 here would sign the family out over a
+    # misconfiguration that putting the key back undoes (#302).
+    if not diary_enabled():
+        raise _disabled()
     row = await service.find_session(session, token)
     if row is None:
         raise HTTPException(
