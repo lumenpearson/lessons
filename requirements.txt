@@ -88,7 +88,7 @@ pyqwest==0.11.0
     # via connectrpc
 python-dotenv==1.2.3
     # via pydantic-settings
-sqlalchemy==2.1.1
+sqlalchemy==2.1.2
     # via -r requirements.in
 starlette==1.7.0
     # via fastapi
