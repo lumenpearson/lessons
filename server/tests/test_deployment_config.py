@@ -232,6 +232,35 @@ def test_get_settings_refuses_a_misconfigured_deployment(monkeypatch):
         get_settings.cache_clear()
 
 
+def test_the_refusal_names_a_heading_the_document_has(monkeypatch):
+    """The message is the one pointer a broken deployment prints, so it has to lead somewhere.
+
+    It named «Переменные окружения» after `docs/deploy.md` was translated and that heading
+    became «Secrets», and nothing noticed (#322): a pointer into a document is a promise the
+    document can break without touching this file.
+    """
+    import re
+    from pathlib import Path
+
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("DATABASE_URL", LOCAL_DATABASE_URL)
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(DeploymentNotConfigured) as raised:
+            get_settings()
+    finally:
+        get_settings.cache_clear()
+    named = re.search(r"see docs/deploy\.md, «([^»]+)»", str(raised.value))
+    assert named, str(raised.value)
+    deploy = Path(__file__).resolve().parents[2] / "docs" / "deploy.md"
+    headings = {
+        line.lstrip("#").strip()
+        for line in deploy.read_text(encoding="utf-8").splitlines()
+        if line.startswith("#")
+    }
+    assert named.group(1) in headings
+
+
 def test_get_settings_lets_a_local_run_through(monkeypatch):
     monkeypatch.delenv("VERCEL", raising=False)
     get_settings.cache_clear()

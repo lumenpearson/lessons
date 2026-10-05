@@ -13,6 +13,12 @@ Setup once: `python3 -m venv .venv && .venv/bin/pip install -r ../requirements.t
 — the lock Vercel installs, then the package, which is exactly CI's install (#192). Without
 the `-r` you test on whatever is newest today, which production does not run.
 
+**In a git worktree, make that venv in the worktree's own `server/`.** The install is
+editable, so a venv's `app` is the checkout it was made in, and bare `pytest` imports `app`
+from the venv rather than from the current directory. Borrowing the main checkout's venv
+tests the main checkout's code under this tree's tests. `conftest.py` refuses to start when
+that happens and names both trees (#312).
+
 1. `ruff check app tests scripts migrations` — exactly what CI lints. `ruff check .` from
    `server/` covers the same tree.
 2. `python -m mypy` — one question of all 197 modules, in seconds: does anything reach for an
@@ -21,14 +27,17 @@ the `-r` you test on whatever is newest today, which production does not run.
    after ruff — the owner asked for it through that day's audit (#210) — and still worth
    running before a push: seconds here, minutes there. It is the thing that reproduces the
    «🗓 Четверти» crash.
-3. `python -m pytest -q -n auto` — 2207 tests today. Serial takes about five minutes;
-   `-n auto` finishes in a third of that and is what CI runs.
+3. `pytest -q -n auto`, bare, from `server/` with its venv active — 2208 tests today, and
+   **the exact command CI runs**. Not `python -m pytest`: the `-m` form puts the current
+   directory on `sys.path` and the bare one does not, so whatever leans on that passes here and
+   fails on CI (CLAUDE.md, «Commands»; #310). Serial takes about five minutes; `-n auto`
+   finishes in a third of that.
 
 Narrower while iterating: `python -m pytest -q tests/test_schedule.py -k parity`.
 
 ## Android, from `android/`
 
-1. `./gradlew test` — all JVM unit tests across the five modules, 770 today.
+1. `./gradlew test` — all JVM unit tests across the five modules, 1635 today.
 2. `./gradlew assembleDebug`
 3. `./gradlew assembleRelease` — **not optional.** CI builds both on every push, because R8
    and resource shrinking are where "worked in debug" stops being true.

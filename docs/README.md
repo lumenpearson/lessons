@@ -58,8 +58,10 @@ the user will actually see, it quotes it in Russian, because that is what is on 
   `server/.env.example` carries every setting the server reads, each with what empty means;
   [deploy.md](deploy.md), "Secrets", is the eleven a hosted deployment needs;
   [build.md](build.md), "The other place variables live", is the eight secrets and one
-  variable GitHub Actions holds, for signing, for the fallback tick and for the legal link. `CRON_SECRET` is the one name in two of the three,
-  and nothing checks that the two values match.
+  variable GitHub Actions holds: four for signing, the GitHub client id and the contact
+  e-mail that each switch on a button in the APK, `SERVER_URL` and `CRON_SECRET` for the
+  fallback tick, and the variable for the legal link. `CRON_SECRET` is the one name in two
+  of the three, and nothing checks that the two values match.
 - **The two different tokens** — [api.md](api.md): the device token comes from
   `POST /api/v1/join`, the diary token from `POST /api/v1/diary/session` (a session the
   client opened itself) or `POST /api/v1/diary/login` (a password), and neither implies the

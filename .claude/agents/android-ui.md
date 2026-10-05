@@ -34,8 +34,10 @@ implementation (`ui/translate/AppCorrections.kt`) through `CorrectionHost`.
   not a missing screen; it is one Russian line in the middle of an English one, with nothing
   logged.
 - **A Russian string written into Kotlin is in neither folder and nothing sees it.** The
-  check is `grep -rnP '"[^"]*[\x{0400}-\x{04FF}]' */src/main`, and today it finds only
-  `@Preview` data, maintainer-facing report bodies and the timezone list.
+  check, from `android/`, is the one the `android-strings` agent gives: it searches
+  `core/*/src/main` as well as `*/src/main`, skips comment lines and sets a UTF-8 locale
+  (#315). Today it finds only `@Preview` data, maintainer-facing report bodies, the timezone
+  list and `UpstreamMarkers.kt`.
 - **`LocalDateTime.now()` and `ZoneId.systemDefault()` are almost always a bug.** The class's
   zone decides "today"; `Timetable.nowAtSchool()` is how you ask.
 
@@ -43,4 +45,5 @@ implementation (`ui/translate/AppCorrections.kt`) through `CorrectionHost`.
 
 From `android/`: `./gradlew test` (all five modules), then `./gradlew assembleDebug` and
 `./gradlew assembleRelease` — R8 and resource shrinking are where "worked in debug" stops
-being true, and CI builds both on every push. `--offline` in a sandbox.
+being true, and CI builds both on every push — and then `./gradlew detekt`, which CI fails on
+for any finding outside the baselines. `--offline` in a sandbox.

@@ -53,10 +53,13 @@ compileSdk 37. Gradle comes from the wrapper — `./gradlew` works on a fresh cl
 
 Server, from `server/`:
 
-- `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
+- `python3 -m venv .venv && .venv/bin/pip install -r ../requirements.txt -e ".[dev]"` — setup,
+  CI's own install (#192), in each working tree's own `server/`, a `git worktree` included:
+  the install is editable, so a borrowed venv tests the tree it was made in, and
+  `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2207 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2208 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -136,14 +139,18 @@ Read `docs/architecture.md` before any cross-cutting change; it is current and i
 the decisions, not just the layout.
 
 **Two shells write, over one set of services.** The bot is the admin panel, and a linked
-phone runs the same class through the API: `/api/v1/edit` (homework, substitutions, events,
-special days — editor and above) and `/api/v1/manage` (subjects, bells, the timetable,
+phone runs the same class through the API: the edit routes (`/api/v1/homework`, `/overrides`,
+`/events`, `/days` — homework, substitutions, events, special days, editor and above; there
+is no `/api/v1/edit` prefix) and `/api/v1/manage` (subjects, bells, the timetable,
 devices, access requests, terms, the class itself — admin, and owner to delete it). Both
 take the **device token** and ask `linking.effective_role` for the linked account's role on
 every request, so an unlinked phone changes nothing of the class's. The rest of what the
 API writes is personal (`public.py`: the linked account's own tasks and ticked-off
 homework, whatever its role, and a phone unlinking itself; `/join` mints the device token)
-and a family's diary (`/api/v1/diary`, with the **diary token**); `docs/architecture.md` has
+and a family's diary (`/api/v1/diary`, with the **diary token**). That is the API. Of its
+writes, the app itself makes only `/join`, `/me/unlink`, `/manage` and the diary's today, so
+homework, substitutions, events, special days, personal tasks and ticked-off homework come
+from the bot or another client of the API (#324, #331). `docs/architecture.md` has
 the table.
 Telegram already solved identity, so there is still no admin web panel, no session cookies
 and no password reset — a phone has no rights of its own, only its account's — and the cost
@@ -232,7 +239,8 @@ Android modules (`android/settings.gradle.kts`):
 ```
 
 Room is the single source of truth; the network only fills it. `:core:data` must **not**
-depend on `:widget` — the sync worker tells the widget it has new data by broadcasting
+depend on `:widget` — the timetable repository's `onDataChanged` tells the widget it has new
+data, after the background sync and an in-app refresh alike, by broadcasting
 `com.lumenpearson.lessons.action.DATA_SYNCED`, precisely so the dependency does not have to
 be circular.
 
@@ -374,10 +382,15 @@ points Hilt does not inject cleanly.
   `docs/deploy.md`.
 - **A deployment refuses to start rather than keep a local default.** `get_settings()`
   raises `DeploymentNotConfigured` when `VERCEL` is set and any of `DATABASE_URL`,
-  `BOT_TOKEN`, `WEBHOOK_SECRET`, `RUN_BOT`, `OWNER_IDS` or `TIMEZONE` is missing or
-  unusable, and it lists every one of them at once, because finding the next costs another
-  deploy. This is not tidiness: `DATABASE_URL` set for one Vercel environment and not the
-  other left the SQLite default standing, and the only thing anybody saw was
+  `BOT_TOKEN`, `WEBHOOK_SECRET` or `RUN_BOT` is missing or unusable, or `OWNER_IDS` or
+  `TIMEZONE` is set to a value that cannot be used — an `OWNER_IDS` with no readable id, a
+  `TIMEZONE` that is not a zone. An empty `OWNER_IDS` is left alone on purpose
+  (`test_an_empty_owner_ids_is_left_alone`) and an unset `TIMEZONE` takes `Europe/Moscow`.
+  It lists every problem at once, because finding the next costs another deploy — with one
+  exception: `WEBHOOK_SECRET` is asked about only once `BOT_TOKEN` is set, since without a
+  token there is no webhook to protect (#331). This is
+  not tidiness: `DATABASE_URL` set for one Vercel environment and not the other left the
+  SQLite default standing, and the only thing anybody saw was
   `ModuleNotFoundError: No module named 'aiosqlite'` out of SQLAlchemy's sqlite dialect —
   a message naming neither the setting, nor the environment it was missing from, nor this
   project. The check hangs on `VERCEL` because the platform sets it about itself; guessing
@@ -704,11 +717,17 @@ points Hilt does not inject cleanly.
   rather than listing them, and counts a `<plurals>`' arguments per form (Russian
   has four forms and English two; over the concatenated text they can never agree).
   What it cannot see is a Russian string written into Kotlin, because that word is
-  in neither folder — `grep -rnP '"[^"]*[\x{0400}-\x{04FF}]' */src/main` is the
-  check for that, and today it finds only `@Preview` data, maintainer-facing report
-  bodies, the timezone list, whose file documents the choice, and
-  `core/data/.../upstream/UpstreamMarkers.kt` — the diaries' own words, matched in their
-  answers, which is the one documented exception on the diary's side.
+  in neither folder. The check for that, run from `android/`, is
+  `LC_ALL=C.UTF-8 grep -rnP --include='*.kt' '^(?!\s*(\*|//|/\*)).*"[^"]*[\x{0400}-\x{04FF}]' */src/main core/*/src/main`.
+  Each part is there for a reason (#315):
+  - `core/*/src/main` because `*/src/main` alone never reaches the three core modules;
+  - the comment guard because KDoc here quotes Russian on purpose and would bury a finding;
+  - the locale because Git Bash's `grep -P` refuses to run without it.
+
+  Today it finds only `@Preview` data, maintainer-facing report bodies, the timezone list,
+  whose file documents the choice, and `core/data/.../upstream/UpstreamMarkers.kt` — the
+  diaries' own words, matched in their answers, which is the one documented exception on the
+  diary's side.
 - **A renderer is written against the type it is handed, and nothing checks that but you.**
   «🗓 Четверти» crashed on every press in production because the card printed `term.days`
   and `days` lived on a flattened copy of a term that nothing ever constructed. There is
@@ -759,7 +778,7 @@ points Hilt does not inject cleanly.
   time, and is not a judgement call, is listed in the `handover` skill: the opening
   paragraph, the chain of batch sections — the new one on top, and the one that falls off
   the last two moved to the top of `docs/history.md` — the milestone table, the test counts
-  in their three places, and sections 5 and 7.
+  in the seven places the skill names, and sections 5 and 7.
 - **`.claude/` holds the agent configuration, and it describes the shape rather than
   repeating this file.** `.claude/agents/` has one agent per area that has produced a defect
   here, carrying the fact that would have prevented it; `.claude/skills/` has the procedures
@@ -772,8 +791,12 @@ points Hilt does not inject cleanly.
   audits in `docs/design.md` exist because a conclusion drawn from call sites was wrong.
 - Secrets never enter the repository: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET`,
   `CRON_SECRET` live in `server/.env` or the host's environment; the release keystore and
-  its passwords come from `LESSONS_KEYSTORE_*` environment variables or
-  `~/.gradle/gradle.properties`. Redact them as `<redacted>` in issues, logs and reports.
+  its passwords come from the `LESSONS_KEYSTORE_FILE`, `LESSONS_KEYSTORE_PASSWORD`,
+  `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD` environment variables (in Actions, from the
+  secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`; #309) or from
+  `~/.gradle/gradle.properties`. **Never read or print that file**: on 5 October 2026 an agent
+  looking in it for a Gradle setting put a signing password into its transcript. Redact them as
+  `<redacted>` in issues, logs and reports.
 - The documentation index is `docs/README.md`. If a change makes a document wrong, fix it in
   the same batch — `docs/widget.md` and `docs/bot.md` were each rewritten once because they
   had drifted from the code, and that is more expensive than keeping up.

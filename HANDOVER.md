@@ -8,26 +8,29 @@ newest first.
 
 Last updated: **5 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
-#263, #267, #274, #277, #294, #296, #297, #300 and #303 are merged**; `main` is at `aba88f8`, the
-merge of #303, on 5 October 2026, and `dev` is level with it. **Two pull requests are open.**
-**#305, the one carrying this paragraph**, from `fix/breakout-mention-and-ci-documents`, on
-milestone 11, `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`, closes
-#276, #295 and #304 and refers to #273: an open form no longer takes «/week@» as its answer, and
-CI runs the server's tests when a file they read outside `server/` changes. **#301 is the design
-of serving v2, waiting for the owner's approval**, from `server-v2/design`, on the same
-milestone; it is a draft and nothing that serves v2 merges before the owner has read it. #303
-closed #302. The schema head did not move: it is still `0017`, and `EXPECTED_REVISION` did not
-move either. Production, after #303's automatic deploy, answered `/api/v1/warmup` with
-`{"status":"ok","api_version":1,"schema":"0017"}`.
+#263, #267, #274, #277, #294, #296, #297, #300, #303, #305, #311, #313, #319, #328 and #329
+are merged**; `main` is at `dbf25c9`, the merge of #329, on 5 October 2026, and `dev` is level
+with it. **Five pull requests are open.** **#332, the one carrying this paragraph**, from
+`fix/doc-followups`, on milestone 11, `v0.10.0 — One contract: REST v2, Connect and native
+gRPC, build console`, closes #331 and refers to #273: tonight's documentation fixes reach
+every place that said the old thing. **The other four are designs waiting for the owner's
+approval**, drafts on milestone 11, each revised on 5 October after a cross-check against
+the other three, and nothing in them is built before the owner has read them: **#301**,
+serving v2 (sub-project 3), from `server-v2/design`; **#306**, the Android splits (4), from
+`android/decomposition-design`; **#307**, the app on v2 (5), from
+`android/transports-design`; and **#308**, the build console (6), from `console/design`. #329
+closed #326 and #327. The schema head did not move: it is still `0017`, and
+`EXPECTED_REVISION` did not move either. Production, after #329's automatic deploy, answered
+`/api/v1/warmup` with `{"status":"ok","api_version":1,"schema":"0017"}`.
 
-The section «What the last session added» below is #305's batch, and «What the session
-before it added» is #303's.
+The section «What the last session added» below is #332's batch, and «What the session
+before it added» is #329's.
 
 The SHA of its own merge is for the next close-out to write.
 
 **#267 closed #264, #265 and #266**, read back from GitHub on 3 October, and **#296 closed
 #271, #272 and #275**, read back on 4 October. **#274 and #277 closed nothing.** Of the
-defects the survey and the plan filed on milestone 11, #268–#270 are open, #276 closes with #305, and #273
+defects the survey and the plan filed on milestone 11, #268–#270 are open, #276 closed with #305, #309 and #310 with #311, #312 with #313, #314–#318 with #319, #320–#325 with #328, #331 closes with #332, and #273
 is that milestone's epic.
 **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
@@ -147,124 +150,98 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: a form no longer takes «/week@» for an answer (#276, #304), and CI runs the server's tests when a document they read changes (#295)
+## What the last session added: tonight's documentation fixes reach every place that said the old thing (#331)
 
-Open as #305, a draft from `fix/breakout-mention-and-ci-documents`, on milestone 11. It closes
-#276, #295 and #304 and refers to #273. Written on 5 October 2026, after #303 merged. The
+Open as #332, a draft from `fix/doc-followups`, on milestone 11. It closes #331 and refers to
+#273. Written on 5 October 2026, after #329 merged. The schema head did not move, and nothing
+under `/api/v2` exists.
+
+- **An independent review of the night's five merges** (#311, #313, #319, #328, #329) read
+  every changed claim against the tree. It found the Android change clean and every new count
+  right. It also found that four corrections had stopped at the first document, and that four
+  sentences written tonight were wrong in their own way. They were filed as #331 and are fixed
+  here:
+  - **Carried further:**
+    - the edit routes, in `AGENTS.md`, the Copilot instructions and two docstrings;
+    - the repository's `onDataChanged` as the sender of `DATA_SYNCED`, in five places;
+    - «О приложении → Перевод», in the README;
+    - the seven places a test count lives, in `CLAUDE.md`.
+  - **Corrected:**
+    - `docs/build.md` cited #320 for the password in a transcript, which is #318;
+    - `docs/design.md` said nothing in the interface named Onest, and the about screen did;
+    - `CLAUDE.md` said the app *calls* only four routes, leaving out its reads;
+    - the security reviewer named one variable outside `LESSONS_KEYSTORE_*`, not two.
+  - **Smaller:**
+    - `WEBHOOK_SECRET` is asked about only once `BOT_TOKEN` is set;
+    - `test_ci_paths.py` names the new reader of `docs/deploy.md`;
+    - `CONTRIBUTING.md`'s suite time matches the other documents.
+- **#330 asks the owner whether a manual `apk.yml` run should sign with the real key**, from
+  any branch. Today it does, and publishes the APK as an artifact (#320 described it).
+  Recommended: only a run on `main`. It is in section 7.
+- **After #329's merge**, `dev` was fast-forwarded to `dbf25c9`. Vercel reported the deploy
+  successful, and production answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}`. CI's Android job passed on #329's head,
+  and the board reads Done, P2, S, 2 for #329, #326 and #327.
+
+### Gates
+
+- **The server suite.** `pytest -q -n auto`, run alone from this worktree's own venv, gave
+  **2208 passed** in 9 minutes 38 seconds. Only two docstrings and one test's table changed
+  under `server/`. ruff is clean.
+- **Android** is unchanged since #329, 1635 tests.
+
+### What was deliberately left alone
+
+- **Two wording points from the review.** Onest's notice names two addresses, and the sheet
+  links the first. On Android 8–9 the app draws everything in Onest, which the Google Sans
+  Flex credit does not say. Each would cost the Android gates for a nuance.
+- **`.claude/settings.json`**, still the owner's (section 7).
+
+### What nobody has verified in this batch
+
+- **That a third pass would find nothing.** The first two found forty facts and the review
+  found twelve more in the fixes themselves; the rate is falling, not zero.
+
+## What the session before it added: the app credits Onest, and says an admin's phone writes the timetable too (#326, #327)
+
+Merged as #329 (`dbf25c9`, 5 October 2026), from `fix/onest-credit-and-about-fact`, on milestone 12, `v1.0.0 — A
+build somebody else can install`, because both are text a second family would read. It
+closed #326 and #327 and refers to #273. Written on 5 October 2026, after #328 merged. The
 schema head did not move, and nothing under `/api/v2` exists.
 
-- **An open form is dropped by «/week@», as aiogram dispatches it (#276).** The breakout's
-  `_COMMAND` accepted a mention only with a name, while aiogram reads «/week@» as «/week»; so
-  the form stayed open and an editor at «Теперь пришлите текст задания:» got an assignment
-  called «/week@», committed, audited and announced. The pattern is now
-  `^\s*/[A-Za-z0-9_]+(@[A-Za-z0-9_]*)?(\s|$)`, no looser than aiogram: «/week@@», «/ week» and
-  «/недели» are still text.
-- **Leading whitespace counts as well (#304).** #276's own test found it: aiogram splits on
-  whitespace before it looks, so «  /week» is a command to it. It was filed that night and
-  fixed in the same pull request, because the pin cannot hold without it.
-- **The two readings are pinned against each other.** `test_bot_commands.py` sends a 24-row
-  table both to `looks_like_command` and to each of aiogram's 26 `Command` filters in the real
-  dispatcher, discovered rather than listed, plus a real-dispatcher test that «/week@» at the
-  homework step drops the form. A comment in `bot/handlers/__init__.py` on the ticks router's
-  position was rewritten: the position no longer decides anything.
-- **CI's server job runs when a file the suite reads outside `server/` changes (#295).**
-  `ci.yml`'s server `case` arm names `docs/*.md`, `.claude/*.md`, `proto/*`, `buf.yaml`,
-  `vercel.json`, `.vercelignore`, `.python-version` and the root documents; found by grep and
-  confirmed under an `open`/`scandir` audit hook. Comment and filter only: no step, job, `if:`
-  or output is new. `server/tests/test_ci_paths.py` (3 tests) holds the patterns level with the
-  suite; `_documents` moved into `conftest.py` as the `head_documents` fixture; `docs/build.md`,
-  «Path filters», and `.claude/agents/build-ci.md` say so.
-- **Reviewed before the merge by the build-ci agent**: ready, no Critical or Important
-  finding. A commit that touches only `docs/history.md` now runs the server job, which is
-  acceptable, runners being free on a public repository.
+- **The «Лицензии» sheet credits Onest (#326).** Onest draws every Russian word in the app,
+  and its notice travelled in the APK, but the sheet named only Google Sans Flex. Onest has
+  a row now, after Google Sans Flex, linked where its own notice points
+  (`github.com/simpals/onest`). Google Sans Flex's note says it draws the Latin letters and
+  the digits, rather than the whole app. With ten rows over six hues, GMS Flags moves to
+  slot 9, and the comment says where that wrap lands.
+- **«О приложении» says the timetable is written from the bot and an admin's phone (#327)**,
+  not the bot alone. The same app's «Управление» writes it, and the fact keeps its point:
+  the server has no page for it.
+- **`README.md` and `docs/design.md`** stop calling either a gap.
+- **After #328's merge**, `dev` was fast-forwarded to `912821f`, Vercel reported the deploy
+  successful, production answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}`, and the board reads Done, P2, M, 5 for
+  #328 and #320–#325.
 
 ### Gates
 
-- **The server suite.** At `5b7f5cb`, `pytest -q -n auto`, run once and alone on this machine
-  on 5 October 2026, gave **2207 passed** in 9 minutes 1 second: 2175 plus 32 (29 in
-  `test_bot_commands.py`, 3 in `test_ci_paths.py`). The README, `docs/architecture.md`,
-  `CLAUDE.md`, `CONTRIBUTING.md`, the `gates` skill and the cheat-sheet at the end of section 8
-  say 2207.
-- **ruff and mypy.** Both are clean; mypy covers 197 modules.
-- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
-- **CI on #305's head** is not claimed here.
+- **Android**, on this machine, one Gradle job at a time with `--max-workers=2`, on JDK 21:
+  `./gradlew test` passed with **1635** tests and no failure (`:core:model` 125, `:core:data`
+  615, `:core:designsystem` 161, `:widget` 126, `:app` 608, read from the result files);
+  `ResourceTranslationTest` ran on the new strings; both assembles and `./gradlew detekt`
+  passed. Many tasks came from Gradle's build cache, which is why the test run took under
+  two minutes.
+- **The server** is unchanged, 2208 tests, because nothing under `server/` changed.
 
 ### What was deliberately left alone
 
-- **Moving the ticks router into `content`'s router** is a change of its own and not done.
-- **A guard that sees a new file under an already-listed root**: the root-name check reads only
-  the first part of a path, and a stronger one was not written.
-- **#301 is not merged and its plan is not executed.** It was reviewed independently (ready
-  after fixes: `MIN_CLIENT_VERSION` also in `docker-compose.yml`, a guard that every error-table
-  row has a both-path test, nine Minor findings, the client header accepting ten digits up to
-  2,100,000,000, and the join's sentences living in `app/wording.py`), every finding was applied
-  (`aa2253d`), and it waits for the owner's approval.
+- Nothing that was found. This batch closes the last two defects filed tonight.
 
 ### What nobody has verified in this batch
 
-- **The new filter on a GitHub runner**, beyond #305's own CI, as section 5 says.
-- **Whether Telegram delivers a message that starts with whitespace** (#304), as section 5 says.
-
-## What the session before it added: a deployment without a diary key keeps its sessions (#302), and the design of serving v2 is drafted for the owner (#301)
-
-Merged as #303 (`aba88f8`, 5 October 2026), from `fix/diary-secret-keeps-sessions`, on
-milestone 10, `v0.9.0`, because the fix is the diary's. It closed #302. Written on the night of 4 to 5 October 2026, in the same
-session that merged #300. The schema head did not move, and nothing under `/api/v2` exists.
-
-- **A deployment without `DIARY_SECRET` no longer expires every diary session it is asked
-  about (#302).** The independent review of sub-project 3's design (#301) found it, and it was
-  filed as an issue before the fix: with no key, every sealed credential looked unreadable, so
-  the first read of a session deleted it for good, and the key coming back could not bring it
-  back. `services/diary.unusable` now expires a session only when a configured key cannot open
-  it, and with no key it expires nothing. `api/diary.current_diary` answers `503` with
-  `X-Diary-Unavailable: disabled` before the token is looked at, and the bot's `_session_for`
-  shows no session and keeps the row.
-- **Three tests, each failing on `main` before the fix**: the service in
-  `test_diary_crypto.py`, the endpoint in `test_diary_api.py`, the bot in `test_bot_diary.py`.
-  `docs/api.md`'s diary error table and `CLAUDE.md`'s «The diary needs `DIARY_SECRET`…» say so.
-- **The design of sub-project 3 was drafted and is waiting for the owner**, as #301, a draft on
-  milestone 11, from `server-v2/design`, **not merged**:
-  `docs/specs/2026-10-05-server-v2-design.md`, and the implementation plan of its stage 3a,
-  `docs/specs/2026-10-05-server-v2-3a-plan.md` (11 tasks). Every module and test the plan
-  quotes was built and run in a scratch copy: 165 new tests and 4 in existing files, ruff and
-  mypy clean there; the full suite was not run in it. The design was revised after an
-  independent review the same night, and again where writing the plan proved it wrong. It ends
-  with five questions for the owner: the stages; a complete host or a sidecar; where the host
-  runs; a missing `X-Lessons-Client`; browsers and CORS. A read-only count on production (Neon,
-  5 October) found 35 timetable rows in one class, none without a `subject_id`, and the design
-  records it. **Nothing that serves v2 merges before the owner approves it.**
-- **Production after #300's automatic deploy** answered `/api/v1/warmup` with
-  `{"status":"ok","api_version":1,"schema":"0017"}` and a `/api/v2/…` path with `404`. The
-  board reads Done, P2, M, 8 and 2026-10-04 to 2026-10-04 for #300, #298 and #299.
-
-### Gates
-
-- **The server suite.** At `7525818`, `pytest -q -n auto` gave **2175 passed** in 8 minutes 42
-  seconds on this machine, on 5 October 2026: 2172 plus the 3 tests above. The six diary test
-  files gave 222 passed on their own. The README, `docs/architecture.md`, `CLAUDE.md`,
-  `CONTRIBUTING.md` and the `gates` skill say 2175.
-- **ruff and mypy.** Both are clean; mypy covers 197 modules.
-- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
-
-### What was deliberately left alone
-
-- **The v2 half of #302**, the gate's own diary check, is in #301's design and not built,
-  because nothing serves v2.
-- **#301 is not merged and its plan is not executed**: it waits for the owner's approval.
-
-### What nobody has verified in this batch
-
-- **The app's handling of a `503 disabled` on a diary read with a token has not been checked
-  on a device.** The app parses `X-Diary-Unavailable` for every diary call, but a read that
-  carries a token and is still answered «disabled» is a case it had not met.
-- **Every module in #301's plan ran in a scratch copy**, not in the repository, and the full
-  suite did not run there.
-- **The five answers #301 waits for are guesses until the owner gives them.**
-- **After #303's merge**, a security review made before it had found no other path that loses a
-  session without the key, `dev` was fast-forwarded to `aba88f8`, and production's
-  `/api/v1/warmup` answered `{"status":"ok","api_version":1,"schema":"0017"}`. The board reads
-  Done, P1, M, 5 and 2026-10-05 for #303 and #302 (#302 started on 2026-10-04).
-
+- **The sheet and the fact on a device or an emulator.** The row is data in a list every
+  other row already draws.
 
 ## The milestones
 
@@ -288,8 +265,8 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218 and #303 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300 (merged), #301 and #305 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | issues #120–#122, #127, #142, #144 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #305, #311, #313, #319, #328 (merged), #301, #306, #307, #308 and #332 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PR #329 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
@@ -334,10 +311,10 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   a device** (#302). The app parses `X-Diary-Unavailable` for every diary call, but a read that
   carries a token and is still answered «disabled» is a new case for it; only the server's
   tests have seen it.
-- **The new CI filter (#295) has run on a GitHub runner only in #305's own CI.** Its server arm
-  was run in Git Bash's `case` against a list of paths and the step's script over the branch's
-  range; nobody has seen a commit confined to a skill or to `proto/` start the server job on
-  its own. Its guard, `test_ci_paths.py`, sees only the first part of a path, so a new file
+- **The new CI filter (#295) has been seen on a GitHub runner twice**: in #305's own CI, and in
+  #311's, whose first commit (`66c7ba1`) touched only `CLAUDE.md`, `.claude/` and
+  `docs/build.md` and started the server job with the Android and contract jobs skipped. Nobody
+  has seen a commit confined to `proto/` start it on its own. Its guard, `test_ci_paths.py`, sees only the first part of a path, so a new file
   under a root already listed (`.github/dependabot.yml`, say) is caught only by adding it to
   the guard's written list.
 - **Whether Telegram ever delivers a message that starts with whitespace is unverified**
@@ -1093,6 +1070,46 @@ host or a sidecar; where the host runs; what a missing `X-Lessons-Client` means;
 and CORS. Its stage 3a plan, `docs/specs/2026-10-05-server-v2-3a-plan.md`, executes after that,
 and nothing that serves v2 merges before.
 
+**Approve or change the designs of sub-projects 4, 5 and 6, and answer their questions.** Each
+gives its recommendation beside every question, and none is built before its answers.
+- **#306**, `docs/specs/2026-10-05-android-decomposition-design.md`, asks three: where the
+  Gradle workers cap goes; whether `SettingsViewModel` splits into collaborators or into
+  view models; three pull requests or one per file.
+- **#307**, `docs/specs/2026-10-05-android-transports-design.md`, asks four: whether a release
+  built at 5a goes onto the family's phones, or 5b's is the first; whether a debug build may
+  switch transports at run time; how to know every family phone has the new APK before v1 goes; whether the app falls
+  back to v1 on a bare `503` or `404`. Its stage 5a also waits for sub-project 3's stage 3a
+  to be deployed.
+- **#308**, `docs/specs/2026-10-05-build-console-design.md`, asks six: whether CI runs the
+  console's own tests; the Vercel CLI for previews; how the console learns whether signing is
+  configured without opening the file that holds the passwords; a heavy job beside a running
+  emulator; LF endings for `server/app/contract/`; whether the Environment tab may read
+  `server/.env` for names only.
+
+**Decide whether to change the release signing passwords.** On 5 October 2026 an agent of the
+session that wrote #311 read `~/.gradle/gradle.properties` and printed a signing password into
+that session's transcript. It is in no file, issue, commit or pull request. `keytool` changes a
+keystore's passwords without changing its key, so a phone that installed the APK still accepts
+the next one; the new values then go into that file and into the Actions secrets —
+`KEYSTORE_BASE64` as well, because the keystore file changes with its password.
+
+**Three lines in `.claude/settings.json`, which a session may not edit itself** (#314, #318):
+- **Under `deny`**, `Read(~/.gradle/gradle.properties)`. It stops the file tools from opening
+  the passwords' file. It would not stop a shell `cat`, which the instructions alone hold.
+- **Under `allow`**, `Bash(pytest *)` and `Bash(pytest)`. The list holds only `python -m
+  pytest`, so the bare command CI runs, and every gate document now gives, asks for
+  permission each time.
+- **`Read(./server/.env.*)` under `deny`** also catches `server/.env.example`, which holds no
+  secret and documents every setting. Narrow it, or accept it.
+
+**Decide whether a manual `apk.yml` run signs with the real key (#330).** Today, once the
+secrets are set, every run does. **Actions → APK → Run workflow** pointed at any branch puts
+an APK of that branch into the public `lessons-apk` artifact, and a family's phone accepts it
+as an update, because it carries the same certificate. Only the Release waits for a tag. The
+issue gives three options. *Recommended: sign a manual run with the real key only from
+`main`*, which keeps building an update of what `main` holds and closes a real-key build of a
+branch nobody merged. The change to `apk.yml` goes through the `build-ci` agent.
+
 **Keep some space on C:.** It had about 1.3 GB left early on 27 September, and 14 GB when #187
 began, the same night; its builds and one emulator boot left 12 GB, and #189's left 9.4 GB,
 so each batch with a device in it costs two or three. The emulator refused to
@@ -1123,7 +1140,8 @@ never been run in Postman, so the first run is also its first test.
 
 **Next for the programme: sub-project 3 (server shells and targets) is drafted and waits for
 the owner's approval, as #301 above.** It is where v2 is first served, and the questions in
-section 5 about Vercel's proxy and the second host (below) are its first inputs.
+section 5 about Vercel's proxy and the second host (below) are its first inputs. Sub-projects
+4, 5 and 6 are drafted too, as #306, #307 and #308, and wait the same way.
 
 **The tenth milestone exists, and #140 is on it.** The owner created
 `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` on 25 September and renamed
@@ -1364,7 +1382,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2207 tests, ~4 min on CI, ~10 on Windows
+cd server  && pytest -q -n auto                          # 2208 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 197 modules
 cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

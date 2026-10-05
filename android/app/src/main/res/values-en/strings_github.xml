@@ -27,7 +27,9 @@
     <string name="credit_material_symbols">Material Symbols</string>
     <string name="credit_material_symbols_note">Every icon in the app and in the widget.</string>
     <string name="credit_google_sans">Google Sans Flex</string>
-    <string name="credit_google_sans_note">Google LLC. The typeface the app is set in. Google Sans is a trademark of Google.</string>
+    <string name="credit_google_sans_note">Google LLC. The typeface of the Latin letters and the digits. Google Sans is a trademark of Google.</string>
+    <string name="credit_onest">Onest</string>
+    <string name="credit_onest_note">The Onest Project Authors. The Cyrillic typeface: every Russian word in the app is set in it.</string>
 
     <!-- Report a problem -->
     <string name="bug_report_title">Report a problem</string>

@@ -22,9 +22,9 @@ failing check optional.
 Run the gates for the half you touched, and reproduce the failure first:
 
 - server, from `server/`: `ruff check app tests scripts migrations`, `python -m mypy`,
-  `python -m pytest -q -n auto`
+  `pytest -q -n auto` (bare, as CI runs it)
 - android, from `android/`: `./gradlew test`, `./gradlew assembleDebug`,
-  `./gradlew assembleRelease` (`--offline` in a sandbox)
+  `./gradlew assembleRelease`, then `./gradlew detekt` (`--offline` in a sandbox)
 
 For a CI fix, show the original failure reproduced locally and then the same check passing.
 One validated push beats three speculative ones.

@@ -31,5 +31,5 @@ an English caption.
 
 ## Gates
 
-From `android/`: `./gradlew :widget:test`, then `./gradlew test`, `assembleDebug` and
-`assembleRelease`. `--offline` in a sandbox.
+From `android/`: `./gradlew :widget:test`, then `./gradlew test`, `assembleDebug`,
+`assembleRelease` and `detekt`. `--offline` in a sandbox.

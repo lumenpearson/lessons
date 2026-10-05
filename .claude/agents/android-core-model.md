@@ -14,13 +14,24 @@ way — that is why `./gradlew :core:model:test` answers in seconds.
 "today" through `Timetable.nowAtSchool()`. `LocalDateTime.now()` and `ZoneId.systemDefault()`
 in this codebase are almost always a bug — grep for both before you finish.
 
-## Parity
+## What mirrors the server, and what does not
 
-`ScheduleEngine` resolves the same template-plus-overrides question `server/app/schedule.py`
-does, and the two must agree. A change to one is a change to both; the server suite has a
-parity test (`tests/test_schedule.py -k parity`) and the Kotlin side has `ScheduleEngineTest`.
-The school year ends at month 5: June onwards must not repeat the weekly template, while a
-day marked by hand keeps its kind and note and events and homework are kept either way.
+**The server resolves the days, and the phone does not.** `server/app/schedule.py` turns the
+weekly template, the overrides and the class's terms into concrete days, and the phone caches
+the result. `ScheduleEngine` takes that cached, already-resolved `Timetable` and an instant
+and answers a `DayState`: which lesson, break or event is on now and what comes next. Nothing
+in this module resolves a template, so a rule about which days carry lessons belongs on the
+server (`server-domain`), not here.
+
+**`SchoolYear` is the mirror, and it has to stay one.** It is `school_year_bounds` from
+`schedule.py` on the phone's side: the client asks for exactly that range and the server caps
+exactly that range, so a disagreement is a window that silently comes back short.
+`SchoolYearTest` pins the same cases the server's own test pins. A change to one is a change
+to both.
+
+`tests/test_schedule.py -k parity` is not that test: it selects the odd/even **week**-parity
+tests (#316). The school year's end is the class's own terms, read by `off_reason_for` on the
+server, falling back to 31 May only for a year with none.
 
 ## Gates
 
