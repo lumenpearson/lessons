@@ -28,6 +28,80 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the owner approved the four designs and decided #330, and an APK is signed with the real key only on main or a `v*` tag
+
+Merged as #333 (`2f529af`, 5 October 2026), from `chore/owner-decisions`, on milestone 12,
+because #330 is. It closed #330 and refers to #273. Written on 5 October 2026, after #332 merged. The schema head did not
+move, and nothing under `/api/v2` exists yet.
+
+- **The owner answered in the working session on 5 October.** The owner was away from the
+  computer and asked the session to do everything left to them. The two decisions among those
+  were put to the owner as one question each, and answered:
+  - every question of the four designs, with its recommendation;
+  - #330 as option 3.
+
+  The answers are posted on #301, #306, #307, #308 and #330, and written into each design's
+  status line. Each design's branch took `main`, passed CI on its exact head, and merged:
+  #301 as `36b30e1`, #306 as `5847a00`, #307 as `f7658f1`, #308 as `fb96fa3`.
+- **#330: `apk.yml` signs with the real key only on `refs/heads/main` or `refs/tags/v*`.**
+  «Decode keystore» hands any other ref no keystore and says so in a notice, and the Build
+  step no longer gets the passwords for it. A tag without the secrets still fails before the
+  build. The `build-ci` agent's review found nothing critical, and its points are in:
+  - only `v*` tags count;
+  - the passwords are gated like the keystore file;
+  - `docs/build.md` stops promising the real key to every build, and sends a branch to
+    `build_type: debug`, whose `.debug` id installs beside the real app;
+  - the `release` skill and two agents say the checks run on `main` or a tag.
+
+  The guard stops an accident, not somebody with push access, and `docs/build.md` says so.
+  The GitHub Environment that would make it a rule is in `HANDOVER.md`'s section 7.
+- **What the session could not do for the owner**, refused by Claude Code's own safety
+  classifier and left in `HANDOVER.md`'s section 7:
+  - changing the signing password, as a write to the secret store;
+  - the three lines in `.claude/settings.json`, as self-modification.
+
+  Setting up the external cron (#120) needs an account in a third-party service and a copy of
+  `CRON_SECRET`, the same class of action, and was not attempted.
+- **`DADATA_TOKEN` works in production** (#120's second half). Production's anonymous
+  `GET /api/v1/directory/school-regions` answered `200` for «гимназия 1 Казань» with
+  Татарстан and a real school, so the key is set and DaData answers. «лицей 1535», the
+  example in `docs/api.md`, came back empty from the live register. Whether the external cron
+  calls the tick could not be read: the Vercel connector has lost the project's scope
+  (`HANDOVER.md`'s section 7).
+- **Hosting in Russia, researched for #235** and posted there:
+  - Telegram is blocked from Russian data centres since March 2026, so the server cannot
+    move to Russia without a proxy abroad for the bot.
+  - The recommendation is a small Russian VPS as an HTTPS proxy for the diary's calls alone:
+    RUVDS «Старт», 149 ₽ a month on 5 October.
+  - Free tiers cannot keep a process up; the start grants last 60 days.
+  - **The owner chose it the same day, with RUVDS as the provider:** the bot and the API stay
+    on Vercel and Neon, and only the diary's requests go through Russia. The server's support
+    for a diary proxy is the next small batch; buying the VPS is the owner's.
+- **After the designs merged**, `dev` was fast-forwarded to `fb96fa3`, Vercel reported the
+  deploy successful, and production answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}`. Epic #273 and the board say the four
+  designs are approved and merged.
+
+### Gates
+
+- **`apk.yml`** parses, and its keystore step carries `REF` and `REF_TYPE`.
+- **The three Android tests that read the workflow** were forced to rerun on it (`--rerun`),
+  because Gradle does not count a file a test reads as an input and called them up to date:
+  `BuildPropertyReachTest` 3, `LegalBuildPropertyTest` 5 and `AboutCardTest` 12, all passed.
+- **The server's `test_env_example`**, with the other document tests, gave 21 passed.
+- **Nothing under `server/app` or `android/` changed**, so the suites stand at 2208 and 1635.
+
+### What was deliberately left alone
+
+- **Stage 3a and sub-project 4's pull request A** are the next batches, not this one.
+- **The password, `settings.json`, the cron, the GitHub Environment and the Vercel scope**:
+  `HANDOVER.md`'s section 7.
+
+### What nobody has verified in this batch
+
+- **The new condition in `apk.yml` has never run.** The first manual run on `main` should sign
+  with the real key; the first on a branch should not.
+
 ## What the batch before added: tonight's documentation fixes reach every place that said the old thing (#331)
 
 Merged as #332 (`a895923`, 5 October 2026), from `fix/doc-followups`, on milestone 11. It closed #331 and refers to
@@ -5748,6 +5822,25 @@ being true and section 5 carries a narrower one. As it stood until then:
   skips it with a notice, because `main` had no contract. The first pull request that
   touches `proto/` is its first run.
 
+Later the same day production reached the Petersburg diary through the owner's Russian proxy
+(«Outside the pull request, the same day», in the section on #342, in `HANDOVER.md` or, once
+it has moved, here), so the bullet below lost its last sentences and `HANDOVER.md`'s section
+5 carries a narrower one. As it stood until then:
+
+- **Nobody knows whether a diary accepts a session opened on a phone when our server replays
+  it.** The phone signs in from the family's own address, and `POST /api/v1/diary/session`
+  then reads with that session from Frankfurt. A diary that ties a session to its address, or
+  refuses foreign ones, answers that read with a refusal, and the server turns it into a
+  `409`, meaning the diary refused the session from our address — by design, with no automatic
+  retry. If that is what the first live session gets, the phone-registered path does not work
+  for that diary and only the password routes remain. Whether «Сетевой город»'s four bootstrap
+  calls fit inside Vercel's 30-second ceiling is unmeasured too. **For Петербург it is worse
+  than a refusal, and it was measured on 2 October 2026 (#235):** the city's network does not
+  answer Frankfurt at all, so the read never gets as far as judging the session. The server's
+  connect timeout turns it into a `503` «upstream» in about six seconds — which the phone
+  words as «Дневник не отвечает» — for every family, every time, until the diary traffic
+  leaves from a Russian address. «Сетевой город»'s regions were not asked from Frankfurt.
+
 ## Moved out of section 7 on 5 October 2026
 
 Done by the owner, in the working session of 5 October: every question of the four designs
@@ -5785,3 +5878,35 @@ as an update, because it carries the same certificate. Only the Release waits fo
 issue gives three options. *Recommended: sign a manual run with the real key only from
 `main`*, which keeps building an update of what `main` holds and closes a real-key build of a
 branch nobody merged. The change to `apk.yml` goes through the `build-ci` agent.
+
+Later the same day, three more. The RUVDS VPS was rented and its proxy set up, the owner
+put `DIARY_PROXY_URL` into Vercel for Production, Preview and Development, and production
+reached the Petersburg diary through it («Outside the pull request, the same day», in the
+section on #342, in `HANDOVER.md` or, once it has moved, here). That settled both paragraphs
+about #235. And stage 3a, the programme's next step, was built as #342, so `HANDOVER.md`'s
+section 7 points at stage 3b instead. As they stood until then:
+
+**A Russian egress for #235: a proxy, not a move.** Telegram is blocked from Russian data
+centres since March 2026 (OONI; providers say so themselves), so the whole server cannot
+move to Russia without a proxy abroad for the bot. The research on #235 recommends keeping
+Vercel and sending only the diary's calls through a small Russian VPS used as an HTTPS
+`CONNECT` proxy — RUVDS «Старт», 149 ₽ a month on 5 October — which never sees the
+credential. **The owner chose this on 5 October, with RUVDS as the provider.** Buying the
+VPS, setting its proxy up and putting its address into Vercel as `DIARY_PROXY_URL` are the
+owner's; the server's half is #335 (#334), and one request through it to the diary is the
+test.
+
+**Next for the programme: stage 3a of sub-project 3, from its plan.** The owner approved all
+four designs on 5 October, and they are on `main`: 3a
+(`docs/specs/2026-10-05-server-v2-3a-plan.md`) is where v2 is first served, and sub-project
+4's pull request A can run beside it, one heavy job at a time. The questions in
+`HANDOVER.md`'s section 5 about Vercel's proxy and the second host (its section 7) are 3c's
+inputs.
+
+**Decide #235: where the Petersburg diary's traffic leaves from.** The city's network does not
+answer the server in Frankfurt (`HANDOVER.md`'s section 5), so no family can use Петербург's
+diary through this project until the server's diary requests leave from a Russian address.
+The smallest fix is a password-protected HTTP proxy on a small Russian VPS and an optional
+`DIARY_PROXY_URL` that only the diary clients use; the code is a session's work once a host
+exists, and the host is the owner's to rent. Moving the whole server to Russian hosting would
+also settle the 152-ФЗ question in `HANDOVER.md`'s section 7. The issue has the three options.
