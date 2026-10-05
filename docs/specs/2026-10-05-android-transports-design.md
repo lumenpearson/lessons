@@ -79,7 +79,7 @@ and about fifteen fake a Retrofit interface directly.
 
 ## Decisions
 
-### 1. Five remotes, the repositories' only door to the server
+### 1. Six remotes, the repositories' only door to the server
 
 `:core:data` gets one interface per area, named for what it serves rather than for a transport:
 
