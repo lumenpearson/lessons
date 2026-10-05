@@ -46,7 +46,9 @@ class ClassDevice(Message[_ClassDeviceFields]):
             bool linked = 3;
             ```
         owner:
-            Whose phone it is, as a display name: never the Telegram id.
+            Whose phone it is, as a display name: the @username, else the name
+            Telegram gave, else the numeric id, as the bot shows an admin. No field
+            carries the Telegram id as such.
 
             ```proto
             optional string owner = 4;

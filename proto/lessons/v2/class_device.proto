@@ -50,7 +50,9 @@ message ClassDevice {
   int32 id = 1;
   optional string device_name = 2;
   bool linked = 3;
-  // Whose phone it is, as a display name: never the Telegram id.
+  // Whose phone it is, as a display name: the @username, else the name
+  // Telegram gave, else the numeric id, as the bot shows an admin. No field
+  // carries the Telegram id as such.
   optional string owner = 4;
   // The owner's role now; ROLE_UNSPECIFIED when unlinked.
   Role role = 5;

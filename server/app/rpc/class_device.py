@@ -41,7 +41,8 @@ def _message(device: DeviceToken, names: dict[int, str], role: Role | None) -> C
         id=device.id,
         device_name=device.device_name,
         linked=device.is_linked,
-        # A display name, never the Telegram id behind it.
+        # A display name: the @username, else the name Telegram gave, else the
+        # numeric id, as the bot shows an admin (``classes.display_name``).
         owner=names.get(device.telegram_id) if device.telegram_id is not None else None,
         role=values.role(role),
         revoked=device.revoked,

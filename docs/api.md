@@ -864,8 +864,9 @@ endpoints exist to promise each other.
 Oldest first, and every phone that joined the class, not only the linked ones: a
 read-only phone is a row with `linked: false` (#321); `include_revoked=true` adds the
 revoked ones. `role` is a lookup, not a stored field - a device acts with
-whatever role its owner holds right now - and `owner` is a display name; the
-Telegram id a device is linked to is never on the wire.
+whatever role its owner holds right now - and `owner` is a display name — the
+@username, else the name Telegram gave, else the numeric id, as the bot shows an admin;
+there is no `telegram_id` field on the wire.
 
 `POST /manage/devices/{id}/revoke` switches a phone off: revoked, not deleted,
 because the row is what a token is checked against and keeping it is what makes
