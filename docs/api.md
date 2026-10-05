@@ -1687,11 +1687,14 @@ RPC sends it as the protocol's error. REST sends Google's JSON error body
 | `NOT_FOUND` | 404 |
 | `ALREADY_EXISTS` | 409 |
 | `RESOURCE_EXHAUSTED` | 429 |
+| `INTERNAL` | 500 |
 | `UNIMPLEMENTED` | 501 |
 | `UNAVAILABLE` | 503 |
 
 The reasons are `ErrorReason` in `errors.proto`: thirty-three of them, each with its code,
-its metadata and what v1 sent instead.
+its metadata and what v1 sent instead. A failure the server does not know is `INTERNAL`, with
+a fixed sentence and no detail: what went wrong is logged, never sent, because an exception's
+own text can carry what was typed.
 
 **A client acts on the reason, never on the message.** The app's habit of matching
 `"device is not linked"` (#270) ends here. A reason a client does not know, it handles by the
