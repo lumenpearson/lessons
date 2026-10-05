@@ -97,7 +97,7 @@ The rule and the four places that deliberately do not follow it are in
 ## States
 
 Computed by `ScheduleEngine.stateAt(timetable, now)` — a pure function covered by the
-thirty-one tests of `ScheduleEngineTest` and `ScheduleEngineEdgeCasesTest` in
+thirty-five tests of `ScheduleEngineTest` and `ScheduleEngineEdgeCasesTest` in
 `:core:model`. The time inside it is the school's, not the phone's: a class in
 Vladivostok and a class in Kaliningrad can hang off one server, and the widget takes "now"
 from `timetable.nowAtSchool()`.
@@ -228,11 +228,13 @@ reads every layout in the module for a class the launcher would refuse.
 The widget reads only Room and DataStore — there is no network on the drawing path. That is
 exactly why the countdown keeps running in a school basement.
 
-After a successful sync, `SyncWorker` sends the internal broadcast
-`com.lumenpearson.lessons.action.DATA_SYNCED`, which `WidgetTickReceiver` receives — not the
-exported `LessonsWidgetReceiver`, which would take the action from any app on the device.
-That is why `:core:data` does not depend on `:widget` — the dependency would otherwise be
-circular.
+After a successful sync — the background one or a refresh from inside the app, because the
+repository rather than `SyncWorker` is what sends it — `DataSyncBroadcast.send`, handed to
+`TimetableRepositoryImpl` as its `onDataChanged` callback in `LessonsContainer.kt`, sends
+the internal broadcast `com.lumenpearson.lessons.action.DATA_SYNCED` (#324), which
+`WidgetTickReceiver` receives — not the exported `LessonsWidgetReceiver`, which would take
+the action from any app on the device. That is why `:core:data` does not depend on
+`:widget` — the dependency would otherwise be circular.
 
 A sync that came back `304` does **not** send the broadcast: the phone sends `If-None-Match`
 with the tag of the window it already has, and a `304` means there is nothing new to draw —

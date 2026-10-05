@@ -55,8 +55,9 @@ Authorization: Bearer <token>
 
 Codes are eight characters from an alphabet with `O`, `0`, `I` and `1` removed,
 because people type them off a whiteboard. Rotating a class code (owner-only,
-`/code` in the bot) stops the old code from being redeemed again; devices that
-already joined keep working, since their tokens are independent of it.
+«🔁 Сменить код» on the bot's «⚙️ Класс» card; `/code` only shows the code, to
+admins) stops the old code from being redeemed again; devices that already joined
+keep working, since their tokens are independent of it (#321).
 
 Failed joins are rate-limited per client address (thirty per fifteen minutes,
 counted in the database so the limit survives serverless cold starts); a
@@ -271,10 +272,10 @@ mark, because that is a claim about the check rather than about the payload.
   out of season, not the day.
 * **`off_reason` says which of those it is**, because `kind` cannot: all four
   arrive as `holiday` and a calendar wants to draw them differently. It is
-  `out_of_year`, `between_terms`, `public_holiday`, or absent. Absent on an
-  ordinary day, including an ordinary empty one — «nobody put lessons on a Sunday»
-  is not a reason, it is the absence of one. A client that has never heard of a
-  value it is sent should treat it as absent rather than guess.
+  `out_of_year`, `between_terms`, `public_holiday`, or `null` — the key is always
+  there (#321). `null` on an ordinary day, including an ordinary empty one — «nobody
+  put lessons on a Sunday» is not a reason, it is the absence of one. A client that
+  has never heard of a value it is sent should treat it as `null` rather than guess.
 * **`holiday` names the date**, whether or not it teaches: `{"code", "title",
   "stops_lessons"}`. `stops_lessons` is true only for a statutory non-working day
   — «День учителя» is a full Wednesday with a badge on it, «День Победы» is not.
@@ -564,9 +565,12 @@ Marks a whole date. `kind: "normal"` deletes the mark, so a day never carries a
 row that says nothing. `bell_schedule_id` (for `shortened` days) must be one
 of this class's bell schedules - `422` otherwise, and it must have rows: a day
 pointed at an empty schedule draws nothing at all under a card saying
-«⏱ Сокращённые уроки». Answers the stored row. Four kinds are accepted here
-— `normal`, `holiday`, `shortened`, `remote` — while a day in the bundle can come
-back as any of six; `self_study` and `day_off` are marked from the bot only.
+«⏱ Сокращённые уроки». A `shortened` day without a `bell_schedule_id` is a `422`
+as well (#321): the times are what «сокращённые» claims, and without a schedule the
+day would announce shortened lessons and draw the usual ones. Answers the stored
+row. Four kinds are accepted here — `normal`, `holiday`, `shortened`, `remote` —
+while a day in the bundle can come back as any of six; `self_study` and `day_off`
+are marked from the bot only.
 
 ## Managing the class
 
@@ -600,7 +604,7 @@ instant.
 | `DELETE` | `/manage/bells/{id}` | admin | Remove a schedule nothing uses |
 | `GET` | `/manage/timetable` | admin | Export the template as text |
 | `POST` | `/manage/timetable/import` | admin | Import the same text |
-| `GET` | `/manage/devices` | admin | Linked phones |
+| `GET` | `/manage/devices` | admin | Every phone in the class that is not revoked, linked or not |
 | `POST` | `/manage/devices/{id}/revoke` | admin | Switch a phone off |
 | `POST` | `/manage/devices/{id}/unlink` | admin | Back to read-only |
 | `GET` | `/manage/log` | admin | The audit log, paginated |
@@ -758,7 +762,10 @@ is the default the day view uses when nothing says otherwise.
 never made the default, because one is created in order to be pointed at by
 particular days. `PATCH` takes `name` and `is_default`; `is_default: false` is
 `422` - a class with no default has no times for an ordinary day, so the way
-to stop using one is to make another the default.
+to stop using one is to make another the default. `is_default: true` on a
+schedule with no rows is `422` too (#321): every ordinary day rings the default,
+so the class would go blank on every phone, in the widget, the calendar feed and
+the digest at once.
 
 `PUT /manage/bells/{id}/periods` replaces the rows wholesale, because that is
 what editing bells is: move one lesson and every lesson after it shifts.
@@ -814,9 +821,11 @@ overwritten. Sending it again with `replace: true` is the second tap, and then
 Only the weekdays the paste names are touched, so a Tuesday block against a
 Monday-only timetable is not a conflict at all, and a day named with nothing
 under it is emptied - that is how a paste says «в четверг уроков нет».
-`rejected` echoes the lines the parser could not read, so an admin can fix the
-two that were typos rather than re-reading the whole paste. It also carries
-`"понедельник, урок N: нет такого звонка в расписании звонков"` for every
+`rejected` echoes the lesson lines the parser could not read, so an admin can fix
+the two that were typos rather than re-reading the whole paste — but not every
+unreadable line: what the parser could not read in a `== Звонки ==` block is
+discarded and reported nowhere, so a mistyped bell is simply absent (#321). It
+also carries `"понедельник, урок N: нет такого звонка в расписании звонков"` for every
 lesson numbered past the last bell: the day view builds its times out of the
 bell rows, so such a lesson would be stored, counted in `lessons` and then
 drawn nowhere at all. One line per dropped row, named by its weekday — the
@@ -825,6 +834,10 @@ gone, and one line for both admitted to one of them.
 Those lines are not written, and `lessons` counts only what was. When the same
 paste brings a `== Звонки ==` block, the lessons are checked against **those**,
 so one request can legitimately add a ninth bell and a ninth lesson together.
+The other direction is reported too: a lesson already stored, on a weekday the
+paste did not touch, that the new bells no longer ring stays in the database and
+is drawn nowhere, and `rejected` names it as `"…, урок N: больше не звонит — новые
+звонки короче"`.
 
 A paste with no weekday header and no bells block in it is `422`. A
 `== Звонки ==` block replaces the default schedule's rows outright, as it does
@@ -848,7 +861,9 @@ endpoints exist to promise each other.
     "linked_at": "2026-09-01T18:24:31" } ]
 ```
 
-Oldest first. `role` is a lookup, not a stored field - a device acts with
+Oldest first, and every phone that joined the class, not only the linked ones: a
+read-only phone is a row with `linked: false` (#321); `include_revoked=true` adds the
+revoked ones. `role` is a lookup, not a stored field - a device acts with
 whatever role its owner holds right now - and `owner` is a display name; the
 Telegram id a device is linked to is never on the wire.
 

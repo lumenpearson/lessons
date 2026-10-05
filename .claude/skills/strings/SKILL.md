@@ -13,9 +13,9 @@ Russian in guillemets.
 ## The steps
 
 1. Put the name in the right file. `:app` has `strings.xml` plus `strings_admin`,
-   `strings_diary`, `strings_docs`, `strings_github`, `strings_telegram`,
-   `strings_translate`, `strings_updates`. `:core:data`, `:core:designsystem` and `:widget`
-   have one `strings.xml` each.
+   `strings_developer`, `strings_diary`, `strings_docs`, `strings_github`, `strings_legal`,
+   `strings_onboarding`, `strings_telegram`, `strings_translate`, `strings_updates`.
+   `:core:data`, `:core:designsystem` and `:widget` have one `strings.xml` each.
 2. Add the same name to that module's `values-en/`, in the same file.
 3. Keep the format arguments identical. `%1$s` on one side and `%s` on the other is a
    failure, and so is a different count.
@@ -39,10 +39,14 @@ the countdown on the home screen stayed Russian under an English caption.
 
 A Russian string written into Kotlin is in neither folder. Sweep from `android/`:
 
-    grep -rnP '"[^"]*[\x{0400}-\x{04FF}]' */src/main
+    LC_ALL=C.UTF-8 grep -rnP --include='*.kt' '^(?!\s*(\*|//|/\*)).*"[^"]*[\x{0400}-\x{04FF}]' */src/main core/*/src/main
 
-Today it finds only `@Preview` data, maintainer-facing report bodies, and the timezone list,
-whose own file documents the choice. Anything else is a string that should be a resource.
+`core/*/src/main` is there because `*/src/main` alone never reaches the three core modules.
+The comment guard is there because KDoc here quotes Russian on purpose. The locale is there
+because Git Bash's `grep -P` refuses to run without it (#315). Today it finds only `@Preview`
+data, maintainer-facing report bodies, the timezone list, whose own file documents the choice,
+and `UpstreamMarkers.kt`, the diaries' own words. Anything else is a string that should be a
+resource.
 
 ## Correction mode
 

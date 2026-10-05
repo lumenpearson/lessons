@@ -82,8 +82,9 @@ PUBLIC_BASE_URL=https://lessons.example.com
    not answering, the same step asks for the name to be typed, which is what it
    has always done.
 
-`PUBLIC_BASE_URL` is only needed for `/calendar`; without it the bot says so
-instead of printing a URL that would not resolve.
+`PUBLIC_BASE_URL` is needed for `/calendar` (and «📅 Календарь») and for the diary's
+«🔐 Войти в дневник» link, both of which are addresses on this server; without it the bot
+says so instead of printing a URL that would not resolve (#323).
 
 ## Roles
 
@@ -130,7 +131,8 @@ A viewer who needs to write sends `/request` (with or without a note:
 
 * creates **one** pending request per person per class — a second `/request`
   replaces the first rather than filling anybody's screen;
-* messages every admin and owner of the class with **✅ Одобрить / ✖️ Отклонить**,
+* messages every admin and owner of the class with **✅ Одобрить / Отклонить** (the
+  second painted red rather than given an icon),
   swallowing one blocked recipient rather than failing the request;
 * on approval grants **Редактор** through `can_grant` and the same rank guard
   «👥 Доступ» uses, writes the log line, and tells the requester;
@@ -141,7 +143,8 @@ which is the context an admin needs to answer them.
 
 ## Editing the timetable
 
-**⚙️ → 🧩 Расписание** opens one message you stay inside. It lists the day's
+**🧩 Расписание**, on the main menu beside «👥 Доступ» and drawn for an admin or the owner
+only, opens one message you stay inside (#323). It lists the day's
 lessons as buttons, pages Понедельник–Суббота with `‹` `›` (Суббота wraps to
 Понедельник rather than dead-ending on an always-empty Воскресенье), and keeps
 a strip of the whole week under the heading — `Пн 6 · Вт 5 · …` — so "and how
@@ -160,10 +163,12 @@ Three rules the buttons enforce that a paste could not:
 * **Deleting closes the gap.** A day numbered 1, 2, 4 reads as a *lost* lesson
   rather than a deleted one, and hands lesson 4 the fourth bell when it is now
   the third thing that happens.
-* **A viewer sees the template and is offered nothing that would refuse them.**
-  "What is the third lesson on Wednesday" is a question anybody in the class may ask; the
-  editing buttons simply are not drawn, and tapping a lesson answers with its
-  card as an alert.
+* **The editor is admin-only, because its one way in is.** Nobody below admin is
+  shown «🧩 Расписание», and no other screen leads to it. The handlers were written
+  for a viewer too — "what is the third lesson on Wednesday" is a question anybody in
+  the class may ask, so they would draw the template without its editing buttons and
+  answer a tapped lesson with its card as an alert — but no button takes a viewer
+  there, and every button that changes a lesson checks for admin again.
 
 **⏱ Перемены** turns on the times and the gaps between them — `08:30–09:15`,
 then `⏸ перемена · 10 минут`. It is off by default because it doubles the line
@@ -389,9 +394,18 @@ evening on this morning's change.
 
 One card: name, school, city, time zone, join code, how telephones are let in,
 whether a calendar link has been issued, and how many members, devices and
-pending requests there are. From it: the subjects, the special days, the bells,
-the devices, the calendar, the log, the time zone and the join code.
+pending requests there are. From it: the name, the school and the city
+(«✏️ Название», «🏫 Школа», «🏙 Город», each typed in, «-» clearing the last two), the
+time zone, the subjects, the special days, the bells, the devices, the calendar, the
+log, the terms («🗓 Четверти»), the diary binding («📒 Привязать дневник», «📒 Дневник:
+отвязать» once bound — "The electronic diary", below), the access requests («🙋 Запросы
+доступа · N», only while any are waiting), and, for the owner, the join code (#323).
 
+* **🗓 Четверти** lists the year's quarters or half-years with their dates and length,
+  marks the one today falls in, switches between the two schemes, and takes a period's
+  new dates as one line — `01.09.2026 - 31.10.2026`. Those dates are what the
+  timetable runs between ("Setup", above), so this screen is also where a class
+  ends its year early or marks its holidays.
 * **🔀 Сменить класс** appears only for somebody who is in more than one. The
   choice is stored in the FSM table under its own key and read back by the
   middleware on the next update — never kept in the process, because on Vercel

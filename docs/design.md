@@ -96,7 +96,7 @@ does not apply.
 
 | Essentials | Here |
 | --- | --- |
-| `res/font/google_sans_flex.ttf` | **not taken** — that face has no Cyrillic; `:core:designsystem` ships Onest |
+| `res/font/google_sans_flex.ttf` | `res/font/google_sans_flex.ttf`, frozen to its `wght` axis — taken, for Latin and digits; it has no Cyrillic, so `onest.ttf` draws that beside it, chained by coverage in `FallbackTypeface.kt` (#324) |
 | `ui/theme/Type.kt` | `theme/Type.kt` — the scale verbatim |
 | `ui/theme/Shapes.kt` | `theme/Shape.kt` |
 | `ui/core/containers/RoundedCardContainer.kt` | `component/Group.kt` |
@@ -151,10 +151,11 @@ publishes its height through `LocalBottomBarSpace`.
 
 ## Personalisation
 
-The «Взаимодействие» section repeats "Customizations" from Essentials: the theme, colours
-from the wallpaper, the black theme, haptics and their strength, swiping between tabs, the
-starting tab, the blur under the sheet, the scroll blur and its strength. All of it is kept
-in `AppSettings`, so the widget and the background sync see the same values.
+Two sections repeat "Customizations" from Essentials: «Оформление» holds the theme, colours
+from the wallpaper and the black theme, and «Взаимодействие» haptics and their strength,
+swiping between tabs, the starting tab, the blur under the sheet, the scroll blur and its
+strength (#324). All of it is kept in `AppSettings`, so the widget and the background sync
+see the same values.
 
 A switch that is on tints the whole row rather than only the toggle —
 `rowSelectedContainer`, the row's colour mixed with `primaryContainer`. That is the cheapest
@@ -212,10 +213,13 @@ places you live in and switch between, while settings are somewhere you go, chan
 and come back. In the bar they took a quarter of the width from the screens that need it,
 and a list of preferences could be made the "starting tab".
 
-The settings themselves are split across six pages you descend into — exactly as
-`SettingsActivity` opens `FeatureSettingsActivity`. Two dozen rows in one scroll means
-scrolling past five sections you did not come for, and the row you want is never where you
-left it, because the groups above it grow and shrink along with their switches.
+The settings themselves are split across nine pages you descend into on a phone in a class
+(`SettingsSection.listedOn`), and up to three more — «Управление» for an administrator,
+«Для разработчиков» once found, and «Разрешения», reached only from the notifications page
+while something is not granted — exactly as `SettingsActivity` opens
+`FeatureSettingsActivity` (#324). Two dozen rows in one scroll means scrolling past five
+sections you did not come for, and the row you want is never where you left it, because the
+groups above it grow and shrink along with their switches.
 
 The settings page is a layer over the pager rather than a separate navigation graph: the
 tabs underneath stay alive and keep their scroll position. The layer does not try to
@@ -626,11 +630,12 @@ and failed under `apk.yml`, which sets them all — so the workflow whose whole 
 produce an APK could not build one.
 
 **The facts block** is six lines under «Любопытное» about the decisions a reader can
-actually feel: the timetable living on the phone, the bot being the only way to write it,
-three school years in the cache, the school's clock rather than the phone's, two typefaces
-because one has no Cyrillic, and twelve widget sizes because the launcher picks the nearest
-rung. It is the one place in the interface where this documentation is quoted back at the
-user, so it moves when the decision does.
+actually feel: the timetable living on the phone, the bot and an admin's phone as the only
+ways to write it — the line said the bot alone until #327, long after an admin's linked
+phone began writing the timetable, the subjects and the bells through `ManageApi` — three
+school years in the cache, the school's clock rather than the phone's, two typefaces because
+one has no Cyrillic, and twelve widget sizes because the launcher picks the nearest rung. It is the one place in the interface where this
+documentation is quoted back at the user, so it moves when the decision does.
 
 The mark is drawn the way a launcher draws it: an adaptive icon is a 108 dp canvas of which
 only the central 72 dp is visible, so drawing the mipmap directly would give a small mark
@@ -958,7 +963,9 @@ may be sold by themselves or bundled with software" — on one condition: a copy
 and the copyright must accompany every copy of the font. So the text lives not in a document
 but in `:core:designsystem/src/main/assets/licenses/google_sans_flex_OFL.txt`, that is, inside
 the APK next to the typeface itself; and the licence is named in the app, on the «Лицензии»
-sheet.
+sheet. Onest's notice, `onest_OFL.txt`, lies beside it, and Onest has its own row on that
+sheet since #326; until then the sheet named only Google Sans Flex, and Onest was named
+in the interface only by the about screen's line on the two typefaces (#331).
 
 A test holds this rather than memory: `FontLicenceTest` in `:core:designsystem` parses the
 `name` table of every font in the tree and requires that a notice with the same copyright and
@@ -968,8 +975,9 @@ fails naming exactly what diverged. Verified all three ways: with the notice mis
 five tests fail; with it truncated, four; with a different copyright, two.
 
 Two clarifications, so as not to drift from the licence any further. The file **is** modified
-here — the build freezes the four variation axes the app never moves, which is what
-[build.md](build.md) calls compressing the typeface — and the OFL permits that outright. Its
+here — the five variation axes the app never moves were frozen at their defaults, once and
+by hand with `fonttools` before the file was committed, not by the build ([build.md](build.md),
+"The bundled typeface is two files"; #324) — and the OFL permits that outright. Its
 requirement to rename a derivative applies only to a Reserved Font Name, and this font
 declares none. What the licence does require travels with the copy: `fonttools` leaves the
 `name` table alone, so the copyright and the licence entry in the shipped file are the
@@ -1370,10 +1378,10 @@ indistinguishable from `settings_title`. And a correction to a `ds_` string past
 `:app` does not fix the library string — it declares a second one that shadows it: it looks
 right, the original stays wrong, and `ResourceTranslationTest` starts demanding an English
 twin for a string that should not exist. So the routing goes by prefix — not one invented
-here: all 38 of the design system's strings, all 18 of `:core:data`'s and all 76 of the
-widget's already carry it, and no other module uses them. `TranslationXmlTest` reads the
-source tree and holds that rule, because a prefix nobody checks is a prefix until the next
-string.
+here: all 43 of the design system's strings, all 18 of `:core:data`'s and all 84 of the
+widget's already carry it, plurals counted (#324), and no other module uses them.
+`TranslationXmlTest` reads the source tree and holds that rule, because a prefix nobody
+checks is a prefix until the next string.
 
 The editor and the corrections sheet are given `NoCorrections` — the rule that "inside the
 editor a long press does nothing" is not remembered but enforced: both draw the originals and
@@ -1398,10 +1406,12 @@ And one more case, narrow but real: a call site that glued an app string togethe
 `"${schedule.name} · ${correctedString(R.string.admin_bells_default)}"` draws words that are
 not in the registry — what is recorded there is «по умолчанию» while the screen shows
 «Первая смена · по умолчанию» — so that string gets neither an outline nor a gesture. There
-are two such places in the app, both in the bell schedules, and both mix the app's copy with a
-name out of the database, where "correct the whole line" would not have meant anything
-anyway. There is no general solution to this: the value is no longer equal to any resource
-string.
+is one such place in the app, the default schedule's heading in `BellsSheet.kt`, and it mixes
+the app's copy with a name out of the database, where "correct the whole line" would not have
+meant anything anyway (#324). A near relative is `andSilenced` in `ManagementSheets.kt`: the
+two bell notices it serves append a plural when lessons stopped ringing, and then lose their
+outline the same way. There is no general solution to this: the value is no longer equal to
+any resource string.
 
 And a correction lives exactly as long as the process: that is a deliberate decision, and
 `TranslationMode` explains it on the spot.

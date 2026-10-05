@@ -25,7 +25,9 @@ patterns level with what its suite reads; a test that starts reading a new file 
 `server/` goes into its `READ_BY_THE_SUITE` and into the patterns together.
 
 `apk.yml` builds an installable APK on demand or on a `v*` tag. Its keystore step checks all
-four `LESSONS_KEYSTORE_*` secrets and fails with `::error::` if any is empty, because a
+four signing secrets — `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`,
+handed to Gradle as `LESSONS_KEYSTORE_FILE`, `LESSONS_KEYSTORE_PASSWORD`, `LESSONS_KEY_ALIAS` and
+`LESSONS_KEY_PASSWORD` (#309) — and fails with `::error::` if any is empty, because a
 release signed with the AGP debug key is an app that can never be updated by the real key.
 
 `reminders.yml` is a **fallback clock, not the clock.** It asks for a tick every five

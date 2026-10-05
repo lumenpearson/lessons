@@ -60,8 +60,8 @@ working.
   (`client_bucket`).
 - `BOT_TOKEN`, `WEBHOOK_SECRET`, `CRON_SECRET` and `DATABASE_URL` live in the host's
   environment or in `server/.env`, which is not in the repository. So does the keystore
-  that signs the APK: it comes from `LESSONS_KEYSTORE_*` or from
-  `~/.gradle/gradle.properties`.
+  that signs the APK: it comes from the `LESSONS_KEYSTORE_*` and `LESSONS_KEY_*` variables
+  or from `~/.gradle/gradle.properties`.
 
 ### The webhook and the reminder tick
 
