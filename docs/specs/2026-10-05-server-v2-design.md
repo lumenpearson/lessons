@@ -124,8 +124,10 @@ server/app/watch.py          the class-changed bus (3c), neutral, so services ne
 server/app/telegram_send.py  build_bot() and the one-shot send, out of app.bot (3b)
 ```
 
-`rpc/` and `rest/` may import `services/`, `models`, `schemas`, `contract/`, `security`,
-`api/deps.py` and the neutral `telegram_send`. They may not import `app.bot`, `app.api.public`,
+`rpc/` and `rest/` may import `services/`, `models`, `schemas`, `schedule`, `wording`,
+`contract/`, `security`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry
+(`app.providers.diary.registry`), the NetSchool region list (`app.providers.netschool.regions`)
+and the neutral `telegram_send`. They may not import `app.bot`, `app.api.public`,
 `app.api.edit`, `app.api.manage` or `app.api.diary`. `tests/test_service_layering.py` extends
 its walk both ways:
 - no `app.services` module reaches `app.rpc`, `app.rest` or `app.api`;
@@ -252,7 +254,8 @@ app acts on the reason and will not, but whoever writes a third-party client sho
 there. Changing the code would be a contract change, and this design does not make one.
 
 **The message is the shell's own words**, as the programme says. Where v1 had a sentence, it is
-v1's sentence. The app acts on the reason.
+v1's sentence, kept once in `app/wording.py` where both versions say it: a service refuses with
+facts, never a sentence. The app acts on the reason.
 
 Anything the table does not know is `INTERNAL`, logged with its traceback, and answered with a
 fixed sentence. `docs/api.md`'s code table gains `INTERNAL` → 500. The exception's text never
@@ -278,7 +281,8 @@ FastAPI:
   `debug` is the library's courtesy, not the protocol's promise.
 
 Three tests hold the table:
-- every row raises its exception through a real method and is read back on both paths;
+- every row raises its exception through a real method and is read back on both paths. Each
+  row names the test that does so, or the later stage that will, and a row without one fails;
 - every `ErrorReason` is produced by some row or `Refusal`, except those listed as belonging to a
   later stage;
 - a password-shaped string sent in every string field of every implemented method appears in no
@@ -356,7 +360,8 @@ never on Vercel.
 - **Native gRPC over HTTP/1.1.** A request whose content type is `application/grpc` or
   `application/grpc+…` (never `application/grpc-web…`) is refused before `connectrpc` sees it.
   The answer is `415`, with a body saying native gRPC is served by the host target. On the host,
-  over HTTP/2, it passes.
+  over HTTP/2, it passes. Only a request the server marks HTTP/2 or HTTP/3 passes: ASGI reads a
+  scope that names no version as HTTP/1.1, and so does the guard.
 - **An undecodable Connect body** answers `invalid_argument` / `REQUEST_UNDECODABLE`, not `500
   unknown`.
 
@@ -391,11 +396,14 @@ and this machine without being either flaky or meaningless.
 
 `MIN_CLIENT_VERSION` is an optional setting: empty means zero. It is not added to the settings
 `DeploymentNotConfigured` insists on (CLAUDE.md, «Do not add an optional setting to that list»).
+Like every setting, `docker-compose.yml` hands it to the server and `docs/deploy.md` names it.
 With a minimum set:
 - **a present version below it** is `FAILED_PRECONDITION` / `CLIENT_TOO_OLD`, with
   `min_version`;
 - **a missing header is not refused** (question 4);
-- **a header that is not a positive integer** is `INVALID_ARGUMENT` / `VALIDATION_FAILED`.
+- **a header that is not a whole number from 1 to 2,100,000,000** is `INVALID_ARGUMENT` /
+  `VALIDATION_FAILED`. That ceiling is the build's own: `android/app/build.gradle.kts` refuses a
+  versionCode above it, because Google Play does.
 
 With no minimum, a malformed header is ignored, like a missing one.
 

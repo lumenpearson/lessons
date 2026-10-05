@@ -7,7 +7,7 @@
 **Goal:** Serve v2 beside v1 on Vercel for the four methods a phone calls first — `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` — through every mechanism the other seventy-one will use: the generated `google/rpc` details, the v1 rules moved into `services/`, the one error table, the generic gate, `invoke`, the Connect mount with its two guards and its fail-safe, the REST transcoder, and the harness that calls each method both ways.
 
 **Architecture:**
-- v1's routers keep answering byte for byte, but the rules v2 needs leave them first: the join flow (`services/join.py`), the window's tag and v2's year (`services/window.py`), the clock and the date bounds (`services/clock.py`), the device's access (`services/linking.Access`), the limiters (`security.py`, one instance each) and `caller_bucket` over header lines and a peer (`api/deps.py`).
+- v1's routers keep answering byte for byte, but the rules v2 needs leave them first: the join flow (`services/join.py`), the window's tag and v2's year (`services/window.py`), the clock and the date bounds (`services/clock.py`), the device's access (`services/linking.Access`), the limiters (`security.py`, one instance each), `caller_bucket` over header lines and a peer (`api/deps.py`), and the sentences both versions answer with (`app/wording.py`).
 - `app/rpc/` reads every method's credential, least role and REST binding from the generated descriptors (`methods.py`, `gate.py`), runs each call through one `invoke` (`call.py`: gate, dishka scope, handler, commit, effects) and words every refusal through one table (`errors.py`). `rpc_app()` puts the seventeen generated Connect apps under `/api/rpc`, each over an adapter that calls `invoke`.
 - `app/rest/` builds one Starlette route per unary method from its `google.api.http` rule and calls the same `invoke`; `rest/errors.py` writes Google's JSON error body. `main.mount_v2` mounts both, and answers `503` under their prefixes if v2 cannot be imported, so v1 never goes down with it.
 
@@ -23,7 +23,7 @@ Each is a choice the design leaves to the code, or a place where the code showed
 2. **Every adapter method is overridden and looks its handler up per call.** The generated `Protocol` default is never reached; `invoke` raises the same error instead. That makes a handler registered by a test — or by 3b — reachable on both transports without rebuilding the app, and `test_rpc_call.py` holds the two errors level.
 3. **`rpc/methods.py` is a module the design does not list.** The gate, the RPC adapters and the transcoder all read a method's facts; one reading of the descriptors, keyed `"lessons.v2.<Service>/<Method>"` (the Connect path), keeps them from disagreeing. `rpc/handlers.py` is the one table method → handler, so `call.py` imports handler modules only through it, and handler modules import `Call` only under `TYPE_CHECKING`.
 4. **`services/window.py` holds the tag rules and v2's year; v1's `/bundle` keeps its own order.** `etag_matches` is v1's `_matches` verbatim and `strong_etag` is v1's quoting and hashing over a canonical text; both versions call them. v1's `/bundle` resolves, looks ahead, seeds terms, adopts subjects and commits in that order, and moving any step would move its answers, so its assembly stays in the router. `for_year` is v2's window. The device's access (`linked`, `role`, «editor or above») moves to `services/linking.Access`, used by v1's `/bundle` and `/me` and by v2's `GetMe` and `DeviceAccess`.
-5. **The join's four sentences live in `services/join.py`** (`THROTTLED_DETAIL`, `UNKNOWN_CODE_DETAIL`, `INVITE_ONLY_DETAIL`, `DEVICE_LIMIT_DETAIL`), and both shells word their refusals with them. The exceptions still carry facts; where v1 had a sentence it is v1's (decision 5), and one copy cannot drift.
+5. **The sentences v1 and v2 both answer with live in `app/wording.py`**: the join's four (`JOIN_THROTTLED_DETAIL`, `JOIN_UNKNOWN_CODE_DETAIL`, `JOIN_INVITE_ONLY_DETAIL`, `JOIN_DEVICE_LIMIT_DETAIL`) and the diary's «disabled» one (`DIARY_DISABLED_DETAIL`). v1's `/join` and diary 503 and v2's error table each import them from there. A service refusal carries facts, never a sentence, and the wording both shells share lives in `app/wording.py` (CLAUDE.md), so `services/join.py` and `services/diary.py` hold none. Where v1 had a sentence it is v1's (decision 5), and one copy cannot drift. The review of 5 October named the join's four; the diary's sentence, which this plan was also moving into a service, follows the same rule.
 6. **One limiter instance each, re-exported under v1's names.** `join_limiter`, `diary_login_limiter`, `diary_open_limiter`, `directory_limiter`, `MAX_DEVICES_PER_CLASS` and the diary's attempt (`DiaryAttempt`, raising a neutral `security.Throttled`) live in `security.py`; v1's modules re-export them as `from app.security import x as x`, so every existing test import keeps working and `test_every_throttle_on_the_attempts_table_uses_one_window` finds the four in `security.py`.
 7. **The port is stripped where it is known to be there.** `caller_bucket(headers, peer)` takes a bare host; `deps.peer_host()` strips `connectrpc`'s `":port"` by its format (`rpartition`), at the adapter. Stripping «a port, IPv6 included» from an arbitrary peer string cannot be done by parsing: `"::1:4321"` is itself a valid IPv6 address.
 8. **The bounds and the clock are `services/clock.py`**: `MIN_DATE`, `MAX_DATE`, `in_bounds`, `now`, `today`. v1's sentences («start must be between 2000-01-01 and 2100-01-01» and the rest) are unchanged, and `api/diary.py` keeps its `MIN_DATE`/`MAX_DATE` names as aliases.
@@ -31,7 +31,7 @@ Each is a choice the design leaves to the code, or a place where the code showed
 10. **The tag is hashed before `generated_at` is set**, not over a copy with it cleared: protobuf-py's `copy.copy` is shallow, and clearing a nested field on the copy cleared the original (probe, 5 October).
 11. **`GetDiaryCapabilities` in 3a is v1's answer in v2's shape**: `enabled`, every key of `registry.KEYS`, the NetSchool allow-list's password regions. `sign_in_methods` and `features` stay empty, because v1's answer has neither and what a provider declares is 3b's registry table to say (decision 12).
 12. **`WatchClass` refuses after the gate on every target in 3a**, with `UNIMPLEMENTED` / `FEATURE_UNSUPPORTED` and `metadata.feature = "streaming"`: no 3a target streams. The test sets the `VERCEL` marker, as the design asks, and also leaves it unset. 3c adds the host's branch.
-13. **The client header is a positive integer of at most nine ASCII digits**; anything else, with a minimum set, is `VALIDATION_FAILED` with a `BadRequest` naming `X-Lessons-Client`. Without a minimum it is ignored (decision 9).
+13. **The client header is a whole number of at most ten ASCII digits, from 1 to 2,100,000,000** (`gate.MAX_CLIENT_VERSION`): the ceiling `android/app/build.gradle.kts` puts on a versionCode, which is Google Play's. Anything else, with a minimum set, is `VALIDATION_FAILED` with a `BadRequest` naming `X-Lessons-Client`. Without a minimum it is ignored (decision 9). The digits are counted before `int` is asked, so a header of a million digits is never parsed.
 14. **An unlinked phone on a method above viewer is `DEVICE_NOT_LINKED`; a linked account that is no member is `ROLE_REQUIRED`.** The role is read for every device method, because `GetMe` and the window's `DeviceAccess` answer it, and refused only above viewer.
 15. **A class deleted under a live token is `RESOURCE_NOT_FOUND` with `resource = "class"`** and v1's «Class no longer exists». Not tested: the model cascades the device with the class.
 16. **A REST body over 4 MB is the error Connect itself raises**: `RESOURCE_EXHAUSTED`, «message is larger than configured max 4194304», no reason, `429`. The body is read in chunks and abandoned at the limit.
@@ -42,16 +42,17 @@ Each is a choice the design leaves to the code, or a place where the code showed
 21. **No proto file changes.** The eight «REST answers 201» comments are a table in `rest/` (`CREATED`), held to the comments by a test.
 22. **#302's v1 side is already fixed, by #303** (merged 5 October 2026, `aba88f8`): v1's `current_diary` answers «disabled» before it reads a token, and `services/diary.unusable` expires a session only when a configured key cannot open it. The v2 gate asks the same question first, and `find_session` — which the gate calls — no longer expires anything without a key. 3a's pull request does not mention #302; it is closed.
 23. **The branch is `server-v2/3a`**, cut in this worktree from `origin/main` once #301 (the design and this plan) has merged, or from `server-v2/design` if the owner approves while #301 is open.
+24. **The design's first table test is a list in `test_rpc_errors.py`, `HELD_BY`, and it lands in Task 10.** The design asks that «every row raises its exception through a real method and is read back on both paths». Nothing fails when a row is added without such a test, unless each row names one. So `HELD_BY` maps every exception in `errors.TABLE` to its test, as a file and a function, or to `"3b"` where no method 3a serves can raise it (`DiaryDisabled`). The test fails unless `set(HELD_BY) == set(TABLE)` and every named function is defined in its file. It reads the file with `ast` rather than importing it, because a test module may not import another (`test_test_imports.py`). It is added in Task 10, with the last of the tests it names (`test_v2_devices.py` is Task 9's, `test_v2_window.py` Task 10's), rather than grown task by task: before then there is nothing for most rows to name. From Task 10 on, a row 3b adds without its test fails.
 
 ## Global Constraints
 
 - Paths: `server/app/rpc/` (`__init__.py`, `call.py`, `gate.py`, `errors.py`, `values.py`, `methods.py`, `handlers.py`, one module per proto service) and `server/app/rest/` (`__init__.py`, `errors.py`). Generated code stays under `server/app/contract/`, written only by `buf generate`.
 - REST annotations are written `/v2/…` and served under `/api` (`/api/v2/…`); Connect and gRPC-Web under `/api/rpc/lessons.v2.<Service>/<Method>`. No path of v1's moves.
-- `rpc/` and `rest/` may import `services/`, `models`, `schemas`, `contract/`, `security`, `config`, `crypto`, `di` and `api/deps.py`; never `app.bot`, `app.api.public`, `app.api.edit`, `app.api.manage` or `app.api.diary`. No `app.services` module reaches `app.rpc`, `app.rest` or `app.api`.
+- `rpc/` and `rest/` may import `services/`, `models`, `schemas`, `schedule`, `wording`, `contract/`, `security`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry (`app.providers.diary.registry`) and the NetSchool region list (`app.providers.netschool.regions`); never `app.bot`, `app.api.public`, `app.api.edit`, `app.api.manage` or `app.api.diary`. No `app.services` module reaches `app.rpc`, `app.rest` or `app.api`. The layering test of Task 5 forbids exactly the bot and the four v1 routers, followed through the rest of `app/`, so everything on the allowed list passes it.
 - Codes → HTTP, `docs/api.md`'s table: `INVALID_ARGUMENT`, `FAILED_PRECONDITION` 400; `UNAUTHENTICATED` 401; `PERMISSION_DENIED` 403; `NOT_FOUND` 404; `ALREADY_EXISTS` 409; `RESOURCE_EXHAUSTED` 429; `INTERNAL` 500 (added by Task 4); `UNIMPLEMENTED` 501; `UNAVAILABLE` 503.
 - Every success over REST is `200`, except the eight methods whose proto comment says «REST answers 201», which answer `201`; a `not_modified` answer is `304` with no body.
-- `MIN_CLIENT_VERSION` is optional: empty or `0` means no minimum, and it is **not** added to `deployment_problems` or `disabled_features`. A missing `X-Lessons-Client` is never refused.
-- A handler never commits; only `rpc/call.py` does. The writes services commit themselves (the throttles, `find_session`, `touch_last_seen`) stay committed when a call is refused, on purpose.
+- `MIN_CLIENT_VERSION` is optional: empty or `0` means no minimum, and it is **not** added to `deployment_problems` or `disabled_features`. `docker-compose.yml` hands it to the server like every other setting (`tests/test_compose.py`). A missing `X-Lessons-Client` is never refused.
+- A handler never commits; only `rpc/call.py` does. The writes services commit themselves (the throttles, `find_session`, `touch_last_seen`, the device token `join.join` mints) stay committed when a call is refused, on purpose.
 - No exception's own text reaches a client: what the table does not know is `INTERNAL` with a fixed sentence, logged with its traceback.
 - Language: English in code, comments, commit messages and documents; Russian only as product text, and in «guillemets» anywhere else. Comments say why.
 - Commit messages: English sentences saying what the change makes the project do, no `feat:` prefix; a body with the reasoning and what is left uncovered; ending with exactly these two lines:
@@ -62,7 +63,7 @@ Each is a choice the design leaves to the code, or a place where the code showed
   - `WT` is `/c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract`.
   - `python` is `/c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe`, always as `python -m …` from `$WT/server`, so the worktree's `server/` comes first on `sys.path`. Never `pip install -e .` from the worktree.
   - `buf` is `/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe` (1.73.0), run from `$WT`.
-- Gates at the end of every task, from `$WT/server`: the task's own test files with `-p no:xdist`; `python -m ruff check app tests scripts migrations` → `All checks passed!`; `python -m mypy` → `Success: no issues found in N source files` (N is given per task; `app/contract` stays excluded); then `python -m pytest -q -n auto` once (about ten minutes here) with no failure.
+- Gates at the end of every task, from `$WT/server`: the task's own test files with `-p no:xdist`; `python -m ruff check app tests scripts migrations` → `All checks passed!`; `python -m mypy` → `Success: no issues found in N source files` (N is given per task, over a base of 197 modules: if mypy on the branch's first commit prints another number, shift every N by the difference; `app/contract` stays excluded); then `python -m pytest -q -n auto` once (about ten minutes here) with no failure.
 - Milestone 11 (`v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`), under epic #273. Another agent may work in this tree: `git status` before touching a file you did not open.
 
 ## Review Focus
@@ -82,10 +83,12 @@ The five failure modes most likely to bite a person using v2, each with the test
 - Every module and every test file of this plan, in its final form, with `ruff check` clean and `mypy` clean (214 source files). The new and changed test files — 165 new tests and the changed `test_contract.py`, `test_service_layering.py`, `test_hardening.py`, `test_api_extended.py` — passed, one file group at a time, without xdist.
 - v1's own tests that touch the moved code passed unchanged against the moves: `test_hardening`, `test_join_modes`, `test_join_device_cap`, `test_directory`, `test_diary_session`, `test_diary_api`, `test_api`, `test_api_extended`, `test_school_year`, `test_di`, `test_api_docs`, `test_startup`, `test_contract`, `test_cold_start` (one test of `test_join_modes` cannot run in a scratch copy without `migrations/`).
 - Tasks 2 to 8 were also staged one by one on a second copy, to check that each task's tests pass with only that task's code.
+- **The scratch copy held a subset of `tests/`**: the seventeen existing files listed above and the eleven new ones. The other 52 of the worktree's 69 test files were absent, `test_compose.py` among them. That is how `MIN_CLIENT_VERSION`'s missing line in `docker-compose.yml` went unseen until the review. So the full-suite run at the end of each task, from Task 1's on, is the first time those 52 files meet that task's changes.
+- **The review's fixes of 5 October were run in a third copy** (`C:\Users\lumen\.claude\jobs\c9e2d980\tmp\planfix\`, the final form plus `docker-compose.yml` and `test_compose.py`): ruff clean, mypy clean on 214 source files, and `test_compose`, `test_rpc_gate` (25), `test_rpc_errors` (12), `test_rpc_mount` (13), `test_rpc_call`, `test_service_layering`, `test_test_imports`, `test_env_example`, `test_v2_devices`, `test_v2_reads`, `test_v2_no_echo`, `test_join_device_cap`, `test_hardening`, `test_diary_api`, `test_diary_session`, `test_api`, `test_directory` and `test_cold_start` all passed, and so did `test_join_modes` but for the one test that needs `migrations/`. Each new test was seen to fail without its fix: `HELD_BY` with a row missing and with a test misnamed, and the guard's new test against the old `in ("1.0", "1.1")` check, where the library raised.
 - Probed and relied on: `ConnectError(code, msg, details=[<generated message>])` renders a `debug` field beside the base64 `value`; `connectrpc` passes a decode failure through as a 500 unless the codec raises a `ConnectError`; it reports the peer as `f"{host}:{port}"`; a native gRPC request over HTTP/1.1 is a 500; a Starlette route path `{device_id}:revoke` binds `device_id` alone; `protobuf.message_from_json_value` reads numbers and enums from strings but a `bool` only from JSON booleans; `message_to_json_value(Any.pack(m), registry=Registry(error_details_pb.desc()))` writes `{"@type": …, fields…}`; protobuf-py's decoder messages quote the refused value; pydantic-settings refuses `MIN_CLIENT_VERSION=` for a plain `int`.
 - Measured: importing the seventeen generated service modules after FastAPI and SQLAlchemy takes 117–180 ms here (warm and cold), more than the spike's 61 ms for the whole `app.main` delta.
 
-**Not run:** the full suite (`-n auto`); Buf in CI; anything on Vercel or Postgres (`connectrpc`'s native wheels have never been imported there — the fail-safe mount is for exactly that); a real phone.
+**Not run:** the full suite (`-n auto`); Buf in CI; anything on Vercel or Postgres (`connectrpc`'s native wheels have never been imported there — the fail-safe mount is for exactly that); what `http_version` Vercel's Python bridge puts in the ASGI scope; a real phone.
 
 ## File map
 
@@ -96,21 +99,23 @@ The five failure modes most likely to bite a person using v2, each with the test
 | `server/app/security.py` | 2 | the four limiters, the device cap, `Throttled`, `DiaryAttempt` |
 | `server/app/api/deps.py` | 2 | `header`, `caller_bucket(headers, peer)`, `peer_host`, `request_bucket`, `bearer`, `find_device`, `touch_last_seen` |
 | `server/app/services/clock.py` | 2 | `MIN_DATE`, `MAX_DATE`, `in_bounds`, `now`, `today` |
-| `server/app/services/diary.py` | 2 | `DISABLED_DETAIL`, moved from `api/diary.py` |
-| `server/app/services/join.py` | 3 | the join flow and its four sentences |
+| `server/app/wording.py` | 2, 3 | the sentences v1 and v2 both answer with: `DIARY_DISABLED_DETAIL` (moved from `api/diary.py`), the join's four |
+| `server/app/api/cron.py`, `server/app/services/diary.py`, the design | 2 | the comments that named `_touch_last_seen` |
+| `server/app/services/join.py` | 3 | the join flow, its refusals as facts |
 | `server/app/services/window.py` | 3 | `etag_matches`, `strong_etag`, `for_year`, `FIRST_YEAR`/`LAST_YEAR` |
 | `server/app/services/linking.py` | 3 | `Access`, `access_of` |
 | `server/app/services/terms.py` | 3 | `TermSpan`, `spans` |
 | `server/app/rpc/errors.py`, `server/app/rest/errors.py` | 4 | the error table; Google's error body |
 | `server/app/rpc/{methods,values,gate,call,handlers}.py` | 5 | the method table, the gate, `invoke` |
-| `server/app/config.py`, `server/.env.example` | 5 | `MIN_CLIENT_VERSION` |
+| `server/app/config.py`, `server/.env.example`, `docker-compose.yml` | 5 | `MIN_CLIENT_VERSION` |
 | `server/app/rpc/__init__.py`, `server/app/rpc/watch.py`, `server/app/main.py` | 6 | `rpc_app()`, the guards, `WatchClass`, `mount_v2` |
 | `server/app/rest/__init__.py` | 7 | the transcoder |
 | `server/app/rpc/{me,diary}.py` | 8 | `GetMe`, `GetDiaryCapabilities` |
 | `server/app/rpc/device.py` | 9 | `CreateDevice` |
 | `server/app/rpc/schedule.py` | 10 | `GetScheduleWindow` |
 | `server/tests/conftest.py` | 5–7 | `v2_tokens`, the `v2` harness |
-| documents | 11 | `docs/api.md`, `docs/architecture.md`, `docs/README.md`, `CLAUDE.md`, `README.md`, `CONTRIBUTING.md`, the `gates` skill, `HANDOVER.md`, `docs/history.md` |
+| `server/tests/test_rpc_errors.py` | 4, 5, 6, 10 | the table against `errors.proto`; `HELD_BY` (Task 10) |
+| documents | 11 | `docs/api.md`, `docs/architecture.md`, `docs/README.md`, `docs/deploy.md`, `CLAUDE.md`, `README.md`, `CONTRIBUTING.md`, the `gates` skill, `HANDOVER.md`, `docs/history.md` |
 
 ---
 
@@ -274,16 +279,16 @@ EOF
 Decision 2: a rule a v1 router holds moves into `services/` (or `security`, or `api/deps.py`) before its v2 handler is written, v1 calls the moved code, and v1's answers do not move. This task moves the rules no service owns; Task 3 moves the join flow and the window's.
 
 **Files:**
-- Modify: `server/app/security.py` (append), `server/app/api/deps.py` (rewrite), `server/app/services/diary.py` (one constant), `server/app/api/public.py`, `server/app/api/diary.py`, `server/app/api/directory.py`, `server/app/api/edit.py`
+- Modify: `server/app/security.py` (append), `server/app/api/deps.py` (rewrite), `server/app/wording.py` (append), `server/app/api/cron.py` and `server/app/services/diary.py` (one comment each), `server/app/api/public.py`, `server/app/api/diary.py`, `server/app/api/directory.py`, `server/app/api/edit.py`
 - Create: `server/app/services/clock.py`, `server/tests/test_shared_rules.py`
-- Modify: `server/tests/test_hardening.py`, `server/tests/test_api_extended.py`
+- Modify: `server/tests/test_hardening.py`, `server/tests/test_api_extended.py`, `docs/specs/2026-10-05-server-v2-design.md` (one name)
 
 **Interfaces:**
 - Produces:
   - `app.security`: `join_limiter`, `diary_login_limiter`, `diary_open_limiter`, `directory_limiter` (each a `JoinThrottle`), `MAX_DEVICES_PER_CLASS = 300`, `class Throttled(Exception)` with `.retry_after: float` and `.seconds -> int` (`int(retry_after) + 1`), `class DiaryAttempt` with `await DiaryAttempt.admit(session, *, failures_key: str, opened_key: str) -> DiaryAttempt` (raises `Throttled`), `.succeeded(session)`, `.failed(session)`, `.not_judged(session)`.
   - `app.api.deps`: `header(headers: Iterable[tuple[str, str]], name: str) -> str | None`; `caller_bucket(headers: Iterable[tuple[str, str]], peer: str | None, *, scope: str = "") -> str`; `peer_host(client_address: str | None) -> str | None`; `request_bucket(request: Request, *, scope: str = "") -> str`; `bearer(authorization: str | None) -> str | None`; `async find_device(session, token: str) -> DeviceToken | None`; `async touch_last_seen(session, device) -> None` (commits).
   - `app.services.clock`: `MIN_DATE`, `MAX_DATE`, `in_bounds(*days: date) -> bool`, `now(school_class) -> datetime`, `today(school_class) -> date`.
-  - `app.services.diary.DISABLED_DETAIL: str`.
+  - `app.wording.DIARY_DISABLED_DETAIL: str`, the first of the sentences v1 and v2 both answer with (Ruling 5).
 
 - [ ] **Step 1: Red.** Create `server/tests/test_shared_rules.py`:
 ```python
@@ -781,6 +786,12 @@ async def current_class(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class no longer exists")
     return school_class
 ```
+  `_touch_last_seen` is `touch_last_seen` now, because the gate calls it from outside the module. Three places name it by its old, private name, and follow it:
+  1. `server/app/api/cron.py`, the comment above `DEVICE_TOKEN_TTL`: in its last line, «# least every fifteen minutes it is read (``deps._touch_last_seen``).», `_touch_last_seen` becomes `touch_last_seen`.
+  2. `server/app/services/diary.py`, the comment that ends «carries the same refresh, for the same reason and after the same outage.»: `` `api/deps.py:_touch_last_seen` `` becomes `` `api/deps.py:touch_last_seen` ``.
+  3. `docs/specs/2026-10-05-server-v2-design.md`, «What the code is today»: the bullet «`last_seen_at` (`deps._touch_last_seen`);» becomes «`last_seen_at` (`deps.touch_last_seen`);».
+
+  Then, from `$WT`, `grep -rn --include=*.py "_touch_last_seen" server/app` and `grep -n "_touch_last_seen" docs/specs/2026-10-05-server-v2-design.md` print nothing. (`docs/history.md` keeps the name it had when its batch was written, and this plan quotes the old name in this step.)
 
 - [ ] **Step 4: Create `server/app/services/clock.py`.**
 ```python
@@ -830,15 +841,26 @@ def today(school_class: SchoolClass) -> Date:
     return now(school_class).date()
 ```
 
-- [ ] **Step 5: Move the diary's «disabled» sentence into `server/app/services/diary.py`.** Insert immediately above `class DiaryDisabled(RuntimeError):`
+- [ ] **Step 5: Move the diary's «disabled» sentence into `server/app/wording.py`** (Ruling 5): v2's error table may not import `api/diary.py`, and a service carries facts, not sentences. Append at the end of the file, after `render_day`'s `    return clamp(lines)`:
 ```python
-#: What a deployment without ``DIARY_SECRET`` says, on every door: v1's 503 and
-#: v2's ``DIARY_DISABLED`` alike. Moved here from ``api/diary.py`` so that the
-#: v2 gate, which may not import a v1 router, says it in the same words.
-DISABLED_DETAIL = "Дневник на этом сервере выключен."
 
 
+# ---------------------------------------------------------------------------
+# What v1 and v2 both answer with
+#
+# A service refuses with an exception carrying facts, never a sentence, and
+# each shell words it. Where v1's endpoint and v2's error table word one
+# refusal alike — v2's message is v1's sentence wherever v1 had one
+# (docs/specs/2026-10-05-server-v2-design.md, decision 5) — the sentence is
+# here, once, so the two cannot drift. Some are English, as v1's generic
+# answers always were.
+# ---------------------------------------------------------------------------
+
+#: A deployment without ``DIARY_SECRET``, on every door: v1's 503 and v2's
+#: ``DIARY_DISABLED`` alike.
+DIARY_DISABLED_DETAIL = "Дневник на этом сервере выключен."
 ```
+(`app.bot.render` imports back a fixed list of `wording`'s names, held by `test_service_layering.py`; these are not the bot's and are not added to it.)
 
 - [ ] **Step 6: `server/app/api/public.py` calls the moved rules.** Seven edits:
   1. Replace `from app.api.deps import current_class, current_device` with `from app.api.deps import current_class, current_device, request_bucket`.
@@ -894,7 +916,7 @@ DISABLED_DETAIL = "Дневник на этом сервере выключен.
   Then delete the two functions `_today` and `_now` (from `def _today(school_class: SchoolClass) -> Date:` to the blank lines before `# ---…` «The device itself»), and replace their three callers: `    start = from_ or _today(school_class)` → `    start = from_ or clock.today(school_class)`; `    at = _now(school_class)` → `    at = clock.now(school_class)`; and in `calendar_feed` `    today = _today(school_class)` → `    today = clock.today(school_class)`.
 
 - [ ] **Step 7: `server/app/api/diary.py`.**
-  1. Replace `from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, caller_bucket` with `from app.api.deps import request_bucket`.
+  1. Replace `from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, caller_bucket` with the two lines `from app import wording` and `from app.api.deps import request_bucket`.
   2. Replace `from app.security import Admission, JoinThrottle` and the two lines after it (`from app.services import diary as service`, `from app.services import diary_corrections`) with:
 ```python
 from app.security import DiaryAttempt, Throttled
@@ -920,8 +942,8 @@ MAX_DATE = clock.MAX_DATE
   4. Replace `#: The detail of the 503 a deployment without ``DIARY_SECRET`` answers.` and the line `DISABLED_DETAIL = "Дневник на этом сервере выключен."` with:
 ```python
 #: The detail of the 503 a deployment without ``DIARY_SECRET`` answers, in the
-#: words v2's ``DIARY_DISABLED`` uses too.
-DISABLED_DETAIL = service.DISABLED_DETAIL
+#: words v2's ``DIARY_DISABLED`` uses too (``app/wording.py``).
+DISABLED_DETAIL = wording.DIARY_DISABLED_DETAIL
 ```
   5. Replace everything from `#: Failed diary sign-ins one caller may make in a quarter of an hour.` down to, not including, `def _throttled(retry_after: float) -> HTTPException:` — the two limiters, `_THROTTLED_DETAIL` and `class _Attempt` — with:
 ```python
@@ -989,7 +1011,7 @@ Expected: all pass (`test_shared_rules.py` is 15 of them). `test_directory`'s `t
 
 - [ ] **Step 13: Commit.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/security.py server/app/api/deps.py server/app/services/clock.py server/app/services/diary.py server/app/api/public.py server/app/api/diary.py server/app/api/directory.py server/app/api/edit.py server/tests/test_shared_rules.py server/tests/test_hardening.py server/tests/test_api_extended.py && git commit -F - <<'EOF'
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/security.py server/app/api/deps.py server/app/wording.py server/app/api/cron.py server/app/services/clock.py server/app/services/diary.py server/app/api/public.py server/app/api/diary.py server/app/api/directory.py server/app/api/edit.py server/tests/test_shared_rules.py server/tests/test_hardening.py server/tests/test_api_extended.py docs/specs/2026-10-05-server-v2-design.md && git commit -F - <<'EOF'
 Move the bucket, the bearer, the clock and the limiters out of v1's routers
 
 v2's handlers may not import a v1 router, and a copy of a rule beside it is
@@ -1002,11 +1024,15 @@ and v1 calls them:
   request_bucket is v1's wrapper, and peer_host strips the port connectrpc
   writes after every peer, IPv6 included;
 - the bearer and the device lookup are plain functions current_device
-  calls, and the gate will;
+  calls, and the gate will; touch_last_seen loses its underscore, and
+  the comments that named it follow;
 - the class's clock and the date bounds are services/clock.py;
 - the four limiters, the device cap and the diary's attempt are
   security.py's, one instance each, re-exported under the names v1's
-  tests import, so v1 and v2 will draw on one budget.
+  tests import, so v1 and v2 will draw on one budget;
+- the diary's «disabled» sentence is app/wording.py's, the first of the
+  sentences both versions answer with: a service carries facts, never a
+  sentence.
 
 v1's answers do not move: every sentence, status and header is the same,
 and its own tests are the proof.
@@ -1024,12 +1050,13 @@ EOF
 
 **Files:**
 - Create: `server/app/services/join.py`, `server/app/services/window.py`, `server/tests/test_services_window.py`
-- Modify: `server/app/services/linking.py`, `server/app/services/terms.py`, `server/app/api/public.py`
+- Modify: `server/app/wording.py` (append), `server/app/services/linking.py`, `server/app/services/terms.py`, `server/app/api/public.py`
 
 **Interfaces:**
-- Consumes: Task 2's `security.join_limiter`, `MAX_DEVICES_PER_CLASS`, `Throttled`; `services.clock`.
+- Consumes: Task 2's `security.join_limiter`, `MAX_DEVICES_PER_CLASS`, `Throttled`; `services.clock`; Task 2's «What v1 and v2 both answer with» section of `app/wording.py`.
 - Produces:
-  - `app.services.join`: `THROTTLED_DETAIL`, `UNKNOWN_CODE_DETAIL`, `INVITE_ONLY_DETAIL`, `DEVICE_LIMIT_DETAIL`; `class JoinRefused(Exception)`; `JoinThrottled(JoinRefused, Throttled)`, `JoinCodeUnknown`, `ClassInviteOnly`, `DeviceLimitReached` (`.limit = 300`); `@dataclass(frozen) Joined(token: str, school_class: SchoolClass)`; `async live_devices(session, class_id) -> int`; `async join(session, *, code: str, device_name: str | None, client_key: str) -> Joined` (commits).
+  - `app.wording`: `JOIN_THROTTLED_DETAIL`, `JOIN_UNKNOWN_CODE_DETAIL`, `JOIN_INVITE_ONLY_DETAIL`, `JOIN_DEVICE_LIMIT_DETAIL` (Ruling 5).
+  - `app.services.join`, which holds no sentence: `class JoinRefused(Exception)`; `JoinThrottled(JoinRefused, Throttled)`, `JoinCodeUnknown`, `ClassInviteOnly`, `DeviceLimitReached` (`.limit = 300`); `@dataclass(frozen) Joined(token: str, school_class: SchoolClass)`; `async live_devices(session, class_id) -> int`; `async join(session, *, code: str, device_name: str | None, client_key: str) -> Joined` (commits).
   - `app.services.window`: `FIRST_YEAR = 2000`, `LAST_YEAR = 2098`, `class YearOutOfBounds(ValueError)`, `@dataclass(frozen) Window(school_class, scheme: TermKind, terms: list[TermSpan], days: list[ResolvedDay], access: Access)`, `year_in_bounds(year) -> bool`, `async for_year(session, school_class, year, *, access: Access) -> Window`, `strong_etag(canonical: str) -> str`, `etag_matches(if_none_match: str | None, etag: str) -> bool`.
   - `app.services.linking`: `@dataclass(frozen) Access(linked: bool, role: Role | None)` with `.can_edit -> bool` and `Access.of(device, role) -> Access`; `async access_of(session, device) -> Access`.
   - `app.services.terms`: `@dataclass(frozen) TermSpan(index: int, kind: TermKind, starts_on: date, ends_on: date)` with `TermSpan.of(term)`; `async spans(session, school_class, year) -> list[TermSpan]` (writes nothing).
@@ -1160,7 +1187,21 @@ async def test_the_join_flow_counts_a_wrong_code_and_forgives_a_right_one(
 ```
 Run `python -m pytest -q -p no:xdist tests/test_services_window.py`. Expected: collection error, `ImportError: cannot import name 'join' from 'app.services'`.
 
-- [ ] **Step 2: Create `server/app/services/join.py`.** The flow is v1's `/join`, line for line, with its comments; the refusals become exceptions and the commit stays where v1's was.
+- [ ] **Step 2: The join's four sentences, and `server/app/services/join.py`.** The sentences v1's `/join` answers with go into `server/app/wording.py` first, appended at the end of the file, below Task 2's `DIARY_DISABLED_DETAIL` (Ruling 5):
+```python
+
+#: v1's ``POST /join`` and v2's ``CreateDevice``, for each refusal of
+#: ``services/join.py``: too many wrong codes, a code that names nothing, a
+#: class that takes personal codes only, and a class at its phone limit.
+JOIN_THROTTLED_DETAIL = "Too many join attempts"
+JOIN_UNKNOWN_CODE_DETAIL = "Unknown join code"
+JOIN_INVITE_ONLY_DETAIL = "Этот класс принимает только по личному приглашению из бота"
+JOIN_DEVICE_LIMIT_DETAIL = (
+    "К классу подключено слишком много телефонов. Возьмите личный код в боте "
+    "(«📱 Подключить телефон») или попросите администратора отключить старые телефоны"
+)
+```
+  Then create `server/app/services/join.py`. The flow is v1's `/join`, line for line, with its comments; the refusals become exceptions carrying facts, and the commit stays where v1's was.
 ```python
 """Getting a phone into a class: a code in, a device token out.
 
@@ -1168,8 +1209,9 @@ This was the body of v1's ``POST /join`` (``api/public.py``). It moved here so
 that v2's ``CreateDevice`` is the same implementation over the same throttle
 (``docs/specs/2026-10-05-server-v2-design.md``, decisions 2 and 11): a caller
 who alternates the two versions draws on one budget of thirty wrong codes, not
-on two. A refusal is an exception carrying facts, never a sentence, so each
-shell keeps its own words — v1's ``HTTPException`` details, v2's error table.
+on two. A refusal is an exception carrying facts, never a sentence, and each
+shell words it — v1's ``HTTPException`` details, v2's error table — with the
+sentences ``app/wording.py`` keeps for both.
 
 It commits, as the endpoint it came from did, and for the same reason the
 throttles do: the attempt that :meth:`JoinThrottle.admit` counted has to be
@@ -1193,18 +1235,6 @@ from app.security import (
     new_token,
 )
 from app.services import audit, device_invites
-
-# What v1's `/join` has always said for each refusal, and what v2's
-# `CreateDevice` says with them (the design's decision 5: where v1 had a
-# sentence, it is v1's). Here rather than in either shell, so the two cannot
-# drift apart; the exceptions below still carry facts, not these.
-THROTTLED_DETAIL = "Too many join attempts"
-UNKNOWN_CODE_DETAIL = "Unknown join code"
-INVITE_ONLY_DETAIL = "Этот класс принимает только по личному приглашению из бота"
-DEVICE_LIMIT_DETAIL = (
-    "К классу подключено слишком много телефонов. Возьмите личный код в боте "
-    "(«📱 Подключить телефон») или попросите администратора отключить старые телефоны"
-)
 
 
 class JoinRefused(Exception):
@@ -1559,7 +1589,7 @@ def etag_matches(if_none_match: str | None, etag: str) -> bool:
 ```
 
 - [ ] **Step 6: v1's `/join`, tag and access call the moved code.** In `server/app/api/public.py`:
-  1. Delete `import hashlib`; replace `from sqlalchemy import func, select, text` with `from sqlalchemy import select, text`; in the `from app.models import (` block delete the lines `    DeviceInvite,`, `    JoinMode,` and `    Role,`.
+  1. Delete `import hashlib`; replace `from sqlalchemy import func, select, text` with `from sqlalchemy import select, text`; insert `from app import wording` immediately above `from app.api.deps import current_class, current_device, request_bucket`; in the `from app.models import (` block delete the lines `    DeviceInvite,`, `    JoinMode,` and `    Role,`.
   2. Replace
 ```python
 from app.security import MAX_DEVICES_PER_CLASS, hash_token, join_limiter, new_token
@@ -1589,7 +1619,8 @@ async def join(
 
     The flow is ``services/join.py``'s, which v2's ``CreateDevice`` calls too,
     over the same limiter and the same bucket; this endpoint keeps v1's words
-    for each refusal, and its statuses.
+    for each refusal (``app/wording.py``'s, which v2 answers with too), and
+    its statuses.
     """
     try:
         joined = await join_service.join(
@@ -1601,21 +1632,21 @@ async def join(
     except join_service.JoinThrottled as refusal:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=join_service.THROTTLED_DETAIL,
+            detail=wording.JOIN_THROTTLED_DETAIL,
             headers={"Retry-After": str(refusal.seconds)},
         ) from None
     except join_service.ClassInviteOnly:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=join_service.INVITE_ONLY_DETAIL,
+            detail=wording.JOIN_INVITE_ONLY_DETAIL,
         ) from None
     except join_service.JoinCodeUnknown:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=join_service.UNKNOWN_CODE_DETAIL
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.JOIN_UNKNOWN_CODE_DETAIL
         ) from None
     except join_service.DeviceLimitReached:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=join_service.DEVICE_LIMIT_DETAIL
+            status_code=status.HTTP_409_CONFLICT, detail=wording.JOIN_DEVICE_LIMIT_DETAIL
         ) from None
     school_class = joined.school_class
     return JoinResponse(
@@ -1669,7 +1700,7 @@ Expected: all pass (`test_services_window.py` is 24). The bundle's `ETag` tests 
 
 - [ ] **Step 9: Commit.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/services/join.py server/app/services/window.py server/app/services/linking.py server/app/services/terms.py server/app/api/public.py server/tests/test_services_window.py && git commit -F - <<'EOF'
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/wording.py server/app/services/join.py server/app/services/window.py server/app/services/linking.py server/app/services/terms.py server/app/api/public.py server/tests/test_services_window.py && git commit -F - <<'EOF'
 Move the join flow and the window's tag into services, with v1 calling them
 
 v1's POST /join held the whole join in the router: the throttle's admit
@@ -1677,7 +1708,8 @@ and forgive, the invite-only refusal, the 300-phone cap, the personal
 code's burn and its journal line. v2's CreateDevice needs every one of
 those, so the flow is services/join.py now, line for line with its
 comments, and the refusals are exceptions carrying facts. The four
-sentences v1 answers with live beside it, so both shells say the same.
+sentences v1 answers with are app/wording.py's, beside the diary's, so
+both shells say the same and the service holds no sentence.
 
 The bundle's tag rules move to services/window.py (v1's If-None-Match
 matching verbatim, and the hashing), beside v2's school-year window, which
@@ -1707,12 +1739,12 @@ Decision 5. Every refusal of v2, on either transport, is a `connectrpc.errors.Co
 - Modify: `docs/api.md` (the code table gains `INTERNAL`)
 
 **Interfaces:**
-- Consumes: Task 1's `ErrorInfo`, `BadRequest`, `RetryInfo`; Task 3's `join.*` exceptions and sentences, `window.YearOutOfBounds`, `FIRST_YEAR`, `LAST_YEAR`; Task 2's `services.diary.DiaryDisabled` and `DISABLED_DETAIL`.
+- Consumes: Task 1's `ErrorInfo`, `BadRequest`, `RetryInfo`; Task 3's `join.*` exceptions, `window.YearOutOfBounds`, `FIRST_YEAR`, `LAST_YEAR`; `services.diary.DiaryDisabled`; `app.wording`'s `JOIN_*_DETAIL` (Task 3) and `DIARY_DISABLED_DETAIL` (Task 2).
 - Produces:
   - `app.rpc.errors`: `DOMAIN = "lessons.app"`; `INTERNAL_MESSAGE`; `UNDECODABLE_MESSAGE = "The request could not be decoded"`; `CODES: Mapping[ErrorReason, Code]`; `class Refusal(Exception)`: `Refusal(reason: ErrorReason, message: str, *, violations: Sequence[tuple[str, str]] = (), **metadata: str | int)` with `.reason`, `.message`, `.violations`, `.metadata: dict[str, str]`; `TABLE: Mapping[type[Exception], Callable[[Any], Refusal]]`; `refusal_of(error) -> Refusal | None`; `connect_error(error: BaseException) -> ConnectError` (never raises, never quotes the error); `undecodable() -> Refusal`; `validate(model: type[M], data: Mapping[str, object]) -> M`.
   - `app.rest.errors`: `STATUS: dict[Code, int]`; `error_response(error: ConnectError) -> JSONResponse`.
 
-- [ ] **Step 1: Red.** Create `server/tests/test_rpc_errors.py`. Its `LATER` lists the seven reasons later tasks of 3a produce (the gate's six, `WatchClass`'s one) beside the nineteen 3b's methods will; Tasks 5 and 6 take them out as they arrive.
+- [ ] **Step 1: Red.** Create `server/tests/test_rpc_errors.py`. Its `LATER` lists the seven reasons later tasks of 3a produce (the gate's six, `WatchClass`'s one) beside the nineteen 3b's methods will; Tasks 5 and 6 take them out as they arrive. Task 10 adds `HELD_BY`, which names for each row of the table the test that reads it back on both paths (Ruling 24).
 ```python
 """The one error table, held to ``errors.proto`` and to ``docs/api.md``.
 
@@ -1974,7 +2006,8 @@ bounds, the gate's own answers. Anything else is a service's or a provider's
 exception carrying facts, and :data:`TABLE` words it: a canonical code, an
 ``ErrorReason``, the metadata ``errors.proto`` names for that reason, and the
 shell's own sentence, which is v1's wherever v1 had one
-(``docs/specs/2026-10-05-server-v2-design.md``, decision 5).
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 5) — kept once in
+``app/wording.py`` where both versions say it.
 
 :func:`connect_error` turns either into the ``ConnectError`` both transports
 send: Connect as itself, REST through ``app/rest/errors.py``. Anything the
@@ -1995,6 +2028,7 @@ from protobuf import Message
 from protobuf.wkt import Duration
 from pydantic import BaseModel, ValidationError
 
+from app import wording
 from app.contract.google.rpc.error_details_pb import BadRequest, ErrorInfo, RetryInfo
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.services import diary as diary_service
@@ -2085,24 +2119,26 @@ M = TypeVar("M", bound=BaseModel)
 
 def _join_throttled(error: join.JoinThrottled) -> Refusal:
     return Refusal(
-        ErrorReason.THROTTLED, join.THROTTLED_DETAIL, retry_after_seconds=error.seconds
+        ErrorReason.THROTTLED, wording.JOIN_THROTTLED_DETAIL, retry_after_seconds=error.seconds
     )
 
 
 def _join_code_unknown(_error: join.JoinCodeUnknown) -> Refusal:
-    return Refusal(ErrorReason.JOIN_CODE_UNKNOWN, join.UNKNOWN_CODE_DETAIL)
+    return Refusal(ErrorReason.JOIN_CODE_UNKNOWN, wording.JOIN_UNKNOWN_CODE_DETAIL)
 
 
 def _class_invite_only(_error: join.ClassInviteOnly) -> Refusal:
-    return Refusal(ErrorReason.CLASS_INVITE_ONLY, join.INVITE_ONLY_DETAIL)
+    return Refusal(ErrorReason.CLASS_INVITE_ONLY, wording.JOIN_INVITE_ONLY_DETAIL)
 
 
 def _device_limit_reached(error: join.DeviceLimitReached) -> Refusal:
-    return Refusal(ErrorReason.DEVICE_LIMIT_REACHED, join.DEVICE_LIMIT_DETAIL, limit=error.limit)
+    return Refusal(
+        ErrorReason.DEVICE_LIMIT_REACHED, wording.JOIN_DEVICE_LIMIT_DETAIL, limit=error.limit
+    )
 
 
 def _diary_disabled(_error: diary_service.DiaryDisabled) -> Refusal:
-    return Refusal(ErrorReason.DIARY_DISABLED, diary_service.DISABLED_DETAIL)
+    return Refusal(ErrorReason.DIARY_DISABLED, wording.DIARY_DISABLED_DETAIL)
 
 
 def _year_out_of_bounds(_error: window.YearOutOfBounds) -> Refusal:
@@ -2329,17 +2365,17 @@ Decisions 3, 4 and 9. After this task one call of any method can be served by `i
 
 **Files:**
 - Create: `server/app/rpc/methods.py`, `server/app/rpc/values.py`, `server/app/rpc/gate.py`, `server/app/rpc/call.py`, `server/app/rpc/handlers.py`, `server/tests/test_rpc_gate.py`, `server/tests/test_rpc_call.py`
-- Modify: `server/app/config.py`, `server/.env.example`, `server/tests/conftest.py`, `server/tests/test_service_layering.py`, `server/tests/test_rpc_errors.py`
+- Modify: `server/app/config.py`, `server/.env.example`, `docker-compose.yml`, `server/tests/conftest.py`, `server/tests/test_service_layering.py`, `server/tests/test_rpc_errors.py`
 
 **Interfaces:**
 - Consumes: Task 2's `deps.bearer`, `find_device`, `header`, `touch_last_seen`, `caller_bucket`; Task 4's `Refusal`, `connect_error`; `services.diary.find_session`, `DiaryDisabled`; `linking.effective_role`; `crypto.diary_enabled`; `di.container()`.
 - Produces:
   - `app.rpc.methods`: `Binding(verb: str, path: str, body: str)` with `.variables -> list[str]`; `Method(service, name, input: type[Message], output: type[Message], auth: AuthKind, min_role: Role | None, side_effect_free: bool, streaming: bool, binding: Binding | None)` with `.key` (`"lessons.v2.ScheduleService/GetScheduleWindow"`) and `.attribute` (`"get_schedule_window"`); `METHODS: dict[str, Method]` (76); `VARIABLE`; `message_class(desc)`.
   - `app.rpc.values`: `proto_name(member: Enum) -> str` (`"ROLE_ADMIN"`), `role(value: models.Role | None) -> options_pb.Role`. Task 10 adds the rest.
-  - `app.rpc.gate`: `TABLE: dict[str, tuple[AuthKind, Role | None]]`; `CLIENT_HEADER = "x-lessons-client"`; `@dataclass Admitted(client_version, device, school_class, role, diary)`; `client_version(headers, settings) -> int | None`; `async admit(method, session, settings, headers) -> Admitted`.
+  - `app.rpc.gate`: `TABLE: dict[str, tuple[AuthKind, Role | None]]`; `CLIENT_HEADER = "x-lessons-client"`; `MAX_CLIENT_VERSION = 2_100_000_000`; `@dataclass Admitted(client_version, device, school_class, role, diary)`; `client_version(headers, settings) -> int | None`; `async admit(method, session, settings, headers) -> Admitted`.
   - `app.rpc.call`: `NOT_IMPLEMENTED = "Not implemented"`; `@dataclass Call(method, session, settings, headers, peer, client_version, device, school_class, role, diary, effects)` with `bucket(scope="") -> str`, `after_commit(effect: Callable[[], Awaitable[None]])`, `device_and_class() -> tuple[DeviceToken, SchoolClass]`; `async invoke(method: Method, request: Message, *, headers: Sequence[tuple[str, str]], peer: str | None) -> Message` — raises only `ConnectError`.
   - `app.rpc.handlers`: `Handler = Callable[[Any, Any], Awaitable[Any]]`; `HANDLERS: dict[str, Handler]` keyed as `METHODS` (empty in this task).
-  - `Settings.min_client_version: int` (`MIN_CLIENT_VERSION`, empty or `0` = none).
+  - `Settings.min_client_version: int` (`MIN_CLIENT_VERSION`, empty or `0` = none), forwarded by `docker-compose.yml`.
   - Fixture `v2_tokens(session, school_class) -> dict[str, str]`: bearers `unlinked`, `viewer` (telegram 2001), `editor` (2002), `admin` (2003), `owner` (2004), `stranger` (2005, linked, no member), `diary` (a live diary session).
 
 - [ ] **Step 1: Red.** Append to `server/tests/conftest.py`, after its last line:
@@ -2483,6 +2519,8 @@ def _version(monkeypatch, minimum: int, value: str | None) -> int | None:
 def test_without_a_minimum_the_version_is_read_and_never_refused(monkeypatch) -> None:
     assert _version(monkeypatch, 0, None) is None
     assert _version(monkeypatch, 0, "512") == 512
+    assert _version(monkeypatch, 0, "2100000000") == 2_100_000_000
+    assert _version(monkeypatch, 0, "2100000001") is None
     assert _version(monkeypatch, 0, "a lot") is None
     assert _version(monkeypatch, 0, "0") is None
 
@@ -2493,14 +2531,15 @@ def test_with_a_minimum_an_older_client_is_told_to_update(monkeypatch) -> None:
     assert refused.value.reason is ErrorReason.CLIENT_TOO_OLD
     assert refused.value.metadata == {"min_version": "40"}
     assert _version(monkeypatch, 40, "40") == 40
+    assert _version(monkeypatch, 40, "2100000000") == 2_100_000_000
 
 
 def test_with_a_minimum_a_missing_header_is_let_through(monkeypatch) -> None:
     assert _version(monkeypatch, 40, None) is None
 
 
-@pytest.mark.parametrize("value", ["", "abc", "0", "-3", "4.5", "١٢٣", "9" * 12])
-def test_with_a_minimum_a_header_that_is_no_positive_integer_is_invalid(monkeypatch, value) -> None:
+@pytest.mark.parametrize("value", ["", "abc", "0", "-3", "4.5", "١٢٣", "2100000001", "9" * 11])
+def test_with_a_minimum_a_header_that_is_no_version_code_is_invalid(monkeypatch, value) -> None:
     with pytest.raises(Refusal) as refused:
         _version(monkeypatch, 40, value)
     assert refused.value.reason is ErrorReason.VALIDATION_FAILED
@@ -2882,6 +2921,14 @@ In `server/.env.example`, insert above the paragraph that begins `# One variable
 ```
 (`tests/test_env_example.py` requires every setting in the file, and accepts it commented out; nothing is added to `deployment_problems` or `disabled_features`.)
 
+In `docker-compose.yml`, in `services.server.environment`, insert immediately below `      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}`:
+```yaml
+      # A number, but unset is its default all the same: the setting reads an
+      # empty value as 0, no minimum (app/config.py), as .env.example leaves it.
+      MIN_CLIENT_VERSION: ${MIN_CLIENT_VERSION:-}
+```
+`tests/test_compose.py` holds both halves of that line. `test_the_server_is_handed_every_setting_the_code_reads` fails on any `Settings` field the server's environment does not list and `NOT_FORWARDED` does not excuse, and `MIN_CLIENT_VERSION` is one from this step on. `test_a_setting_nobody_set_reaches_the_server_as_its_own_default` builds `Settings(min_client_version="")`, which the `mode="before"` validator above turns into `0`, the field's default.
+
 - [ ] **Step 3: Create `server/app/rpc/methods.py`.**
 ```python
 """Every method of the contract, read once from the generated descriptors.
@@ -3103,6 +3150,10 @@ from app.services.diary import DiaryDisabled, find_session
 #: The header every v2 request carries its client's version in.
 CLIENT_HEADER = "x-lessons-client"
 
+#: The largest versionCode an APK can carry: `android/app/build.gradle.kts`
+#: refuses to build above it, because Google Play will not publish above it.
+MAX_CLIENT_VERSION = 2_100_000_000
+
 #: Each method's ``(auth, min_role)``, as the contract declares them. Compared
 #: with the descriptors, read independently, for all 76 methods by
 #: ``test_rpc_gate.py``.
@@ -3119,7 +3170,7 @@ UNKNOWN_DIARY_SESSION = "Diary session is not valid"
 CLASS_GONE = "Class no longer exists"
 NOT_LINKED = "device is not linked"
 #: New in v2, so English like v1's own generic answers.
-BAD_CLIENT_HEADER = "X-Lessons-Client must be a positive integer"
+BAD_CLIENT_HEADER = f"X-Lessons-Client must be a whole number between 1 and {MAX_CLIENT_VERSION}"
 CLIENT_TOO_OLD = "This app is older than the oldest version this server answers; update it"
 
 #: Header lines of a request, names in any case, repeated lines kept.
@@ -3146,15 +3197,20 @@ def client_version(headers: Headers, settings: Settings) -> int | None:
 
     A missing header is never refused, with a minimum set or not: the minimum
     retires the family's old APKs, which all send it, and a third-party client
-    or a ``curl`` without it is not an old APK. A header that is not a positive
-    integer is refused only when a minimum is set — without one there is
-    nothing to compare it with, and it is ignored like a missing one.
+    or a ``curl`` without it is not an old APK. A header that is not a whole
+    number from 1 to :data:`MAX_CLIENT_VERSION` is refused only when a minimum
+    is set — without one there is nothing to compare it with, and it is
+    ignored like a missing one.
     """
     raw = header(headers, CLIENT_HEADER)
     if raw is None:
         return None
     text = raw.strip()
-    version = int(text) if text.isascii() and text.isdecimal() and len(text) <= 9 else 0
+    # Ten ASCII digits at most before `int` is asked, so a header of a million
+    # digits is never parsed; then the build's own ceiling.
+    version = int(text) if text.isascii() and text.isdecimal() and len(text) <= 10 else 0
+    if version > MAX_CLIENT_VERSION:
+        version = 0
     minimum = settings.min_client_version
     if minimum <= 0:
         return version or None
@@ -3270,6 +3326,9 @@ the session rolls back and no effect runs. ``test_rpc_call.py`` greps
 themselves keep doing so, and their writes stay when the call is refused:
 
 - ``JoinThrottle.admit`` — a wrong join code stays counted;
+- ``services.join.join`` — the device token it mints is committed inside
+  the call, as v1's ``/join`` committed it, so a refusal raised after it
+  would not take the phone's token back (``CreateDevice`` raises none);
 - ``services.diary.find_session`` (and ``_expire``, ``_remember_token``) — a
   dead diary credential stays expired, a rotated one stays kept;
 - ``api.deps.touch_last_seen`` — the device stays seen.
@@ -3450,15 +3509,15 @@ def test_the_walk_sees_a_v2_module_reach_a_v1_router():
 
 - [ ] **Step 10: Green.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_rpc_gate.py tests/test_rpc_call.py tests/test_service_layering.py tests/test_rpc_errors.py tests/test_env_example.py
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_rpc_gate.py tests/test_rpc_call.py tests/test_service_layering.py tests/test_rpc_errors.py tests/test_env_example.py tests/test_compose.py
 ```
-Expected: all pass — `test_rpc_gate.py` 24, `test_rpc_call.py` 9, `test_service_layering.py` 6.
+Expected: all pass — `test_rpc_gate.py` 25, `test_rpc_call.py` 9, `test_service_layering.py` 6, and `test_compose.py`'s three with `MIN_CLIENT_VERSION` forwarded.
 
-- [ ] **Step 11: Gates.** ruff clean; mypy `Success: no issues found in 209 source files`; the full suite once, previous count plus 36.
+- [ ] **Step 11: Gates.** ruff clean; mypy `Success: no issues found in 209 source files`; the full suite once, previous count plus 37.
 
 - [ ] **Step 12: Commit.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/rpc server/app/config.py server/.env.example server/tests/conftest.py server/tests/test_rpc_gate.py server/tests/test_rpc_call.py server/tests/test_service_layering.py server/tests/test_rpc_errors.py && git commit -F - <<'EOF'
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/rpc server/app/config.py server/.env.example docker-compose.yml server/tests/conftest.py server/tests/test_rpc_gate.py server/tests/test_rpc_call.py server/tests/test_service_layering.py server/tests/test_rpc_errors.py && git commit -F - <<'EOF'
 Serve one v2 call through one gate, one scope and one commit
 
 app/rpc/methods.py reads every method of the contract once from the
@@ -3475,7 +3534,10 @@ last_seen_at) stay on purpose, and each has a test.
 
 A method with no handler answers the generated Protocol's own
 UNIMPLEMENTED, before any gate. MIN_CLIENT_VERSION is optional and in no
-list a deployment insists on. The layering test now walks both ways:
+list a deployment insists on; docker-compose.yml hands it to the server,
+as it does every setting. X-Lessons-Client is at most ten digits and at
+most 2,100,000,000, the build's own ceiling on a versionCode. The
+layering test now walks both ways:
 services reach no shell above them, and v2 reaches neither the bot nor a v1
 router.
 
@@ -3753,6 +3815,34 @@ async def test_native_grpc_over_http_2_reaches_the_library() -> None:
     assert trailers[b"grpc-status"] == b"12"
 
 
+async def test_a_scope_that_names_no_http_version_is_refused_as_http_1_1() -> None:
+    """ASGI makes ``http_version`` optional and reads a missing one as "1.1",
+    so a server that leaves it out must not walk native gRPC past the guard
+    into the library's 500. Asked of the app directly, as the HTTP/2 case is."""
+    sent: list[dict] = []
+
+    async def receive() -> dict:
+        return {"type": "http.request", "body": b"\x00\x00\x00\x00\x00", "more_body": False}
+
+    async def send(message: dict) -> None:
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/lessons.v2.ClassService/GetClass",
+        "root_path": "",
+        "query_string": b"",
+        "headers": [(b"content-type", b"application/grpc")],
+        "client": ("203.0.113.9", 52144),
+    }
+    await rpc_app()(scope, receive, send)
+    assert sent[0]["status"] == 415
+    body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+    assert body == GRPC_REFUSED.encode()
+
+
 @pytest.mark.parametrize(
     ("content_type", "body"),
     [
@@ -3851,7 +3941,9 @@ logged traceback:
 
 - a native gRPC request (``application/grpc``, ``application/grpc+…``) is
   refused with ``415`` and a sentence saying where gRPC is served — over
-  HTTP/1.1 only, so the host target's HTTP/2 lets it through (3c);
+  anything but HTTP/2 and HTTP/3, so the host target's HTTP/2 lets it
+  through (3c), and a scope that names no version is HTTP/1.1, as ASGI
+  reads it;
 - a body that does not decode is ``invalid_argument`` /
   ``REQUEST_UNDECODABLE``, through codecs that wrap the library's own.
 """
@@ -3976,7 +4068,9 @@ class _Services:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             return
-        if scope.get("http_version") in ("1.0", "1.1") and _is_native_grpc(scope):
+        # Not «is it 1.1»: ASGI makes `http_version` optional and reads a
+        # missing one as "1.1", so only a scope that says 2 or 3 is let past.
+        if scope.get("http_version") not in ("2", "3") and _is_native_grpc(scope):
             await PlainTextResponse(GRPC_REFUSED, status_code=415)(scope, receive, send)
             return
         path = scope["path"].removeprefix(scope.get("root_path", ""))
@@ -4149,9 +4243,9 @@ def test_the_api_cold_start_imports_the_contract_it_serves(settings: dict[str, s
 ```bash
 cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_rpc_mount.py tests/test_rpc_errors.py tests/test_contract.py tests/test_cold_start.py tests/test_rpc_call.py tests/test_service_layering.py tests/test_startup.py tests/test_api_docs.py
 ```
-Expected: all pass — `test_rpc_mount.py` 12, `test_contract.py` 27, `test_cold_start.py` 3 (aiogram still absent in both configurations, with `app.rpc` now imported).
+Expected: all pass — `test_rpc_mount.py` 13, `test_contract.py` 27, `test_cold_start.py` 3 (aiogram still absent in both configurations, with `app.rpc` now imported).
 
-- [ ] **Step 8: Gates.** ruff clean; mypy `Success: no issues found in 210 source files`; the full suite once, previous count plus 11 (12 new, the probe test gone).
+- [ ] **Step 8: Gates.** ruff clean; mypy `Success: no issues found in 210 source files`; the full suite once, previous count plus 12 (13 new, the probe test gone).
 
 - [ ] **Step 9: Commit.**
 ```bash
@@ -4165,8 +4259,9 @@ own UNIMPLEMENTED.
 
 Two defects of connectrpc 0.12.1 under HTTP/1.1 are corrected in front of
 it: a native gRPC request (application/grpc, application/grpc+...) is a 415
-saying where gRPC is served, not a 500 and a traceback, while gRPC-Web and
-HTTP/2 pass; and a body that does not decode is invalid_argument with
+saying where gRPC is served, not a 500 and a traceback, while gRPC-Web,
+HTTP/2 and HTTP/3 pass (a scope that names no version is HTTP/1.1, as
+ASGI reads it); and a body that does not decode is invalid_argument with
 REQUEST_UNDECODABLE, through codecs that wrap the library's own. WatchClass
 refuses with FEATURE_UNSUPPORTED after the gate: no target streams yet.
 
@@ -5548,11 +5643,12 @@ from __future__ import annotations
 import httpx
 from sqlalchemy import func, select
 
+from app import wording
 from app.contract.lessons.v2.device_pb import CreateDeviceRequest
 from app.main import app
 from app.models import AuditEntry, DeviceToken, JoinAttempt, JoinMode, SchoolClass
 from app.security import MAX_DEVICES_PER_CLASS, hash_token, join_limiter
-from app.services import device_invites, join
+from app.services import device_invites
 
 WRONG = CreateDeviceRequest(code="NOSUCH99")
 
@@ -5616,7 +5712,7 @@ async def test_a_wrong_code_is_refused_in_v1_s_words_and_stays_counted(v2, sessi
     before = await _attempts(session)
     answer = await v2.both("DeviceService/CreateDevice", WRONG)
     assert (answer.status, answer.code, answer.reason) == (404, "NOT_FOUND", "JOIN_CODE_UNKNOWN")
-    assert answer.error == v1.json()["detail"] == join.UNKNOWN_CODE_DETAIL
+    assert answer.error == v1.json()["detail"] == wording.JOIN_UNKNOWN_CODE_DETAIL
     # Refused, and the call rolled back — and both attempts are still counted,
     # because the throttle commits before the code is looked at.
     assert await _attempts(session) == before + 2
@@ -5632,7 +5728,7 @@ async def test_an_invite_only_class_refuses_its_code_and_does_not_count_it(v2, s
         "PERMISSION_DENIED",
         "CLASS_INVITE_ONLY",
     )
-    assert answer.error == join.INVITE_ONLY_DETAIL
+    assert answer.error == wording.JOIN_INVITE_ONLY_DETAIL
     assert await _attempts(session) == before
 
 
@@ -5652,7 +5748,7 @@ async def test_a_full_class_refuses_its_code_with_the_limit_and_does_not_count_i
         "DEVICE_LIMIT_REACHED",
     )
     assert answer.metadata == {"limit": str(MAX_DEVICES_PER_CLASS)}
-    assert answer.error == join.DEVICE_LIMIT_DETAIL
+    assert answer.error == wording.JOIN_DEVICE_LIMIT_DETAIL
     assert await _attempts(session) == before
 
 
@@ -5684,7 +5780,7 @@ async def test_v1_and_v2_draw_on_one_budget(v2) -> None:
     connect = await v2.connect("DeviceService/CreateDevice", WRONG)
     for refused in (rest, connect):
         assert (refused.code, refused.reason) == ("RESOURCE_EXHAUSTED", "THROTTLED")
-        assert refused.error == join.THROTTLED_DETAIL
+        assert refused.error == wording.JOIN_THROTTLED_DETAIL
         seconds = int(refused.metadata["retry_after_seconds"])
         assert seconds >= 1 and refused.retry_seconds == seconds
     assert rest.status == 429
@@ -5837,10 +5933,10 @@ Decisions 6 (the tag), 10 (terms computed) and the design's «Risks» (the 2 MB 
 
 **Files:**
 - Create: `server/app/rpc/schedule.py`, `server/tests/test_v2_window.py`
-- Modify: `server/app/rpc/values.py` (rewrite), `server/app/rpc/handlers.py` (rewrite)
+- Modify: `server/app/rpc/values.py` (rewrite), `server/app/rpc/handlers.py` (rewrite), `server/tests/test_rpc_errors.py` (`HELD_BY`, Ruling 24)
 
 **Interfaces:**
-- Consumes: Task 3's `window.for_year`, `strong_etag`, `etag_matches`, `linking.Access`; `ResolvedDay`.
+- Consumes: Task 3's `window.for_year`, `strong_etag`, `etag_matches`, `linking.Access`; `ResolvedDay`; Task 9's `test_v2_devices.py`, whose tests `HELD_BY` names.
 - Produces:
   - `app.rpc.values` (complete): `proto_name`, `date_string(date) -> str`, `time_string(time) -> str` (`"HH:MM"`), `instant(datetime) -> Timestamp` (naive is UTC), `role`, `term_kind`, `term(TermSpan) -> common_pb.Term`, `device_access(Access) -> DeviceAccess`, `day(ResolvedDay) -> ScheduleDay`, `now() -> datetime` (UTC).
   - `schedule.get_schedule_window(call, GetScheduleWindowRequest) -> GetScheduleWindowResponse`.
@@ -6246,7 +6342,67 @@ async def test_a_dense_year_stays_under_two_megabytes(v2, v2_tokens, session, sc
     assert len(answer.body) < 2_000_000, len(answer.body)
     assert sum(len(d.homework) for d in answer.message.window.days) > 1500
 ```
-Run `python -m pytest -q -p no:xdist tests/test_v2_window.py`. Expected: every test fails on `UNIMPLEMENTED` except `test_the_window_writes_nothing_where_v1_seeds_and_adopts`, which an unserved method passes trivially — it holds the handler from Step 3 on.
+  Then the design's first table test (decision 5, Ruling 24), now that the last test it names exists. In `server/tests/test_rpc_errors.py`:
+  1. Replace `from app.schemas import JoinRequest` with the three lines `from app.schemas import JoinRequest`, `from app.services import diary as diary_service` and `from app.services import join, window`.
+  2. Insert immediately above `def _proto_reasons() -> dict[str, str]:`
+```python
+#: Each row of ``errors.TABLE`` and the test that raises its exception through
+#: a served method and reads the refusal back on both transports, as a file
+#: under ``tests/`` and a function in it; or "3b", where no method 3a serves
+#: can raise it. A row added to the table without either fails below.
+HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
+    join.JoinThrottled: ("test_v2_devices.py", "test_v1_and_v2_draw_on_one_budget"),
+    join.JoinCodeUnknown: (
+        "test_v2_devices.py",
+        "test_a_wrong_code_is_refused_in_v1_s_words_and_stays_counted",
+    ),
+    join.ClassInviteOnly: (
+        "test_v2_devices.py",
+        "test_an_invite_only_class_refuses_its_code_and_does_not_count_it",
+    ),
+    join.DeviceLimitReached: (
+        "test_v2_devices.py",
+        "test_a_full_class_refuses_its_code_with_the_limit_and_does_not_count_it",
+    ),
+    window.YearOutOfBounds: (
+        "test_v2_window.py",
+        "test_a_year_outside_the_bounds_is_refused_on_its_field",
+    ),
+    # The gate raises it for a diary method, and 3a serves none:
+    # test_rpc_gate.py holds the gate raising it until 3b does.
+    diary_service.DiaryDisabled: "3b",
+}
+
+
+```
+  3. Insert immediately above `def test_a_refusal_is_its_code_its_reason_and_the_details_the_proto_promises() -> None:`
+```python
+def test_every_row_of_the_table_names_the_test_that_reads_it_back() -> None:
+    """The design's first table test (decision 5): every row raises its
+    exception through a real method and is read back on both paths. The
+    reading back is the named test's; this holds that no row is without one.
+    A test module may not import another (``test_test_imports.py``), so the
+    named function is found by parsing its file."""
+    assert set(HELD_BY) == set(errors.TABLE)
+    missing = []
+    for exception, held in HELD_BY.items():
+        if held == "3b":
+            continue
+        assert isinstance(held, tuple), (exception.__name__, held)
+        file_name, function = held
+        tree = ast.parse((SERVER / "tests" / file_name).read_text(encoding="utf-8"))
+        defined = {
+            node.name
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        }
+        if function not in defined:
+            missing.append(f"{exception.__name__}: {file_name}::{function}")
+    assert missing == []
+
+
+```
+Run `python -m pytest -q -p no:xdist tests/test_v2_window.py tests/test_rpc_errors.py`. Expected: every test of `test_v2_window.py` fails on `UNIMPLEMENTED` except `test_the_window_writes_nothing_where_v1_seeds_and_adopts`, which an unserved method passes trivially — it holds the handler from Step 3 on. `test_rpc_errors.py` passes, the new test included: it asks only that each row names a test that exists, and this step wrote the last of them. A row without a test, or a name with no function behind it, fails it (both seen in the review's scratch run).
 
 - [ ] **Step 2: Rewrite `server/app/rpc/values.py` in full.**
 ```python
@@ -6479,13 +6635,13 @@ HANDLERS: dict[str, Handler] = {
 ```bash
 cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_v2_window.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rpc_errors.py
 ```
-Expected: all pass — `test_v2_window.py` 18. `test_every_day_is_v1_s_day_and_the_terms_v1_would_have_seeded` is the review's claim of decision 10, asked of every day of 2026/27; `test_a_dense_year_stays_under_two_megabytes` inserts about 1,900 homework rows, so it is the slowest test of the task (about two seconds here).
+Expected: all pass — `test_v2_window.py` 18, `test_rpc_errors.py` 12. `test_every_day_is_v1_s_day_and_the_terms_v1_would_have_seeded` is the review's claim of decision 10, asked of every day of 2026/27; `test_a_dense_year_stays_under_two_megabytes` inserts about 1,900 homework rows, so it is the slowest test of the task (about two seconds here).
 
-- [ ] **Step 6: Gates.** ruff clean; mypy `Success: no issues found in 214 source files`; the full suite once, previous count plus 20.
+- [ ] **Step 6: Gates.** ruff clean; mypy `Success: no issues found in 214 source files`; the full suite once, previous count plus 21.
 
 - [ ] **Step 7: Commit.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/rpc/values.py server/app/rpc/schedule.py server/app/rpc/handlers.py server/tests/test_v2_window.py && git commit -F - <<'EOF'
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/rpc/values.py server/app/rpc/schedule.py server/app/rpc/handlers.py server/tests/test_v2_window.py server/tests/test_rpc_errors.py && git commit -F - <<'EOF'
 Serve GetScheduleWindow over v2: a school year, its tag, and no write
 
 GetScheduleWindow answers every day of the school year that opens in the
@@ -6504,6 +6660,11 @@ both ways on both paths; and hold a dense year (six days of eight lessons,
 homework on every lesson) under 2 MB; it came to 992,080 bytes, about a
 fifth of Vercel's 4.5 MB.
 
+With the window served, every row of the error table has the test that
+reads it back through a real method on both paths, and test_rpc_errors.py
+names each one in HELD_BY (DiaryDisabled's is 3b's): a row added without
+its test fails there.
+
 Not covered: the documents, the next commit.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -6516,7 +6677,7 @@ EOF
 ## Task 11: The documents from «will» to «does», the counts, and the HANDOVER close-out
 
 **Files:**
-- Modify: `docs/api.md`, `docs/README.md`, `docs/architecture.md`, `CLAUDE.md`, `README.md`, `CONTRIBUTING.md`, `.claude/skills/gates/SKILL.md`, `HANDOVER.md`, `docs/history.md`
+- Modify: `docs/api.md`, `docs/README.md`, `docs/deploy.md`, `docs/architecture.md`, `CLAUDE.md`, `README.md`, `CONTRIBUTING.md`, `.claude/skills/gates/SKILL.md`, `HANDOVER.md`, `docs/history.md`
 
 **Interfaces:**
 - Consumes: Tasks 1–10, and the real numbers of Step 6's run.
@@ -6540,7 +6701,28 @@ until its stage, before it asks for any credential. No APK calls v2 yet. The pro
 the reference: every service, method, message and field there carries the comment that says
 what it means and what v1 sent in its place. This section says only what a file cannot.
 ```
-  3. Under «One contract, three ways to call it», replace «Each method will be reachable three ways, from one handler:» with «Each method is reachable three ways, from one handler — `server/app/rpc/call.py`'s `invoke`, which both transports call:», and append after the paragraph about `WatchService.WatchClass`:
+  3. Under «One contract, three ways to call it», the sentence «Each method will be reachable three ways, from one handler:» is split across two lines. Replace the two lines
+```markdown
+plus `options.proto`, `errors.proto` and `common.proto`. Each method will be reachable three
+ways, from one handler:
+```
+  with
+```markdown
+plus `options.proto`, `errors.proto` and `common.proto`. Each method is reachable three ways,
+from one handler — `server/app/rpc/call.py`'s `invoke`, which both transports call:
+```
+  In the REST bullet just below, the query string is not only a `GET`'s or a `DELETE`'s (decision 6: an `Update*`'s `update_mask` arrives there too). Replace its last two lines
+```markdown
+  Anything else is `POST …:verb`, as in `POST /api/v2/me:unlink`. Path fields are written
+  in the path, and the rest of a `GET` or a `DELETE` in the query string.
+```
+  with
+```markdown
+  Anything else is `POST …:verb`, as in `POST /api/v2/me:unlink`. Path fields are written
+  in the path, and every field the path and the body do not bind comes from the query
+  string, whatever the verb.
+```
+  Then append after the paragraph about `WatchService.WatchClass`:
 ```markdown
 On this deployment, which speaks HTTP/1.1, a request with `Content-Type: application/grpc` or
 `application/grpc+…` is refused with `415` and a sentence saying where native gRPC is served;
@@ -6574,11 +6756,12 @@ gRPC-Web passes. `WatchClass` answers `UNIMPLEMENTED` with the reason `FEATURE_U
 Every request may carry `X-Lessons-Client: <versionCode>`, and an APK's first v2 build sends it.
 The server reads it before anything else. With `MIN_CLIENT_VERSION` set, a version below it is
 `FAILED_PRECONDITION` with the reason `CLIENT_TOO_OLD` and `min_version` in its metadata, and a
-header that is not a positive integer is `VALIDATION_FAILED`; without a minimum a malformed
-header is ignored. A request without the header is never refused. Then, in this order: a diary
-method on a deployment without `DIARY_SECRET` is `DIARY_DISABLED`, before any token is read;
-the bearer; a linked account for `AUTH_KIND_DEVICE_LINKED` and for any role above viewer
-(`DEVICE_NOT_LINKED`); the role (`ROLE_REQUIRED`).
+header that is not a whole number from 1 to 2100000000, the most a versionCode can be, is
+`VALIDATION_FAILED`; without a minimum a malformed header is ignored. A request without the
+header is never refused. Then, in this order: a diary method on a deployment without
+`DIARY_SECRET` is `DIARY_DISABLED`, before any token is read; the bearer; a linked account for
+`AUTH_KIND_DEVICE_LINKED` and for any role above viewer (`DEVICE_NOT_LINKED`); the role
+(`ROLE_REQUIRED`).
 ```
   5. Under «Errors», after the code table's paragraph, append:
 ```markdown
@@ -6587,7 +6770,22 @@ Over Connect the error is its JSON body, under the same status: `{"code": "permi
 Decode `value`; `debug` is the server library's courtesy rendering of the same message.
 ```
 
-- [ ] **Step 2: `docs/README.md`.** In the row for `api.md`, replace «and at its end the v2 contract that nothing serves yet:» with «and at its end the v2 contract, served beside v1 four methods so far:».
+- [ ] **Step 2: `docs/README.md` and `docs/deploy.md`.** In `docs/README.md`'s row for `api.md`, replace «and at its end the v2 contract that nothing serves yet:» with «and at its end the v2 contract, served beside v1 four methods so far:».
+
+  `docs/deploy.md` names every setting twice, and `MIN_CLIENT_VERSION` (Task 5) joins both:
+  1. In the table under «Secrets» (`| Variable | Value |`), insert below the `DADATA_TOKEN` row:
+```markdown
+| `MIN_CLIENT_VERSION` | empty — or the oldest APK versionCode v2 still answers; raise it only once the newer APK is on the phones it would refuse |
+```
+  2. Under «Option 2», in the paragraph that begins «**Every setting the server reads reaches the container.**», the sentence that lists what compose hands the server gains it. Replace the line
+```markdown
+`DIARY_SECRET`, `DADATA_TOKEN`, `PUBLIC_BASE_URL`, `RUN_BOT` and `TRUSTED_PROXY_HOPS` from the
+```
+  with the two lines
+```markdown
+`DIARY_SECRET`, `DADATA_TOKEN`, `PUBLIC_BASE_URL`, `MIN_CLIENT_VERSION`, `RUN_BOT` and
+`TRUSTED_PROXY_HOPS` from the
+```
 
 - [ ] **Step 3: `docs/architecture.md`.** In the tree under «The server», replace the `contract/` line with these three:
 ```
@@ -6616,7 +6814,7 @@ under its two prefixes, so v1 and the webhook never go down with it.
 
 - [ ] **Step 4: `CLAUDE.md`.**
   1. In the deliverables block, replace `server/app/contract/, and nothing serves it yet` with `server/app/contract/, and app/rpc and app/rest serve it beside v1`.
-  2. In «Commands», replace «2172 tests in about four minutes» and «of all 197 modules» with Step 6's numbers (214 modules).
+  2. In «Commands», read the two counts the file quotes as it stands: the `pytest -q -n auto` line's «N tests in about four minutes» and the `python -m mypy` line's «of all M modules». Both move with every batch, so this plan does not write them down. Steps 5 and 6 use the same N and M. Replace each with the number Step 6 prints: N plus the 172 tests this stage adds, and M plus its 17 modules, unless something else has moved them.
   3. In «Server modules», replace the `contract/` bullet with:
 ```markdown
 - `contract/` — the Python `buf generate` writes from `proto/lessons/v2/` (and googleapis'
@@ -6629,26 +6827,27 @@ under its two prefixes, so v1 and the webhook never go down with it.
   one dishka scope, the handler, the one commit, then the effects), `errors.py` (the one error
   table) and `handlers.py` (which methods are served). A handler never commits and never
   checks a credential; `rpc_app()` mounts the seventeen Connect apps at `/api/rpc`, refusing
-  native gRPC over HTTP/1.1 with `415`. May import `services/`, `security`, `api/deps.py` and
-  the contract — never `app.bot` or a v1 router; `tests/test_service_layering.py` walks it
+  native gRPC over HTTP/1.1 with `415`. May import `services/`, `models`, `schedule`,
+  `wording`, `security`, `api/deps.py`, the diary registry and the contract — never `app.bot`
+  or a v1 router; `tests/test_service_layering.py` walks it
 - `rest/` — the transcoder: one Starlette route per unary method from its `google.api.http`
   rule, under `/api/v2`, calling the same `invoke`; `errors.py` writes Google's error body.
   `main.mount_v2` mounts both and answers `503` under their prefixes if v2 will not import
 ```
-  4. Append to the `services/` bullet: «The rules v2 shares with v1 live here too: `join.py` (the join flow and its four sentences), `window.py` (the year's window and its tag), `clock.py` (the class's clock and the date bounds); the limiters are `security.py`'s, one instance each.»
+  4. Append to the `services/` bullet: «The rules v2 shares with v1 live here too: `join.py` (the join flow, refusing with facts), `window.py` (the year's window and its tag), `clock.py` (the class's clock and the date bounds); the limiters are `security.py`'s, one instance each, and the sentences both versions answer with (the join's four, the diary's «disabled») are `app/wording.py`'s.»
   5. After «…which is a different decision from making them mandatory.» add: «`MIN_CLIENT_VERSION` is optional too — empty means no minimum, and a request without `X-Lessons-Client` is never refused — and it is not a feature switched off, so it is in neither list.»
 
-- [ ] **Step 5: `README.md`, `CONTRIBUTING.md` and the `gates` skill.** In «Honest status», replace `clean, 197 modules` with `clean, 214 modules` and the `pytest -q -n auto` count with Step 6's; add after the Buf row:
+- [ ] **Step 5: `README.md`, `CONTRIBUTING.md` and the `gates` skill.** In `README.md`'s «Honest status», the `python -m mypy` row says «clean, M modules» and the `pytest -q -n auto` row «N tests», M and N as Step 4.2 read them. Replace both with Step 6's printed numbers, and add after the Buf row:
 ```markdown
 | v2 over REST and Connect | four methods served beside v1 (`GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities`, `CreateDevice`), each tested both ways in-process, the window day by day against v1's `/bundle`; no APK calls them yet |
 ```
-In `CONTRIBUTING.md` («197 modules», «2172 of them») and `.claude/skills/gates/SKILL.md` («197 modules», «2172 tests today») put the same two numbers.
+In `CONTRIBUTING.md` (its «M modules» and «N of them») and `.claude/skills/gates/SKILL.md` («M modules», «N tests today») put the same two numbers.
 
 - [ ] **Step 6: Run the gates, and write their numbers everywhere.**
 ```bash
 cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m mypy && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -n auto
 ```
-Expected: `All checks passed!`; `Success: no issues found in 214 source files`; the passed count 169 above the count before Task 1 (2341 if 2172 was current). Write the printed numbers, not these, into `CLAUDE.md`, `CONTRIBUTING.md`, `README.md`, `docs/architecture.md`, the `gates` skill and `HANDOVER.md`'s cheat-sheet. Then the freshness check of Task 1 Step 5 once more → `FRESH`.
+Expected: `All checks passed!`; `Success: no issues found in` M + 17 `source files`; the passed count N + 172, with N and M as Step 4.2 read them from `CLAUDE.md`. The 172 is this stage's own tests, task by task: 2, 15, 24, 11, 37, 12, 18, 20, 12 and 21. If the count is not N + 172, find the test file that moved before writing anything. Write the printed numbers, not the sums, into `CLAUDE.md`, `CONTRIBUTING.md`, `README.md`, `docs/architecture.md`, the `gates` skill and `HANDOVER.md`'s cheat-sheet. Then the freshness check of Task 1 Step 5 once more → `FRESH`.
 
 - [ ] **Step 7: The HANDOVER close-out** (the `handover` skill, «What goes stale mechanically»):
   1. Move «What the session before it added: …» verbatim, retitled «What the batch before added: …», to the top of `docs/history.md` under its introduction; the current «What the last session added: …» becomes «What the session before it added: …».
@@ -6699,11 +6898,15 @@ with `gh pr checks`; Android not run, as nothing under `android/` changed.
 - v2 against Postgres: every v2 test ran on SQLite.
 - `x-vercel-forwarded-for` reaching a Connect call's bucket: held by unit tests of
   `caller_bucket`, never through Vercel's proxy.
+- What `http_version` Vercel's Python bridge puts in the ASGI scope. The native-gRPC
+  guard steps aside only for `"2"` and `"3"` and reads a missing one as HTTP/1.1, as ASGI
+  does; a bridge that said `"2"` for a request it carried over HTTP/1.1 would let native
+  gRPC through to the library's `500`. The post-merge check sends no `application/grpc`.
 - `X-Lessons-Client` from an APK: no APK sends it yet.
 ```
-  3. **The opening paragraph**: name this pull request as the only one open, with the number `gh pr view --json number` prints; `main` at the merge before it (`git rev-parse --short origin/main`); the schema head unchanged at `0017`, and `EXPECTED_REVISION` unchanged.
+  3. **The opening paragraph**: name the pull requests open at that moment, from `gh pr list --state open`, rather than assuming which they are. This pull request is one, with the number `gh pr view --json number` prints. If #301 (the design and this plan) is still open, because the owner approved while it was and Ruling 23 cut this branch from `server-v2/design`, name it too, and say that this pull request carries #301's commits and merges after it. Then `main` at the merge before this pull request (`git rev-parse --short origin/main`); the schema head unchanged at `0017`, and `EXPECTED_REVISION` unchanged.
   4. **The milestone table**: milestone 11's row gains this pull request's number.
-  5. **Section 5** gains the four unverified items above; **section 7** gains: «Set `MIN_CLIENT_VERSION` only after sub-project 5's APK is on the family's phones, and never above the version they run» and the design's open questions as the owner leaves them.
+  5. **Section 5** gains the five unverified items above; **section 7** gains: «Set `MIN_CLIENT_VERSION` only after sub-project 5's APK is on the family's phones, and never above the version they run» and the design's open questions as the owner leaves them.
   6. The cheat-sheet's counts under «How to continue»: Step 6's numbers.
 
 - [ ] **Step 8: Gates for the documents, then commit.**
@@ -6712,17 +6915,19 @@ cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/ser
 ```
 Expected: all pass (`test_rpc_errors.py` reads `docs/api.md`'s table). Then:
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add docs/api.md docs/README.md docs/architecture.md CLAUDE.md README.md CONTRIBUTING.md .claude/skills/gates/SKILL.md HANDOVER.md docs/history.md && git commit -F - <<'EOF'
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add docs/api.md docs/README.md docs/deploy.md docs/architecture.md CLAUDE.md README.md CONTRIBUTING.md .claude/skills/gates/SKILL.md HANDOVER.md docs/history.md && git commit -F - <<'EOF'
 Describe v2 as served, and hand the batch over
 
 docs/api.md's «v2: the contract» says what is served now rather than what
 will be: the four methods, the guard in front of native gRPC, the 503 a
 deployment that cannot load v2 answers, what REST adds (201 for the eight
-Creates the proto names, the query binding, the tag, no CORS), the client
-version and the gate's order, and Connect's error body. CLAUDE.md and
-docs/architecture.md name app/rpc and app/rest and the rules that moved
-into services/; MIN_CLIENT_VERSION is recorded as optional and in neither
-list. The counts are the run's own, in the places that carry them.
+Creates the proto names, the query binding whatever the verb, the tag, no
+CORS), the client version and the gate's order, and Connect's error body.
+CLAUDE.md and docs/architecture.md name app/rpc and app/rest and the rules
+that moved into services/; MIN_CLIENT_VERSION is recorded as optional and
+in neither list, and docs/deploy.md names it beside every other setting
+and among those compose hands the server. The counts are the run's own,
+in the places that carry them.
 
 HANDOVER.md's close-out is written while this pull request is open, so the
 file is true when it merges; the batch before moves to docs/history.md.
@@ -6755,11 +6960,11 @@ Expected: `{"status":"ok","api_version":1,"schema":"0017"}`; `HTTP/1.1 200` with
 - Decision 2, where things live and what moves first: Tasks 2–3; the two-way layering walk (Task 5). The design names `services/join.py` and `services/window.py`, and they are those files.
 - Decision 3, one `invoke` and the generic gate, its order, its table over 76 methods and its behaviour over served methods: Task 5 (`test_rpc_gate.py`, `test_rpc_call.py`), Task 8 (`test_the_gate_stands_in_front_of_every_served_method`).
 - Decision 4, the scope, the commit, effects after it, the self-committing writes named and tested, the `.commit(` grep: Task 5. «A wrong code over v2 is still counted»: Task 9.
-- Decision 5, the table, metadata as `errors.proto` names it, `INTERNAL` → 500 in `docs/api.md`, the registry-rendered JSON first: Tasks 1 and 4; the three table tests: rows read back through real methods (Tasks 9, 10) — except `DiaryDisabled`'s, which no served method reaches before 3b, so Task 5 holds the gate raising it and Task 4 its wording — every reason produced or later (Task 4, narrowed in 5 and 6), the no-echo sweep (Task 8).
+- Decision 5, the table, metadata as `errors.proto` names it, `INTERNAL` → 500 in `docs/api.md`, the registry-rendered JSON first: Tasks 1 and 4; the three table tests: rows read back through real methods on both paths (Tasks 9, 10), each named in `HELD_BY` so that a row without one fails (Task 10, Ruling 24) — except `DiaryDisabled`'s, which no served method reaches before 3b, so Task 5 holds the gate raising it and Task 4 its wording — every reason produced or later (Task 4, narrowed in 5 and 6), the no-echo sweep (Task 8). The shell's sentences shared with v1 are `app/wording.py`'s (Tasks 2, 3; Ruling 5).
 - Decision 6, the transcoder: binding, the query whatever the verb, WKT strings, dotted variables, 4 MB, 201 for eight, no CORS, diary `no-store`, the ETag rule: Task 7; the tag of the window: Task 10.
-- Decision 7, the mounts, the fail-safe with its test, the 415 over HTTP/1.1 only, the decoding guard, `WatchClass` with the marker, the post-merge check: Tasks 6 and 11.
+- Decision 7, the mounts, the fail-safe with its test, the 415 for anything but HTTP/2 and HTTP/3 (a scope with no version included), the decoding guard, `WatchClass` with the marker, the post-merge check: Tasks 6 and 11.
 - Decision 8, the cold start turned round, no ceiling: Task 6.
-- Decision 9, the client version: Task 5.
+- Decision 9, the client version, up to the build's own ceiling, and the setting forwarded by `docker-compose.yml`: Task 5; in `docs/deploy.md`: Task 11.
 - Decision 10, terms as plain values, no adoption on a read, the statement-count test with the allowlist: Tasks 3, 8, 10.
 - Decision 11, one instance each, one bucket for v1 and v2 and for two ports: Tasks 2 and 9.
 - Decision 12 (3a's part), capabilities from today's registry: Task 8.
@@ -6767,8 +6972,8 @@ Expected: `{"status":"ok","api_version":1,"schema":"0017"}`; `HTTP/1.1 200` with
 - «Delivers: the documents turned from will to does»: Task 11.
 - Not 3a, and not planned here: decisions 12's table and 13, the other methods, the notices, the host.
 
-**Placeholder scan:** no «TBD», no «similar to Task N»; every code step quotes the file or the exact replacement. The test counts in Task 11 are written «the printed count», with the expected number beside it, because the suite's size on the day of execution is not known now.
+**Placeholder scan:** no «TBD», no «similar to Task N»; every code step quotes the file or the exact replacement. The test and module counts in Task 11 are read from the files at execution (N and M, Step 4.2) and written as the run prints them, with what this stage adds beside them (172 tests, 17 modules), because the suite's size on the day of execution is not known now.
 
-**Type consistency:** `Method.key` is `"lessons.v2.<Service>/<Method>"` in `methods.py`, `HANDLERS`, `gate.TABLE`, `rest.CREATED` and every test; the harness's `name` is the same without `lessons.v2.`. `invoke(method, request, *, headers, peer)` is called with those keywords by `rpc/__init__.py`, `rest/__init__.py` and `test_rpc_call.py`. `Refusal(reason, message, *, violations=(), **metadata)` is raised that way in `errors.py`, `gate.py`, `watch.py` and the tests. `caller_bucket(headers, peer, *, scope="")` is called so by `Call.bucket`, `request_bucket` and the tests; `peer` is a host, made one by `peer_host` for Connect. `Access(linked, role)` is built by `Access.of` — directly in `me.py` and `schedule.py`, through `linking.access_of` in `public.py`. `TermSpan(index, kind, starts_on, ends_on)` is what `spans` returns and `values.term` reads.
+**Type consistency:** `Method.key` is `"lessons.v2.<Service>/<Method>"` in `methods.py`, `HANDLERS`, `gate.TABLE`, `rest.CREATED` and every test; the harness's `name` is the same without `lessons.v2.`. `invoke(method, request, *, headers, peer)` is called with those keywords by `rpc/__init__.py`, `rest/__init__.py` and `test_rpc_call.py`. `Refusal(reason, message, *, violations=(), **metadata)` is raised that way in `errors.py`, `gate.py`, `watch.py` and the tests. `caller_bucket(headers, peer, *, scope="")` is called so by `Call.bucket`, `request_bucket` and the tests; `peer` is a host, made one by `peer_host` for Connect. `Access(linked, role)` is built by `Access.of` — directly in `me.py` and `schedule.py`, through `linking.access_of` in `public.py`. `TermSpan(index, kind, starts_on, ends_on)` is what `spans` returns and `values.term` reads. `wording.JOIN_THROTTLED_DETAIL`, `JOIN_UNKNOWN_CODE_DETAIL`, `JOIN_INVITE_ONLY_DETAIL`, `JOIN_DEVICE_LIMIT_DETAIL` and `DIARY_DISABLED_DETAIL` are read under those names by `api/public.py`, `api/diary.py`, `rpc/errors.py` and `test_v2_devices.py`, and `services/join.py` and `services/diary.py` define no sentence. `gate.MAX_CLIENT_VERSION` is the one ceiling `client_version` and `BAD_CLIENT_HEADER` read, and `test_rpc_gate.py` asks it at 2100000000 and one above.
 
 **Review Focus:** each of the five lines names its test and its task, and each test was run in the scratch copy.
