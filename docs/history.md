@@ -28,6 +28,64 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: a form no longer takes «/week@» for an answer (#276, #304), and CI runs the server's tests when a document they read changes (#295)
+
+Merged as #305 (`26769c6`, 5 October 2026), from `fix/breakout-mention-and-ci-documents`, on milestone 11. It closes
+#276, #295 and #304 and refers to #273. Written on 5 October 2026, after #303 merged. The
+schema head did not move, and nothing under `/api/v2` exists.
+
+- **An open form is dropped by «/week@», as aiogram dispatches it (#276).** The breakout's
+  `_COMMAND` accepted a mention only with a name, while aiogram reads «/week@» as «/week»; so
+  the form stayed open and an editor at «Теперь пришлите текст задания:» got an assignment
+  called «/week@», committed, audited and announced. The pattern is now
+  `^\s*/[A-Za-z0-9_]+(@[A-Za-z0-9_]*)?(\s|$)`, no looser than aiogram: «/week@@», «/ week» and
+  «/недели» are still text.
+- **Leading whitespace counts as well (#304).** #276's own test found it: aiogram splits on
+  whitespace before it looks, so «  /week» is a command to it. It was filed that night and
+  fixed in the same pull request, because the pin cannot hold without it.
+- **The two readings are pinned against each other.** `test_bot_commands.py` sends a 24-row
+  table both to `looks_like_command` and to each of aiogram's 26 `Command` filters in the real
+  dispatcher, discovered rather than listed, plus a real-dispatcher test that «/week@» at the
+  homework step drops the form. A comment in `bot/handlers/__init__.py` on the ticks router's
+  position was rewritten: the position no longer decides anything.
+- **CI's server job runs when a file the suite reads outside `server/` changes (#295).**
+  `ci.yml`'s server `case` arm names `docs/*.md`, `.claude/*.md`, `proto/*`, `buf.yaml`,
+  `vercel.json`, `.vercelignore`, `.python-version` and the root documents; found by grep and
+  confirmed under an `open`/`scandir` audit hook. Comment and filter only: no step, job, `if:`
+  or output is new. `server/tests/test_ci_paths.py` (3 tests) holds the patterns level with the
+  suite; `_documents` moved into `conftest.py` as the `head_documents` fixture; `docs/build.md`,
+  «Path filters», and `.claude/agents/build-ci.md` say so.
+- **Reviewed before the merge by the build-ci agent**: ready, no Critical or Important
+  finding. A commit that touches only `docs/history.md` now runs the server job, which is
+  acceptable, runners being free on a public repository.
+
+### Gates
+
+- **The server suite.** At `5b7f5cb`, `pytest -q -n auto`, run once and alone on this machine
+  on 5 October 2026, gave **2207 passed** in 9 minutes 1 second: 2175 plus 32 (29 in
+  `test_bot_commands.py`, 3 in `test_ci_paths.py`). The README, `docs/architecture.md`,
+  `CLAUDE.md`, `CONTRIBUTING.md`, the `gates` skill and the cheat-sheet at the end of section 8
+  say 2207.
+- **ruff and mypy.** Both are clean; mypy covers 197 modules.
+- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
+- **CI on #305's head** is not claimed here.
+
+### What was deliberately left alone
+
+- **Moving the ticks router into `content`'s router** is a change of its own and not done.
+- **A guard that sees a new file under an already-listed root**: the root-name check reads only
+  the first part of a path, and a stronger one was not written.
+- **#301 is not merged and its plan is not executed.** It was reviewed independently (ready
+  after fixes: `MIN_CLIENT_VERSION` also in `docker-compose.yml`, a guard that every error-table
+  row has a both-path test, nine Minor findings, the client header accepting ten digits up to
+  2,100,000,000, and the join's sentences living in `app/wording.py`), every finding was applied
+  (`aa2253d`), and it waits for the owner's approval.
+
+### What nobody has verified in this batch
+
+- **The new filter on a GitHub runner**, beyond #305's own CI, as section 5 says.
+- **Whether Telegram delivers a message that starts with whitespace** (#304), as section 5 says.
+
 ## What the batch before added: a deployment without a diary key keeps its sessions (#302), and the design of serving v2 is drafted for the owner (#301)
 
 Merged as #303 (`aba88f8`, 5 October 2026), from `fix/diary-secret-keeps-sessions`, on
