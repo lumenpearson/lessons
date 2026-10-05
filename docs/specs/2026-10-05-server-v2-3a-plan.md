@@ -61,9 +61,9 @@ Each is a choice the design leaves to the code, or a place where the code showed
 - **The machine has faulty RAM.** One heavy job at a time: never run the suite while Gradle or another suite runs (`tasklist | grep -i java` first). The full suite runs **once**, at the end of each task. After a crash, scan for zero-filled files before trusting the tree.
 - Commands (shell state does not persist, so every command spells these out):
   - `WT` is `/c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract`.
-  - `python` is `/c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe`, always as `python -m …` from `$WT/server`, so the worktree's `server/` comes first on `sys.path`. Never `pip install -e .` from the worktree.
+  - `python` is `$WT/server/.venv/Scripts/python.exe`, a venv made in the worktree's own `server/` exactly as CI makes it (`python -m venv .venv`, then `pip install -r ../requirements.txt -e ".[dev]"`; on Python 3.12, which CI runs). The main checkout's venv is refused: since #312 (#313) `tests/conftest.py` stops the run when `app`, or the editable install of `lessons-server`, is another tree's, under `python -m pytest` as much as bare.
   - `buf` is `/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe` (1.73.0), run from `$WT`.
-- Gates at the end of every task, from `$WT/server`: the task's own test files with `-p no:xdist`; `python -m ruff check app tests scripts migrations` → `All checks passed!`; `python -m mypy` → `Success: no issues found in N source files` (N is given per task, over a base of 197 modules: if mypy on the branch's first commit prints another number, shift every N by the difference; `app/contract` stays excluded); then `python -m pytest -q -n auto` once (about ten minutes here) with no failure.
+- Gates at the end of every task, from `$WT/server`: the task's own test files with `-p no:xdist`; `python -m ruff check app tests scripts migrations` → `All checks passed!`; `python -m mypy` → `Success: no issues found in N source files` (N is given per task, over a base of 197 modules: if mypy on the branch's first commit prints another number, shift every N by the difference; `app/contract` stays excluded); then `pytest -q -n auto`, bare, which is exactly CI's command, once (about ten minutes here) with no failure.
 - Milestone 11 (`v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`), under epic #273. Another agent may work in this tree: `git status` before touching a file you did not open.
 
 ## Review Focus
@@ -190,7 +190,7 @@ def test_the_error_details_render_as_json_through_the_type_registry() -> None:
 ```
 Run:
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_contract.py -k "google_rpc or registry"
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_contract.py -k "google_rpc or registry"
 ```
 Expected: 2 failed — `assert locked is not None and pinned is not None` (no `- module:` line yet) and `ModuleNotFoundError: No module named 'app.contract.google.rpc'`.
 
@@ -246,7 +246,7 @@ Expected: `FRESH`. CI's job runs the same `buf generate --output`, which reads `
 
 - [ ] **Step 6: Green.** The same command as Step 2. Expected: `2 passed`. Then the whole file: `python -m pytest -q -p no:xdist tests/test_contract.py` → `28 passed` (26 before, these two added; `test_every_generated_module_imports` and the header check now cover the three new modules too).
 
-- [ ] **Step 7: Gates.** From `$WT/server`: `python -m ruff check app tests scripts migrations` → `All checks passed!` (ruff skips `app/contract`); `python -m mypy` → `Success: no issues found in 197 source files`; `python -m pytest -q -n auto` → the previous count plus 2, no failure.
+- [ ] **Step 7: Gates.** From `$WT/server`: `python -m ruff check app tests scripts migrations` → `All checks passed!` (ruff skips `app/contract`); `python -m mypy` → `Success: no issues found in 197 source files`; `pytest -q -n auto` (bare) → the previous count plus 2, no failure.
 
 - [ ] **Step 8: Commit.**
 ```bash
@@ -1003,7 +1003,7 @@ from app.api.public import (
 
 - [ ] **Step 11: Green, and v1 unchanged.** From `$WT/server`:
 ```bash
-/c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_shared_rules.py tests/test_hardening.py tests/test_join_device_cap.py tests/test_join_modes.py tests/test_directory.py tests/test_diary_session.py tests/test_diary_api.py tests/test_api_extended.py tests/test_api.py
+/c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_shared_rules.py tests/test_hardening.py tests/test_join_device_cap.py tests/test_join_modes.py tests/test_directory.py tests/test_diary_session.py tests/test_diary_api.py tests/test_api_extended.py tests/test_api.py
 ```
 Expected: all pass (`test_shared_rules.py` is 15 of them). `test_directory`'s `test_every_throttle_on_the_attempts_table_uses_one_window` now finds all four `JoinThrottle(...)` in `security.py` and resolves them to the objects v1's modules re-export.
 
@@ -1692,7 +1692,7 @@ def _etag(out: BundleOut) -> str:
 
 - [ ] **Step 7: Green, and v1 unchanged.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_services_window.py tests/test_shared_rules.py tests/test_join_modes.py tests/test_join_device_cap.py tests/test_hardening.py tests/test_api_extended.py tests/test_api.py tests/test_directory.py
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_services_window.py tests/test_shared_rules.py tests/test_join_modes.py tests/test_join_device_cap.py tests/test_hardening.py tests/test_api_extended.py tests/test_api.py tests/test_directory.py
 ```
 Expected: all pass (`test_services_window.py` is 24). The bundle's `ETag` tests in `test_api_extended.py` prove `strong_etag` hashes exactly what `_etag` did.
 
@@ -3509,7 +3509,7 @@ def test_the_walk_sees_a_v2_module_reach_a_v1_router():
 
 - [ ] **Step 10: Green.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_rpc_gate.py tests/test_rpc_call.py tests/test_service_layering.py tests/test_rpc_errors.py tests/test_env_example.py tests/test_compose.py
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_rpc_gate.py tests/test_rpc_call.py tests/test_service_layering.py tests/test_rpc_errors.py tests/test_env_example.py tests/test_compose.py
 ```
 Expected: all pass — `test_rpc_gate.py` 25, `test_rpc_call.py` 9, `test_service_layering.py` 6, and `test_compose.py`'s three with `MIN_CLIENT_VERSION` forwarded.
 
@@ -4241,7 +4241,7 @@ def test_the_api_cold_start_imports_the_contract_it_serves(settings: dict[str, s
 
 - [ ] **Step 7: Green.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_rpc_mount.py tests/test_rpc_errors.py tests/test_contract.py tests/test_cold_start.py tests/test_rpc_call.py tests/test_service_layering.py tests/test_startup.py tests/test_api_docs.py
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_rpc_mount.py tests/test_rpc_errors.py tests/test_contract.py tests/test_cold_start.py tests/test_rpc_call.py tests/test_service_layering.py tests/test_startup.py tests/test_api_docs.py
 ```
 Expected: all pass — `test_rpc_mount.py` 13, `test_contract.py` 27, `test_cold_start.py` 3 (aiogram still absent in both configurations, with `app.rpc` now imported).
 
@@ -5110,7 +5110,7 @@ and `    target.mount("/api/rpc", services)` with
 
 - [ ] **Step 4: Green.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_rest.py tests/test_rpc_mount.py tests/test_api_docs.py tests/test_contract.py
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_rest.py tests/test_rpc_mount.py tests/test_api_docs.py tests/test_contract.py
 ```
 Expected: all pass, `test_rest.py` 18. `test_api_docs.py` passes unchanged: the transcoder's routes are plain Starlette routes, which FastAPI's schema does not list.
 
@@ -5579,7 +5579,7 @@ async def get_diary_capabilities(
 
 - [ ] **Step 5: Green.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_rpc_errors.py
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_rpc_errors.py
 ```
 Expected: all pass — `test_v2_reads.py` 17 (the gate test over three served methods), `test_v2_no_echo.py` 3. `test_rest.py`'s handlers put into `HANDLERS` for `GetMe` and `GetDiaryCapabilities` replace the real ones for their test only.
 
@@ -5895,7 +5895,7 @@ async def create_device(call: Call, request: CreateDeviceRequest) -> CreateDevic
 
 - [ ] **Step 4: Green.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_v2_devices.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_join_modes.py tests/test_join_device_cap.py tests/test_hardening.py
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_v2_devices.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_join_modes.py tests/test_join_device_cap.py tests/test_hardening.py
 ```
 Expected: all pass — `test_v2_devices.py` 10; the gate and no-echo tests gain `CreateDevice`'s case each. Note `DEVICE_LIMIT_REACHED` is `429` on REST, where v1 answers `409`: the contract puts it under `RESOURCE_EXHAUSTED`.
 
@@ -6633,7 +6633,7 @@ HANDLERS: dict[str, Handler] = {
 
 - [ ] **Step 5: Green.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_v2_window.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rpc_errors.py
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_v2_window.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rpc_errors.py
 ```
 Expected: all pass — `test_v2_window.py` 18, `test_rpc_errors.py` 12. `test_every_day_is_v1_s_day_and_the_terms_v1_would_have_seeded` is the review's claim of decision 10, asked of every day of 2026/27; `test_a_dense_year_stays_under_two_megabytes` inserts about 1,900 homework rows, so it is the slowest test of the task (about two seconds here).
 
@@ -6845,7 +6845,7 @@ In `CONTRIBUTING.md` (its «M modules» and «N of them») and `.claude/skills/g
 
 - [ ] **Step 6: Run the gates, and write their numbers everywhere.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m mypy && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -n auto
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m mypy && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -n auto
 ```
 Expected: `All checks passed!`; `Success: no issues found in` M + 17 `source files`; the passed count N + 172, with N and M as Step 4.2 read them from `CLAUDE.md`. The 172 is this stage's own tests, task by task: 2, 15, 24, 11, 37, 12, 18, 20, 12 and 21. If the count is not N + 172, find the test file that moved before writing anything. Write the printed numbers, not the sums, into `CLAUDE.md`, `CONTRIBUTING.md`, `README.md`, `docs/architecture.md`, the `gates` skill and `HANDOVER.md`'s cheat-sheet. Then the freshness check of Task 1 Step 5 once more → `FRESH`.
 
@@ -6911,7 +6911,7 @@ with `gh pr checks`; Android not run, as nothing under `android/` changed.
 
 - [ ] **Step 8: Gates for the documents, then commit.**
 ```bash
-cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_rpc_errors.py tests/test_env_example.py tests/test_contract.py tests/test_schema_version.py
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m pytest -q -p no:xdist tests/test_rpc_errors.py tests/test_env_example.py tests/test_contract.py tests/test_schema_version.py
 ```
 Expected: all pass (`test_rpc_errors.py` reads `docs/api.md`'s table). Then:
 ```bash
