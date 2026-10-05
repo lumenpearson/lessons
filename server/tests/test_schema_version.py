@@ -186,6 +186,7 @@ async def test_warmup_says_ok_when_the_database_is_at_the_expected_revision(sess
         "status": "ok",
         "api_version": body["api_version"],
         "schema": EXPECTED_REVISION,
+        "v2": True,
     }
 
 

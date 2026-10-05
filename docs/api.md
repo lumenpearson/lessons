@@ -1022,7 +1022,9 @@ container health checks.
 
 `/api/v1/warmup` is the same plus one round trip, which is what actually wakes the
 database (see `deploy.md`), and since the connection is open anyway it also reports
-whether the schema is the one this code was written against. Three answers:
+whether the schema is the one this code was written against. Every answer also carries `"v2": true` when
+v2 is mounted and `false` when it could not be loaded and `/api/v2` and `/api/rpc` answer `503`; it never changes
+`status`. Three answers:
 
 | | Body | Meaning |
 | --- | --- | --- |

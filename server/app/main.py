@@ -231,8 +231,12 @@ def mount_v2(target: FastAPI) -> bool:
         log.exception("v2 could not be loaded: /api/v2 and /api/rpc answer 503, v1 is served")
         target.router.routes.append(Mount("/api/v2", app=_v2_unavailable))
         target.router.routes.append(Mount("/api/rpc", app=_v2_unavailable))
+        # Read back by `/api/v1/warmup`: a fallback that only the log knew of
+        # would be invisible to whatever pings it.
+        target.state.v2_mounted = False
         return False
     target.mount("/api/rpc", services)
+    target.state.v2_mounted = True
     return True
 
 

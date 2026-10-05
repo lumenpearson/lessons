@@ -149,7 +149,7 @@ async def health() -> dict[str, object]:
 
 @router.get("/warmup")
 async def warmup(
-    response: Response, session: FromDishka[AsyncSession]
+    request: Request, response: Response, session: FromDishka[AsyncSession]
 ) -> dict[str, object]:
     """Same as `/health`, plus one round trip to the database.
 
@@ -181,6 +181,7 @@ async def warmup(
             "status": "down",
             "api_version": API_VERSION,
             "detail": "База недоступна.",
+            "v2": _v2_mounted(request),
         }
 
     # And, since the connection is open anyway, whether the schema is the one
@@ -198,11 +199,18 @@ async def warmup(
         "status": "ok" if schema_ok else "degraded",
         "api_version": API_VERSION,
         "schema": revision or "unknown",
+        # Additive and never a reason for «degraded»: v1 is what is serving,
+        # and v2 answering 503 is a fact to see, not an outage of v1.
+        "v2": _v2_mounted(request),
     }
     if not schema_ok:
         body["expected_schema"] = EXPECTED_REVISION
         body["detail"] = _drift_detail(revision)
     return body
+
+
+def _v2_mounted(request: Request) -> bool:
+    return bool(getattr(request.app.state, "v2_mounted", False))
 
 
 def _drift_detail(revision: str | None) -> str:

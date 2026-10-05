@@ -7,16 +7,21 @@ HTTP/1.1, and each test sends the request that found it
 
 from __future__ import annotations
 
+import gzip
+import json
+import subprocess
 import sys
+from pathlib import Path
 
 import httpx
 import pytest
 from fastapi import FastAPI
 
+import app.rpc as rpc_module
 from app import main
 from app.api.public import router as public_router
 from app.config import get_settings
-from app.rpc import GRPC_REFUSED, rpc_app
+from app.rpc import GRPC_REFUSED, _Services, rpc_app
 
 
 async def test_native_grpc_over_http_1_1_is_refused_before_the_library(v2) -> None:
@@ -149,8 +154,6 @@ async def test_a_gzip_body_that_is_gzip_is_still_decompressed_and_decoded(v2) ->
     """No unary method has a handler yet, so the proof that the body got through
     is the answer it earns: a valid one is the method's UNIMPLEMENTED, and one
     that decompresses into garbage is the codec's refusal, not the gzip one's."""
-    import gzip
-
     headers = {
         "Content-Type": "application/json",
         "Content-Encoding": "gzip",
@@ -213,6 +216,147 @@ async def test_a_v2_that_cannot_be_imported_leaves_v1_serving(monkeypatch, caplo
 
 
 def test_the_live_app_mounted_v2() -> None:
-    """The other half: the app every test here reaches did load v2."""
-    paths = {getattr(route, "path", None) for route in main.app.routes}
-    assert "/api/rpc" in paths
+    """The other half: the app every test here reaches did load v2. The
+    fallback mounts a route at the same path, so the path alone proves nothing."""
+    route = next(r for r in main.app.routes if getattr(r, "path", None) == "/api/rpc")
+    assert isinstance(route.app, _Services)  # type: ignore[attr-defined]
+    assert main.app.state.v2_mounted is True
+
+
+async def test_warmup_says_whether_v2_is_mounted(v2, monkeypatch) -> None:
+    assert (await v2.http.get("/api/v1/warmup")).json()["v2"] is True
+
+    monkeypatch.setitem(sys.modules, "app.rpc", None)
+    fresh = FastAPI()
+    assert main.mount_v2(fresh) is False
+    assert fresh.state.v2_mounted is False
+
+
+_FALLBACK_PROBE = """
+import asyncio, json, sys
+sys.modules["connectrpc"] = None
+import httpx
+import app.main as m
+
+async def go():
+    transport = httpx.ASGITransport(app=m.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
+        health = await http.get("/api/v1/health")
+        rpc = await http.post("/api/rpc/lessons.v2.MeService/GetMe", content=b"{}")
+        rest = await http.get("/api/v2/me")
+        print(json.dumps([health.status_code, rpc.status_code, rpc.json(), rest.status_code,
+                          m.app.state.v2_mounted, m.V2_UNAVAILABLE]))
+
+asyncio.run(go())
+"""
+
+
+def test_a_connectrpc_that_cannot_be_imported_leaves_the_real_app_serving_v1() -> None:
+    """The promise itself, in a fresh interpreter: were ``app.main`` to import
+    ``app.rpc`` at the top, this would fail at import rather than answer 503."""
+    import os
+
+    env = {k: v for k, v in os.environ.items() if k != "VERCEL"}
+    env.update({"BOT_TOKEN": "", "WEBHOOK_SECRET": "", "RUN_BOT": "false"})
+    result = subprocess.run(
+        [sys.executable, "-c", _FALLBACK_PROBE],
+        cwd=str(Path(__file__).resolve().parents[1]),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    health, rpc_status, rpc_body, rest_status, mounted, sentence = json.loads(
+        result.stdout.strip().splitlines()[-1]
+    )
+    assert health == 200
+    assert (rpc_status, rest_status, mounted) == (503, 503, False)
+    assert rpc_body == {"code": "unavailable", "message": sentence}
+
+
+async def test_a_header_that_is_not_utf8_is_read_not_a_500(v2) -> None:
+    """#338: ``connectrpc`` decodes headers as UTF-8 and answered ``unknown``
+    with the exception's text. Compared with the same call without it."""
+    url = "/api/rpc/lessons.v2.MeService/GetMe"
+    plain = await v2.http.post(url, content=b"{}", headers={"Content-Type": "application/json"})
+    odd = await v2.http.post(
+        url,
+        content=b"{}",
+        headers={"Content-Type": "application/json", "x-name": b"caf\xe9"},
+    )
+    assert plain.status_code == 501
+    assert (odd.status_code, odd.json()) == (plain.status_code, plain.json())
+
+
+async def _asgi(scope: dict) -> tuple[int, bytes]:
+    sent: list[dict] = []
+
+    async def receive() -> dict:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message: dict) -> None:
+        sent.append(message)
+
+    await rpc_app()(scope, receive, send)
+    body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+    return sent[0]["status"], body
+
+
+def _get_scope(query: bytes) -> dict:
+    return {
+        "type": "http",
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/lessons.v2.MeService/GetMe",
+        "root_path": "",
+        "query_string": query,
+        "headers": [],
+        "client": ("203.0.113.9", 52144),
+    }
+
+
+async def test_a_query_string_that_is_not_utf8_is_read_not_a_500() -> None:
+    clean = await _asgi(_get_scope(b"encoding=json&message=%7B%7D"))
+    odd = await _asgi(_get_scope(b"encoding=json&message=%7B%7D&x=caf\xe9"))
+    assert clean[0] == 501
+    assert odd == clean
+
+
+async def test_an_authorization_that_is_not_utf8_gets_the_gates_refusal(v2) -> None:
+    odd = {"Authorization": b"Bearer caf\xe9"}
+    refused = await v2.stream("WatchService/WatchClass", headers=odd)
+    assert (refused.status, refused.code, refused.reason) == (
+        200,
+        "UNAUTHENTICATED",
+        "DEVICE_TOKEN_INVALID",
+    )
+
+
+async def test_a_gzip_body_over_the_read_limit_stays_resource_exhausted(v2) -> None:
+    """``except ConnectError: raise`` in the compression wrapper: the library's own
+    refusal must not become «undecodable»."""
+    response = await v2.http.post(
+        "/api/rpc/lessons.v2.MeService/GetMe",
+        content=gzip.compress(b"0" * (4 * 1024 * 1024 + 1)),
+        headers={
+            "Content-Type": "application/json",
+            "Content-Encoding": "gzip",
+            "Connect-Protocol-Version": "1",
+        },
+    )
+    assert response.json()["code"] == "resource_exhausted"
+
+
+async def test_the_peer_reaching_invoke_is_the_host_without_its_port(v2, monkeypatch) -> None:
+    seen: dict[str, object] = {}
+
+    async def invoke(method, request, *, headers, peer):
+        seen["peer"] = peer
+        return method.output()
+
+    monkeypatch.setattr(rpc_module, "invoke", invoke)
+    answer = await v2.connect("MeService/GetMe")
+    assert answer.status == 200
+    assert seen["peer"] == "203.0.113.9"

@@ -162,6 +162,36 @@ def _is_native_grpc(scope: Scope) -> bool:
     return False
 
 
+def _lenient_utf8(raw: bytes) -> bytes:
+    """``raw`` as UTF-8: itself if it is, otherwise read as Latin-1 and re-encoded."""
+    try:
+        raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1").encode("utf-8")
+    return raw
+
+
+def _readable(scope: Scope) -> Scope:
+    """A copy of ``scope`` whose headers and query string ``connectrpc`` can decode.
+
+    The library reads both with ``bytes.decode()``, which is UTF-8, and a
+    header whose value is the Latin-1 byte 0xE9 raises ``UnicodeDecodeError`` out of it:
+    ``unknown`` with the exception's text, a 500 (#338). v1 reads headers as
+    Starlette does, as Latin-1, and never fails on one, so a byte sequence that
+    is not UTF-8 is read that way here, and what it means is judged where it
+    is read: the gate refuses a token that is not one, the codec a query that
+    does not decode. The caller's scope is not touched; valid UTF-8 is left as
+    it is.
+    """
+    return {
+        **scope,
+        "headers": [
+            (_lenient_utf8(name), _lenient_utf8(value)) for name, value in scope.get("headers", ())
+        ],
+        "query_string": _lenient_utf8(scope.get("query_string", b"")),
+    }
+
+
 class _Services:
     """The seventeen service apps under one mount, chosen by the path's first part.
 
@@ -187,7 +217,7 @@ class _Services:
         if app is None:
             await Response(status_code=404)(scope, receive, send)
             return
-        await app(scope, receive, send)
+        await app(_readable(scope), receive, send)
 
 
 def rpc_app() -> _Services:
