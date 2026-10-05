@@ -59,6 +59,11 @@ message ClassDevice {
   // Recorded at most every fifteen minutes.
   google.protobuf.Timestamp last_seen_at = 8;
   google.protobuf.Timestamp linked_at = 9;
+  // The X-Lessons-Client version this phone last sent to v2, recorded beside
+  // last_seen_at and on its fifteen-minute clock; absent for a phone that
+  // never sent one, which is every APK that speaks only v1. New in v2: v1's
+  // answer does not carry it.
+  optional int32 client_version = 10;
 }
 
 message ListClassDevicesRequest {

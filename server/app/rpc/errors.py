@@ -33,6 +33,7 @@ from app.contract.google.rpc.error_details_pb import BadRequest, ErrorInfo, Retr
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.services import diary as diary_service
 from app.services import join, window
+from app.services.manage import devices as devices_service
 
 log = logging.getLogger(__name__)
 
@@ -145,6 +146,10 @@ def _year_out_of_bounds(_error: window.YearOutOfBounds) -> Refusal:
     return Refusal(ErrorReason.VALIDATION_FAILED, sentence, violations=[("year", sentence)])
 
 
+def _class_device_not_linked(_error: devices_service.DeviceNotLinked) -> Refusal:
+    return Refusal(ErrorReason.CLASS_DEVICE_NOT_LINKED, wording.CLASS_DEVICE_NOT_LINKED_DETAIL)
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -156,6 +161,7 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     join.DeviceLimitReached: _device_limit_reached,
     diary_service.DiaryDisabled: _diary_disabled,
     window.YearOutOfBounds: _year_out_of_bounds,
+    devices_service.DeviceNotLinked: _class_device_not_linked,
 }
 
 

@@ -120,7 +120,16 @@ MIRRORS: dict[str, Mirror] = {
         },
     ),
     "BellPeriod": Mirror(("BellPeriodIn", "BellPeriodOut")),
-    "ClassDevice": Mirror(("ManagedDeviceOut",)),
+    "ClassDevice": Mirror(
+        ("ManagedDeviceOut",),
+        added={
+            "client_version": (
+                "proto comment on ClassDevice.client_version: new in v2, recorded by "
+                "v2's gate only (server-v2 design, decision 15); v1's answer keeps its "
+                "shape, because that design delivers no change to v1"
+            )
+        },
+    ),
     "Term": Mirror(("TermOut",)),
     "Day": Mirror(("DayIn", "DayOverrideOut")),
     "DiaryBinding": Mirror(("DiaryBindingOut",)),
