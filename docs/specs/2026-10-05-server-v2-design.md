@@ -490,9 +490,14 @@ after 3b.
 
 ### 13. The host and the streaming beta (3c)
 
-- **What runs.** `python -m app.host`, with `LESSONS_TARGET=host`, serves the same app under
-  `pyvoy`: HTTP/2, trailers, gzip. That means v1, v2 over REST and Connect, native gRPC, the
-  webhook and the cron tick. `hypercorn` is the fallback the spike also proved.
+- **What runs.** `python -m app.host` serves the same app under `pyvoy`: HTTP/2, trailers, gzip.
+  That means v1, v2 over REST and Connect, native gRPC, the webhook and the cron tick.
+  `hypercorn` is the fallback the spike also proved.
+- **Who sets the marker.** `LESSONS_TARGET=host` is the deployment's own statement about itself,
+  as `VERCEL` is the platform's, so the `Dockerfile` sets it and `app.host` never does. The CI
+  job below and a local run (the build console's host target) start `python -m app.host`
+  without it, against SQLite, exactly as a local `uvicorn` runs today. With the marker, decision
+  7's settings refusal would reject the SQLite default, and the job could not start at all.
 - **Dependencies and packaging.** Host-only dependencies are locked separately:
   `server/requirements-host.in` is compiled with `-c requirements.txt` into
   `requirements-host.txt`. That way Vercel's lock and cold start do not carry them, and the two
@@ -520,7 +525,9 @@ after 3b.
     attached only when streaming is on.
 - **CI.** A job on a Linux runner starts the host against SQLite. A native gRPC client then makes
   a unary call, an `UNIMPLEMENTED` call, and a `WatchClass` that sees a change the test makes
-  itself through each kind of write: an ORM write, a bulk write, and a bell change.
+  itself through each kind of write: an ORM write, a bulk write, and a bell change. If the build
+  console ([#308](2026-10-05-build-console-design.md)) has merged by then, its test walks every
+  CI job, so 3c's pull request also gives this job its row in the console's task table.
 
 **What the programme did not see.** A bus in one process hears only the writes that process
 makes. On Vercel, the bot's webhook lands on Vercel, so a host serving only streaming beside it
@@ -566,6 +573,12 @@ and leans on this sub-project in three places. None of them changes a decision a
   «📱 Устройства» can show which phones still run an old APK before v1 is deleted. That is an
   additive column on `device_tokens`, a migration of its own, and 3b would carry it. It is built
   only if the owner says yes there.
+  - **It does not break «reads stop writing» (decision 10).** The gate runs on every read, the
+    sync's `GetScheduleWindow` included, so the version is written in the same statement as
+    `last_seen_at` and on the same fifteen-minute clock, never on its own. The statement-count
+    test's allowlist then grows by one column of an update it already allows, and by nothing
+    else. A version that changed inside the fifteen minutes waits for the next touch, which is
+    soon enough for a screen that asks «which phones still run an old APK».
 
 ## Questions for the owner
 
