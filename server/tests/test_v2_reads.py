@@ -29,7 +29,9 @@ GATE_REASONS = {"DEVICE_TOKEN_INVALID", "DIARY_TOKEN_INVALID", "DEVICE_NOT_LINKE
 #: observes, a diary credential the upstream rotated and when it was used,
 #: and the throttles' and the directory counter's own rows.
 ALLOWED_WRITES = (
-    re.compile(r"^UPDATE device_tokens SET last_seen_at=\? WHERE"),
+    # The phone's last call, and the app version it sent with it: one
+    # statement, on one fifteen-minute clock (decision 15).
+    re.compile(r"^UPDATE device_tokens SET last_seen_at=\?(?:, client_version=\?)? WHERE"),
     re.compile(r"^UPDATE diary_sessions SET (?:(?:upstream_token|last_used_at)=\?(?:, )?)+ WHERE"),
     re.compile(r"^(?:INSERT INTO|UPDATE|DELETE FROM) (?:join_attempts|usage_counters)\b"),
 )
@@ -218,3 +220,18 @@ async def test_the_statement_probe_sees_the_write_v1_makes_on_a_read(
             "/api/v1/me", headers={"Authorization": f"Bearer {v2_tokens['unlinked']}"}
         )
     assert any("link_code" in statement for statement in unexpected(seen))
+
+
+def test_the_last_seen_rule_takes_the_version_beside_it_and_never_alone() -> None:
+    """Decision 15: one column more of an update the rule already allowed, and
+    nothing else. The version alone, or beside any other column, is a write."""
+    seen = "UPDATE device_tokens SET last_seen_at=? WHERE device_tokens.id = ?"
+    with_version = (
+        "UPDATE device_tokens SET last_seen_at=?, client_version=? WHERE device_tokens.id = ?"
+    )
+    assert LAST_SEEN.match(seen) and LAST_SEEN.match(with_version)
+    assert unexpected([seen, with_version]) == []
+    assert unexpected(["UPDATE device_tokens SET client_version=? WHERE device_tokens.id = ?"])
+    assert unexpected(
+        ["UPDATE device_tokens SET last_seen_at=?, link_code=? WHERE device_tokens.id = ?"]
+    )

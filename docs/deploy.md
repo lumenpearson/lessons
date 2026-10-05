@@ -384,6 +384,11 @@ re-run `0017`. After any such window, run its statements again, or
 `alembic downgrade 0016 && alembic upgrade head`, which re-runs it because the downgrade does
 nothing.
 
+`0018` adds one column, `device_tokens.client_version`: the app version each phone last
+sent with a v2 request, written by v2's gate beside `last_seen_at` and on its clock. It
+is nullable with no default, additive, and on **before** the merge; its downgrade drops
+the column, which loses nothing but the versions.
+
 Everything up to `0012` checks with an inspector what is not in the database yet and does
 not rewrite existing tables, so those can be applied to a live class in the middle of a
 school day. `0013`, `0015` and `0016` ask the inspector too — per constraint, per column,
@@ -392,7 +397,7 @@ second `ADD COLUMN` or `ADD CONSTRAINT` there is a hard error that stops the `mi
 service below; and because a SQLite file `scripts.init_db` built before a model change is
 stamped at the old head without the new columns, and only the revision adds them. `0017`
 asks only whether the table is there; its statements are plain SQL that PostgreSQL and SQLite
-both run, and a second run finds nothing to do. The head is `0017`.
+both run, and a second run finds nothing to do. `0018` asks per column, as `0015` does. The head is `0018`.
 
 ### A migration goes BEFORE the deploy, not after
 
@@ -440,7 +445,7 @@ into the database by hand:
 curl -s https://<your-project>.vercel.app/api/v1/warmup
 ```
 
-`{"status":"ok","schema":"0017"}` means it all lines up. `"status":"degraded"` together with
+`{"status":"ok","schema":"0018"}` means it all lines up. `"status":"degraded"` together with
 `expected_schema` names both revisions and says which way they diverged: «База отстала от
 кода» — the database is behind the code — is an incident, except in the minutes a key
 rewrite such as `0017` is deliberately applied after the merge (above), while «База впереди
@@ -639,7 +644,7 @@ so `BOT_TOKEN` and `OWNER_IDS` are not its business (#322). The same import is w
 `alembic upgrade head` refuses wherever `VERCEL` *is* set and the deployment's settings
 are not.
 `GET /api/v1/warmup` is what confirms the result, and it is the endpoint that can: it says
-`{"status": "ok", "schema": "0017"}` when the two agree and names both revisions when they
+`{"status": "ok", "schema": "0018"}` when the two agree and names both revisions when they
 do not.
 
 The app on the phone needs to reach the API. The options are a public IP with a forwarded

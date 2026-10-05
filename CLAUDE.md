@@ -482,7 +482,7 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and the head is `0017`, on production since 26 September 2026 with `0015` and `0016`, before #140's merge.** `0001` is a guarded
+- **Migrations are Alembic and the head is `0018`, applied before the merge of stage 3b-1 of sub-project 3; `0015` to `0017` were applied on 26 September 2026, before #140's merge.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
@@ -547,6 +547,10 @@ points Hilt does not inject cleanly.
   minutes. Its downgrade is a no-op, and a revert is **not** lossless: after
   any window of older code, run its statements again, or
   `alembic downgrade 0016 && alembic upgrade head`.
+  `0018` adds `device_tokens.client_version`, the app version each phone last sent
+  to v2 (the server-v2 design, decision 15): one nullable integer column, the
+  ordinary additive shape, on **before** the merge. Its downgrade drops the column
+  and with it nothing but the versions.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a

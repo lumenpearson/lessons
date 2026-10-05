@@ -621,6 +621,14 @@ class DeviceToken(Base):
     revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # The ``X-Lessons-Client`` version code this phone last sent to v2, written
+    # by v2's gate in the statement that writes ``last_seen_at`` and on its
+    # fifteen-minute clock (the server-v2 design, decision 15), so that
+    # «📱 Устройства» can say which phones still run an old APK before v1 is
+    # retired. Null for a phone that never sent one, which is every APK that
+    # speaks only v1: v1's requests never write it. Declared right after
+    # ``last_seen_at`` so the ORM writes the two in one ``SET``. Revision 0018.
+    client_version: Mapped[int | None] = mapped_column(Integer)
     # The Telegram account this device belongs to, once its owner has sent the
     # bot ``/link <link_code>``. Null for an unlinked device, which is the
     # common case and the read-only one. Every write endpoint derives its
