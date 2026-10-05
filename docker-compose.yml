@@ -73,6 +73,8 @@ services:
       BOT_USERNAME: ${BOT_USERNAME:-}
       DIARY_SECRET: ${DIARY_SECRET:-}
       DADATA_TOKEN: ${DADATA_TOKEN:-}
+      # Empty is direct, which is right for a server inside Russia (#334).
+      DIARY_PROXY_URL: ${DIARY_PROXY_URL:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
       # Not strings, so not empty when unset: "" is neither a boolean nor a
       # number to pydantic, and the server would refuse to start over a

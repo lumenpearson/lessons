@@ -59,7 +59,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2208 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2222 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -399,6 +399,9 @@ points Hilt does not inject cleanly.
   `PUBLIC_BASE_URL`, `BOT_USERNAME` and `CRON_SECRET` are empty by design and each already
   refuses in view of whoever it concerns; they are logged as switched off at startup
   (`Settings.disabled_features`), which is a different decision from making them mandatory.
+  `DIARY_PROXY_URL` (#334) is optional too, and empty is not a switch but a route: the
+  Petersburg diary is called directly, which is right inside Russia. Only an unusable value
+  is announced, and never quoted, because it can carry the proxy's password.
 - **The widget's size ladder has twelve rungs, and the count is the point.**
   `WidgetSizeClass` (in `:widget`) declares twelve breakpoints because the launcher and
   Glance both pick the **nearest** breakpoint by squared distance, not the largest that

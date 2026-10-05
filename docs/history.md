@@ -28,6 +28,58 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: tonight's documentation fixes reach every place that said the old thing (#331)
+
+Merged as #332 (`a895923`, 5 October 2026), from `fix/doc-followups`, on milestone 11. It closed #331 and refers to
+#273. Written on 5 October 2026, after #329 merged. The schema head did not move, and nothing
+under `/api/v2` exists.
+
+- **An independent review of the night's five merges** (#311, #313, #319, #328, #329) read
+  every changed claim against the tree. It found the Android change clean and every new count
+  right. It also found that four corrections had stopped at the first document, and that four
+  sentences written tonight were wrong in their own way. They were filed as #331 and are fixed
+  here:
+  - **Carried further:**
+    - the edit routes, in `AGENTS.md`, the Copilot instructions and two docstrings;
+    - the repository's `onDataChanged` as the sender of `DATA_SYNCED`, in five places;
+    - «О приложении → Перевод», in the README;
+    - the seven places a test count lives, in `CLAUDE.md`.
+  - **Corrected:**
+    - `docs/build.md` cited #320 for the password in a transcript, which is #318;
+    - `docs/design.md` said nothing in the interface named Onest, and the about screen did;
+    - `CLAUDE.md` said the app *calls* only four routes, leaving out its reads;
+    - the security reviewer named one variable outside `LESSONS_KEYSTORE_*`, not two.
+  - **Smaller:**
+    - `WEBHOOK_SECRET` is asked about only once `BOT_TOKEN` is set;
+    - `test_ci_paths.py` names the new reader of `docs/deploy.md`;
+    - `CONTRIBUTING.md`'s suite time matches the other documents.
+- **#330 asks the owner whether a manual `apk.yml` run should sign with the real key**, from
+  any branch. Today it does, and publishes the APK as an artifact (#320 described it).
+  Recommended: only a run on `main`. It is in section 7.
+- **After #329's merge**, `dev` was fast-forwarded to `dbf25c9`. Vercel reported the deploy
+  successful, and production answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}`. CI's Android job passed on #329's head,
+  and the board reads Done, P2, S, 2 for #329, #326 and #327.
+
+### Gates
+
+- **The server suite.** `pytest -q -n auto`, run alone from this worktree's own venv, gave
+  **2208 passed** in 9 minutes 38 seconds. Only two docstrings and one test's table changed
+  under `server/`. ruff is clean.
+- **Android** is unchanged since #329, 1635 tests.
+
+### What was deliberately left alone
+
+- **Two wording points from the review.** Onest's notice names two addresses, and the sheet
+  links the first. On Android 8–9 the app draws everything in Onest, which the Google Sans
+  Flex credit does not say. Each would cost the Android gates for a nuance.
+- **`.claude/settings.json`**, still the owner's (section 7).
+
+### What nobody has verified in this batch
+
+- **That a third pass would find nothing.** The first two found forty facts and the review
+  found twelve more in the fixes themselves; the rate is falling, not zero.
+
 ## What the batch before added: the app credits Onest, and says an admin's phone writes the timetable too (#326, #327)
 
 Merged as #329 (`dbf25c9`, 5 October 2026), from `fix/onest-credit-and-about-fact`, on milestone 12, `v1.0.0 — A
