@@ -12,11 +12,13 @@ Last updated: **6 October 2026**. **PRs #63 through #85, #128, #129, #133, #134,
 #313, #319, #328, #329, #332, #333, #335 and #342 are merged**; `main` is at `8d779ef`, the
 merge of #342, at 14:54 UTC on 5 October 2026. **The four designs of sub-projects 3
 to 6 are approved and on `main`**: the owner answered every question with its recommendation
-on 5 October (#301, #306, #307, #308). **One pull request is open: #350, the one carrying
-this paragraph**, a draft from `server-v2/3b`, on milestone 11, `v0.10.0 — One contract: REST
+on 5 October (#301, #306, #307, #308). **Four pull requests are open. One is #350, the one
+carrying this paragraph**, from `server-v2/3b`, on milestone 11, `v0.10.0 — One contract: REST
 v2, Connect and native gRPC, build console`, which closes #347, #348, #351 and #118 and
 refers to #273 and #349: v2 is served beside v1, thirteen methods of it now, over REST and
-Connect. #342 closed #336–#341 at its merge. **The schema head moved to `0018`**, applied
+Connect. The other three are dependabot's #344 (`cryptography` 50.0.2), #345 (the
+`sqlalchemy[asyncio]` floor at 2.1.2) and #346 (`fastapi` 0.142.2), left for a batch of their
+own. #342 closed #336–#341 at its merge. **The schema head moved to `0018`**, applied
 before the merge to the Neon branch `preview` (21:26 UTC on 5 October) and then to
 production (22:06 UTC), and `EXPECTED_REVISION` moved with it. The issues filed since #342
 merged are #343 (the Petersburg account's second factor, on milestone 10), #347, #348 and
@@ -484,7 +486,7 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342 (merged) and #350 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342 (merged) and #350 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
