@@ -1,6 +1,10 @@
 # The build console: one terminal for the gates, the contract, the device and the documents
 
-Status: **drafted on 5 October 2026 while the owner was away, not yet approved.** Sub-project 6 of
+Status: **approved by the owner on 5 October 2026**, every question answered with its
+recommendation (#308): CI runs the console's tests, no Vercel CLI until #118, a one-word Gradle
+task says whether signing is configured, a heavy job beside the emulator asks first, the
+contract's Python is checked out with LF, and the Environment tab reads names only.
+Sub-project 6 of
 [the programme](2026-10-03-one-contract-design.md), whose section 6 already decided most of the
 console:
 - it lives in `tools/console/`, a separate Python project depending on Textual, started with
@@ -307,7 +311,7 @@ reads the server's files as text, or runs the server's code as a subprocess in t
 
 | Stage | Merges | Waits for |
 | --- | --- | --- |
-| **6a** | The project, the closed tasks table and its CI test, the machine-wide lock and its queue, the logs and their redaction, «Prepare», and four tabs: Build (the gates and the debug and release APKs), Environment, Docs, Contract | the owner's approval of this document |
+| **6a** | The project, the closed tasks table and its CI test, the machine-wide lock and its queue, the logs and their redaction, «Prepare», and four tabs: Build (the gates and the debug and release APKs), Environment, Docs, Contract | the owner's approval of this document (given 5 October 2026) |
 | **6b** | Device (install with the certificate and version check, logcat, `adb reverse`) and Deploy (production's warmup, both answers) | 6a |
 | **6c** | The APK for a chosen transport and streaming flag; the host target in Deploy, started as CI's host job starts it (without the deployment marker, against SQLite), with a «Prepare» variant that also installs `server/requirements-host.txt`; and the host job's row in decision 1's table | sub-project 5's 5a for the `rest` and `connect` APKs and its 5c for `grpc` and streaming, which is when the gRPC binding arrives; sub-project 3's 3c for the host |
 
