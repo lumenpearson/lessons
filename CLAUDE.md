@@ -147,10 +147,10 @@ take the **device token** and ask `linking.effective_role` for the linked accoun
 every request, so an unlinked phone changes nothing of the class's. The rest of what the
 API writes is personal (`public.py`: the linked account's own tasks and ticked-off
 homework, whatever its role, and a phone unlinking itself; `/join` mints the device token)
-and a family's diary (`/api/v1/diary`, with the **diary token**). That is the API; the app
-itself calls only `/join`, `/me/unlink`, `/manage` and the diary today, so homework,
-substitutions, events, special days and the personal writes come from the bot or another
-client of the API (#324). `docs/architecture.md` has
+and a family's diary (`/api/v1/diary`, with the **diary token**). That is the API. Of its
+writes, the app itself makes only `/join`, `/me/unlink`, `/manage` and the diary's today, so
+homework, substitutions, events, special days, personal tasks and ticked-off homework come
+from the bot or another client of the API (#324, #331). `docs/architecture.md` has
 the table.
 Telegram already solved identity, so there is still no admin web panel, no session cookies
 and no password reset — a phone has no rights of its own, only its account's — and the cost
@@ -239,7 +239,8 @@ Android modules (`android/settings.gradle.kts`):
 ```
 
 Room is the single source of truth; the network only fills it. `:core:data` must **not**
-depend on `:widget` — the sync worker tells the widget it has new data by broadcasting
+depend on `:widget` — the timetable repository's `onDataChanged` tells the widget it has new
+data, after the background sync and an in-app refresh alike, by broadcasting
 `com.lumenpearson.lessons.action.DATA_SYNCED`, precisely so the dependency does not have to
 be circular.
 
@@ -385,7 +386,9 @@ points Hilt does not inject cleanly.
   `TIMEZONE` is set to a value that cannot be used — an `OWNER_IDS` with no readable id, a
   `TIMEZONE` that is not a zone. An empty `OWNER_IDS` is left alone on purpose
   (`test_an_empty_owner_ids_is_left_alone`) and an unset `TIMEZONE` takes `Europe/Moscow`.
-  It lists every problem at once, because finding the next costs another deploy. This is
+  It lists every problem at once, because finding the next costs another deploy — with one
+  exception: `WEBHOOK_SECRET` is asked about only once `BOT_TOKEN` is set, since without a
+  token there is no webhook to protect (#331). This is
   not tidiness: `DATABASE_URL` set for one Vercel environment and not the other left the
   SQLite default standing, and the only thing anybody saw was
   `ModuleNotFoundError: No module named 'aiosqlite'` out of SQLAlchemy's sqlite dialect —
@@ -775,7 +778,7 @@ points Hilt does not inject cleanly.
   time, and is not a judgement call, is listed in the `handover` skill: the opening
   paragraph, the chain of batch sections — the new one on top, and the one that falls off
   the last two moved to the top of `docs/history.md` — the milestone table, the test counts
-  in their three places, and sections 5 and 7.
+  in the seven places the skill names, and sections 5 and 7.
 - **`.claude/` holds the agent configuration, and it describes the shape rather than
   repeating this file.** `.claude/agents/` has one agent per area that has produced a defect
   here, carrying the fact that would have prevented it; `.claude/skills/` has the procedures

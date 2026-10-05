@@ -687,7 +687,7 @@ To sign locally with your own key, put this in `~/.gradle/gradle.properties` (a 
 outside the repository, where secrets usually go). **Once it holds these, it holds the
 signing passwords, and an agent must never read or print it** — not even for an unrelated
 Gradle setting. On 5 October 2026 an agent looking in it for one put a signing password into
-its transcript (#320). Ask whoever owns the machine what the file says instead.
+its transcript (#318). Ask whoever owns the machine what the file says instead.
 
 ```properties
 lessons.keystore.file=/absolute/path/release.jks

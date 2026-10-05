@@ -244,9 +244,11 @@ lesson, and look far enough to cross the summer), not a client one.
 The server needed nothing for any of this. `/api/v1/bundle` has always taken an
 arbitrary `start` and up to `MAX_BUNDLE_DAYS = 280`, and a school year is 274.
 
-After a successful sync, `SyncWorker` sends a package-internal broadcast
+After a successful sync, the background one or a refresh from inside the app, the
+timetable repository's `onDataChanged` (`DataSyncBroadcast.send`, wired in
+`LessonsContainer`) sends a package-internal broadcast
 (`com.lumenpearson.lessons.action.DATA_SYNCED`) that the widget receiver listens
-for. That is why `:core:data` does not depend on `:widget` — the dependency would
+for; `SyncWorker` no longer sends it itself (#331). That is why `:core:data` does not depend on `:widget` — the dependency would
 otherwise be circular.
 
 ### Notifications

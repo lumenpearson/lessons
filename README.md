@@ -82,7 +82,8 @@ substitutes a Russian string for a missing English one without a word, so
 `ResourceTranslationTest` reads both resource folders and demands a twin for every name,
 matching format arguments, and exactly `one` + `other` in the English plural forms.
 
-The quality is held by whoever reads it. «Настройки → Перевод → Режим исправления»
+The quality is held by whoever reads it. «Настройки → О приложении → Перевод → Режим
+исправления»
 outlines **all** of the app's text and opens an editor on a long press on any of it; what
 accumulates comes out as a ready piece of `values/` that only has to be sent in. The
 coverage is not a list of places wrapped by hand: the app has one `Text`, and it is its

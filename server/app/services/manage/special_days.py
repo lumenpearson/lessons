@@ -6,7 +6,7 @@ deletes the mark instead of storing ``DayKind.NORMAL`` - otherwise the resolver
 would have two ways to spell the same thing.
 
 Only the bot's «⚙️ Класс» edits marks in bulk; the phone marks one day at a time
-through ``PUT /api/v1/edit/days``, under the editor's role, with its own rules
+through ``PUT /api/v1/days``, under the editor's role, with its own rules
 about the bells. These are the reads and the one write the bot's screen does.
 """
 

@@ -34,7 +34,7 @@ CI = ROOT / ".github" / "workflows" / "ci.yml"
 READ_BY_THE_SUITE = {
     ".github/workflows/*.yml": "test_env_example, for the secrets; this file, for ci.yml",
     "docs/build.md": "test_env_example",
-    "docs/deploy.md": "test_corrections_per_child_revision",
+    "docs/deploy.md": "test_corrections_per_child_revision, test_deployment_config",
     "docs/diaries.md": "test_region_catalog, through scripts/region_catalog.py",
     "docs/diaries/*.md": "test_region_catalog, through scripts/region_catalog.py",
     "proto/lessons/v2/*.proto": "test_contract, test_contract_json, test_contract_mirror",
