@@ -64,17 +64,50 @@ def pytest_configure(config: pytest.Config) -> None:
     a test saying nothing changed passes against the old code, and «green
     locally» is about another tree. Raised here, before any test runs, rather
     than at import, so the message is pytest's own «ERROR:» line.
+
+    Two questions, because either alone lets one case through. `app` must be
+    this tree's `server/app` exactly, not merely somewhere under `server/`: a
+    non-editable install into `server/.venv` lives under it too, and is a copy
+    that no edit reaches. And when the package is installed editable, the
+    install must be this tree's: under `python -m pytest` the current directory
+    supplies `app`, but a borrowed install's finder still answers for any module
+    of `app` or `scripts` this tree lacks, so a module deleted on a branch would
+    be found in the other checkout and its last caller would still pass.
     """
+    import json
+    from importlib import metadata
+    from urllib.parse import urlparse
+    from urllib.request import url2pathname
+
     import app
 
     tree = Path(__file__).resolve().parents[1]
     imported = Path(app.__file__).resolve().parent
-    if not imported.is_relative_to(tree):
+    problem = None
+    if imported != tree / "app":
+        problem = f"`app` was imported from {imported}"
+    else:
+        # Every record, not the first: under `python -m pytest` the current
+        # directory comes first on the path, and the build leaves
+        # `lessons_server.egg-info` there with no install record in it, which
+        # would hide the venv's real one.
+        for found in metadata.distributions(name="lessons-server"):
+            record = found.read_text("direct_url.json")
+            if not record:
+                continue
+            install = json.loads(record)
+            if not install.get("dir_info", {}).get("editable"):
+                continue
+            source = Path(url2pathname(urlparse(install["url"]).path)).resolve()
+            if source != tree:
+                problem = f"the venv's editable install of lessons-server is {source}"
+                break
+    if problem is not None:
         raise pytest.UsageError(
-            f"These tests are in {tree}, but `app` was imported from {imported}: the venv is "
-            "an editable install of another checkout, so the tests would run against its code. "
-            "Make a venv in this tree's server/ (python -m venv .venv, then pip install -r "
-            '../requirements.txt -e ".[dev]") and run pytest from it.'
+            f"These tests are in {tree}, but {problem}, so they would run against another "
+            "checkout's code. Make a venv in this tree's server/ (python -m venv .venv, then "
+            'pip install -r ../requirements.txt -e ".[dev]") and run pytest from it, and '
+            "unset a PYTHONPATH that points elsewhere."
         )
 
 

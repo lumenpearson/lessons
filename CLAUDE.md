@@ -53,9 +53,10 @@ compileSdk 37. Gradle comes from the wrapper — `./gradlew` works on a fresh cl
 
 Server, from `server/`:
 
-- `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup, in each working
-  tree's own `server/`, a `git worktree` included: the install is editable, so a borrowed venv
-  tests the tree it was made in, and `conftest.py` refuses to start when it would (#312)
+- `python3 -m venv .venv && .venv/bin/pip install -r ../requirements.txt -e ".[dev]"` — setup,
+  CI's own install (#192), in each working tree's own `server/`, a `git worktree` included:
+  the install is editable, so a borrowed venv tests the tree it was made in, and
+  `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
 - **`pytest -q -n auto`** — 2207 tests in about four minutes, and **the exact command
