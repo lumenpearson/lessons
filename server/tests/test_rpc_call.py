@@ -23,7 +23,7 @@ from app.contract.lessons.v2.school_class_pb import GetClassRequest, GetClassRes
 from app.db import SessionLocal
 from app.models import AuditEntry, DeviceToken, DiarySession
 from app.rpc import call as call_module
-from app.rpc.call import NOT_IMPLEMENTED, invoke
+from app.rpc.call import NOT_IMPLEMENTED, Call, invoke
 from app.rpc.errors import Refusal
 from app.rpc.handlers import HANDLERS
 from app.rpc.methods import METHODS
@@ -126,8 +126,12 @@ async def test_last_seen_is_kept_when_the_call_is_refused(monkeypatch, v2_tokens
         raise Refusal(ErrorReason.RESOURCE_NOT_FOUND, "no such thing", resource="class")
 
     monkeypatch.setitem(HANDLERS, GET_CLASS.key, handler)
-    with pytest.raises(ConnectError):
+    with pytest.raises(ConnectError) as refused:
         await invoke(GET_CLASS, GetClassRequest(), headers=_bearer(v2_tokens["editor"]), peer=None)
+    # An editor is below GetClass's least role, so it is the gate that refuses
+    # and the handler never runs: the touch precedes the role check and the
+    # rollback does not take it back.
+    assert refused.value.code is Code.PERMISSION_DENIED
     device = await session.scalar(
         select(DeviceToken).where(DeviceToken.token_hash == hash_token(v2_tokens["editor"]))
     )
@@ -165,6 +169,31 @@ async def test_a_dead_diary_credential_stays_expired_when_the_call_is_refused(
     row = await session.scalar(select(DiarySession))
     await session.refresh(row)
     assert row.expired_at is not None
+
+
+async def test_a_diary_method_without_the_secret_is_unavailable(monkeypatch, v2_tokens):
+    async def handler(call, request):
+        raise AssertionError("the gate let a call through with the diary off")
+
+    monkeypatch.setitem(HANDLERS, LIST_STUDENTS.key, handler)
+    monkeypatch.setattr("app.rpc.gate.diary_enabled", lambda: False)
+    with pytest.raises(ConnectError) as refused:
+        await invoke(
+            LIST_STUDENTS, LIST_STUDENTS.input(), headers=_bearer(v2_tokens["diary"]), peer=None
+        )
+    assert refused.value.code is Code.UNAVAILABLE
+    assert refused.value.details[0].value().reason == "DIARY_DISABLED"
+
+
+def test_a_call_does_not_print_the_bearer_it_holds() -> None:
+    call = Call(
+        method=GET_CLASS,
+        session=None,  # type: ignore[arg-type]
+        settings=None,  # type: ignore[arg-type]
+        headers=_bearer("super-secret-token"),
+        peer=None,
+    )
+    assert "super-secret-token" not in repr(call)
 
 
 async def test_a_call_buckets_its_caller_as_v1_does(monkeypatch, v2_tokens):

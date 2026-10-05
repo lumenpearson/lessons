@@ -70,7 +70,9 @@ class Call:
     method: Method
     session: AsyncSession
     settings: Settings
-    headers: Sequence[tuple[str, str]]
+    # Out of the repr: the lines include `Authorization: Bearer …`, and a Call
+    # lands in tracebacks and debug logs. The ORM rows print no columns.
+    headers: Sequence[tuple[str, str]] = field(repr=False)
     #: The caller's host, without a port; ``None`` when the server knows none.
     peer: str | None
     client_version: int | None = None

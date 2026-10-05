@@ -22,11 +22,12 @@ import app.contract.lessons.v2 as contract_v2
 from app.config import get_settings
 from app.contract.lessons.v2 import options_pb
 from app.contract.lessons.v2.errors_pb import ErrorReason
-from app.models import DiarySession
+from app.models import DiarySession, SchoolClass
 from app.rpc import gate
 from app.rpc.errors import Refusal
 from app.rpc.methods import METHODS
-from app.services.diary import DiaryDisabled
+from app.security import hash_token
+from app.services.diary import DiaryDisabled, find_session
 
 
 def _declared() -> dict[str, tuple[int, int | None]]:
@@ -160,6 +161,36 @@ async def test_a_linked_method_refuses_an_unlinked_phone(session, v2_tokens) -> 
     assert admitted.role is not None and admitted.role.value == "viewer"
 
 
+async def test_a_stranger_is_admitted_without_a_role_where_none_is_asked(
+    session, v2_tokens
+) -> None:
+    """Linked to an account that is no member: a link is all a viewer or a
+    linked method asks for, and the role it answers with is none."""
+    for key in ("ScheduleService/GetScheduleWindow", "MeService/GetCalendarFeed"):
+        admitted = await _admit(session, key, v2_tokens["stranger"])
+        assert admitted.device is not None and admitted.role is None, key
+    refusal = await _refusal(session, "HomeworkService/CreateHomework", v2_tokens["stranger"])
+    assert refusal.reason is ErrorReason.ROLE_REQUIRED
+
+
+async def test_a_device_whose_class_is_gone_is_refused(session, v2_tokens, monkeypatch) -> None:
+    """The foreign key cascades a class's devices away, so the gate's own
+    answer is reached only in the instant between the two reads; the class
+    lookup is made to miss to hold what it says then."""
+    real_get = session.get
+
+    async def get(entity, *args, **kwargs):
+        return None if entity is SchoolClass else await real_get(entity, *args, **kwargs)
+
+    monkeypatch.setattr(session, "get", get)
+    refusal = await _refusal(session, "ScheduleService/GetScheduleWindow", v2_tokens["viewer"])
+    assert (refusal.reason, refusal.message) == (
+        ErrorReason.RESOURCE_NOT_FOUND,
+        "Class no longer exists",
+    )
+    assert refusal.metadata == {"resource": "class"}
+
+
 @pytest.mark.parametrize(
     ("key", "below", "at", "needed"),
     [
@@ -206,10 +237,33 @@ async def test_a_diary_method_without_the_secret_touches_no_session(
 ) -> None:
     """#302: v1 asked for the row first, and an unsealable credential expired it
     for good. The gate asks whether the diary runs at all before it reads a token."""
+    # A credential sealed with a key nobody has: ``find_session`` would expire
+    # it (the service's own ``diary_enabled`` is true here), so a lookup made
+    # before the gate's check is visible as an ``expired_at``. A live row
+    # would not show it, which is how the swapped order once passed this test.
+    session.add(
+        DiarySession(
+            token_hash=hash_token("unsealable"),
+            upstream_token="sealed with a key nobody has",
+            login="parent@example.com",
+            provider="petersburg",
+        )
+    )
+    await session.commit()
+    looked_up: list[object] = []
+
+    async def spy(*args, **kwargs):
+        looked_up.append(args)
+        return await find_session(*args, **kwargs)
+
     monkeypatch.setattr("app.rpc.gate.diary_enabled", lambda: False)
+    monkeypatch.setattr("app.rpc.gate.find_session", spy)
     with pytest.raises(DiaryDisabled):
-        await _admit(session, "DiaryService/ListStudents", v2_tokens["diary"])
-    row = await session.scalar(select(DiarySession))
+        await _admit(session, "DiaryService/ListStudents", "unsealable")
+    assert looked_up == []
+    row = await session.scalar(
+        select(DiarySession).where(DiarySession.token_hash == hash_token("unsealable"))
+    )
     await session.refresh(row)
     assert row.expired_at is None
 
