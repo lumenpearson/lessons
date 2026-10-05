@@ -50,6 +50,10 @@ directions:
 - **Every job is walked, not three named ones.** An explicit skip list, each entry with its
   reason, holds the «What changed» routing job and the console's own job. A skip entry that no
   longer names a real step fails.
+- **A job added to CI later fails this test until it has a row or a skip entry**, and the pull
+  request that adds the job adds that too. The one already planned is sub-project 3's host job
+  (its decision 13, stage 3c), which starts the host and runs a pytest marker; stage 6c below
+  gives it its row.
 - **A single-line `run:` step** (no `&&`, `|` or `;`) is resolved to its working directory and
   split with `shlex`. It must equal a gate row's argv, after:
   - the platform's wrapper (`gradlew` or `gradlew.bat`) is normalised;
@@ -96,6 +100,11 @@ On this machine, a second heavy job beside the first is how the faulty memory ha
 
 **The light jobs are:** a single pytest file, `ruff`, `mypy`, reading production's warmup, and
 `adb devices`.
+
+**Every Gradle run the console starts carries `--max-workers=2`**, the cap sub-project 4
+recommends ([#306](2026-10-05-android-decomposition-design.md), question 1), in that one spelling.
+The flag is local only, which is why decision 1's parity test strips exactly it; a second spelling
+such as `-Dorg.gradle.workers.max=2` would be read as a difference from CI.
 
 **The lock covers the machine, not the console.** It is a file lock at a fixed path outside the
 repository, holding the owner's PID and reclaimed when that process is dead. Two consoles in two
@@ -300,7 +309,7 @@ reads the server's files as text, or runs the server's code as a subprocess in t
 | --- | --- | --- |
 | **6a** | The project, the closed tasks table and its CI test, the machine-wide lock and its queue, the logs and their redaction, «Prepare», and four tabs: Build (the gates and the debug and release APKs), Environment, Docs, Contract | the owner's approval of this document |
 | **6b** | Device (install with the certificate and version check, logcat, `adb reverse`) and Deploy (production's warmup, both answers) | 6a |
-| **6c** | The APK for a chosen transport and streaming flag, and the host target in Deploy | sub-project 5's 5a, sub-project 3's 3c |
+| **6c** | The APK for a chosen transport and streaming flag; the host target in Deploy, started as CI's host job starts it (without the deployment marker, against SQLite), with a «Prepare» variant that also installs `server/requirements-host.txt`; and the host job's row in decision 1's table | sub-project 5's 5a for the `rest` and `connect` APKs and its 5c for `grpc` and streaming, which is when the gRPC binding arrives; sub-project 3's 3c for the host |
 
 ## Questions for the owner
 
