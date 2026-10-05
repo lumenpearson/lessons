@@ -59,7 +59,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2437 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2521 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -67,7 +67,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 214 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 218 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. A CI step since
   27 September 2026, right after ruff, because the owner asked for it through that day's
@@ -189,9 +189,13 @@ Server modules:
   Russian wording, and a refusal is an exception carrying facts, never a sentence, so each
   shell keeps its own words — «Предмет … уже есть» in a chat, a `409` on the wire. The rules
   v2 shares with v1 live here too: `join.py` (the join flow, refusing with facts),
-  `window.py` (the year's window and its tag), `clock.py` (the class's clock and the date
-  bounds); the limiters are `security.py`'s, one instance each, and the sentences both
-  versions answer with (the join's four, the diary's «disabled») are `app/wording.py`'s.
+  `window.py` (the year's window and its tag), `clock.py` (the class's clock, the date
+  bounds and `wall`, a stored stamp on the class's clock), `manage/classes.py`'s
+  `member_names`, `manage/subjects.py`'s `dictionary_of` (the read that adopts nothing) and
+  `update` (the rename-then-details patch), and `audit.py`'s `older_than` (a page keyed on
+  its last line); the limiters are `security.py`'s, one instance each, and the sentences
+  both versions answer with (the join's four, the diary's «disabled», the subjects' and the
+  devices' refusals) are `app/wording.py`'s.
 - `api/` — `public.py` (the phone's reads and its own writes), `edit.py` (the day-to-day
   writes), `manage/` (running the class, one module per resource over
   `services/manage/`, with `_common.py` holding `Actor` and the one role dependency per
@@ -235,7 +239,8 @@ Server modules:
   method shares: `methods.py` (each method's facts, read from the descriptors), `gate.py`
   (client version, then the bearer, the link and the role), `call.py` (`invoke`: the gate,
   one dishka scope, the handler, the one commit, then the effects), `errors.py` (the one error
-  table) and `handlers.py` (which methods are served). A handler never commits and never
+  table), `masks.py` (one reading of an `update_mask`, AIP-134) and `handlers.py` (which
+  methods are served). A handler never commits and never
   checks a credential; `rpc_app()` mounts the seventeen Connect apps at `/api/rpc`, refusing
   native gRPC over HTTP/1.1 with `415`. May import `services/`, `models`, `schedule`,
   `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry
