@@ -9,18 +9,18 @@ newest first.
 Last updated: **5 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
-#313, #319, #328, #329 and #332 are merged**; `main` is at `fb96fa3`, the merge of #308, on 5
-October 2026, and `dev` is level with it. **The four designs of sub-projects 3 to 6 are
+#313, #319, #328, #329, #332 and #333 are merged**; `main` is at `2f529af`, the merge of #333,
+on 5 October 2026, and `dev` is level with it. **The four designs of sub-projects 3 to 6 are
 approved and on `main`**: the owner answered every question with its recommendation on 5
-October (#301, #306, #307, #308). **One pull request is open: #333, the one carrying this
-paragraph**, from `chore/owner-decisions`, on milestone 12, `v1.0.0 — A build somebody else can
-install`, which closes #330 and refers to #273: an APK is signed with the real key only on
-`main` or a `v*` tag. #332 closed #331. The schema head did not move: it is still `0017`, and
-`EXPECTED_REVISION` did not move either. Production, after #308's automatic deploy, answered
+October (#301, #306, #307, #308). **One pull request is open: #335, the one carrying this
+paragraph**, from `feat/diary-proxy`, on milestone 10, `v0.9.0 — NetSchool e-diary, onboarding
+via the school's diary`, which closes #334 and refers to #235 and #273: the Petersburg diary
+can go through a Russian proxy. #333 closed #330. The schema head did not move: it is still `0017`, and
+`EXPECTED_REVISION` did not move either. Production, after #333's automatic deploy, answered
 `/api/v1/warmup` with `{"status":"ok","api_version":1,"schema":"0017"}`.
 
-The section «What the last session added» below is #333's batch, and «What the session
-before it added» is #332's.
+The section «What the last session added» below is #335's batch, and «What the session
+before it added» is #333's.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -146,10 +146,61 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: the owner approved the four designs and decided #330, and an APK is signed with the real key only on main or a `v*` tag
+## What the last session added: the Petersburg diary can go through a Russian proxy (#334)
 
-Open as #333, a draft from `chore/owner-decisions`, on milestone 12, because #330 is. It closes
-#330 and refers to #273. Written on 5 October 2026, after #332 merged. The schema head did not
+Open as #335, a draft from `feat/diary-proxy`, on milestone 10, beside #235. It closes #334
+and refers to #235 and #273. Written on 5 October 2026, after #333 merged. The schema head
+did not move, and nothing under `/api/v2` exists yet.
+
+- **`DIARY_PROXY_URL`, optional and empty by default, routes the Petersburg diary through an
+  HTTP proxy.** It goes as a `CONNECT` tunnel, so TLS stays end to end and the proxy sees the
+  host name, never the family's credential. This is the server's half of the owner's
+  decision on #235: the bot and the API stay on Vercel and Neon, and only the diary's requests
+  go through a RUVDS VPS in Russia. Nothing else uses the proxy: the bot, Telegram, the
+  database, DaData and the NetSchool diaries go direct.
+  - **Empty means direct**, today's behaviour and right for a deployment inside Russia. It
+    is not announced and not in the deployment refusal's list, so a fully configured
+    deployment still announces nothing.
+  - **An unusable value is treated as unset rather than raised.** That means not `http://` or
+    `https://`, no host, or a port that is not a number. httpx would refuse it when the client
+    is built and take the diary down. The startup log says it is unusable, and never quotes it,
+    because it can carry the proxy's password.
+- **`test_diary_proxy.py` (14 tests)** holds the setting's reading, the announcement without
+  the value, and the client's route, read off the client httpx built. The route test failed
+  without the client change.
+- **`docker-compose.yml` hands the server the setting.** `test_compose` caught it on the first
+  full run.
+- **`.env.example`, `docs/deploy.md` and `CLAUDE.md`** name it.
+  `docs/deploy.md`'s «The electronic diary» says what the proxy must refuse: anything but
+  `CONNECT` to `dnevnik2.petersburgedu.ru:443`, and anyone without the password.
+- **After #333's merge**, `dev` was fast-forwarded to `2f529af`, Vercel reported the deploy
+  successful, and production answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}`. The board reads Done for #333 and #330.
+
+### Gates
+
+- **The server suite.** `pytest -q -n auto`, run alone from this worktree's own venv, gave
+  2221 passed and one failure, `test_compose`, which the compose line fixed. `test_compose`,
+  `test_diary_proxy` and `test_env_example` then gave 21 passed. The suite is **2222**, which
+  the seven places the `handover` skill names now say.
+- **ruff and mypy** are clean; mypy covers 197 modules.
+- **Android** is unchanged, 1635 tests.
+
+### What was deliberately left alone
+
+- **The NetSchool diaries** go direct: no evidence says their regions drop foreign addresses,
+  and opting them in is one line when there is.
+- **Buying and setting up the VPS** is the owner's (section 7).
+
+### What nobody has verified in this batch
+
+- **No request has gone through a real proxy.** One request through the owner's VPS to the
+  diary is the test that closes #235.
+
+## What the session before it added: the owner approved the four designs and decided #330, and an APK is signed with the real key only on main or a `v*` tag
+
+Merged as #333 (`2f529af`, 5 October 2026), from `chore/owner-decisions`, on milestone 12,
+because #330 is. It closed #330 and refers to #273. Written on 5 October 2026, after #332 merged. The schema head did not
 move, and nothing under `/api/v2` exists yet.
 
 - **The owner answered in the working session on 5 October.** The owner was away from the
@@ -220,58 +271,6 @@ move, and nothing under `/api/v2` exists yet.
 - **The new condition in `apk.yml` has never run.** The first manual run on `main` should sign
   with the real key; the first on a branch should not.
 
-## What the session before it added: tonight's documentation fixes reach every place that said the old thing (#331)
-
-Merged as #332 (`a895923`, 5 October 2026), from `fix/doc-followups`, on milestone 11. It closed #331 and refers to
-#273. Written on 5 October 2026, after #329 merged. The schema head did not move, and nothing
-under `/api/v2` exists.
-
-- **An independent review of the night's five merges** (#311, #313, #319, #328, #329) read
-  every changed claim against the tree. It found the Android change clean and every new count
-  right. It also found that four corrections had stopped at the first document, and that four
-  sentences written tonight were wrong in their own way. They were filed as #331 and are fixed
-  here:
-  - **Carried further:**
-    - the edit routes, in `AGENTS.md`, the Copilot instructions and two docstrings;
-    - the repository's `onDataChanged` as the sender of `DATA_SYNCED`, in five places;
-    - «О приложении → Перевод», in the README;
-    - the seven places a test count lives, in `CLAUDE.md`.
-  - **Corrected:**
-    - `docs/build.md` cited #320 for the password in a transcript, which is #318;
-    - `docs/design.md` said nothing in the interface named Onest, and the about screen did;
-    - `CLAUDE.md` said the app *calls* only four routes, leaving out its reads;
-    - the security reviewer named one variable outside `LESSONS_KEYSTORE_*`, not two.
-  - **Smaller:**
-    - `WEBHOOK_SECRET` is asked about only once `BOT_TOKEN` is set;
-    - `test_ci_paths.py` names the new reader of `docs/deploy.md`;
-    - `CONTRIBUTING.md`'s suite time matches the other documents.
-- **#330 asks the owner whether a manual `apk.yml` run should sign with the real key**, from
-  any branch. Today it does, and publishes the APK as an artifact (#320 described it).
-  Recommended: only a run on `main`. It is in section 7.
-- **After #329's merge**, `dev` was fast-forwarded to `dbf25c9`. Vercel reported the deploy
-  successful, and production answered `/api/v1/warmup` with
-  `{"status":"ok","api_version":1,"schema":"0017"}`. CI's Android job passed on #329's head,
-  and the board reads Done, P2, S, 2 for #329, #326 and #327.
-
-### Gates
-
-- **The server suite.** `pytest -q -n auto`, run alone from this worktree's own venv, gave
-  **2208 passed** in 9 minutes 38 seconds. Only two docstrings and one test's table changed
-  under `server/`. ruff is clean.
-- **Android** is unchanged since #329, 1635 tests.
-
-### What was deliberately left alone
-
-- **Two wording points from the review.** Onest's notice names two addresses, and the sheet
-  links the first. On Android 8–9 the app draws everything in Onest, which the Google Sans
-  Flex credit does not say. Each would cost the Android gates for a nuance.
-- **`.claude/settings.json`**, still the owner's (section 7).
-
-### What nobody has verified in this batch
-
-- **That a third pass would find nothing.** The first two found forty facts and the review
-  found twelve more in the fixes themselves; the rate is falling, not zero.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -293,9 +292,9 @@ maps them. The
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218 and #303 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302 |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303 (merged) and #335 (open); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334 |
 | 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329 (merged), #333 (open); issues #120–#122, #127, #142, #144, #326, #327, #330 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
@@ -1124,8 +1123,9 @@ move to Russia without a proxy abroad for the bot. The research on #235 recommen
 Vercel and sending only the diary's calls through a small Russian VPS used as an HTTPS
 `CONNECT` proxy — RUVDS «Старт», 149 ₽ a month on 5 October — which never sees the
 credential. **The owner chose this on 5 October, with RUVDS as the provider.** Buying the
-VPS and putting its proxy address into Vercel are the owner's; the server's support for it is being built, and one
-request through it to the diary is the test.
+VPS, setting its proxy up and putting its address into Vercel as `DIARY_PROXY_URL` are the
+owner's; the server's half is #335 (#334), and one request through it to the diary is the
+test.
 
 **Three lines in `.claude/settings.json`, which a session may not edit itself** (#314, #318):
 - **Under `deny`**, `Read(~/.gradle/gradle.properties)`. It stops the file tools from opening
@@ -1409,7 +1409,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2208 tests, ~4 min on CI, ~10 on Windows
+cd server  && pytest -q -n auto                          # 2222 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 197 modules
 cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
