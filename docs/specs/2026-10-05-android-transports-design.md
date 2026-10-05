@@ -163,8 +163,11 @@ already reads for all 76 methods. An Android test compares the signer's table wi
 - **The property.** `-Plessons.transport=rest|connect|grpc`, or `LESSONS_TRANSPORT`, is read with
   the build script's existing `signingSecret` pattern and validated to one of the three. The
   default is `connect`.
-- **Streaming.** `-Plessons.streaming=true`, or `LESSONS_STREAMING`, is accepted only with `grpc`
-  and fails the build otherwise.
+- **Streaming.** `-Plessons.streaming=true`, or `LESSONS_APP_STREAMING`, is accepted only with
+  `grpc` and fails the build otherwise. The environment name is not `LESSONS_STREAMING`, because
+  that is the host's own switch (sub-project 3, decision 13). The build console runs the host and
+  Gradle on one machine, and a variable exported for one would have reached the other: every
+  Gradle run would then fail at configuration, or, with `grpc`, quietly build a streaming APK.
 - **`apk.yml`** carries both lines, which `BuildPropertyReachTest` requires.
 - **How it reaches `:core:data`.** The transport becomes a `BuildConfig` field in `:app` and
   reaches `:core:data` through `Graph.init`, as a **required** parameter. A defaulted one would
@@ -195,8 +198,10 @@ produce for an answer from our server:
    - Vercel's 504 ceiling;
    - a bare 503, sub-project 3's fail-safe 503 for all of v2 included;
    - a non-JSON body;
-   - **«this server has no v2»** — a 404 over REST, or a reasonless `UNIMPLEMENTED` over Connect —
-     which becomes the existing «server too old» cases. It must never become `JoinFailure`'s
+   - **«this server has no v2»** — a 404 or a reasonless 501 over REST, or a reasonless
+     `UNIMPLEMENTED` over Connect — which becomes the existing «server too old» cases. The 501 is
+     what sub-project 3 answers for a method it has no handler for yet, and `FEATURE_UNSUPPORTED`
+     carries a reason, so it never lands here. It must never become `JoinFailure`'s
      «no class answers this code».
 3. **Metadata is mapped explicitly.** `ROLE_REQUIRED`'s role is `"ROLE_ADMIN"` where `RoleLost`
    held `"admin"`. «Address refused» is `DIARY_UNAVAILABLE` with `upstream=address-refused`.
@@ -210,7 +215,7 @@ keep every expected output.
 | `JoinFailure` | `JOIN_CODE_UNKNOWN`, `CLASS_INVITE_ONLY`, `DEVICE_LIMIT_REACHED`, `THROTTLED` | «no v2» → `Rejected` with the server-too-old cue |
 | `ManageFailure` | `DEVICE_NOT_LINKED`, `ROLE_REQUIRED` (#270 closes here), `DEVICE_TOKEN_INVALID`, `RESOURCE_NOT_FOUND`, `RESOURCE_EXISTS`, `RESOURCE_IN_USE`, `SUBJECT_RENAME_CLASH`, `ROLE_GRANT_REFUSED`, `CLASS_DEVICE_NOT_LINKED`, `VALIDATION_FAILED`, and the `FAILED_PRECONDITION` reasons (see below) | 503 → `Unavailable` |
 | `DiaryFailure` | `DIARY_TOKEN_INVALID`, `DIARY_REAUTH`, `DIARY_DISABLED`, `DIARY_UNAVAILABLE` (its `upstream` metadata), `DIARY_UPSTREAM_UNREADABLE`, `RESOURCE_NOT_FOUND`, `THROTTLED`, `CORRECTIONS_UNAVAILABLE`, `VALIDATION_FAILED` (through its existing `unprocessable` parameter), `FEATURE_UNSUPPORTED` | 504 → `Unavailable` |
-| `DiarySignInProblem` | `DIARY_CREDENTIALS_REJECTED`, `DIARY_NO_STUDENTS`, `DIARY_DISABLED`, `DIARY_UNAVAILABLE`, `THROTTLED` | 504 → `Timeout`; «no v2» → `ServerTooOld` |
+| `DiarySignInProblem` | `DIARY_CREDENTIALS_REJECTED`, `DIARY_NO_STUDENTS`, `DIARY_DISABLED`, `DIARY_UNAVAILABLE`, `DIARY_UPSTREAM_UNREADABLE` (→ `ProviderUnreadable`, today's 502), `DIARY_REAUTH` (→ `ReauthRequired`, today's 401 with `X-Diary-Reauth`), `DIARY_TOKEN_INVALID` (→ `SignInRequired`, today's bare 401), `THROTTLED` | 504 → `Timeout`; «no v2» → `ServerTooOld` |
 | `DirectoryProblem` | `DIRECTORY_DISABLED`, `DIRECTORY_SPENT`, `DIRECTORY_UNAVAILABLE`, `THROTTLED`, `VALIDATION_FAILED` | 504 → `Upstream`; «no v2» → `ServerTooOld` |
 
 v1's 422s and 409s on management are now `FAILED_PRECONDITION`, and the table says which are which:
@@ -345,9 +350,16 @@ detail decoded. That is how the spike found the missing keep rule.
 
 ### 9. Stages, each moving whole areas after the server serves them
 
+**The whole sub-project starts after sub-project 4 has merged**, as the programme's order says
+(5 waits for 3 and 4). Sub-project 4 ([#306](2026-10-05-android-decomposition-design.md)) splits
+`ManagementViewModel` and `SettingsViewModel` into collaborators in its pull request B, and 5b then
+edits two of them: `LogActions` for the audit log's page token, and `ClassCardActions` for the
+school search (decision 11). Written the other way round, each split would have to be rebased over
+a rewrite, and a move is reviewable only while it is a move.
+
 | Stage | Merges | Waits for |
 | --- | --- | --- |
-| **5a** | The infrastructure: generated code, dependencies, keep rule, `RemoteError` with its three-way contract, the signer, the version header, the transport property, and the golden writers and readers. Then **two whole areas**: `ScheduleRemote` (the window) and `JoinRemote` (`CreateDevice`), with `JoinFailure` and the sync's token rejection already reading reasons | 3a deployed, and its post-merge smoke check passed |
+| **5a** | The infrastructure: generated code, dependencies, keep rule, `RemoteError` with its three-way contract, the signer, the version header, the transport property, and the golden writers and readers. Then **two whole areas**: `ScheduleRemote` (the window) and `JoinRemote` (`CreateDevice`), with `JoinFailure` and the sync's token rejection already reading reasons | sub-project 4 merged; 3a deployed, and its post-merge smoke check passed |
 | **5b** | `MeRemote` whole (`GetMe`, `CreateLinkCode`, `UnlinkMe`), `DiaryRemote` whole (capabilities, session, reads, corrections), `ManageRemote`, `DirectoryRemote`; every classifier on reasons; #270 closed | 3b deployed |
 | **5c** | The gRPC binding, and the streaming beta | 3c, and a host to point it at |
 | **5d** | The new APK on the family's phones, then v1 deleted on both sides | 5b, and the owner's word (question 3) |
@@ -409,9 +421,15 @@ v2 section turns from «will» to «does».
 
 ## Questions for the owner
 
-1. **When does `connect` become the release build's default?** *Recommended: when 5b lands, which
-   means 3b is deployed.* Until then a release build stays on v1 for the areas 5a has not moved.
-   This agrees with sub-project 3's decision 12, which says the app must not ship against 3a alone.
+1. **Does a release APK built at 5a go onto the family's phones, or is 5b's the first?**
+   *Recommended: 5b's is the first.*
+   - A 5a APK works. It calls v2 for the window and the join and v1 for everything else, and
+     sub-project 3's decision 12 allows exactly that against 3a: only the diary must wait for 3b.
+     So this is a choice of rounds, not of safety.
+   - 5b's APK is the one that must reach every phone before v1 can go (question 3), and one round
+     on the phones is easier to account for than two.
+   - Either way, `connect` is the default from 5a (decision 3), and every build from 5a on sends
+     `X-Lessons-Client`, which sub-project 3 requires of the first v2 build.
 2. **Should a debug build be able to switch transports at run time, from the developer mode?**
    *Recommended: no.* Two reasons:
    - the container is built once per process, so a switch means a restart;
