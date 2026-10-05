@@ -24,6 +24,8 @@ from app.rest.errors import STATUS, error_response
 from app.rpc import errors
 from app.rpc.errors import CODES, Refusal, connect_error, validate
 from app.schemas import JoinRequest
+from app.services import diary as diary_service
+from app.services import join, window
 
 SERVER = Path(__file__).resolve().parents[1]
 ERRORS_PROTO = SERVER.parent / "proto" / "lessons" / "v2" / "errors.proto"
@@ -53,6 +55,36 @@ LATER = {
     "NO_LESSON_ON_DAY": "3b",
     "LESSON_NOT_ON_TIMETABLE": "3b",
 }
+
+
+#: Each row of ``errors.TABLE`` and the test that raises its exception through
+#: a served method and reads the refusal back on both transports, as a file
+#: under ``tests/`` and a function in it; or "3b", where no method 3a serves
+#: can raise it. A row added to the table without either fails below.
+HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
+    join.JoinThrottled: ("test_v2_devices.py", "test_v1_and_v2_draw_on_one_budget"),
+    join.JoinCodeUnknown: (
+        "test_v2_devices.py",
+        "test_a_wrong_code_is_refused_in_v1_s_words_and_stays_counted",
+    ),
+    join.ClassInviteOnly: (
+        "test_v2_devices.py",
+        "test_an_invite_only_class_refuses_its_code_and_does_not_count_it",
+    ),
+    join.DeviceLimitReached: (
+        "test_v2_devices.py",
+        "test_a_full_class_refuses_its_code_with_the_limit_and_does_not_count_it",
+    ),
+    window.YearOutOfBounds: (
+        "test_v2_window.py",
+        "test_a_year_outside_the_bounds_is_refused_on_its_field",
+    ),
+    # The gate raises it for a diary method, and 3a serves none:
+    # test_rpc_gate.py holds the gate raising it until 3b does.
+    diary_service.DiaryDisabled: "3b",
+}
+
+
 
 
 def _proto_reasons() -> dict[str, str]:
@@ -125,6 +157,32 @@ def test_every_reason_is_produced_or_waits_for_a_later_stage() -> None:
     assert produced & set(LATER) == set(), "a reason this stage produces is still listed as later"
     assert every - produced - set(LATER) == set(), "a reason nothing produces and nothing awaits"
     assert set(LATER) <= every
+
+
+def test_every_row_of_the_table_names_the_test_that_reads_it_back() -> None:
+    """The design's first table test (decision 5): every row raises its
+    exception through a real method and is read back on both paths. The
+    reading back is the named test's; this holds that no row is without one.
+    A test module may not import another (``test_test_imports.py``), so the
+    named function is found by parsing its file."""
+    assert set(HELD_BY) == set(errors.TABLE)
+    missing = []
+    for exception, held in HELD_BY.items():
+        if held == "3b":
+            continue
+        assert isinstance(held, tuple), (exception.__name__, held)
+        file_name, function = held
+        tree = ast.parse((SERVER / "tests" / file_name).read_text(encoding="utf-8"))
+        defined = {
+            node.name
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        }
+        if function not in defined:
+            missing.append(f"{exception.__name__}: {file_name}::{function}")
+    assert missing == []
+
+
 
 
 def test_a_refusal_is_its_code_its_reason_and_the_details_the_proto_promises() -> None:
