@@ -26,6 +26,13 @@ production runs (#192), and CI adds the package on top —
 fails there, or the other way round; `test_requirements_mirror.py` skips one check, and says
 so, in an environment that is not the lock's.
 
+A second working tree of the same repository (a `git worktree`, which is how agents work here)
+needs a venv of its own in its own `server/`. The install is editable, so a venv's `app` is
+the tree it was made in, and the bare `pytest` CI runs takes `app` from the venv rather than
+from the current directory. Borrowing another tree's venv would test that tree's code under
+this tree's tests; `server/tests/conftest.py` refuses to start when it would, and names both
+trees (#312).
+
 ### Four steps, and you can stop after any of them
 
 Each is worth doing before the next: everything in a later one depends on the earlier ones

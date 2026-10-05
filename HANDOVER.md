@@ -8,28 +8,29 @@ newest first.
 
 Last updated: **5 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
-#263, #267, #274, #277, #294, #296, #297, #300, #303 and #305 are merged**; `main` is at
-`26769c6`, the merge of #305, on 5 October 2026, and `dev` is level with it. **Five pull
-requests are open.** **#311, the one carrying this paragraph**, from `fix/agent-instructions`,
-on milestone 11, `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`,
-closes #309 and #310 and refers to #273: the signing values and CI's test command are named
-exactly where agents learn them. **The other four are designs waiting for the owner's
-approval**, drafts on the same milestone, and nothing in them is built before the owner has
-read them: **#301**, serving v2 (sub-project 3), from `server-v2/design`; **#306**, the Android
-splits (4), from `android/decomposition-design`; **#307**, the app on v2 (5), from
-`android/transports-design`; and **#308**, the build console (6), from `console/design`. #305
-closed #276, #295 and #304. The schema head did not move: it is still `0017`, and
-`EXPECTED_REVISION` did not move either. Production, after #305's automatic deploy, answered
+#263, #267, #274, #277, #294, #296, #297, #300, #303, #305 and #311 are merged**; `main` is
+at `8497766`, the merge of #311, on 5 October 2026, and `dev` is level with it. **Five pull
+requests are open.** **#313, the one carrying this paragraph**, from
+`fix/tests-import-own-tree`, on milestone 11, `v0.10.0 — One contract: REST v2, Connect and
+native gRPC, build console`, closes #312 and refers to #273: the server's tests refuse to run
+against another checkout's code. **The other four are designs waiting for the owner's
+approval**, drafts on the same milestone, each revised on 5 October after a cross-check against
+the other three, and nothing in them is built before the owner has read them: **#301**,
+serving v2 (sub-project 3), from `server-v2/design`; **#306**, the Android splits (4), from
+`android/decomposition-design`; **#307**, the app on v2 (5), from
+`android/transports-design`; and **#308**, the build console (6), from `console/design`. #311
+closed #309 and #310. The schema head did not move: it is still `0017`, and
+`EXPECTED_REVISION` did not move either. Production, after #311's automatic deploy, answered
 `/api/v1/warmup` with `{"status":"ok","api_version":1,"schema":"0017"}`.
 
-The section «What the last session added» below is #311's batch, and «What the session
-before it added» is #305's.
+The section «What the last session added» below is #313's batch, and «What the session
+before it added» is #311's.
 
 The SHA of its own merge is for the next close-out to write.
 
 **#267 closed #264, #265 and #266**, read back from GitHub on 3 October, and **#296 closed
 #271, #272 and #275**, read back on 4 October. **#274 and #277 closed nothing.** Of the
-defects the survey and the plan filed on milestone 11, #268–#270 are open, #276 closed with #305, #309 and #310 close with #311, and #273
+defects the survey and the plan filed on milestone 11, #268–#270 are open, #276 closed with #305, #309 and #310 with #311, #312 closes with #313, and #273
 is that milestone's epic.
 **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
@@ -149,9 +150,93 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: the signing values and CI's test command are named exactly where agents learn them (#309, #310), and sub-projects 4, 5 and 6 are drafted for the owner (#306, #307, #308)
+## What the last session added: the server's tests refuse another checkout's code (#312), and the four designs agree with one another
 
-Open as #311, a draft from `fix/agent-instructions`, on milestone 11. It closes #309 and #310
+Open as #313, a draft from `fix/tests-import-own-tree`, on milestone 11. It closes #312 and
+refers to #273. Written on 5 October 2026, after #311 merged. The schema head did not move,
+and nothing under `/api/v2` exists.
+
+- **The server's tests refuse to run against another checkout's code (#312).** `tests/` has no
+  `__init__.py` and the bare `pytest` CI runs adds no current directory, so `app` comes from
+  the venv, whose editable install is the checkout it was made in. A worktree borrowing the
+  main checkout's venv ran its tests against the main checkout's `app`; the document tests run
+  for #311 did exactly that. `conftest.py`'s `pytest_configure` now raises `pytest.UsageError`,
+  before any test and before an xdist worker starts, on either of two answers: `app` is not
+  this tree's `server/app` exactly, or an editable install of `lessons-server` records another
+  tree as its source. The second catches `python -m pytest` with a borrowed venv, where the
+  current directory supplies `app` but the borrowed finder still answers for any module this
+  tree lacks. It reads every install record, because the build leaves a
+  `lessons_server.egg-info` without one in `server/`, first on that path. The `gates` skill,
+  `docs/build.md` and `CLAUDE.md` («Commands», which now gives CI's install with `-r`) say a
+  worktree needs a venv in its own `server/`, and this worktree has one now, on Python 3.12 as
+  CI runs.
+- **Reviewed before the merge by the server-tests agent**: no Critical or Important finding,
+  and no legitimate setup it refuses (CI's install, `python -m pytest`, xdist workers, Windows
+  case and 8.3 names, junctions, single files, the suite's child processes). Its two Minor
+  findings on what the guard let through, `app` installed non-editable under `server/` and the
+  borrowed finder under `-m`, are the two questions above. Its wording point is in the message.
+- **A sweep of the agents' instructions against the tree** found ten stale facts, filed as
+  **#314–#318** on milestone 11 for the next batch: eleven places still give `python -m pytest`
+  as CI's gate and seven Android lists leave out detekt (#314); the documented check for
+  Russian in Kotlin never searches `core/*` and matches comments (#315; run corrected, it finds
+  only the documented exceptions); three agents describe changed code (#316); stale counts and
+  states, and the `handover` skill naming three of the seven places a count lives (#317); the
+  Gradle agent naming the passwords' file without the rule never to read it (#318).
+- **The four design drafts were cross-checked against one another**, by an agent that read
+  them beside the programme, the proto and the code, and **every seam it found was fixed on its
+  own draft branch, none merged**:
+  - **#307** (`714cd52`): the APK's streaming flag reads `LESSONS_APP_STREAMING`, because
+    `LESSONS_STREAMING` is the host's switch and the console runs both on one machine; question
+    1 no longer misquotes #301's decision 12 and asks whether a 5a release goes onto the phones;
+    the stages start after sub-project 4 merges, as the programme orders; `DiarySignInProblem`
+    reads the three reasons it maps from 502 and 401 today; a reasonless 501 is «no v2» too.
+    Its title now says six remotes, as its text always did.
+  - **#306** (`39cc47f`): sub-project 5's error mapping no longer «lands» in its collaborators,
+    and the workers cap is `--max-workers=2`, the spelling the console strips.
+  - **#308** (`403a930`): a CI job added later gets its console row in the same pull request,
+    6c carries the host's row and «Prepare» variant, every Gradle run carries the cap, and 6c
+    waits for 5c for the gRPC and streaming APKs.
+  - **#301** (`7676d70`): the host's marker is set by the `Dockerfile`, never by `app.host`,
+    because decision 7's settings refusal would otherwise stop decision 13's own CI job against
+    SQLite (a contradiction inside #301, which the code confirmed); a device's last client
+    version would be written inside the `last_seen_at` touch, so reads still write nothing else.
+- **Production after #311's automatic deploy** answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}` and `/api/v2/me` with `404`. The board reads
+  Done, P2, S, 3 and 2026-10-05 for #311, #309 and #310.
+
+### Gates
+
+- **The server suite.** `pytest -q -n auto`, run alone on this machine from a venv made in this
+  worktree's own `server/` (Python 3.12.13, installed as CI installs), gave **2207 passed** at
+  `de61d77` in 10 minutes 6 seconds, and again at `cf8964d`, the guard as reviewed, in 11
+  minutes 30 seconds. No test was added.
+- **ruff and mypy.** Both are clean; mypy covers 197 modules.
+- **The refusal**, on one test file, in six ways: this worktree's venv bare, under `-m` and
+  with `-n 2` passed; the main checkout's venv bare, under `-m` and with `-n 2` printed the
+  `ERROR:` line and exited 4, naming the wrong `app` for the first and third and the wrong
+  editable install for the second.
+- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
+
+### What was deliberately left alone
+
+- **A test of the refusal.** No test may import `conftest.py`, and one that starts a second
+  pytest against a second tree was not written; CI proves the passing side on every run.
+- **The review's third Minor finding**: `conftest.py` imports `app.db` and `app.models` above
+  the hook, so another tree whose modules cannot satisfy those imports fails with «ImportError
+  while loading conftest» into that tree, and the guard never speaks. It still fails loudly.
+- **#314–#318 are filed, not fixed**: they are the next batch.
+- **The four drafts are revised, not approved**: they still wait for the owner, with the same
+  number of questions each.
+
+### What nobody has verified in this batch
+
+- **Whether the local suites run earlier in this session imported this tree's `app`.** Those
+  that used `python -m pytest` did, by the current directory; the bare runs depended on the venv.
+  Every merged head was proved by CI, which installs its own checkout.
+
+## What the session before it added: the signing values and CI's test command are named exactly where agents learn them (#309, #310), and sub-projects 4, 5 and 6 are drafted for the owner (#306, #307, #308)
+
+Merged as #311 (`8497766`, 5 October 2026), from `fix/agent-instructions`, on milestone 11. It closed #309 and #310
 and refers to #273. Written on 5 October 2026, after #305 merged. The schema head did not
 move, and nothing under `/api/v2` exists.
 
@@ -211,64 +296,6 @@ move, and nothing under `/api/v2` exists.
 
 - **That an agent obeys the new sentence.** Nothing can test an instruction.
 
-## What the session before it added: a form no longer takes «/week@» for an answer (#276, #304), and CI runs the server's tests when a document they read changes (#295)
-
-Merged as #305 (`26769c6`, 5 October 2026), from `fix/breakout-mention-and-ci-documents`, on milestone 11. It closes
-#276, #295 and #304 and refers to #273. Written on 5 October 2026, after #303 merged. The
-schema head did not move, and nothing under `/api/v2` exists.
-
-- **An open form is dropped by «/week@», as aiogram dispatches it (#276).** The breakout's
-  `_COMMAND` accepted a mention only with a name, while aiogram reads «/week@» as «/week»; so
-  the form stayed open and an editor at «Теперь пришлите текст задания:» got an assignment
-  called «/week@», committed, audited and announced. The pattern is now
-  `^\s*/[A-Za-z0-9_]+(@[A-Za-z0-9_]*)?(\s|$)`, no looser than aiogram: «/week@@», «/ week» and
-  «/недели» are still text.
-- **Leading whitespace counts as well (#304).** #276's own test found it: aiogram splits on
-  whitespace before it looks, so «  /week» is a command to it. It was filed that night and
-  fixed in the same pull request, because the pin cannot hold without it.
-- **The two readings are pinned against each other.** `test_bot_commands.py` sends a 24-row
-  table both to `looks_like_command` and to each of aiogram's 26 `Command` filters in the real
-  dispatcher, discovered rather than listed, plus a real-dispatcher test that «/week@» at the
-  homework step drops the form. A comment in `bot/handlers/__init__.py` on the ticks router's
-  position was rewritten: the position no longer decides anything.
-- **CI's server job runs when a file the suite reads outside `server/` changes (#295).**
-  `ci.yml`'s server `case` arm names `docs/*.md`, `.claude/*.md`, `proto/*`, `buf.yaml`,
-  `vercel.json`, `.vercelignore`, `.python-version` and the root documents; found by grep and
-  confirmed under an `open`/`scandir` audit hook. Comment and filter only: no step, job, `if:`
-  or output is new. `server/tests/test_ci_paths.py` (3 tests) holds the patterns level with the
-  suite; `_documents` moved into `conftest.py` as the `head_documents` fixture; `docs/build.md`,
-  «Path filters», and `.claude/agents/build-ci.md` say so.
-- **Reviewed before the merge by the build-ci agent**: ready, no Critical or Important
-  finding. A commit that touches only `docs/history.md` now runs the server job, which is
-  acceptable, runners being free on a public repository.
-
-### Gates
-
-- **The server suite.** At `5b7f5cb`, `pytest -q -n auto`, run once and alone on this machine
-  on 5 October 2026, gave **2207 passed** in 9 minutes 1 second: 2175 plus 32 (29 in
-  `test_bot_commands.py`, 3 in `test_ci_paths.py`). The README, `docs/architecture.md`,
-  `CLAUDE.md`, `CONTRIBUTING.md`, the `gates` skill and the cheat-sheet at the end of section 8
-  say 2207.
-- **ruff and mypy.** Both are clean; mypy covers 197 modules.
-- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
-- **CI on #305's head** is not claimed here.
-
-### What was deliberately left alone
-
-- **Moving the ticks router into `content`'s router** is a change of its own and not done.
-- **A guard that sees a new file under an already-listed root**: the root-name check reads only
-  the first part of a path, and a stronger one was not written.
-- **#301 is not merged and its plan is not executed.** It was reviewed independently (ready
-  after fixes: `MIN_CLIENT_VERSION` also in `docker-compose.yml`, a guard that every error-table
-  row has a both-path test, nine Minor findings, the client header accepting ten digits up to
-  2,100,000,000, and the join's sentences living in `app/wording.py`), every finding was applied
-  (`aa2253d`), and it waits for the owner's approval.
-
-### What nobody has verified in this batch
-
-- **The new filter on a GitHub runner**, beyond #305's own CI, as section 5 says.
-- **Whether Telegram delivers a message that starts with whitespace** (#304), as section 5 says.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -291,7 +318,7 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218 and #303 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #305 (merged), #301, #306, #307, #308 and #311 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #305, #311 (merged), #301, #306, #307, #308 and #313 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | issues #120–#122, #127, #142, #144 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -1101,9 +1128,9 @@ gives its recommendation beside every question, and none is built before its ans
 - **#306**, `docs/specs/2026-10-05-android-decomposition-design.md`, asks three: where the
   Gradle workers cap goes; whether `SettingsViewModel` splits into collaborators or into
   view models; three pull requests or one per file.
-- **#307**, `docs/specs/2026-10-05-android-transports-design.md`, asks four: when `connect`
-  becomes the release build's default; whether a debug build may switch transports at run
-  time; how to know every family phone has the new APK before v1 goes; whether the app falls
+- **#307**, `docs/specs/2026-10-05-android-transports-design.md`, asks four: whether a release
+  built at 5a goes onto the family's phones, or 5b's is the first; whether a debug build may
+  switch transports at run time; how to know every family phone has the new APK before v1 goes; whether the app falls
   back to v1 on a bare `503` or `404`. Its stage 5a also waits for sub-project 3's stage 3a
   to be deployed.
 - **#308**, `docs/specs/2026-10-05-build-console-design.md`, asks six: whether CI runs the
