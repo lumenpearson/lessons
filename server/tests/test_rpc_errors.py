@@ -85,8 +85,6 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
 }
 
 
-
-
 def _proto_reasons() -> dict[str, str]:
     """Each value of ``ErrorReason`` and the comment above it, joined."""
     found: dict[str, str] = {}
@@ -181,8 +179,6 @@ def test_every_row_of_the_table_names_the_test_that_reads_it_back() -> None:
         if function not in defined:
             missing.append(f"{exception.__name__}: {file_name}::{function}")
     assert missing == []
-
-
 
 
 def test_a_refusal_is_its_code_its_reason_and_the_details_the_proto_promises() -> None:

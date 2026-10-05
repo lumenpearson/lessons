@@ -20,14 +20,18 @@ from app.contract.lessons.v2.options_pb import Role as ProtoRole
 from app.contract.lessons.v2.schedule_pb import DayOffReason, GetScheduleWindowRequest
 from app.models import (
     BellPeriod,
+    BellSchedule,
     BotUser,
     DayEvent,
+    DayKind,
+    DayOverride,
     EventKind,
     Homework,
     LessonOverride,
     OverrideAction,
     Role,
     SchoolClass,
+    Subject,
     Term,
     TimetableEntry,
     WeekParity,
@@ -149,6 +153,53 @@ async def test_every_day_is_v1_s_day_and_the_terms_v1_would_have_seeded(
             covers_lesson=True,
         )
     )
+    # The fields the plain fixture leaves at their defaults: a substitution
+    # with another subject and teacher, a cancellation, a lesson's note, a
+    # subject's colour, and a day on a shorter bell schedule. Without them,
+    # swapping is_replaced and is_cancelled would pass this comparison.
+    session.add(
+        Subject(class_id=school_class.id, name="Алгебра", teacher="Петрова", color="#336699")
+    )
+    session.add(
+        LessonOverride(
+            class_id=school_class.id,
+            date=date(2026, 9, 7),
+            index=2,
+            action=OverrideAction.REPLACE,
+            subject_name="Химия",
+            room="118",
+            teacher="Иванова",
+            note="Вместо физики",
+        )
+    )
+    session.add(
+        LessonOverride(
+            class_id=school_class.id,
+            date=date(2026, 9, 7),
+            index=3,
+            action=OverrideAction.CANCEL,
+        )
+    )
+    short = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    session.add(short)
+    await session.flush()
+    for index, starts_at, ends_at in [
+        (1, time(8, 30), time(9, 0)),
+        (2, time(9, 10), time(9, 40)),
+        (3, time(9, 50), time(10, 20)),
+    ]:
+        session.add(
+            BellPeriod(schedule_id=short.id, index=index, starts_at=starts_at, ends_at=ends_at)
+        )
+    session.add(
+        DayOverride(
+            class_id=school_class.id,
+            date=date(2026, 9, 14),
+            kind=DayKind.SHORTENED,
+            bell_schedule_id=short.id,
+            note="Сокращённые уроки",
+        )
+    )
     await session.commit()
     token = v2_tokens["editor"]
     v2_answer = (await v2.rest("ScheduleService/GetScheduleWindow", _window(), token=token)).message
@@ -161,10 +212,35 @@ async def test_every_day_is_v1_s_day_and_the_terms_v1_would_have_seeded(
     ).json()
 
     assert [_as_v1(day) for day in v2_answer.window.days] == [_v1_day(day) for day in v1["days"]]
+    monday = next(d for d in v2_answer.window.days if d.date == "2026-09-07")
+    assert [(x.subject, x.is_replaced, x.is_cancelled) for x in monday.lessons] == [
+        ("Алгебра", False, False),
+        ("Химия", True, False),
+        ("История", False, True),
+    ]
+    assert monday.lessons[0].color == "#336699" and monday.lessons[1].teacher == "Иванова"
+    shortened = next(d for d in v2_answer.window.days if d.date == "2026-09-14")
+    assert shortened.kind.name == "SHORTENED" and shortened.lessons[0].ends_at == "09:00"
     summary = v2_answer.window.school_class
     assert summary.term_kind is TermKind.QUARTER
-    assert [(t.index, t.starts_on, t.ends_on) for t in summary.terms] == [
-        (t["index"], t["starts_on"], t["ends_on"]) for t in v1["school_class"]["terms"]
+    class_v1 = v1["school_class"]
+    # v1 says null where v2's plain scalars say 0 and "": the one difference
+    # the class summary makes on purpose.
+    assert (summary.id, summary.name, summary.grade, summary.letter) == (
+        class_v1["id"],
+        class_v1["name"],
+        class_v1["grade"] or 0,
+        class_v1["letter"] or "",
+    )
+    assert (summary.school, summary.city, summary.timezone) == (
+        class_v1["school"] or "",
+        class_v1["city"] or "",
+        class_v1["timezone"],
+    )
+    assert summary.school == "Школа № 1"
+    assert summary.term_kind.name.lower() == class_v1["term_kind"]
+    assert [(t.index, t.kind.name.lower(), t.starts_on, t.ends_on) for t in summary.terms] == [
+        (t["index"], t["kind"], t["starts_on"], t["ends_on"]) for t in class_v1["terms"]
     ]
     device = v2_answer.window.device
     assert (device.linked, device.role, device.can_edit) == (True, ProtoRole.EDITOR, True)
@@ -227,14 +303,24 @@ async def test_the_first_and_last_years_are_served(v2, v2_tokens) -> None:
 # ---- the tag ---------------------------------------------------------------
 
 
-async def test_an_unchanged_window_keeps_its_tag_and_its_answer_moves_on(v2, v2_tokens) -> None:
+async def test_an_unchanged_window_keeps_its_tag_and_its_answer_moves_on(
+    v2, v2_tokens, monkeypatch
+) -> None:
     token = v2_tokens["unlinked"]
+    moments = iter(
+        [datetime(2026, 10, 5, 9, 0, tzinfo=UTC), datetime(2026, 10, 5, 9, 5, tzinfo=UTC)]
+    )
+    monkeypatch.setattr("app.rpc.values.now", lambda: next(moments))
     first = await v2.rest("ScheduleService/GetScheduleWindow", _window(), token=token)
     second = await v2.connect("ScheduleService/GetScheduleWindow", _window(), token=token)
     assert first.message.etag == second.message.etag == first.headers["etag"]
     assert re.fullmatch(r'"[0-9a-f]{64}"', first.message.etag)
-    generated = first.message.window.generated_at.to_datetime()
-    assert abs(generated - datetime.now(UTC)) < timedelta(minutes=1)
+    assert first.message.window.generated_at.to_datetime() == datetime(
+        2026, 10, 5, 9, 0, tzinfo=UTC
+    )
+    assert second.message.window.generated_at.to_datetime() == datetime(
+        2026, 10, 5, 9, 5, tzinfo=UTC
+    )
 
 
 @pytest.mark.parametrize(
@@ -391,3 +477,9 @@ async def test_a_dense_year_stays_under_two_megabytes(v2, v2_tokens, session, sc
     assert answer.status == 200
     assert len(answer.body) < 2_000_000, len(answer.body)
     assert sum(len(d.homework) for d in answer.message.window.days) > 1500
+    # Eight lessons on every teaching day, and well over a hundred and fifty
+    # teaching days in a school year: a window that lost its lessons would
+    # still be small enough to pass the size check above.
+    teaching = [d for d in answer.message.window.days if d.lessons]
+    assert len(teaching) > 150
+    assert all(len(d.lessons) == 8 for d in teaching)
