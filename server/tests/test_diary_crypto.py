@@ -121,6 +121,33 @@ async def test_a_session_that_cannot_be_opened_is_expired_on_the_way_out(session
     assert row.expired_at is not None
 
 
+async def test_a_key_that_goes_missing_expires_nothing(session, secret):
+    """No key is not a rotated key (#302).
+
+    With ``DIARY_SECRET`` gone every seal reads as unreadable, and expiring
+    them would throw away every family's session over a misconfiguration
+    that putting the key back undoes. The diary is off; the rows wait.
+    """
+    secret("a" * 40)
+    from app.security import hash_token
+
+    row = DiarySession(
+        token_hash=hash_token("ours"),
+        upstream_token=crypto.seal("upstream"),
+        login="parent@example.com",
+    )
+    session.add(row)
+    await session.commit()
+
+    secret("")  # the key went missing
+    assert await service.find_session(session, "ours") is None
+    await session.refresh(row)
+    assert row.expired_at is None
+
+    secret("a" * 40)  # and came back
+    assert await service.find_session(session, "ours") is not None
+
+
 async def test_signing_in_without_a_key_refuses_before_the_password_leaves(secret):
     """Order of operations, and the reason it is that order: sending someone's
     password to a third party to then throw the answer away is worse than
