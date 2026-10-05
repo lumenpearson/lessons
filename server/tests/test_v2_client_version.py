@@ -110,19 +110,16 @@ async def test_a_phone_told_to_update_is_neither_seen_nor_recorded(
 
 
 async def test_a_cleared_settings_cache_does_not_hide_the_minimum(
-    v2, v2_tokens, monkeypatch, served_settings
+    v2, v2_tokens, monkeypatch, settings_cache_cleared, served_settings
 ) -> None:
     """#348: eight modules clear ``get_settings``' cache, and a patch on the copy
     that builds next is a patch the served app never reads."""
-    get_settings.cache_clear()
-    try:
-        monkeypatch.setattr(served_settings, "min_client_version", 500)
-        answer = await v2.both(
-            "MeService/GetMe", token=v2_tokens["viewer"], headers={"X-Lessons-Client": "412"}
-        )
-        assert (answer.code, answer.reason) == ("FAILED_PRECONDITION", "CLIENT_TOO_OLD")
-    finally:
-        get_settings.cache_clear()
+    assert get_settings() is not served_settings
+    monkeypatch.setattr(served_settings, "min_client_version", 500)
+    answer = await v2.both(
+        "MeService/GetMe", token=v2_tokens["viewer"], headers={"X-Lessons-Client": "412"}
+    )
+    assert (answer.code, answer.reason) == ("FAILED_PRECONDITION", "CLIENT_TOO_OLD")
 
 
 async def test_v1_never_records_a_version(v2, v2_tokens, session, statement_writes) -> None:

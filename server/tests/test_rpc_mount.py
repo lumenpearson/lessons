@@ -20,7 +20,6 @@ from fastapi import FastAPI
 import app.rpc as rpc_module
 from app import main
 from app.api.public import router as public_router
-from app.config import get_settings
 from app.rpc import GRPC_REFUSED, _Services, rpc_app
 from app.rpc.handlers import HANDLERS
 
@@ -197,9 +196,9 @@ async def test_an_unknown_service_is_404_and_a_get_of_a_write_is_405(v2) -> None
 
 @pytest.mark.parametrize("vercel", ["1", ""], ids=["on-vercel", "elsewhere"])
 async def test_watch_class_is_not_served_and_says_so_after_the_gate(
-    v2, v2_tokens, monkeypatch, vercel
+    v2, v2_tokens, monkeypatch, served_settings, vercel
 ) -> None:
-    monkeypatch.setattr(get_settings(), "vercel", vercel)
+    monkeypatch.setattr(served_settings, "vercel", vercel)
     anonymous = await v2.stream("WatchService/WatchClass")
     assert (anonymous.code, anonymous.reason) == ("UNAUTHENTICATED", "DEVICE_TOKEN_INVALID")
 

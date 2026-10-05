@@ -43,7 +43,7 @@ def _leaks(response: httpx.Response) -> bool:
 async def test_no_refusal_repeats_what_was_sent(
     v2, v2_tokens, monkeypatch, served_settings, key
 ) -> None:
-    monkeypatch.setattr(served_settings,"min_client_version", 40)
+    monkeypatch.setattr(served_settings, "min_client_version", 40)
     method = METHODS[key]
     binding = method.binding
     assert binding is not None

@@ -842,6 +842,25 @@ async def served_settings():
 
 
 @pytest.fixture
+async def settings_cache_cleared():
+    """Leave ``get_settings()`` building a different ``Settings`` from the one
+    the served app holds, as eight modules do when they clear its cache.
+
+    The container's instance is resolved first so that it exists to diverge
+    from; without that, a test would see the two agree whenever nothing had
+    cleared the cache before it, and would guard against the bug only by the
+    luck of its position in the run. Request it before ``served_settings``.
+    """
+    from app.config import Settings, get_settings
+    from app.di import container
+
+    await container().get(Settings)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+@pytest.fixture
 def statement_writes() -> Callable[[], contextlib.AbstractContextManager[list[str]]]:
     """``with statement_writes() as seen:`` — every INSERT, UPDATE and DELETE
     the engine sends while the block runs, whitespace folded.
