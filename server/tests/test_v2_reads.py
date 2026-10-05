@@ -18,6 +18,7 @@ import pytest
 from app.contract.lessons.v2.me_pb import GetMeRequest, Me
 from app.contract.lessons.v2.options_pb import AuthKind
 from app.contract.lessons.v2.options_pb import Role as ProtoRole
+from app.providers.diary.registry import KEYS
 from app.rpc.handlers import HANDLERS
 from app.rpc.methods import METHODS
 
@@ -32,6 +33,10 @@ ALLOWED_WRITES = (
     re.compile(r"^UPDATE diary_sessions SET (?:(?:upstream_token|last_used_at)=\?(?:, )?)+ WHERE"),
     re.compile(r"^(?:INSERT INTO|UPDATE|DELETE FROM) (?:join_attempts|usage_counters)\b"),
 )
+
+
+#: The one write GetMe may make.
+LAST_SEEN = ALLOWED_WRITES[0]
 
 
 def unexpected(statements: list[str]) -> list[str]:
@@ -69,12 +74,26 @@ async def test_the_gate_stands_in_front_of_every_served_method(v2, v2_tokens, ke
     )
     if method.auth is AuthKind.NONE:
         assert nobody.reason not in GATE_REASONS
+        bogus = await _call(v2, key, "not-a-token")
+        assert bogus.reason not in GATE_REASONS
         return
     expected = "DIARY_TOKEN_INVALID" if method.auth is AuthKind.DIARY else "DEVICE_TOKEN_INVALID"
     assert (nobody.code, nobody.reason) == ("UNAUTHENTICATED", expected)
     assert (wrong.code, wrong.reason) == ("UNAUTHENTICATED", expected)
+    # The gate must also let the right caller through: a gate that refused
+    # everyone would pass every assertion below. The handler may still refuse
+    # (an empty request is often invalid); only the gate's own reasons count.
+    passing = {
+        ProtoRole.EDITOR: "editor",
+        ProtoRole.ADMIN: "admin",
+        ProtoRole.OWNER: "owner",
+    }
     if method.auth is AuthKind.DIARY:
+        admitted = await _call(v2, key, v2_tokens["diary"])
+        assert admitted.reason not in GATE_REASONS
         return
+    admitted = await _call(v2, key, v2_tokens[passing.get(method.min_role, "viewer")])
+    assert admitted.reason not in GATE_REASONS
 
     unlinked = await _call(v2, key, v2_tokens["unlinked"])
     linked_needed = method.auth is AuthKind.DEVICE_LINKED or (
@@ -148,7 +167,7 @@ async def test_diary_capabilities_are_v1_s_in_v2_s_shape(v2) -> None:
     capabilities = answer.message.capabilities
     assert capabilities.enabled is v1["enabled"] is True
     providers = {p.provider: p for p in capabilities.providers}
-    assert set(providers) == {"petersburg", "netschool"}
+    assert set(providers) == set(KEYS)
     assert list(providers["netschool"].regions) == v1["providers"]["netschool"]["regions"]
     assert list(providers["petersburg"].regions) == []
     assert all(not p.sign_in_methods and not p.features for p in capabilities.providers)
@@ -175,7 +194,10 @@ async def test_get_me_writes_nothing_but_the_last_seen(
         answer = await v2.both("MeService/GetMe", GetMeRequest(), token=v2_tokens[who])
     assert answer.status == 200
     assert answer.message is not None
+    # GetMe's own rule is stricter than the general one: it touches the device's
+    # last_seen_at and nothing else — no diary row, no throttle row.
     assert unexpected(seen) == []
+    assert all(LAST_SEEN.match(statement) for statement in seen), seen
 
 
 async def test_diary_capabilities_write_nothing(v2, statement_writes) -> None:

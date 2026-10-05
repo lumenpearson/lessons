@@ -22,6 +22,18 @@ from app import main
 from app.api.public import router as public_router
 from app.config import get_settings
 from app.rpc import GRPC_REFUSED, _Services, rpc_app
+from app.rpc.handlers import HANDLERS
+
+
+@pytest.fixture
+def unserved(monkeypatch) -> str:
+    """A method with no handler, by construction: ``DiaryService/ListStudents``
+    is taken out of ``HANDLERS`` for the test, so the answer does not depend on
+    which methods a later stage serves. ``invoke`` reads the same dict, so both
+    transports see it."""
+    key = "lessons.v2.DiaryService/ListStudents"
+    monkeypatch.delitem(HANDLERS, key, raising=False)
+    return key
 
 
 async def test_native_grpc_over_http_1_1_is_refused_before_the_library(v2) -> None:
@@ -150,8 +162,10 @@ async def test_a_body_that_claims_gzip_and_is_not_is_undecodable_not_500(v2) -> 
     assert error["details"][0]["debug"]["reason"] == "REQUEST_UNDECODABLE"
 
 
-async def test_a_gzip_body_that_is_gzip_is_still_decompressed_and_decoded(v2) -> None:
-    """3b's methods have no handler yet (``ListStudents`` is one), so the proof
+async def test_a_gzip_body_that_is_gzip_is_still_decompressed_and_decoded(
+    v2, unserved
+) -> None:
+    """The method has no handler (``unserved`` removes it), so the proof
     that the body got through is the answer it earns: a valid one is the
     method's UNIMPLEMENTED, and one that decompresses into garbage is the
     codec's refusal, not the gzip one's."""
@@ -278,7 +292,7 @@ def test_a_connectrpc_that_cannot_be_imported_leaves_the_real_app_serving_v1() -
     assert rpc_body == {"code": "unavailable", "message": sentence}
 
 
-async def test_a_header_that_is_not_utf8_is_read_not_a_500(v2) -> None:
+async def test_a_header_that_is_not_utf8_is_read_not_a_500(v2, unserved) -> None:
     """#338: ``connectrpc`` decodes headers as UTF-8 and answered ``unknown``
     with the exception's text. Compared with the same call without it."""
     url = "/api/rpc/lessons.v2.DiaryService/ListStudents"
@@ -320,7 +334,7 @@ def _get_scope(query: bytes) -> dict:
     }
 
 
-async def test_a_query_string_that_is_not_utf8_is_read_not_a_500() -> None:
+async def test_a_query_string_that_is_not_utf8_is_read_not_a_500(unserved) -> None:
     clean = await _asgi(_get_scope(b"encoding=json&message=%7B%7D"))
     odd = await _asgi(_get_scope(b"encoding=json&message=%7B%7D&x=caf\xe9"))
     assert clean[0] == 501

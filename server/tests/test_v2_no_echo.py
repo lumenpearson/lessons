@@ -18,6 +18,7 @@ import httpx
 import pytest
 
 from app.config import get_settings
+from app.contract.lessons.v2.options_pb import AuthKind
 from app.rpc.handlers import HANDLERS
 from app.rpc.methods import METHODS
 
@@ -46,6 +47,15 @@ async def test_no_refusal_repeats_what_was_sent(v2, v2_tokens, monkeypatch, key)
     binding = method.binding
     assert binding is not None
     bearer = {"Authorization": f"Bearer {v2_tokens['unlinked']}"}
+    # The field loop runs as the most privileged caller of the method's own
+    # credential kind, so a validation that comes after the gate's role check
+    # is reached and swept; the probes below keep the unlinked bearer.
+    privileged = {
+        AuthKind.DEVICE: v2_tokens["owner"],
+        AuthKind.DEVICE_LINKED: v2_tokens["owner"],
+        AuthKind.DIARY: v2_tokens["diary"],
+    }.get(method.auth)
+    strong = {"Authorization": f"Bearer {privileged}"} if privileged else {}
     answers: list[httpx.Response] = []
 
     for field in method.input.desc().fields:
@@ -55,7 +65,7 @@ async def test_no_refusal_repeats_what_was_sent(v2, v2_tokens, monkeypatch, key)
                 await v2.http.post(
                     f"/api/rpc/{key}",
                     content=body,
-                    headers={**bearer, "Content-Type": "application/json"},
+                    headers={**strong, "Content-Type": "application/json"},
                 )
             )
             if binding.body:
@@ -64,7 +74,7 @@ async def test_no_refusal_repeats_what_was_sent(v2, v2_tokens, monkeypatch, key)
                         binding.verb.upper(),
                         _path(key),
                         content=body,
-                        headers={**bearer, "Content-Type": "application/json"},
+                        headers={**strong, "Content-Type": "application/json"},
                     )
                 )
             elif isinstance(raw, str):
@@ -72,13 +82,13 @@ async def test_no_refusal_repeats_what_was_sent(v2, v2_tokens, monkeypatch, key)
                     await v2.http.request(
                         binding.verb.upper(),
                         f"{_path(key)}?{urlencode({field.json_name: raw})}",
-                        headers=bearer,
+                        headers=strong,
                     )
                 )
 
     if binding.variables:
         answers.append(
-            await v2.http.request(binding.verb.upper(), _path(key, SECRET), headers=bearer)
+            await v2.http.request(binding.verb.upper(), _path(key, SECRET), headers=strong)
         )
     for headers in ({"Authorization": f"Bearer {SECRET}"}, {**bearer, "X-Lessons-Client": SECRET}):
         answers.append(
