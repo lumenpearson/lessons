@@ -22,9 +22,11 @@ logged traceback:
 from __future__ import annotations
 
 import importlib
+import logging
 from collections.abc import Awaitable, Callable, MutableMapping
 from typing import Any
 
+from connectrpc.code import Code
 from connectrpc.codec import Codec, proto_binary_codec, proto_json_codec
 from connectrpc.compression import Compression
 from connectrpc.compression.gzip import GzipCompression
@@ -33,8 +35,10 @@ from starlette.responses import PlainTextResponse, Response
 
 from app.api.deps import peer_host
 from app.rpc.call import invoke
-from app.rpc.errors import connect_error, undecodable
+from app.rpc.errors import INTERNAL_MESSAGE, connect_error, undecodable
 from app.rpc.methods import METHODS, Method
+
+log = logging.getLogger(__name__)
 
 Scope = MutableMapping[str, Any]
 Receive = Callable[[], Awaitable[MutableMapping[str, Any]]]
@@ -63,7 +67,13 @@ class _Decoding:
         return self._inner.name()
 
     def encode(self, message: Any) -> bytes:
-        return self._inner.encode(message)
+        # A message that cannot be serialised — a lone surrogate in a string —
+        # would otherwise leave as ``unknown`` carrying the exception's text.
+        try:
+            return self._inner.encode(message)
+        except Exception:
+            log.exception("v2 answer could not be encoded")
+            raise ConnectError(Code.INTERNAL, INTERNAL_MESSAGE) from None
 
     def decode(self, data: bytes | bytearray, message_class: type[Any]) -> Any:
         try:

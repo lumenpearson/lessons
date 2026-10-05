@@ -20,7 +20,10 @@ is tested once, generically
 - ``If-None-Match`` fills an ``if_none_match`` field, and wins over a query
   parameter of that name.
 
-Canonical proto3 JSON, unknown fields ignored, as Connect does it. A body
+Canonical proto3 JSON, unknown fields ignored, as Connect does it. A body is
+read only under ``application/json`` or ``+json`` and with no
+``Content-Encoding`` (:func:`_takes_body`): REST does not decompress, Connect
+does. A body
 over 4 MB is refused, Connect's own limit; anything that does not decode is
 ``INVALID_ARGUMENT`` / ``REQUEST_UNDECODABLE``, and never a 500 and never a
 sentence that quotes what was sent.
@@ -185,6 +188,32 @@ def _leaf(message: Any, dotted: str) -> DescField | None:
     return _field(message, dotted.split(".")[-1])
 
 
+def _header(headers: Sequence[tuple[str, str]], name: str) -> str | None:
+    for key, value in headers:
+        if key.lower() == name:
+            return value
+    return None
+
+
+def _takes_body(headers: Sequence[tuple[str, str]], body: bytes) -> bool:
+    """Whether a body of this request may be read as JSON at all.
+
+    Only ``application/json`` and ``+json`` types say so. A «simple» cross-site
+    request — ``text/plain``, a form, multipart — needs no preflight, so a page
+    on another site could send one and spend the visitor's address's join
+    budget; refusing the type is what makes the browser ask first (#340). And
+    no ``Content-Encoding``: this transport does not decompress, and a body
+    that claims one is not the JSON it would be read as (#341).
+    """
+    if not body:
+        return True
+    encoding = (_header(headers, "content-encoding") or "identity").strip().lower()
+    if encoding != "identity":
+        return False
+    media = (_header(headers, "content-type") or "").split(";", 1)[0].strip().lower()
+    return media == "application/json" or media.endswith("+json")
+
+
 def decode(
     method: Method,
     *,
@@ -199,6 +228,9 @@ def decode(
     desc = method.input.desc()
     value: dict[str, Any] = {}
     bound: set[str] = set()
+
+    if not _takes_body(headers, body):
+        raise undecodable()
 
     if method.binding.body:
         try:

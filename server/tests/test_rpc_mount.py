@@ -366,6 +366,28 @@ async def test_a_gzip_body_over_the_read_limit_stays_resource_exhausted(v2) -> N
     assert response.json()["code"] == "resource_exhausted"
 
 
+async def test_an_answer_that_cannot_be_encoded_is_internal_with_the_fixed_sentence(
+    v2, v2_tokens, monkeypatch
+) -> None:
+    """The Connect twin of the REST test for #339: the serialiser's own text
+    must not reach the client as ``unknown``."""
+    from app.contract.lessons.v2 import me_pb
+
+    async def unwritable(call, request):
+        return me_pb.UpdateTaskResponse(task=me_pb.Task(id=5, title="\ud800"))
+
+    monkeypatch.setitem(HANDLERS, "lessons.v2.MeService/UpdateTask", unwritable)
+    answer = await v2.connect(
+        "MeService/UpdateTask",
+        me_pb.UpdateTaskRequest(task=me_pb.Task(id=5)),
+        token=v2_tokens["viewer"],
+    )
+    assert answer.status == 500
+    assert answer.code == "INTERNAL"
+    assert answer.error == "The server failed to answer this request"
+    assert "ud800" not in str(answer.body).lower()
+
+
 async def test_the_peer_reaching_invoke_is_the_host_without_its_port(v2, monkeypatch) -> None:
     seen: dict[str, object] = {}
 

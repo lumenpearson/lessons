@@ -48,7 +48,8 @@ httpx>=0.28.1,<0.29
 cryptography>=50.0.1
 # The v2 contract's runtime: the code generated into server/app/contract
 # imports protobuf-py, and its services import connectrpc. Floors are the
-# pinned plugins' versions (buf.gen.yaml); imported by nothing on the cold path
-# until sub-project 3 serves v2.
+# pinned plugins' versions (buf.gen.yaml); imported by app.main since stage 3a,
+# inside mount_v2's fail-safe try, so the cold path carries them and a failed
+# import leaves v1 serving.
 connectrpc>=0.12.1
 protobuf-py>=0.6.0

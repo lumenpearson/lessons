@@ -208,7 +208,7 @@ Read this before planning a release.
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 214 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 2430 tests, green, about four minutes — the command CI runs |
+| `pytest -q -n auto` | 2437 tests, green, about four minutes — the command CI runs |
 | buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
 | v2 over REST and Connect | four methods served beside v1 (`GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities`, `CreateDevice`), each tested both ways in-process, the window day by day against v1's `/bundle`; no APK calls them yet |
 | `./gradlew test` | 1635 tests, green, all five modules |

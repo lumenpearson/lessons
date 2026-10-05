@@ -59,7 +59,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2430 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2437 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -238,7 +238,8 @@ Server modules:
   table) and `handlers.py` (which methods are served). A handler never commits and never
   checks a credential; `rpc_app()` mounts the seventeen Connect apps at `/api/rpc`, refusing
   native gRPC over HTTP/1.1 with `415`. May import `services/`, `models`, `schedule`,
-  `wording`, `security`, `api/deps.py`, the diary registry and the contract — never `app.bot`
+  `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry
+  and the contract — never `app.bot`
   or a v1 router; `tests/test_service_layering.py` walks it
 - `rest/` — the transcoder: one Starlette route per unary method from its `google.api.http`
   rule, under `/api/v2`, calling the same `invoke`; `errors.py` writes Google's error body.

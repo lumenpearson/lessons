@@ -27,6 +27,9 @@ from app.rpc.errors import Refusal
 from app.rpc.handlers import HANDLERS
 from app.rpc.methods import METHODS, Binding, Method
 
+#: What a request that carries a body must say, since #340.
+JSON = [("content-type", "application/json")]
+
 PROTO = Path(__file__).resolve().parents[2] / "proto" / "lessons" / "v2"
 
 
@@ -104,7 +107,7 @@ def test_every_path_variable_binds_the_dotted_ones_included() -> None:
             params[variable.replace(".", "__")] = sent
             expected[variable] = held
         body = b"{}" if method.binding.body else b""
-        request = decode(method, path_params=params, query=[], headers=[], body=body)
+        request = decode(method, path_params=params, query=[], headers=JSON, body=body)
         for variable, held in expected.items():
             assert _leaf(request, variable) == held, (method.key, variable)
         checked += 1
@@ -116,7 +119,7 @@ def test_a_patch_takes_its_update_mask_and_allow_missing_from_the_query() -> Non
         METHODS["lessons.v2.MeService/UpdateTask"],
         path_params={"task__id": "5"},
         query=[("updateMask", "title,done")],
-        headers=[],
+        headers=JSON,
         body='{"title": "Конспект", "id": 99}'.encode(),
     )
     assert update.task.id == 5  # the path wins over the body
@@ -127,7 +130,7 @@ def test_a_patch_takes_its_update_mask_and_allow_missing_from_the_query() -> Non
         METHODS["lessons.v2.DayService/UpdateDay"],
         path_params={"day__date": "2026-09-07"},
         query=[("allow_missing", "true")],
-        headers=[],
+        headers=JSON,
         body=b"{}",
     )
     assert day.allow_missing is True
@@ -221,7 +224,7 @@ def test_what_does_not_decode_is_request_undecodable(key, query, body) -> None:
     if "{year}" in route_path(method):
         params = {"year": "two thousand"}
     with pytest.raises(Refusal) as refused:
-        decode(method, path_params=params, query=query, headers=[], body=body)
+        decode(method, path_params=params, query=query, headers=JSON, body=body)
     assert refused.value.reason.name == "REQUEST_UNDECODABLE"
     assert refused.value.message == "The request could not be decoded"
 
@@ -234,7 +237,7 @@ def test_an_unknown_enum_name_reads_as_unspecified_as_it_does_over_connect() -> 
         METHODS["lessons.v2.DayService/UpdateDay"],
         path_params={"day__date": "2026-09-07"},
         query=[],
-        headers=[],
+        headers=JSON,
         body=b'{"kind": "NOT_A_KIND"}',
     )
     assert request.day.kind.name == "UNSPECIFIED"
@@ -429,6 +432,68 @@ async def test_an_answer_that_cannot_be_written_is_internal_in_googles_shape(
     error = response.json()["error"]
     assert (error["code"], error["status"]) == (500, "INTERNAL")
     assert "ud800" not in response.text
+
+
+async def _join_attempts(session) -> int:
+    from sqlalchemy import func, select
+
+    from app.models import JoinAttempt
+
+    return await session.scalar(select(func.count()).select_from(JoinAttempt)) or 0
+
+
+@pytest.mark.parametrize(
+    "content_type",
+    [
+        "text/plain",
+        "application/x-www-form-urlencoded",
+        "multipart/form-data; boundary=x",
+        None,
+    ],
+    ids=["text-plain", "form", "multipart", "no-content-type"],
+)
+async def test_a_body_that_is_not_json_by_its_type_is_refused_before_the_budget(
+    v2, session, content_type
+) -> None:
+    """#340: a «simple» cross-site POST must not spend the visitor's join budget."""
+    before = await _join_attempts(session)
+    headers = {"Content-Type": content_type} if content_type else {}
+    response = await v2.http.post(
+        "/api/v2/devices", content=b'{"code": "NOSUCH99"}', headers=headers
+    )
+    assert response.status_code == 400
+    error = response.json()["error"]
+    assert error["status"] == "INVALID_ARGUMENT"
+    assert error["details"][0]["reason"] == "REQUEST_UNDECODABLE"
+    assert await _join_attempts(session) == before
+
+
+async def test_a_json_type_with_parameters_or_a_plus_json_suffix_is_still_read(
+    v2, session
+) -> None:
+    for content_type in ("application/json; charset=utf-8", "application/merge-patch+json"):
+        response = await v2.http.post(
+            "/api/v2/devices",
+            content=b'{"code": "NOSUCH99"}',
+            headers={"Content-Type": content_type},
+        )
+        assert response.status_code == 404
+        assert response.json()["error"]["details"][0]["reason"] == "JOIN_CODE_UNKNOWN"
+
+
+async def test_a_compressed_body_is_undecodable_over_rest(v2, session) -> None:
+    """#341: REST does not decompress; Connect does, and says so in ``docs/api.md``."""
+    import gzip
+
+    before = await _join_attempts(session)
+    response = await v2.http.post(
+        "/api/v2/devices",
+        content=gzip.compress(b'{"code": "NOSUCH99"}'),
+        headers={"Content-Type": "application/json", "Content-Encoding": "gzip"},
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["details"][0]["reason"] == "REQUEST_UNDECODABLE"
+    assert await _join_attempts(session) == before
 
 
 async def test_a_throttle_answers_with_retry_after(v2, v2_tokens, monkeypatch) -> None:

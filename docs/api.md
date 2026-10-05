@@ -1641,6 +1641,14 @@ that claims `Content-Encoding: gzip` and is not gzip, a JSON string holding a lo
 and a header or a query string that is not UTF-8, which is read as Latin-1, as v1 reads it,
 and judged where it is used.
 
+The transports differ in what a body may be. Connect takes gzip (`Content-Encoding: gzip`) as
+well as uncompressed bodies. REST takes uncompressed bodies only: one with any
+`Content-Encoding` but `identity` is `REQUEST_UNDECODABLE`, and so is one whose `Content-Type`
+is not `application/json` or `+json` (parameters such as `; charset=utf-8` are fine), because
+a cross-site page can send a text, form or multipart body without a preflight and would
+otherwise spend the visitor's address's join budget (#340, #341). A request without a body is
+unaffected.
+
 ### What REST adds
 
 - **Statuses.** A success is `200` with the `<Method>Response` as canonical JSON, except the
@@ -1711,7 +1719,8 @@ takes is part of the method, not of its path.
 Every method that acts on the class names one, reads included.
 
 Every request may carry `X-Lessons-Client: <versionCode>`, and an APK's first v2 build sends it.
-The server reads it before anything else. With `MIN_CLIENT_VERSION` set, a version below it is
+The server reads it after the request has decoded and the method is known to be served, and
+before any credential. With `MIN_CLIENT_VERSION` set, a version below it is
 `FAILED_PRECONDITION` with the reason `CLIENT_TOO_OLD` and `min_version` in its metadata, and a
 header that is not a whole number from 1 to 2100000000, the most a versionCode can be, is
 `VALIDATION_FAILED`; without a minimum a malformed header is ignored. A request without the
