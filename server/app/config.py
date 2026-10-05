@@ -6,7 +6,7 @@ from functools import lru_cache
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.timezones import resolve
@@ -146,6 +146,25 @@ class Settings(BaseSettings):
     # request: behind Vercel the function sees an internal host, and the bot
     # builds the URL from inside a Telegram update where there is no request.
     public_base_url: str = ""
+
+    # The oldest v2 client this server still answers, as the APK's versionCode
+    # in its `X-Lessons-Client` header (docs/specs/2026-10-05-server-v2-design.md,
+    # decision 9). Empty, or 0, means no minimum. With one set, a present
+    # version below it is refused with CLIENT_TOO_OLD and the app asks to be
+    # updated; a request with no header is never refused, so a third-party
+    # client or a `curl` is not an old APK. Optional on purpose: not in
+    # `deployment_problems`, because no feature is off without it.
+    min_client_version: int = Field(default=0, ge=0)
+
+    @field_validator("min_client_version", mode="before")
+    @classmethod
+    def _empty_is_no_minimum(cls, value: object) -> object:
+        """``MIN_CLIENT_VERSION=`` is how `.env.example` shows a setting left
+        off, and pydantic would refuse an empty string for an integer — at
+        import, taking v1 down with it. Empty means zero, as the comment says."""
+        if isinstance(value, str) and not value.strip():
+            return 0
+        return value
 
     @property
     def owner_id_list(self) -> list[int]:

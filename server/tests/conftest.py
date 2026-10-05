@@ -449,3 +449,53 @@ def FakeUpstream() -> type[_FakeUpstream]:
 @pytest.fixture
 def with_token():
     return _with_token
+
+
+@pytest.fixture
+async def v2_tokens(session, school_class) -> dict[str, str]:
+    """A bearer for each caller the gate tells apart, in ``school_class``.
+
+    ``unlinked`` is the class code's anonymous phone; ``viewer`` to ``owner``
+    are phones linked to members of those roles; ``stranger`` is linked to
+    an account that is no member; ``diary`` is a live diary session.
+    Telegram ids start at 2001, clear of the ``OWNER_IDS`` this file sets.
+    """
+    from datetime import datetime
+
+    from app.crypto import seal
+    from app.models import BotUser, DeviceToken, DiarySession, Role
+    from app.security import hash_token
+
+    tokens: dict[str, str] = {}
+    for name, telegram_id, role in (
+        ("unlinked", None, None),
+        ("viewer", 2001, Role.VIEWER),
+        ("editor", 2002, Role.EDITOR),
+        ("admin", 2003, Role.ADMIN),
+        ("owner", 2004, Role.OWNER),
+        ("stranger", 2005, None),
+    ):
+        token = f"v2-{name}-token"
+        session.add(
+            DeviceToken(
+                token_hash=hash_token(token),
+                class_id=school_class.id,
+                device_name=f"{name} phone",
+                telegram_id=telegram_id,
+                linked_at=datetime(2026, 9, 1) if telegram_id is not None else None,
+            )
+        )
+        if role is not None:
+            session.add(BotUser(telegram_id=telegram_id, class_id=school_class.id, role=role))
+        tokens[name] = token
+    tokens["diary"] = "v2-diary-token"
+    session.add(
+        DiarySession(
+            token_hash=hash_token(tokens["diary"]),
+            upstream_token=seal("an-upstream-session"),
+            login="parent@example.com",
+            provider="petersburg",
+        )
+    )
+    await session.commit()
+    return tokens

@@ -76,6 +76,9 @@ services:
       # Empty is direct, which is right for a server inside Russia (#334).
       DIARY_PROXY_URL: ${DIARY_PROXY_URL:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      # A number, but unset is its default all the same: the setting reads an
+      # empty value as 0, no minimum (app/config.py), as .env.example leaves it.
+      MIN_CLIENT_VERSION: ${MIN_CLIENT_VERSION:-}
       # Not strings, so not empty when unset: "" is neither a boolean nor a
       # number to pydantic, and the server would refuse to start over a
       # variable nobody set. The defaults written here are the settings' own.
