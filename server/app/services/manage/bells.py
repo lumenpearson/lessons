@@ -5,9 +5,15 @@ shortened day points at one of them. One is the class default, and that one is
 what every ordinary day rings. The rows themselves are written by
 :func:`app.services.structure.write_bell_periods`, which also answers what a
 change stops ringing; this module is the rest of what the two shells did twice.
+:func:`update` is the patch v1's two writes to a schedule held in their router,
+which v2's one masked ``UpdateBellSchedule`` applies too (the server-v2
+design, decision 2).
 """
 
 from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +46,12 @@ class ScheduleInUse(Exception):
     def __init__(self, days: int) -> None:
         super().__init__(str(days))
         self.days = days
+
+
+class DefaultRequired(Exception):
+    """``is_default`` false, which no schedule can be told: a class with no
+    default has no times for an ordinary day, so the way to stop using one is
+    to make another the default. Raised before anything is written."""
 
 
 async def schedules_of(session: AsyncSession, class_id: int) -> list[BellSchedule]:
@@ -195,6 +207,52 @@ async def replace_rows(
         summary += f", перестали звонить уроков: {len(orphaned)}"
     await audit.record(session, school_class.id, actor_id, "bells.edit", summary)
     return orphaned
+
+
+async def update(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor_id: int | None,
+    schedule: BellSchedule,
+    changes: Mapping[str, Any],
+) -> list[tuple[int, int]]:
+    """Apply a patch to a schedule: the rename, then the rows, then the default.
+
+    ``changes`` maps ``"name"`` to the new name, ``"periods"`` to the rows
+    that replace the schedule's wholesale, and ``"is_default"`` to whether it
+    becomes the class default. A key that is absent, or an ``is_default`` of
+    ``None``, is left alone. v1's ``PATCH`` (the name and the default), its
+    ``PUT …/periods`` (the rows) and v2's one masked ``UpdateBellSchedule``
+    all call this, so the order and the log lines are one.
+
+    The rows go before the default, so that what the patch stopped ringing is
+    counted once, against the bells the class rang before it: by the rows
+    when the schedule is the default already, by the move when it becomes it.
+    The other order would count a lesson the move silenced and the new rows
+    then rang again.
+
+    @return the (weekday, number) rows this patch stopped ringing.
+    @raises DefaultRequired for ``is_default`` false, before anything is written.
+    @raises ScheduleEmpty when a schedule with no rows would become the default.
+    """
+    if changes.get("is_default") is False:
+        raise DefaultRequired(schedule.name)
+    silenced: list[tuple[int, int]] = []
+    if changes.get("name") is not None:
+        await rename(session, school_class, actor_id, schedule, changes["name"])
+    if "periods" in changes:
+        silenced += await replace_rows(
+            session, school_class, actor_id, schedule, list(changes["periods"])
+        )
+        if changes.get("is_default"):
+            # `make_default` reads `schedule.periods`, which the bulk delete in
+            # `write_bell_periods` left stale: an empty schedule given its
+            # first rows in this same patch would be refused as empty.
+            await session.flush()
+            await session.refresh(schedule, ["periods"])
+    if changes.get("is_default"):
+        silenced += await make_default(session, school_class, actor_id, schedule)
+    return silenced
 
 
 async def delete(

@@ -335,3 +335,18 @@ def subject_in_use_detail(lessons: int) -> str:
 #: no phone of the class, and an unlink of a phone no account is behind.
 UNKNOWN_DEVICE_DETAIL = "Unknown device"
 CLASS_DEVICE_NOT_LINKED_DETAIL = "device is not linked"
+
+
+#: v1's ``/manage/bells`` and v2's ``BellService``: an id that names no
+#: schedule of the class, ``is_default`` false, a default that rings nothing
+#: (v1's ``PUT /days`` refuses a day pointed at one in the same words), and
+#: the two schedules a delete must leave: the class default, and one special
+#: days point at.
+UNKNOWN_BELL_SCHEDULE_DETAIL = "Unknown bell schedule"
+BELL_DEFAULT_REQUIRED_DETAIL = "make another schedule the default instead"
+EMPTY_BELL_SCHEDULE_DETAIL = "в этом расписании звонков нет ни одного урока"
+BELL_SCHEDULE_IS_DEFAULT_DETAIL = "this is the class default; make another one the default first"
+
+
+def bell_schedule_in_use_detail(days: int) -> str:
+    return f"{days} special day(s) still use this schedule"
