@@ -293,6 +293,44 @@ def CardCallback() -> type[_CardCallback]:
 
 
 # --------------------------------------------------------------------------
+# The documents that can name the migration head
+#
+# test_schema_version reads them and fails on one that names an old head;
+# test_ci_paths holds that a change to any of them runs that test on CI (#295).
+# One list, so the two cannot come to mean different documents.
+# --------------------------------------------------------------------------
+
+_REPOSITORY = Path(__file__).resolve().parents[2]
+
+#: The record of past batches, moved verbatim out of HANDOVER.md: it quotes the
+#: head of every commit it describes, true of that commit, and is never
+#: brought up to date.
+_HISTORY = Path("docs") / "history.md"
+
+
+def _head_documents(repository: Path = _REPOSITORY) -> list[Path]:
+    """Everything a person or an agent reads to learn the head — not
+    HANDOVER.md or docs/history.md, which between them hold every head
+    there has been, and not `.claude/worktrees/`, which holds other
+    branches' checkouts rather than this one's."""
+    found = [repository / name for name in ("README.md", "CLAUDE.md", "AGENTS.md")]
+    found.append(repository / ".github" / "copilot-instructions.md")
+    found += sorted((repository / "docs").rglob("*.md"))
+    worktrees = repository / ".claude" / "worktrees"
+    found += sorted(document for document in (repository / ".claude").rglob("*.md")
+                    if not document.is_relative_to(worktrees))
+    return [document for document in found
+            if document.is_file() and document != repository / _HISTORY]
+
+
+@pytest.fixture
+def head_documents():
+    """The function rather than its answer: one test calls it on a tree it
+    builds in `tmp_path`."""
+    return _head_documents
+
+
+# --------------------------------------------------------------------------
 # The diary's fake upstream
 #
 # Shared by the JSON API's tests and the sign-in page's, which drive the same

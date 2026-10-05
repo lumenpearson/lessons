@@ -1385,7 +1385,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2175 tests, ~4 min on CI, ~10 on Windows
+cd server  && pytest -q -n auto                          # 2207 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 197 modules
 cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

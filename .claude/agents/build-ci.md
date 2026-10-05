@@ -16,6 +16,14 @@ it through that day's audit (#210). The server job installs the root `requiremen
 the lock Vercel installs — together with the package (#192), so its verdict is about the
 deployed versions. `./gradlew lint` is not in CI — do not report it as a gate.
 
+The «What changed» job runs a half when a file **its tests read** changed, and a file no
+pattern matches runs nothing and comes back green. The server's tests read far outside
+`server/`: every `.md` that can name the migration head (`CLAUDE.md`, the skills, all of
+`docs/`), the proto sources, `vercel.json` and more — a commit touching only `CLAUDE.md`
+once ran no server test (#295). `server/tests/test_ci_paths.py` holds the server's
+patterns level with what its suite reads; a test that starts reading a new file outside
+`server/` goes into its `READ_BY_THE_SUITE` and into the patterns together.
+
 `apk.yml` builds an installable APK on demand or on a `v*` tag. Its keystore step checks all
 four `LESSONS_KEYSTORE_*` secrets and fails with `::error::` if any is empty, because a
 release signed with the AGP debug key is an app that can never be updated by the real key.

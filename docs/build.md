@@ -239,16 +239,25 @@ step. What stayed in CI for good:
   `./gradlew test`, not where the report landed.
 - **Path filters.** The "What changed" job decides in a few seconds which halves could
   possibly have broken, and a half runs when a file **its tests read** changed, not only a
-  file in its own folder. So a change confined to `docs/` usually runs neither — but
-  `docs/app/` and `docs/legal/` are packaged into the APK and run Android; `docs/build.md`,
-  `docs/deploy.md`, `docs/diaries.md` and `docs/diaries/` are read by server tests and run
-  the server; a change to `proto/`, `buf.yaml`, `buf.gen.yaml`, `buf.lock` or
-  `server/app/contract/` runs the «Contract» job, which only those files, a workflow edit or
-  an unknown range run; and the region catalog and the protocol vectors, which live under `server/`
-  and are the phone's inputs too, run both. A commit touching only one of those documents
-  used to run nothing and come back green (#159); `ci.yml` names each file beside the test
-  that reads it. If the commit range cannot be worked out (a force push, a branch's first
-  push), all three run — a skipped build costs more than ten wasted minutes.
+  file in its own folder. The server's tests read every Markdown document a reader learns
+  the migration head from — `README.md`, `CLAUDE.md`, `AGENTS.md`,
+  `.github/copilot-instructions.md` and every `.md` under `docs/` and `.claude/` — because
+  `test_schema_version` fails on one that names an old head, so a change to any of them
+  runs the server, a change confined to `docs/` included; so does a change to `proto/`,
+  `buf.yaml`, `buf.gen.yaml`, `vercel.json`, `.vercelignore`, `.python-version`, the two
+  requirements files or `docker-compose.yml`, each read by a server test. `docs/app/` and
+  `docs/legal/` are packaged into the APK and run Android as well; a change to `proto/`,
+  `buf.yaml`, `buf.gen.yaml`, `buf.lock` or `server/app/contract/` runs the «Contract» job,
+  which only those files, a workflow edit or an unknown range run; and the region catalog
+  and the protocol vectors, which live under `server/` and are the phone's inputs too, run
+  both. What runs nothing is a change to what no test reads: `HANDOVER.md`,
+  `CONTRIBUTING.md`, an issue template. A commit touching only one of the documents used to
+  run nothing and come back green — first those #159 found, then `CLAUDE.md`, the skills
+  and the rest of what `test_schema_version` reads (#295); `ci.yml` names each file beside
+  the test that reads it, and `server/tests/test_ci_paths.py` fails on a file the server's
+  tests read that the server's patterns do not match. If the commit range cannot be worked
+  out (a force push, a branch's first push), all three run — a skipped build costs more
+  than ten wasted minutes.
 
 And one thing that did **not** stay: for a while, release was not built on a pull request.
 That saved about two minutes per push at the cost of finding a broken R8 at the merge
