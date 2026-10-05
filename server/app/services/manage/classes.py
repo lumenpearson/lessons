@@ -90,6 +90,30 @@ async def members(session: AsyncSession, class_id: int) -> list[BotUser]:
     return list(await session.scalars(select(BotUser).where(BotUser.class_id == class_id)))
 
 
+def display_name(full_name: str | None, username: str | None, telegram_id: int | None) -> str:
+    """The best name held for somebody, as plain text, in the order the bot picks it.
+
+    Falls back to the numeric id rather than to «неизвестный»: an id is
+    something an admin can act on, and every answer that shows one is an
+    admin's. Not escaped, because it goes into JSON and protobuf; the bot keeps
+    an escaping twin (``bot/manage_render/_common.person``). Moved from
+    ``api/manage/_common._person`` (the server-v2 design, decision 2).
+    """
+    if username:
+        return f"@{username}"
+    if full_name:
+        return full_name
+    return str(telegram_id) if telegram_id is not None else "—"
+
+
+async def member_names(session: AsyncSession, class_id: int) -> dict[int, str]:
+    """Telegram id -> :func:`display_name`, for everybody with a role in the class."""
+    return {
+        member.telegram_id: display_name(member.full_name, member.username, member.telegram_id)
+        for member in await members(session, class_id)
+    }
+
+
 async def set_field(
     session: AsyncSession,
     school_class: SchoolClass,

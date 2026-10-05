@@ -29,7 +29,6 @@ from app.models import (
     Homework,
     PersonalTask,
     SchoolClass,
-    Subject,
     TimetableEntry,
 )
 from app.providers.diary.registry import binding as diary_binding
@@ -68,6 +67,7 @@ from app.services import join as join_service
 from app.services import subjects as subjects_service
 from app.services import tasks as task_service
 from app.services import terms as terms_service
+from app.services.manage import subjects as manage_subjects
 
 log = logging.getLogger(__name__)
 
@@ -598,9 +598,7 @@ async def subjects(
     *,
     session: FromDishka[AsyncSession],
 ) -> list[SubjectOut]:
-    rows = await session.scalars(
-        select(Subject).where(Subject.class_id == school_class.id).order_by(Subject.name)
-    )
+    rows = await manage_subjects.dictionary_of(session, school_class.id)
     return [
         SubjectOut(name=row.name, short_name=row.short_name, teacher=row.teacher, color=row.color)
         for row in rows

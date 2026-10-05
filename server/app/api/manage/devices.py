@@ -12,13 +12,16 @@ from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.api.deps import current_class
-from app.api.manage._common import Actor, _conflict, _member_names, _wall, admin_actor
+from app.api.manage._common import Actor, _conflict, admin_actor
 from app.api.routing import DishkaAnnotatedRoute
 from app.models import DeviceToken, Role, SchoolClass
 from app.schemas import ManagedDeviceOut
 from app.services import linking
+from app.services.clock import wall
 from app.services.manage import devices as devices_service
+from app.services.manage.classes import member_names
 
 log = logging.getLogger(__name__)
 
@@ -43,9 +46,9 @@ def _device_out(
         owner=names.get(device.telegram_id) if device.telegram_id is not None else None,
         role=role.value if role is not None else None,
         revoked=device.revoked,
-        created_at=_wall(device.created_at, school_class),
-        last_seen_at=_wall(device.last_seen_at, school_class),
-        linked_at=_wall(device.linked_at, school_class),
+        created_at=wall(device.created_at, school_class),
+        last_seen_at=wall(device.last_seen_at, school_class),
+        linked_at=wall(device.linked_at, school_class),
     )
 
 
@@ -54,7 +57,9 @@ async def _device_or_404(
 ) -> DeviceToken:
     device = await devices_service.device_of(session, school_class.id, device_id)
     if device is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown device")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_DEVICE_DETAIL
+        )
     return device
 
 
@@ -74,7 +79,7 @@ async def devices_list(
     the ones that were switched off, which the bot's page leaves out.
     """
     devices = await linking.devices_of(session, school_class.id, include_revoked=include_revoked)
-    names = await _member_names(session, school_class.id)
+    names = await member_names(session, school_class.id)
     # Once per owner, not once per phone, through the function «📱 Устройства»
     # in the bot resolves it with.
     roles = await devices_service.owner_roles(session, devices)
@@ -102,7 +107,7 @@ async def device_revoke(
     dealt with from the one that is still in a pocket.
     """
     device = await _device_or_404(session, school_class, device_id)
-    names = await _member_names(session, school_class.id)
+    names = await member_names(session, school_class.id)
     role = await linking.effective_role(session, device)
     if await devices_service.revoke(session, school_class.id, actor.telegram_id, device):
         await session.commit()
@@ -128,8 +133,8 @@ async def device_unlink(
     try:
         await devices_service.unlink(session, school_class.id, actor.telegram_id, device)
     except devices_service.DeviceNotLinked as not_linked:
-        raise _conflict("device is not linked") from not_linked
+        raise _conflict(wording.CLASS_DEVICE_NOT_LINKED_DETAIL) from not_linked
     await session.commit()
-    names = await _member_names(session, school_class.id)
+    names = await member_names(session, school_class.id)
     role = await linking.effective_role(session, device)
     return _device_out(device, school_class, names, role)

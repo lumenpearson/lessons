@@ -13,7 +13,8 @@ cannot forget a check — it never makes one
    resolved, so that a deployment without ``DIARY_SECRET`` touches no session
    row (#302: v1 expires every session it is asked about);
 3. the bearer of the method's kind, by ``api/deps.py``'s rules, with the
-   device's class and its ``last_seen_at``;
+   device's class, its ``last_seen_at``, and beside it the client version
+   (decision 15);
 4. a linked account, for ``DEVICE_LINKED`` and for any least role above
    viewer, refused **before** the role is read, as v1's three role checks do;
 5. the role, read with ``linking.effective_role`` on every call, so a role
@@ -146,7 +147,7 @@ async def admit(
     if device is None:
         sentence = MISSING_BEARER if token is None else UNKNOWN_DEVICE
         raise Refusal(ErrorReason.DEVICE_TOKEN_INVALID, sentence)
-    await touch_last_seen(session, device)
+    await touch_last_seen(session, device, client_version=admitted.client_version)
     # After the touch, not before: a rollback inside it expires what the
     # session holds, and this is the row the handler is about to read.
     school_class = await session.get(SchoolClass, device.class_id)

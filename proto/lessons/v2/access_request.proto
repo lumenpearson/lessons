@@ -45,7 +45,10 @@ service AccessRequestService {
 // v1: AccessRequestOut.
 message AccessRequest {
   int32 id = 1;
-  // A display name, never the Telegram id.
+  // The author as a display name, as v1 shows it: the @username or the name
+  // Telegram gave when the author holds a role in the class, else the numeric
+  // id, which is what a person still waiting for a role usually is. No field
+  // carries the Telegram id as such.
   string who = 2;
   Role requested_role = 3;
   optional string message = 4;

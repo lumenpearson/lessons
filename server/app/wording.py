@@ -18,6 +18,7 @@ beside ``schedule``, and imports nothing but ``models`` and ``schedule``.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date as Date
 from html import escape
 
@@ -311,3 +312,26 @@ JOIN_DEVICE_LIMIT_DETAIL = (
     "К классу подключено слишком много телефонов. Возьмите личный код в боте "
     "(«📱 Подключить телефон») или попросите администратора отключить старые телефоны"
 )
+
+#: v1's ``/manage/subjects`` and v2's ``SubjectService``: an id that names no
+#: subject of the class, a name the class already has (ignoring case), a
+#: rename that would put two assignments on one subject and one day, and a
+#: subject the weekly template still teaches.
+UNKNOWN_SUBJECT_DETAIL = "Unknown subject"
+SUBJECT_EXISTS_DETAIL = "a subject with that name is already in this class"
+
+
+def subject_rename_clash_detail(days: Iterable[Date]) -> str:
+    return "homework under both names on the same day: " + ", ".join(
+        day.isoformat() for day in days
+    )
+
+
+def subject_in_use_detail(lessons: int) -> str:
+    return f"{lessons} lesson(s) still use this subject"
+
+
+#: v1's ``/manage/devices`` and v2's ``ClassDeviceService``: an id that names
+#: no phone of the class, and an unlink of a phone no account is behind.
+UNKNOWN_DEVICE_DETAIL = "Unknown device"
+CLASS_DEVICE_NOT_LINKED_DETAIL = "device is not linked"

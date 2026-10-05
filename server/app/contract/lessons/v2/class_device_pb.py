@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from .options_pb import Role
 
 
-_ClassDeviceFields: TypeAlias = Literal["id", "device_name", "linked", "owner", "role", "revoked", "created_at", "last_seen_at", "linked_at"]
+_ClassDeviceFields: TypeAlias = Literal["id", "device_name", "linked", "owner", "role", "revoked", "created_at", "last_seen_at", "linked_at", "client_version"]
 
 class ClassDevice(Message[_ClassDeviceFields]):
     """
@@ -46,7 +46,9 @@ class ClassDevice(Message[_ClassDeviceFields]):
             bool linked = 3;
             ```
         owner:
-            Whose phone it is, as a display name: never the Telegram id.
+            Whose phone it is, as a display name: the @username, else the name
+            Telegram gave, else the numeric id, as the bot shows an admin. No field
+            carries the Telegram id as such.
 
             ```proto
             optional string owner = 4;
@@ -75,9 +77,18 @@ class ClassDevice(Message[_ClassDeviceFields]):
             ```proto
             optional google.protobuf.Timestamp linked_at = 9;
             ```
+        client_version:
+            The X-Lessons-Client version this phone last sent to v2, recorded beside
+            last_seen_at and on its fifteen-minute clock; absent for a phone that
+            never sent one, which is every APK that speaks only v1. New in v2: v1's
+            answer does not carry it.
+
+            ```proto
+            optional int32 client_version = 10;
+            ```
     """
 
-    __slots__ = ("id", "device_name", "linked", "owner", "role", "revoked", "created_at", "last_seen_at", "linked_at")
+    __slots__ = ("id", "device_name", "linked", "owner", "role", "revoked", "created_at", "last_seen_at", "linked_at", "client_version")
 
     if TYPE_CHECKING:
 
@@ -93,6 +104,7 @@ class ClassDevice(Message[_ClassDeviceFields]):
             created_at: Timestamp | None = None,
             last_seen_at: Timestamp | None = None,
             linked_at: Timestamp | None = None,
+            client_version: int | None = None,
         ) -> None:
             pass
 
@@ -105,6 +117,7 @@ class ClassDevice(Message[_ClassDeviceFields]):
         created_at: Timestamp | None
         last_seen_at: Timestamp | None
         linked_at: Timestamp | None
+        client_version: int
 
 _ListClassDevicesRequestFields: TypeAlias = Literal["include_revoked"]
 
@@ -279,7 +292,7 @@ class UnlinkClassDeviceResponse(Message[_UnlinkClassDeviceResponseFields]):
 
 
 _DESC = file_desc(
-    b'\n\x1dlessons/v2/class_device.proto\x12\nlessons.v2\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18lessons/v2/options.proto"\x82\x03\n\x0bClassDevice\x12\x0e\n\x02id\x18\x01 \x01(\x05R\x02id\x12$\n\x0bdevice_name\x18\x02 \x01(\tH\x00R\ndeviceName\x88\x01\x01\x12\x16\n\x06linked\x18\x03 \x01(\x08R\x06linked\x12\x19\n\x05owner\x18\x04 \x01(\tH\x01R\x05owner\x88\x01\x01\x12$\n\x04role\x18\x05 \x01(\x0e2\x10.lessons.v2.RoleR\x04role\x12\x18\n\x07revoked\x18\x06 \x01(\x08R\x07revoked\x129\n\ncreated_at\x18\x07 \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAt\x12<\n\x0clast_seen_at\x18\x08 \x01(\x0b2\x1a.google.protobuf.TimestampR\nlastSeenAt\x127\n\tlinked_at\x18\t \x01(\x0b2\x1a.google.protobuf.TimestampR\x08linkedAtB\x0e\n\x0c_device_nameB\x08\n\x06_owner"B\n\x17ListClassDevicesRequest\x12\'\n\x0finclude_revoked\x18\x01 \x01(\x08R\x0eincludeRevoked"M\n\x18ListClassDevicesResponse\x121\n\x07devices\x18\x01 \x03(\x0b2\x17.lessons.v2.ClassDeviceR\x07devices"7\n\x18RevokeClassDeviceRequest\x12\x1b\n\tdevice_id\x18\x01 \x01(\x05R\x08deviceId"L\n\x19RevokeClassDeviceResponse\x12/\n\x06device\x18\x01 \x01(\x0b2\x17.lessons.v2.ClassDeviceR\x06device"7\n\x18UnlinkClassDeviceRequest\x12\x1b\n\tdevice_id\x18\x01 \x01(\x05R\x08deviceId"L\n\x19UnlinkClassDeviceResponse\x12/\n\x06device\x18\x01 \x01(\x0b2\x17.lessons.v2.ClassDeviceR\x06device2\xd2\x03\n\x12ClassDeviceService\x12\x83\x01\n\x10ListClassDevices\x12#.lessons.v2.ListClassDevicesRequest\x1a$.lessons.v2.ListClassDevicesResponse"$\x90\x02\x01\x88\xb5\x18\x02\x90\xb5\x18\x03\x82\xd3\xe4\x93\x02\x13\x12\x11/v2/class/devices\x12\x99\x01\n\x11RevokeClassDevice\x12$.lessons.v2.RevokeClassDeviceRequest\x1a%.lessons.v2.RevokeClassDeviceResponse"7\x88\xb5\x18\x02\x90\xb5\x18\x03\x82\xd3\xe4\x93\x02):\x01*"$/v2/class/devices/{device_id}:revoke\x12\x99\x01\n\x11UnlinkClassDevice\x12$.lessons.v2.UnlinkClassDeviceRequest\x1a%.lessons.v2.UnlinkClassDeviceResponse"7\x88\xb5\x18\x02\x90\xb5\x18\x03\x82\xd3\xe4\x93\x02):\x01*"$/v2/class/devices/{device_id}:unlinkB(\n$com.lumenpearson.lessons.contract.v2P\x01b\x06proto3',
+    b'\n\x1dlessons/v2/class_device.proto\x12\nlessons.v2\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18lessons/v2/options.proto"\xc1\x03\n\x0bClassDevice\x12\x0e\n\x02id\x18\x01 \x01(\x05R\x02id\x12$\n\x0bdevice_name\x18\x02 \x01(\tH\x00R\ndeviceName\x88\x01\x01\x12\x16\n\x06linked\x18\x03 \x01(\x08R\x06linked\x12\x19\n\x05owner\x18\x04 \x01(\tH\x01R\x05owner\x88\x01\x01\x12$\n\x04role\x18\x05 \x01(\x0e2\x10.lessons.v2.RoleR\x04role\x12\x18\n\x07revoked\x18\x06 \x01(\x08R\x07revoked\x129\n\ncreated_at\x18\x07 \x01(\x0b2\x1a.google.protobuf.TimestampR\tcreatedAt\x12<\n\x0clast_seen_at\x18\x08 \x01(\x0b2\x1a.google.protobuf.TimestampR\nlastSeenAt\x127\n\tlinked_at\x18\t \x01(\x0b2\x1a.google.protobuf.TimestampR\x08linkedAt\x12*\n\x0eclient_version\x18\n \x01(\x05H\x02R\rclientVersion\x88\x01\x01B\x0e\n\x0c_device_nameB\x08\n\x06_ownerB\x11\n\x0f_client_version"B\n\x17ListClassDevicesRequest\x12\'\n\x0finclude_revoked\x18\x01 \x01(\x08R\x0eincludeRevoked"M\n\x18ListClassDevicesResponse\x121\n\x07devices\x18\x01 \x03(\x0b2\x17.lessons.v2.ClassDeviceR\x07devices"7\n\x18RevokeClassDeviceRequest\x12\x1b\n\tdevice_id\x18\x01 \x01(\x05R\x08deviceId"L\n\x19RevokeClassDeviceResponse\x12/\n\x06device\x18\x01 \x01(\x0b2\x17.lessons.v2.ClassDeviceR\x06device"7\n\x18UnlinkClassDeviceRequest\x12\x1b\n\tdevice_id\x18\x01 \x01(\x05R\x08deviceId"L\n\x19UnlinkClassDeviceResponse\x12/\n\x06device\x18\x01 \x01(\x0b2\x17.lessons.v2.ClassDeviceR\x06device2\xd2\x03\n\x12ClassDeviceService\x12\x83\x01\n\x10ListClassDevices\x12#.lessons.v2.ListClassDevicesRequest\x1a$.lessons.v2.ListClassDevicesResponse"$\x90\x02\x01\x88\xb5\x18\x02\x90\xb5\x18\x03\x82\xd3\xe4\x93\x02\x13\x12\x11/v2/class/devices\x12\x99\x01\n\x11RevokeClassDevice\x12$.lessons.v2.RevokeClassDeviceRequest\x1a%.lessons.v2.RevokeClassDeviceResponse"7\x88\xb5\x18\x02\x90\xb5\x18\x03\x82\xd3\xe4\x93\x02):\x01*"$/v2/class/devices/{device_id}:revoke\x12\x99\x01\n\x11UnlinkClassDevice\x12$.lessons.v2.UnlinkClassDeviceRequest\x1a%.lessons.v2.UnlinkClassDeviceResponse"7\x88\xb5\x18\x02\x90\xb5\x18\x03\x82\xd3\xe4\x93\x02):\x01*"$/v2/class/devices/{device_id}:unlinkB(\n$com.lumenpearson.lessons.contract.v2P\x01b\x06proto3',
     [
         annotations_pb.desc(),
         timestamp_pb.desc(),

@@ -117,10 +117,15 @@ gate, opens the call's dishka scope the way the bot's middleware does, runs the 
 commits, and only then runs the call's effects. A handler never checks a credential and
 never commits, and every refusal is worded by one table (`rpc/errors.py`), so the two
 transports cannot disagree about a rule. The rules v1's routers held and v2 needs moved into
-`services/` first — the join flow, the window's tag, the clock and the bounds — and the
+`services/` first — the join flow, the window's tag, the clock and the bounds, then the
+member names, the class's wall clock, the dictionary read, the subject patch and the
+journal's page keyed on its last line — and the
 limiters into `security.py`, one instance each, so a caller cannot double its attempts by
 alternating versions. `main.mount_v2` catches a v2 that will not import and answers `503`
 under its two prefixes, so v1 and the webhook never go down with it.
+Every `Update…` reads its mask through `rpc/masks.py` (AIP-134), and the gate records the app
+version a phone sends beside its `last_seen_at`, which v2's `ClassDevice` and the bot's
+«📱 Устройства» show.
 
 ### The resolution model
 
@@ -891,7 +896,7 @@ with the host.
 
 ## Testing
 
-2437 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
+2527 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 161, `:widget` 126, `:app` 608 (#325).
 

@@ -12,12 +12,12 @@ holds the fixed sentence ``rpc/errors.py`` answers with instead
 from __future__ import annotations
 
 import json
+from typing import Any
 from urllib.parse import quote, urlencode
 
 import httpx
 import pytest
 
-from app.config import get_settings
 from app.contract.lessons.v2.options_pb import AuthKind
 from app.rpc.handlers import HANDLERS
 from app.rpc.methods import METHODS
@@ -36,13 +36,38 @@ def _path(key: str, fill: str = "2026") -> str:
     return "/api" + path
 
 
+def _field_paths(message) -> list[tuple[str, ...]]:
+    """Every request field, and one level into each message-typed one.
+
+    A body field such as ``subject`` carries ``name`` and ``color``, and a
+    refusal about ``subject.name`` is as able to quote it as one about a
+    top-level field is. One level is the depth the contract has: no request
+    nests a message inside a message inside the request.
+    """
+    paths: list[tuple[str, ...]] = []
+    for field in message.fields:
+        paths.append((field.json_name,))
+        inner = getattr(field.value, "message", None)
+        if inner is not None:
+            paths.extend((field.json_name, sub.json_name) for sub in inner.fields)
+    return paths
+
+
+def _nest(names: tuple[str, ...], raw: Any) -> Any:
+    for name in reversed(names):
+        raw = {name: raw}
+    return raw
+
+
 def _leaks(response: httpx.Response) -> bool:
     return SECRET in response.text or any(SECRET in value for value in response.headers.values())
 
 
 @pytest.mark.parametrize("key", SERVED)
-async def test_no_refusal_repeats_what_was_sent(v2, v2_tokens, monkeypatch, key) -> None:
-    monkeypatch.setattr(get_settings(), "min_client_version", 40)
+async def test_no_refusal_repeats_what_was_sent(
+    v2, v2_tokens, monkeypatch, served_settings, key
+) -> None:
+    monkeypatch.setattr(served_settings, "min_client_version", 40)
     method = METHODS[key]
     binding = method.binding
     assert binding is not None
@@ -58,9 +83,9 @@ async def test_no_refusal_repeats_what_was_sent(v2, v2_tokens, monkeypatch, key)
     strong = {"Authorization": f"Bearer {privileged}"} if privileged else {}
     answers: list[httpx.Response] = []
 
-    for field in method.input.desc().fields:
+    for names in _field_paths(method.input.desc()):
         for raw in (SECRET, SECRET * 8, {"nested": SECRET}, [SECRET]):
-            body = json.dumps({field.json_name: raw}).encode()
+            body = json.dumps(_nest(names, raw)).encode()
             answers.append(
                 await v2.http.post(
                     f"/api/rpc/{key}",
@@ -78,10 +103,11 @@ async def test_no_refusal_repeats_what_was_sent(v2, v2_tokens, monkeypatch, key)
                     )
                 )
             elif isinstance(raw, str):
+                # A nested field is a dotted query parameter, as the transcoder reads it.
                 answers.append(
                     await v2.http.request(
                         binding.verb.upper(),
-                        f"{_path(key)}?{urlencode({field.json_name: raw})}",
+                        f"{_path(key)}?{urlencode({'.'.join(names): raw})}",
                         headers=strong,
                     )
                 )
@@ -118,3 +144,12 @@ def test_the_decoder_itself_would_have_quoted_it() -> None:
     with pytest.raises(ValueError) as refused:
         GetScheduleWindowRequest.from_json(json.dumps({"year": SECRET}))
     assert SECRET in str(refused.value)
+
+
+def test_the_sweep_reaches_a_field_inside_a_message() -> None:
+    """Held here rather than trusted: a sweep that stopped at the top level
+    would pass on every method whose input is one wrapper message."""
+    paths = _field_paths(METHODS["lessons.v2.SubjectService/UpdateSubject"].input.desc())
+    assert ("subject",) in paths
+    assert ("subject", "name") in paths
+    assert _nest(("subject", "name"), SECRET) == {"subject": {"name": SECRET}}

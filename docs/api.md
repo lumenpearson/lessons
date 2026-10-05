@@ -4,7 +4,7 @@ Version `1`. Base path `/api/v1`. Every change since the first release is
 additive - new endpoints, new optional fields - so the version has not moved
 and a client built against the original `/bundle` keeps working unchanged.
 A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
-four of its methods so far: «v2: the contract», at the end of this page.
+thirteen of its methods so far: «v2: the contract», at the end of this page.
 
 There is no user account and no password. A device holds a bearer token; a
 device that has been **linked** to a Telegram account through the bot acts
@@ -864,8 +864,9 @@ endpoints exist to promise each other.
 Oldest first, and every phone that joined the class, not only the linked ones: a
 read-only phone is a row with `linked: false` (#321); `include_revoked=true` adds the
 revoked ones. `role` is a lookup, not a stored field - a device acts with
-whatever role its owner holds right now - and `owner` is a display name; the
-Telegram id a device is linked to is never on the wire.
+whatever role its owner holds right now - and `owner` is a display name — the
+@username, else the name Telegram gave, else the numeric id, as the bot shows an admin;
+there is no `telegram_id` field on the wire.
 
 `POST /manage/devices/{id}/revoke` switches a phone off: revoked, not deleted,
 because the row is what a token is checked against and keeping it is what makes
@@ -1028,7 +1029,7 @@ v2 is mounted and `false` when it could not be loaded and `/api/v2` and `/api/rp
 
 | | Body | Meaning |
 | --- | --- | --- |
-| `200` | `{"status": "ok", "api_version": 1, "schema": "0017"}` | the database is reachable and at the revision the code expects |
+| `200` | `{"status": "ok", "api_version": 1, "schema": "0018"}` | the database is reachable and at the revision the code expects |
 | `200` | `{"status": "degraded", …, "schema": …, "expected_schema": …, "detail": …}` | both revisions named, and `detail` says **which way** they diverge |
 | `503` | `{"status": "down", "api_version": 1, "detail": "База недоступна."}` | the database could not be reached |
 
@@ -1595,13 +1596,15 @@ Postgres, which has been checked on SQLite only. Nothing here has been asked of 
 
 ## v2: the contract
 
-**Served beside v1, four methods so far.** Everything above this section is v1, and v1 is
+**Served beside v1, thirteen methods so far.** Everything above this section is v1, and v1 is
 unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository, checked by
 Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
 [the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
-([its design](specs/2026-10-05-server-v2-design.md)). The first serves `GetScheduleWindow`,
-`GetMe`, `GetDiaryCapabilities` and `CreateDevice`; every other method answers `UNIMPLEMENTED`
-until its stage, before it asks for any credential. No APK calls v2 yet. The proto files are
+([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
+Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a),
+and `ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1). Every other method answers `UNIMPLEMENTED` until its stage, before it asks
+for any credential. No APK calls v2 yet. The proto files are
 the reference: every service, method, message and field there carries the comment that says
 what it means and what v1 sent in its place. This section says only what a file cannot.
 
@@ -1672,6 +1675,31 @@ unaffected.
 - **No CORS header**, on any answer: v2 answers apps, not pages on other sites.
 - **A failure to write an answer** is Google's `INTERNAL` body like any other refusal, never
   plain text.
+
+### Paging and updating
+
+- **A page** is AIP-158's: `page_size` and `page_token` in, `next_page_token` out, empty on
+  the last page. `ListAuditEntries` reads 30 lines when `page_size` is unset, and reads a
+  larger one than 100 as 100; a negative one is `VALIDATION_FAILED`. A page token is opaque:
+  send back the `next_page_token` you were given, unchanged. It names the last line of its
+  page, so a line written between two page turns moves nothing on the next page. A token this
+  list did not hand out, another class's or an edited one, is `VALIDATION_FAILED` on
+  `page_token`.
+- **An `Update…`** takes an `update_mask` (AIP-134). A masked field the request leaves unset
+  is cleared, as each method's comment says. A path the method does not take is
+  `VALIDATION_FAILED` on `update_mask`, and the refusal does not repeat it. Without a mask, or
+  with an empty one, the fields the request sets change and no other, which is what v1's
+  `PATCH` did. The fields apply in the method's own order, whatever the mask's: `UpdateSubject`
+  renames before it sets anything else, because the rename is what can be refused.
+- **A mask's paths in JSON** (over REST, in the query or the body, and over Connect's JSON) are
+  lowerCamelCase: `shortName`, `isDefault`. That is proto3's JSON mapping, and the server turns
+  them into the proto names. A path written `short_name` in JSON is refused as
+  `REQUEST_UNDECODABLE`. Over Connect's binary encoding the paths are the proto names,
+  `short_name`.
+- **`ClassDevice.client_version`** is the `X-Lessons-Client` version a phone last sent to v2,
+  recorded beside `last_seen_at` and on its fifteen-minute clock, and absent for a phone that
+  never sent one. v1's `GET /manage/devices` does not carry it: v1's answers do not change, and
+  a phone that speaks only v1 never sends the header.
 
 ### What the values look like
 

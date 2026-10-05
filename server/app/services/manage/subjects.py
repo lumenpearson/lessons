@@ -9,6 +9,7 @@ leaves in the log.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date as Date
 
 from sqlalchemy import select
@@ -61,18 +62,31 @@ class SubjectInUse(Exception):
         self.lessons = lessons
 
 
-async def listing(session: AsyncSession, class_id: int) -> list[Subject]:
-    """The dictionary, alphabetically, after adopting what the timetable uses.
+async def dictionary_of(session: AsyncSession, class_id: int) -> list[Subject]:
+    """The dictionary, alphabetically, as it stands, adopting nothing.
 
-    So the list cannot be empty while the class has a full timetable. The
-    adoption writes when something is out of step, and the caller commits it.
+    What v1's ``GET /subjects`` reads and v2's ``ListSubjects`` reads: a read
+    writes nothing (the server-v2 design, decision 10). Every write that names
+    a subject in the weekly template links it already, so what :func:`listing`
+    adopts is only what was written before the link existed.
     """
-    await dictionary.sync_from_timetable(session, class_id)
     return list(
         await session.scalars(
             select(Subject).where(Subject.class_id == class_id).order_by(Subject.name)
         )
     )
+
+
+async def listing(session: AsyncSession, class_id: int) -> list[Subject]:
+    """The dictionary, alphabetically, after adopting what the timetable uses.
+
+    So the list cannot be empty while the class has a full timetable. The
+    adoption writes when something is out of step, and the caller commits it.
+    v1's ``/manage/subjects`` and the bot read this; v2 reads
+    :func:`dictionary_of`.
+    """
+    await dictionary.sync_from_timetable(session, class_id)
+    return await dictionary_of(session, class_id)
 
 
 async def subject_of(session: AsyncSession, class_id: int, subject_id: int) -> Subject | None:
@@ -201,6 +215,35 @@ async def set_detail(
         action,
         f"{label} предмета «{subject.name}»: {value or removed}",
     )
+
+
+async def update(
+    session: AsyncSession,
+    class_id: int,
+    actor_id: int | None,
+    subject: Subject,
+    changes: Mapping[str, str | None],
+) -> int:
+    """Apply a patch: the rename first, then each detail, one log line each.
+
+    ``changes`` maps ``"name"`` and keys of :data:`DETAILS` to their new
+    values; a key that is absent is left alone, and ``None`` takes a detail
+    away. The rename goes first because it is the change that can be refused,
+    and it refuses before anything is written. v1's ``PATCH`` and v2's
+    ``UpdateSubject`` both call this, so the order and the lines are one.
+
+    @return how many rows the rename moved; zero without one.
+    @raises SubjectExists: another entry has the name, ignoring case.
+    @raises HomeworkClash: both names have homework on the same day.
+    """
+    details = dict(changes)
+    name = details.pop("name", None)
+    moved = 0
+    if name is not None:
+        moved = await rename(session, class_id, actor_id, subject, name) or 0
+    for column, value in details.items():
+        await set_detail(session, class_id, actor_id, subject, column, value)
+    return moved
 
 
 async def delete(

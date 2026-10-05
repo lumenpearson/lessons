@@ -11,11 +11,13 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class
-from app.api.manage._common import Actor, _member_names, _wall, admin_actor
+from app.api.manage._common import Actor, admin_actor
 from app.api.routing import DishkaAnnotatedRoute
 from app.models import AuditEntry, SchoolClass
 from app.schemas import AuditEntryOut, AuditPageOut
+from app.services.clock import wall
 from app.services.manage import journal as journal_service
+from app.services.manage.classes import member_names
 
 router = APIRouter(route_class=DishkaAnnotatedRoute)
 
@@ -41,7 +43,7 @@ async def audit_log(
     entries, has_more = await journal_service.page(
         session, school_class.id, limit=limit, offset=offset
     )
-    names = await _member_names(session, school_class.id)
+    names = await member_names(session, school_class.id)
 
     def _entry(row: AuditEntry) -> AuditEntryOut:
         return AuditEntryOut(
@@ -49,7 +51,7 @@ async def audit_log(
             action=row.action,
             summary=row.summary,
             who=names.get(row.telegram_id) if row.telegram_id is not None else None,
-            at=_wall(row.created_at, school_class),
+            at=wall(row.created_at, school_class),
         )
 
     return AuditPageOut(

@@ -23,44 +23,49 @@ from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.rest.errors import STATUS, error_response
 from app.rpc import errors
 from app.rpc.errors import CODES, Refusal, connect_error, validate
-from app.schemas import JoinRequest
+from app.schemas import JoinRequest, SubjectIn
 from app.services import diary as diary_service
 from app.services import join, window
+from app.services.manage import devices as devices_service
+from app.services.manage import subjects as subjects_service
 
 SERVER = Path(__file__).resolve().parents[1]
 ERRORS_PROTO = SERVER.parent / "proto" / "lessons" / "v2" / "errors.proto"
 API_DOC = SERVER.parent / "docs" / "api.md"
 RPC = SERVER / "app" / "rpc"
 
-#: The reasons no method of this stage can produce yet, and the stage that
-#: brings them. A reason leaves this set in the commit whose handler raises it.
+#: The stages of 3b still to come. A stage leaves this set in the commit that
+#: produces the last reason it brings, and a reason still listed under it in
+#: ``LATER`` then fails below
+#: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
+STAGES = {"3b-2", "3b-3", "3b-4", "3b-5", "3b-6", "3b-7", "3b-8"}
+
+#: The reasons no served method produces yet, and the stage that brings each.
+#: A reason leaves this table in the commit whose handler raises it.
 LATER = {
-    "RESOURCE_EXISTS": "3b",
-    "NO_BELL_FOR_LESSON": "3b",
-    "EMPTY_BELL_SCHEDULE": "3b",
-    "DIARY_UNAVAILABLE": "3b",
-    "DIARY_REAUTH": "3b",
-    "DIARY_CREDENTIALS_REJECTED": "3b",
-    "DIRECTORY_DISABLED": "3b",
-    "DIRECTORY_SPENT": "3b",
-    "DIRECTORY_UNAVAILABLE": "3b",
-    "DIARY_NO_STUDENTS": "3b",
-    "DIARY_UPSTREAM_UNREADABLE": "3b",
-    "CORRECTIONS_UNAVAILABLE": "3b",
-    "RESOURCE_IN_USE": "3b",
-    "SUBJECT_RENAME_CLASH": "3b",
-    "CLASS_DEVICE_NOT_LINKED": "3b",
-    "ROLE_GRANT_REFUSED": "3b",
-    "TERM_BOUNDS_REFUSED": "3b",
-    "NO_LESSON_ON_DAY": "3b",
-    "LESSON_NOT_ON_TIMETABLE": "3b",
+    "NO_BELL_FOR_LESSON": "3b-6",
+    "EMPTY_BELL_SCHEDULE": "3b-2",
+    "DIARY_UNAVAILABLE": "3b-7",
+    "DIARY_REAUTH": "3b-7",
+    "DIARY_CREDENTIALS_REJECTED": "3b-7",
+    "DIRECTORY_DISABLED": "3b-3",
+    "DIRECTORY_SPENT": "3b-3",
+    "DIRECTORY_UNAVAILABLE": "3b-3",
+    "DIARY_NO_STUDENTS": "3b-7",
+    "DIARY_UPSTREAM_UNREADABLE": "3b-7",
+    "CORRECTIONS_UNAVAILABLE": "3b-8",
+    "ROLE_GRANT_REFUSED": "3b-3",
+    "TERM_BOUNDS_REFUSED": "3b-2",
+    "NO_LESSON_ON_DAY": "3b-6",
+    "LESSON_NOT_ON_TIMETABLE": "3b-6",
 }
 
 
 #: Each row of ``errors.TABLE`` and the test that raises its exception through
 #: a served method and reads the refusal back on both transports, as a file
-#: under ``tests/`` and a function in it; or "3b", where no method 3a serves
-#: can raise it. A row added to the table without either fails below.
+#: under ``tests/`` and a function in it; or the stage, one of ``STAGES``,
+#: that will serve a method raising it. A row added to the table without
+#: either fails below.
 HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     join.JoinThrottled: ("test_v2_devices.py", "test_v1_and_v2_draw_on_one_budget"),
     join.JoinCodeUnknown: (
@@ -79,9 +84,25 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
         "test_v2_window.py",
         "test_a_year_outside_the_bounds_is_refused_on_its_field",
     ),
-    # The gate raises it for a diary method, and 3a serves none:
-    # test_rpc_gate.py holds the gate raising it until 3b does.
-    diary_service.DiaryDisabled: "3b",
+    devices_service.DeviceNotLinked: (
+        "test_v2_class_devices.py",
+        "test_unlinking_a_phone_with_nothing_to_unlink_is_refused_in_v1_s_words",
+    ),
+    subjects_service.SubjectExists: (
+        "test_v2_subject_writes.py",
+        "test_a_name_the_class_has_in_any_case_is_refused_as_existing",
+    ),
+    subjects_service.HomeworkClash: (
+        "test_v2_subject_writes.py",
+        "test_a_rename_onto_a_name_with_homework_the_same_day_is_a_clash",
+    ),
+    subjects_service.SubjectInUse: (
+        "test_v2_subject_writes.py",
+        "test_a_subject_the_timetable_teaches_is_refused_as_in_use",
+    ),
+    # The gate raises it for a diary method, and none is served before 3b-7:
+    # test_rpc_gate.py holds the gate raising it until then.
+    diary_service.DiaryDisabled: "3b-7",
 }
 
 
@@ -155,6 +176,7 @@ def test_every_reason_is_produced_or_waits_for_a_later_stage() -> None:
     assert produced & set(LATER) == set(), "a reason this stage produces is still listed as later"
     assert every - produced - set(LATER) == set(), "a reason nothing produces and nothing awaits"
     assert set(LATER) <= every
+    assert set(LATER.values()) <= STAGES
 
 
 def test_every_row_of_the_table_names_the_test_that_reads_it_back() -> None:
@@ -166,7 +188,8 @@ def test_every_row_of_the_table_names_the_test_that_reads_it_back() -> None:
     assert set(HELD_BY) == set(errors.TABLE)
     missing = []
     for exception, held in HELD_BY.items():
-        if held == "3b":
+        if isinstance(held, str):
+            assert held in STAGES, (exception.__name__, held)
             continue
         assert isinstance(held, tuple), (exception.__name__, held)
         file_name, function = held
@@ -227,6 +250,18 @@ def test_validation_names_the_field_and_never_the_value() -> None:
         assert all(secret not in description for _, description in refusal.violations)
     else:
         raise AssertionError("a 48-character code was accepted")
+
+
+def test_validation_names_a_nested_field_by_its_request_path() -> None:
+    """``CreateSubject`` validates its ``subject`` with v1's ``SubjectIn``; a
+    violation names ``subject.name``, the field as the request spells it."""
+    try:
+        validate(SubjectIn, {"name": "   "}, at="subject.")
+    except Refusal as refusal:
+        assert [field for field, _ in refusal.violations] == ["subject.name"]
+        assert refusal.message == "invalid request field: subject.name"
+    else:
+        raise AssertionError("a blank name was accepted")
 
 
 def test_rest_writes_google_s_error_body_through_the_type_registry() -> None:
