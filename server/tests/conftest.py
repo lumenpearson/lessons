@@ -499,3 +499,171 @@ async def v2_tokens(session, school_class) -> dict[str, str]:
     )
     await session.commit()
     return tokens
+
+
+
+
+# --------------------------------------------------------------------------
+# v2, called both ways (docs/specs/2026-10-05-server-v2-design.md, decision 14)
+#
+# `v2` calls one method over REST, through the app on httpx's ASGI transport,
+# and over Connect, as the plain HTTP POST of canonical JSON (or binary) that
+# Connect's unary protocol is — no client library, so what is tested is the
+# wire. `both` asserts the two answers are one outcome, which is how «REST
+# and RPC cannot disagree» is held rather than hoped. The REST request is
+# built from the method's own `google.api.http` rule, here, in the client's
+# direction, independently of the transcoder that reads it back.
+# --------------------------------------------------------------------------
+
+_DOMAIN = "lessons.app"
+
+
+@dataclass
+class _V2Answer:
+    """One transport's answer, read into what both transports carry."""
+
+    transport: str
+    status: int
+    headers: httpx.Headers
+    body: bytes
+    #: The response message on success; a REST 304 reads as `not_modified`.
+    message: Any = None
+    #: The canonical code's name, "PERMISSION_DENIED", on a refusal.
+    code: str | None = None
+    reason: str | None = None
+    metadata: dict[str, str] = field(default_factory=dict)
+    #: The refusal's sentence.
+    error: str | None = None
+    violations: list[tuple[str, str]] = field(default_factory=list)
+    retry_seconds: int | None = None
+
+    def outcome(self) -> tuple[Any, ...]:
+        if self.code is None:
+            return ("ok", self.message)
+        return (
+            self.code,
+            self.reason,
+            self.metadata,
+            self.error,
+            self.violations,
+            self.retry_seconds,
+        )
+
+
+def _v2_details(answer: _V2Answer, details: list[tuple[str, Any]]) -> None:
+    """Fill ``answer`` from ``(type name, message)`` pairs of either transport."""
+    for type_name, message in details:
+        if type_name == "google.rpc.ErrorInfo":
+            assert message.domain == _DOMAIN
+            answer.reason = message.reason
+            answer.metadata = dict(message.metadata)
+        elif type_name == "google.rpc.BadRequest":
+            answer.violations = [(v.field, v.description) for v in message.field_violations]
+        elif type_name == "google.rpc.RetryInfo":
+            answer.retry_seconds = message.retry_delay.seconds
+
+
+class _V2:
+    """`await v2.both("MeService/GetMe", GetMeRequest(), token=…)`, and its halves."""
+
+    def __init__(self, http: httpx.AsyncClient) -> None:
+        self.http = http
+
+    @staticmethod
+    def method(name: str) -> Any:
+        from app.rpc.methods import METHODS
+
+        return METHODS[f"lessons.v2.{name}"]
+
+    @staticmethod
+    def _headers(token: str | None, headers: dict[str, str] | None) -> dict[str, str]:
+        sent = dict(headers or {})
+        if token is not None:
+            sent["Authorization"] = f"Bearer {token}"
+        return sent
+
+    async def connect(
+        self,
+        name: str,
+        request: Any = None,
+        *,
+        token: str | None = None,
+        headers: dict[str, str] | None = None,
+        binary: bool = False,
+    ) -> _V2Answer:
+        method = self.method(name)
+        request = request if request is not None else method.input()
+        sent = self._headers(token, headers)
+        sent["Content-Type"] = "application/proto" if binary else "application/json"
+        sent["Connect-Protocol-Version"] = "1"
+        response = await self.http.post(
+            f"/api/rpc/{method.key}",
+            content=request.to_binary() if binary else request.to_json().encode(),
+            headers=sent,
+        )
+        answer = _V2Answer("connect", response.status_code, response.headers, response.content)
+        if response.status_code == 200:
+            answer.message = (
+                method.output.from_binary(response.content)
+                if binary
+                else method.output.from_json(response.content)
+            )
+        else:
+            self._connect_error(answer, response.json())
+        return answer
+
+    async def stream(
+        self,
+        name: str,
+        request: Any = None,
+        *,
+        token: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> _V2Answer:
+        """A server-streaming call over Connect: its end message's error, if any."""
+        import struct
+
+        method = self.method(name)
+        request = request if request is not None else method.input()
+        payload = request.to_json().encode()
+        sent = self._headers(token, headers)
+        sent["Content-Type"] = "application/connect+json"
+        response = await self.http.post(
+            f"/api/rpc/{method.key}",
+            content=struct.pack(">BI", 0, len(payload)) + payload,
+            headers=sent,
+        )
+        answer = _V2Answer("stream", response.status_code, response.headers, response.content)
+        data = response.content
+        while data:
+            flags, length = struct.unpack(">BI", data[:5])
+            frame, data = data[5 : 5 + length], data[5 + length :]
+            if flags & 0x02:
+                end = json.loads(frame)
+                if "error" in end:
+                    self._connect_error(answer, end["error"])
+        return answer
+
+    @staticmethod
+    def _connect_error(answer: _V2Answer, error: dict[str, Any]) -> None:
+        import base64
+
+        from app.contract.google.rpc import error_details_pb
+
+        answer.code, answer.error = error["code"].upper(), error.get("message")
+        details = []
+        for detail in error.get("details", []):
+            cls = getattr(error_details_pb, detail["type"].rpartition(".")[2])
+            raw = base64.b64decode(detail["value"] + "=" * (-len(detail["value"]) % 4))
+            details.append((detail["type"], cls.from_binary(raw)))
+        _v2_details(answer, details)
+
+
+@pytest.fixture
+async def v2() -> AsyncIterator[_V2]:
+    """The app, reached over REST and Connect from one peer address."""
+    from app.main import app
+
+    transport = httpx.ASGITransport(app=app, client=("203.0.113.9", 52144))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
+        yield _V2(http)

@@ -33,7 +33,6 @@ RPC = SERVER / "app" / "rpc"
 #: The reasons no method of this stage can produce yet, and the stage that
 #: brings them. A reason leaves this set in the commit whose handler raises it.
 LATER = {
-    "FEATURE_UNSUPPORTED": "3a: WatchClass",
     "RESOURCE_EXISTS": "3b",
     "NO_BELL_FOR_LESSON": "3b",
     "EMPTY_BELL_SCHEDULE": "3b",
