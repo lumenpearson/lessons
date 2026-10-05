@@ -160,10 +160,28 @@ and nothing under `/api/v2` exists.
   `__init__.py` and the bare `pytest` CI runs adds no current directory, so `app` comes from
   the venv, whose editable install is the checkout it was made in. A worktree borrowing the
   main checkout's venv ran its tests against the main checkout's `app`; the document tests run
-  for #311 did exactly that. `conftest.py`'s `pytest_configure` now raises `pytest.UsageError`
-  naming both trees, before any test and before an xdist worker starts. The `gates` skill,
-  `docs/build.md` and `CLAUDE.md` («Commands») say a worktree needs a venv in its own
-  `server/`, and this worktree has one now, on Python 3.12 as CI runs.
+  for #311 did exactly that. `conftest.py`'s `pytest_configure` now raises `pytest.UsageError`,
+  before any test and before an xdist worker starts, on either of two answers: `app` is not
+  this tree's `server/app` exactly, or an editable install of `lessons-server` records another
+  tree as its source. The second catches `python -m pytest` with a borrowed venv, where the
+  current directory supplies `app` but the borrowed finder still answers for any module this
+  tree lacks. It reads every install record, because the build leaves a
+  `lessons_server.egg-info` without one in `server/`, first on that path. The `gates` skill,
+  `docs/build.md` and `CLAUDE.md` («Commands», which now gives CI's install with `-r`) say a
+  worktree needs a venv in its own `server/`, and this worktree has one now, on Python 3.12 as
+  CI runs.
+- **Reviewed before the merge by the server-tests agent**: no Critical or Important finding,
+  and no legitimate setup it refuses (CI's install, `python -m pytest`, xdist workers, Windows
+  case and 8.3 names, junctions, single files, the suite's child processes). Its two Minor
+  findings on what the guard let through, `app` installed non-editable under `server/` and the
+  borrowed finder under `-m`, are the two questions above. Its wording point is in the message.
+- **A sweep of the agents' instructions against the tree** found ten stale facts, filed as
+  **#314–#318** on milestone 11 for the next batch: eleven places still give `python -m pytest`
+  as CI's gate and seven Android lists leave out detekt (#314); the documented check for
+  Russian in Kotlin never searches `core/*` and matches comments (#315; run corrected, it finds
+  only the documented exceptions); three agents describe changed code (#316); stale counts and
+  states, and the `handover` skill naming three of the seven places a count lives (#317); the
+  Gradle agent naming the passwords' file without the rule never to read it (#318).
 - **The four design drafts were cross-checked against one another**, by an agent that read
   them beside the programme, the proto and the code, and **every seam it found was fixed on its
   own draft branch, none merged**:
@@ -188,18 +206,25 @@ and nothing under `/api/v2` exists.
 
 ### Gates
 
-- **The server suite.** At `de61d77`, `pytest -q -n auto`, run once and alone on this machine
-  from a venv made in this worktree's own `server/` (Python 3.12.13, installed as CI installs),
-  gave **2207 passed** in 10 minutes 6 seconds. No test was added.
+- **The server suite.** `pytest -q -n auto`, run alone on this machine from a venv made in this
+  worktree's own `server/` (Python 3.12.13, installed as CI installs), gave **2207 passed** at
+  `de61d77` in 10 minutes 6 seconds, and again at `cf8964d`, the guard as reviewed, in 11
+  minutes 30 seconds. No test was added.
 - **ruff and mypy.** Both are clean; mypy covers 197 modules.
-- **The refusal**, run from this worktree with the main checkout's venv, printed its `ERROR:`
-  line naming both trees and exited 4.
+- **The refusal**, on one test file, in six ways: this worktree's venv bare, under `-m` and
+  with `-n 2` passed; the main checkout's venv bare, under `-m` and with `-n 2` printed the
+  `ERROR:` line and exited 4, naming the wrong `app` for the first and third and the wrong
+  editable install for the second.
 - **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
 
 ### What was deliberately left alone
 
 - **A test of the refusal.** No test may import `conftest.py`, and one that starts a second
   pytest against a second tree was not written; CI proves the passing side on every run.
+- **The review's third Minor finding**: `conftest.py` imports `app.db` and `app.models` above
+  the hook, so another tree whose modules cannot satisfy those imports fails with «ImportError
+  while loading conftest» into that tree, and the guard never speaks. It still fails loudly.
+- **#314–#318 are filed, not fixed**: they are the next batch.
 - **The four drafts are revised, not approved**: they still wait for the owner, with the same
   number of questions each.
 
@@ -293,7 +318,7 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218 and #303 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #305, #311 (merged), #301, #306, #307, #308 and #313 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #305, #311 (merged), #301, #306, #307, #308 and #313 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | issues #120–#122, #127, #142, #144 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
