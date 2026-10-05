@@ -1,12 +1,13 @@
 # Serving v2: the RPC layer, the REST transcoder, the host target and the streaming beta
 
-Status: **drafted on 5 October 2026 while the owner was away, not yet approved.** Sub-project 3 of
+Status: **approved by the owner on 5 October 2026**, every question answered with its
+recommendation (#301). Drafted the same night while the owner was away. Sub-project 3 of
 [the programme](2026-10-03-one-contract-design.md). It serves the contract sub-project 2 wrote down
 ([its design](2026-10-04-contract-v2-design.md), merged as #297) from the code that serves v1
 today. Every decision below is taken from the approved programme, or from the merged contract,
 where they took it; the rest are decisions this document makes, each with its reason. The
-questions only the owner can answer are at the end, each with a recommendation. **Nothing that
-serves v2 in production merges before the owner approves this document.**
+questions only the owner can answer are at the end, each with a recommendation, and every one
+was answered with it.
 
 It was revised the same night after an independent review that checked every claim against
 the code and the contract. The review found:
@@ -88,7 +89,7 @@ this design stands on.
 
 | Stage | Merges | Waits for |
 | --- | --- | --- |
-| **3a. The shells** | see below | the owner's approval of this document |
+| **3a. The shells** | see below | the owner's approval of this document (given 5 October 2026) |
 | **3b. Every other method** | the other seventy-one unary methods, service by service. Each brings its v1 rules into `services/` first (decision 2). Also the per-provider registry table and the Telegram notices as effects | 3a |
 | **3c. The host and the beta** | `host.py`, the `Dockerfile`, native gRPC, `WatchClass` and its bus, and a CI job that starts the host | 3b |
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** drafted on 5 October 2026, before the owner approved the design, at the owner's instruction to continue overnight. Nothing here is executed until the design is approved, and every task is re-checked against the approved design first: a decision the owner changes is a task that changes before it runs.
+**Status:** drafted on 5 October 2026, before the owner approved the design, at the owner's instruction to continue overnight. The owner approved the design the same day with every recommended answer (#301), so no task changes for a decision; each is still re-checked against the tree before it runs.
 
 **Goal:** Serve v2 beside v1 on Vercel for the four methods a phone calls first — `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` — through every mechanism the other seventy-one will use: the generated `google/rpc` details, the v1 rules moved into `services/`, the one error table, the generic gate, `invoke`, the Connect mount with its two guards and its fail-safe, the REST transcoder, and the harness that calls each method both ways.
 
