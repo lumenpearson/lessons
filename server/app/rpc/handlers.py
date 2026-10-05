@@ -2,9 +2,9 @@
 
 A method missing here answers ``UNIMPLEMENTED`` on both transports, before
 any gate or scope, exactly as the generated ``Protocol``'s default does. 3a
-serves ``WatchClass``'s refusal, ``GetMe``, ``GetDiaryCapabilities``,
+served ``WatchClass``'s refusal, ``GetMe``, ``GetDiaryCapabilities``,
 ``CreateDevice`` and ``GetScheduleWindow``; 3b fills the rest in, one service
-at a time.
+at a time (``docs/specs/2026-10-05-server-v2-3b-plan.md``).
 
 Handler modules import ``Call`` only for their annotations, so that
 ``call.py``, which imports this table, is never imported back.
