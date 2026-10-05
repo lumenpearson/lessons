@@ -328,9 +328,11 @@ owner adds the line by hand, and no agent opens the file.
 ## Questions for the owner
 
 1. **Where does the workers cap go?** The choice decides what pull request A carries.
-   - *Recommended: on the command line*, `./gradlew -Dorg.gradle.workers.max=2 …`. `docs/build.md`
-     names it for this machine, and the build console of the programme's section 6 runs Gradle
-     with it.
+   - *Recommended: on the command line*, `./gradlew --max-workers=2 …`, Gradle's own option for
+     `org.gradle.workers.max`. Pull request A writes it into `docs/build.md` for this machine,
+     and the build console ([#308](2026-10-05-build-console-design.md), decision 2) passes the
+     same spelling to every Gradle run it starts. One spelling, because the console's test that
+     holds its table to CI strips exactly that flag and no other form of it.
    - Why not the repository's `gradle.properties`: it would slow CI's healthy four-core runners
      for one machine's problem.
    - Why not the machine's `~/.gradle/gradle.properties`: it holds the signing passwords, so it is
@@ -358,5 +360,10 @@ owner adds the line by hand, and no agent opens the file.
   compile and the review are the check, and the design says so.
 - **R8.** A widened `internal` changes nothing R8 keeps, but both assembles run anyway.
 - **Sub-project 5 changes two of these files again.** It replaces the network layer, and its
-  errors reach `ManagementViewModel` and the settings. Splitting first gives sub-project 5 smaller
-  files to change, and the collaborators are where its error mapping will land.
+  stage 5b edits two of pull request B's collaborators: `LogActions`, when the audit log pages by
+  a token instead of an offset, and `ClassCardActions`, when the school search moves to
+  `ListSchools`. Its design ([#307](2026-10-05-android-transports-design.md)) therefore starts
+  after this sub-project has merged, as the programme orders, so that each split stays a move
+  rather than being rebased over a rewrite. Its error mapping does not land here: each classifier
+  keeps its sealed type, so the collaborators and the screens see the same failures they see
+  today.
