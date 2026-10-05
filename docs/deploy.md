@@ -106,7 +106,9 @@ exists so that nobody exports the logs a second time to find that out.
 
 Six of that table are ones a deployment does not survive, and each wrong one used to
 surface far from its cause. Now the process refuses to start and lists **all of them at
-once** — you do not pay another deploy to find the next. Four are refused when missing.
+once** — you do not pay another deploy to find the next. Four are refused when missing;
+`WEBHOOK_SECRET` is asked about only once `BOT_TOKEN` is set, because without a token
+there is no webhook to protect, so with both empty only the token is listed (#331).
 The other two are refused only when set to something that cannot be used (#322): an empty
 `OWNER_IDS` is left alone on purpose, because after the first owner the roles live in the
 database, and an unset `TIMEZONE` takes its default, `Europe/Moscow`. What stops the

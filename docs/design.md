@@ -964,7 +964,8 @@ and the copyright must accompany every copy of the font. So the text lives not i
 but in `:core:designsystem/src/main/assets/licenses/google_sans_flex_OFL.txt`, that is, inside
 the APK next to the typeface itself; and the licence is named in the app, on the «Лицензии»
 sheet. Onest's notice, `onest_OFL.txt`, lies beside it, and Onest has its own row on that
-sheet since #326; until then it was bundled with nothing in the interface naming it.
+sheet since #326; until then the sheet named only Google Sans Flex, and Onest was named
+in the interface only by the about screen's line on the two typefaces (#331).
 
 A test holds this rather than memory: `FontLicenceTest` in `:core:designsystem` parses the
 `name` table of every font in the tree and requires that a notice with the same copyright and

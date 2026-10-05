@@ -14,7 +14,8 @@ web frontend.
 
 **Two shells write, over one set of services.** Telegram already solved identity, so there is
 no admin web panel: the bot is the admin panel, and a phone linked to a Telegram account writes
-through `/api/v1/edit` and `/api/v1/manage` with that account's role. `server/app/services/`
+through the edit routes (`/api/v1/homework`, `/overrides`, `/events`, `/days`) and
+`/api/v1/manage` with that account's role. `server/app/services/`
 holds the rules both shells call — two thin shells over one implementation — and nothing under
 it may import `app.bot`.
 
