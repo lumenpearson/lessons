@@ -8,29 +8,29 @@ newest first.
 
 Last updated: **5 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
-#263, #267, #274, #277, #294, #296, #297, #300, #303, #305, #311, #313, #319 and #328 are
-merged**; `main` is at `912821f`, the merge of #328, on 5 October 2026, and `dev` is level
-with it. **Five pull requests are open.** **#329, the one carrying this paragraph**, from
-`fix/onest-credit-and-about-fact`, on milestone 12, `v1.0.0 — A build somebody else can
-install`, closes #326 and #327 and refers to #273: the app credits Onest, and says an
-admin's phone writes the timetable too. **The other four are designs waiting for the owner's
+#263, #267, #274, #277, #294, #296, #297, #300, #303, #305, #311, #313, #319, #328 and #329
+are merged**; `main` is at `dbf25c9`, the merge of #329, on 5 October 2026, and `dev` is level
+with it. **Five pull requests are open.** **#332, the one carrying this paragraph**, from
+`fix/doc-followups`, on milestone 11, `v0.10.0 — One contract: REST v2, Connect and native
+gRPC, build console`, closes #331 and refers to #273: tonight's documentation fixes reach
+every place that said the old thing. **The other four are designs waiting for the owner's
 approval**, drafts on milestone 11, each revised on 5 October after a cross-check against
 the other three, and nothing in them is built before the owner has read them: **#301**,
 serving v2 (sub-project 3), from `server-v2/design`; **#306**, the Android splits (4), from
 `android/decomposition-design`; **#307**, the app on v2 (5), from
-`android/transports-design`; and **#308**, the build console (6), from `console/design`. #328
-closed #320–#325. The schema head did not move: it is still `0017`, and `EXPECTED_REVISION` did
-not move either. Production, after #328's automatic deploy, answered `/api/v1/warmup` with
-`{"status":"ok","api_version":1,"schema":"0017"}`.
+`android/transports-design`; and **#308**, the build console (6), from `console/design`. #329
+closed #326 and #327. The schema head did not move: it is still `0017`, and
+`EXPECTED_REVISION` did not move either. Production, after #329's automatic deploy, answered
+`/api/v1/warmup` with `{"status":"ok","api_version":1,"schema":"0017"}`.
 
-The section «What the last session added» below is #329's batch, and «What the session
-before it added» is #328's.
+The section «What the last session added» below is #332's batch, and «What the session
+before it added» is #329's.
 
 The SHA of its own merge is for the next close-out to write.
 
 **#267 closed #264, #265 and #266**, read back from GitHub on 3 October, and **#296 closed
 #271, #272 and #275**, read back on 4 October. **#274 and #277 closed nothing.** Of the
-defects the survey and the plan filed on milestone 11, #268–#270 are open, #276 closed with #305, #309 and #310 with #311, #312 with #313, #314–#318 with #319, #320–#325 with #328, and #273
+defects the survey and the plan filed on milestone 11, #268–#270 are open, #276 closed with #305, #309 and #310 with #311, #312 with #313, #314–#318 with #319, #320–#325 with #328, #331 closes with #332, and #273
 is that milestone's epic.
 **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
@@ -150,11 +150,63 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: the app credits Onest, and says an admin's phone writes the timetable too (#326, #327)
+## What the last session added: tonight's documentation fixes reach every place that said the old thing (#331)
 
-Open as #329, a draft from `fix/onest-credit-and-about-fact`, on milestone 12, `v1.0.0 — A
+Open as #332, a draft from `fix/doc-followups`, on milestone 11. It closes #331 and refers to
+#273. Written on 5 October 2026, after #329 merged. The schema head did not move, and nothing
+under `/api/v2` exists.
+
+- **An independent review of the night's five merges** (#311, #313, #319, #328, #329) read
+  every changed claim against the tree. It found the Android change clean and every new count
+  right. It also found that four corrections had stopped at the first document, and that four
+  sentences written tonight were wrong in their own way. They were filed as #331 and are fixed
+  here:
+  - **Carried further:**
+    - the edit routes, in `AGENTS.md`, the Copilot instructions and two docstrings;
+    - the repository's `onDataChanged` as the sender of `DATA_SYNCED`, in five places;
+    - «О приложении → Перевод», in the README;
+    - the seven places a test count lives, in `CLAUDE.md`.
+  - **Corrected:**
+    - `docs/build.md` cited #320 for the password in a transcript, which is #318;
+    - `docs/design.md` said nothing in the interface named Onest, and the about screen did;
+    - `CLAUDE.md` said the app *calls* only four routes, leaving out its reads;
+    - the security reviewer named one variable outside `LESSONS_KEYSTORE_*`, not two.
+  - **Smaller:**
+    - `WEBHOOK_SECRET` is asked about only once `BOT_TOKEN` is set;
+    - `test_ci_paths.py` names the new reader of `docs/deploy.md`;
+    - `CONTRIBUTING.md`'s suite time matches the other documents.
+- **#330 asks the owner whether a manual `apk.yml` run should sign with the real key**, from
+  any branch. Today it does, and publishes the APK as an artifact (#320 described it).
+  Recommended: only a run on `main`. It is in section 7.
+- **After #329's merge**, `dev` was fast-forwarded to `dbf25c9`. Vercel reported the deploy
+  successful, and production answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}`. CI's Android job passed on #329's head,
+  and the board reads Done, P2, S, 2 for #329, #326 and #327.
+
+### Gates
+
+- **The server suite.** `pytest -q -n auto`, run alone from this worktree's own venv, gave
+  **2208 passed** in 9 minutes 38 seconds. Only two docstrings and one test's table changed
+  under `server/`. ruff is clean.
+- **Android** is unchanged since #329, 1635 tests.
+
+### What was deliberately left alone
+
+- **Two wording points from the review.** Onest's notice names two addresses, and the sheet
+  links the first. On Android 8–9 the app draws everything in Onest, which the Google Sans
+  Flex credit does not say. Each would cost the Android gates for a nuance.
+- **`.claude/settings.json`**, still the owner's (section 7).
+
+### What nobody has verified in this batch
+
+- **That a third pass would find nothing.** The first two found forty facts and the review
+  found twelve more in the fixes themselves; the rate is falling, not zero.
+
+## What the session before it added: the app credits Onest, and says an admin's phone writes the timetable too (#326, #327)
+
+Merged as #329 (`dbf25c9`, 5 October 2026), from `fix/onest-credit-and-about-fact`, on milestone 12, `v1.0.0 — A
 build somebody else can install`, because both are text a second family would read. It
-closes #326 and #327 and refers to #273. Written on 5 October 2026, after #328 merged. The
+closed #326 and #327 and refers to #273. Written on 5 October 2026, after #328 merged. The
 schema head did not move, and nothing under `/api/v2` exists.
 
 - **The «Лицензии» sheet credits Onest (#326).** Onest draws every Russian word in the app,
@@ -191,67 +243,6 @@ schema head did not move, and nothing under `/api/v2` exists.
 - **The sheet and the fact on a device or an emulator.** The row is data in a list every
   other row already draws.
 
-## What the session before it added: the documents say what the code and CI do (#320–#325), and the refusal points at a real heading
-
-Merged as #328 (`912821f`, 5 October 2026), from `fix/doc-facts`, on milestone 11. It closed #320–#325 and refers to
-#273. Written on 5 October 2026, after #319 merged. The schema head did not move, and nothing
-under `/api/v2` exists.
-
-- **A sweep of `docs/` and `README.md` against the tree** found about thirty stale or wrong
-  facts, after the sweep of `.claude/`. They were filed as six issues by document, and a
-  `docs-keeper` agent corrected them after checking each against the code; every line of its
-  diff was reviewed here. The ones that mattered:
-  - **#320: signing.** Every `apk.yml` run signs with the real key once the secrets are set,
-    a manual dispatch as much as a tag, and puts the APK in the public `lessons-apk`
-    artifact; only the Release waits for a tag. `docs/build.md` said only a tag signs. It
-    also now warns at its signing passage never to read `~/.gradle/gradle.properties`.
-  - **#321: the v1 API.** There is no `/api/v1/edit`, which `CLAUDE.md` and
-    `docs/architecture.md` named; the edit routes are `/api/v1/homework`, `/overrides`,
-    `/events` and `/days`. `docs/api.md` corrects six behaviours.
-  - **#322: deployment.** An empty `OWNER_IDS` and an unset `TIMEZONE` pass the refusal on
-    purpose (`test_an_empty_owner_ids_is_left_alone`), which `docs/deploy.md` and `CLAUDE.md`
-    denied. The migrate service does call `get_settings()`, and `docker-compose.yml`'s
-    comment said otherwise too. **The refusal's message pointed at «Переменные окружения»**,
-    a heading the translation of `docs/deploy.md` removed; it names «Secrets» now, and
-    `test_the_refusal_names_a_heading_the_document_has` holds the pointer, red on the old
-    message and green on the new.
-  - **#323–#325**: `docs/bot.md`'s editor entry and class card; the guide's paths, the
-    widget's broadcast sender and the design's fonts; and counts, among them Android's
-    per-module counts, which summed to 1579 under a total of 1635.
-  - **Beyond the list**: `CLAUDE.md` and `docs/architecture.md` now say the app calls only
-    `/join`, `/me/unlink`, `/manage` and the diary. Homework, substitutions and events come
-    from the bot, which they had called «a button on a phone».
-- **Two product strings were found wrong and filed, not changed**, because each needs the
-  Android gates: **#326**, the licences sheet credits Google Sans Flex and not Onest; **#327**,
-  «О приложении» says the bot is the only way to write the timetable. Both are on milestone
-  12, `Ready`.
-- **#301's stage 3a plan was repointed at the worktree's own venv** (`db807ff`, on
-  `server-v2/design`). It had prescribed the main checkout's venv under `python -m`, which
-  #313's guard now refuses, so every step of it would have stopped at exit 4.
-- **After #319's merge**, `dev` was fast-forwarded to `580b475`, Vercel reported the deploy
-  successful, production answered `/api/v1/warmup` with
-  `{"status":"ok","api_version":1,"schema":"0017"}`, and the board reads Done, P2, M, 5 for
-  #319 and #314–#318.
-
-### Gates
-
-- **The server suite.** `pytest -q -n auto`, run alone from this worktree's own venv, gave
-  **2208 passed** in 9 minutes 39 seconds: 2207 and the new test. The seven places the
-  `handover` skill names say 2208.
-- **ruff** is clean. mypy was not rerun: the only change under `app/` is a string.
-- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
-
-### What was deliberately left alone
-
-- **The detekt findings behind the baselines' 492 entries** were not recounted; that takes a
-  detekt run, and `docs/build.md` says so.
-- **#326 and #327**, above.
-
-### What nobody has verified in this batch
-
-- **That every corrected sentence is the last stale one.** Two sweeps found forty facts
-  between them; a third would find fewer, not none.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -274,8 +265,8 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218 and #303 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #305, #311, #313, #319, #328 (merged), #301, #306, #307 and #308 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PR #329 (open); issues #120–#122, #127, #142, #144, #326, #327 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #305, #311, #313, #319, #328 (merged), #301, #306, #307, #308 and #332 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PR #329 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
@@ -1110,6 +1101,14 @@ the next one; the new values then go into that file and into the Actions secrets
   permission each time.
 - **`Read(./server/.env.*)` under `deny`** also catches `server/.env.example`, which holds no
   secret and documents every setting. Narrow it, or accept it.
+
+**Decide whether a manual `apk.yml` run signs with the real key (#330).** Today, once the
+secrets are set, every run does. **Actions → APK → Run workflow** pointed at any branch puts
+an APK of that branch into the public `lessons-apk` artifact, and a family's phone accepts it
+as an update, because it carries the same certificate. Only the Release waits for a tag. The
+issue gives three options. *Recommended: sign a manual run with the real key only from
+`main`*, which keeps building an update of what `main` holds and closes a real-key build of a
+branch nobody merged. The change to `apk.yml` goes through the `build-ci` agent.
 
 **Keep some space on C:.** It had about 1.3 GB left early on 27 September, and 14 GB when #187
 began, the same night; its builds and one emulator boot left 12 GB, and #189's left 9.4 GB,

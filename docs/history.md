@@ -28,6 +28,67 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the documents say what the code and CI do (#320–#325), and the refusal points at a real heading
+
+Merged as #328 (`912821f`, 5 October 2026), from `fix/doc-facts`, on milestone 11. It closed #320–#325 and refers to
+#273. Written on 5 October 2026, after #319 merged. The schema head did not move, and nothing
+under `/api/v2` exists.
+
+- **A sweep of `docs/` and `README.md` against the tree** found about thirty stale or wrong
+  facts, after the sweep of `.claude/`. They were filed as six issues by document, and a
+  `docs-keeper` agent corrected them after checking each against the code; every line of its
+  diff was reviewed here. The ones that mattered:
+  - **#320: signing.** Every `apk.yml` run signs with the real key once the secrets are set,
+    a manual dispatch as much as a tag, and puts the APK in the public `lessons-apk`
+    artifact; only the Release waits for a tag. `docs/build.md` said only a tag signs. It
+    also now warns at its signing passage never to read `~/.gradle/gradle.properties`.
+  - **#321: the v1 API.** There is no `/api/v1/edit`, which `CLAUDE.md` and
+    `docs/architecture.md` named; the edit routes are `/api/v1/homework`, `/overrides`,
+    `/events` and `/days`. `docs/api.md` corrects six behaviours.
+  - **#322: deployment.** An empty `OWNER_IDS` and an unset `TIMEZONE` pass the refusal on
+    purpose (`test_an_empty_owner_ids_is_left_alone`), which `docs/deploy.md` and `CLAUDE.md`
+    denied. The migrate service does call `get_settings()`, and `docker-compose.yml`'s
+    comment said otherwise too. **The refusal's message pointed at «Переменные окружения»**,
+    a heading the translation of `docs/deploy.md` removed; it names «Secrets» now, and
+    `test_the_refusal_names_a_heading_the_document_has` holds the pointer, red on the old
+    message and green on the new.
+  - **#323–#325**: `docs/bot.md`'s editor entry and class card; the guide's paths, the
+    widget's broadcast sender and the design's fonts; and counts, among them Android's
+    per-module counts, which summed to 1579 under a total of 1635.
+  - **Beyond the list**: `CLAUDE.md` and `docs/architecture.md` now say the app calls only
+    `/join`, `/me/unlink`, `/manage` and the diary. Homework, substitutions and events come
+    from the bot, which they had called «a button on a phone».
+- **Two product strings were found wrong and filed, not changed**, because each needs the
+  Android gates: **#326**, the licences sheet credits Google Sans Flex and not Onest; **#327**,
+  «О приложении» says the bot is the only way to write the timetable. Both are on milestone
+  12, `Ready`.
+- **#301's stage 3a plan was repointed at the worktree's own venv** (`db807ff`, on
+  `server-v2/design`). It had prescribed the main checkout's venv under `python -m`, which
+  #313's guard now refuses, so every step of it would have stopped at exit 4.
+- **After #319's merge**, `dev` was fast-forwarded to `580b475`, Vercel reported the deploy
+  successful, production answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}`, and the board reads Done, P2, M, 5 for
+  #319 and #314–#318.
+
+### Gates
+
+- **The server suite.** `pytest -q -n auto`, run alone from this worktree's own venv, gave
+  **2208 passed** in 9 minutes 39 seconds: 2207 and the new test. The seven places the
+  `handover` skill names say 2208.
+- **ruff** is clean. mypy was not rerun: the only change under `app/` is a string.
+- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
+
+### What was deliberately left alone
+
+- **The detekt findings behind the baselines' 492 entries** were not recounted; that takes a
+  detekt run, and `docs/build.md` says so.
+- **#326 and #327**, above.
+
+### What nobody has verified in this batch
+
+- **That every corrected sentence is the last stale one.** Two sweeps found forty facts
+  between them; a third would find fewer, not none.
+
 ## What the batch before added: the agents are told what the tree and CI actually do (#314–#318)
 
 Merged as #319 (`580b475`, 5 October 2026), from `fix/agent-facts`, on milestone 11. It closed #314, #315, #316,
