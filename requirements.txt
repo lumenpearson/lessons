@@ -35,7 +35,7 @@ cryptography==50.0.1
     # via -r requirements.in
 dishka==1.10.1
     # via -r requirements.in
-fastapi==0.141.1
+fastapi==0.142.2
     # via -r requirements.in
 frozenlist==1.8.0
     # via
@@ -61,7 +61,9 @@ multidict==6.9.1
     #   aiohttp
     #   yarl
 opentelemetry-api==1.45.0
-    # via pyqwest
+    # via
+    #   fastapi
+    #   pyqwest
 propcache==0.5.4
     # via
     #   aiohttp
