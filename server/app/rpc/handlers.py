@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.rpc import audit, class_device, device, diary, me, schedule, watch
+from app.rpc import audit, class_device, device, diary, me, schedule, subject, watch
 
 #: A handler: ``async def handler(call: Call, request: <Method>Request) -> <Method>Response``.
 Handler = Callable[[Any, Any], Awaitable[Any]]
@@ -30,5 +30,7 @@ HANDLERS: dict[str, Handler] = {
     "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
     "lessons.v2.MeService/GetMe": me.get_me,
     "lessons.v2.ScheduleService/GetScheduleWindow": schedule.get_schedule_window,
+    "lessons.v2.SubjectService/GetSubject": subject.get_subject,
+    "lessons.v2.SubjectService/ListSubjects": subject.list_subjects,
     "lessons.v2.WatchService/WatchClass": watch.watch_class,
 }
