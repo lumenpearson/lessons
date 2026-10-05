@@ -28,6 +28,47 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the app credits Onest, and says an admin's phone writes the timetable too (#326, #327)
+
+Merged as #329 (`dbf25c9`, 5 October 2026), from `fix/onest-credit-and-about-fact`, on milestone 12, `v1.0.0 — A
+build somebody else can install`, because both are text a second family would read. It
+closed #326 and #327 and refers to #273. Written on 5 October 2026, after #328 merged. The
+schema head did not move, and nothing under `/api/v2` exists.
+
+- **The «Лицензии» sheet credits Onest (#326).** Onest draws every Russian word in the app,
+  and its notice travelled in the APK, but the sheet named only Google Sans Flex. Onest has
+  a row now, after Google Sans Flex, linked where its own notice points
+  (`github.com/simpals/onest`). Google Sans Flex's note says it draws the Latin letters and
+  the digits, rather than the whole app. With ten rows over six hues, GMS Flags moves to
+  slot 9, and the comment says where that wrap lands.
+- **«О приложении» says the timetable is written from the bot and an admin's phone (#327)**,
+  not the bot alone. The same app's «Управление» writes it, and the fact keeps its point:
+  the server has no page for it.
+- **`README.md` and `docs/design.md`** stop calling either a gap.
+- **After #328's merge**, `dev` was fast-forwarded to `912821f`, Vercel reported the deploy
+  successful, production answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}`, and the board reads Done, P2, M, 5 for
+  #328 and #320–#325.
+
+### Gates
+
+- **Android**, on this machine, one Gradle job at a time with `--max-workers=2`, on JDK 21:
+  `./gradlew test` passed with **1635** tests and no failure (`:core:model` 125, `:core:data`
+  615, `:core:designsystem` 161, `:widget` 126, `:app` 608, read from the result files);
+  `ResourceTranslationTest` ran on the new strings; both assembles and `./gradlew detekt`
+  passed. Many tasks came from Gradle's build cache, which is why the test run took under
+  two minutes.
+- **The server** is unchanged, 2208 tests, because nothing under `server/` changed.
+
+### What was deliberately left alone
+
+- Nothing that was found. This batch closes the last two defects filed tonight.
+
+### What nobody has verified in this batch
+
+- **The sheet and the fact on a device or an emulator.** The row is data in a list every
+  other row already draws.
+
 ## What the batch before added: the documents say what the code and CI do (#320–#325), and the refusal points at a real heading
 
 Merged as #328 (`912821f`, 5 October 2026), from `fix/doc-facts`, on milestone 11. It closed #320–#325 and refers to
@@ -5654,3 +5695,41 @@ being true and section 5 carries a narrower one. As it stood until then:
 - **`buf breaking` has never compared anything.** The pull request that adds the contract
   skips it with a notice, because `main` had no contract. The first pull request that
   touches `proto/` is its first run.
+
+## Moved out of section 7 on 5 October 2026
+
+Done by the owner, in the working session of 5 October: every question of the four designs
+answered with its recommendation, and #330 decided as option 3. The answers are on each
+pull request and in each design's status line; the designs merged as #301 (`36b30e1`),
+#306 (`5847a00`), #307 (`f7658f1`) and #308 (`fb96fa3`), and #330 is built by #333. As it
+stood until then:
+
+**Approve or change the design of serving v2 (#301), and answer its five questions.** The
+draft, `docs/specs/2026-10-05-server-v2-design.md`, ends with them: the stages; a complete
+host or a sidecar; where the host runs; what a missing `X-Lessons-Client` means; and browsers
+and CORS. Its stage 3a plan, `docs/specs/2026-10-05-server-v2-3a-plan.md`, executes after that,
+and nothing that serves v2 merges before.
+
+**Approve or change the designs of sub-projects 4, 5 and 6, and answer their questions.** Each
+gives its recommendation beside every question, and none is built before its answers.
+- **#306**, `docs/specs/2026-10-05-android-decomposition-design.md`, asks three: where the
+  Gradle workers cap goes; whether `SettingsViewModel` splits into collaborators or into
+  view models; three pull requests or one per file.
+- **#307**, `docs/specs/2026-10-05-android-transports-design.md`, asks four: whether a release
+  built at 5a goes onto the family's phones, or 5b's is the first; whether a debug build may
+  switch transports at run time; how to know every family phone has the new APK before v1 goes; whether the app falls
+  back to v1 on a bare `503` or `404`. Its stage 5a also waits for sub-project 3's stage 3a
+  to be deployed.
+- **#308**, `docs/specs/2026-10-05-build-console-design.md`, asks six: whether CI runs the
+  console's own tests; the Vercel CLI for previews; how the console learns whether signing is
+  configured without opening the file that holds the passwords; a heavy job beside a running
+  emulator; LF endings for `server/app/contract/`; whether the Environment tab may read
+  `server/.env` for names only.
+
+**Decide whether a manual `apk.yml` run signs with the real key (#330).** Today, once the
+secrets are set, every run does. **Actions → APK → Run workflow** pointed at any branch puts
+an APK of that branch into the public `lessons-apk` artifact, and a family's phone accepts it
+as an update, because it carries the same certificate. Only the Release waits for a tag. The
+issue gives three options. *Recommended: sign a manual run with the real key only from
+`main`*, which keeps building an update of what `main` holds and closes a real-key build of a
+branch nobody merged. The change to `apk.yml` goes through the `build-ci` agent.

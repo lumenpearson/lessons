@@ -8,29 +8,25 @@ newest first.
 
 Last updated: **5 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
-#263, #267, #274, #277, #294, #296, #297, #300, #303, #305, #311, #313, #319, #328 and #329
-are merged**; `main` is at `dbf25c9`, the merge of #329, on 5 October 2026, and `dev` is level
-with it. **Five pull requests are open.** **#332, the one carrying this paragraph**, from
-`fix/doc-followups`, on milestone 11, `v0.10.0 — One contract: REST v2, Connect and native
-gRPC, build console`, closes #331 and refers to #273: tonight's documentation fixes reach
-every place that said the old thing. **The other four are designs waiting for the owner's
-approval**, drafts on milestone 11, each revised on 5 October after a cross-check against
-the other three, and nothing in them is built before the owner has read them: **#301**,
-serving v2 (sub-project 3), from `server-v2/design`; **#306**, the Android splits (4), from
-`android/decomposition-design`; **#307**, the app on v2 (5), from
-`android/transports-design`; and **#308**, the build console (6), from `console/design`. #329
-closed #326 and #327. The schema head did not move: it is still `0017`, and
-`EXPECTED_REVISION` did not move either. Production, after #329's automatic deploy, answered
+#263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
+#313, #319, #328, #329 and #332 are merged**; `main` is at `fb96fa3`, the merge of #308, on 5
+October 2026, and `dev` is level with it. **The four designs of sub-projects 3 to 6 are
+approved and on `main`**: the owner answered every question with its recommendation on 5
+October (#301, #306, #307, #308). **One pull request is open: #333, the one carrying this
+paragraph**, from `chore/owner-decisions`, on milestone 12, `v1.0.0 — A build somebody else can
+install`, which closes #330 and refers to #273: an APK is signed with the real key only on
+`main` or a `v*` tag. #332 closed #331. The schema head did not move: it is still `0017`, and
+`EXPECTED_REVISION` did not move either. Production, after #308's automatic deploy, answered
 `/api/v1/warmup` with `{"status":"ok","api_version":1,"schema":"0017"}`.
 
-The section «What the last session added» below is #332's batch, and «What the session
-before it added» is #329's.
+The section «What the last session added» below is #333's batch, and «What the session
+before it added» is #332's.
 
 The SHA of its own merge is for the next close-out to write.
 
 **#267 closed #264, #265 and #266**, read back from GitHub on 3 October, and **#296 closed
 #271, #272 and #275**, read back on 4 October. **#274 and #277 closed nothing.** Of the
-defects the survey and the plan filed on milestone 11, #268–#270 are open, #276 closed with #305, #309 and #310 with #311, #312 with #313, #314–#318 with #319, #320–#325 with #328, #331 closes with #332, and #273
+defects the survey and the plan filed on milestone 11, #268–#270 are open, #276 closed with #305, #309 and #310 with #311, #312 with #313, #314–#318 with #319, #320–#325 with #328, #331 with #332, and #273
 is that milestone's epic.
 **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
@@ -150,9 +146,83 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: tonight's documentation fixes reach every place that said the old thing (#331)
+## What the last session added: the owner approved the four designs and decided #330, and an APK is signed with the real key only on main or a `v*` tag
 
-Open as #332, a draft from `fix/doc-followups`, on milestone 11. It closes #331 and refers to
+Open as #333, a draft from `chore/owner-decisions`, on milestone 12, because #330 is. It closes
+#330 and refers to #273. Written on 5 October 2026, after #332 merged. The schema head did not
+move, and nothing under `/api/v2` exists yet.
+
+- **The owner answered in the working session on 5 October.** The owner was away from the
+  computer and asked the session to do everything left to them. The two decisions among those
+  were put to the owner as one question each, and answered:
+  - every question of the four designs, with its recommendation;
+  - #330 as option 3.
+
+  The answers are posted on #301, #306, #307, #308 and #330, and written into each design's
+  status line. Each design's branch took `main`, passed CI on its exact head, and merged:
+  #301 as `36b30e1`, #306 as `5847a00`, #307 as `f7658f1`, #308 as `fb96fa3`.
+- **#330: `apk.yml` signs with the real key only on `refs/heads/main` or `refs/tags/v*`.**
+  «Decode keystore» hands any other ref no keystore and says so in a notice, and the Build
+  step no longer gets the passwords for it. A tag without the secrets still fails before the
+  build. The `build-ci` agent's review found nothing critical, and its points are in:
+  - only `v*` tags count;
+  - the passwords are gated like the keystore file;
+  - `docs/build.md` stops promising the real key to every build, and sends a branch to
+    `build_type: debug`, whose `.debug` id installs beside the real app;
+  - the `release` skill and two agents say the checks run on `main` or a tag.
+
+  The guard stops an accident, not somebody with push access, and `docs/build.md` says so.
+  The GitHub Environment that would make it a rule is in section 7.
+- **What the session could not do for the owner**, refused by Claude Code's own safety
+  classifier and left in section 7:
+  - changing the signing password, as a write to the secret store;
+  - the three lines in `.claude/settings.json`, as self-modification.
+
+  Setting up the external cron (#120) needs an account in a third-party service and a copy of
+  `CRON_SECRET`, the same class of action, and was not attempted.
+- **`DADATA_TOKEN` works in production** (#120's second half). Production's anonymous
+  `GET /api/v1/directory/school-regions` answered `200` for «гимназия 1 Казань» with
+  Татарстан and a real school, so the key is set and DaData answers. «лицей 1535», the
+  example in `docs/api.md`, came back empty from the live register. Whether the external cron
+  calls the tick could not be read: the Vercel connector has lost the project's scope
+  (section 7).
+- **Hosting in Russia, researched for #235** and posted there:
+  - Telegram is blocked from Russian data centres since March 2026, so the server cannot
+    move to Russia without a proxy abroad for the bot.
+  - The recommendation is a small Russian VPS as an HTTPS proxy for the diary's calls alone:
+    RUVDS «Старт», 149 ₽ a month on 5 October.
+  - Free tiers cannot keep a process up; the start grants last 60 days.
+  - **The owner chose it the same day, with RUVDS as the provider:** the bot and the API stay
+    on Vercel and Neon, and only the diary's requests go through Russia. The server's support
+    for a diary proxy is the next small batch; buying the VPS is the owner's.
+- **After the designs merged**, `dev` was fast-forwarded to `fb96fa3`, Vercel reported the
+  deploy successful, and production answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}`. Epic #273 and the board say the four
+  designs are approved and merged.
+
+### Gates
+
+- **`apk.yml`** parses, and its keystore step carries `REF` and `REF_TYPE`.
+- **The three Android tests that read the workflow** were forced to rerun on it (`--rerun`),
+  because Gradle does not count a file a test reads as an input and called them up to date:
+  `BuildPropertyReachTest` 3, `LegalBuildPropertyTest` 5 and `AboutCardTest` 12, all passed.
+- **The server's `test_env_example`**, with the other document tests, gave 21 passed.
+- **Nothing under `server/app` or `android/` changed**, so the suites stand at 2208 and 1635.
+
+### What was deliberately left alone
+
+- **Stage 3a and sub-project 4's pull request A** are the next batches, not this one.
+- **The password, `settings.json`, the cron, the GitHub Environment and the Vercel scope**:
+  section 7.
+
+### What nobody has verified in this batch
+
+- **The new condition in `apk.yml` has never run.** The first manual run on `main` should sign
+  with the real key; the first on a branch should not.
+
+## What the session before it added: tonight's documentation fixes reach every place that said the old thing (#331)
+
+Merged as #332 (`a895923`, 5 October 2026), from `fix/doc-followups`, on milestone 11. It closed #331 and refers to
 #273. Written on 5 October 2026, after #329 merged. The schema head did not move, and nothing
 under `/api/v2` exists.
 
@@ -202,47 +272,6 @@ under `/api/v2` exists.
 - **That a third pass would find nothing.** The first two found forty facts and the review
   found twelve more in the fixes themselves; the rate is falling, not zero.
 
-## What the session before it added: the app credits Onest, and says an admin's phone writes the timetable too (#326, #327)
-
-Merged as #329 (`dbf25c9`, 5 October 2026), from `fix/onest-credit-and-about-fact`, on milestone 12, `v1.0.0 — A
-build somebody else can install`, because both are text a second family would read. It
-closed #326 and #327 and refers to #273. Written on 5 October 2026, after #328 merged. The
-schema head did not move, and nothing under `/api/v2` exists.
-
-- **The «Лицензии» sheet credits Onest (#326).** Onest draws every Russian word in the app,
-  and its notice travelled in the APK, but the sheet named only Google Sans Flex. Onest has
-  a row now, after Google Sans Flex, linked where its own notice points
-  (`github.com/simpals/onest`). Google Sans Flex's note says it draws the Latin letters and
-  the digits, rather than the whole app. With ten rows over six hues, GMS Flags moves to
-  slot 9, and the comment says where that wrap lands.
-- **«О приложении» says the timetable is written from the bot and an admin's phone (#327)**,
-  not the bot alone. The same app's «Управление» writes it, and the fact keeps its point:
-  the server has no page for it.
-- **`README.md` and `docs/design.md`** stop calling either a gap.
-- **After #328's merge**, `dev` was fast-forwarded to `912821f`, Vercel reported the deploy
-  successful, production answered `/api/v1/warmup` with
-  `{"status":"ok","api_version":1,"schema":"0017"}`, and the board reads Done, P2, M, 5 for
-  #328 and #320–#325.
-
-### Gates
-
-- **Android**, on this machine, one Gradle job at a time with `--max-workers=2`, on JDK 21:
-  `./gradlew test` passed with **1635** tests and no failure (`:core:model` 125, `:core:data`
-  615, `:core:designsystem` 161, `:widget` 126, `:app` 608, read from the result files);
-  `ResourceTranslationTest` ran on the new strings; both assembles and `./gradlew detekt`
-  passed. Many tasks came from Gradle's build cache, which is why the test run took under
-  two minutes.
-- **The server** is unchanged, 2208 tests, because nothing under `server/` changed.
-
-### What was deliberately left alone
-
-- Nothing that was found. This batch closes the last two defects filed tonight.
-
-### What nobody has verified in this batch
-
-- **The sheet and the fact on a device or an emulator.** The row is data in a list every
-  other row already draws.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -265,8 +294,8 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218 and #303 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #305, #311, #313, #319, #328 (merged), #301, #306, #307, #308 and #332 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PR #329 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329 (merged), #333 (open); issues #120–#122, #127, #142, #144, #326, #327, #330 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
@@ -1064,34 +1093,39 @@ server for a fresh install. Each carries the label `needs:owner`. #119 (`/api/v1
 `/start`) and #156 (the backup) were answered by #186 and closed at its merge on 26 September
 2026.
 
-**Approve or change the design of serving v2 (#301), and answer its five questions.** The
-draft, `docs/specs/2026-10-05-server-v2-design.md`, ends with them: the stages; a complete
-host or a sidecar; where the host runs; what a missing `X-Lessons-Client` means; and browsers
-and CORS. Its stage 3a plan, `docs/specs/2026-10-05-server-v2-3a-plan.md`, executes after that,
-and nothing that serves v2 merges before.
-
-**Approve or change the designs of sub-projects 4, 5 and 6, and answer their questions.** Each
-gives its recommendation beside every question, and none is built before its answers.
-- **#306**, `docs/specs/2026-10-05-android-decomposition-design.md`, asks three: where the
-  Gradle workers cap goes; whether `SettingsViewModel` splits into collaborators or into
-  view models; three pull requests or one per file.
-- **#307**, `docs/specs/2026-10-05-android-transports-design.md`, asks four: whether a release
-  built at 5a goes onto the family's phones, or 5b's is the first; whether a debug build may
-  switch transports at run time; how to know every family phone has the new APK before v1 goes; whether the app falls
-  back to v1 on a bare `503` or `404`. Its stage 5a also waits for sub-project 3's stage 3a
-  to be deployed.
-- **#308**, `docs/specs/2026-10-05-build-console-design.md`, asks six: whether CI runs the
-  console's own tests; the Vercel CLI for previews; how the console learns whether signing is
-  configured without opening the file that holds the passwords; a heavy job beside a running
-  emulator; LF endings for `server/app/contract/`; whether the Environment tab may read
-  `server/.env` for names only.
-
 **Decide whether to change the release signing passwords.** On 5 October 2026 an agent of the
 session that wrote #311 read `~/.gradle/gradle.properties` and printed a signing password into
 that session's transcript. It is in no file, issue, commit or pull request. `keytool` changes a
 keystore's passwords without changing its key, so a phone that installed the APK still accepts
 the next one; the new values then go into that file and into the Actions secrets —
 `KEYSTORE_BASE64` as well, because the keystore file changes with its password.
+
+**The release keystore is one key in two places, and a new password goes into both.** The
+local release build and the APK workflow were both signed `CN=lumenpearson` on 2 October
+(`docs/history.md`, «Moved out of section 7 on 2 October 2026»), so the Actions secrets hold
+the same keystore as `~/.gradle/gradle.properties` names. On 5 October a session asked to do
+the rotation was refused by Claude Code's own safety classifier («secret-store writes»), so
+it stays here.
+
+**Make #330's rule a rule (optional).** `apk.yml` signs with the real key only on `main` or a
+`v*` tag, but the guard binds the workflow as committed on the ref being run, and the four
+secrets are repository secrets any branch's workflow can read. Moving them into a GitHub
+Environment open only to `main` and `v*` tags, with a ruleset on `v*` tags, would make it
+hold against somebody with push access too (`docs/build.md`, «A public repository»).
+
+**Give the Vercel connector the project's scope again (optional).** On 5 October its token
+answered `403` for the team «codeilluminators» the project lives under, so a session could
+read neither the runtime logs (whether the external cron calls the tick, #120) nor the
+environment's names.
+
+**A Russian egress for #235: a proxy, not a move.** Telegram is blocked from Russian data
+centres since March 2026 (OONI; providers say so themselves), so the whole server cannot
+move to Russia without a proxy abroad for the bot. The research on #235 recommends keeping
+Vercel and sending only the diary's calls through a small Russian VPS used as an HTTPS
+`CONNECT` proxy — RUVDS «Старт», 149 ₽ a month on 5 October — which never sees the
+credential. **The owner chose this on 5 October, with RUVDS as the provider.** Buying the
+VPS and putting its proxy address into Vercel are the owner's; the server's support for it is being built, and one
+request through it to the diary is the test.
 
 **Three lines in `.claude/settings.json`, which a session may not edit itself** (#314, #318):
 - **Under `deny`**, `Read(~/.gradle/gradle.properties)`. It stops the file tools from opening
@@ -1101,14 +1135,6 @@ the next one; the new values then go into that file and into the Actions secrets
   permission each time.
 - **`Read(./server/.env.*)` under `deny`** also catches `server/.env.example`, which holds no
   secret and documents every setting. Narrow it, or accept it.
-
-**Decide whether a manual `apk.yml` run signs with the real key (#330).** Today, once the
-secrets are set, every run does. **Actions → APK → Run workflow** pointed at any branch puts
-an APK of that branch into the public `lessons-apk` artifact, and a family's phone accepts it
-as an update, because it carries the same certificate. Only the Release waits for a tag. The
-issue gives three options. *Recommended: sign a manual run with the real key only from
-`main`*, which keeps building an update of what `main` holds and closes a real-key build of a
-branch nobody merged. The change to `apk.yml` goes through the `build-ci` agent.
 
 **Keep some space on C:.** It had about 1.3 GB left early on 27 September, and 14 GB when #187
 began, the same night; its builds and one emulator boot left 12 GB, and #189's left 9.4 GB,
@@ -1138,10 +1164,11 @@ production» has a **current value** for `deviceToken`; type one there from a ph
 a class, and leave the initial value empty so that it stays on that machine. The collection has
 never been run in Postman, so the first run is also its first test.
 
-**Next for the programme: sub-project 3 (server shells and targets) is drafted and waits for
-the owner's approval, as #301 above.** It is where v2 is first served, and the questions in
-section 5 about Vercel's proxy and the second host (below) are its first inputs. Sub-projects
-4, 5 and 6 are drafted too, as #306, #307 and #308, and wait the same way.
+**Next for the programme: stage 3a of sub-project 3, from its plan.** The owner approved all
+four designs on 5 October, and they are on `main`: 3a
+(`docs/specs/2026-10-05-server-v2-3a-plan.md`) is where v2 is first served, and sub-project
+4's pull request A can run beside it, one heavy job at a time. The questions in section 5
+about Vercel's proxy and the second host (below) are 3c's inputs.
 
 **The tenth milestone exists, and #140 is on it.** The owner created
 `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` on 25 September and renamed
