@@ -23,8 +23,6 @@ from app.contract.lessons.v2.options_pb import Role as ProtoRole
 from app.models import AuditEntry, DeviceToken, SchoolClass
 from app.security import hash_token
 
-LAST_SEEN = "UPDATE device_tokens SET last_seen_at=?"
-
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
@@ -215,7 +213,7 @@ async def test_a_phone_of_another_class_is_found_by_neither_write(
 
 
 async def test_the_device_list_writes_nothing_but_the_last_seen(
-    v2, v2_tokens, statement_writes
+    v2, v2_tokens, statement_writes, unexpected_writes
 ) -> None:
     with statement_writes() as seen:
         answer = await v2.both(
@@ -225,4 +223,5 @@ async def test_the_device_list_writes_nothing_but_the_last_seen(
         )
     assert answer.status == 200
     assert len(answer.message.devices) == 6
-    assert all(statement.startswith(LAST_SEEN) for statement in seen), seen
+    assert seen
+    assert unexpected_writes(seen) == []

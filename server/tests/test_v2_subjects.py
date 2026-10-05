@@ -14,8 +14,6 @@ from app.contract.lessons.v2.subject_pb import GetSubjectRequest, Subject
 from app.models import SchoolClass
 from app.models import Subject as SubjectRow
 
-LAST_SEEN = "UPDATE device_tokens SET last_seen_at=?"
-
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
@@ -51,7 +49,7 @@ async def test_the_dictionary_is_v1_s_with_its_ids(v2, v2_tokens, session, schoo
 
 
 async def test_the_list_adopts_nothing_where_v1_s_manage_list_does(
-    v2, v2_tokens, statement_writes
+    v2, v2_tokens, statement_writes, unexpected_writes
 ) -> None:
     """The fixture's Monday teaches three subjects the dictionary has never
     heard of. v1's manage list adopts them on read and commits; v2's read
@@ -61,7 +59,8 @@ async def test_the_list_adopts_nothing_where_v1_s_manage_list_does(
         before = await v2.both("SubjectService/ListSubjects", token=token)
     assert before.status == 200
     assert list(before.message.subjects) == []
-    assert all(statement.startswith(LAST_SEEN) for statement in seen), seen
+    assert seen
+    assert unexpected_writes(seen) == []
 
     with statement_writes() as seen:
         v1 = await v2.http.get("/api/v1/manage/subjects", headers=_auth(token))
@@ -122,7 +121,7 @@ async def test_an_id_that_names_no_subject_of_the_class_is_not_found(
 
 
 async def test_reading_one_subject_writes_nothing_but_the_last_seen(
-    v2, v2_tokens, session, school_class, statement_writes
+    v2, v2_tokens, session, school_class, statement_writes, unexpected_writes
 ) -> None:
     physics = await _subject(session, school_class, "Физика")
     with statement_writes() as seen:
@@ -133,4 +132,5 @@ async def test_reading_one_subject_writes_nothing_but_the_last_seen(
         )
     assert answer.status == 200
     assert answer.message.subject.name == "Физика"
-    assert all(statement.startswith(LAST_SEEN) for statement in seen), seen
+    assert seen
+    assert unexpected_writes(seen) == []

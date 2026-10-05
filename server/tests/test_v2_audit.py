@@ -12,14 +12,13 @@ from __future__ import annotations
 import base64
 from datetime import datetime, timedelta
 
+from sqlalchemy import func, select
+
 from app.contract.lessons.v2.audit_pb import ListAuditEntriesRequest
 from app.models import AuditEntry, BotUser, Role, SchoolClass
-from app.rpc.audit import PAGE_SIZE_REFUSED, PAGE_TOKEN_REFUSED
+from app.rpc.audit import PAGE_SIZE_REFUSED, PAGE_TOKEN_REFUSED, page_token
 
 START = datetime(2026, 9, 1, 8, 0)
-LAST_SEEN = "UPDATE device_tokens SET last_seen_at=?"
-
-
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
@@ -191,6 +190,51 @@ async def test_a_token_this_list_did_not_give_is_refused_on_its_field(
         assert answer.error == PAGE_TOKEN_REFUSED
 
 
+async def test_the_edges_of_what_a_token_may_be_are_refused_like_the_rest(
+    v2, v2_tokens, session, school_class
+) -> None:
+    await _lines(session, school_class, 3)
+    real = page_token(await session.scalar(select(func.min(AuditEntry.id))))
+    for bad in (
+        # One past the largest id an int32 holds.
+        _token_of(b"audit:2147483648"),
+        # As long as a token may be, and not one.
+        "A" * 64,
+        # A real token with padding it does not need, or more of it than there is room for.
+        real + "=" * 3,
+        real + "====",
+        # No base64 text is one more than a multiple of four characters long.
+        "A" * 61,
+        "A" * 5,
+    ):
+        answer = await v2.both(
+            "AuditService/ListAuditEntries",
+            ListAuditEntriesRequest(page_token=bad),
+            token=v2_tokens["admin"],
+        )
+        assert (answer.status, answer.code, answer.reason) == (
+            400,
+            "INVALID_ARGUMENT",
+            "VALIDATION_FAILED",
+        ), bad
+        assert answer.violations == [("page_token", PAGE_TOKEN_REFUSED)], bad
+
+
+async def test_a_token_naming_the_oldest_line_gives_an_empty_last_page(
+    v2, v2_tokens, session, school_class
+) -> None:
+    await _lines(session, school_class, 3)
+    oldest = await session.scalar(select(func.min(AuditEntry.id)))
+    answer = await v2.both(
+        "AuditService/ListAuditEntries",
+        ListAuditEntriesRequest(page_token=page_token(oldest)),
+        token=v2_tokens["admin"],
+    )
+    assert answer.status == 200
+    assert list(answer.message.audit_entries) == []
+    assert answer.message.next_page_token == ""
+
+
 async def test_a_negative_page_size_is_refused_on_its_field(v2, v2_tokens) -> None:
     answer = await v2.both(
         "AuditService/ListAuditEntries",
@@ -202,7 +246,7 @@ async def test_a_negative_page_size_is_refused_on_its_field(v2, v2_tokens) -> No
 
 
 async def test_the_log_writes_nothing_but_the_last_seen(
-    v2, v2_tokens, session, school_class, statement_writes
+    v2, v2_tokens, session, school_class, statement_writes, unexpected_writes
 ) -> None:
     await _lines(session, school_class, 3)
     with statement_writes() as seen:
@@ -213,4 +257,5 @@ async def test_the_log_writes_nothing_but_the_last_seen(
         )
     assert answer.status == 200
     assert len(answer.message.audit_entries) == 2
-    assert all(statement.startswith(LAST_SEEN) for statement in seen), seen
+    assert seen
+    assert unexpected_writes(seen) == []

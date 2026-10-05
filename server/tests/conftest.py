@@ -893,3 +893,33 @@ def statement_writes() -> Callable[[], contextlib.AbstractContextManager[list[st
             event.remove(engine.sync_engine, "before_cursor_execute", record)
 
     return writes
+
+
+#: The writes a read may make, on purpose (decision 10 of the server-v2
+#: design): telemetry no client observes, a diary credential the upstream
+#: rotated and when it was used, and the throttles' and the directory
+#: counter's own rows. A fixture hands the rule out, because a test module may
+#: not import another one.
+ALLOWED_WRITES = (
+    # The phone's last call, and the app version it sent with it: one
+    # statement, on one fifteen-minute clock (decision 15).
+    re.compile(r"^UPDATE device_tokens SET last_seen_at=\?(?:, client_version=\?)? WHERE"),
+    re.compile(r"^UPDATE diary_sessions SET (?:(?:upstream_token|last_used_at)=\?(?:, )?)+ WHERE"),
+    re.compile(r"^(?:INSERT INTO|UPDATE|DELETE FROM) (?:join_attempts|usage_counters)\b"),
+)
+
+
+@pytest.fixture
+def unexpected_writes() -> Callable[[list[str]], list[str]]:
+    """The statements among those given that a read may not make."""
+
+    def unexpected(statements: list[str]) -> list[str]:
+        return [s for s in statements if not any(rule.match(s) for rule in ALLOWED_WRITES)]
+
+    return unexpected
+
+
+@pytest.fixture
+def last_seen_rule() -> re.Pattern[str]:
+    """The one write a plain authenticated read makes: the device's last call."""
+    return ALLOWED_WRITES[0]

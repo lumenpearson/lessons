@@ -76,9 +76,13 @@ async def older_than(
         anchor = aliased(AuditEntry)
         at = select(anchor.created_at).where(anchor.id == after_id).scalar_subquery()
         query = query.where(
+            # Implied by the OR below, and stated so that Postgres can bound the
+            # (class_id, created_at) index range at the anchor instead of
+            # scanning the class's lines from the newest and filtering them.
+            AuditEntry.created_at <= at,
             or_(
                 AuditEntry.created_at < at,
                 and_(AuditEntry.created_at == at, AuditEntry.id < after_id),
-            )
+            ),
         )
     return list(await session.scalars(query.order_by(*NEWEST_FIRST).limit(limit)))

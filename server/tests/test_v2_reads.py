@@ -11,8 +11,6 @@ and a relinked subject are all updates, which a row count cannot see.
 
 from __future__ import annotations
 
-import re
-
 import pytest
 
 from app.contract.lessons.v2.me_pb import GetMeRequest, Me
@@ -24,26 +22,6 @@ from app.rpc.methods import METHODS
 
 #: The refusals only the gate makes.
 GATE_REASONS = {"DEVICE_TOKEN_INVALID", "DIARY_TOKEN_INVALID", "DEVICE_NOT_LINKED", "ROLE_REQUIRED"}
-
-#: The writes a read may make, on purpose (decision 10): telemetry no client
-#: observes, a diary credential the upstream rotated and when it was used,
-#: and the throttles' and the directory counter's own rows.
-ALLOWED_WRITES = (
-    # The phone's last call, and the app version it sent with it: one
-    # statement, on one fifteen-minute clock (decision 15).
-    re.compile(r"^UPDATE device_tokens SET last_seen_at=\?(?:, client_version=\?)? WHERE"),
-    re.compile(r"^UPDATE diary_sessions SET (?:(?:upstream_token|last_used_at)=\?(?:, )?)+ WHERE"),
-    re.compile(r"^(?:INSERT INTO|UPDATE|DELETE FROM) (?:join_attempts|usage_counters)\b"),
-)
-
-
-#: The one write GetMe may make.
-LAST_SEEN = ALLOWED_WRITES[0]
-
-
-def unexpected(statements: list[str]) -> list[str]:
-    return [s for s in statements if not any(rule.match(s) for rule in ALLOWED_WRITES)]
-
 
 def _served() -> list[str]:
     return sorted(HANDLERS)
@@ -190,7 +168,7 @@ async def test_diary_capabilities_say_when_the_diary_is_off(v2, monkeypatch) -> 
 
 @pytest.mark.parametrize("who", ["unlinked", "editor"])
 async def test_get_me_writes_nothing_but_the_last_seen(
-    v2, v2_tokens, statement_writes, who
+    v2, v2_tokens, statement_writes, unexpected_writes, last_seen_rule, who
 ) -> None:
     with statement_writes() as seen:
         answer = await v2.both("MeService/GetMe", GetMeRequest(), token=v2_tokens[who])
@@ -198,8 +176,9 @@ async def test_get_me_writes_nothing_but_the_last_seen(
     assert answer.message is not None
     # GetMe's own rule is stricter than the general one: it touches the device's
     # last_seen_at and nothing else — no diary row, no throttle row.
-    assert unexpected(seen) == []
-    assert all(LAST_SEEN.match(statement) for statement in seen), seen
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all(last_seen_rule.match(statement) for statement in seen), seen
 
 
 async def test_diary_capabilities_write_nothing(v2, statement_writes) -> None:
@@ -211,7 +190,7 @@ async def test_diary_capabilities_write_nothing(v2, statement_writes) -> None:
 
 
 async def test_the_statement_probe_sees_the_write_v1_makes_on_a_read(
-    v2, v2_tokens, statement_writes
+    v2, v2_tokens, statement_writes, unexpected_writes
 ) -> None:
     """Held here rather than trusted: v1's ``/me`` mints a link code for an
     unlinked phone — an UPDATE, which a count of rows would never see."""
@@ -219,19 +198,23 @@ async def test_the_statement_probe_sees_the_write_v1_makes_on_a_read(
         await v2.http.get(
             "/api/v1/me", headers={"Authorization": f"Bearer {v2_tokens['unlinked']}"}
         )
-    assert any("link_code" in statement for statement in unexpected(seen))
+    assert any("link_code" in statement for statement in unexpected_writes(seen))
 
 
-def test_the_last_seen_rule_takes_the_version_beside_it_and_never_alone() -> None:
+def test_the_last_seen_rule_takes_the_version_beside_it_and_never_alone(
+    unexpected_writes, last_seen_rule
+) -> None:
     """Decision 15: one column more of an update the rule already allowed, and
     nothing else. The version alone, or beside any other column, is a write."""
     seen = "UPDATE device_tokens SET last_seen_at=? WHERE device_tokens.id = ?"
     with_version = (
         "UPDATE device_tokens SET last_seen_at=?, client_version=? WHERE device_tokens.id = ?"
     )
-    assert LAST_SEEN.match(seen) and LAST_SEEN.match(with_version)
-    assert unexpected([seen, with_version]) == []
-    assert unexpected(["UPDATE device_tokens SET client_version=? WHERE device_tokens.id = ?"])
-    assert unexpected(
+    assert last_seen_rule.match(seen) and last_seen_rule.match(with_version)
+    assert unexpected_writes([seen, with_version]) == []
+    assert unexpected_writes(
+        ["UPDATE device_tokens SET client_version=? WHERE device_tokens.id = ?"]
+    )
+    assert unexpected_writes(
         ["UPDATE device_tokens SET last_seen_at=?, link_code=? WHERE device_tokens.id = ?"]
     )

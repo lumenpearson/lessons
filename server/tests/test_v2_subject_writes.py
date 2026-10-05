@@ -221,6 +221,67 @@ async def test_an_update_without_a_mask_changes_only_what_it_sends(
     assert await _actions(session) == ["subject.short_name"]
 
 
+async def test_a_rename_with_no_mask_renames_the_subject(
+    v2, v2_tokens, session, school_class
+) -> None:
+    physics = await _subject(session, school_class, "Физика", teacher="Петров")
+    answer = await v2.rest(
+        "SubjectService/UpdateSubject",
+        UpdateSubjectRequest(subject=Subject(id=physics.id, name="Физика и астрономия")),
+        token=v2_tokens["admin"],
+    )
+    assert answer.status == 200
+    assert answer.message.subject.name == "Физика и астрономия"
+    assert answer.message.subject.teacher == "Петров"
+    assert (await _row(session, physics.id)).name == "Физика и астрономия"
+    assert await _actions(session) == ["subject.rename"]
+
+
+async def test_a_rename_and_a_detail_in_one_update_are_logged_rename_first(
+    v2, v2_tokens, session, school_class
+) -> None:
+    physics = await _subject(session, school_class, "Физика")
+    answer = await v2.connect(
+        "SubjectService/UpdateSubject",
+        UpdateSubjectRequest(
+            subject=Subject(id=physics.id, name="Физика и астрономия", teacher="Петров"),
+            # The detail is named first on purpose: the order is the service's
+            # and not the mask's.
+            update_mask=FieldMask(paths=["teacher", "name"]),
+        ),
+        token=v2_tokens["admin"],
+    )
+    assert answer.status == 200
+    assert await _actions(session) == ["subject.rename", "subject.teacher"]
+
+
+async def test_the_mask_is_spelled_lower_camel_case_over_rest(
+    v2, v2_tokens, session, school_class
+) -> None:
+    physics = await _subject(session, school_class, "Физика")
+    url = f"/api/v2/class/subjects/{physics.id}"
+    headers = _auth(v2_tokens["admin"])
+
+    camel = await v2.http.patch(
+        f"{url}?update_mask=shortName", json={"shortName": "Физ"}, headers=headers
+    )
+    assert camel.status_code == 200
+    assert camel.json()["subject"]["shortName"] == "Физ"
+    assert (await _row(session, physics.id)).short_name == "Физ"
+
+    # protobuf's JSON parser refuses a snake_case path: «path names must be
+    # lowerCamelCase». Refused, and nothing written.
+    snake = await v2.http.patch(
+        f"{url}?update_mask=short_name", json={"shortName": "Ф"}, headers=headers
+    )
+    assert snake.status_code == 400
+    error = snake.json()["error"]
+    assert error["status"] == "INVALID_ARGUMENT"
+    assert error["details"][0]["reason"] == "REQUEST_UNDECODABLE"
+    assert (await _row(session, physics.id)).short_name == "Физ"
+    assert await _actions(session) == ["subject.short_name"]
+
+
 async def test_a_masked_field_left_out_is_cleared(v2, v2_tokens, session, school_class) -> None:
     physics = await _subject(
         session, school_class, "Физика", short_name="Физ", teacher="Петров", color="#111111"

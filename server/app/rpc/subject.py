@@ -44,9 +44,9 @@ if TYPE_CHECKING:
 
     from app.rpc.call import Call
 
-#: What ``update_mask`` takes, in the order a patch is applied: the rename
-#: first, because it is the change that can be refused, then each detail
-#: (``subjects_service.update``).
+#: What ``update_mask`` may name, and nothing more. The order a patch is
+#: applied in is not this tuple's: ``subjects_service.update`` decides it, the
+#: rename first because it is the change that can be refused, then each detail.
 CHANGEABLE = ("name", "short_name", "teacher", "color")
 
 #: The ``optional`` fields of ``Subject``: unset reads as ``""``, and means none.
