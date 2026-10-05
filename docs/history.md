@@ -28,6 +28,93 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the v2 contract held to what its documents promise — the JSON, the v1 mirror and the Buf gate (#298, #299)
+
+Merged as #300 (`ab646ad`, 4 October 2026), from `contract/coverage`, on milestone 11. It refers to #273 and closes #298 and
+#299. Four agents took the four things sub-project 2 left unverified on 5 October 2026. It
+serves no v2: nothing under `/api` answers differently, v1 is untouched and the schema head did
+not move.
+
+- **The documented JSON is read against the runtime that will write it.**
+  `server/tests/test_contract_json.py` (13 tests) runs `docs/api.md`, «What the values look
+  like», through protobuf-py: names are lowerCamelCase, 64-bit integers are strings, enums are
+  written by name with `UNSPECIFIED` as an absent key, a Timestamp is RFC 3339 in UTC, and a
+  JSON unknown name refuses the message unless parsed leniently. Every claim held. It pins one
+  behaviour no document said: a relayed unknown enum value is written as its number.
+- **The v1 mirror is held field by field.** `server/tests/test_contract_mirror.py` (58 tests)
+  compares the 54 messages that name a v1 schema with that schema. Every rename, drop and
+  addition carries a reason naming the row of the plan's table or the proto comment that decided
+  it, and none was undocumented; a field added to v1 during the transition now fails there until
+  v2 has it.
+- **`buf breaking` was run, for the first time, against a base that has a contract** (`main`
+  at `45f0680`), over 25 mutations in a scratch copy. It found two defects, each filed as an
+  issue before its fix.
+  - **#298**: the one documented way to remove a field, with its number and name reserved,
+    failed FILE's `FIELD_NO_DELETE`. `buf.yaml` swaps that rule for
+    `FIELD_NO_DELETE_UNLESS_NUMBER_RESERVED` and `FIELD_NO_DELETE_UNLESS_NAME_RESERVED`,
+    checked against all 25 mutations: the reserved removal passes, an unreserved removal and a
+    renumbering still fail. `test_the_gate_lets_a_reserved_removal_through_and_nothing_else` in
+    `test_contract.py` holds the configuration.
+  - **#299**: «Evolving the contract» said Buf refuses a change to a method's HTTP binding.
+    Buf reads no options, so the resource map in `test_contract.py` is the only check on a
+    binding, a credential and a role. The design, `docs/api.md` and `CLAUDE.md` now say so, and
+    `docs/build.md` has a table of what catches what.
+- **The contract was generated once for Android, as a dry run.** protocolbuffers java and
+  kotlin v36.2 (lite) and connectrpc/kotlin v0.9.0, the spike's versions: no clash and no
+  warning. A suspected javalite problem was ruled out from the jar, since protobuf-javalite
+  4.36.2 carries `DescriptorProtos.MethodOptions`. What sub-project 5 inherits is in the
+  programme design's section 3, «What a dry generation found».
+- **A read-only smoke collection exists outside the repository**, «lessons — API smoke
+  (read-only)», with an environment «lessons — production», in the owner's **personal**
+  Postman workspace («My Workspace»). Folder «Anonymous»: health, warmup (the schema compared
+  with `expectedSchema`, `0017`), diary capabilities and two `401`s. Folder «With a device
+  token»: `/bundle` with its `ETag`, the same with `If-None-Match` expecting `304`, and `/now`;
+  it skips itself unless `deviceToken` has a current value, which stays on that machine. It
+  never writes, never calls `/join`, a diary sign-in, the school directory (DaData's anonymous
+  quota) or the cron tick. It is not in the repository on purpose: running it needs Postman or
+  Newman, and the project has no Node.
+
+### Gates
+
+On this machine, 5 October 2026:
+- **The server suite.** At `ded3da2`, `pytest -q -n auto` gave 2175 passed in 10 minutes 29
+  seconds. A review of #300 then removed three test cases that duplicated
+  `test_contract.py`'s sweep of every enum, which leaves **2172**:
+  - 2100;
+  - plus 1 in `test_contract.py`;
+  - plus 13 in `test_contract_json.py`;
+  - plus 58 in `test_contract_mirror.py`.
+  The full suite, run again after that change, gave 2172 passed in 10 minutes 38 seconds. The
+  README, `docs/architecture.md`, `CLAUDE.md`, `CONTRIBUTING.md` and the `gates` skill say 2172.
+- **ruff and mypy.** `ruff check` is clean. mypy is clean on 197 modules; tests are outside its
+  scope.
+- **Android.** Unchanged, 1635 tests, because nothing under `android/` changed.
+- **`buf breaking`.**
+  - Against `45f0680`, run locally over 25 mutations, as above.
+  - Then in CI, on `ded3da2`, its first real comparison (run 37239214776), which passed.
+
+### What was deliberately left alone
+
+- **`ruff format` is not a gate.** `test_contract.py` on `main` would reformat, and nothing was
+  reformatted.
+- **`java_outer_classname` was not set on every file**, which the Kotlin agent suggested. It
+  would be a FILE breaking change now, and nothing references the outer classes.
+- **v1 schemas named only in field-level comments** (`SubjectSavedOut`, `ClassDeleteIn`,
+  `RequestDecisionIn`, `AuditPageOut`) are not compared by the mirror test.
+- **Serving v2 is still sub-project 3**, which needs its own design, approved by the owner
+  before any code.
+
+### What nobody has verified in this batch
+
+- **The Android generation was never compiled.** It was generated and read, no more.
+- **The Postman collection was never run in Postman.** The same anonymous requests were made
+  with curl against production and answered as its tests expect; the second folder has not
+  been exercised at all.
+- **CI's first real `buf breaking` comparison** is #300's own run, and nothing here claims its
+  result.
+- **v2 is served by nothing**, so every behaviour above is a property of the contract and the
+  runtime library, not of a deployment.
+
 ## What the batch before added: the v2 contract written down — `proto/lessons/v2`, its Python, and Buf in CI (sub-project 2 of #273)
 
 Merged as #297 (`45f0680`, 4 October 2026), from `contract/spec`, on milestone 11. Sub-project 2 of

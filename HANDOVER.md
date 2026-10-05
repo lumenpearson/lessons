@@ -8,32 +8,26 @@ newest first.
 
 Last updated: **5 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
-#263, #267, #274, #277, #294, #296, #297 and #300 are merged**; `main` is at `ab646ad`, the merge
-of #300, on 4 October 2026, and `dev` is level with it. **Two pull requests are open.** **#303,
-the one carrying this paragraph**, from `fix/diary-secret-keeps-sessions`, on milestone 10,
-`v0.9.0 — NetSchool e-diary, onboarding via the school's diary`, closes #302: a deployment
-without `DIARY_SECRET` stops expiring the diary sessions it is asked about. **#301 is the design
-of serving v2, waiting for the owner's approval**, from `server-v2/design`, on milestone 11,
-`v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`; it is a draft and
-nothing that serves v2 merges before the owner has read it. #300 closed #298 and #299. The
-schema head did not move: it is still `0017`, and `EXPECTED_REVISION` did not move either.
-Production, after #300's automatic deploy, answered `/api/v1/warmup` with
-`{"status":"ok","api_version":1,"schema":"0017"}` and a `/api/v2/…` path with `404`, as nothing
-serves v2.
+#263, #267, #274, #277, #294, #296, #297, #300 and #303 are merged**; `main` is at `aba88f8`, the
+merge of #303, on 5 October 2026, and `dev` is level with it. **Two pull requests are open.**
+**#305, the one carrying this paragraph**, from `fix/breakout-mention-and-ci-documents`, on
+milestone 11, `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`, closes
+#276, #295 and #304 and refers to #273: an open form no longer takes «/week@» as its answer, and
+CI runs the server's tests when a file they read outside `server/` changes. **#301 is the design
+of serving v2, waiting for the owner's approval**, from `server-v2/design`, on the same
+milestone; it is a draft and nothing that serves v2 merges before the owner has read it. #303
+closed #302. The schema head did not move: it is still `0017`, and `EXPECTED_REVISION` did not
+move either. Production, after #303's automatic deploy, answered `/api/v1/warmup` with
+`{"status":"ok","api_version":1,"schema":"0017"}`.
 
-#300 was the first pull request whose base carried `buf.yaml`, so its «Contract (Buf)» run was
-the gate's first real comparison in CI. On `ded3da2` (run 37239214776) it passed in nine
-seconds, without the notice it gives when the base has no contract, so it compared against
-`main` and found nothing breaking.
-
-The section «What the last session added» below is #303's batch, and «What the session
-before it added» is #300's.
+The section «What the last session added» below is #305's batch, and «What the session
+before it added» is #303's.
 
 The SHA of its own merge is for the next close-out to write.
 
 **#267 closed #264, #265 and #266**, read back from GitHub on 3 October, and **#296 closed
 #271, #272 and #275**, read back on 4 October. **#274 and #277 closed nothing.** Of the
-defects the survey and the plan filed on milestone 11, #268–#270 and #276 are open, and #273
+defects the survey and the plan filed on milestone 11, #268–#270 are open, #276 closes with #305, and #273
 is that milestone's epic.
 **#235** is open: the production server cannot reach Petersburg's diary at all, and the fix
 is the owner's choice of a Russian egress (section 7). **#236**, a phone's sign-in showing
@@ -153,10 +147,68 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: a deployment without a diary key keeps its sessions (#302), and the design of serving v2 is drafted for the owner (#301)
+## What the last session added: a form no longer takes «/week@» for an answer (#276, #304), and CI runs the server's tests when a document they read changes (#295)
 
-Open as #303, from `fix/diary-secret-keeps-sessions`, on milestone 10, `v0.9.0`, because the
-fix is the diary's. It closes #302. Written on the night of 4 to 5 October 2026, in the same
+Open as #305, a draft from `fix/breakout-mention-and-ci-documents`, on milestone 11. It closes
+#276, #295 and #304 and refers to #273. Written on 5 October 2026, after #303 merged. The
+schema head did not move, and nothing under `/api/v2` exists.
+
+- **An open form is dropped by «/week@», as aiogram dispatches it (#276).** The breakout's
+  `_COMMAND` accepted a mention only with a name, while aiogram reads «/week@» as «/week»; so
+  the form stayed open and an editor at «Теперь пришлите текст задания:» got an assignment
+  called «/week@», committed, audited and announced. The pattern is now
+  `^\s*/[A-Za-z0-9_]+(@[A-Za-z0-9_]*)?(\s|$)`, no looser than aiogram: «/week@@», «/ week» and
+  «/недели» are still text.
+- **Leading whitespace counts as well (#304).** #276's own test found it: aiogram splits on
+  whitespace before it looks, so «  /week» is a command to it. It was filed that night and
+  fixed in the same pull request, because the pin cannot hold without it.
+- **The two readings are pinned against each other.** `test_bot_commands.py` sends a 24-row
+  table both to `looks_like_command` and to each of aiogram's 26 `Command` filters in the real
+  dispatcher, discovered rather than listed, plus a real-dispatcher test that «/week@» at the
+  homework step drops the form. A comment in `bot/handlers/__init__.py` on the ticks router's
+  position was rewritten: the position no longer decides anything.
+- **CI's server job runs when a file the suite reads outside `server/` changes (#295).**
+  `ci.yml`'s server `case` arm names `docs/*.md`, `.claude/*.md`, `proto/*`, `buf.yaml`,
+  `vercel.json`, `.vercelignore`, `.python-version` and the root documents; found by grep and
+  confirmed under an `open`/`scandir` audit hook. Comment and filter only: no step, job, `if:`
+  or output is new. `server/tests/test_ci_paths.py` (3 tests) holds the patterns level with the
+  suite; `_documents` moved into `conftest.py` as the `head_documents` fixture; `docs/build.md`,
+  «Path filters», and `.claude/agents/build-ci.md` say so.
+- **Reviewed before the merge by the build-ci agent**: ready, no Critical or Important
+  finding. A commit that touches only `docs/history.md` now runs the server job, which is
+  acceptable, runners being free on a public repository.
+
+### Gates
+
+- **The server suite.** At `5b7f5cb`, `pytest -q -n auto`, run once and alone on this machine
+  on 5 October 2026, gave **2207 passed** in 9 minutes 1 second: 2175 plus 32 (29 in
+  `test_bot_commands.py`, 3 in `test_ci_paths.py`). The README, `docs/architecture.md`,
+  `CLAUDE.md`, `CONTRIBUTING.md`, the `gates` skill and the cheat-sheet at the end of section 8
+  say 2207.
+- **ruff and mypy.** Both are clean; mypy covers 197 modules.
+- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
+- **CI on #305's head** is not claimed here.
+
+### What was deliberately left alone
+
+- **Moving the ticks router into `content`'s router** is a change of its own and not done.
+- **A guard that sees a new file under an already-listed root**: the root-name check reads only
+  the first part of a path, and a stronger one was not written.
+- **#301 is not merged and its plan is not executed.** It was reviewed independently (ready
+  after fixes: `MIN_CLIENT_VERSION` also in `docker-compose.yml`, a guard that every error-table
+  row has a both-path test, nine Minor findings, the client header accepting ten digits up to
+  2,100,000,000, and the join's sentences living in `app/wording.py`), every finding was applied
+  (`aa2253d`), and it waits for the owner's approval.
+
+### What nobody has verified in this batch
+
+- **The new filter on a GitHub runner**, beyond #305's own CI, as section 5 says.
+- **Whether Telegram delivers a message that starts with whitespace** (#304), as section 5 says.
+
+## What the session before it added: a deployment without a diary key keeps its sessions (#302), and the design of serving v2 is drafted for the owner (#301)
+
+Merged as #303 (`aba88f8`, 5 October 2026), from `fix/diary-secret-keeps-sessions`, on
+milestone 10, `v0.9.0`, because the fix is the diary's. It closed #302. Written on the night of 4 to 5 October 2026, in the same
 session that merged #300. The schema head did not move, and nothing under `/api/v2` exists.
 
 - **A deployment without `DIARY_SECRET` no longer expires every diary session it is asked
@@ -208,94 +260,11 @@ session that merged #300. The schema head did not move, and nothing under `/api/
 - **Every module in #301's plan ran in a scratch copy**, not in the repository, and the full
   suite did not run there.
 - **The five answers #301 waits for are guesses until the owner gives them.**
+- **After #303's merge**, a security review made before it had found no other path that loses a
+  session without the key, `dev` was fast-forwarded to `aba88f8`, and production's
+  `/api/v1/warmup` answered `{"status":"ok","api_version":1,"schema":"0017"}`. The board reads
+  Done, P1, M, 5 and 2026-10-05 for #303 and #302 (#302 started on 2026-10-04).
 
-
-## What the session before it added: the v2 contract held to what its documents promise — the JSON, the v1 mirror and the Buf gate (#298, #299)
-
-Merged as #300 (`ab646ad`, 4 October 2026), from `contract/coverage`, on milestone 11. It refers to #273 and closes #298 and
-#299. Four agents took the four things sub-project 2 left unverified on 5 October 2026. It
-serves no v2: nothing under `/api` answers differently, v1 is untouched and the schema head did
-not move.
-
-- **The documented JSON is read against the runtime that will write it.**
-  `server/tests/test_contract_json.py` (13 tests) runs `docs/api.md`, «What the values look
-  like», through protobuf-py: names are lowerCamelCase, 64-bit integers are strings, enums are
-  written by name with `UNSPECIFIED` as an absent key, a Timestamp is RFC 3339 in UTC, and a
-  JSON unknown name refuses the message unless parsed leniently. Every claim held. It pins one
-  behaviour no document said: a relayed unknown enum value is written as its number.
-- **The v1 mirror is held field by field.** `server/tests/test_contract_mirror.py` (58 tests)
-  compares the 54 messages that name a v1 schema with that schema. Every rename, drop and
-  addition carries a reason naming the row of the plan's table or the proto comment that decided
-  it, and none was undocumented; a field added to v1 during the transition now fails there until
-  v2 has it.
-- **`buf breaking` was run, for the first time, against a base that has a contract** (`main`
-  at `45f0680`), over 25 mutations in a scratch copy. It found two defects, each filed as an
-  issue before its fix.
-  - **#298**: the one documented way to remove a field, with its number and name reserved,
-    failed FILE's `FIELD_NO_DELETE`. `buf.yaml` swaps that rule for
-    `FIELD_NO_DELETE_UNLESS_NUMBER_RESERVED` and `FIELD_NO_DELETE_UNLESS_NAME_RESERVED`,
-    checked against all 25 mutations: the reserved removal passes, an unreserved removal and a
-    renumbering still fail. `test_the_gate_lets_a_reserved_removal_through_and_nothing_else` in
-    `test_contract.py` holds the configuration.
-  - **#299**: «Evolving the contract» said Buf refuses a change to a method's HTTP binding.
-    Buf reads no options, so the resource map in `test_contract.py` is the only check on a
-    binding, a credential and a role. The design, `docs/api.md` and `CLAUDE.md` now say so, and
-    `docs/build.md` has a table of what catches what.
-- **The contract was generated once for Android, as a dry run.** protocolbuffers java and
-  kotlin v36.2 (lite) and connectrpc/kotlin v0.9.0, the spike's versions: no clash and no
-  warning. A suspected javalite problem was ruled out from the jar, since protobuf-javalite
-  4.36.2 carries `DescriptorProtos.MethodOptions`. What sub-project 5 inherits is in the
-  programme design's section 3, «What a dry generation found».
-- **A read-only smoke collection exists outside the repository**, «lessons — API smoke
-  (read-only)», with an environment «lessons — production», in the owner's **personal**
-  Postman workspace («My Workspace»). Folder «Anonymous»: health, warmup (the schema compared
-  with `expectedSchema`, `0017`), diary capabilities and two `401`s. Folder «With a device
-  token»: `/bundle` with its `ETag`, the same with `If-None-Match` expecting `304`, and `/now`;
-  it skips itself unless `deviceToken` has a current value, which stays on that machine. It
-  never writes, never calls `/join`, a diary sign-in, the school directory (DaData's anonymous
-  quota) or the cron tick. It is not in the repository on purpose: running it needs Postman or
-  Newman, and the project has no Node.
-
-### Gates
-
-On this machine, 5 October 2026:
-- **The server suite.** At `ded3da2`, `pytest -q -n auto` gave 2175 passed in 10 minutes 29
-  seconds. A review of #300 then removed three test cases that duplicated
-  `test_contract.py`'s sweep of every enum, which leaves **2172**:
-  - 2100;
-  - plus 1 in `test_contract.py`;
-  - plus 13 in `test_contract_json.py`;
-  - plus 58 in `test_contract_mirror.py`.
-  The full suite, run again after that change, gave 2172 passed in 10 minutes 38 seconds. The
-  README, `docs/architecture.md`, `CLAUDE.md`, `CONTRIBUTING.md` and the `gates` skill say 2172.
-- **ruff and mypy.** `ruff check` is clean. mypy is clean on 197 modules; tests are outside its
-  scope.
-- **Android.** Unchanged, 1635 tests, because nothing under `android/` changed.
-- **`buf breaking`.**
-  - Against `45f0680`, run locally over 25 mutations, as above.
-  - Then in CI, on `ded3da2`, its first real comparison (run 37239214776), which passed.
-
-### What was deliberately left alone
-
-- **`ruff format` is not a gate.** `test_contract.py` on `main` would reformat, and nothing was
-  reformatted.
-- **`java_outer_classname` was not set on every file**, which the Kotlin agent suggested. It
-  would be a FILE breaking change now, and nothing references the outer classes.
-- **v1 schemas named only in field-level comments** (`SubjectSavedOut`, `ClassDeleteIn`,
-  `RequestDecisionIn`, `AuditPageOut`) are not compared by the mirror test.
-- **Serving v2 is still sub-project 3**, which needs its own design, approved by the owner
-  before any code.
-
-### What nobody has verified in this batch
-
-- **The Android generation was never compiled.** It was generated and read, no more.
-- **The Postman collection was never run in Postman.** The same anonymous requests were made
-  with curl against production and answered as its tests expect; the second folder has not
-  been exercised at all.
-- **CI's first real `buf breaking` comparison** is #300's own run, and nothing here claims its
-  result.
-- **v2 is served by nothing**, so every behaviour above is a property of the contract and the
-  runtime library, not of a deployment.
 
 ## The milestones
 
@@ -318,8 +287,8 @@ maps them. The
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged), #303 (open); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301 (open); issues #268–#273, #275, #276, #293, #295, #298, #299 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218 and #303 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302 |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300 (merged), #301 and #305 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | issues #120–#122, #127, #142, #144 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -365,6 +334,16 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   a device** (#302). The app parses `X-Diary-Unavailable` for every diary call, but a read that
   carries a token and is still answered «disabled» is a new case for it; only the server's
   tests have seen it.
+- **The new CI filter (#295) has run on a GitHub runner only in #305's own CI.** Its server arm
+  was run in Git Bash's `case` against a list of paths and the step's script over the branch's
+  range; nobody has seen a commit confined to a skill or to `proto/` start the server job on
+  its own. Its guard, `test_ci_paths.py`, sees only the first part of a path, so a new file
+  under a root already listed (`.github/dependabot.yml`, say) is caught only by adding it to
+  the guard's written list.
+- **Whether Telegram ever delivers a message that starts with whitespace is unverified**
+  (#304). The form breakout now treats «  /week» as a command because aiogram's `Command`
+  filter does, after `text.split()`; its clients are not known to keep plain spaces there, but
+  a no-break space is whitespace to `str.split`, and nobody has sent one.
 - **Vercel's proxy in front of Connect has been asked nothing.** The v2 contract (#297)
   writes `/api/rpc/lessons.v2.<Service>/<Method>` down, and no deployment serves it. Whether
   Vercel passes a Connect request and its streaming body through is sub-project 3's first
