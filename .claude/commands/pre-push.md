@@ -18,10 +18,12 @@ both. If `$1` was given, use that instead.
 Then run, and report the real output of, every gate that applies:
 
 **server/** — `ruff check app tests scripts migrations`, `python -m mypy`,
-`python -m pytest -q -n auto`
+`pytest -q -n auto` (bare, exactly as CI runs it: the `-m` form puts the current directory on
+`sys.path` and can pass what CI fails)
 
-**android/** — `./gradlew test`, `./gradlew assembleDebug`, `./gradlew assembleRelease`
-(add `--offline` if there is no network)
+**android/** — `./gradlew test`, `./gradlew assembleDebug`, `./gradlew assembleRelease`, then
+`./gradlew detekt`, which CI fails on for any finding outside the baselines (add `--offline` if
+there is no network)
 
 **contract** — when `proto/`, `buf.*` or `server/app/contract/` changed, from the repository
 root `buf lint`, then `buf generate` followed by `git diff --exit-code server/app/contract`,

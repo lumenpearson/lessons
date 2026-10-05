@@ -54,5 +54,5 @@ constant; the rule is that what is drawn is what can be pressed, and
 
 ## Gates
 
-`ruff check app tests scripts migrations`, `python -m mypy`, `python -m pytest -q -n auto`.
-A new card needs a test that renders it with data long enough to hit its budget.
+`ruff check app tests scripts migrations`, `python -m mypy`, `pytest -q -n auto` (bare, as CI
+runs it). A new card needs a test that renders it with data long enough to hit its budget.

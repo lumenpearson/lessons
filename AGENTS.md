@@ -33,7 +33,7 @@ From `server/` (Python 3.12):
 ```
 ruff check app tests scripts migrations
 python -m mypy
-python -m pytest -q -n auto
+pytest -q -n auto
 ```
 
 From `android/` (JDK 21, compileSdk 37, wrapper Gradle):

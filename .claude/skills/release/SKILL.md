@@ -8,8 +8,9 @@ description: Cut a build of the Android app — gates, migration order, signing,
 ## 1. Gates, all of them
 
 From `server/`: `ruff check app tests scripts migrations`, `python -m mypy`,
-`python -m pytest -q -n auto`.
-From `android/`: `./gradlew test`, `./gradlew assembleDebug`, `./gradlew assembleRelease`.
+`pytest -q -n auto` (bare, as CI runs it).
+From `android/`: `./gradlew test`, `./gradlew assembleDebug`, `./gradlew assembleRelease`,
+then `./gradlew detekt`.
 
 `assembleRelease` is not optional. R8 and resource shrinking are where "worked in debug"
 stops being true, which is why CI builds both on every push.
