@@ -52,6 +52,32 @@ from app.models import (  # noqa: E402
 )
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """Refuse to test another checkout's code (#312).
+
+    `tests/` has no `__init__.py`, so the default import mode puts `tests/` on
+    the path rather than `server/`, and the bare `pytest` CI runs adds no
+    current directory either. `app` therefore comes from whatever the venv has
+    installed — and the setup installs it editable, from the checkout the venv
+    was made in. A worktree borrowing the main checkout's venv then runs its own
+    tests against the main checkout's `app`: a new test fails and is caught, but
+    a test saying nothing changed passes against the old code, and «green
+    locally» is about another tree. Raised here, before any test runs, rather
+    than at import, so the message is pytest's own «ERROR:» line.
+    """
+    import app
+
+    tree = Path(__file__).resolve().parents[1]
+    imported = Path(app.__file__).resolve().parent
+    if not imported.is_relative_to(tree):
+        raise pytest.UsageError(
+            f"These tests are in {tree}, but `app` was imported from {imported}: the venv is "
+            "an editable install of another checkout, so the tests would run against its code. "
+            "Make a venv in this tree's server/ (python -m venv .venv, then pip install -r "
+            '../requirements.txt -e ".[dev]") and run pytest from it.'
+        )
+
+
 @pytest.fixture(autouse=True)
 async def fresh_database() -> AsyncIterator[None]:
     async with engine.begin() as conn:

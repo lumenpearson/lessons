@@ -13,6 +13,12 @@ Setup once: `python3 -m venv .venv && .venv/bin/pip install -r ../requirements.t
 — the lock Vercel installs, then the package, which is exactly CI's install (#192). Without
 the `-r` you test on whatever is newest today, which production does not run.
 
+**In a git worktree, make that venv in the worktree's own `server/`.** The install is
+editable, so a venv's `app` is the checkout it was made in, and bare `pytest` imports `app`
+from the venv rather than from the current directory. Borrowing the main checkout's venv
+tests the main checkout's code under this tree's tests. `conftest.py` refuses to start when
+that happens and names both trees (#312).
+
 1. `ruff check app tests scripts migrations` — exactly what CI lints. `ruff check .` from
    `server/` covers the same tree.
 2. `python -m mypy` — one question of all 197 modules, in seconds: does anything reach for an
