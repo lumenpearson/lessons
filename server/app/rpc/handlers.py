@@ -15,13 +15,14 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.rpc import device, diary, me, schedule, watch
+from app.rpc import audit, device, diary, me, schedule, watch
 
 #: A handler: ``async def handler(call: Call, request: <Method>Request) -> <Method>Response``.
 Handler = Callable[[Any, Any], Awaitable[Any]]
 
 #: Keyed as ``rpc.methods.METHODS`` is: ``"lessons.v2.<Service>/<Method>"``.
 HANDLERS: dict[str, Handler] = {
+    "lessons.v2.AuditService/ListAuditEntries": audit.list_audit_entries,
     "lessons.v2.DeviceService/CreateDevice": device.create_device,
     "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
     "lessons.v2.MeService/GetMe": me.get_me,
