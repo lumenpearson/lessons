@@ -300,3 +300,14 @@ def render_day(day: ResolvedDay, today: Date) -> str:
 #: A deployment without ``DIARY_SECRET``, on every door: v1's 503 and v2's
 #: ``DIARY_DISABLED`` alike.
 DIARY_DISABLED_DETAIL = "Дневник на этом сервере выключен."
+
+#: v1's ``POST /join`` and v2's ``CreateDevice``, for each refusal of
+#: ``services/join.py``: too many wrong codes, a code that names nothing, a
+#: class that takes personal codes only, and a class at its phone limit.
+JOIN_THROTTLED_DETAIL = "Too many join attempts"
+JOIN_UNKNOWN_CODE_DETAIL = "Unknown join code"
+JOIN_INVITE_ONLY_DETAIL = "Этот класс принимает только по личному приглашению из бота"
+JOIN_DEVICE_LIMIT_DETAIL = (
+    "К классу подключено слишком много телефонов. Возьмите личный код в боте "
+    "(«📱 Подключить телефон») или попросите администратора отключить старые телефоны"
+)

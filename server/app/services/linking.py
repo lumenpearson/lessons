@@ -10,6 +10,7 @@ second permission system to keep in step.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy import select
@@ -132,3 +133,32 @@ async def effective_role(session: AsyncSession, device: DeviceToken) -> Role | N
     if device.telegram_id is None:
         return None
     return await get_role(session, device.telegram_id, device.class_id)
+
+
+@dataclass(frozen=True)
+class Access:
+    """What a device may do in its class, as a phone is told it.
+
+    v1's ``/bundle`` and ``/me`` and v2's ``DeviceAccess`` and ``Me`` all
+    answer these three facts, and «may edit» is a rule rather than a field:
+    editor or above. One copy of it, here, because a second copy in a v2
+    handler is the copy that would one day say «admin».
+    """
+
+    linked: bool
+    #: ``None`` for an unlinked device, and for a linked account that is not a
+    #: member of the class.
+    role: Role | None
+
+    @property
+    def can_edit(self) -> bool:
+        return self.role is not None and self.role.at_least(Role.EDITOR)
+
+    @classmethod
+    def of(cls, device: DeviceToken, role: Role | None) -> Access:
+        return cls(linked=device.is_linked, role=role)
+
+
+async def access_of(session: AsyncSession, device: DeviceToken) -> Access:
+    """The device's :class:`Access`, with its role read now, as every request does."""
+    return Access.of(device, await effective_role(session, device))

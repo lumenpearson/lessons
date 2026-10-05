@@ -21,6 +21,7 @@ follows.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import date as Date
 
 from sqlalchemy import delete as sa_delete
@@ -97,6 +98,49 @@ async def read(session: AsyncSession, class_id: int, year: int) -> list[Term]:
         .order_by(Term.index)
     )
     return list(rows)
+
+
+@dataclass(frozen=True)
+class TermSpan:
+    """One term as a reader is shown it: the stored row's facts, or the
+    conventional set's, with nothing attached to a session.
+
+    A plain value rather than a :class:`Term` on purpose. A ``Term`` built for
+    an answer and never added would still be one ``session.add`` — or one
+    relationship append — away from an autoflush that persists it, which is
+    the write a read has promised not to make
+    (``docs/specs/2026-10-05-server-v2-design.md``, decision 10).
+    """
+
+    index: int
+    kind: TermKind
+    starts_on: Date
+    ends_on: Date
+
+    @classmethod
+    def of(cls, term: Term) -> TermSpan:
+        return cls(index=term.index, kind=term.kind, starts_on=term.starts_on, ends_on=term.ends_on)
+
+
+async def spans(session: AsyncSession, school_class: SchoolClass, year: int) -> list[TermSpan]:
+    """This class's terms for ``year`` as a read answers them, writing nothing.
+
+    The stored rows when the year has any, in order. Otherwise the conventional
+    set for the class's scheme today — computed, not seeded: :func:`ensure` is
+    what persists it, and only a write that edits a term or the scheme calls
+    that. The answer is the one ``ensure`` would have seeded, and the days a
+    reader resolves agree with it either way: the conventional bounds run
+    contiguously from the year's first day to 31 May, which is exactly the
+    span ``schedule.off_reason_for`` falls back to when a year has no rows.
+    """
+    stored = await read(session, school_class.id, year)
+    if stored:
+        return [TermSpan.of(term) for term in stored]
+    kind = scheme_of(school_class)
+    return [
+        TermSpan(index=index, kind=kind, starts_on=starts, ends_on=ends)
+        for index, (starts, ends) in enumerate(default_term_bounds(year, kind), start=1)
+    ]
 
 
 async def ensure(
