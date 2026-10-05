@@ -20,7 +20,8 @@ JDK 21, compileSdk 37, Gradle from the wrapper — `./gradlew` works on a fresh 
   failed on four invented versions that exist in no repository. If you cannot name the source
   of a version, you do not have the version.
 - **Release signing needs all four values.** `hasReleaseSigning` falls back to the AGP debug
-  key when any of the `LESSONS_KEYSTORE_*` values is missing, and used to do it with nothing
+  key when any of the four values (`LESSONS_KEYSTORE_FILE`, `LESSONS_KEYSTORE_PASSWORD`,
+  `LESSONS_KEY_ALIAS`, `LESSONS_KEY_PASSWORD`; #309) is missing, and used to do it with nothing
   but `logger.warn`. The APK workflow now fails loudly instead. The keystore and its
   passwords come from environment variables or `~/.gradle/gradle.properties` and never from
   the repository; `*.jks` and `keystore.properties` are gitignored for that reason.

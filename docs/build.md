@@ -296,7 +296,7 @@ runners, or a private one with your own.
   real key, and only when the secrets are configured.
 - **The whole history is visible, including what was removed from the working tree.** There
   are no credentials in it: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET` and `CRON_SECRET`
-  always lived in the environment, the signing key in `LESSONS_KEYSTORE_*`, `.gitignore`
+  always lived in the environment, the signing key in `LESSONS_KEYSTORE_*` and `LESSONS_KEY_*`, `.gitignore`
   covers `.env`, `*.keystore`, `*.jks`, `*.p12` and `keystore.properties`, and
   `server/.env.example` contains nothing but placeholders. But the production Neon
   endpoint's host and the project id did spend time in the tests and the documentation, and

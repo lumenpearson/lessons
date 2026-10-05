@@ -11,7 +11,9 @@ it.
 
 **Secrets never enter the repository.** `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET`,
 `CRON_SECRET` live in `server/.env` or the host environment. The release keystore and its
-passwords come from `LESSONS_KEYSTORE_*` or `~/.gradle/gradle.properties`. The production
+passwords come from `LESSONS_KEYSTORE_*` and `LESSONS_KEY_*` — four variables, of which
+`LESSONS_KEY_PASSWORD` is the key's own password and does not match the first pattern (#309) — or
+from `~/.gradle/gradle.properties`, which is never to be read or printed. The production
 database endpoint stays out of the tree as well. In an issue, a log, a report or a commit
 message, redact as `<redacted>` — including in anything you write back to the user.
 

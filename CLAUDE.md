@@ -772,8 +772,12 @@ points Hilt does not inject cleanly.
   audits in `docs/design.md` exist because a conclusion drawn from call sites was wrong.
 - Secrets never enter the repository: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET`,
   `CRON_SECRET` live in `server/.env` or the host's environment; the release keystore and
-  its passwords come from `LESSONS_KEYSTORE_*` environment variables or
-  `~/.gradle/gradle.properties`. Redact them as `<redacted>` in issues, logs and reports.
+  its passwords come from the `LESSONS_KEYSTORE_FILE`, `LESSONS_KEYSTORE_PASSWORD`,
+  `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD` environment variables (in Actions, from the
+  secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`; #309) or from
+  `~/.gradle/gradle.properties`. **Never read or print that file**: on 5 October 2026 an agent
+  looking in it for a Gradle setting put a signing password into its transcript. Redact them as
+  `<redacted>` in issues, logs and reports.
 - The documentation index is `docs/README.md`. If a change makes a document wrong, fix it in
   the same batch — `docs/widget.md` and `docs/bot.md` were each rewritten once because they
   had drifted from the code, and that is more expensive than keeping up.

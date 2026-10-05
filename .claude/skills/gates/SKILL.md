@@ -21,8 +21,11 @@ the `-r` you test on whatever is newest today, which production does not run.
    after ruff — the owner asked for it through that day's audit (#210) — and still worth
    running before a push: seconds here, minutes there. It is the thing that reproduces the
    «🗓 Четверти» crash.
-3. `python -m pytest -q -n auto` — 2207 tests today. Serial takes about five minutes;
-   `-n auto` finishes in a third of that and is what CI runs.
+3. `pytest -q -n auto`, bare, from `server/` with its venv active — 2207 tests today, and
+   **the exact command CI runs**. Not `python -m pytest`: the `-m` form puts the current
+   directory on `sys.path` and the bare one does not, so whatever leans on that passes here and
+   fails on CI (CLAUDE.md, «Commands»; #310). Serial takes about five minutes; `-n auto`
+   finishes in a third of that.
 
 Narrower while iterating: `python -m pytest -q tests/test_schedule.py -k parity`.
 
