@@ -404,7 +404,7 @@ The phone keeps an access key and copies of the timetable and the diary, so the 
     <string name="about_facts_title">Worth knowing</string>
     <string name="about_fact_offline">The whole timetable lives on the phone — the app opens with no network at all</string>
     <string name="about_fact_windows">The cache holds up to three school years at once and fetches a year when you scroll into it</string>
-    <string name="about_fact_bot">Only the Telegram bot can write a timetable: the server has no page anywhere that does it</string>
+    <string name="about_fact_bot">Only the Telegram bot and an admin\'s phone can write a timetable: the server has no page anywhere that does it</string>
     <string name="about_fact_fonts">Latin is drawn by Google Sans Flex and Cyrillic by Onest — the first font has no Russian letters at all</string>
     <string name="about_fact_widget">The widget has twelve sizes, because a launcher picks the nearest one rather than the largest that fits</string>
     <string name="about_fact_clock">Time is the school\'s, not the phone\'s — a bell at 08:30 stays at 08:30 wherever you are</string>

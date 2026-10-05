@@ -31,7 +31,9 @@
     <string name="credit_material_symbols">Material Symbols</string>
     <string name="credit_material_symbols_note">Все значки в приложении и виджете.</string>
     <string name="credit_google_sans">Google Sans Flex</string>
-    <string name="credit_google_sans_note">Google LLC. Гарнитура, которой набрано приложение. Google Sans — товарный знак Google.</string>
+    <string name="credit_google_sans_note">Google LLC. Гарнитура латиницы и цифр. Google Sans — товарный знак Google.</string>
+    <string name="credit_onest">Onest</string>
+    <string name="credit_onest_note">The Onest Project Authors. Гарнитура кириллицы: ею набрано каждое русское слово в приложении.</string>
 
     <!-- Report a bug -->
     <string name="bug_report_title">Сообщить об ошибке</string>

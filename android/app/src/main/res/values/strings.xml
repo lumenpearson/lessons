@@ -404,7 +404,7 @@
     <string name="about_facts_title">Любопытное</string>
     <string name="about_fact_offline">Всё расписание лежит на телефоне — приложение открывается и без сети</string>
     <string name="about_fact_windows">Кэш держит до трёх учебных лет сразу и подгружает год, когда вы до него долистали</string>
-    <string name="about_fact_bot">Писать расписание умеет только бот в Telegram: у сервера нет ни одной страницы, где это можно сделать</string>
+    <string name="about_fact_bot">Писать расписание умеют только бот в Telegram и телефон администратора: у сервера нет ни одной страницы, где это можно сделать</string>
     <string name="about_fact_fonts">Латиницу рисует Google Sans Flex, кириллицу — Onest: в первом шрифте нет ни одной русской буквы</string>
     <string name="about_fact_widget">У виджета двенадцать размеров, потому что лаунчер выбирает ближайший, а не наибольший подходящий</string>
     <string name="about_fact_clock">Время считается по часовому поясу школы, а не телефона — звонок в 08:30 остаётся в 08:30</string>

@@ -533,5 +533,5 @@ The app is set in two typefaces, each with its own licence and its own rights ho
 and **Onest**, for Cyrillic — SIL Open Font License 1.1, © 2021 The Onest Project Authors
 (#325). Each licence text travels with its typeface, inside the APK
 (`core/designsystem/src/main/assets/licenses/google_sans_flex_OFL.txt` and `onest_OFL.txt`
-beside it), as OFL requires. The app's **Настройки → О приложении → Лицензии** names Google
-Sans Flex and does not yet name Onest (#326).
+beside it), as OFL requires, and both are named in the app: **Настройки → О приложении →
+Лицензии** (Onest since #326).
