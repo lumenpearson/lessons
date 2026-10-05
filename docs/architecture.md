@@ -54,7 +54,9 @@ app/
 ├── catalog/       the region catalog — generated data, never edited by hand
 ├── services/      the rules both shells call — pure async functions over a session
 ├── providers/     the foreign services: the diaries (petersburg, netschool) and dadata
-├── contract/      the v2 contract's Python, generated from proto/ — imported by nothing in app.main
+├── contract/      the v2 contract's Python, generated from proto/ — never edited by hand
+├── rpc/           v2: the method table, the gate, invoke, the error table, a module per service
+├── rest/          v2 over REST: routes transcoded from the contract's own annotations
 ├── api/           the client API: reads, and the writes in the table above
 ├── bot/           aiogram routers, roles, keyboards, renderers
 └── main.py        FastAPI app; its lifespan owns the bot's polling task
@@ -104,6 +106,21 @@ annotation before the wrapping.
 `schedule.py` is deliberately free of framework imports. It takes ORM rows and
 returns plain dataclasses, which is why its twenty-four tests (#325) run in two seconds
 with no HTTP client involved.
+
+### v2: one invoke behind two transports
+
+v2 is served by `app/rpc/` and `app/rest/` beside v1, over the same `services/`
+(`docs/specs/2026-10-05-server-v2-design.md`). Every method's credential, least role and
+REST route are read from the generated descriptors once (`rpc/methods.py`); Connect's
+adapters and the REST transcoder both call one `invoke` (`rpc/call.py`), which runs the
+gate, opens the call's dishka scope the way the bot's middleware does, runs the handler,
+commits, and only then runs the call's effects. A handler never checks a credential and
+never commits, and every refusal is worded by one table (`rpc/errors.py`), so the two
+transports cannot disagree about a rule. The rules v1's routers held and v2 needs moved into
+`services/` first — the join flow, the window's tag, the clock and the bounds — and the
+limiters into `security.py`, one instance each, so a caller cannot double its attempts by
+alternating versions. `main.mount_v2` catches a v2 that will not import and answers `503`
+under its two prefixes, so v1 and the webhook never go down with it.
 
 ### The resolution model
 
@@ -874,7 +891,7 @@ with the host.
 
 ## Testing
 
-2222 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
+2430 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 161, `:widget` 126, `:app` 608 (#325).
 

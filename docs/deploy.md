@@ -71,6 +71,7 @@ read back in the interface.
 | `DIARY_SECRET` | a random string, see "The electronic diary" below |
 | `DADATA_TOKEN` | a DaData key, see "The schools registry" below — without it the school search is simply off |
 | `DIARY_PROXY_URL` | optional: `http://user:password@host:port` of an HTTP proxy in Russia, for the Petersburg diary's requests alone, which the city drops from abroad (#235, #334). Empty means direct; see "The electronic diary" below |
+| `MIN_CLIENT_VERSION` | empty — or the oldest APK versionCode v2 still answers; raise it only once the newer APK is on the phones it would refuse |
 
 Vercel applies them **at deploy time**: changing a value without rebuilding changes
 nothing, and the running deployment goes on holding the old one.
@@ -589,8 +590,9 @@ used to say `server/.env`, which compose never reads, so `up` stopped at «set B
 
 **Every setting the server reads reaches the container.** Besides `BOT_TOKEN`, `OWNER_IDS`
 and `TIMEZONE`, the file hands it `WEBHOOK_SECRET`, `CRON_SECRET`, `BOT_USERNAME`,
-`DIARY_SECRET`, `DADATA_TOKEN`, `PUBLIC_BASE_URL`, `RUN_BOT` and `TRUSTED_PROXY_HOPS` from the
-same `.env`, each arriving as its own default when unset. Until #191 none of those was
+`DIARY_SECRET`, `DADATA_TOKEN`, `DIARY_PROXY_URL`, `PUBLIC_BASE_URL`, `MIN_CLIENT_VERSION`,
+`RUN_BOT` and `TRUSTED_PROXY_HOPS` from the same `.env`, each arriving as its own default when
+unset. Until #191 none of those was
 passed, and a container sees only what the file lists: a compose deployment had no diary,
 no digests and no calendar link whatever `.env` said. What they are for is the table under
 Option 1; here, the digests need `CRON_SECRET` and an external cron exactly as on Vercel
