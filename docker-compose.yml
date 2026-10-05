@@ -41,8 +41,10 @@ services:
   # failed migration stops the stack instead of being buried in the API's log —
   # and so `docker compose run --rm migrate` is a thing you can do by hand.
   #
-  # It is the same image, and it needs only the database URL: `get_settings()`
-  # is never called here, so `BOT_TOKEN` and `OWNER_IDS` are not its business.
+  # It is the same image, and it needs only the database URL. `get_settings()`
+  # is called here — `migrations/env.py` imports `app.db` — but its refusal
+  # hangs on `VERCEL`, which nothing here sets, so `BOT_TOKEN` and `OWNER_IDS`
+  # are not its business (#322).
   migrate:
     build: ./server
     command: ["alembic", "upgrade", "head"]

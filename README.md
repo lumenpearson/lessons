@@ -82,7 +82,8 @@ substitutes a Russian string for a missing English one without a word, so
 `ResourceTranslationTest` reads both resource folders and demands a twin for every name,
 matching format arguments, and exactly `one` + `other` in the English plural forms.
 
-The quality is held by whoever reads it. «Настройки → Перевод → Режим исправления»
+The quality is held by whoever reads it. «Настройки → О приложении → Перевод → Режим
+исправления»
 outlines **all** of the app's text and opens an editor on a long press on any of it; what
 accumulates comes out as a ready piece of `values/` that only has to be sent in. The
 coverage is not a list of places wrapped by hand: the app has one `Text`, and it is its
@@ -113,6 +114,7 @@ The checks CI runs:
 
 ```bash
 ruff check app tests scripts migrations
+python -m mypy
 pytest -q -n auto
 ```
 
@@ -206,7 +208,7 @@ Read this before planning a release.
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 197 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 2207 tests, green, about four minutes — the command CI runs |
+| `pytest -q -n auto` | 2208 tests, green, about four minutes — the command CI runs |
 | buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
 | `./gradlew test` | 1635 tests, green, all five modules |
 | `./gradlew detekt` | no finding beyond each module's baseline, all five modules |
@@ -527,7 +529,10 @@ The design system and some of the components were carried over from
 what exactly was taken and what was done differently is in
 [docs/design.md](docs/design.md).
 
-The **Google Sans Flex** typeface has its own licence and its own rights holder: SIL Open
-Font License 1.1, © 2015 Google LLC. The licence text travels with the typeface, inside the
-APK (`core/designsystem/src/main/assets/licenses/google_sans_flex_OFL.txt`), as OFL
-requires, and is named in the app: **Настройки → О приложении → Лицензии**.
+The app is set in two typefaces, each with its own licence and its own rights holder:
+**Google Sans Flex**, for Latin and digits — SIL Open Font License 1.1, © 2015 Google LLC —
+and **Onest**, for Cyrillic — SIL Open Font License 1.1, © 2021 The Onest Project Authors
+(#325). Each licence text travels with its typeface, inside the APK
+(`core/designsystem/src/main/assets/licenses/google_sans_flex_OFL.txt` and `onest_OFL.txt`
+beside it), as OFL requires, and both are named in the app: **Настройки → О приложении →
+Лицензии** (Onest since #326).

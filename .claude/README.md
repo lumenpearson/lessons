@@ -49,8 +49,13 @@ hand twice.
   ruff, mypy, pytest, and the read-only half of git.
 - **`permissions.deny`** covers the two things a session must not do here — apply a migration
   by hand (they go through the Neon connector, see `skills/migration/`) and seed the demo
-  class against a real database — plus force-pushing and reading anything that holds a
-  credential.
+  class against a real database — plus force-pushing, and reading the credential files in the
+  tree: `server/.env` and `server/.env.*`, `local.properties`, `keystore.properties`, `*.jks`
+  and `*.keystore`. It does **not** cover `~/.gradle/gradle.properties`, which holds the
+  signing passwords and lies outside the tree; that file is held off by the instructions
+  alone (`CLAUDE.md`, the `android-build`, `security-reviewer` and `release` files), and a
+  rule for it is the owner's to add (#318). `server/.env.*` also catches `.env.example`,
+  which holds no secret.
 
   Deny rules match the **start** of the command string, so
   `DATABASE_URL=… .venv/bin/alembic upgrade head` slips past the `alembic upgrade *` rule.
@@ -59,10 +64,14 @@ hand twice.
 - **`permissions.ask`** holds `.github/workflows/**`, because the workflows work and the
   reasons they are shaped the way they are cost real money to learn (`docs/build.md`,
   "Actions minutes").
-- **The one hook** fires on a write to any module's `values/strings*.xml` and says that the
-  name needs its `values-en/` twin. `values/` is the one place in this repository where
-  Russian is the source rather than a quotation. It only prints; it blocks nothing. A hook committed here
-  runs on every teammate's machine, which is why there is exactly one and why it cannot fail.
+- **Two hooks**, and neither can fail. A hook committed here runs on every teammate's
+  machine, which is why there are so few and why each only prints.
+  - **After a write** to any module's `values/strings*.xml`, one says that the name needs its
+    `values-en/` twin. `values/` is the one place in this repository where Russian is the
+    source rather than a quotation. It blocks nothing.
+  - **When a session stops**, `hooks/handover-behind.sh` speaks only if `HANDOVER.md` is
+    behind the last merge, which is how a batch reported as done without its close-out gets
+    noticed.
 - **`extraKnownMarketplaces`** registers `anthropics/skills` so `/plugin` can offer it. No
   plugin is enabled by default: enabling one is a decision for everyone who clones this
   repository, not for the session that happened to add the file.

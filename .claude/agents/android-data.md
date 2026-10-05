@@ -10,8 +10,9 @@ You own `android/core/data/`.
 
 - **Room is the single source of truth; the network only fills it.** A screen reads Room. If
   you are tempted to render from a response, you are building a second truth.
-- **`:core:data` must not depend on `:widget`.** The sync worker tells the widget it has new
-  data by broadcasting `com.lumenpearson.lessons.action.DATA_SYNCED`, precisely so the
+- **`:core:data` must not depend on `:widget`.** The timetable repository's `onDataChanged`
+  tells the widget it has new data, after the background sync and an in-app refresh alike,
+  by broadcasting `com.lumenpearson.lessons.action.DATA_SYNCED`, precisely so the
   dependency does not have to be circular. Adding the Gradle dependency "just for a class"
   is the change this rule exists to stop.
 

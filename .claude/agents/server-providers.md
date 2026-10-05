@@ -61,5 +61,5 @@ tree too.
 
 ## Gates
 
-`ruff check app tests scripts migrations`, `python -m mypy`, `python -m pytest -q -n auto`.
-A provider change needs a test with a recorded upstream payload, not a live call.
+`ruff check app tests scripts migrations`, `python -m mypy`, `pytest -q -n auto` (bare, as CI
+runs it). A provider change needs a test with a recorded upstream payload, not a live call.
