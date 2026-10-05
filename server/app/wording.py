@@ -350,3 +350,12 @@ BELL_SCHEDULE_IS_DEFAULT_DETAIL = "this is the class default; make another one t
 
 def bell_schedule_in_use_detail(days: int) -> str:
     return f"{days} special day(s) still use this schedule"
+
+
+#: v1's ``/manage/timetable/import`` and v2's ``ImportTimetable``: a paste with
+#: neither a weekday header nor a «== Звонки ==» block.
+TIMETABLE_PASTE_EMPTY_DETAIL = "no weekday header and no bells block found in the text"
+
+#: v1's ``PATCH /manage/class`` and v2's ``UpdateClass``: a zone this
+#: deployment does not offer.
+UNKNOWN_TIMEZONE_DETAIL = "unknown timezone"
