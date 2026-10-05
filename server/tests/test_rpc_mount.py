@@ -221,6 +221,8 @@ def test_the_live_app_mounted_v2() -> None:
     route = next(r for r in main.app.routes if getattr(r, "path", None) == "/api/rpc")
     assert isinstance(route.app, _Services)  # type: ignore[attr-defined]
     assert main.app.state.v2_mounted is True
+    paths = {getattr(r, "path", None) for r in main.app.routes}
+    assert "/api/v2/me" in paths and "/api/v2/class/scheduleWindows/{year}" in paths
 
 
 async def test_warmup_says_whether_v2_is_mounted(v2, monkeypatch) -> None:

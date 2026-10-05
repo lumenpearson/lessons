@@ -563,6 +563,31 @@ def _v2_details(answer: _V2Answer, details: list[tuple[str, Any]]) -> None:
             answer.retry_seconds = message.retry_delay.seconds
 
 
+def _v2_cleared(message: Any, dotted: str) -> Any:
+    """A copy of ``message`` with the field at ``dotted`` cleared, where it has one."""
+    copy = message.from_binary(message.to_binary())
+    target, parts = copy, dotted.split(".")
+    for part in parts:
+        field_desc = next((f for f in target.desc().fields if f.name == part), None)
+        if field_desc is None or not target.has_field(part):
+            return copy
+        if part == parts[-1]:
+            target.clear_field(part)
+        else:
+            target = target[field_desc]
+    return copy
+
+
+def _v2_json(response: httpx.Response) -> dict[str, Any]:
+    """A refusal's JSON body, or ``{}`` when the answer is not one: an empty
+    404 or a text 415 must fail the test's own assertion on ``status``, not
+    this reader."""
+    if "json" not in response.headers.get("content-type", "") or not response.content:
+        return {}
+    parsed = response.json()
+    return parsed if isinstance(parsed, dict) else {}
+
+
 class _V2:
     """`await v2.both("MeService/GetMe", GetMeRequest(), token=…)`, and its halves."""
 
@@ -581,6 +606,92 @@ class _V2:
         if token is not None:
             sent["Authorization"] = f"Bearer {token}"
         return sent
+
+    async def rest(
+        self,
+        name: str,
+        request: Any = None,
+        *,
+        token: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> _V2Answer:
+        from urllib.parse import quote, urlencode
+
+        from protobuf import message_to_json_value
+
+        method = self.method(name)
+        request = request if request is not None else method.input()
+        binding = method.binding
+        assert binding is not None, f"{name} has no REST binding"
+        sent = self._headers(token, headers)
+        value = message_to_json_value(request)
+        path = binding.path
+        for variable in binding.variables:
+            leaf: Any = request
+            container = value
+            parts = variable.split(".")
+            for index, part in enumerate(parts):
+                field_desc = next(f for f in leaf.desc().fields if f.name == part)
+                leaf = leaf[field_desc]
+                if index < len(parts) - 1:
+                    container = container.get(field_desc.json_name, {})
+                else:
+                    container.pop(field_desc.json_name, None)
+            path = path.replace("{" + variable + "}", quote(str(leaf), safe=""))
+        if "ifNoneMatch" in value:
+            sent["If-None-Match"] = value.pop("ifNoneMatch")
+
+        body: Any = None
+        rest_of: dict[str, Any] = value
+        if binding.body == "*":
+            body, rest_of = value, {}
+        elif binding.body:
+            body_field = next(f for f in method.input.desc().fields if f.name == binding.body)
+            body = value.pop(body_field.json_name, {})
+
+        query: list[tuple[str, str]] = []
+
+        def flatten(prefix: str, item: Any) -> None:
+            if isinstance(item, dict):
+                for key, nested in item.items():
+                    flatten(f"{prefix}{key}.", nested)
+            elif isinstance(item, list):
+                for element in item:
+                    flatten(prefix, element)
+            elif isinstance(item, bool):
+                query.append((prefix.rstrip("."), "true" if item else "false"))
+            else:
+                query.append((prefix.rstrip("."), str(item)))
+
+        flatten("", rest_of)
+        url = "/api" + path + (f"?{urlencode(query)}" if query else "")
+        response = await self.http.request(
+            binding.verb.upper(),
+            url,
+            content=None if body is None else json.dumps(body).encode(),
+            headers={**sent, "Content-Type": "application/json"} if body is not None else sent,
+        )
+        answer = _V2Answer("rest", response.status_code, response.headers, response.content)
+        if response.status_code == 304:
+            answer.message = method.output.from_json(
+                json.dumps({"notModified": True, "etag": response.headers["etag"]})
+            )
+        elif response.status_code < 300:
+            answer.message = method.output.from_json(response.content)
+        else:
+            from app.contract.google.rpc import error_details_pb
+
+            error = _v2_json(response).get("error", {})
+            assert error.get("code", response.status_code) == response.status_code
+            answer.code, answer.error = error.get("status"), error.get("message")
+            details = []
+            for detail in error.get("details", []):
+                type_name = detail["@type"].removeprefix("type.googleapis.com/")
+                cls = getattr(error_details_pb, type_name.rpartition(".")[2])
+                fields = {key: item for key, item in detail.items() if key != "@type"}
+                details.append((type_name, cls.from_json(json.dumps(fields))))
+            _v2_details(answer, details)
+        return answer
 
     async def connect(
         self,
@@ -609,7 +720,7 @@ class _V2:
                 else method.output.from_json(response.content)
             )
         else:
-            self._connect_error(answer, response.json())
+            self._connect_error(answer, _v2_json(response))
         return answer
 
     async def stream(
@@ -634,7 +745,11 @@ class _V2:
             headers=sent,
         )
         answer = _V2Answer("stream", response.status_code, response.headers, response.content)
-        data = response.content
+        data = b""
+        if response.status_code == 200:
+            data = response.content
+        else:
+            self._connect_error(answer, _v2_json(response))
         while data:
             flags, length = struct.unpack(">BI", data[:5])
             frame, data = data[5 : 5 + length], data[5 + length :]
@@ -650,6 +765,8 @@ class _V2:
 
         from app.contract.google.rpc import error_details_pb
 
+        if not error:
+            return
         answer.code, answer.error = error["code"].upper(), error.get("message")
         details = []
         for detail in error.get("details", []):
@@ -657,6 +774,30 @@ class _V2:
             raw = base64.b64decode(detail["value"] + "=" * (-len(detail["value"]) % 4))
             details.append((detail["type"], cls.from_binary(raw)))
         _v2_details(answer, details)
+
+    async def both(
+        self,
+        name: str,
+        request: Any = None,
+        *,
+        token: str | None = None,
+        headers: dict[str, str] | None = None,
+        differ: tuple[str, ...] = (),
+    ) -> _V2Answer:
+        """Call ``name`` over REST, then over Connect, and assert one outcome.
+
+        ``differ`` names response fields, dotted, that two calls may answer
+        differently by nature — a new token, a ``generated_at`` — and that are
+        compared as absent. Returns the REST answer.
+        """
+        rest = await self.rest(name, request, token=token, headers=headers)
+        connect = await self.connect(name, request, token=token, headers=headers)
+        for answer in (rest, connect):
+            if answer.message is not None:
+                for dotted in differ:
+                    answer.message = _v2_cleared(answer.message, dotted)
+        assert rest.outcome() == connect.outcome(), (rest, connect)
+        return rest
 
 
 @pytest.fixture

@@ -224,8 +224,10 @@ def mount_v2(target: FastAPI) -> bool:
     error shapes, while everything else is served as before.
     """
     try:
+        from app.rest import rest_routes
         from app.rpc import rpc_app
 
+        routes = rest_routes()
         services = rpc_app()
     except Exception:
         log.exception("v2 could not be loaded: /api/v2 and /api/rpc answer 503, v1 is served")
@@ -235,6 +237,7 @@ def mount_v2(target: FastAPI) -> bool:
         # would be invisible to whatever pings it.
         target.state.v2_mounted = False
         return False
+    target.router.routes.extend(routes)
     target.mount("/api/rpc", services)
     target.state.v2_mounted = True
     return True
