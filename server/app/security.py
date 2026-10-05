@@ -257,3 +257,146 @@ class JoinThrottle:
 def _utcnow() -> datetime:
     """Naive UTC, matching the naive ``DateTime`` column the model declares."""
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+# ---------------------------------------------------------------------------
+# The limiters, one instance each
+#
+# They lived in the routers that used them (`api/public.py`, `api/diary.py`,
+# `api/directory.py`). v2's handlers may not import a v1 router, and a second
+# instance of a limiter would be a second budget: a caller alternating the two
+# versions would get thirty wrong join codes from each
+# (`docs/specs/2026-10-05-server-v2-design.md`, decision 11). So each lives
+# here, once, and the routers re-export the names their tests import.
+# ---------------------------------------------------------------------------
+
+#: Wrong join codes one caller may try in a quarter of an hour.
+#:
+#: Every guess is checked against *every* class at once, so the search space an
+#: attacker has to beat is the code length alone, and what stands between them
+#: and a permanent read token for somebody's timetable is this limit. Only
+#: failures are counted, so a classroom joining from one school NAT is never
+#: blocked by each other's successes.
+join_limiter = JoinThrottle(limit=30, window=900.0)
+
+#: The most live phones the class code will put into one class (#199). The
+#: throttle counts only failures, so without this a caller holding a real code
+#: could mint read tokens for ever, each one alive until 180 days of silence.
+#:
+#: Generous on purpose, because the refusal lands on a real family: thirty-odd
+#: pupils, each with a phone of their own and up to two parents', and the
+#: teachers who read the class, come to about 120 — and a row outlives the phone
+#: it was minted for, since a reinstall, a cleared app or a new phone each join
+#: again and leave the old token live until `cron.DEVICE_TOKEN_TTL` prunes it.
+#: Doubling for that residue gives ~250; 300 is that with room to spare. A class
+#: that really does reach it has an admin who can switch old phones off, and a
+#: personal code from the bot is not counted against it at all.
+MAX_DEVICES_PER_CLASS = 300
+
+#: Failed diary sign-ins one caller may make in a quarter of an hour.
+#:
+#: The other door onto this same service counts even harder: `diary_web`
+#: spends its one-time ticket *before* the sign-in, and its own comment says
+#: why — «it is what stops whoever holds the URL guessing passwords against
+#: the upstream from our address». `/diary/login` had no ticket and no limit at
+#: all, so it was that oracle with the door held open: anybody could post a
+#: login and a guess and read the answer off the status code, 401 for wrong
+#: and 200 for right, as fast as they liked. Two things follow from that and
+#: both are ours: credential stuffing against a third party's school diary
+#: proxied through this server, and the upstream blocking this deployment's
+#: address — which takes the feature down for every family on it, including
+#: the `/diary/signin` page the ticket was protecting.
+#:
+#: Looser than `/join`'s thirty, because a parent who has forgotten which of
+#: their two e-mail addresses the school has is a real person making real
+#: mistakes, and only failures are counted.
+diary_login_limiter = JoinThrottle(limit=10, window=900.0)
+
+#: Sessions one caller may open in a quarter of an hour, through either door.
+#:
+#: The limit above counts failures only, so a caller whose every attempt
+#: *succeeds* was never limited at all — and a success is not free. Each one
+#: is a new row the cron keeps alive with a ping from this server's address,
+#: for up to thirty days, and nothing ties a row to anything but itself: one
+#: real «Сетевой город» session replayed into `/session` a few thousand times
+#: was a few thousand rows, four bootstrap calls each, and a keep-alive queue
+#: that pinged one account over and over from an address the region can block
+#: for everybody. Twenty is a household's phones signing in again with room to
+#: spare; the window is the other limiters', as `JoinThrottle` requires.
+diary_open_limiter = JoinThrottle(limit=20, window=900.0)
+
+#: Searches one caller may make in a quarter of an hour, **all** of them
+#: counted — a search that finds its school has spent the same upstream request
+#: as one that finds nothing. Twenty is a person trying spellings with room to
+#: spare, and a school's NAT full of phones on an open day will meet it; they
+#: then pick the region from the list, which is what the limit costs.
+#:
+#: The window is `/join`'s and the diary sign-in's, and has to be: the three
+#: share one table, and every recorded attempt prunes the whole table to its
+#: own window (``JoinThrottle``).
+directory_limiter = JoinThrottle(limit=20, window=900.0)
+
+
+class Throttled(Exception):
+    """A door's limit is spent for this caller. Carries facts, never a sentence:
+    each shell words it — v1 as a 429 with ``Retry-After``, v2 as ``THROTTLED``."""
+
+    def __init__(self, retry_after: float) -> None:
+        super().__init__("throttled")
+        self.retry_after = retry_after
+
+    @property
+    def seconds(self) -> int:
+        """Whole seconds to wait, rounded up and never 0: v1's ``Retry-After``
+        and v2's ``retry_after_seconds`` are this one number."""
+        return int(self.retry_after) + 1
+
+
+class DiaryAttempt:
+    """One attempt on either diary door, counted by both diary limiters until
+    the outcome says which of the two it was.
+
+    Counted *before* the upstream is asked, not after (see
+    `JoinThrottle.admit`): recorded after, a burst of concurrent wrong
+    passwords all read the count from before any of them and all reached the
+    diary. The same limiter **and bucket** for `/login` and `/session`, so a
+    caller who spent ten wrong passwords does not get ten more tries by
+    session. Moved here from `api/diary.py` so that v2's `CreateDiarySession`
+    counts on the same rows (3b).
+    """
+
+    __slots__ = ("failures", "opened")
+
+    def __init__(self, failures: Admission, opened: Admission) -> None:
+        self.failures = failures
+        self.opened = opened
+
+    @classmethod
+    async def admit(
+        cls, session: AsyncSession, *, failures_key: str, opened_key: str
+    ) -> DiaryAttempt:
+        """Count the attempt, or raise :class:`Throttled` while the caller has
+        spent either limit. The keys are the caller's buckets under the scopes
+        ``diary:`` and ``diary-open:``."""
+        failures = await diary_login_limiter.admit(session, failures_key)
+        if failures.retry_after is not None:
+            raise Throttled(failures.retry_after)
+        opened = await diary_open_limiter.admit(session, opened_key)
+        if opened.retry_after is not None:
+            await diary_login_limiter.forgive(session, failures)
+            raise Throttled(opened.retry_after)
+        return cls(failures, opened)
+
+    async def succeeded(self, session: AsyncSession) -> None:
+        """A session was opened: not a failure, and one of the twenty."""
+        await diary_login_limiter.forgive(session, self.failures)
+
+    async def failed(self, session: AsyncSession) -> None:
+        """The upstream judged it and said no: a failure, and no session."""
+        await diary_open_limiter.forgive(session, self.opened)
+
+    async def not_judged(self, session: AsyncSession) -> None:
+        """Nothing looked at what was sent — the feature off, the diary down,
+        the address refused: neither."""
+        await diary_login_limiter.forgive(session, self.failures)
+        await diary_open_limiter.forgive(session, self.opened)

@@ -24,11 +24,11 @@ from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.public import caller_bucket
+from app.api.deps import request_bucket
 from app.api.routing import DishkaAnnotatedRoute
 from app.providers import dadata
 from app.schemas import SchoolRegionOut, SchoolRegionsOut
-from app.security import JoinThrottle
+from app.security import directory_limiter as directory_limiter
 from app.services import quota
 from app.services import schools as schools_service
 
@@ -36,16 +36,9 @@ router = APIRouter(
     route_class=DishkaAnnotatedRoute, prefix="/api/v1/directory", tags=["directory"]
 )
 
-#: Searches one caller may make in a quarter of an hour, **all** of them
-#: counted — a search that finds its school has spent the same upstream request
-#: as one that finds nothing. Twenty is a person trying spellings with room to
-#: spare, and a school's NAT full of phones on an open day will meet it; they
-#: then pick the region from the list, which is what the limit costs.
-#:
-#: The window is `/join`'s and the diary sign-in's, and has to be: the three
-#: share one table, and every recorded attempt prunes the whole table to its
-#: own window (``JoinThrottle``).
-directory_limiter = JoinThrottle(limit=20, window=900.0)
+# `directory_limiter` is `app.security`'s, the one instance v1 and v2 share
+# (the server-v2 design, decision 11); imported above under its own name so
+# that this module, and the tests that read it here, keep it.
 
 #: The header every 503 here carries, and its three values.
 UNAVAILABLE_HEADER = "X-Directory-Unavailable"
@@ -90,9 +83,9 @@ async def school_regions(
     Not per keystroke: the phone asks on submit or after a pause in typing.
     """
     # Scoped, so twenty searches do not spend a phone's thirty join attempts,
-    # and hashed with the scope inside it — see `caller_bucket` for why a
+    # and hashed with the scope inside it — see `deps.caller_bucket` for why a
     # prefix on the digest is a 500 on Postgres.
-    client = caller_bucket(request, scope="directory:")
+    client = request_bucket(request, scope="directory:")
     # Counted first and handed back on a 422, rather than checked here and
     # recorded after the validation: between a check and a later record, every
     # request of a parallel burst from one address read the count from before

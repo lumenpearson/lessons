@@ -284,3 +284,19 @@ def render_day(day: ResolvedDay, today: Date) -> str:
             lines.append(f"📝 <b>{escape(item.subject)}</b>: {text}")
 
     return clamp(lines)
+
+
+# ---------------------------------------------------------------------------
+# What v1 and v2 both answer with
+#
+# A service refuses with an exception carrying facts, never a sentence, and
+# each shell words it. Where v1's endpoint and v2's error table word one
+# refusal alike — v2's message is v1's sentence wherever v1 had one
+# (docs/specs/2026-10-05-server-v2-design.md, decision 5) — the sentence is
+# here, once, so the two cannot drift. Some are English, as v1's generic
+# answers always were.
+# ---------------------------------------------------------------------------
+
+#: A deployment without ``DIARY_SECRET``, on every door: v1's 503 and v2's
+#: ``DIARY_DISABLED`` alike.
+DIARY_DISABLED_DETAIL = "Дневник на этом сервере выключен."
