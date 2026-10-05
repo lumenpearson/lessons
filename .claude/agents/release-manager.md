@@ -17,7 +17,9 @@ You own the release path: the version in the Android build files, the `v*` tag, 
    that deploys the code; a `UNIQUE` or `NOT NULL` goes on **after**. Ask
    `GET /api/v1/warmup` which side the database is on: it names both revisions and says
    «База впереди кода…» in the window the correct order creates.
-3. **Signing.** All four `LESSONS_KEYSTORE_*` secrets, or the workflow fails with
+3. **Signing.** All four signing secrets — `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`
+   and `KEY_PASSWORD`, which the build reads as `LESSONS_KEYSTORE_*` and `LESSONS_KEY_*`
+   (#309) — or the workflow fails with
    `::error::` — and that failure is the feature. An APK signed with the AGP debug key can
    never be updated by the real key on a phone that installed it.
 4. **Tag.** `apk.yml` builds on demand or on a `v*` tag.

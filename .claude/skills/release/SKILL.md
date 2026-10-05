@@ -23,11 +23,14 @@ names both revisions.
 ## 3. Signing
 
 `apk.yml` needs all four signing secrets — `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`
-and `KEY_PASSWORD` — and fails with `::error::` if any is empty. (`LESSONS_KEYSTORE_*` are
-the names the Gradle build reads them under, not the names of the secrets.) That failure is the feature: an APK signed with the AGP debug key can never be updated
-by the real key on a phone that already installed it. The keystore and its passwords come
-from environment variables or `~/.gradle/gradle.properties` — never from the repository,
-where `*.jks` and `keystore.properties` are gitignored.
+and `KEY_PASSWORD` — and fails with `::error::` if any is empty. (`LESSONS_KEYSTORE_FILE`,
+`LESSONS_KEYSTORE_PASSWORD`, `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD` are the names the
+Gradle build reads them under, not the names of the secrets, and `LESSONS_KEYSTORE_*` alone
+misses two of them; #309.) That failure is the feature: an APK signed with the AGP debug key
+can never be updated by the real key on a phone that already installed it. The keystore and
+its passwords come from environment variables or `~/.gradle/gradle.properties`, which an agent
+never reads — never from the repository, where `*.jks` and `keystore.properties` are
+gitignored.
 
 ## 4. The milestone closes before the tag is cut
 
