@@ -187,9 +187,11 @@ session that merged #300. The schema head did not move, and nothing under `/api/
 
 ### Gates
 
-- **The server suite** is **2175** by count: 2172 plus the 3 tests above. The README,
-  `docs/architecture.md`, `CLAUDE.md`, `CONTRIBUTING.md` and the `gates` skill say 2175. This
-  section was written before that run; it claims no result for it.
+- **The server suite.** At `7525818`, `pytest -q -n auto` gave **2175 passed** in 8 minutes 42
+  seconds on this machine, on 5 October 2026: 2172 plus the 3 tests above. The six diary test
+  files gave 222 passed on their own. The README, `docs/architecture.md`, `CLAUDE.md`,
+  `CONTRIBUTING.md` and the `gates` skill say 2175.
+- **ruff and mypy.** Both are clean; mypy covers 197 modules.
 - **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
 
 ### What was deliberately left alone
