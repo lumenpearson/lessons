@@ -55,8 +55,9 @@ dependencies = [
     # decision 2). The code generated into app/contract imports protobuf-py's
     # `protobuf` package, and its services import `connectrpc`; each floor is the
     # version of the Buf plugin that generates for it, which buf.gen.yaml pins
-    # and tests/test_contract.py holds level. Nothing in app.main imports either
-    # yet, so the cold start does not change until sub-project 3 serves v2.
+    # and tests/test_contract.py holds level. Since stage 3a app.main imports both,
+    # inside mount_v2's fail-safe try, so the cold start carries them and a failed
+    # import leaves v1 serving.
     # connectrpc brings pyqwest, a Rust HTTP client of about 16 MB it requires
     # even on a server, and pyqwest brings opentelemetry-api.
     "connectrpc>=0.12.1",

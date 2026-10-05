@@ -19,8 +19,8 @@ needs neither Buf nor the network:
   ``docs/specs/2026-10-04-contract-v2-design.md`` row for row, and ``REASONS``
   its error table, so neither moves without this file moving with it;
 - every generated module imports, keeps its imports inside ``app.contract``,
-  was written by the plugin version ``buf.gen.yaml`` pins, and stays off the
-  API's cold path.
+  was written by the plugin version ``buf.gen.yaml`` pins, and is on the
+  API's cold path, because the API serves it.
 """
 
 from __future__ import annotations
@@ -909,19 +909,66 @@ def _loaded_after_importing(module: str, settings: dict[str, str]) -> list[str]:
 
 
 @pytest.mark.parametrize("settings", [_LOCAL, _VERCEL], ids=["webhook-unmounted", "vercel"])
-def test_the_api_cold_start_imports_no_generated_code(settings: dict[str, str]) -> None:
-    """Nothing serves v2 yet, so nothing in app.main may import it: the cold
-    start stays what tests/test_cold_start.py measures, and sub-project 3 is the
-    change that pays the spike's 61 ms, knowingly."""
-    assert _loaded_after_importing("app.main", settings) == []
-
-
-def test_the_cold_start_probe_sees_generated_code() -> None:
-    """Held here rather than trusted: a probe blind to the contract would pass
-    the test above for ever."""
-    loaded = _loaded_after_importing("app.contract.lessons.v2.options_pb", _LOCAL)
-    assert "app.contract.lessons.v2.options_pb" in loaded
+def test_the_api_cold_start_imports_the_contract_it_serves(settings: dict[str, str]) -> None:
+    """Turned round by sub-project 3 (docs/specs/2026-10-05-server-v2-design.md,
+    decision 8): app.main serves v2, so the generated services, connectrpc and
+    the protobuf runtime are on its cold path on purpose, in both
+    configurations. Were they missing, `mount_v2` would have caught a failed
+    import and v2 would be answering 503 -- which this would then say.
+    tests/test_cold_start.py still holds that aiogram is not."""
+    loaded = _loaded_after_importing("app.main", settings)
+    assert "app.contract.lessons.v2.schedule_connect" in loaded
+    assert any(name.partition(".")[0] == "connectrpc" for name in loaded)
     assert any(name.partition(".")[0] == "protobuf" for name in loaded)
+
+
+def test_google_rpc_is_generated_from_the_commit_buf_lock_pins() -> None:
+    """The error model's details are googleapis' ``google/rpc``, generated as a
+    second input of buf.gen.yaml. A module under ``inputs:`` is not resolved
+    through buf.lock, so the commit is written twice; held level here, so that
+    ``google/api`` and ``google/rpc`` never come from two different googleapis."""
+    lock = (REPOSITORY / "buf.lock").read_text(encoding="utf-8")
+    locked = re.search(r"name: buf\.build/googleapis/googleapis\s+commit: (\w+)", lock)
+    config = (REPOSITORY / "buf.gen.yaml").read_text(encoding="utf-8")
+    pinned = re.search(
+        r"^\s*- module: buf\.build/googleapis/googleapis:(\w+)\s*$", config, re.MULTILINE
+    )
+    assert locked is not None and pinned is not None
+    assert pinned.group(1) == locked.group(1)
+
+    from app.contract.google.rpc import code_pb, error_details_pb, status_pb
+
+    assert {"ErrorInfo", "BadRequest", "RetryInfo"} <= set(vars(error_details_pb))
+    assert status_pb.Status.desc().type_name == "google.rpc.Status"
+    assert code_pb.Code.desc().name == "Code"
+
+
+def test_the_error_details_render_as_json_through_the_type_registry() -> None:
+    """REST writes a refusal's details as JSON, not as Connect's base64: an
+    ``Any`` rendered through protobuf-py's own type registry, ``@type`` first.
+    The 5 October spike saw only Connect's form, so this is the first time the
+    REST form is asked of the runtime that will write it."""
+    from protobuf import Registry, message_to_json_value
+    from protobuf.wkt import Any as AnyMessage
+    from protobuf.wkt import Duration
+
+    from app.contract.google.rpc import error_details_pb
+
+    registry = Registry(error_details_pb.desc())
+    info = error_details_pb.ErrorInfo(
+        reason="ROLE_REQUIRED", domain="lessons.app", metadata={"role": "ROLE_ADMIN"}
+    )
+    retry = error_details_pb.RetryInfo(retry_delay=Duration(seconds=7))
+    assert message_to_json_value(AnyMessage.pack(info), registry=registry) == {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "ROLE_REQUIRED",
+        "domain": "lessons.app",
+        "metadata": {"role": "ROLE_ADMIN"},
+    }
+    assert message_to_json_value(AnyMessage.pack(retry), registry=registry) == {
+        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+        "retryDelay": "7s",
+    }
 
 
 def test_the_readers_see_what_they_are_written_for() -> None:

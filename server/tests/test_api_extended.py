@@ -19,7 +19,7 @@ import pytest
 from httpx import ASGITransport
 from sqlalchemy import select
 
-from app.api import cron, edit, public
+from app.api import cron, edit
 from app.config import Settings, get_settings
 from app.fsm_storage import FsmRecord  # registers fsm_states before create_all runs
 from app.main import app
@@ -45,7 +45,7 @@ from app.models import (
     Subject,
 )
 from app.security import hash_token, new_join_code
-from app.services import linking, subjects
+from app.services import clock, linking, subjects
 
 MONDAY = date(2026, 9, 7)
 MOSCOW = ZoneInfo("Europe/Moscow")
@@ -127,7 +127,7 @@ async def _audit(session, school_class) -> list[AuditEntry]:
 
 
 def _pin_clock(monkeypatch, at: datetime) -> None:
-    monkeypatch.setattr(public, "_now", lambda school_class: at.astimezone(school_class.tz))
+    monkeypatch.setattr(clock, "now", lambda school_class: at.astimezone(school_class.tz))
 
 
 # --------------------------------------------------------------------------

@@ -19,3 +19,16 @@ plugins:
   # Services: connectrpc's interfaces and clients over those messages.
   - remote: buf.build/connectrpc/py:v0.12.1
     out: server/app/contract
+inputs:
+  # The contract: the workspace buf.yaml describes.
+  - directory: .
+  # The error model's details (google.rpc.ErrorInfo, BadRequest, RetryInfo),
+  # which no file of the contract imports, so include_imports never brings
+  # them (docs/specs/2026-10-05-server-v2-design.md, decision 5). A module
+  # named here is not resolved through buf.lock, so its commit is written out:
+  # buf.lock's googleapis commit, held level by tests/test_contract.py.
+  - module: buf.build/googleapis/googleapis:c17df5b2beca46928cc87d5656bd5343
+    paths:
+      - google/rpc/code.proto
+      - google/rpc/error_details.proto
+      - google/rpc/status.proto

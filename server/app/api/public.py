@@ -8,7 +8,6 @@ live in ``app.api.edit`` behind a role check.
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from datetime import date as Date
 from datetime import datetime, timedelta
@@ -16,21 +15,19 @@ from datetime import time as Time
 
 from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import current_class, current_device
+from app import wording
+from app.api.deps import current_class, current_device, request_bucket
 from app.api.routing import DishkaAnnotatedRoute
 from app.config import get_settings
 from app.db import EXPECTED_REVISION, current_revision
 from app.models import (
-    DeviceInvite,
     DeviceToken,
     Homework,
-    JoinMode,
     PersonalTask,
-    Role,
     SchoolClass,
     Subject,
     TimetableEntry,
@@ -63,9 +60,11 @@ from app.schemas import (
     TermOut,
     UnlinkOut,
 )
-from app.security import JoinThrottle, client_bucket, hash_token, new_token
-from app.services import audit, device_invites, linking
+from app.security import MAX_DEVICES_PER_CLASS as MAX_DEVICES_PER_CLASS
+from app.security import join_limiter as join_limiter
 from app.services import calendar as calendar_service
+from app.services import clock, linking, window
+from app.services import join as join_service
 from app.services import subjects as subjects_service
 from app.services import tasks as task_service
 from app.services import terms as terms_service
@@ -86,14 +85,6 @@ router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1", tags=["cl
 # Python from the weekly template it has already loaded.
 MAX_BUNDLE_DAYS = 280
 
-# ``start`` is arbitrary client input and the resolver does date arithmetic on
-# top of it (up to ``days`` forward, then another three weeks of look-ahead).
-# Near ``date.max`` that arithmetic raises OverflowError, which the widget would
-# see as a 500. Bound the parameter to dates a school timetable can plausibly
-# mean and reject the rest with the documented 422.
-MIN_BUNDLE_START = Date(2000, 1, 1)
-MAX_BUNDLE_START = Date(2100, 1, 1)
-
 # ``GET /homework``: the default window and the widest one allowed. Homework
 # older than a term is not something the app shows, and an unbounded range is
 # an unbounded query.
@@ -103,107 +94,6 @@ MAX_HOMEWORK_DAYS = 62
 # The calendar feed's horizon. Calendar apps re-fetch a subscription every few
 # hours, so what matters is the coming weeks, not the whole year.
 CALENDAR_DAYS = 60
-
-# Every guess is checked against *every* class at once, so the search space an
-# attacker has to beat is the code length alone, and what stands between them
-# and a permanent read token for somebody's timetable is this limit. It counts
-# in the database rather than in process memory; see JoinThrottle for why that
-# distinction is the whole point. Only failures are counted, so a classroom
-# joining from one school NAT is never blocked by each other's successes.
-join_limiter = JoinThrottle(limit=30, window=900.0)
-
-# The most live phones the class code will put into one class (#199). The
-# throttle counts only failures, so without this a caller holding a real code
-# could mint read tokens for ever, each one alive until 180 days of silence.
-#
-# Generous on purpose, because the refusal lands on a real family: thirty-odd
-# pupils, each with a phone of their own and up to two parents', and the
-# teachers who read the class, come to about 120 — and a row outlives the phone
-# it was minted for, since a reinstall, a cleared app or a new phone each join
-# again and leave the old token live until `cron.DEVICE_TOKEN_TTL` prunes it.
-# Doubling for that residue gives ~250; 300 is that with room to spare. A class
-# that really does reach it has an admin who can switch old phones off, and a
-# personal code from the bot is not counted against it at all.
-MAX_DEVICES_PER_CLASS = 300
-
-
-def _forwarded_list(request: Request, name: str) -> str:
-    """Every line of a repeated list header, joined back into the one list.
-
-    RFC 9110 §5.3: several field lines of a comma-separated field mean the same
-    as one line with the values joined. ``headers.get`` hands back only the
-    first line, and behind a proxy that adds its own line rather than extending
-    the caller's, the first line is the caller's - so counting from the right
-    within it landed on an address the caller chose.
-    """
-    return ", ".join(request.headers.getlist(name))
-
-
-def _forwarded_entry(header: str | None, hops: int) -> str | None:
-    """The address the outermost *trusted* proxy put into a forwarding header.
-
-    Entries are appended left to right, so with ``hops`` proxies in front the
-    one they added is ``hops`` places from the right. Everything to its left is
-    whatever the caller chose to send, and is ignored. A header with fewer
-    entries than there are proxies cannot have come through them, so it yields
-    nothing rather than the closest match.
-    """
-    if not header:
-        return None
-    parts = [part.strip() for part in header.split(",")]
-    parts = [part for part in parts if part]
-    if len(parts) < hops:
-        return None
-    return parts[-hops]
-
-
-def caller_bucket(request: Request, *, scope: str = "") -> str:
-    """Identifies the caller for rate-limiting purposes.
-
-    Public, and no longer ``_client_bucket``, because two endpoint families
-    now measure the same caller: `/join` and the diary sign-in. One bucketing
-    rule for both, or the second one would be measuring something else.
-
-    Reading the leftmost ``X-Forwarded-For`` entry is the usual advice and it is
-    exactly wrong: that entry is whatever the client sent, so an attacker sets
-    it themselves and lands in a fresh bucket on every request, defeating the
-    limit they are being measured by. So no forwarding header is believed unless
-    the deployment says how many proxies are in front of it.
-
-    On Vercel the platform writes ``x-vercel-forwarded-for`` itself, replacing
-    any copy the client sent, so that one is trustworthy with no configuration —
-    and it has to be used, because there every request arrives from the same
-    internal address and the socket would put the whole internet in one bucket.
-
-    Otherwise the socket address is used, which is right when the app is run
-    directly and, for anything in between, is what ``TRUSTED_PROXY_HOPS`` is for.
-
-    @param scope keeps two families of failures apart — ten wrong diary
-        passwords must not spend a phone's thirty join attempts. It is mixed
-        into the address **before** the digest and never written in front of
-        it: ``JoinAttempt.client_key`` is ``VARCHAR(64)`` and a SHA-256 hex
-        digest is exactly 64 characters, so a prefix is a value Postgres
-        refuses outright — ``value too long for type character varying(64)``,
-        raised out of the insert that was supposed to *record* a failed
-        sign-in. SQLite ignores the width, which is why the whole of this was
-        green here and 500 there.
-    """
-    settings = get_settings()
-
-    address: str | None = None
-    if settings.behind_vercel:
-        address = _forwarded_entry(_forwarded_list(request, "x-vercel-forwarded-for"), 1)
-
-    if address is None:
-        hops = settings.trusted_proxy_hops
-        if hops > 0:
-            address = _forwarded_entry(_forwarded_list(request, "x-forwarded-for"), hops)
-
-    if address is None:
-        address = request.client.host if request.client else "unknown"
-
-    return client_bucket(f"{scope}{address}")
-
 
 def _to_day_out(day: ResolvedDay) -> DayOut:
     return DayOut(
@@ -259,7 +149,7 @@ async def health() -> dict[str, object]:
 
 @router.get("/warmup")
 async def warmup(
-    response: Response, session: FromDishka[AsyncSession]
+    request: Request, response: Response, session: FromDishka[AsyncSession]
 ) -> dict[str, object]:
     """Same as `/health`, plus one round trip to the database.
 
@@ -291,6 +181,7 @@ async def warmup(
             "status": "down",
             "api_version": API_VERSION,
             "detail": "База недоступна.",
+            "v2": _v2_mounted(request),
         }
 
     # And, since the connection is open anyway, whether the schema is the one
@@ -308,11 +199,18 @@ async def warmup(
         "status": "ok" if schema_ok else "degraded",
         "api_version": API_VERSION,
         "schema": revision or "unknown",
+        # Additive and never a reason for «degraded»: v1 is what is serving,
+        # and v2 answering 503 is a fact to see, not an outage of v1.
+        "v2": _v2_mounted(request),
     }
     if not schema_ok:
         body["expected_schema"] = EXPECTED_REVISION
         body["detail"] = _drift_detail(revision)
     return body
+
+
+def _v2_mounted(request: Request) -> bool:
+    return bool(getattr(request.app.state, "v2_mounted", False))
 
 
 def _drift_detail(revision: str | None) -> str:
@@ -345,17 +243,6 @@ def _drift_detail(revision: str | None) -> str:
     return "Схема базы и схема кода расходятся."
 
 
-async def _live_devices(session: AsyncSession, class_id: int) -> int:
-    """Phones that can still read the class. A revoked row is a tombstone kept
-    so its token goes on failing, and holds no phone."""
-    count = await session.scalar(
-        select(func.count())
-        .select_from(DeviceToken)
-        .where(DeviceToken.class_id == class_id, DeviceToken.revoked.is_(False))
-    )
-    return count or 0
-
-
 @router.post("/join", response_model=JoinResponse)
 async def join(
     request: Request,
@@ -365,123 +252,40 @@ async def join(
 ) -> JoinResponse:
     """Exchange a code for a long-lived device token.
 
-    Read-only when the code is the class's: a token with no Telegram account
-    behind it is refused by every write path. A personal invite from the bot
-    carries the account that asked for it, so the phone that redeems one writes
-    with that account's role at the moment of each request — «read-only» has
-    not been true of every token since invites existed.
+    The flow is ``services/join.py``'s, which v2's ``CreateDevice`` calls too,
+    over the same limiter and the same bucket; this endpoint keeps v1's words
+    for each refusal (``app/wording.py``'s, which v2 answers with too), and
+    its statuses.
     """
-    client = caller_bucket(request)
-    # Counted before the code is looked at, and handed back below on every
-    # answer that is not a wrong code: see `JoinThrottle.admit` for why a check
-    # followed by a later record let a concurrent burst through.
-    attempt = await join_limiter.admit(session, client)
-    if attempt.retry_after is not None:
+    try:
+        joined = await join_service.join(
+            session,
+            code=payload.code,
+            device_name=payload.device_name,
+            client_key=request_bucket(request),
+        )
+    except join_service.JoinThrottled as refusal:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many join attempts",
-            headers={"Retry-After": str(int(attempt.retry_after) + 1)},
-        )
-
-    code = payload.code.strip().upper()
-    # The class code first, and a personal invite only if it names no class.
-    # The two cannot collide — they are different lengths, see
-    # ``services/device_invites.CODE_LENGTH`` — so the order is about which
-    # refusal the caller gets rather than about which code wins.
-    school_class = await session.scalar(select(SchoolClass).where(SchoolClass.join_code == code))
-    invite: DeviceInvite | None = None
-
-    if school_class is not None and school_class.join_mode is JoinMode.INVITE:
-        # A real code for a real class, refused because this class does not let
-        # a shared secret in. Said plainly rather than as "unknown code": the
-        # person holding it has been given it by somebody, and telling them it
-        # is wrong sends them back to that person instead of to the bot.
-        #
-        # Not a failed attempt for the throttle either. The limiter is there to
-        # stop somebody walking the code space, and this caller has already
-        # found a code — counting it would let a class that switched to invites
-        # lock out everybody who still had the old one.
-        await join_limiter.forgive(session, attempt)
+            detail=wording.JOIN_THROTTLED_DETAIL,
+            headers={"Retry-After": str(refusal.seconds)},
+        ) from None
+    except join_service.ClassInviteOnly:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Этот класс принимает только по личному приглашению из бота",
-        )
-
-    if school_class is None:
-        invite = await device_invites.find_live(session, code)
-        if invite is not None:
-            school_class = await session.get(SchoolClass, invite.class_id)
-
-    if school_class is None:
-        # The one answer that stays counted: the attempt `admit` wrote is it.
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown join code")
-
-    if invite is None and await _live_devices(session, school_class.id) >= MAX_DEVICES_PER_CLASS:
-        # Only the class code is bounded. A personal code is minted by the bot
-        # for a member it knows, one phone at a time, with a name in the
-        # journal: it is not what the bound is against, and it is the way in
-        # left to a family when somebody has filled the class through the
-        # shared code. Not counted against the throttle, for the reason the
-        # 403 above is not — a real code, not a guess. A burst of joins that
-        # all counted before any committed can pass the bound by its own size,
-        # and no further: after it, every join counts past it.
-        await join_limiter.forgive(session, attempt)
+            detail=wording.JOIN_INVITE_ONLY_DETAIL,
+        ) from None
+    except join_service.JoinCodeUnknown:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "К классу подключено слишком много телефонов. Возьмите личный код в боте "
-                "(«📱 Подключить телефон») или попросите администратора отключить старые телефоны"
-            ),
-        )
-
-    # Spent before the token is minted, not after: the update is what makes
-    # "one code, one phone" true against a second request that read the same
-    # live row, and a token minted first would be a token already handed out
-    # by the time we found out we lost.
-    if invite is not None and not await device_invites.burn(session, invite):
-        # Lost a race microseconds wide: the row was live when it was read and
-        # spent by the time it was written. Not counted against the limiter,
-        # for the same reason the 403 above is not — this caller had a real
-        # code, and the limiter is there for somebody who does not.
-        await join_limiter.forgive(session, attempt)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown join code")
-
-
-    token = new_token()
-    session.add(
-        DeviceToken(
-            token_hash=hash_token(token),
-            class_id=school_class.id,
-            device_name=payload.device_name,
-            # An invite carries the account that asked for it, so the device is
-            # linked in the same breath as it joins. On the class code it stays
-            # null, which is what "joined, nobody knows whose phone" looks like.
-            telegram_id=invite.telegram_id if invite is not None else None,
-            linked_at=device_invites.utcnow() if invite is not None else None,
-        )
-    )
-    if invite is not None:
-        # The same line `/link` writes, for the same event: a phone that from
-        # now on acts with somebody's role. On the invite path this is the only
-        # place it can be written — there is no second step to hang it on — and
-        # in «по приглашению» this is the only door, so without it the journal
-        # stops answering «кто подключил этот телефон» exactly when it becomes
-        # the only question worth asking of it.
-        await audit.record(
-            session,
-            school_class.id,
-            invite.telegram_id,
-            "device.link",
-            f"телефон подключён по личному коду: {payload.device_name or 'без названия'}",
-        )
-    await session.commit()
-    # A real code: only failures are counted, so a classroom joining from one
-    # school NAT is never blocked by each other's successes. After the commit
-    # above, which is the join, so the invite's burn and the token land in one
-    # transaction as they always did.
-    await join_limiter.forgive(session, attempt)
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.JOIN_UNKNOWN_CODE_DETAIL
+        ) from None
+    except join_service.DeviceLimitReached:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=wording.JOIN_DEVICE_LIMIT_DETAIL
+        ) from None
+    school_class = joined.school_class
     return JoinResponse(
-        token=token,
+        token=joined.token,
         class_id=school_class.id,
         class_name=school_class.name,
         school=school_class.school,
@@ -514,12 +318,12 @@ async def bundle(
     and nearly every poll finds nothing changed, so nearly every poll should
     cost a hash comparison rather than a two-week payload over mobile data.
     """
-    if start is not None and not (MIN_BUNDLE_START <= start <= MAX_BUNDLE_START):
+    if start is not None and not clock.in_bounds(start):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"start must be between {MIN_BUNDLE_START.isoformat()} "
-                f"and {MAX_BUNDLE_START.isoformat()}"
+                f"start must be between {clock.MIN_DATE.isoformat()} "
+                f"and {clock.MAX_DATE.isoformat()}"
             ),
         )
 
@@ -584,7 +388,7 @@ async def bundle(
     )
 
     etag = _etag(out)
-    if _matches(if_none_match, etag):
+    if window.etag_matches(if_none_match, etag):
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
     response.headers["ETag"] = etag
     return out
@@ -595,39 +399,18 @@ def _etag(out: BundleOut) -> str:
 
     The timestamp changes on every request, so hashing it would mean no two
     responses ever match and the 304 path never runs. Everything else in the
-    body is what the client actually caches.
+    body is what the client actually caches. The hashing and the quoting are
+    ``services/window.py``'s, which v2's tag uses too.
     """
-    stable = out.model_copy(update={"generated_at": ""}).model_dump_json()
-    return '"' + hashlib.sha256(stable.encode("utf-8")).hexdigest() + '"'
-
-
-def _matches(if_none_match: str | None, etag: str) -> bool:
-    """RFC 9110 ``If-None-Match``: a list of validators, ``*``, weak forms allowed."""
-    if not if_none_match:
-        return False
-    for candidate in if_none_match.split(","):
-        candidate = candidate.strip()
-        if candidate.startswith("W/"):
-            candidate = candidate[2:]
-        if candidate == "*" or candidate == etag:
-            return True
-    return False
-
-
-async def _role_of(session: AsyncSession, device: DeviceToken) -> Role | None:
-    return await linking.effective_role(session, device)
-
-
-def _can_edit(role: Role | None) -> bool:
-    return role is not None and role.at_least(Role.EDITOR)
+    return window.strong_etag(out.model_copy(update={"generated_at": ""}).model_dump_json())
 
 
 async def _device_out(session: AsyncSession, device: DeviceToken) -> DeviceOut:
-    role = await _role_of(session, device)
+    access = await linking.access_of(session, device)
     return DeviceOut(
-        linked=device.is_linked,
-        role=role.value if role else None,
-        can_edit=_can_edit(role),
+        linked=access.linked,
+        role=access.role.value if access.role else None,
+        can_edit=access.can_edit,
     )
 
 
@@ -647,12 +430,12 @@ def _check_bounds(*days: Date) -> None:
     timedelta(...)`` raises OverflowError within three weeks of ``date.max``,
     and that is a 500 on a query string anybody with a device token can type.
     """
-    if any(not (MIN_BUNDLE_START <= day <= MAX_BUNDLE_START) for day in days):
+    if not clock.in_bounds(*days):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"dates must be between {MIN_BUNDLE_START.isoformat()} "
-                f"and {MAX_BUNDLE_START.isoformat()}"
+                f"dates must be between {clock.MIN_DATE.isoformat()} "
+                f"and {clock.MAX_DATE.isoformat()}"
             ),
         )
 
@@ -668,16 +451,6 @@ def _check_range(start: Date, end: Date, max_days: int) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"the range may span at most {max_days} days",
         )
-
-
-def _today(school_class: SchoolClass) -> Date:
-    return _now(school_class).date()
-
-
-def _now(school_class: SchoolClass) -> datetime:
-    """The class's wall clock. A function, not an expression, so the tests
-    can pin it to a Monday morning."""
-    return datetime.now(school_class.tz)
 
 
 # --------------------------------------------------------------------------
@@ -698,7 +471,7 @@ async def me(
     never opens the link screen never holds one, and re-issued after an
     unlink for the same reason.
     """
-    role = await _role_of(session, device)
+    access = await linking.access_of(session, device)
     link_code: str | None = None
     deep_link: str | None = None
     if not device.is_linked:
@@ -708,9 +481,9 @@ async def me(
             deep_link = f"https://t.me/{username}?start=link_{link_code}"
     return MeOut(
         device_name=device.device_name,
-        linked=device.is_linked,
-        role=role.value if role else None,
-        can_edit=_can_edit(role),
+        linked=access.linked,
+        role=access.role.value if access.role else None,
+        can_edit=access.can_edit,
         link_code=link_code,
         bot_deep_link=deep_link,
     )
@@ -756,7 +529,7 @@ async def homework_list(
     session: FromDishka[AsyncSession],
 ) -> list[HomeworkItemOut]:
     """Homework due in a window, each row with this person's own tick."""
-    start = from_ or _today(school_class)
+    start = from_ or clock.today(school_class)
     # Bounded before the default window is derived from it, not after: `from`
     # is arbitrary client input and `start + 21 days` overflows within three
     # weeks of `date.max`, which the app saw as a 500 rather than as the 422
@@ -891,7 +664,7 @@ async def now(
     *,
     session: FromDishka[AsyncSession],
 ) -> NowOut:
-    at = _now(school_class)
+    at = clock.now(school_class)
     today = at.date()
     resolver = ScheduleResolver(session, school_class)
     day = (await resolver.resolve_range(today, 1))[0]
@@ -1114,7 +887,7 @@ async def calendar_feed(
     if school_class is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown calendar")
 
-    today = _today(school_class)
+    today = clock.today(school_class)
     days = await ScheduleResolver(session, school_class).resolve_range(today, CALENDAR_DAYS)
     body = calendar_service.render_ics(
         school_class, days, generated_at=datetime.now(school_class.tz)

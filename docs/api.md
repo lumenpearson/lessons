@@ -3,8 +3,8 @@
 Version `1`. Base path `/api/v1`. Every change since the first release is
 additive - new endpoints, new optional fields - so the version has not moved
 and a client built against the original `/bundle` keeps working unchanged.
-A second version, v2, is written down as a proto contract and served by nothing yet:
-«v2: the contract», at the end of this page.
+A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
+four of its methods so far: «v2: the contract», at the end of this page.
 
 There is no user account and no password. A device holds a bearer token; a
 device that has been **linked** to a Telegram account through the bot acts
@@ -1022,7 +1022,9 @@ container health checks.
 
 `/api/v1/warmup` is the same plus one round trip, which is what actually wakes the
 database (see `deploy.md`), and since the connection is open anyway it also reports
-whether the schema is the one this code was written against. Three answers:
+whether the schema is the one this code was written against. Every answer also carries `"v2": true` when
+v2 is mounted and `false` when it could not be loaded and `/api/v2` and `/api/rpc` answer `503`; it never changes
+`status`. Three answers:
 
 | | Body | Meaning |
 | --- | --- | --- |
@@ -1593,27 +1595,29 @@ Postgres, which has been checked on SQLite only. Nothing here has been asked of 
 
 ## v2: the contract
 
-**Written down, not served.** Everything above this section is v1, and v1 is what every
-request to this server reaches today. v2 is the contract the server will answer next:
-`proto/lessons/v2/` at the root of the repository, checked by Buf, with its Python generated
-into `server/app/contract/` and imported by nothing the deployment runs. Sub-project 3 of
-[the programme](specs/2026-10-03-one-contract-design.md) serves it, and this section changes
-from «will» to «does» then. The proto files are the reference: every service, method,
-message and field there carries the comment that says what it means and what v1 sent in its
-place. This section says only what a file cannot.
+**Served beside v1, four methods so far.** Everything above this section is v1, and v1 is
+unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository, checked by
+Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+[the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
+([its design](specs/2026-10-05-server-v2-design.md)). The first serves `GetScheduleWindow`,
+`GetMe`, `GetDiaryCapabilities` and `CreateDevice`; every other method answers `UNIMPLEMENTED`
+until its stage, before it asks for any credential. No APK calls v2 yet. The proto files are
+the reference: every service, method, message and field there carries the comment that says
+what it means and what v1 sent in its place. This section says only what a file cannot.
 
 ### One contract, three ways to call it
 
 v2 is one package, `lessons.v2`: seventeen services in twenty files, one file per service
-plus `options.proto`, `errors.proto` and `common.proto`. Each method will be reachable three
-ways, from one handler:
+plus `options.proto`, `errors.proto` and `common.proto`. Each method is reachable three ways,
+from one handler — `server/app/rpc/call.py`'s `invoke`, which both transports call:
 
 - **REST, under `/api/v2/…`.** A method's `google.api.http` annotation is its route. It is
   written `/v2/…` and served under `/api`, because this deployment is one function and every
   path that works on it is there. Standard methods use their verbs: `GET` reads, `POST`
   creates, `PATCH` updates the fields an `update_mask` names, `DELETE` carries no body.
   Anything else is `POST …:verb`, as in `POST /api/v2/me:unlink`. Path fields are written
-  in the path, and the rest of a `GET` or a `DELETE` in the query string.
+  in the path, and every field the path and the body do not bind comes from the query
+  string, whatever the verb.
 - **Connect and gRPC-Web**, as `POST /api/rpc/lessons.v2.<Service>/<Method>`. Every `Get`
   and `List` is marked `NO_SIDE_EFFECTS`, so Connect may send it as a `GET`. Nothing else is
   marked.
@@ -1622,6 +1626,52 @@ ways, from one handler:
 
 One method, `WatchService.WatchClass`, is a server stream: a beta of the host target, with
 no REST binding.
+
+On this deployment, which speaks HTTP/1.1, a request with `Content-Type: application/grpc` or
+`application/grpc+…` is refused with `415` and a sentence saying where native gRPC is served;
+gRPC-Web passes. `WatchClass` answers `UNIMPLEMENTED` with the reason `FEATURE_UNSUPPORTED`
+(`feature: "streaming"`): no deployment streams yet. If a deployment cannot load v2 at all,
+`/api/v2` and `/api/rpc` answer `503` in their own error shapes and v1 goes on
+(`/api/v1/warmup` says which, with `"v2": true` or `false`).
+
+On both transports, a request that does not decode is `INVALID_ARGUMENT` with the reason
+`REQUEST_UNDECODABLE` and the fixed sentence «The request could not be decoded», never a
+`500` and never a sentence that quotes what was sent (#337, #338, #339). That covers a body
+that claims `Content-Encoding: gzip` and is not gzip, a JSON string holding a lone surrogate,
+and a header or a query string that is not UTF-8, which is read as Latin-1, as v1 reads it,
+and judged where it is used.
+
+The transports differ in what a body may be. Connect takes gzip (`Content-Encoding: gzip`) as
+well as uncompressed bodies. REST takes uncompressed bodies only: one with any
+`Content-Encoding` but `identity` is `REQUEST_UNDECODABLE`, and so is one whose `Content-Type`
+is not `application/json` or `+json` (parameters such as `; charset=utf-8` are fine), because
+a cross-site page can send a text, form or multipart body without a preflight and would
+otherwise spend the visitor's address's join budget (#340, #341). A request without a body is
+unaffected.
+
+### What REST adds
+
+- **Statuses.** A success is `200` with the `<Method>Response` as canonical JSON, except the
+  eight methods whose proto comment says «REST answers 201», which answer `201`:
+  `CreateBellSchedule`, `CreateDevice`, `CreateDiarySession`, `CreateEvent`, `CreateHomework`,
+  `CreateTask`, `CreateSubject` and `CreateSubstitution`.
+- **Binding.** Path variables bind into the request, `{task.id}` included; the body is the
+  whole request (`body: "*"`), one field, or nothing, as the method's rule says; and every
+  field neither binds comes from the query string, whatever the verb — an `Update…`'s
+  `update_mask` is `?updateMask=title,done`. Dotted names reach nested fields and a repeated
+  name a repeated field; a `bool` is `true` or `false`. Unknown fields and parameters are
+  ignored, as Connect ignores them. A body over 4 MB is refused as Connect refuses it.
+- **Caching.** A request with an `if_none_match` field takes it from `If-None-Match`, which wins
+  over a query parameter of that name; a list, `*` and `W/` match as `/bundle`'s do. A response
+  with `not_modified` set is a `304` with its `ETag` and no body; any other response with an
+  `etag` sends it as `ETag`. `GetScheduleWindow`'s tag is a strong SHA-256 of the window's
+  canonical JSON without `generatedAt`, and its answer carries an `ETag` and no
+  `Cache-Control`, as v1's `/bundle` does. `Cache-Control: private, no-store` goes on every
+  diary `GET`, on `GetCalendarFeed` (its answer is a secret URL) and on `CreateDevice` (its
+  answer is a device token).
+- **No CORS header**, on any answer: v2 answers apps, not pages on other sites.
+- **A failure to write an answer** is Google's `INTERNAL` body like any other refusal, never
+  plain text.
 
 ### What the values look like
 
@@ -1668,6 +1718,17 @@ takes is part of the method, not of its path.
 
 Every method that acts on the class names one, reads included.
 
+Every request may carry `X-Lessons-Client: <versionCode>`, and an APK's first v2 build sends it.
+The server reads it after the request has decoded and the method is known to be served, and
+before any credential. With `MIN_CLIENT_VERSION` set, a version below it is
+`FAILED_PRECONDITION` with the reason `CLIENT_TOO_OLD` and `min_version` in its metadata, and a
+header that is not a whole number from 1 to 2100000000, the most a versionCode can be, is
+`VALIDATION_FAILED`; without a minimum a malformed header is ignored. A request without the
+header is never refused. Then, in this order: a diary method on a deployment without
+`DIARY_SECRET` is `DIARY_DISABLED`, before any token is read; the bearer; a linked account for
+`AUTH_KIND_DEVICE_LINKED` and for any role above viewer (`DEVICE_NOT_LINKED`); the role
+(`ROLE_REQUIRED`).
+
 ### Errors
 
 A refusal is a `google.rpc.Status`. It carries:
@@ -1687,11 +1748,18 @@ RPC sends it as the protocol's error. REST sends Google's JSON error body
 | `NOT_FOUND` | 404 |
 | `ALREADY_EXISTS` | 409 |
 | `RESOURCE_EXHAUSTED` | 429 |
+| `INTERNAL` | 500 |
 | `UNIMPLEMENTED` | 501 |
 | `UNAVAILABLE` | 503 |
 
 The reasons are `ErrorReason` in `errors.proto`: thirty-three of them, each with its code,
-its metadata and what v1 sent instead.
+its metadata and what v1 sent instead. A failure the server does not know is `INTERNAL`, with
+a fixed sentence and no detail: what went wrong is logged, never sent, because an exception's
+own text can carry what was typed.
+
+Over Connect the error is its JSON body, under the same status: `{"code": "permission_denied",
+"message": …, "details": [{"type": "google.rpc.ErrorInfo", "value": <base64>, "debug": {…}}]}`.
+Decode `value`; `debug` is the server library's courtesy rendering of the same message.
 
 **A client acts on the reason, never on the message.** The app's habit of matching
 `"device is not linked"` (#270) ends here. A reason a client does not know, it handles by the

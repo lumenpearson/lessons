@@ -19,6 +19,8 @@ from collections.abc import AsyncIterator
 
 from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI
+from starlette.responses import JSONResponse
+from starlette.routing import Mount
 
 from app.api.cron import router as cron_router
 from app.api.diary import router as diary_router
@@ -184,6 +186,66 @@ else:
     # Without this line an unset BOT_TOKEN or WEBHOOK_SECRET is indistinguishable
     # from a routing fault: both look like a bare 404 on the webhook.
     log.warning("Telegram webhook NOT mounted: BOT_TOKEN and/or WEBHOOK_SECRET unset")
+
+
+#: What `/api/v2` and `/api/rpc` answer when v2 could not be loaded.
+V2_UNAVAILABLE = "v2 is not available on this deployment; v1 is unaffected"
+
+
+async def _v2_unavailable(scope, receive, send) -> None:
+    """The answer where v2 would be, in each transport's own error shape."""
+    if scope["type"] != "http":
+        return
+    if scope["path"].startswith("/api/rpc"):
+        body: dict[str, object] = {"code": "unavailable", "message": V2_UNAVAILABLE}
+    else:
+        body = {
+            "error": {
+                "code": 503,
+                "message": V2_UNAVAILABLE,
+                "status": "UNAVAILABLE",
+                "details": [],
+            }
+        }
+    await JSONResponse(body, status_code=503)(scope, receive, send)
+
+
+def mount_v2(target: FastAPI) -> bool:
+    """Serve v2 beside v1 — REST under `/api/v2`, Connect under `/api/rpc` — or
+    answer 503 there if v2 cannot be loaded, and say whether it was.
+
+    3a is the first time production imports `connectrpc`, the generated
+    contract and their native wheels (`protobuf-py-ext`, `pyqwest`), none of
+    which had been imported on Vercel before
+    (docs/specs/2026-10-05-server-v2-design.md, decision 7). An import error
+    here would otherwise be the whole function's, and v1 — every phone in
+    production — and the webhook would go down with v2. So it is caught,
+    logged with its traceback, and v2's two prefixes answer 503 in their own
+    error shapes, while everything else is served as before.
+    """
+    try:
+        from app.rest import rest_routes
+        from app.rpc import rpc_app
+
+        routes = rest_routes()
+        services = rpc_app()
+    except Exception:
+        log.exception("v2 could not be loaded: /api/v2 and /api/rpc answer 503, v1 is served")
+        target.router.routes.append(Mount("/api/v2", app=_v2_unavailable))
+        target.router.routes.append(Mount("/api/rpc", app=_v2_unavailable))
+        # Read back by `/api/v1/warmup`: a fallback that only the log knew of
+        # would be invisible to whatever pings it.
+        target.state.v2_mounted = False
+        return False
+    target.router.routes.extend(routes)
+    target.mount("/api/rpc", services)
+    target.state.v2_mounted = True
+    return True
+
+
+# v2, beside v1 and under prefixes v1 never used. After v1's routers, so that
+# nothing of v1's can be shadowed by a route built from the contract.
+mount_v2(app)
 
 
 @app.get("/")

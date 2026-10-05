@@ -18,12 +18,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import Headers
 
-from app.api.public import (
-    MAX_BUNDLE_START,
-    MIN_BUNDLE_START,
-    caller_bucket,
-    join_limiter,
-)
+from app.api.deps import request_bucket
+from app.api.public import join_limiter
 from app.config import get_settings
 from app.db import SessionLocal
 from app.di import DatabaseProvider, SettingsProvider, container
@@ -42,6 +38,7 @@ from app.schemas import _clean_optional_text
 from app.security import JoinThrottle, client_bucket
 from app.services import device_invites
 from app.services import terms as terms_service
+from app.services.clock import MAX_DATE, MIN_DATE
 
 
 class LosesTheSeedingRace(Provider):
@@ -264,7 +261,7 @@ async def test_a_client_cannot_pick_its_own_bucket_with_a_header(client, school_
 
 
 def _request(headers: dict[str, str], host: str = "127.0.0.1"):
-    """Enough of a Request for caller_bucket, which only reads these two."""
+    """Enough of a Request for request_bucket, which only reads these two."""
     return SimpleNamespace(headers=Headers(headers), client=SimpleNamespace(host=host))
 
 
@@ -275,7 +272,7 @@ def test_one_declared_proxy_means_the_rightmost_entry(monkeypatch):
     # The caller prepended their own entry; the proxy appended the real one.
     spoofed = _request({"X-Forwarded-For": "10.0.0.1, 198.51.100.7"})
     honest = _request({"X-Forwarded-For": "198.51.100.7"})
-    assert caller_bucket(spoofed) == caller_bucket(honest) == client_bucket("198.51.100.7")
+    assert request_bucket(spoofed) == request_bucket(honest) == client_bucket("198.51.100.7")
 
 
 def test_a_short_forwarded_header_falls_back_to_the_socket(monkeypatch):
@@ -283,7 +280,7 @@ def test_a_short_forwarded_header_falls_back_to_the_socket(monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "trusted_proxy_hops", 2)
 
-    assert caller_bucket(_request({"X-Forwarded-For": "10.0.0.1"})) == client_bucket("127.0.0.1")
+    assert request_bucket(_request({"X-Forwarded-For": "10.0.0.1"})) == client_bucket("127.0.0.1")
 
 
 def _repeated_request(lines: list[bytes], name: bytes = b"x-forwarded-for"):
@@ -307,7 +304,7 @@ def test_a_repeated_forwarded_header_is_the_one_list_it_means(monkeypatch):
     monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
 
     spoofed = _repeated_request([b"10.0.0.1", b"198.51.100.7"])
-    assert caller_bucket(spoofed) == client_bucket("198.51.100.7")
+    assert request_bucket(spoofed) == client_bucket("198.51.100.7")
 
 
 def test_a_repeated_header_still_has_to_be_long_enough_for_the_proxies(monkeypatch):
@@ -317,14 +314,14 @@ def test_a_repeated_header_still_has_to_be_long_enough_for_the_proxies(monkeypat
     monkeypatch.setattr(settings, "trusted_proxy_hops", 3)
 
     short = _repeated_request([b"10.0.0.1", b"198.51.100.7"])
-    assert caller_bucket(short) == client_bucket("127.0.0.1")
+    assert request_bucket(short) == client_bucket("127.0.0.1")
 
 
 def test_on_vercel_the_platform_header_wins_over_the_client_one(monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "vercel", "1")
 
-    bucket = caller_bucket(
+    bucket = request_bucket(
         _request({"X-Forwarded-For": "10.0.0.1", "X-Vercel-Forwarded-For": "198.51.100.7"})
     )
     assert bucket == client_bucket("198.51.100.7")
@@ -374,7 +371,7 @@ async def test_absurd_start_dates_are_rejected_cleanly(client, school_class, sta
     assert response.status_code == 422, response.text
 
 
-@pytest.mark.parametrize("start", [MIN_BUNDLE_START, MAX_BUNDLE_START, date(2026, 9, 7)])
+@pytest.mark.parametrize("start", [MIN_DATE, MAX_DATE, date(2026, 9, 7)])
 async def test_plausible_start_dates_are_accepted(client, school_class, start):
     token = await _token(client)
     response = await client.get(

@@ -50,7 +50,7 @@ this design stands on.
     - the throttle (`JoinThrottle.admit` and `forgive`), so a wrong join code stays counted
       when the request fails;
     - the diary (`find_session`, `_expire`, `_remember_token`);
-    - `last_seen_at` (`deps._touch_last_seen`);
+    - `last_seen_at` (`deps.touch_last_seen`);
     - `tasks`, `linking` and `calendar`.
   - The edit and request endpoints commit and *then* send their Telegram notice (`edit._tell`,
     which never fails the request), so a notice never announces a change that rolled back.

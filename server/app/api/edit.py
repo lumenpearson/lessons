@@ -26,7 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class, current_device
-from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, _homework_out, _today
+from app.api.public import _homework_out
 from app.api.routing import DishkaAnnotatedRoute
 from app.config import get_settings
 from app.models import (
@@ -54,7 +54,7 @@ from app.schemas import (
     OverrideIn,
     OverrideOut,
 )
-from app.services import audit, linking, notify, subjects, timetable_edit
+from app.services import audit, clock, linking, notify, subjects, timetable_edit
 from app.services import homework as homework_service
 from app.services import tasks as task_service
 from app.wording import human_date
@@ -91,12 +91,12 @@ async def editor_device(
 
 def _check_date(day: Date) -> None:
     """Same bounds as ``/bundle``: the resolver does arithmetic on top of it."""
-    if not (MIN_BUNDLE_START <= day <= MAX_BUNDLE_START):
+    if not clock.in_bounds(day):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"date must be between {MIN_BUNDLE_START.isoformat()} "
-                f"and {MAX_BUNDLE_START.isoformat()}"
+                f"date must be between {clock.MIN_DATE.isoformat()} "
+                f"and {clock.MAX_DATE.isoformat()}"
             ),
         )
 
@@ -172,7 +172,7 @@ async def homework_put(
     subject_name = existing.subject_name
     action, verb = ("homework.add", "добавлено") if created else ("homework.update", "обновлено")
 
-    when = human_date(payload.due_date, _today(school_class))
+    when = human_date(payload.due_date, clock.today(school_class))
     await audit.record(
         session, school_class.id, actor, action, f"ДЗ {verb}: {subject_name}, {when}"
     )
@@ -205,7 +205,7 @@ async def homework_delete(
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown homework")
 
-    when = human_date(item.due_date, _today(school_class))
+    when = human_date(item.due_date, clock.today(school_class))
     subject = item.subject_name
     await audit.record(
         session,
@@ -259,7 +259,7 @@ async def override_put(
     a lesson goes back to the timetable."""
     _check_date(payload.date)
     actor = device.telegram_id
-    when = human_date(payload.date, _today(school_class))
+    when = human_date(payload.date, clock.today(school_class))
     existing = await session.scalar(
         select(LessonOverride).where(
             LessonOverride.class_id == school_class.id,
@@ -436,7 +436,7 @@ async def event_put(
     )
     session.add(event)
 
-    when = human_date(payload.date, _today(school_class))
+    when = human_date(payload.date, clock.today(school_class))
     span = f"{payload.starts_at:%H:%M}–{payload.ends_at:%H:%M}"
     await audit.record(
         session, school_class.id, actor, "event.add", f"Событие: {payload.title}, {when} {span}"
@@ -469,7 +469,7 @@ async def event_delete(
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown event")
 
-    when = human_date(event.date, _today(school_class))
+    when = human_date(event.date, clock.today(school_class))
     title = event.title
     await audit.record(
         session,
@@ -514,7 +514,7 @@ async def day_put(
     the mark, so a day never carries a row that says nothing."""
     _check_date(payload.date)
     actor = device.telegram_id
-    when = human_date(payload.date, _today(school_class))
+    when = human_date(payload.date, clock.today(school_class))
 
     if payload.bell_schedule_id is not None:
         owned = await session.scalar(

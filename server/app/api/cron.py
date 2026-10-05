@@ -67,7 +67,7 @@ DIARY_EXPIRED_TTL = timedelta(days=1)
 # silent for about a hundred days, and being signed out in September - by a
 # rule they cannot see, needing a code an admin has to hand out again - is a
 # far worse failure than a row too many. Anything actually in use is touched at
-# least every fifteen minutes it is read (``deps._touch_last_seen``).
+# least every fifteen minutes it is read (``deps.touch_last_seen``).
 DEVICE_TOKEN_TTL = timedelta(days=180)
 
 

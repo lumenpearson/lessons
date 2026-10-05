@@ -33,7 +33,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.public import MAX_BUNDLE_START, MIN_BUNDLE_START, caller_bucket
+from app import wording
+from app.api.deps import request_bucket
 from app.api.routing import DishkaAnnotatedRoute
 from app.crypto import diary_enabled
 from app.models import DiarySession
@@ -73,9 +74,11 @@ from app.schemas import (
     NetSchoolCapabilitiesOut,
     NetSchoolSessionIn,
 )
-from app.security import Admission, JoinThrottle
+from app.security import DiaryAttempt, Throttled
+from app.security import diary_login_limiter as diary_login_limiter
+from app.security import diary_open_limiter as diary_open_limiter
+from app.services import clock, diary_corrections
 from app.services import diary as service
-from app.services import diary_corrections
 from app.services import diary_overrides as overrides
 
 router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1/diary", tags=["diary"])
@@ -87,15 +90,16 @@ MAX_RANGE_DAYS = 62
 DEFAULT_RANGE_DAYS = 14
 
 #: The widest dates a request may name — literally `/bundle`'s own pair,
-#: imported rather than repeated, because a second copy of a bound that must
-#: agree with the first is a bound that eventually does not.
+#: `services/clock.py`'s, imported rather than repeated, because a second copy
+#: of a bound that must agree with the first is a bound that eventually does
+#: not.
 #:
 #: They are needed here for the same reason: `from` is arbitrary client input
 #: and the default window is `start + 14 days` on top of it, which within a
 #: fortnight of `date.max` raises OverflowError — a 500 out of a query string,
 #: where every other bad date on this surface is a 422 saying what was wrong.
-MIN_DATE = MIN_BUNDLE_START
-MAX_DATE = MAX_BUNDLE_START
+MIN_DATE = clock.MIN_DATE
+MAX_DATE = clock.MAX_DATE
 
 
 def _range(
@@ -178,8 +182,9 @@ def _service(
 #: not take this way in — try later).
 UNAVAILABLE_HEADER = "X-Diary-Unavailable"
 
-#: The detail of the 503 a deployment without ``DIARY_SECRET`` answers.
-DISABLED_DETAIL = "Дневник на этом сервере выключен."
+#: The detail of the 503 a deployment without ``DIARY_SECRET`` answers, in the
+#: words v2's ``DIARY_DISABLED`` uses too (``app/wording.py``).
+DISABLED_DETAIL = wording.DIARY_DISABLED_DETAIL
 
 
 def _unavailable(failure: UpstreamUnavailable | SignInUnsupported) -> HTTPException:
@@ -250,88 +255,24 @@ async def _guard(awaitable):
 # ---------------------------------------------------------------------------
 
 
-#: Failed diary sign-ins one caller may make in a quarter of an hour.
-#:
-#: The other door onto this same service counts even harder: `diary_web`
-#: spends its one-time ticket *before* the sign-in, and its own comment says
-#: why — «it is what stops whoever holds the URL guessing passwords against
-#: the upstream from our address». This endpoint had no ticket and no limit at
-#: all, so it was that oracle with the door held open: anybody could post a
-#: login and a guess and read the answer off the status code, 401 for wrong
-#: and 200 for right, as fast as they liked. Two things follow from that and
-#: both are ours: credential stuffing against a third party's school diary
-#: proxied through this server, and the upstream blocking this deployment's
-#: address — which takes the feature down for every family on it, including
-#: the `/diary/signin` page the ticket was protecting.
-#:
-#: Looser than `/join`'s thirty, because a parent who has forgotten which of
-#: their two e-mail addresses the school has is a real person making real
-#: mistakes, and only failures are counted.
-diary_login_limiter = JoinThrottle(limit=10, window=900.0)
-
-#: Sessions one caller may open in a quarter of an hour, through either door.
-#:
-#: The limit above counts failures only, so a caller whose every attempt
-#: *succeeds* was never limited at all — and a success is not free. Each one
-#: is a new row the cron keeps alive with a ping from this server's address,
-#: for up to thirty days, and nothing ties a row to anything but itself: one
-#: real «Сетевой город» session replayed into `/session` a few thousand times
-#: was a few thousand rows, four bootstrap calls each, and a keep-alive queue
-#: that pinged one account over and over from an address the region can block
-#: for everybody. Twenty is a household's phones signing in again with room to
-#: spare; the window is the other limiters', as `JoinThrottle` requires.
-diary_open_limiter = JoinThrottle(limit=20, window=900.0)
+#: The two diary limiters and the attempt they count are `app.security`'s:
+#: v2's `CreateDiarySession` (3b) counts on the same rows, so a caller cannot
+#: double its guesses by alternating versions (the server-v2 design, decision
+#: 11). Imported above under their own names, which the tests read here.
 
 _THROTTLED_DETAIL = "Слишком много попыток входа. Попробуйте позже."
 
 
-class _Attempt:
-    """One attempt on either door, counted by both diary limiters until the
-    outcome says which of the two it was.
-
-    Counted *before* the upstream is asked, not after (see
-    `JoinThrottle.admit`): recorded after, a burst of concurrent wrong
-    passwords all read the count from before any of them and all reached the
-    diary. The same limiter **and bucket** for `/login` and `/session`, so a
-    caller who spent ten wrong passwords does not get ten more tries by
-    session.
-    """
-
-    __slots__ = ("failures", "opened")
-
-    def __init__(self, failures: Admission, opened: Admission) -> None:
-        self.failures = failures
-        self.opened = opened
-
-    @classmethod
-    async def admit(cls, session: AsyncSession, request: Request) -> _Attempt:
-        """Count the attempt, or 429 while the caller has spent either limit."""
-        failures = await diary_login_limiter.admit(
-            session, caller_bucket(request, scope="diary:")
+async def _admit(session: AsyncSession, request: Request) -> DiaryAttempt:
+    """Count the attempt on both diary limiters, or 429 while either is spent."""
+    try:
+        return await DiaryAttempt.admit(
+            session,
+            failures_key=request_bucket(request, scope="diary:"),
+            opened_key=request_bucket(request, scope="diary-open:"),
         )
-        if failures.retry_after is not None:
-            raise _throttled(failures.retry_after)
-        opened = await diary_open_limiter.admit(
-            session, caller_bucket(request, scope="diary-open:")
-        )
-        if opened.retry_after is not None:
-            await diary_login_limiter.forgive(session, failures)
-            raise _throttled(opened.retry_after)
-        return cls(failures, opened)
-
-    async def succeeded(self, session: AsyncSession) -> None:
-        """A session was opened: not a failure, and one of the twenty."""
-        await diary_login_limiter.forgive(session, self.failures)
-
-    async def failed(self, session: AsyncSession) -> None:
-        """The upstream judged it and said no: a failure, and no session."""
-        await diary_open_limiter.forgive(session, self.opened)
-
-    async def not_judged(self, session: AsyncSession) -> None:
-        """Nothing looked at what was sent — the feature off, the diary down,
-        the address refused: neither."""
-        await diary_login_limiter.forgive(session, self.failures)
-        await diary_open_limiter.forgive(session, self.opened)
+    except Throttled as refusal:
+        raise _throttled(refusal.retry_after) from None
 
 
 def _throttled(retry_after: float) -> HTTPException:
@@ -396,7 +337,7 @@ async def login(
     upstream session eventually expires, requests answer 401 with
     ``X-Diary-Reauth: required`` and the app asks for it again.
     """
-    # The buckets are `_Attempt.admit`'s, asked for through `caller_bucket`
+    # The buckets are `_admit`'s, asked for through `deps.caller_bucket`
     # rather than built by putting «diary:» in front of what it returns. The
     # counter's column is `VARCHAR(64)` and the digest already fills it, so the
     # prefix made every recorded failure six characters too long for Postgres:
@@ -408,7 +349,7 @@ async def login(
     # that nothing upstream saw, and counting it would charge the caller for
     # our refusal.
     provider, region, school_id = _resolve_login_target(payload)
-    attempt = await _Attempt.admit(session, request)
+    attempt = await _admit(session, request)
 
     try:
         token, row = await _guard(
@@ -554,7 +495,7 @@ async def register_session(
     provider, region, school_id = _resolve_session_target(payload)
     # The same limiters and buckets as /login: separate ones would double what
     # one caller may try against the upstream from our address.
-    attempt = await _Attempt.admit(session, request)
+    attempt = await _admit(session, request)
     # The provider's own serialisation: Petersburg's bare token, or the JSON of
     # what «Сетевой город» handed the phone, with the fields it did not hand
     # left out rather than stored as nulls.

@@ -78,7 +78,18 @@ def _module_of(dotted: str, modules: dict[str, Path]) -> str | None:
     return dotted or None
 
 
-def _chains_into_the_bot() -> list[str]:
+#: The v1 routers a v2 module may not import (the server-v2 design, decision 2):
+#: a rule a v2 handler needs moves out of them into ``services/`` first.
+V1_ROUTERS = ("app.api.public", "app.api.edit", "app.api.manage", "app.api.diary")
+
+
+def _within(dotted: str, packages: tuple[str, ...]) -> bool:
+    return any(dotted == package or dotted.startswith(package + ".") for package in packages)
+
+
+def _chains(starts: tuple[str, ...], forbidden: tuple[str, ...]) -> list[str]:
+    """Every import chain from a module under ``starts`` into one under
+    ``forbidden``, followed through the rest of ``app/``."""
     modules = _modules()
     edges: dict[str, set[str]] = {}
     for name, path in modules.items():
@@ -91,7 +102,7 @@ def _chains_into_the_bot() -> list[str]:
         }
 
     chains: list[str] = []
-    for start in sorted(name for name in modules if name.startswith("app.services")):
+    for start in sorted(name for name in modules if _within(name, starts)):
         came_from: dict[str, str | None] = {start: None}
         queue = [start]
         while queue:
@@ -100,7 +111,7 @@ def _chains_into_the_bot() -> list[str]:
                 if target in came_from:
                     continue
                 came_from[target] = current
-                if _is_forbidden(target):
+                if _within(target, forbidden):
                     chain = [target]
                     while (step := came_from[chain[-1]]) is not None:
                         chain.append(step)
@@ -108,6 +119,10 @@ def _chains_into_the_bot() -> list[str]:
                     continue
                 queue.append(target)
     return chains
+
+
+def _chains_into_the_bot() -> list[str]:
+    return _chains(("app.services",), (FORBIDDEN,))
 
 
 def test_no_service_reaches_the_bot():
@@ -198,3 +213,30 @@ def test_the_moved_names_are_still_the_bot_modules_own():
         "render_day",
     ):
         assert getattr(render, name) is getattr(wording, name), name
+
+
+def test_no_service_reaches_the_shells_above_it():
+    """``services/`` is what the shells stand on: v1's routers, v2's handlers
+    and its transcoder. A service that imported one of them would make the
+    other shells import it too — and v2's cold start carry v1's."""
+    chains = _chains(("app.services",), ("app.rpc", "app.rest", "app.api"))
+    assert chains == [], "\n".join(chains)
+
+
+def test_v2_reaches_neither_the_bot_nor_a_v1_router():
+    """``rpc/`` and ``rest/`` stand on ``services/``, ``api/deps.py`` and the
+    contract. A v1 router reached from them would be a rule with two shells
+    and one home in the wrong one; the bot would be aiogram on the API's cold
+    start."""
+    chains = _chains(("app.rpc", "app.rest"), (FORBIDDEN, *V1_ROUTERS))
+    assert chains == [], "\n".join(chains)
+
+
+def test_the_walk_sees_a_v2_module_reach_a_v1_router():
+    """Held here rather than trusted: the walk above finds a chain through a
+    neutral module, not only a direct import."""
+    tree = ast.parse("from app.api.public import router")
+    names = _imported_names(tree, "app.rpc.example", False)
+    assert any(_within(name, V1_ROUTERS) for name in names)
+    assert not _within("app.api.deps", V1_ROUTERS)
+    assert not _within("app.api.publicity", V1_ROUTERS)

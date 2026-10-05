@@ -18,10 +18,12 @@ would have meant editing a thousand call sites to say `fakes.Callback(...)`.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import re
 import tempfile
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
@@ -29,6 +31,7 @@ from typing import Any
 
 import httpx
 import pytest
+from sqlalchemy import event
 
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="lessons-tests-"))
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DIR / 'test.db'}"
@@ -449,3 +452,402 @@ def FakeUpstream() -> type[_FakeUpstream]:
 @pytest.fixture
 def with_token():
     return _with_token
+
+
+@pytest.fixture
+async def v2_tokens(session, school_class) -> dict[str, str]:
+    """A bearer for each caller the gate tells apart, in ``school_class``.
+
+    ``unlinked`` is the class code's anonymous phone; ``viewer`` to ``owner``
+    are phones linked to members of those roles; ``stranger`` is linked to
+    an account that is no member; ``diary`` is a live diary session.
+    Telegram ids start at 2001, clear of the ``OWNER_IDS`` this file sets.
+    """
+    from datetime import datetime
+
+    from app.crypto import seal
+    from app.models import BotUser, DeviceToken, DiarySession, Role
+    from app.security import hash_token
+
+    tokens: dict[str, str] = {}
+    for name, telegram_id, role in (
+        ("unlinked", None, None),
+        ("viewer", 2001, Role.VIEWER),
+        ("editor", 2002, Role.EDITOR),
+        ("admin", 2003, Role.ADMIN),
+        ("owner", 2004, Role.OWNER),
+        ("stranger", 2005, None),
+    ):
+        token = f"v2-{name}-token"
+        session.add(
+            DeviceToken(
+                token_hash=hash_token(token),
+                class_id=school_class.id,
+                device_name=f"{name} phone",
+                telegram_id=telegram_id,
+                linked_at=datetime(2026, 9, 1) if telegram_id is not None else None,
+            )
+        )
+        if role is not None:
+            session.add(BotUser(telegram_id=telegram_id, class_id=school_class.id, role=role))
+        tokens[name] = token
+    tokens["diary"] = "v2-diary-token"
+    session.add(
+        DiarySession(
+            token_hash=hash_token(tokens["diary"]),
+            upstream_token=seal("an-upstream-session"),
+            login="parent@example.com",
+            provider="petersburg",
+        )
+    )
+    await session.commit()
+    return tokens
+
+
+
+
+# --------------------------------------------------------------------------
+# v2, called both ways (docs/specs/2026-10-05-server-v2-design.md, decision 14)
+#
+# `v2` calls one method over REST, through the app on httpx's ASGI transport,
+# and over Connect, as the plain HTTP POST of canonical JSON (or binary) that
+# Connect's unary protocol is — no client library, so what is tested is the
+# wire. `both` asserts the two answers are one outcome, which is how «REST
+# and RPC cannot disagree» is held rather than hoped. The REST request is
+# built from the method's own `google.api.http` rule, here, in the client's
+# direction, independently of the transcoder that reads it back.
+# --------------------------------------------------------------------------
+
+_DOMAIN = "lessons.app"
+
+
+@dataclass
+class _V2Answer:
+    """One transport's answer, read into what both transports carry."""
+
+    transport: str
+    status: int
+    headers: httpx.Headers
+    body: bytes
+    #: The response message on success; a REST 304 reads as `not_modified`.
+    message: Any = None
+    #: The canonical code's name, "PERMISSION_DENIED", on a refusal.
+    code: str | None = None
+    reason: str | None = None
+    metadata: dict[str, str] = field(default_factory=dict)
+    #: The refusal's sentence.
+    error: str | None = None
+    violations: list[tuple[str, str]] = field(default_factory=list)
+    retry_seconds: int | None = None
+
+    def outcome(self) -> tuple[Any, ...]:
+        if self.code is None and self.message is None:
+            # An answer the harness could not read is no success, and it is
+            # never the same as another transport's: the status and the
+            # transport are part of it, so ``both`` fails on the pair.
+            return ("unreadable", self.transport, self.status)
+        if self.code is None:
+            return ("ok", self.message)
+        return (
+            self.code,
+            self.reason,
+            self.metadata,
+            self.error,
+            self.violations,
+            self.retry_seconds,
+        )
+
+
+def _v2_details(answer: _V2Answer, details: list[tuple[str, Any]]) -> None:
+    """Fill ``answer`` from ``(type name, message)`` pairs of either transport."""
+    for type_name, message in details:
+        if type_name == "google.rpc.ErrorInfo":
+            assert message.domain == _DOMAIN
+            answer.reason = message.reason
+            answer.metadata = dict(message.metadata)
+        elif type_name == "google.rpc.BadRequest":
+            answer.violations = [(v.field, v.description) for v in message.field_violations]
+        elif type_name == "google.rpc.RetryInfo":
+            answer.retry_seconds = message.retry_delay.seconds
+
+
+def _v2_cleared(message: Any, dotted: str) -> Any:
+    """A copy of ``message`` with the field at ``dotted`` cleared, where it has one."""
+    copy = message.from_binary(message.to_binary())
+    target, parts = copy, dotted.split(".")
+    for part in parts:
+        field_desc = next((f for f in target.desc().fields if f.name == part), None)
+        if field_desc is None or not target.has_field(part):
+            return copy
+        if part == parts[-1]:
+            target.clear_field(part)
+        else:
+            target = target[field_desc]
+    return copy
+
+
+def _v2_json(response: httpx.Response) -> dict[str, Any]:
+    """A refusal's JSON body, or ``{}`` when the answer is not one: an empty
+    404 or a text 415 must fail the test's own assertion on ``status``, not
+    this reader."""
+    if "json" not in response.headers.get("content-type", "") or not response.content:
+        return {}
+    try:
+        parsed = response.json()
+    except ValueError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+class _V2:
+    """`await v2.both("MeService/GetMe", GetMeRequest(), token=…)`, and its halves."""
+
+    def __init__(self, http: httpx.AsyncClient) -> None:
+        self.http = http
+
+    @staticmethod
+    def method(name: str) -> Any:
+        from app.rpc.methods import METHODS
+
+        return METHODS[f"lessons.v2.{name}"]
+
+    @staticmethod
+    def _headers(token: str | None, headers: dict[str, str] | None) -> dict[str, str]:
+        sent = dict(headers or {})
+        if token is not None:
+            sent["Authorization"] = f"Bearer {token}"
+        return sent
+
+    async def rest(
+        self,
+        name: str,
+        request: Any = None,
+        *,
+        token: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> _V2Answer:
+        from urllib.parse import quote, urlencode
+
+        from protobuf import message_to_json_value
+
+        method = self.method(name)
+        request = request if request is not None else method.input()
+        binding = method.binding
+        assert binding is not None, f"{name} has no REST binding"
+        sent = self._headers(token, headers)
+        value = message_to_json_value(request)
+        path = binding.path
+        for variable in binding.variables:
+            leaf: Any = request
+            container = value
+            parts = variable.split(".")
+            for index, part in enumerate(parts):
+                field_desc = next(f for f in leaf.desc().fields if f.name == part)
+                leaf = leaf[field_desc]
+                if index < len(parts) - 1:
+                    container = container.get(field_desc.json_name, {})
+                else:
+                    container.pop(field_desc.json_name, None)
+            path = path.replace("{" + variable + "}", quote(str(leaf), safe=""))
+        if "ifNoneMatch" in value:
+            sent["If-None-Match"] = value.pop("ifNoneMatch")
+
+        body: Any = None
+        rest_of: dict[str, Any] = value
+        if binding.body == "*":
+            body, rest_of = value, {}
+        elif binding.body:
+            body_field = next(f for f in method.input.desc().fields if f.name == binding.body)
+            body = value.pop(body_field.json_name, {})
+
+        query: list[tuple[str, str]] = []
+
+        def flatten(prefix: str, item: Any) -> None:
+            if isinstance(item, dict):
+                for key, nested in item.items():
+                    flatten(f"{prefix}{key}.", nested)
+            elif isinstance(item, list):
+                for element in item:
+                    flatten(prefix, element)
+            elif isinstance(item, bool):
+                query.append((prefix.rstrip("."), "true" if item else "false"))
+            else:
+                query.append((prefix.rstrip("."), str(item)))
+
+        flatten("", rest_of)
+        url = "/api" + path + (f"?{urlencode(query)}" if query else "")
+        response = await self.http.request(
+            binding.verb.upper(),
+            url,
+            content=None if body is None else json.dumps(body).encode(),
+            headers={**sent, "Content-Type": "application/json"} if body is not None else sent,
+        )
+        answer = _V2Answer("rest", response.status_code, response.headers, response.content)
+        if response.status_code == 304:
+            if "etag" in response.headers:
+                answer.message = method.output.from_json(
+                    json.dumps({"notModified": True, "etag": response.headers["etag"]})
+                )
+        elif response.status_code < 300:
+            answer.message = method.output.from_json(response.content)
+        else:
+            from app.contract.google.rpc import error_details_pb
+
+            error = _v2_json(response).get("error", {})
+            assert error.get("code", response.status_code) == response.status_code
+            answer.code, answer.error = error.get("status"), error.get("message")
+            details = []
+            for detail in error.get("details", []):
+                type_name = str(detail.get("@type", "")).removeprefix("type.googleapis.com/")
+                cls = getattr(error_details_pb, type_name.rpartition(".")[2], None)
+                if cls is None:
+                    continue
+                fields = {key: item for key, item in detail.items() if key != "@type"}
+                details.append((type_name, cls.from_json(json.dumps(fields))))
+            _v2_details(answer, details)
+        return answer
+
+    async def connect(
+        self,
+        name: str,
+        request: Any = None,
+        *,
+        token: str | None = None,
+        headers: dict[str, str] | None = None,
+        binary: bool = False,
+    ) -> _V2Answer:
+        method = self.method(name)
+        request = request if request is not None else method.input()
+        sent = self._headers(token, headers)
+        sent["Content-Type"] = "application/proto" if binary else "application/json"
+        sent["Connect-Protocol-Version"] = "1"
+        response = await self.http.post(
+            f"/api/rpc/{method.key}",
+            content=request.to_binary() if binary else request.to_json().encode(),
+            headers=sent,
+        )
+        answer = _V2Answer("connect", response.status_code, response.headers, response.content)
+        if response.status_code == 200:
+            answer.message = (
+                method.output.from_binary(response.content)
+                if binary
+                else method.output.from_json(response.content)
+            )
+        else:
+            self._connect_error(answer, _v2_json(response))
+        return answer
+
+    async def stream(
+        self,
+        name: str,
+        request: Any = None,
+        *,
+        token: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> _V2Answer:
+        """A server-streaming call over Connect: its end message's error, if any."""
+        import struct
+
+        method = self.method(name)
+        request = request if request is not None else method.input()
+        payload = request.to_json().encode()
+        sent = self._headers(token, headers)
+        sent["Content-Type"] = "application/connect+json"
+        response = await self.http.post(
+            f"/api/rpc/{method.key}",
+            content=struct.pack(">BI", 0, len(payload)) + payload,
+            headers=sent,
+        )
+        answer = _V2Answer("stream", response.status_code, response.headers, response.content)
+        data = b""
+        if response.status_code == 200:
+            data = response.content
+        else:
+            self._connect_error(answer, _v2_json(response))
+        while data:
+            flags, length = struct.unpack(">BI", data[:5])
+            frame, data = data[5 : 5 + length], data[5 + length :]
+            if flags & 0x02:
+                end = json.loads(frame)
+                if "error" in end:
+                    self._connect_error(answer, end["error"])
+        return answer
+
+    @staticmethod
+    def _connect_error(answer: _V2Answer, error: dict[str, Any]) -> None:
+        import base64
+
+        from app.contract.google.rpc import error_details_pb
+
+        if not isinstance(error.get("code"), str):
+            return
+        answer.code, answer.error = error["code"].upper(), error.get("message")
+        details = []
+        for detail in error.get("details", []):
+            cls = getattr(error_details_pb, str(detail.get("type", "")).rpartition(".")[2], None)
+            if cls is None:
+                continue
+            raw = base64.b64decode(detail["value"] + "=" * (-len(detail["value"]) % 4))
+            details.append((detail["type"], cls.from_binary(raw)))
+        _v2_details(answer, details)
+
+    async def both(
+        self,
+        name: str,
+        request: Any = None,
+        *,
+        token: str | None = None,
+        headers: dict[str, str] | None = None,
+        differ: tuple[str, ...] = (),
+    ) -> _V2Answer:
+        """Call ``name`` over REST, then over Connect, and assert one outcome.
+
+        ``differ`` names response fields, dotted, that two calls may answer
+        differently by nature — a new token, a ``generated_at`` — and that are
+        compared as absent. Returns the REST answer.
+        """
+        rest = await self.rest(name, request, token=token, headers=headers)
+        connect = await self.connect(name, request, token=token, headers=headers)
+        for answer in (rest, connect):
+            if answer.message is not None:
+                for dotted in differ:
+                    answer.message = _v2_cleared(answer.message, dotted)
+        assert rest.outcome() == connect.outcome(), (rest, connect)
+        return rest
+
+
+@pytest.fixture
+async def v2() -> AsyncIterator[_V2]:
+    """The app, reached over REST and Connect from one peer address."""
+    from app.main import app
+
+    transport = httpx.ASGITransport(app=app, client=("203.0.113.9", 52144))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
+        yield _V2(http)
+
+
+@pytest.fixture
+def statement_writes() -> Callable[[], contextlib.AbstractContextManager[list[str]]]:
+    """``with statement_writes() as seen:`` — every INSERT, UPDATE and DELETE
+    the engine sends while the block runs, whitespace folded.
+
+    Counts statements, not rows: a link code, a feed secret and a relinked
+    subject are updates, which a row count cannot see. The listener is scoped
+    to the block, so a test cannot leak it into the next.
+    """
+
+    @contextlib.contextmanager
+    def writes() -> Iterator[list[str]]:
+        seen: list[str] = []
+
+        def record(conn, cursor, statement, parameters, context, executemany) -> None:
+            if re.match(r"\s*(?:INSERT|UPDATE|DELETE)\b", statement, re.IGNORECASE):
+                seen.append(" ".join(statement.split()))
+
+        event.listen(engine.sync_engine, "before_cursor_execute", record)
+        try:
+            yield seen
+        finally:
+            event.remove(engine.sync_engine, "before_cursor_execute", record)
+
+    return writes

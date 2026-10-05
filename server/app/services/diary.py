@@ -571,7 +571,7 @@ class DiaryService:
             # straight after `_student`'s call in here, so without this the
             # failure this branch exists to absorb comes back as a 500 from a
             # line that only wanted a string.
-            # `api/deps.py:_touch_last_seen` carries the same refresh, for the
+            # `api/deps.py:touch_last_seen` carries the same refresh, for the
             # same reason and after the same outage.
             await _refresh_quietly(self.session, self.row)
 
