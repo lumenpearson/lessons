@@ -59,7 +59,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2207 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2208 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -139,14 +139,18 @@ Read `docs/architecture.md` before any cross-cutting change; it is current and i
 the decisions, not just the layout.
 
 **Two shells write, over one set of services.** The bot is the admin panel, and a linked
-phone runs the same class through the API: `/api/v1/edit` (homework, substitutions, events,
-special days — editor and above) and `/api/v1/manage` (subjects, bells, the timetable,
+phone runs the same class through the API: the edit routes (`/api/v1/homework`, `/overrides`,
+`/events`, `/days` — homework, substitutions, events, special days, editor and above; there
+is no `/api/v1/edit` prefix) and `/api/v1/manage` (subjects, bells, the timetable,
 devices, access requests, terms, the class itself — admin, and owner to delete it). Both
 take the **device token** and ask `linking.effective_role` for the linked account's role on
 every request, so an unlinked phone changes nothing of the class's. The rest of what the
 API writes is personal (`public.py`: the linked account's own tasks and ticked-off
 homework, whatever its role, and a phone unlinking itself; `/join` mints the device token)
-and a family's diary (`/api/v1/diary`, with the **diary token**); `docs/architecture.md` has
+and a family's diary (`/api/v1/diary`, with the **diary token**). That is the API; the app
+itself calls only `/join`, `/me/unlink`, `/manage` and the diary today, so homework,
+substitutions, events, special days and the personal writes come from the bot or another
+client of the API (#324). `docs/architecture.md` has
 the table.
 Telegram already solved identity, so there is still no admin web panel, no session cookies
 and no password reset — a phone has no rights of its own, only its account's — and the cost
@@ -377,10 +381,13 @@ points Hilt does not inject cleanly.
   `docs/deploy.md`.
 - **A deployment refuses to start rather than keep a local default.** `get_settings()`
   raises `DeploymentNotConfigured` when `VERCEL` is set and any of `DATABASE_URL`,
-  `BOT_TOKEN`, `WEBHOOK_SECRET`, `RUN_BOT`, `OWNER_IDS` or `TIMEZONE` is missing or
-  unusable, and it lists every one of them at once, because finding the next costs another
-  deploy. This is not tidiness: `DATABASE_URL` set for one Vercel environment and not the
-  other left the SQLite default standing, and the only thing anybody saw was
+  `BOT_TOKEN`, `WEBHOOK_SECRET` or `RUN_BOT` is missing or unusable, or `OWNER_IDS` or
+  `TIMEZONE` is set to a value that cannot be used — an `OWNER_IDS` with no readable id, a
+  `TIMEZONE` that is not a zone. An empty `OWNER_IDS` is left alone on purpose
+  (`test_an_empty_owner_ids_is_left_alone`) and an unset `TIMEZONE` takes `Europe/Moscow`.
+  It lists every problem at once, because finding the next costs another deploy. This is
+  not tidiness: `DATABASE_URL` set for one Vercel environment and not the other left the
+  SQLite default standing, and the only thing anybody saw was
   `ModuleNotFoundError: No module named 'aiosqlite'` out of SQLAlchemy's sqlite dialect —
   a message naming neither the setting, nor the environment it was missing from, nor this
   project. The check hangs on `VERCEL` because the platform sets it about itself; guessing
