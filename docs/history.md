@@ -28,6 +28,66 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: a deployment without a diary key keeps its sessions (#302), and the design of serving v2 is drafted for the owner (#301)
+
+Merged as #303 (`aba88f8`, 5 October 2026), from `fix/diary-secret-keeps-sessions`, on
+milestone 10, `v0.9.0`, because the fix is the diary's. It closed #302. Written on the night of 4 to 5 October 2026, in the same
+session that merged #300. The schema head did not move, and nothing under `/api/v2` exists.
+
+- **A deployment without `DIARY_SECRET` no longer expires every diary session it is asked
+  about (#302).** The independent review of sub-project 3's design (#301) found it, and it was
+  filed as an issue before the fix: with no key, every sealed credential looked unreadable, so
+  the first read of a session deleted it for good, and the key coming back could not bring it
+  back. `services/diary.unusable` now expires a session only when a configured key cannot open
+  it, and with no key it expires nothing. `api/diary.current_diary` answers `503` with
+  `X-Diary-Unavailable: disabled` before the token is looked at, and the bot's `_session_for`
+  shows no session and keeps the row.
+- **Three tests, each failing on `main` before the fix**: the service in
+  `test_diary_crypto.py`, the endpoint in `test_diary_api.py`, the bot in `test_bot_diary.py`.
+  `docs/api.md`'s diary error table and `CLAUDE.md`'s «The diary needs `DIARY_SECRET`…» say so.
+- **The design of sub-project 3 was drafted and is waiting for the owner**, as #301, a draft on
+  milestone 11, from `server-v2/design`, **not merged**:
+  `docs/specs/2026-10-05-server-v2-design.md`, and the implementation plan of its stage 3a,
+  `docs/specs/2026-10-05-server-v2-3a-plan.md` (11 tasks). Every module and test the plan
+  quotes was built and run in a scratch copy: 165 new tests and 4 in existing files, ruff and
+  mypy clean there; the full suite was not run in it. The design was revised after an
+  independent review the same night, and again where writing the plan proved it wrong. It ends
+  with five questions for the owner: the stages; a complete host or a sidecar; where the host
+  runs; a missing `X-Lessons-Client`; browsers and CORS. A read-only count on production (Neon,
+  5 October) found 35 timetable rows in one class, none without a `subject_id`, and the design
+  records it. **Nothing that serves v2 merges before the owner approves it.**
+- **Production after #300's automatic deploy** answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}` and a `/api/v2/…` path with `404`. The
+  board reads Done, P2, M, 8 and 2026-10-04 to 2026-10-04 for #300, #298 and #299.
+
+### Gates
+
+- **The server suite.** At `7525818`, `pytest -q -n auto` gave **2175 passed** in 8 minutes 42
+  seconds on this machine, on 5 October 2026: 2172 plus the 3 tests above. The six diary test
+  files gave 222 passed on their own. The README, `docs/architecture.md`, `CLAUDE.md`,
+  `CONTRIBUTING.md` and the `gates` skill say 2175.
+- **ruff and mypy.** Both are clean; mypy covers 197 modules.
+- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
+
+### What was deliberately left alone
+
+- **The v2 half of #302**, the gate's own diary check, is in #301's design and not built,
+  because nothing serves v2.
+- **#301 is not merged and its plan is not executed**: it waits for the owner's approval.
+
+### What nobody has verified in this batch
+
+- **The app's handling of a `503 disabled` on a diary read with a token has not been checked
+  on a device.** The app parses `X-Diary-Unavailable` for every diary call, but a read that
+  carries a token and is still answered «disabled» is a case it had not met.
+- **Every module in #301's plan ran in a scratch copy**, not in the repository, and the full
+  suite did not run there.
+- **The five answers #301 waits for are guesses until the owner gives them.**
+- **After #303's merge**, a security review made before it had found no other path that loses a
+  session without the key, `dev` was fast-forwarded to `aba88f8`, and production's
+  `/api/v1/warmup` answered `{"status":"ok","api_version":1,"schema":"0017"}`. The board reads
+  Done, P1, M, 5 and 2026-10-05 for #303 and #302 (#302 started on 2026-10-04).
+
 ## What the batch before added: the v2 contract held to what its documents promise — the JSON, the v1 mirror and the Buf gate (#298, #299)
 
 Merged as #300 (`ab646ad`, 4 October 2026), from `contract/coverage`, on milestone 11. It refers to #273 and closes #298 and
