@@ -37,14 +37,24 @@ from app.models import SchoolClass
 # ``fsm_storage`` is what has to know that this row is not one, so the name
 # lives beside the sweep.
 
-#: What a command looks like to Telegram's own client: a slash, a name of
-#: letters, digits and underscores, an optional ``@bot`` mention, and then the
-#: end of the word. Deliberately wider than the list of commands the bot
-#: actually answers - «/wek» is somebody reaching for «/week», not the text of
-#: a homework assignment - and deliberately narrower than "starts with a
-#: slash": a message that is one «/», or «/ 5 стр», is text and is meant as an
-#: answer to whatever was asked.
-_COMMAND = re.compile(r"^/[A-Za-z0-9_]+(@[A-Za-z0-9_]+)?(\s|$)")
+#: What aiogram's ``Command`` filter reads as a command: a slash, a name of
+#: letters, digits and underscores, an optional ``@bot`` mention, and then
+#: whitespace or the end. aiogram's reading rather than Telegram's client's,
+#: because aiogram decides what reaches a command handler, and a text it would
+#: dispatch that this does not count is taken by the open step as its answer.
+#: So the mention may be empty - ``Command.extract_command`` turns «/week@» into
+#: «/week» with no mention, and an editor's «/week@» was once an assignment
+#: (#276) - and whitespace before the slash is allowed, because aiogram splits
+#: on whitespace before it looks. ``\s`` is the same set of characters as the
+#: ``str.split()`` it splits with.
+#:
+#: Deliberately wider than the list of commands the bot actually answers -
+#: «/wek» is somebody reaching for «/week», not the text of a homework
+#: assignment - and deliberately narrower than "starts with a slash": a message
+#: that is one «/», or «/ 5 стр», is text and is meant as an answer to whatever
+#: was asked. `test_the_breakout_reads_a_command_as_aiogram_does` holds the two
+#: readings level against aiogram's own filters.
+_COMMAND = re.compile(r"^\s*/[A-Za-z0-9_]+(@[A-Za-z0-9_]*)?(\s|$)")
 
 #: Said once, when a form really was open. Constant text, so there is nothing
 #: here to escape and no budget to keep.

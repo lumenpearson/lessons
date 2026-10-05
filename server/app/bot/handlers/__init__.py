@@ -32,10 +32,13 @@ def build_router() -> Router:
     router.include_router(tasks.router)
     # The «сделал» ticks live with the homework they tick, in
     # `content/homework.py`, and are asked here — where they stood while they
-    # were `tasks`'s — rather than with the rest of `content`. aiogram's
-    # `Command` reads «/homework@» as /homework and `CommandBreakoutMiddleware`
-    # does not, so a form step asked between the two places has always taken
-    # it as its answer; asking the ticks earlier would change who answers.
+    # were `tasks`'s — rather than with the rest of `content`. They were kept
+    # here because aiogram's `Command` read «/homework@» as /homework and
+    # `CommandBreakoutMiddleware` did not, so a form step asked between the two
+    # places took it as its answer, and moving the ticks would have changed who
+    # answered. Since #276 the breakout reads a command as aiogram does and the
+    # form is gone before any router is asked, so this place no longer decides
+    # anything; moving them is a change of its own, not made with that fix.
     router.include_router(homework_ticks)
     router.include_router(reminders.router)
     router.include_router(manage.router)
