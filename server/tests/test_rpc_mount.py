@@ -151,15 +151,16 @@ async def test_a_body_that_claims_gzip_and_is_not_is_undecodable_not_500(v2) -> 
 
 
 async def test_a_gzip_body_that_is_gzip_is_still_decompressed_and_decoded(v2) -> None:
-    """No unary method has a handler yet, so the proof that the body got through
-    is the answer it earns: a valid one is the method's UNIMPLEMENTED, and one
-    that decompresses into garbage is the codec's refusal, not the gzip one's."""
+    """3b's methods have no handler yet (``ListStudents`` is one), so the proof
+    that the body got through is the answer it earns: a valid one is the
+    method's UNIMPLEMENTED, and one that decompresses into garbage is the
+    codec's refusal, not the gzip one's."""
     headers = {
         "Content-Type": "application/json",
         "Content-Encoding": "gzip",
         "Connect-Protocol-Version": "1",
     }
-    url = "/api/rpc/lessons.v2.MeService/GetMe"
+    url = "/api/rpc/lessons.v2.DiaryService/ListStudents"
     valid = await v2.http.post(url, content=gzip.compress(b"{}"), headers=headers)
     assert valid.status_code == 501
     assert valid.json()["code"] == "unimplemented"
@@ -280,7 +281,7 @@ def test_a_connectrpc_that_cannot_be_imported_leaves_the_real_app_serving_v1() -
 async def test_a_header_that_is_not_utf8_is_read_not_a_500(v2) -> None:
     """#338: ``connectrpc`` decodes headers as UTF-8 and answered ``unknown``
     with the exception's text. Compared with the same call without it."""
-    url = "/api/rpc/lessons.v2.MeService/GetMe"
+    url = "/api/rpc/lessons.v2.DiaryService/ListStudents"
     plain = await v2.http.post(url, content=b"{}", headers={"Content-Type": "application/json"})
     odd = await v2.http.post(
         url,
@@ -311,7 +312,7 @@ def _get_scope(query: bytes) -> dict:
         "http_version": "1.1",
         "method": "GET",
         "scheme": "http",
-        "path": "/lessons.v2.MeService/GetMe",
+        "path": "/lessons.v2.DiaryService/ListStudents",
         "root_path": "",
         "query_string": query,
         "headers": [],

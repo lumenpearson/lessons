@@ -18,10 +18,12 @@ would have meant editing a thousand call sites to say `fakes.Callback(...)`.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import re
 import tempfile
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
@@ -29,6 +31,7 @@ from typing import Any
 
 import httpx
 import pytest
+from sqlalchemy import event
 
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="lessons-tests-"))
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DIR / 'test.db'}"
@@ -821,3 +824,30 @@ async def v2() -> AsyncIterator[_V2]:
     transport = httpx.ASGITransport(app=app, client=("203.0.113.9", 52144))
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
         yield _V2(http)
+
+
+@pytest.fixture
+def statement_writes() -> Callable[[], contextlib.AbstractContextManager[list[str]]]:
+    """``with statement_writes() as seen:`` — every INSERT, UPDATE and DELETE
+    the engine sends while the block runs, whitespace folded.
+
+    Counts statements, not rows: a link code, a feed secret and a relinked
+    subject are updates, which a row count cannot see. The listener is scoped
+    to the block, so a test cannot leak it into the next.
+    """
+
+    @contextlib.contextmanager
+    def writes() -> Iterator[list[str]]:
+        seen: list[str] = []
+
+        def record(conn, cursor, statement, parameters, context, executemany) -> None:
+            if re.match(r"\s*(?:INSERT|UPDATE|DELETE)\b", statement, re.IGNORECASE):
+                seen.append(" ".join(statement.split()))
+
+        event.listen(engine.sync_engine, "before_cursor_execute", record)
+        try:
+            yield seen
+        finally:
+            event.remove(engine.sync_engine, "before_cursor_execute", record)
+
+    return writes
