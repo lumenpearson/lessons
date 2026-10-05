@@ -85,14 +85,16 @@ consumer registered the webhook last. So Preview holds:
   its data;
 - a second bot's `BOT_TOKEN` and `BOT_USERNAME`, and its own `WEBHOOK_SECRET` and
   `DIARY_SECRET`;
-- no `CRON_SECRET`, `DADATA_TOKEN` or `PUBLIC_BASE_URL`, so the tick, the school search and
-  the diary's sign-in page are off there, each refusing in view of whoever it concerns.
+- no `CRON_SECRET`, `DADATA_TOKEN` or `PUBLIC_BASE_URL`, so the tick, the school search, the
+  link to the calendar feed that the bot's «📅 Календарь» offers and the diary's sign-in page
+  are off there, each refusing in view of whoever it concerns.
 
 Four keys are shared with Production: `RUN_BOT` (`false`), `OWNER_IDS`, `TIMEZONE` and
 `DIARY_PROXY_URL`. Two things follow from that. **A preview reads and writes a real copy of
 the class**, so what is tried there is tried on data that looks like production's; and
-`RUN_BOT` must stay `false` in Preview, because the webhook is safe only while it is
-registered by hand, and a preview that registered it would take the real bot's updates away.
+`RUN_BOT` must stay `false` in Preview, because the key is shared with Production and on
+Vercel `RUN_BOT=true` makes the deployment refuse to start (the check in the next section). A preview's
+bot is a second one with a token of its own, so it cannot take the real bot's updates.
 
 **A revision is applied to the Neon branch `preview` when its pull request is pushed, and to
 production before the merge** (`CLAUDE.md`, «Run the migration BEFORE the merge that needs

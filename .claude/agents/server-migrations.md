@@ -51,6 +51,10 @@ by hand, and a session has no `DATABASE_URL`. The project is the one **named `le
 the Neon MCP server — the account has two, so read the name rather than guessing an id, and
 keep the id out of the repository. `0005` through `0018` were all applied that way.
 
+A revision goes to the Neon branch `preview` when its pull request is pushed, and to
+production before the merge: the preview's code would otherwise know a column its database
+does not. `0018` was the first to go that way.
+
 It is not alembic running. It is the revision's DDL executed as one transaction with
 `alembic_version` stamped in the same transaction, so:
 

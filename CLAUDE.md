@@ -479,7 +479,8 @@ points Hilt does not inject cleanly.
   `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is the
   one named `lessons` on the Neon MCP server — the account has two, so read the name rather
   than guessing an id, and the id itself stays out of the repository — and `0005` through
-  `0017` were all applied that way. It is not alembic running — it is the revision's DDL executed as one
+  `0018` were all applied that way, `0018` to the Neon branch `preview` first, when its pull
+  request was pushed, and to production before the merge; every revision now goes that way. It is not alembic running — it is the revision's DDL executed as one
   transaction, with `alembic_version` stamped in the same transaction — so three things
   follow. Take the DDL from the model rather than writing it out: `CreateTable(...).compile(
   dialect=postgresql.dialect())` prints exactly what `create_all` would build, which is what

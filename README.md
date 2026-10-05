@@ -494,12 +494,14 @@ one of them is proved by a test rather than by a screen.
   «Сервер на связи», «Сервер: база и код разошлись», «Сервер не отвечает» and «Адрес
   сервера не задан» apart in Robolectric, against a fake. Which of the four a phone shows
   when pointed at production, nobody has watched.
-* **`/api/v1/warmup` was last read on 26 September 2026**, at 17:05 UTC, after #140 had
+* **`/api/v1/warmup` was last read healthy on 26 September 2026**, at 17:05 UTC, after #140 had
   deployed: the production deployment of `bd7c816` answered
   `{"status":"ok","api_version":1,"schema":"0017"}`, so the migrations and the code that
-  needs them met. Production is at `0017` since 12:26 UTC that day: `0015`, `0016` and
-  `0017` went on together before #140's merge, and `0017` found no diary correction to
-  rewrite. The per-deployment URLs sit behind Vercel's protection, so the request went
+  needs them met. `0015`, `0016` and `0017` had gone on together at 12:26 UTC that day, before
+  #140's merge, and `0017` found no diary correction to rewrite. On 5 October 2026 at 22:06
+  UTC `0018` went on to production before #350's merge, and the same endpoint then answered
+  `degraded` with «База впереди кода» until the merge deployed: the window the right order
+  makes, read once and not a measurement. The per-deployment URLs sit behind Vercel's protection, so the request went
   through the Vercel connector, which carries the owner's access; the production alias is
   not behind it. It is one request, not a measurement, and the next migration needs it read
   again.

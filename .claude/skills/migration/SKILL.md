@@ -65,6 +65,10 @@ A revision that does not move it fails there.
 
 ## 5. Apply it
 
+**Twice: the Neon branch `preview` first, when the pull request is pushed, and production
+before the merge.** `0018` was the first to go that way; a preview whose database is behind
+its code answers `degraded`.
+
 Through the **Neon connector**, from the session. The owner does not run
 `alembic upgrade head` by hand and a session has no `DATABASE_URL`. The project is the one
 **named `lessons`** — the account has two, so read the name rather than guessing an id, and
