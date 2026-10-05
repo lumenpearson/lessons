@@ -76,6 +76,15 @@ def test_every_unary_method_has_its_route_with_its_verb() -> None:
     }
     bindings = _bindings()
     assert len(bindings) == 75
+    named = {
+        route.name: route.path
+        for route in app.routes
+        if getattr(route, "path", "").startswith("/api/v2/") and hasattr(route, "methods")
+    }
+    # Every route under /api/v2 is a method's, and every method's is named for it.
+    assert set(named) == set(bindings)
+    for key in bindings:
+        assert named[key] == route_path(METHODS[key])
     for key, (verb, template) in bindings.items():
         path = "/api" + re.sub(
             r"\{([^}]+)\}", lambda m: "{" + m.group(1).replace(".", "__") + "}", template
@@ -187,18 +196,48 @@ def test_a_get_query_reaches_nested_and_repeated_fields() -> None:
         # nesting deeper than the interpreter's stack, a RecursionError.
         ("lessons.v2.DeviceService/CreateDevice", [], b'{"code": "\xff"}'),
         ("lessons.v2.DeviceService/CreateDevice", [], b"[" * 200_000),
+        # Valid JSON that is not valid UTF-8 once decoded: Connect refuses it, and
+        # over REST it used to reach the answer and fail there as a 500 (#339).
+        ("lessons.v2.MeService/UpdateTask", [], b'{"title": "\\ud800"}'),
+        ("lessons.v2.DayService/UpdateDay", [], b'{"kind": true}'),
+        ("lessons.v2.MeService/UpdateTask", [], b'{"priority": 99999999999}'),
     ],
-    ids=["bool", "not-an-object", "truncated", "body-field", "bad-path", "not-utf8", "too-deep"],
+    ids=[
+        "bool",
+        "not-an-object",
+        "truncated",
+        "body-field",
+        "bad-path",
+        "not-utf8",
+        "too-deep",
+        "lone-surrogate",
+        "enum-of-the-wrong-type",
+        "int-out-of-range",
+    ],
 )
 def test_what_does_not_decode_is_request_undecodable(key, query, body) -> None:
     method = METHODS[key]
-    params = {"task__id": "1"} if "task" in route_path(method) else {}
+    params = {v.replace(".", "__"): "7" for v in method.binding.variables}
     if "{year}" in route_path(method):
         params = {"year": "two thousand"}
     with pytest.raises(Refusal) as refused:
         decode(method, path_params=params, query=query, headers=[], body=body)
     assert refused.value.reason.name == "REQUEST_UNDECODABLE"
     assert refused.value.message == "The request could not be decoded"
+
+
+def test_an_unknown_enum_name_reads_as_unspecified_as_it_does_over_connect() -> None:
+    """connectrpc's JSON codec ignores unknown fields, an unknown enum name
+    among them, so the transcoder does the same rather than refusing what
+    Connect accepts."""
+    request = decode(
+        METHODS["lessons.v2.DayService/UpdateDay"],
+        path_params={"day__date": "2026-09-07"},
+        query=[],
+        headers=[],
+        body=b'{"kind": "NOT_A_KIND"}',
+    )
+    assert request.day.kind.name == "UNSPECIFIED"
 
 
 def test_if_none_match_comes_from_the_header_which_wins_over_the_query() -> None:
@@ -350,3 +389,82 @@ async def test_a_refusal_is_google_s_body_under_its_status(v2, monkeypatch) -> N
 
 async def test_the_wrong_verb_is_405(v2) -> None:
     assert (await v2.http.get("/api/v2/devices")).status_code == 405
+
+
+def _bearer(token):
+    return {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
+
+
+async def test_a_surrogate_in_a_body_is_refused_the_same_by_both_transports(
+    v2, v2_tokens, monkeypatch
+) -> None:
+    monkeypatch.setitem(HANDLERS, "lessons.v2.MeService/UpdateTask", _echo)
+    rest = await v2.http.patch(
+        "/api/v2/me/tasks/5",
+        content=b'{"title": "\\ud800"}',
+        headers=_bearer(v2_tokens["viewer"]),
+    )
+    connect = await v2.http.post(
+        "/api/rpc/lessons.v2.MeService/UpdateTask",
+        content=b'{"task": {"id": 5, "title": "\\ud800"}}',
+        headers=_bearer(v2_tokens["viewer"]),
+    )
+    assert rest.status_code == connect.status_code == 400
+    assert rest.json()["error"]["status"] == "INVALID_ARGUMENT"
+    assert rest.json()["error"]["message"] == connect.json()["message"]
+
+
+async def test_an_answer_that_cannot_be_written_is_internal_in_googles_shape(
+    v2, v2_tokens, monkeypatch
+) -> None:
+    async def unwritable(call, request):
+        return me_pb.UpdateTaskResponse(task=me_pb.Task(id=5, title="\ud800"))
+
+    monkeypatch.setitem(HANDLERS, "lessons.v2.MeService/UpdateTask", unwritable)
+    response = await v2.http.patch(
+        "/api/v2/me/tasks/5", content=b"{}", headers=_bearer(v2_tokens["viewer"])
+    )
+    assert response.status_code == 500
+    assert response.headers["content-type"].startswith("application/json")
+    error = response.json()["error"]
+    assert (error["code"], error["status"]) == (500, "INTERNAL")
+    assert "ud800" not in response.text
+
+
+async def test_a_throttle_answers_with_retry_after(v2, v2_tokens, monkeypatch) -> None:
+    from app.rpc.errors import ErrorReason
+
+    async def throttled(call, request):
+        raise Refusal(ErrorReason.THROTTLED, "Slow down", retry_after_seconds=30)
+
+    monkeypatch.setitem(HANDLERS, "lessons.v2.MeService/GetMe", throttled)
+    answer = await v2.both("MeService/GetMe", token=v2_tokens["viewer"])
+    assert answer.status == 429
+    assert answer.headers["retry-after"] == "30"
+    assert answer.retry_seconds == 30
+
+
+async def test_the_class_s_secret_calendar_url_is_never_cached(v2, v2_tokens, monkeypatch) -> None:
+    async def feed(call, request):
+        return me_pb.GetCalendarFeedResponse()
+
+    monkeypatch.setitem(HANDLERS, "lessons.v2.MeService/GetCalendarFeed", feed)
+    response = await v2.http.get(
+        "/api/v2/me/calendarFeed", headers={"Authorization": f"Bearer {v2_tokens['viewer']}"}
+    )
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "private, no-store"
+
+
+async def test_an_unreadable_answer_is_never_the_same_outcome_as_another(v2) -> None:
+    """The harness's own rule: an answer it could not read is not «ok», so a
+    REST 405 and a Connect 404 cannot pass ``both`` as one outcome."""
+    import httpx
+
+    known = await v2.connect("MeService/GetMe")
+    answer = type(known)
+    rest = answer("rest", 405, httpx.Headers(), b'{"detail": "Method Not Allowed"}')
+    connect = answer("connect", 404, httpx.Headers(), b"")
+    assert rest.code is None and connect.code is None
+    assert rest.outcome() != connect.outcome()
+    assert rest.outcome() != answer("rest", 200, httpx.Headers(), b"", message=None).outcome()

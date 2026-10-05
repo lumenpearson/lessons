@@ -80,6 +80,10 @@ CREATED = frozenset(
 #: What every diary read answers with: a family's marks are nobody's cache's.
 NO_STORE = "private, no-store"
 
+#: Reads outside the diary that are as private: the class's calendar
+#: subscription URL is a secret, and a shared cache must not keep it.
+NO_STORE_ALSO = frozenset({"lessons.v2.MeService/GetCalendarFeed"})
+
 #: Connect's own limit on a request message, so the two transports refuse the
 #: same size with the same words.
 MAX_BODY = DEFAULT_READ_MAX_BYTES
@@ -226,7 +230,12 @@ def decode(
         _put(value, desc, name.replace("__", "."), raw, append=False)
 
     try:
-        return message_from_json_value(method.input, value, ignore_unknown_fields=True)
+        message = message_from_json_value(method.input, value, ignore_unknown_fields=True)
+        # The JSON reader keeps a lone surrogate escape, which no UTF-8 can
+        # carry; Connect's binary check refuses it, and without this the
+        # request would pass and fail later, in the answer, as a 500 (#339).
+        message.to_binary()
+        return message
     except Exception:
         # Whatever the parser says may quote the value it refused.
         raise undecodable() from None
@@ -251,8 +260,8 @@ def _answer(method: Method, response: Message) -> Response:
     etag = response[fields["etag"]] if "etag" in fields else ""
     if etag:
         headers["ETag"] = etag
-    if method.service == "lessons.v2.DiaryService" and method.binding is not None:
-        if method.binding.verb == "get":
+    if method.binding is not None and method.binding.verb == "get":
+        if method.service == "lessons.v2.DiaryService" or method.key in NO_STORE_ALSO:
             headers["Cache-Control"] = NO_STORE
     if "not_modified" in fields and response[fields["not_modified"]]:
         return Response(status_code=304, headers=headers)
@@ -284,7 +293,13 @@ def _endpoint(method: Method) -> Callable[[Request], Awaitable[Response]]:
             return error_response(error)
         except Refusal as refusal:
             return error_response(connect_error(refusal))
-        return _answer(method, response)
+        try:
+            return _answer(method, response)
+        except Exception as error:
+            # A handler's answer that cannot be written is our bug, and
+            # Starlette would send it as plain text; Google's body, with the
+            # traceback logged, is what a client of this API can read.
+            return error_response(connect_error(error))
 
     return endpoint
 

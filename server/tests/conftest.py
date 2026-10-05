@@ -538,6 +538,11 @@ class _V2Answer:
     retry_seconds: int | None = None
 
     def outcome(self) -> tuple[Any, ...]:
+        if self.code is None and self.message is None:
+            # An answer the harness could not read is no success, and it is
+            # never the same as another transport's: the status and the
+            # transport are part of it, so ``both`` fails on the pair.
+            return ("unreadable", self.transport, self.status)
         if self.code is None:
             return ("ok", self.message)
         return (
@@ -584,7 +589,10 @@ def _v2_json(response: httpx.Response) -> dict[str, Any]:
     this reader."""
     if "json" not in response.headers.get("content-type", "") or not response.content:
         return {}
-    parsed = response.json()
+    try:
+        parsed = response.json()
+    except ValueError:
+        return {}
     return parsed if isinstance(parsed, dict) else {}
 
 
@@ -673,9 +681,10 @@ class _V2:
         )
         answer = _V2Answer("rest", response.status_code, response.headers, response.content)
         if response.status_code == 304:
-            answer.message = method.output.from_json(
-                json.dumps({"notModified": True, "etag": response.headers["etag"]})
-            )
+            if "etag" in response.headers:
+                answer.message = method.output.from_json(
+                    json.dumps({"notModified": True, "etag": response.headers["etag"]})
+                )
         elif response.status_code < 300:
             answer.message = method.output.from_json(response.content)
         else:
@@ -686,8 +695,10 @@ class _V2:
             answer.code, answer.error = error.get("status"), error.get("message")
             details = []
             for detail in error.get("details", []):
-                type_name = detail["@type"].removeprefix("type.googleapis.com/")
-                cls = getattr(error_details_pb, type_name.rpartition(".")[2])
+                type_name = str(detail.get("@type", "")).removeprefix("type.googleapis.com/")
+                cls = getattr(error_details_pb, type_name.rpartition(".")[2], None)
+                if cls is None:
+                    continue
                 fields = {key: item for key, item in detail.items() if key != "@type"}
                 details.append((type_name, cls.from_json(json.dumps(fields))))
             _v2_details(answer, details)
@@ -765,12 +776,14 @@ class _V2:
 
         from app.contract.google.rpc import error_details_pb
 
-        if not error:
+        if not isinstance(error.get("code"), str):
             return
         answer.code, answer.error = error["code"].upper(), error.get("message")
         details = []
         for detail in error.get("details", []):
-            cls = getattr(error_details_pb, detail["type"].rpartition(".")[2])
+            cls = getattr(error_details_pb, str(detail.get("type", "")).rpartition(".")[2], None)
+            if cls is None:
+                continue
             raw = base64.b64decode(detail["value"] + "=" * (-len(detail["value"]) % 4))
             details.append((detail["type"], cls.from_binary(raw)))
         _v2_details(answer, details)
