@@ -1,6 +1,9 @@
 # The app on v2: transport-neutral remotes, three transports, and v1's retirement
 
-Status: **drafted on 5 October 2026 while the owner was away, not yet approved.** Sub-project 5 of
+Status: **approved by the owner on 5 October 2026**, every question answered with its
+recommendation (#307): 5b's APK is the first on the family's phones, no run-time transport
+switch, the server records each phone's last client version, and no fallback to v1. Its
+stages wait for sub-project 4 and for sub-project 3's stages. Sub-project 5 of
 [the programme](2026-10-03-one-contract-design.md), whose section 3 already decided the shape:
 - one interface per area in `:core:data`;
 - the transport as a build property, `connect` by default;
