@@ -28,6 +28,60 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the agents are told what the tree and CI actually do (#314–#318)
+
+Merged as #319 (`580b475`, 5 October 2026), from `fix/agent-facts`, on milestone 11. It closed #314, #315, #316,
+#317 and #318 and refers to #273. Written on 5 October 2026, after #313 merged. The schema
+head did not move, and nothing under `/api/v2` exists.
+
+- **A sweep of `.claude/`, `AGENTS.md` and `CONTRIBUTING.md` against the tree** found ten stale
+  facts after #309 and #310. Each was filed before the fix, grouped by kind, and is corrected
+  here:
+  - **CI's gates (#314).** Eleven places still gave `python -m pytest -q -n auto`, because #310
+    had fixed the `gates` skill alone; they give the bare command now. Seven Android gate lists
+    left out `./gradlew detekt`, which CI fails on; each has it now.
+  - **The check for Russian in Kotlin (#315)**, in `CLAUDE.md`, `android-strings`,
+    `android-ui` and the `strings` skill. `*/src/main` never reached `core/*/src/main`,
+    matched every comment that quotes Russian, and in Git Bash does not run without a UTF-8
+    locale. Corrected, and run as written, it finds only the documented exceptions. Every hit
+    in `:core:designsystem` sits inside its file's previews.
+  - **Code described wrongly (#316).** `ScheduleEngine` resolves no template, and the
+    server's mirror is `SchoolYear`; `_resolve_day` asks `off_reason_for`; the two fonts are a
+    pair.
+  - **Counts and states (#317):** 1635 Android tests, 2207 server, `0017`, the `androidTest`
+    source set, two hooks, and eleven string files. The `handover` skill now names the seven
+    places a test count lives rather than three, which is why four of them had drifted.
+  - **The passwords' file (#318).** `android-build` says never to read or print it, and the
+    README says what the deny list holds and that this file is not on it.
+- **`docs/history.md`'s two newest sections**, #311's and #305's, now name `HANDOVER.md` where
+  they say «section 5», «7» or «8», as the `handover` skill asks of a moved sentence. The moves
+  had left six such references pointing at sections of a file they are no longer in.
+- **After #313's merge**, `dev` was fast-forwarded to `c070b97`, production answered
+  `/api/v1/warmup` with `{"status":"ok","api_version":1,"schema":"0017"}`, and the board reads
+  Done, P2, S, 3 and 2026-10-05 for #313 and #312.
+
+### Gates
+
+- **Documents only.** The tests that read them (`test_schema_version.py`, `test_ci_paths.py`,
+  `test_env_example.py`) gave **21 passed** from this worktree's own venv. The suite stays
+  2207, as #313's two runs counted it. CI's server job runs on the change, because
+  `CLAUDE.md`, `.claude/*.md` and `CONTRIBUTING.md` are on its filter.
+- **The corrected Russian-in-Kotlin check** was run as written, from `android/`.
+- **`:core:model`'s «125 tests, in ten files»** in `docs/architecture.md` was counted again
+  (`@Test` across its ten test files) and stands.
+
+### What was deliberately left alone
+
+- **`.claude/settings.json`.** A session may not edit its own permissions, so three changes
+  are in `HANDOVER.md`'s section 7 for the owner.
+- **The `github-pr` skill's `dev → main`**, which the sweep noted: every merge to `main`
+  tonight came from a named branch, with `dev` fast-forwarded after. That is practice drifting
+  from the skill, not a fact the skill states wrongly, and it is the owner's to settle.
+
+### What nobody has verified in this batch
+
+- **That agents follow the corrected text.** Nothing can test an instruction.
+
 ## What the batch before added: the server's tests refuse another checkout's code (#312), and the four designs agree with one another
 
 Merged as #313 (`c070b97`, 5 October 2026), from `fix/tests-import-own-tree`, on milestone 11. It closed #312 and
