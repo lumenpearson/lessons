@@ -251,8 +251,8 @@ step. What stayed in CI for good:
   `.github/copilot-instructions.md` and every `.md` under `docs/` and `.claude/` — because
   `test_schema_version` fails on one that names an old head, so a change to any of them
   runs the server, a change confined to `docs/` included; so does a change to `proto/`,
-  `buf.yaml`, `buf.gen.yaml`, `vercel.json`, `.vercelignore`, `.python-version`, the two
-  requirements files or `docker-compose.yml`, each read by a server test. `docs/app/` and
+  `buf.yaml`, `buf.gen.yaml`, `buf.lock`, `vercel.json`, `.vercelignore`, `.python-version`,
+  the two requirements files or `docker-compose.yml`, each read by a server test. `docs/app/` and
   `docs/legal/` are packaged into the APK and run Android as well; a change to `proto/`,
   `buf.yaml`, `buf.gen.yaml`, `buf.lock` or `server/app/contract/` runs the «Contract» job,
   which only those files, a workflow edit or an unknown range run; and the region catalog
@@ -770,6 +770,9 @@ CI would regenerate something else one morning with nothing changed here.
 `server/tests/test_contract.py` holds each pin level with its runtime's floor in
 `requirements.in` (`protobuf-py>=0.6.0`, `connectrpc>=0.12.1`) and with the header of every
 generated module. Moving one is three edits and a regeneration, in one commit.
+`buf.gen.yaml` also names googleapis' `google/rpc` as a second input, by the commit
+`buf.lock` pins, because a module under `inputs:` is not resolved through the lock. `buf dep
+update` moves the lock alone, and `test_contract.py` fails until the input follows it.
 
 **Unauthenticated, for now.** Generation, and the `googleapis` dependency pinned in
 `buf.lock`, come from the Buf Schema Registry without a login, as the spike did it. Buf

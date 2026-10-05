@@ -924,6 +924,55 @@ def test_the_cold_start_probe_sees_generated_code() -> None:
     assert any(name.partition(".")[0] == "protobuf" for name in loaded)
 
 
+def test_google_rpc_is_generated_from_the_commit_buf_lock_pins() -> None:
+    """The error model's details are googleapis' ``google/rpc``, generated as a
+    second input of buf.gen.yaml. A module under ``inputs:`` is not resolved
+    through buf.lock, so the commit is written twice; held level here, so that
+    ``google/api`` and ``google/rpc`` never come from two different googleapis."""
+    lock = (REPOSITORY / "buf.lock").read_text(encoding="utf-8")
+    locked = re.search(r"name: buf\.build/googleapis/googleapis\s+commit: (\w+)", lock)
+    config = (REPOSITORY / "buf.gen.yaml").read_text(encoding="utf-8")
+    pinned = re.search(
+        r"^\s*- module: buf\.build/googleapis/googleapis:(\w+)\s*$", config, re.MULTILINE
+    )
+    assert locked is not None and pinned is not None
+    assert pinned.group(1) == locked.group(1)
+
+    from app.contract.google.rpc import code_pb, error_details_pb, status_pb
+
+    assert {"ErrorInfo", "BadRequest", "RetryInfo"} <= set(vars(error_details_pb))
+    assert status_pb.Status.desc().type_name == "google.rpc.Status"
+    assert code_pb.Code.desc().name == "Code"
+
+
+def test_the_error_details_render_as_json_through_the_type_registry() -> None:
+    """REST writes a refusal's details as JSON, not as Connect's base64: an
+    ``Any`` rendered through protobuf-py's own type registry, ``@type`` first.
+    The 5 October spike saw only Connect's form, so this is the first time the
+    REST form is asked of the runtime that will write it."""
+    from protobuf import Registry, message_to_json_value
+    from protobuf.wkt import Any as AnyMessage
+    from protobuf.wkt import Duration
+
+    from app.contract.google.rpc import error_details_pb
+
+    registry = Registry(error_details_pb.desc())
+    info = error_details_pb.ErrorInfo(
+        reason="ROLE_REQUIRED", domain="lessons.app", metadata={"role": "ROLE_ADMIN"}
+    )
+    retry = error_details_pb.RetryInfo(retry_delay=Duration(seconds=7))
+    assert message_to_json_value(AnyMessage.pack(info), registry=registry) == {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "ROLE_REQUIRED",
+        "domain": "lessons.app",
+        "metadata": {"role": "ROLE_ADMIN"},
+    }
+    assert message_to_json_value(AnyMessage.pack(retry), registry=registry) == {
+        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+        "retryDelay": "7s",
+    }
+
+
 def test_the_readers_see_what_they_are_written_for() -> None:
     """Held here rather than trusted: a reader that always answered None would
     pass every check above that asks whether something is absent."""

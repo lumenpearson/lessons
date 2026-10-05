@@ -117,7 +117,8 @@ jobs:
               # source, comments included, where the «Contract» job checks only
               # what is generated from it. test_contract holds `buf.yaml` and
               # `buf.gen.yaml`, with its plugin pins, level with the runtime
-              # floors in `requirements.in`, the input of the lock
+              # floors in `requirements.in`, and `buf.lock`'s googleapis commit
+              # level with `buf.gen.yaml`'s input; the input of the lock
               # `requirements.txt`; test_requirements_mirror holds those two
               # level with pyproject.toml and the lock with `.python-version`.
               # `docker-compose.yml` is read by test_compose, which is all that
@@ -125,7 +126,7 @@ jobs:
               # are read by test_vercel_entry, `.vercelignore` by
               # test_region_catalog. server/tests/test_ci_paths.py fails on a
               # file the suite reads that this line does not match.
-              server/*|api/*|vercel.json|.vercelignore|requirements.txt|requirements.in|.python-version|docker-compose.yml|proto/*|buf.yaml|buf.gen.yaml|README.md|CLAUDE.md|AGENTS.md|.github/copilot-instructions.md|docs/*.md|.claude/*.md|.github/workflows/*) server=true ;;
+              server/*|api/*|vercel.json|.vercelignore|requirements.txt|requirements.in|.python-version|docker-compose.yml|proto/*|buf.yaml|buf.lock|buf.gen.yaml|README.md|CLAUDE.md|AGENTS.md|.github/copilot-instructions.md|docs/*.md|.claude/*.md|.github/workflows/*) server=true ;;
             esac
             case "$file" in
               # The v2 contract and what is generated from it: the job below.

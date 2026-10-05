@@ -40,6 +40,7 @@ READ_BY_THE_SUITE = {
     "proto/lessons/v2/*.proto": "test_contract, test_contract_json, test_contract_mirror",
     "buf.yaml": "test_contract",
     "buf.gen.yaml": "test_contract",
+    "buf.lock": "test_contract",
     "requirements.in": "test_requirements_mirror, test_contract, test_diary_client",
     "requirements.txt": "test_requirements_mirror",
     ".python-version": "test_requirements_mirror",
