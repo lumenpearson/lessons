@@ -12,9 +12,10 @@ import httpx
 from sqlalchemy import func, select
 
 from app import wording
-from app.contract.lessons.v2.device_pb import CreateDeviceRequest
+from app.contract.lessons.v2.device_pb import CreateDeviceRequest, CreateDeviceResponse
 from app.main import app
 from app.models import AuditEntry, DeviceToken, JoinAttempt, JoinMode, SchoolClass
+from app.schemas import JoinRequest
 from app.security import MAX_DEVICES_PER_CLASS, hash_token, join_limiter
 from app.services import device_invites
 
@@ -191,3 +192,64 @@ async def test_a_correct_code_is_never_counted(v2, school_class) -> None:
     for _ in range(join_limiter.limit + 2):
         answer = await v2.connect("DeviceService/CreateDevice", CreateDeviceRequest(code="TEST42"))
         assert answer.status == 200
+
+
+async def _v1_and_v2_diary(v2) -> tuple[dict | None, CreateDeviceResponse]:
+    v1 = (await v2.http.post("/api/v1/join", json={"code": "TEST42"})).json()["diary"]
+    answer = (
+        await v2.rest("DeviceService/CreateDevice", CreateDeviceRequest(code="TEST42"))
+    ).message
+    return v1, answer
+
+
+async def test_an_unbound_class_has_no_diary_in_either_version(v2, school_class) -> None:
+    v1, answer = await _v1_and_v2_diary(v2)
+    assert v1 is None and not answer.has_field("diary")
+
+
+async def test_a_petersburg_class_reports_its_diary_as_v1_does(v2, session, school_class) -> None:
+    school_class.diary_provider = "petersburg"
+    await session.commit()
+    v1, answer = await _v1_and_v2_diary(v2)
+    assert v1["provider"] == "petersburg" == answer.diary.provider
+    assert v1["region"] is None and not answer.diary.has_field("region")
+    assert v1["school_id"] is None and not answer.diary.has_field("school_id")
+
+
+async def test_a_netschool_class_reports_its_diary_as_v1_does(v2, session, school_class) -> None:
+    school_class.diary_provider = "netschool"
+    school_class.diary_region = "amur"
+    school_class.diary_school_id = 11
+    school_class.diary_school_name = "Школа № 3"
+    await session.commit()
+    v1, answer = await _v1_and_v2_diary(v2)
+    assert v1 is not None, "the region must be usable for this test to mean anything"
+    diary = answer.diary
+    assert (diary.provider, diary.region, diary.school_id, diary.school_name) == (
+        v1["provider"],
+        v1["region"],
+        v1["school_id"],
+        v1["school_name"],
+    )
+    assert (diary.region, diary.school_id, diary.school_name) == ("amur", 11, "Школа № 3")
+
+
+async def test_a_device_name_past_v1_s_limit_is_rejected_and_not_counted(v2, session) -> None:
+    limit = JoinRequest.model_fields["device_name"].metadata[0].max_length
+    name = "SECRET-NAME-" + "n" * limit
+    before = await _attempts(session)
+    answer = await v2.both(
+        "DeviceService/CreateDevice", CreateDeviceRequest(code="TEST42", device_name=name)
+    )
+    assert (answer.code, answer.reason) == ("INVALID_ARGUMENT", "VALIDATION_FAILED")
+    assert [field for field, _ in answer.violations] in (["device_name"], ["deviceName"])
+    assert "SECRET-NAME" not in answer.body.decode()
+    v1 = await v2.http.post("/api/v1/join", json={"code": "TEST42", "device_name": name})
+    assert v1.status_code == 422
+    assert await _attempts(session) == before
+
+
+async def test_the_answer_that_carries_a_token_is_never_cached(v2, school_class) -> None:
+    rest = await v2.rest("DeviceService/CreateDevice", CreateDeviceRequest(code="TEST42"))
+    assert rest.status == 201
+    assert rest.headers["cache-control"] == "private, no-store"

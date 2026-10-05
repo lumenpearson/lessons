@@ -84,6 +84,11 @@ NO_STORE = "private, no-store"
 #: subscription URL is a secret, and a shared cache must not keep it.
 NO_STORE_ALSO = frozenset({"lessons.v2.MeService/GetCalendarFeed"})
 
+#: Writes whose *answer* is a credential: the token a phone will use for good.
+#: Nobody asked a cache to keep a POST, but the answer says so anyway, as
+#: defence in depth. 3b adds ``CreateDiarySession`` here.
+NO_STORE_CREDENTIAL = frozenset({"lessons.v2.DeviceService/CreateDevice"})
+
 #: Connect's own limit on a request message, so the two transports refuse the
 #: same size with the same words.
 MAX_BODY = DEFAULT_READ_MAX_BYTES
@@ -263,6 +268,8 @@ def _answer(method: Method, response: Message) -> Response:
     if method.binding is not None and method.binding.verb == "get":
         if method.service == "lessons.v2.DiaryService" or method.key in NO_STORE_ALSO:
             headers["Cache-Control"] = NO_STORE
+    if method.key in NO_STORE_CREDENTIAL:
+        headers["Cache-Control"] = NO_STORE
     if "not_modified" in fields and response[fields["not_modified"]]:
         return Response(status_code=304, headers=headers)
     status = 201 if method.key in CREATED else 200
