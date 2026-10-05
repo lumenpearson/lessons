@@ -707,11 +707,17 @@ points Hilt does not inject cleanly.
   rather than listing them, and counts a `<plurals>`' arguments per form (Russian
   has four forms and English two; over the concatenated text they can never agree).
   What it cannot see is a Russian string written into Kotlin, because that word is
-  in neither folder — `grep -rnP '"[^"]*[\x{0400}-\x{04FF}]' */src/main` is the
-  check for that, and today it finds only `@Preview` data, maintainer-facing report
-  bodies, the timezone list, whose file documents the choice, and
-  `core/data/.../upstream/UpstreamMarkers.kt` — the diaries' own words, matched in their
-  answers, which is the one documented exception on the diary's side.
+  in neither folder. The check for that, run from `android/`, is
+  `LC_ALL=C.UTF-8 grep -rnP --include='*.kt' '^(?!\s*(\*|//|/\*)).*"[^"]*[\x{0400}-\x{04FF}]' */src/main core/*/src/main`.
+  Each part is there for a reason (#315):
+  - `core/*/src/main` because `*/src/main` alone never reaches the three core modules;
+  - the comment guard because KDoc here quotes Russian on purpose and would bury a finding;
+  - the locale because Git Bash's `grep -P` refuses to run without it.
+
+  Today it finds only `@Preview` data, maintainer-facing report bodies, the timezone list,
+  whose file documents the choice, and `core/data/.../upstream/UpstreamMarkers.kt` — the
+  diaries' own words, matched in their answers, which is the one documented exception on the
+  diary's side.
 - **A renderer is written against the type it is handed, and nothing checks that but you.**
   «🗓 Четверти» crashed on every press in production because the card printed `term.days`
   and `days` lived on a flattened copy of a term that nothing ever constructed. There is

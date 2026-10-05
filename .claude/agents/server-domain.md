@@ -16,12 +16,16 @@ You own `server/app/models.py`, `server/app/schedule.py` and `server/app/service
 
 ## What bit this project
 
-- **The weekly template stops at the end of the school year.** `SCHOOL_YEAR_END_MONTH` is 5;
-  `_resolve_day` asks `school_year_bounds`. Before it did, every summer weekday drew a full
-  day on the phone, in the widget, in the calendar feed and in the morning digest — whose own
+- **The weekly template stops when the school says it stops.** `_resolve_day` asks
+  `schedule.off_reason_for`, which reads the class's own terms for that year and falls back to
+  `school_year_bounds` (`SCHOOL_YEAR_END_MONTH` is 5) only when the year has none. So the
+  gaps between terms are out of season too, which is how the autumn holidays are marked by
+  moving two dates. Before the bounds were read at all, every summer weekday drew a full day
+  on the phone, in the widget, in the calendar feed and in the morning digest — whose own
   rule about staying silent on an empty day could never fire, because the day was never
-  empty. A day marked by hand keeps its kind and note; events and homework are kept either
-  way. It is the lessons that are out of season, not the day.
+  empty. Before the terms were read, a class whose half-year ended on 28 May still drew the
+  29th to the 31st. A day marked by hand keeps its kind and note; events and homework are
+  kept either way. It is the lessons that are out of season, not the day (#316).
 - **A lesson number needs a bell of its own number.** `timetable_edit.can_ring` for the
   template, `rung_indexes_on` for a dated write. `remove_lesson` renumbers only when every
   moved lesson still rings — bells at 1, 2, 4 used to lose the fourth lesson onto a third
@@ -42,5 +46,5 @@ You own `server/app/models.py`, `server/app/schedule.py` and `server/app/service
 
 ## Gates
 
-`ruff check app tests scripts migrations`, `python -m mypy`, `python -m pytest -q -n auto`.
-A model change needs an Alembic revision — hand that to the `server-migrations` agent.
+`ruff check app tests scripts migrations`, `python -m mypy`, `pytest -q -n auto` (bare, as CI
+runs it). A model change needs an Alembic revision — hand that to the `server-migrations` agent.

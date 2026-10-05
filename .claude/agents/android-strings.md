@@ -8,8 +8,9 @@ You own the `values/` and `values-en/` folders of every Android module.
 
 ## Where the strings live
 
-- `:app` — `strings.xml` plus `strings_admin`, `strings_diary`, `strings_docs`,
-  `strings_github`, `strings_telegram`, `strings_translate`, `strings_updates`
+- `:app` — `strings.xml` plus `strings_admin`, `strings_developer`, `strings_diary`,
+  `strings_docs`, `strings_github`, `strings_legal`, `strings_onboarding`, `strings_telegram`,
+  `strings_translate`, `strings_updates`
 - `:core:data`, `:core:designsystem`, `:widget` — one `strings.xml` each
 
 ## What the test enforces
@@ -30,11 +31,17 @@ than listing them, so a new module with strings is covered the day it appears.
 
 A Russian string written into Kotlin — that word is in neither folder. The sweep is:
 
-    grep -rnP '"[^"]*[\x{0400}-\x{04FF}]' */src/main
+    LC_ALL=C.UTF-8 grep -rnP --include='*.kt' '^(?!\s*(\*|//|/\*)).*"[^"]*[\x{0400}-\x{04FF}]' */src/main core/*/src/main
 
-Run it from `android/`. Today it finds only `@Preview` data, maintainer-facing report
-bodies, and the timezone list, whose own file documents the choice. Anything else you find
-is a string that should be a resource.
+Run it from `android/`. Each part is there for a reason (#315):
+- `core/*/src/main` because `*/src/main` alone never reaches the three core modules;
+- the comment guard because KDoc here quotes Russian on purpose;
+- the locale because Git Bash's `grep -P` refuses to run without it.
+
+Today it finds only `@Preview` data, maintainer-facing report bodies (`CrashReporter`,
+`BugReportComposer`), the timezone list, whose own file documents the choice, and
+`UpstreamMarkers.kt`, the diaries' own words. Anything else you find is a string that should
+be a resource.
 
 ## The direction
 

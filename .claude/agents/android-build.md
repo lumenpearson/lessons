@@ -25,18 +25,28 @@ JDK 21, compileSdk 37, Gradle from the wrapper — `./gradlew` works on a fresh 
   but `logger.warn`. The APK workflow now fails loudly instead. The keystore and its
   passwords come from environment variables or `~/.gradle/gradle.properties` and never from
   the repository; `*.jks` and `keystore.properties` are gitignored for that reason.
+  **Never read or print `~/.gradle/gradle.properties`**, not even for a Gradle setting: it
+  holds the signing passwords, and on 5 October 2026 an agent of this kind, looking in it for
+  a setting, printed one into its transcript (#318). A setting goes on the command line or in
+  the repository's `android/gradle.properties`; a line in that file is the owner's to add by
+  hand.
 
-- **The bundled typeface is committed, and it has to be able to draw Russian.**
-  `core/designsystem/src/main/res/font/onest.ttf` is Onest as downloaded: one axis,
-  `wght`, which the app varies. It replaced Google Sans Flex, which declares no Cyrillic
-  code point at all, so the app's own language came out of the device's fallback face.
-  `FontAxisTest` now fails on a face that cannot draw Russian and on one carrying an axis
-  nothing moves; a build-time instancer for the second case is in git history and was
-  removed with the six-axis file that needed it.
+- **The app is set in two bundled faces, and both are needed.** Under
+  `core/designsystem/src/main/res/font/`, `google_sans_flex.ttf` draws Latin and digits and
+  `onest.ttf` draws Cyrillic, each with one axis, `wght`, which the app varies.
+  `FallbackTypeface.kt` chains them with `Typeface.CustomFallbackBuilder`, because neither a
+  Compose `FontFamily` nor a font-family XML chooses by coverage; API 26–28 cannot express a
+  custom chain and get Onest alone. Google Sans Flex declares no Cyrillic code point at all,
+  which is why the second face exists. It does not replace the first. `FontAxisTest` holds
+  the pair: together they draw Russian, neither carries an axis nothing varies, and no file is
+  bundled unnamed. A build-time instancer is in git history and was removed with the six-axis
+  file that needed it.
 
 ## Gates
 
 `./gradlew test` and **both** `assembleDebug` and `assembleRelease` — R8 and resource
-shrinking are where "worked in debug" stops being true, and CI builds both on every push.
+shrinking are where "worked in debug" stops being true, and CI builds both on every push —
+then `./gradlew detekt`, which CI runs after them and fails on for any finding outside the
+module's `detekt-baseline.xml`.
 `./gradlew lint` runs the AGP Android lint; **CI does not run it**, so do not report it as a
 gate. In a sandbox with no network, every invocation needs `--offline`.

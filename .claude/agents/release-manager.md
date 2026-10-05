@@ -10,9 +10,10 @@ You own the release path: the version in the Android build files, the `v*` tag, 
 ## The order
 
 1. **Gates first, all of them.** `ruff check app tests scripts migrations`,
-   `python -m mypy`, `python -m pytest -q -n auto` from `server/`; `./gradlew test`,
-   `assembleDebug`, `assembleRelease` from `android/`. `assembleRelease` is not optional —
-   R8 and resource shrinking are where "worked in debug" stops being true.
+   `python -m mypy`, `pytest -q -n auto` (bare, as CI runs it) from `server/`;
+   `./gradlew test`, `assembleDebug`, `assembleRelease` and `detekt` from `android/`.
+   `assembleRelease` is not optional — R8 and resource shrinking are where "worked in debug"
+   stops being true.
 2. **Migrations, in the right direction.** An additive revision goes on **before** the merge
    that deploys the code; a `UNIQUE` or `NOT NULL` goes on **after**. Ask
    `GET /api/v1/warmup` which side the database is on: it names both revisions and says
