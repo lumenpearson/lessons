@@ -89,6 +89,14 @@ def test_access_of_an_unlinked_device_says_so() -> None:
     )
 
 
+def test_a_linked_account_that_is_no_member_is_linked_and_edits_nothing() -> None:
+    # Linked and roleless are both true at once: the phone is somebody's, and
+    # that somebody has left the class or was never in it.
+    access = Access.of(DeviceToken(token_hash="x", class_id=1, telegram_id=7), None)
+    assert access == Access(linked=True, role=None)
+    assert access.can_edit is False
+
+
 @pytest.mark.parametrize(
     ("sent", "matches"),
     [

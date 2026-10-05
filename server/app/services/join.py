@@ -8,10 +8,12 @@ on two. A refusal is an exception carrying facts, never a sentence, and each
 shell words it — v1's ``HTTPException`` details, v2's error table — with the
 sentences ``app/wording.py`` keeps for both.
 
-It commits, as the endpoint it came from did, and for the same reason the
-throttles do: the attempt that :meth:`JoinThrottle.admit` counted has to be
-durable before the code is even looked at, and a refusal that leaves it
-counted must leave it counted whatever the caller then rolls back.
+It commits, as the endpoint it came from did: the invite's burn, the token and
+the journal's line are one transaction, and only once it has landed is the
+attempt forgiven. The attempt itself is durable earlier, because
+:meth:`JoinThrottle.admit` commits it before the code is looked at, so a
+refusal that leaves it counted leaves it counted whatever the caller then
+rolls back.
 """
 
 from __future__ import annotations
@@ -45,8 +47,9 @@ class JoinThrottled(JoinRefused, Throttled):
 
 
 class JoinCodeUnknown(JoinRefused):
-    """Neither a class code nor a live personal code. The one refusal that
-    stays counted against the caller."""
+    """Neither a class code nor a live personal code. Counted against the
+    caller, except when the personal code was live and a concurrent join spent
+    it first: that caller had a real code, so the attempt is forgiven."""
 
 
 class ClassInviteOnly(JoinRefused):
