@@ -40,7 +40,7 @@ Each is a choice the design leaves to the code, or a place where the code showed
 19. **Effects** are `async` callables appended with `Call.after_commit`; they run after the commit inside the scope, and one that raises is logged and dropped. 3a registers none.
 20. **The side-effect test listens for statements** (`before_cursor_execute`) and allows: `UPDATE device_tokens SET last_seen_at=? …`; `UPDATE diary_sessions SET` of `upstream_token`/`last_used_at` only; anything on `join_attempts` and `usage_counters`.
 21. **No proto file changes.** The eight «REST answers 201» comments are a table in `rest/` (`CREATED`), held to the comments by a test.
-22. **#302's v1 side stays for 3b.** v1's `current_diary` still resolves the token before it asks whether the diary runs; the v2 gate asks first. The pull request says «Refs #302», not «Closes».
+22. **#302's v1 side is already fixed, by #303** (merged 5 October 2026, `aba88f8`): v1's `current_diary` answers «disabled» before it reads a token, and `services/diary.unusable` expires a session only when a configured key cannot open it. The v2 gate asks the same question first, and `find_session` — which the gate calls — no longer expires anything without a key. 3a's pull request does not mention #302; it is closed.
 23. **The branch is `server-v2/3a`**, cut in this worktree from `origin/main` once #301 (the design and this plan) has merged, or from `server-v2/design` if the owner approves while #301 is open.
 
 ## Global Constraints
@@ -6687,8 +6687,8 @@ with `gh pr checks`; Android not run, as nothing under `android/` changed.
 
 - The other seventy-one unary methods, the per-provider diary registry, the Telegram notices
   as effects: stage 3b. The host, native gRPC and `WatchClass`'s stream: stage 3c.
-- #302's v1 side: v1's `current_diary` still reads the token before it asks whether the diary
-  runs. v2's gate asks first; v1 is fixed with the diary methods in 3b.
+- #302 is not 3a's: #303 fixed v1 on 5 October 2026, and the v2 gate's own check is part of
+  Task 5.
 - An import-time ceiling in `test_cold_start.py` (the design's decision 8).
 
 ### What nobody has verified in this batch
@@ -6735,7 +6735,7 @@ Claude-Session: https://claude.ai/code/session_01Cv9sFsZ5Si3SUdX5cRgHKV
 EOF
 ```
 
-- [ ] **Step 9: Push and open the pull request** (the `github-pr` skill): from `server-v2/3a` to `main`, milestone 11, body naming «Refs #273» and «Refs #302» (not «Closes»: #302's v1 side is 3b's), the board item filled as the skill says. **Merge only under the skill's five checks, and only once the owner has approved the design**; otherwise leave it open and say so.
+- [ ] **Step 9: Push and open the pull request** (the `github-pr` skill): from `server-v2/3a` to `main`, milestone 11, body naming «Refs #273» (#302 is closed by #303), the board item filled as the skill says. **Merge only under the skill's five checks, and only once the owner has approved the design**; otherwise leave it open and say so.
 
 - [ ] **Step 10: After the merge, read production** (the design's decision 7). The deployment is `lessons-ruddy-zeta.vercel.app`:
 ```bash

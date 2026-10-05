@@ -14,7 +14,7 @@ the code and the contract. The review found:
 - a 3a that depended on 3b;
 - rules that live in v1 routers rather than in `services/`;
 - two error examples and a status code that contradicted the merged contract;
-- a v1 defect, filed as #302.
+- a v1 defect, filed as #302 and fixed the same night by #303.
 This version is the corrected one.
 
 **Delivers:**
@@ -34,7 +34,8 @@ This version is the corrected one.
 - any Kotlin (sub-project 5);
 - the deletion of v1, which waits for the new APK on the family's phones;
 - a production deployment of the host target (question 3);
-- a change to v1's behaviour, beyond #302's fix and the moves, which keep v1's answers as they are.
+- a change to v1's behaviour, beyond the moves, which keep v1's answers as they are. #302's fix
+  is #303's, already merged.
 
 ## What the code is today
 
@@ -75,8 +76,10 @@ this design stands on.
   - `/manage/subjects` adopts subjects;
   - any authenticated request may write `last_seen_at`;
   - diary reads re-seal a rotated upstream credential.
-- **A missing `DIARY_SECRET` expires every diary session it is asked about, for good** (#302):
-  `unseal` answers `None`, and `find_session` expires the row and commits.
+- **A missing `DIARY_SECRET` expired every diary session it was asked about, for good** (#302):
+  `unseal` answered `None`, and `find_session` expired the row and committed. #303 fixed v1:
+  `services/diary.unusable` expires only what a configured key cannot open, and `current_diary`
+  answers «disabled» before it looks at a token. The v2 gate makes the same check (decision 3).
 - **No client version is read anywhere**, on either side.
 
 ## Decisions
