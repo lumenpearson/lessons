@@ -347,8 +347,9 @@ class Throttled(Exception):
 
     @property
     def seconds(self) -> int:
-        """Whole seconds to wait, rounded up and never 0: v1's ``Retry-After``
-        and v2's ``retry_after_seconds`` are this one number."""
+        """Whole seconds to wait: the whole part plus one, so never 0 — the
+        number v1's ``Retry-After`` has always been, and v2's
+        ``retry_after_seconds``."""
         return int(self.retry_after) + 1
 
 

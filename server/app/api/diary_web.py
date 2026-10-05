@@ -56,6 +56,7 @@ from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.api.routing import DishkaAnnotatedRoute
 from app.crypto import diary_enabled
 from app.models import DiaryLinkCode, SchoolClass
@@ -253,7 +254,7 @@ async def sign_in_form(
     GET would mean a link preview or a prefetch burned it before anybody typed
     anything."""
     if not diary_enabled():
-        return _closed("Дневник на этом сервере выключен.", status=503)
+        return _closed(wording.DIARY_DISABLED_DETAIL, status=503)
     row = await _peek(session, code)
     if row is None:
         return _closed("Ссылка уже использована или устарела.", status=410)
@@ -329,7 +330,7 @@ async def sign_in_submit(
     session: FromDishka[AsyncSession],
 ) -> HTMLResponse:
     if not diary_enabled():
-        return _closed("Дневник на этом сервере выключен.", status=503)
+        return _closed(wording.DIARY_DISABLED_DETAIL, status=503)
 
     fields = await _fields(request)
     if fields is None:

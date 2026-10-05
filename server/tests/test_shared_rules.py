@@ -82,6 +82,19 @@ def test_the_class_clock_moves_today_with_it(monkeypatch, school_class) -> None:
     assert clock.today(school_class) == date(2026, 9, 8)
 
 
+def test_the_class_clock_runs_in_the_class_s_zone_not_the_server_s(school_class) -> None:
+    # The test above replaces ``now`` and so cannot see which zone it reads;
+    # a naive ``datetime.now()`` is the server's zone, which on Vercel is UTC.
+    assert clock.now(school_class).tzinfo == school_class.tz
+
+
+@pytest.mark.parametrize(
+    ("retry_after", "seconds"), [(0.0, 1), (0.2, 1), (5.0, 6), (899.9, 900)]
+)
+def test_a_wait_is_whole_seconds_and_never_zero(retry_after, seconds) -> None:
+    assert security.Throttled(retry_after).seconds == seconds
+
+
 def test_the_bounds_are_inclusive_and_v1_s() -> None:
     assert clock.in_bounds(date(2000, 1, 1), date(2100, 1, 1))
     assert not clock.in_bounds(date(1999, 12, 31))
