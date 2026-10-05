@@ -827,6 +827,21 @@ async def v2() -> AsyncIterator[_V2]:
 
 
 @pytest.fixture
+async def served_settings():
+    """The ``Settings`` the served app reads, to patch for a call through ``v2``.
+
+    ``get_settings()`` is not it: a test module that clears that cache builds a
+    second instance, while v2's ``invoke`` goes on reading the one the process's
+    dishka container resolved once, so a patch on the copy changes nothing the
+    gate sees and the test fails only after whichever module cleared the cache.
+    """
+    from app.config import Settings
+    from app.di import container
+
+    return await container().get(Settings)
+
+
+@pytest.fixture
 def statement_writes() -> Callable[[], contextlib.AbstractContextManager[list[str]]]:
     """``with statement_writes() as seen:`` — every INSERT, UPDATE and DELETE
     the engine sends while the block runs, whitespace folded.

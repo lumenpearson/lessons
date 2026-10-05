@@ -17,7 +17,6 @@ from urllib.parse import quote, urlencode
 import httpx
 import pytest
 
-from app.config import get_settings
 from app.contract.lessons.v2.options_pb import AuthKind
 from app.rpc.handlers import HANDLERS
 from app.rpc.methods import METHODS
@@ -41,8 +40,10 @@ def _leaks(response: httpx.Response) -> bool:
 
 
 @pytest.mark.parametrize("key", SERVED)
-async def test_no_refusal_repeats_what_was_sent(v2, v2_tokens, monkeypatch, key) -> None:
-    monkeypatch.setattr(get_settings(), "min_client_version", 40)
+async def test_no_refusal_repeats_what_was_sent(
+    v2, v2_tokens, monkeypatch, served_settings, key
+) -> None:
+    monkeypatch.setattr(served_settings,"min_client_version", 40)
     method = METHODS[key]
     binding = method.binding
     assert binding is not None

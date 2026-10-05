@@ -97,16 +97,32 @@ async def test_a_header_that_is_no_version_is_ignored_without_a_minimum(
 
 
 async def test_a_phone_told_to_update_is_neither_seen_nor_recorded(
-    v2, v2_tokens, session, monkeypatch
+    v2, v2_tokens, session, monkeypatch, served_settings
 ) -> None:
     """The version is read before the bearer, so its refusal touches nothing."""
-    monkeypatch.setattr(get_settings(), "min_client_version", 500)
+    monkeypatch.setattr(served_settings, "min_client_version", 500)
     answer = await v2.both(
         "MeService/GetMe", token=v2_tokens["viewer"], headers={"X-Lessons-Client": "412"}
     )
     assert (answer.code, answer.reason) == ("FAILED_PRECONDITION", "CLIENT_TOO_OLD")
     device = await _device(session, v2_tokens["viewer"])
     assert (device.client_version, device.last_seen_at) == (None, None)
+
+
+async def test_a_cleared_settings_cache_does_not_hide_the_minimum(
+    v2, v2_tokens, monkeypatch, served_settings
+) -> None:
+    """#348: eight modules clear ``get_settings``' cache, and a patch on the copy
+    that builds next is a patch the served app never reads."""
+    get_settings.cache_clear()
+    try:
+        monkeypatch.setattr(served_settings, "min_client_version", 500)
+        answer = await v2.both(
+            "MeService/GetMe", token=v2_tokens["viewer"], headers={"X-Lessons-Client": "412"}
+        )
+        assert (answer.code, answer.reason) == ("FAILED_PRECONDITION", "CLIENT_TOO_OLD")
+    finally:
+        get_settings.cache_clear()
 
 
 async def test_v1_never_records_a_version(v2, v2_tokens, session, statement_writes) -> None:
