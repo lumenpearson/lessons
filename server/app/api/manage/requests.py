@@ -14,12 +14,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class
-from app.api.manage._common import Actor, _member_names, _person, _wall, admin_actor
+from app.api.manage._common import Actor, admin_actor
 from app.api.routing import DishkaAnnotatedRoute
 from app.config import get_settings
 from app.models import AccessRequest, Role, SchoolClass
 from app.schemas import AccessRequestOut, RequestDecisionIn, RequestDecisionOut
 from app.services import access as access_service
+from app.services.clock import wall
+from app.services.manage import classes as classes_service
 from app.services.manage import requests as requests_service
 
 log = logging.getLogger(__name__)
@@ -84,14 +86,14 @@ async def requests_list(
 ) -> list[AccessRequestOut]:
     """Everybody waiting for a role, oldest first."""
     rows = await requests_service.pending(session, school_class.id)
-    names = await _member_names(session, school_class.id)
+    names = await classes_service.member_names(session, school_class.id)
     return [
         AccessRequestOut(
             id=row.id,
             who=names.get(row.telegram_id, str(row.telegram_id)),
             requested_role=row.requested_role.value,
             message=row.message,
-            created_at=_wall(row.created_at, school_class),
+            created_at=wall(row.created_at, school_class),
         )
         for row in rows
     ]
@@ -133,7 +135,7 @@ async def request_approve(
             status_code=status.HTTP_403_FORBIDDEN, detail=refused.detail
         ) from refused
 
-    who = _person(member.full_name, member.username, member.telegram_id)
+    who = classes_service.display_name(member.full_name, member.username, member.telegram_id)
     await session.commit()
 
     await _tell(request.telegram_id, access_service.approval_notice(school_class, target))
@@ -151,7 +153,7 @@ async def request_decline(
     """Say no. The person keeps whatever role they already had, and is told -
     silence would leave them asking again."""
     request = await _request_or_404(session, school_class, request_id)
-    names = await _member_names(session, school_class.id)
+    names = await classes_service.member_names(session, school_class.id)
     who = names.get(request.telegram_id, str(request.telegram_id))
 
     await requests_service.decline(session, school_class.id, actor.telegram_id, request)
