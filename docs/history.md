@@ -28,6 +28,94 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the v2 contract written down — `proto/lessons/v2`, its Python, and Buf in CI (sub-project 2 of #273)
+
+Merged as #297 (`45f0680`, 4 October 2026), from `contract/spec`, on milestone 11. Sub-project 2 of
+`docs/specs/2026-10-03-one-contract-design.md`, built from
+`docs/specs/2026-10-04-contract-v2-design.md`, which the owner approved on 4 October 2026,
+by the plan beside it. It refers to #273 and closes nothing. It adds a contract and serves
+none of it: nothing under `/api` answers differently, v1 is untouched and the schema head
+did not move.
+
+- **The design and its plan came first.** `docs/specs/2026-10-04-contract-v2-design.md` and
+  the plan beside it are in the pull request. Writing the plan amended the design: decision
+  10 (canonical proto3 JSON on both transports) and the renames in decision 7 are what it
+  found, each with its reason. The close-out added one sentence to decision 7: `ListHomework`,
+  `ListSubstitutions` and `ListEvents` default to 21 days and refuse more than 62.
+- **The toolchain was proved before anything was written.** Task 0 ran Buf 1.73.0 with the
+  remote Python plugins (protobuf-py 0.6.0 and connectrpc 0.12.1) over a throwaway proto and
+  found the path the well-known-types import must take; the plan's later tasks
+  rely on what it measured.
+- **The contract exists**: `proto/lessons/v2/`, seventeen services in twenty files,
+  seventy-six methods. Each method carries its REST route (`/v2/…`, served under `/api`
+  once something serves it), its credential (`(lessons.v2.auth)`), its least role on the
+  class (`(lessons.v2.min_role)`) and its idempotency. `ErrorReason` has thirty-three reasons
+  (thirty-four values, with `UNSPECIFIED`): the design's twenty-three and ten more, each
+  found in a v1 refusal.
+- **Its Python is generated and committed** into `server/app/contract/` by two pinned remote
+  Buf plugins. `connectrpc` and `protobuf-py` joined `pyproject.toml`, `requirements.in` and
+  the lock, which also gained `protobuf-py-ext`, `pyqwest` and `opentelemetry-api`: five
+  packages, and no pin already there moved. Ruff and mypy skip the tree.
+- **`server/tests/test_contract.py`** holds what Buf cannot, in 25 tests. Every method's
+  route, credential, role and idempotency are read back from the descriptors and pinned
+  against the design's resource map, row for row. The generic rules hold too (standard
+  verbs, `POST …:verb`, path fields that exist, no client streams). It also checks that the
+  generated code was written by the pinned plugins and keeps its imports inside
+  `app.contract`, and that `app.main` imports none of it, in both deployment configurations.
+- **CI gained a «Contract (Buf)» job**, run only when the contract changes (or the workflow
+  does, or the commit range is unknown). It does `buf lint` (STANDARD), `buf breaking`
+  against the base (FILE), and regenerates and diffs. It reads no secret. Its first run, in
+  the pull request (37230983817), was green, with the «no buf.yaml» notice that skips
+  `buf breaking` on the pull request that adds the contract. The «What changed» job took 4 s.
+- **The documents say so**: «v2: the contract» ends `docs/api.md`, `CLAUDE.md` names `proto/`
+  and `server/app/contract/` and gives the three commands, and the README's «Honest status»
+  has a row for the job. Reviewing the CI documents cost one fix round, and it is the only
+  one in the whole sub-project: Task 8's documents. The close-out folded in the last
+  corrections the reviews deferred: `CONTRIBUTING.md`, `AGENTS.md` and
+  `.github/copilot-instructions.md` now say what CI runs and when the Contract job runs,
+  `ci.yml`'s `changes` comment says it decides three outputs, and three proto comments say
+  why `CreateCalendarFeed` has no `min_role`, why `UpdateTermScheme` has no `update_mask` and
+  what an unset `page_size` of `ListSchools` means.
+- **How it was done.** A fresh implementer and a fresh reviewer per task, and one fix round
+  in all. A whole-branch review (opus) found nothing Critical or Important, and its minors
+  were fixed before the merge — including `next_school_day` dropped from `ScheduleWindow`,
+  its field 4 reserved, because a window is a school year and the field could never be filled.
+
+### Gates
+
+At the head before this paragraph:
+- `ruff check app tests scripts migrations` clean;
+- `python -m mypy` clean, 197 source files;
+- `pytest -q -n auto`: 2100 passed in 9 minutes 1 second on this machine on 4 October (2075 before the
+  batch, 25 more in `test_contract.py`; a full run takes nine to twelve minutes here, against the
+  documented four on CI);
+- `buf lint` clean, and `buf generate` into a scratch directory differs from
+  `server/app/contract/` by nothing;
+- the Contract job's first run, 37230983817, green;
+- Android not run, because nothing under `android/` changed.
+
+### What was deliberately left alone
+
+- **Serving v2** is sub-project 3. Kotlin and Java lite are sub-project 5, with the bindings
+  that use them (the design's decision 3); every file already carries the Java options.
+- **v1 is unchanged.** #268, #269 and #270 stay open: they are v1 defects the contract
+  avoids, not ones it fixes.
+- Extending `tests/test_service_layering.py` to `rpc/` and `rest/`: those packages do not exist
+  yet. The generated tree has its own stricter rule.
+- `ruff format` is not a gate and was not run. `buf format` is not asked for by the design,
+  and the action's format step is off.
+
+### What nobody has verified in this batch
+
+- **Vercel's proxy in front of Connect.** The route is written down; nothing has been sent
+  through it.
+- **Buf's unauthenticated rate limit in CI**, which one run did not meet.
+- **`buf breaking` against a base that has a contract**: the first run of it is the next
+  pull request that touches `proto/`.
+- **Every behaviour the proto comments describe**: they are sub-project 3's handlers to make
+  true.
+- **Anything on a device.**
+
 ## What the batch before added: the tracker's documents caught up with thirteen milestones and a board a local session fills (#293)
 
 Merged as #294 (`d243624`, 4 October 2026), from `tracker/milestones-and-board`, on

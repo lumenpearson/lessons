@@ -1396,7 +1396,7 @@ where they are visible as corrections and are reversible.
 | `422` | on reads, the date range is inverted or wider than 62 days; on `PUT .../overrides`, the correction was refused: an unknown `target`, an uncorrectable field, or an empty value where empty is not allowed; on `/login` and `/session`, a body or a region this server will not sign in with | on a read, fix the range; on a correction, show `detail` |
 | `429` | on `/diary/login` and `/diary/session` together, ten counted failures or twenty sessions opened from this address inside fifteen minutes | wait out `Retry-After`, and do not blame the password |
 | `502` | the diary answered incomprehensibly | say that the service has changed |
-| `503` + `X-Diary-Unavailable: disabled` | this deployment has no `DIARY_SECRET`; the diary is off here | say it is off on this server; nothing typed will help |
+| `503` + `X-Diary-Unavailable: disabled` | this deployment has no `DIARY_SECRET`; the diary is off here. A request with a diary token gets this too, before the token is looked at, and its session is kept for when the key is back (#302) | say it is off on this server; nothing typed will help; keep the token |
 | `503` + `X-Diary-Unavailable: address-refused` | the region's server drops this server's address | say it is not the password, and not worth retrying |
 | `503` + `X-Diary-Unavailable: upstream` | the diary is not answering — a timeout, a `5xx` or a `429`, whatever the body, an HTML error page included — or at sign-in answered that it takes only Госуслуги | offer to retry later; the session is kept |
 

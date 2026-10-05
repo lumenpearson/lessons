@@ -56,7 +56,7 @@ Server, from `server/`:
 - `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` — setup
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2172 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2175 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -417,8 +417,12 @@ points Hilt does not inject cleanly.
   the one stored credential that cannot be a hash (it is replayed upstream on every call),
   so it is sealed with Fernet — `app/crypto.py`. No key means the feature refuses at the
   door rather than falling back to plaintext, because a silent fallback is invisible and
-  deployments stay in that state for years. `tests/conftest.py` sets one; a test that wants
-  the feature *off* patches it away.
+  deployments stay in that state for years. Refusing at the door also means touching nothing
+  behind it: with no key every seal reads as unreadable, so `services/diary.unusable` expires a
+  session only when a configured key cannot open it, and a request with a diary token is
+  answered «disabled» before the token is looked at. Until #302, a lost key expired every
+  session it was asked about, for good. `tests/conftest.py` sets one; a test that wants the
+  feature *off* patches it away.
 - **Run the migration BEFORE the merge that needs it.** A merge to `main` deploys itself;
   `alembic upgrade head` is run by hand. Between them is a window where the code knows a
   column the database does not, and that window has already taken production down: the new

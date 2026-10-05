@@ -74,6 +74,27 @@ async def test_a_session_is_found_by_the_presser_and_never_by_the_class(
     assert found.id != theirs.id
 
 
+async def test_a_missing_key_hides_the_session_and_keeps_it(
+    session, school_class, monkeypatch
+):
+    """#302 in the bot: with ``DIARY_SECRET`` gone the lookup expired the
+    presser's session, so restoring the key left them signed out. The diary
+    is off, so there is no session to show; the row itself waits."""
+    from app.config import get_settings
+
+    await _bind(session, school_class)
+    mine = await _open_session(session, telegram_id=MINE, class_id=school_class.id)
+    key = get_settings().diary_secret
+    monkeypatch.setattr(get_settings(), "diary_secret", "", raising=False)
+
+    assert await handlers._session_for(session, MINE, school_class) is None
+    await session.refresh(mine)
+    assert mine.expired_at is None
+
+    monkeypatch.setattr(get_settings(), "diary_secret", key, raising=False)
+    assert await handlers._session_for(session, MINE, school_class) is not None
+
+
 async def test_a_session_does_not_cross_between_classes(session, school_class):
     """A parent in two classes must not read one child's diary from the other
     class's screen — the session is keyed on both halves, always."""

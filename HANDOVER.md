@@ -8,23 +8,26 @@ newest first.
 
 Last updated: **5 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
-#263, #267, #274, #277, #294, #296 and #297 are merged**; `main` is at `45f0680`, the merge of
-#297, on 4 October 2026, and `dev` is level with it. **The only pull request open is #300, the
-one carrying this paragraph**, from `contract/coverage`, on milestone 11, `v0.10.0 — One
-contract: REST v2, Connect and native gRPC, build console`. It holds the v2 contract to what
-its documents promise (the JSON, the v1 mirror and the Buf gate), serves none of it, and closes
-#298 and #299. The schema head did not move: it is still `0017`, and `EXPECTED_REVISION` did
-not move either. Production, after #297's automatic deploy, answered `/api/v1/warmup` with
-`{"status":"ok","api_version":1,"schema":"0017"}` and a `/api/v2/…` path with `404`, as
-nothing serves v2.
+#263, #267, #274, #277, #294, #296, #297 and #300 are merged**; `main` is at `ab646ad`, the merge
+of #300, on 4 October 2026, and `dev` is level with it. **Two pull requests are open.** **#303,
+the one carrying this paragraph**, from `fix/diary-secret-keeps-sessions`, on milestone 10,
+`v0.9.0 — NetSchool e-diary, onboarding via the school's diary`, closes #302: a deployment
+without `DIARY_SECRET` stops expiring the diary sessions it is asked about. **#301 is the design
+of serving v2, waiting for the owner's approval**, from `server-v2/design`, on milestone 11,
+`v0.10.0 — One contract: REST v2, Connect and native gRPC, build console`; it is a draft and
+nothing that serves v2 merges before the owner has read it. #300 closed #298 and #299. The
+schema head did not move: it is still `0017`, and `EXPECTED_REVISION` did not move either.
+Production, after #300's automatic deploy, answered `/api/v1/warmup` with
+`{"status":"ok","api_version":1,"schema":"0017"}` and a `/api/v2/…` path with `404`, as nothing
+serves v2.
 
-#300 is the first pull request whose base carries `buf.yaml`, so its «Contract (Buf)» run is
+#300 was the first pull request whose base carried `buf.yaml`, so its «Contract (Buf)» run was
 the gate's first real comparison in CI. On `ded3da2` (run 37239214776) it passed in nine
 seconds, without the notice it gives when the base has no contract, so it compared against
 `main` and found nothing breaking.
 
-The section «What the last session added» below is #300's batch, and «What the session
-before it added» is #297's.
+The section «What the last session added» below is #303's batch, and «What the session
+before it added» is #300's.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -150,9 +153,66 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: the v2 contract held to what its documents promise — the JSON, the v1 mirror and the Buf gate (#298, #299)
+## What the last session added: a deployment without a diary key keeps its sessions (#302), and the design of serving v2 is drafted for the owner (#301)
 
-Open as #300, from `contract/coverage`, on milestone 11. It refers to #273 and closes #298 and
+Open as #303, from `fix/diary-secret-keeps-sessions`, on milestone 10, `v0.9.0`, because the
+fix is the diary's. It closes #302. Written on the night of 4 to 5 October 2026, in the same
+session that merged #300. The schema head did not move, and nothing under `/api/v2` exists.
+
+- **A deployment without `DIARY_SECRET` no longer expires every diary session it is asked
+  about (#302).** The independent review of sub-project 3's design (#301) found it, and it was
+  filed as an issue before the fix: with no key, every sealed credential looked unreadable, so
+  the first read of a session deleted it for good, and the key coming back could not bring it
+  back. `services/diary.unusable` now expires a session only when a configured key cannot open
+  it, and with no key it expires nothing. `api/diary.current_diary` answers `503` with
+  `X-Diary-Unavailable: disabled` before the token is looked at, and the bot's `_session_for`
+  shows no session and keeps the row.
+- **Three tests, each failing on `main` before the fix**: the service in
+  `test_diary_crypto.py`, the endpoint in `test_diary_api.py`, the bot in `test_bot_diary.py`.
+  `docs/api.md`'s diary error table and `CLAUDE.md`'s «The diary needs `DIARY_SECRET`…» say so.
+- **The design of sub-project 3 was drafted and is waiting for the owner**, as #301, a draft on
+  milestone 11, from `server-v2/design`, **not merged**:
+  `docs/specs/2026-10-05-server-v2-design.md`, and the implementation plan of its stage 3a,
+  `docs/specs/2026-10-05-server-v2-3a-plan.md` (11 tasks). Every module and test the plan
+  quotes was built and run in a scratch copy: 165 new tests and 4 in existing files, ruff and
+  mypy clean there; the full suite was not run in it. The design was revised after an
+  independent review the same night, and again where writing the plan proved it wrong. It ends
+  with five questions for the owner: the stages; a complete host or a sidecar; where the host
+  runs; a missing `X-Lessons-Client`; browsers and CORS. A read-only count on production (Neon,
+  5 October) found 35 timetable rows in one class, none without a `subject_id`, and the design
+  records it. **Nothing that serves v2 merges before the owner approves it.**
+- **Production after #300's automatic deploy** answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}` and a `/api/v2/…` path with `404`. The
+  board reads Done, P2, M, 8 and 2026-10-04 to 2026-10-04 for #300, #298 and #299.
+
+### Gates
+
+- **The server suite.** At `7525818`, `pytest -q -n auto` gave **2175 passed** in 8 minutes 42
+  seconds on this machine, on 5 October 2026: 2172 plus the 3 tests above. The six diary test
+  files gave 222 passed on their own. The README, `docs/architecture.md`, `CLAUDE.md`,
+  `CONTRIBUTING.md` and the `gates` skill say 2175.
+- **ruff and mypy.** Both are clean; mypy covers 197 modules.
+- **Android** is unchanged, 1635 tests, because nothing under `android/` changed.
+
+### What was deliberately left alone
+
+- **The v2 half of #302**, the gate's own diary check, is in #301's design and not built,
+  because nothing serves v2.
+- **#301 is not merged and its plan is not executed**: it waits for the owner's approval.
+
+### What nobody has verified in this batch
+
+- **The app's handling of a `503 disabled` on a diary read with a token has not been checked
+  on a device.** The app parses `X-Diary-Unavailable` for every diary call, but a read that
+  carries a token and is still answered «disabled» is a case it had not met.
+- **Every module in #301's plan ran in a scratch copy**, not in the repository, and the full
+  suite did not run there.
+- **The five answers #301 waits for are guesses until the owner gives them.**
+
+
+## What the session before it added: the v2 contract held to what its documents promise — the JSON, the v1 mirror and the Buf gate (#298, #299)
+
+Merged as #300 (`ab646ad`, 4 October 2026), from `contract/coverage`, on milestone 11. It refers to #273 and closes #298 and
 #299. Four agents took the four things sub-project 2 left unverified on 5 October 2026. It
 serves no v2: nothing under `/api` answers differently, v1 is untouched and the schema head did
 not move.
@@ -237,94 +297,6 @@ On this machine, 5 October 2026:
 - **v2 is served by nothing**, so every behaviour above is a property of the contract and the
   runtime library, not of a deployment.
 
-## What the session before it added: the v2 contract written down — `proto/lessons/v2`, its Python, and Buf in CI (sub-project 2 of #273)
-
-Merged as #297 (`45f0680`, 4 October 2026), from `contract/spec`, on milestone 11. Sub-project 2 of
-`docs/specs/2026-10-03-one-contract-design.md`, built from
-`docs/specs/2026-10-04-contract-v2-design.md`, which the owner approved on 4 October 2026,
-by the plan beside it. It refers to #273 and closes nothing. It adds a contract and serves
-none of it: nothing under `/api` answers differently, v1 is untouched and the schema head
-did not move.
-
-- **The design and its plan came first.** `docs/specs/2026-10-04-contract-v2-design.md` and
-  the plan beside it are in the pull request. Writing the plan amended the design: decision
-  10 (canonical proto3 JSON on both transports) and the renames in decision 7 are what it
-  found, each with its reason. The close-out added one sentence to decision 7: `ListHomework`,
-  `ListSubstitutions` and `ListEvents` default to 21 days and refuse more than 62.
-- **The toolchain was proved before anything was written.** Task 0 ran Buf 1.73.0 with the
-  remote Python plugins (protobuf-py 0.6.0 and connectrpc 0.12.1) over a throwaway proto and
-  found the path the well-known-types import must take; the plan's later tasks
-  rely on what it measured.
-- **The contract exists**: `proto/lessons/v2/`, seventeen services in twenty files,
-  seventy-six methods. Each method carries its REST route (`/v2/…`, served under `/api`
-  once something serves it), its credential (`(lessons.v2.auth)`), its least role on the
-  class (`(lessons.v2.min_role)`) and its idempotency. `ErrorReason` has thirty-three reasons
-  (thirty-four values, with `UNSPECIFIED`): the design's twenty-three and ten more, each
-  found in a v1 refusal.
-- **Its Python is generated and committed** into `server/app/contract/` by two pinned remote
-  Buf plugins. `connectrpc` and `protobuf-py` joined `pyproject.toml`, `requirements.in` and
-  the lock, which also gained `protobuf-py-ext`, `pyqwest` and `opentelemetry-api`: five
-  packages, and no pin already there moved. Ruff and mypy skip the tree.
-- **`server/tests/test_contract.py`** holds what Buf cannot, in 25 tests. Every method's
-  route, credential, role and idempotency are read back from the descriptors and pinned
-  against the design's resource map, row for row. The generic rules hold too (standard
-  verbs, `POST …:verb`, path fields that exist, no client streams). It also checks that the
-  generated code was written by the pinned plugins and keeps its imports inside
-  `app.contract`, and that `app.main` imports none of it, in both deployment configurations.
-- **CI gained a «Contract (Buf)» job**, run only when the contract changes (or the workflow
-  does, or the commit range is unknown). It does `buf lint` (STANDARD), `buf breaking`
-  against the base (FILE), and regenerates and diffs. It reads no secret. Its first run, in
-  the pull request (37230983817), was green, with the «no buf.yaml» notice that skips
-  `buf breaking` on the pull request that adds the contract. The «What changed» job took 4 s.
-- **The documents say so**: «v2: the contract» ends `docs/api.md`, `CLAUDE.md` names `proto/`
-  and `server/app/contract/` and gives the three commands, and the README's «Honest status»
-  has a row for the job. Reviewing the CI documents cost one fix round, and it is the only
-  one in the whole sub-project: Task 8's documents. The close-out folded in the last
-  corrections the reviews deferred: `CONTRIBUTING.md`, `AGENTS.md` and
-  `.github/copilot-instructions.md` now say what CI runs and when the Contract job runs,
-  `ci.yml`'s `changes` comment says it decides three outputs, and three proto comments say
-  why `CreateCalendarFeed` has no `min_role`, why `UpdateTermScheme` has no `update_mask` and
-  what an unset `page_size` of `ListSchools` means.
-- **How it was done.** A fresh implementer and a fresh reviewer per task, and one fix round
-  in all. A whole-branch review (opus) found nothing Critical or Important, and its minors
-  were fixed before the merge — including `next_school_day` dropped from `ScheduleWindow`,
-  its field 4 reserved, because a window is a school year and the field could never be filled.
-
-### Gates
-
-At the head before this paragraph:
-- `ruff check app tests scripts migrations` clean;
-- `python -m mypy` clean, 197 source files;
-- `pytest -q -n auto`: 2100 passed in 9 minutes 1 second on this machine on 4 October (2075 before the
-  batch, 25 more in `test_contract.py`; a full run takes nine to twelve minutes here, against the
-  documented four on CI);
-- `buf lint` clean, and `buf generate` into a scratch directory differs from
-  `server/app/contract/` by nothing;
-- the Contract job's first run, 37230983817, green;
-- Android not run, because nothing under `android/` changed.
-
-### What was deliberately left alone
-
-- **Serving v2** is sub-project 3. Kotlin and Java lite are sub-project 5, with the bindings
-  that use them (the design's decision 3); every file already carries the Java options.
-- **v1 is unchanged.** #268, #269 and #270 stay open: they are v1 defects the contract
-  avoids, not ones it fixes.
-- Extending `tests/test_service_layering.py` to `rpc/` and `rest/`: those packages do not exist
-  yet. The generated tree has its own stricter rule.
-- `ruff format` is not a gate and was not run. `buf format` is not asked for by the design,
-  and the action's format step is off.
-
-### What nobody has verified in this batch
-
-- **Vercel's proxy in front of Connect.** The route is written down; nothing has been sent
-  through it.
-- **Buf's unauthenticated rate limit in CI**, which one run did not meet.
-- **`buf breaking` against a base that has a contract**: the first run of it is the next
-  pull request that touches `proto/`.
-- **Every behaviour the proto comments describe**: they are sub-project 3's handlers to make
-  true.
-- **Anything on a device.**
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -346,8 +318,8 @@ maps them. The
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300; issues #268–#273, #275, #276, #293, #295, #298, #299 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214 and #218 (merged), #303 (open); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302 |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301 (open); issues #268–#273, #275, #276, #293, #295, #298, #299 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | issues #120–#122, #127, #142, #144 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -389,6 +361,10 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
+- **The app's handling of a `503 disabled` on a diary read with a token has not been checked on
+  a device** (#302). The app parses `X-Diary-Unavailable` for every diary call, but a read that
+  carries a token and is still answered «disabled» is a new case for it; only the server's
+  tests have seen it.
 - **Vercel's proxy in front of Connect has been asked nothing.** The v2 contract (#297)
   writes `/api/rpc/lessons.v2.<Service>/<Method>` down, and no deployment serves it. Whether
   Vercel passes a Connect request and its streaming body through is sub-project 3's first
@@ -1132,6 +1108,12 @@ server for a fresh install. Each carries the label `needs:owner`. #119 (`/api/v1
 `/start`) and #156 (the backup) were answered by #186 and closed at its merge on 26 September
 2026.
 
+**Approve or change the design of serving v2 (#301), and answer its five questions.** The
+draft, `docs/specs/2026-10-05-server-v2-design.md`, ends with them: the stages; a complete
+host or a sidecar; where the host runs; what a missing `X-Lessons-Client` means; and browsers
+and CORS. Its stage 3a plan, `docs/specs/2026-10-05-server-v2-3a-plan.md`, executes after that,
+and nothing that serves v2 merges before.
+
 **Keep some space on C:.** It had about 1.3 GB left early on 27 September, and 14 GB when #187
 began, the same night; its builds and one emulator boot left 12 GB, and #189's left 9.4 GB,
 so each batch with a device in it costs two or three. The emulator refused to
@@ -1160,9 +1142,9 @@ production» has a **current value** for `deviceToken`; type one there from a ph
 a class, and leave the initial value empty so that it stays on that machine. The collection has
 never been run in Postman, so the first run is also its first test.
 
-**Next for the programme: sub-project 3 (server shells and targets) needs its own design,
-which the owner approves before any code.** It is where v2 is first served, and the questions
-in section 5 about Vercel's proxy and the second host (above) are its first inputs.
+**Next for the programme: sub-project 3 (server shells and targets) is drafted and waits for
+the owner's approval, as #301 above.** It is where v2 is first served, and the questions in
+section 5 about Vercel's proxy and the second host (below) are its first inputs.
 
 **The tenth milestone exists, and #140 is on it.** The owner created
 `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` on 25 September and renamed
@@ -1403,7 +1385,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2172 tests, ~4 min on CI, ~10 on Windows
+cd server  && pytest -q -n auto                          # 2175 tests, ~4 min on CI, ~10 on Windows
 cd server  && python -m mypy                             # clean, 197 modules
 cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

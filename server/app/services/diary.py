@@ -319,11 +319,28 @@ async def find_session(session: AsyncSession, token: str) -> DiarySession | None
     )
     if row is None or not row.is_live:
         return None
-    if upstream_of(row) is None:
-        row.expired_at = utcnow()
-        await session.commit()
+    if await unusable(session, row):
         return None
     return row
+
+
+async def unusable(session: AsyncSession, row: DiarySession) -> bool:
+    """Whether the row's credential cannot be opened here, expiring it only
+    when it never will.
+
+    A seal that a configured key cannot open — the key was rotated, the row
+    predates encryption — is dead, and expiring it is the honest answer. No
+    key at all is a different situation: every seal reads as unreadable, and
+    expiring them would throw away every family's session over a
+    misconfiguration that putting the key back undoes (#302). Then the diary
+    is off, and the row waits for the key.
+    """
+    if upstream_of(row) is not None:
+        return False
+    if diary_enabled():
+        row.expired_at = utcnow()
+        await session.commit()
+    return True
 
 
 
