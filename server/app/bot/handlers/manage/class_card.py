@@ -25,7 +25,7 @@ from app.bot.manage_keyboards.class_card import class_menu, switch_keyboard
 from app.bot.manage_render import class_card as mr
 from app.bot.manage_states import DeleteClass, EditClassField
 from app.bot.middlewares import prefs_key
-from app.bot.roles import list_memberships
+from app.bot.roles import is_env_owner, list_memberships
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
 from app.models import Role, SchoolClass
@@ -63,6 +63,7 @@ async def _class_card(
         many_classes=len(memberships) > 1,
         pending=counts.pending,
         diary_bound=bool(school_class.diary_provider),
+        deployment_owner=is_env_owner(telegram_id),
     )
     return text, keyboard
 

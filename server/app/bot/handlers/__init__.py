@@ -9,6 +9,7 @@ from app.bot.handlers import (
     diary,
     editor,
     manage,
+    project,
     reminders,
     start,
     tasks,
@@ -42,6 +43,9 @@ def build_router() -> Router:
     router.include_router(homework_ticks)
     router.include_router(reminders.router)
     router.include_router(manage.router)
+    # The deployment owner's screen. Before the catch-all, which answers its
+    # commands for everybody else (handlers/project.py says why).
+    router.include_router(project.router)
     # Last, and it has to be: it matches any command at all, so anything above
     # it that answers one must have been asked first. What reaches here is a
     # command nothing in the bot has.
