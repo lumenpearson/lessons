@@ -43,6 +43,9 @@ os.environ["TIMEZONE"] = "Europe/Moscow"
 # that exercise it therefore have to configure one; that the *absence* of one
 # switches the feature off is itself a test, in test_diary_crypto.py.
 os.environ["DIARY_SECRET"] = "test-secret-not-a-real-one-0123456789abcdef"
+# Whatever the shell holds: the suite reports to nobody's Sentry. A test that
+# wants it on starts it in a fresh interpreter (test_observability.py).
+os.environ["SENTRY_DSN"] = ""
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402

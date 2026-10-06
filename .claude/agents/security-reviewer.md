@@ -23,6 +23,13 @@ secret that has to be rotated, not deleted.
 
 ## What to actually check
 
+- **What leaves for Sentry.** `app/observability.py` rebuilds every event from a list of what
+  may stay — an exception's type and stack, the route template, the release, the environment
+  — and drops the rest: bodies, headers, queries, the exception's message, locals, spans.
+  Release-health sessions and client reports are switched off outright, for the same reason:
+  neither hook is asked to scrub them. A field added to those lists is a field that leaves the
+  country; it needs a reason, and `tests/test_observability.py` has to go on finding no token
+  and no name.
 - **Which token an endpoint depends on.** The device token (`api/deps.current_device`) and
   the diary session token (`api/diary.current_diary`) are independent and travel in the same
   header. An endpoint that moved routers may now be checking the wrong one.

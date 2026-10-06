@@ -419,6 +419,8 @@ log, the terms («🗓 Четверти»), the diary binding («📒 Привя
 * **🗑 Удалить класс** is owner-only and asks for the class name typed back
   exactly. Nothing else is accepted: an "are you sure?" button is pressed by the
   same thumb that pressed the one before it.
+* **📊 Проект** appears only for the deployment's owner — an account in `OWNER_IDS`,
+  which a class's owner need not be — and opens the screen of `/project` (below).
 
 ## The calendar — `/day`
 
@@ -648,6 +650,27 @@ Lessons a week (a lesson that alternates weeks counts as a half), subjects, open
 and total homework, substitutions and special days ahead, events ahead, members by
 role, connected devices, and hours per subject. Editors and above.
 
+## The project — `/project`, `/health`
+
+The deployment owner's screen, «📊 Проект». The owner here is an account in `OWNER_IDS`, not
+a class's owner, because the screen sums every class and shows the infrastructure under them.
+One message, read only, in blocks:
+
+| Block | What it shows |
+| --- | --- |
+| «🩺 Состояние» | the tick's four checks — the schema, v2, the diary's proxy and the deploy — each ✅, 🔴 or ❔, since when, and why when it is not ok |
+| «🖥 Сервер» | the running commit and whether it is `main`'s head, the region, how long this function instance has been alive, Python's version |
+| «🗄 База» | the database's revision and the one the code expects; on Postgres its size and its connections |
+| «🛰 Прокси дневника» | whether the proxy answers, its round trip, since when |
+| «⏰ Часы» | the last tick, the gap since the one before, and the digests marked today |
+| «📦 Проект» | classes, accounts, phones seen in a day and a week, phones by app build, live diary sessions by diary, v2 on or off |
+| «📈 Где графики» | where the request graphs are: Vercel, Sentry and Neon, named and not linked; `docs/deploy.md` has the addresses |
+
+`/health` is the first block alone. The same owner is written to by the tick when a check
+changes — «🔴 Прокси дневника не отвечает», then «🟢 Прокси дневника снова работает, простой
+40 мин» — and every six hours while one stays failing; `docs/deploy.md`, «Monitoring», has the
+rule.
+
 ## Time zone
 
 The zone belongs to the class, because one deployment can serve schools ten
@@ -685,6 +708,8 @@ server's.
 | `/class` | admin+ | class card and settings |
 | `/export`, `/import` | admin+ | timetable as text |
 | `/code` | admin+ | join code for the app |
+| `/project` | the deployment's owner | «📊 Проект»: the deployment's state and numbers |
+| `/health` | the deployment's owner | its first block: the tick's four checks |
 
 A command you may not use answers with a refusal rather than silence: Telegram
 shows one command list per bot, and a button that does nothing teaches people to
@@ -697,6 +722,10 @@ half-finished form (below), silence became misleading, because a typo would drop
 what somebody was filling in and then appear to do nothing. The handler is a
 router included **last** in `build_router()`, so every command that has an answer
 is asked first, and a test walks the whole `COMMANDS` list to hold that.
+
+`/project` and `/health` are commands the bot does not have for anybody but the deployment's
+owner: they are not in `COMMANDS`, the one menu everybody sees, and for anybody else the
+catch-all answers them as it answers a typo, so nothing says they exist.
 
 ## What a card may say
 

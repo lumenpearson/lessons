@@ -37,6 +37,33 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger(__name__)
 
 
+def _start_sentry() -> None:
+    """Sentry, where SENTRY_DSN is set, and imported only there: a deployment
+    without it never loads sentry_sdk (tests/test_cold_start.py). Called at
+    this module's top level rather than from the lifespan, which a
+    serverless platform may never run, so its integration sees the first
+    request.
+
+    ``Settings.sentry_dsn_value`` already refuses a DSN ``sentry_sdk.init``
+    itself would raise ``BadDsn`` on, but a failure from anywhere else in the
+    SDK - including the import itself, if the package is missing or broken -
+    must not take v1, v2, the webhook and the cron tick down with it - this
+    function's own caller is every one of them, at cold start. Logged by the
+    exception's type alone: its message can carry the DSN's key.
+    """
+    if not get_settings().sentry_configured:
+        return
+    try:
+        from app.observability import init as init_sentry
+
+        init_sentry(get_settings())
+    except Exception as error:
+        log.error("Sentry did not start: %s", type(error).__name__)
+
+
+_start_sentry()
+
+
 def _report_bot_exit(task: asyncio.Task) -> None:
     """Log why the polling task stopped, if it stopped on its own."""
     if task.cancelled():

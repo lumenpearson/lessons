@@ -43,6 +43,7 @@ from app.bot.handlers.unknown import STALE_CARD, UNKNOWN_COMMAND
 from app.bot.manage_keyboards.bells import BellsAction
 from app.bot.manage_states import EditSubject
 from app.bot.middlewares import FORM_DROPPED, looks_like_command
+from app.bot.project_keyboard import ProjectAction
 from app.bot.week_keyboard import WeekNav
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
@@ -685,3 +686,82 @@ def test_of_two_handlers_for_one_update_the_right_one_is_asked_first(observer, f
         f"{then.__module__}.{then.__name__} is now offered {observer} updates before "
         f"{first.__module__}.{first.__name__}"
     )
+
+
+# --------------------------------------------------------------------------
+# «📊 Проект»: the deployment owner's screen, and an unknown command to anybody else
+# --------------------------------------------------------------------------
+
+#: OWNER_IDS in conftest: the deployment's owner, who is nobody's member here.
+DEPLOYMENT_OWNER = 1000
+
+
+def _message_from(user_id: int, text: str) -> Update:
+    return Update(
+        update_id=3,
+        message=Message(
+            message_id=1,
+            date=datetime.now(UTC),
+            chat=Chat(id=user_id, type="private"),
+            from_user=TgUser(id=user_id, is_bot=False, first_name="Владелец"),
+            text=text,
+        ),
+    )
+
+
+def _press_from(user_id: int, data: str) -> Update:
+    user = TgUser(id=user_id, is_bot=False, first_name="Владелец")
+    return Update(
+        update_id=4,
+        callback_query=CallbackQuery(
+            id="press-2",
+            from_user=user,
+            chat_instance="chat-instance",
+            data=data,
+            message=Message(
+                message_id=7,
+                date=datetime.now(UTC),
+                chat=Chat(id=user_id, type="private"),
+                from_user=user,
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize("command", ["/project", "/health"])
+async def test_the_project_is_an_unknown_command_to_a_class_s_own_owner(
+    bot, sent, session, school_class, command
+):
+    """A class's owner is not the deployment's: the screen sums every class
+    and shows the infrastructure. To them the command answers as any command
+    the bot does not have answers, so nothing says the screen exists."""
+    session.add(BotUser(telegram_id=USER_ID, class_id=school_class.id, role=Role.OWNER))
+    await session.commit()
+
+    await dispatcher().feed_update(bot, _message(command))
+
+    assert sent.texts == [UNKNOWN_COMMAND]
+
+
+async def test_the_deployment_s_owner_gets_the_project_and_its_state(bot, sent):
+    await dispatcher().feed_update(bot, _message_from(DEPLOYMENT_OWNER, "/project"))
+    await dispatcher().feed_update(bot, _message_from(DEPLOYMENT_OWNER, "/health"))
+
+    project, state = sent.texts
+    assert project.startswith("<b>📊 Проект</b>")
+    assert "<b>🖥 Сервер</b>" in project
+    assert state.startswith("<b>🩺 Состояние</b>")
+    assert "<b>🖥 Сервер</b>" not in state
+
+
+async def test_the_project_button_opens_for_the_deployment_s_owner_alone(bot, sent):
+    press = ProjectAction(action="open").pack()
+
+    await dispatcher().feed_update(bot, _press(press))
+    answers = [m for m in sent.sent if type(m).__name__ == "AnswerCallbackQuery"]
+    assert [a.text for a in answers] == [STALE_CARD]
+    assert [m for m in sent.sent if type(m).__name__ == "EditMessageText"] == []
+
+    await dispatcher().feed_update(bot, _press_from(DEPLOYMENT_OWNER, press))
+    edits = [m for m in sent.sent if type(m).__name__ == "EditMessageText"]
+    assert len(edits) == 1 and edits[0].text.startswith("<b>📊 Проект</b>")

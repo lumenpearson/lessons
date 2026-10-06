@@ -114,7 +114,7 @@ def _build_bot() -> Any | None:
     """
     if not get_settings().bot_token:
         return None
-    from app.bot.bot import build_bot
+    from app.telegram_send import build_bot
 
     return build_bot()
 

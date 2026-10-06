@@ -13,6 +13,7 @@ from app.bot.manage_keyboards.devices import DeviceAction
 from app.bot.manage_keyboards.holidays import DayKindAction
 from app.bot.manage_keyboards.subjects import SubjectAction
 from app.bot.manage_keyboards.terms import TermAction
+from app.bot.project_keyboard import open_button
 
 
 def class_menu(
@@ -21,6 +22,7 @@ def class_menu(
     many_classes: bool,
     pending: int,
     diary_bound: bool = False,
+    deployment_owner: bool = False,
 ) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
         [
@@ -102,6 +104,10 @@ def class_menu(
                 )
             ]
         )
+    if deployment_owner:
+        # The deployment's screen, not the class's: drawn for an account in
+        # OWNER_IDS, which a class's own owner need not be.
+        rows.append([open_button()])
     if is_owner:
         rows.append(
             [

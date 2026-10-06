@@ -1029,7 +1029,7 @@ v2 is mounted and `false` when it could not be loaded and `/api/v2` and `/api/rp
 
 | | Body | Meaning |
 | --- | --- | --- |
-| `200` | `{"status": "ok", "api_version": 1, "schema": "0018"}` | the database is reachable and at the revision the code expects |
+| `200` | `{"status": "ok", "api_version": 1, "schema": "0019"}` | the database is reachable and at the revision the code expects |
 | `200` | `{"status": "degraded", …, "schema": …, "expected_schema": …, "detail": …}` | both revisions named, and `detail` says **which way** they diverge |
 | `503` | `{"status": "down", "api_version": 1, "detail": "База недоступна."}` | the database could not be reached |
 

@@ -72,6 +72,8 @@ read back in the interface.
 | `DADATA_TOKEN` | a DaData key, see "The schools registry" below — without it the school search is simply off |
 | `DIARY_PROXY_URL` | optional: `http://user:password@host:port` of an HTTP proxy in Russia, for the Petersburg diary's requests alone, which the city drops from abroad (#235, #334). Empty means direct; see "The electronic diary" below |
 | `MIN_CLIENT_VERSION` | empty — or the oldest APK versionCode v2 still answers; raise it only once the newer APK is on the phones it would refuse |
+| `SENTRY_DSN` | optional: the DSN of the Sentry project errors and request timings go to, see "Errors and timings: Sentry" below. Empty sends nothing |
+| `GITHUB_READ_TOKEN` | optional: a fine-grained GitHub token, read-only access to public repositories, no other permission; the `deploy` check sends it, see "The self-check" below. Empty asks GitHub anonymously |
 
 Vercel applies them **at deploy time**: changing a value without rebuilding changes
 nothing, and the running deployment goes on holding the old one.
@@ -131,7 +133,10 @@ The rest are optional, and that is deliberate too. They do not fail the deployme
 written to the log at startup as switched off: `DIARY_SECRET` (the diary), `DADATA_TOKEN`
 (the school search), `PUBLIC_BASE_URL` (the calendar and the sign-in page), `BOT_USERNAME`
 (the phone-linking link), `CRON_SECRET` (the tick answers 404 and not a single digest goes
-out). Each of them already refuses at its own door — in full view of whoever it concerns.
+out) and `SENTRY_DSN` (no error and no timing is sent to Sentry). Each of them already refuses
+at its own door — in full view of whoever it concerns. `GITHUB_READ_TOKEN` is announced the
+same way, but it never refuses anything: empty, the `deploy` check below just asks GitHub
+anonymously, sharing sixty requests an hour with every other function on Vercel's address.
 
 Invent `WEBHOOK_SECRET` yourself and show it to nobody:
 
@@ -386,6 +391,11 @@ sent with a v2 request, written by v2's gate beside `last_seen_at` and on its cl
 is nullable with no default, additive, and on **before** the merge; its downgrade drops
 the column, which loses nothing but the versions.
 
+`0019` creates `health_checks`: one row per check of the tick's self-check, holding what it
+said last, since when, and when the owner was last told («Monitoring», below). One new table
+and nothing else, additive, and on **before** the merge; its downgrade drops the table, which
+loses nothing but what the checks remembered.
+
 Everything up to `0012` checks with an inspector what is not in the database yet and does
 not rewrite existing tables, so those can be applied to a live class in the middle of a
 school day. `0013`, `0015` and `0016` ask the inspector too — per constraint, per column,
@@ -394,7 +404,7 @@ second `ADD COLUMN` or `ADD CONSTRAINT` there is a hard error that stops the `mi
 service below; and because a SQLite file `scripts.init_db` built before a model change is
 stamped at the old head without the new columns, and only the revision adds them. `0017`
 asks only whether the table is there; its statements are plain SQL that PostgreSQL and SQLite
-both run, and a second run finds nothing to do. `0018` asks per column, as `0015` does. The head is `0018`.
+both run, and a second run finds nothing to do. `0018` asks per column, as `0015` does, and `0019` per table, as `0016` does. The head is `0019`.
 
 ### A migration goes BEFORE the deploy, not after
 
@@ -442,7 +452,7 @@ into the database by hand:
 curl -s https://<your-project>.vercel.app/api/v1/warmup
 ```
 
-`{"status":"ok","schema":"0018"}` means it all lines up. `"status":"degraded"` together with
+`{"status":"ok","schema":"0019"}` means it all lines up. `"status":"degraded"` together with
 `expected_schema` names both revisions and says which way they diverged: «База отстала от
 кода» — the database is behind the code — is an incident, except in the minutes a key
 rewrite such as `0017` is deliberately applied after the merge (above), while «База впереди
@@ -454,9 +464,11 @@ a ping meant to warm things up would keep waking a sleeping Neon.
 ### What to apply them with
 
 In practice this project's migrations are applied **through the Neon connector** rather than
-with the `alembic` command — that is how `0005`–`0017` were applied, the last three
-together on 26 September 2026, before #140 merged. The Neon project is
-called `lessons`; its identifier is not kept in the repository — anybody with access sees it
+with the `alembic` command — that is how `0005`–`0019` were applied: `0015`–`0017` together
+on 26 September 2026, before #140 merged, and from `0018` on each to the Neon branch
+`preview` when its pull request was pushed and to production before the merge. The Neon
+project is called `lessons`; its identifier is not kept in the repository — anybody with
+access sees it
 in the Neon console anyway, and in a public repository it is just the address of somebody
 else's database.
 
@@ -641,7 +653,7 @@ so `BOT_TOKEN` and `OWNER_IDS` are not its business (#322). The same import is w
 `alembic upgrade head` refuses wherever `VERCEL` *is* set and the deployment's settings
 are not.
 `GET /api/v1/warmup` is what confirms the result, and it is the endpoint that can: it says
-`{"status": "ok", "schema": "0018"}` when the two agree and names both revisions when they
+`{"status": "ok", "schema": "0019"}` when the two agree and names both revisions when they
 do not.
 
 The app on the phone needs to reach the API. The options are a public IP with a forwarded
@@ -718,6 +730,19 @@ and the worst an extra tick does is send what was due to be sent anyway. Keep it
 from everything else, and change it in both places at once (the server's environment
 variables and the cron job), or the digests will go silent silently.
 
+**Its failure email is the one alarm for a server that is down entirely.** Nothing inside the
+server can say so — the bot is down with it — but the cron service sees every run fail. On
+cron-job.org that is the job's notifications: an email when the job fails, after three
+failures in a row (fifteen minutes) rather than after one blip — the owner's choice — and an
+email when it succeeds again. The job's history is the other half of the check: a run answers
+`200` with the tick's JSON; `403 Bad cron secret` means the header is not the server's
+`CRON_SECRET`, and `404 Cron is not configured` means the server has none. Either way no
+digest goes out.
+
+**This deployment's job was set up by the owner** on cron-job.org on 5 October 2026, at
+about 18:45 UTC, and production has its `CRON_SECRET`. What is still to read is the job's
+history — `200` with JSON, not `403` — and whether its failure email is on (#120).
+
 ### The fallback workflow
 
 It needs the same two repository secrets (**Settings → Secrets and variables → Actions**):
@@ -739,3 +764,105 @@ not — a session dies in the gaps GitHub leaves — which is why the external c
 nice-to-have but the condition of both what the bot promises and whether a «Сетевой город»
 family stays signed in. The keep-alive runs last in the tick and inside its own guard, so a
 diary that is slow or down never fails the tick and reddens the clock.
+
+## Monitoring: what tells the owner something is wrong
+
+On 5 October 2026 three things went wrong in production and nobody was told: a merge did not
+deploy for half an hour (#349), the diary's proxy answered nothing for forty minutes, and the
+external cron had not been set up (#120). Three pieces say so now
+([the design](specs/2026-10-05-monitoring-design.md)): the self-check below, the external
+cron's failure email above, and Sentry.
+
+### The self-check, in every tick
+
+Every tick runs four checks (`server/app/services/health.py`) after the digests and the
+sweeps and before the diary keep-alive, inside their own guard and their own time budget, so
+none of them can fail the tick. They run before the keep-alive because the keep-alive goes
+through the diary's proxy and, when the proxy hangs, holds the request until its own hard
+stop; the checks stop five seconds before theirs, so an alert always has time to go out, and a
+check the tick left less than its full five seconds that times out reads `unknown` rather than
+raising a false alarm:
+
+| Check | Ok when |
+| --- | --- |
+| `schema` | the database is at the revision the code expects, or ahead of it in the window a revision applied before its merge opens |
+| `v2` | v2 loaded, rather than answering `503` under its two prefixes |
+| `diary_proxy` | a `HEAD` of the Petersburg diary through `DIARY_PROXY_URL` gets any answer within five seconds; asked only when the setting is set |
+| `deploy` | production runs `main`'s head, or `main` moved less than fifteen minutes ago; asked on production only |
+
+Each ends `ok`, `failing` or `unknown`, and `health_checks` keeps what each said last.
+Unknown is a check that could not run, or one that does not apply here, and it never alerts.
+The bot writes to every `OWNER_IDS` account when a check starts failing, when it comes back
+(with how long it was down), and every six hours while it stays failing — never once per tick.
+The text names the infrastructure only. In the bot, `/health` shows the four, and `/project`
+the whole of «📊 Проект» (`docs/bot.md`). If the self-check itself fails to commit, the tick
+rolls the session back, so the keep-alive that runs next on it is unaffected.
+
+The `deploy` check reads `main`'s head from GitHub's public API, with an `ETag`, so an
+unchanged answer is a `304`. With `GITHUB_READ_TOKEN` set the request is authorized: the `304`
+costs nothing against GitHub's rate limit, and the ceiling is 5,000 requests an hour. Without
+it the request is anonymous, sharing sixty requests an hour with every Vercel function behind
+the same address, and a refusal reads as `unknown`, never as `failing`, with the reason naming
+the setting («… (anonymous; set GITHUB_READ_TOKEN)»). A fine-grained token also expires: once
+it does, the check reads ❔ «the token was refused» until a new one is set, rather than falling
+back to the anonymous reading above. It learns which commit is running, and
+which repository to ask, from Vercel's system environment variables (`VERCEL_ENV`,
+`VERCEL_GIT_COMMIT_SHA`, `VERCEL_GIT_REPO_OWNER`, `VERCEL_GIT_REPO_SLUG`). They reach a
+function while the project's
+**Settings → Environment Variables → «Automatically expose System Environment Variables»** is
+on, which is Vercel's default. With it off, the check says so and stays `unknown`.
+
+### Errors and timings: Sentry
+
+`SENTRY_DSN` is optional. Empty sends nothing and imports nothing of Sentry, and the startup
+log says it is off. A value Sentry's own SDK could not use is announced off the same way,
+rather than stopping the API from loading: `Settings` judges the DSN's shape itself, before
+anything imports `sentry_sdk`, and `app.main`'s own call into Sentry is guarded besides,
+logging only the exception's type, because its message can carry the DSN's key. Set to a
+usable DSN, the server sends each unhandled error, and each failure the bot's handlers raise,
+with:
+
+- the exception's type and its stack — file, function, line;
+- the route template, `/api/v1/diary/students/{student_id}/schedule`, never the number in it;
+- the release, which is the commit, and the environment, which is Vercel's `VERCEL_ENV`, so a
+  preview's errors stay apart from production's.
+
+It also times 5 % of requests, named by route template: those are Sentry's request graphs.
+The rate cannot be overridden by a caller's own `sentry-trace` header, because nothing
+upstream of this server propagates one of its own.
+
+What is never sent, because it can carry a child's name or a family's credential (152-ФЗ):
+request and response bodies; headers, cookies and query strings; the exception's message; local
+variables and source lines; log lines and breadcrumbs; the spans inside a request. Release-health
+sessions (a per-minute count of crashed and errored sessions) and client reports (a count of
+events this process dropped and why) are switched off as well, because neither hook below is
+asked to scrub them. The SDK is told not to collect the rest, and two hooks then rebuild every
+event from a list of what may leave (`server/app/observability.py`).
+`server/tests/test_observability.py` sends a request carrying a diary token and a child's name
+through a failing route, and finds neither in what would leave.
+
+What the owner does, once:
+
+1. A Sentry account in the **EU** data region, and a project of the platform «Python /
+   FastAPI». For this deployment both exist: the organisation `hubdpi` and its project
+   `lessons`.
+2. The project's DSN into Vercel as `SENTRY_DSN`, for **Production** (the owner's choice of 6
+   October 2026: Production only for now; a Preview value would keep its errors apart under
+   `VERCEL_ENV`), marked `Sensitive`; then a redeploy. The DSN is a secret like the others:
+   never in the repository, an issue or a log.
+3. To turn it all off: delete `SENTRY_DSN` and redeploy. No code changes.
+
+The free plan takes 5,000 errors a month, and a 5 % sample of this project's requests is far
+inside its allowance for timings.
+
+### Where the graphs are
+
+The bot names the dashboards and links none, because a link names the owner's accounts:
+
+| What | Where |
+| --- | --- |
+| requests, errors and durations by route | Vercel → the project → **Observability**: `https://vercel.com/codeilluminators/lessons/observability` |
+| errors with their place, and the 5 % of timings | Sentry → **Issues** and **Performance**: `https://hubdpi.sentry.io/projects/lessons/` |
+| the database's load, connections and storage | the Neon console → the project named `lessons` → **Monitoring**; its id stays out of the repository |
+
+Longer retention in Vercel is Observability Plus, a paid add-on, and nothing here needs it.

@@ -278,12 +278,34 @@ def test_get_settings_lets_a_local_run_through(monkeypatch):
         ("PUBLIC_BASE_URL", "PUBLIC_BASE_URL"),
         ("BOT_USERNAME", "BOT_USERNAME"),
         ("CRON_SECRET", "CRON_SECRET"),
+        ("GITHUB_READ_TOKEN", "GITHUB_READ_TOKEN"),
+        ("SENTRY_DSN", "SENTRY_DSN"),
     ],
 )
 def test_an_optional_setting_is_announced_rather_than_fatal(setting, named):
     settings = deployed(**{setting: ""})
     assert settings.deployment_problems() == []
     assert any(named in line for line in settings.disabled_features())
+
+
+def test_github_read_token_is_announced_only_on_vercel():
+    """Unlike the settings above, this one has nothing to say off Vercel: the
+    deploy check itself never runs there (`check_deploy` reads `unknown` from
+    `behind_vercel` before it looks at GitHub at all), so an empty token on a
+    laptop is not a deployment that forgot anything."""
+    off_vercel = Settings(GITHUB_READ_TOKEN="")
+    assert off_vercel.behind_vercel is False
+    assert not any("GITHUB_READ_TOKEN" in line for line in off_vercel.disabled_features())
+
+    on_vercel_and_set = deployed(GITHUB_READ_TOKEN="ghp_k")
+    assert not any("GITHUB_READ_TOKEN" in line for line in on_vercel_and_set.disabled_features())
+
+
+def test_github_read_token_never_joins_deployment_problems():
+    """Optional like `DIARY_SECRET` and the rest of that list: an empty value
+    is a documented way to run (anonymously, against GitHub's own rate limit),
+    never a reason to refuse to start."""
+    assert deployed(GITHUB_READ_TOKEN="").deployment_problems() == []
 
 
 def test_a_fully_configured_deployment_announces_nothing():
@@ -293,6 +315,8 @@ def test_a_fully_configured_deployment_announces_nothing():
         PUBLIC_BASE_URL="https://example.com",
         BOT_USERNAME="lessons_bot",
         CRON_SECRET="k",
+        GITHUB_READ_TOKEN="ghp_k",
+        SENTRY_DSN="https://public@o0.ingest.de.sentry.io/0",
     )
     assert settings.disabled_features() == []
 
@@ -321,6 +345,33 @@ def test_a_setting_that_is_set_but_unusable_is_still_announced_as_off():
     # And the announcement is the truth: both features really are off.
     assert settings.diary_configured is False
     assert settings.dadata_configured is False
+
+
+@pytest.mark.parametrize(
+    "dsn",
+    [
+        "https//public@o0.ingest.de.sentry.io/0",  # the scheme's colon is missing
+        "not-a-dsn",
+        "https://o0.ingest.de.sentry.io/0",  # no public key
+        "https://public@o0.ingest.de.sentry.io/",  # no project id
+    ],
+    ids=["no-colon", "not-a-url", "no-key", "no-project-id"],
+)
+def test_a_malformed_sentry_dsn_is_announced_as_off_not_fatal(dsn):
+    """``sentry_sdk.utils.Dsn`` raises ``BadDsn`` on every one of these, and
+    that call is reached from ``app.main``'s top level — on the cold start of
+    v1, v2, the webhook and the cron tick all at once. ``Settings`` judges the
+    shape first, exactly as it already does for ``DIARY_PROXY_URL``, so the
+    import never gets there."""
+    settings = deployed(SENTRY_DSN=dsn)
+
+    assert settings.deployment_problems() == []
+    assert settings.sentry_configured is False
+    announced = settings.disabled_features()
+    assert any("SENTRY_DSN is set but unusable" in line for line in announced)
+    # Never the value: a malformed DSN is still a DSN, and it may still carry
+    # a real key.
+    assert not any(dsn in line for line in announced)
 
 
 def test_the_shortest_usable_diary_secret_is_announced_as_on():

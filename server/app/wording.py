@@ -97,6 +97,22 @@ def plural(count: int, one: str, few: str, many: str) -> str:
     return f"{count} {form}"
 
 
+def duration(minutes: int) -> str:
+    """«1 ч 12 мин», «45 мин», «2 ч» — whole minutes, never seconds.
+
+    Here rather than in the bot's week view, where it was written: the
+    self-check's alerts say how long a failure lasted in the same words, and
+    ``services/`` may not import the bot.
+    """
+    hours, rest = divmod(max(minutes, 0), 60)
+    parts = []
+    if hours:
+        parts.append(plural(hours, "ч", "ч", "ч"))
+    if rest or not hours:
+        parts.append(f"{rest} мин")
+    return " ".join(parts)
+
+
 # --------------------------------------------------------------------------
 # Message budgets
 # --------------------------------------------------------------------------

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import os
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from functools import lru_cache
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -146,6 +150,26 @@ class Settings(BaseSettings):
     # request: behind Vercel the function sees an internal host, and the bot
     # builds the URL from inside a Telegram update where there is no request.
     public_base_url: str = ""
+
+    # The DSN of a Sentry project, for errors with their place and a sample of
+    # timings (app/observability.py). Empty sends nothing and imports nothing
+    # of Sentry, and the startup log says it is off; it is never a reason to
+    # refuse to start. It names a project anybody could send events to, so it
+    # lives where the other secrets do.
+    sentry_dsn: str = ""
+
+    # A fine-grained GitHub token with read-only access to public repositories
+    # and no other permission, for the deploy check's read of `main`'s head
+    # (services/health.py). With it the request is authorized: an unchanged
+    # `main`'s 304 costs nothing against GitHub's rate limit, and the ceiling
+    # is 5,000 requests an hour instead of the sixty shared by every anonymous
+    # caller on Vercel's egress address. Empty means GitHub is asked
+    # anonymously, which the deploy check already treats as merely unknown
+    # rather than failing.
+    #
+    # Not GITHUB_TOKEN: GitHub Actions and plenty of tools reserve that name
+    # for a token with write access, and this one must never be that.
+    github_read_token: str = ""
 
     # The oldest v2 client this server still answers, as the APK's versionCode
     # in its `X-Lessons-Client` header (docs/specs/2026-10-05-server-v2-design.md,
@@ -329,6 +353,11 @@ class Settings(BaseSettings):
         return self.dadata_token.strip()
 
     @property
+    def github_read_token_value(self) -> str:
+        """``GITHUB_READ_TOKEN`` as it will actually be sent; see above."""
+        return self.github_read_token.strip()
+
+    @property
     def dadata_configured(self) -> bool:
         """Whether the school search has a key — the question `dadata` asks."""
         return bool(self.dadata_token_value)
@@ -355,6 +384,39 @@ class Settings(BaseSettings):
         if parts.scheme not in ("http", "https") or not parts.hostname:
             return None
         return value
+
+    @property
+    def sentry_dsn_value(self) -> str | None:
+        """``SENTRY_DSN`` if ``sentry_sdk.init`` could use it, else ``None``.
+
+        Judged here, without importing ``sentry_sdk``, because the only place
+        that would otherwise raise is ``sentry_sdk.init`` itself, called from
+        ``app.main``'s top level (``observability.init``) - on the cold start
+        of v1, v2, the webhook and the cron tick at once. The shape mirrors
+        what ``sentry_sdk.utils.Dsn`` requires: an ``http``/``https`` scheme,
+        a public key as the username, a host, and a path whose last segment
+        is a numeric project id (Sentry allows a path prefix before it).
+        """
+        value = self.sentry_dsn.strip()
+        if not value:
+            return None
+        parts = urlsplit(value)
+        try:
+            # As in `diary_proxy`: reading the port is what checks it.
+            _ = parts.port
+        except ValueError:
+            return None
+        if parts.scheme not in ("http", "https") or not parts.hostname or not parts.username:
+            return None
+        if not parts.path.rsplit("/", 1)[-1].isdigit():
+            return None
+        return value
+
+    @property
+    def sentry_configured(self) -> bool:
+        """Whether errors go to Sentry - the question ``app.main`` and the
+        bot's error handler ask before they import anything of it."""
+        return self.sentry_dsn_value is not None
 
     def disabled_features(self) -> list[str]:
         """What an empty optional setting has switched off, for the startup log.
@@ -387,7 +449,73 @@ class Settings(BaseSettings):
             off.append("BOT_USERNAME is empty: the phone's «привязать» deep link is not built")
         if not self.cron_secret:
             off.append("CRON_SECRET is empty: the tick answers 404, so no digest is ever sent")
+        # Only on Vercel: off this platform nothing calls the deploy check at
+        # all, so an empty token here is not a deployment that forgot
+        # anything. Never in `deployment_problems` either way - the check
+        # already reads an anonymous GitHub as merely unknown, never failing.
+        if self.behind_vercel and not self.github_read_token_value:
+            off.append(
+                "GITHUB_READ_TOKEN is empty: the deploy check asks GitHub anonymously, "
+                "sharing sixty requests an hour"
+            )
+        if not self.sentry_configured:
+            # Same split as `diary_proxy`: empty is a deliberate choice, a set
+            # but unusable value is a mistake worth a different sentence -
+            # and never the value itself, which may still be a real DSN.
+            if self.sentry_dsn.strip():
+                off.append("SENTRY_DSN is set but unusable: errors are not sent to Sentry")
+            else:
+                off.append(
+                    "SENTRY_DSN is empty: errors and request timings are not sent to Sentry"
+                )
         return off
+
+
+#: When this process first loaded its settings, which every entry point does
+#: before anything else: on Vercel, the cold start of this function instance.
+#: «📊 Проект» shows how long ago that was, so a cold start reads as minutes.
+STARTED_AT = datetime.now(UTC).replace(tzinfo=None)
+
+
+@dataclass(frozen=True)
+class Deployment:
+    """What Vercel says about the deployment this process belongs to.
+
+    Its System Environment Variables, read from the process's environment and
+    never from ``.env``: none of them is configuration. A value the platform
+    states about itself has no business in the file people copy, for the
+    reason ``VERCEL`` is not there (``server/.env.example``), and off Vercel
+    every field is empty. They reach a function only while the project's
+    «Automatically expose System Environment Variables» is on, which is
+    Vercel's default (``docs/deploy.md``).
+    """
+
+    #: ``VERCEL_ENV``: ``production``, ``preview`` or ``development``.
+    environment: str
+    #: ``VERCEL_GIT_COMMIT_SHA``: the commit this deployment was built from.
+    commit: str
+    #: ``owner/slug``, from ``VERCEL_GIT_REPO_OWNER`` and
+    #: ``VERCEL_GIT_REPO_SLUG``; empty unless both are there. Read rather than
+    #: written down, so that a fork's deployment asks about its own ``main``.
+    repository: str
+    #: ``VERCEL_REGION``: where this function runs, ``fra1`` here.
+    region: str
+
+
+def deployment(environ: Mapping[str, str] | None = None) -> Deployment:
+    """The running deployment as Vercel describes it; see :class:`Deployment`."""
+    env = os.environ if environ is None else environ
+
+    def read(name: str) -> str:
+        return env.get(name, "").strip()
+
+    owner, slug = read("VERCEL_GIT_REPO_OWNER"), read("VERCEL_GIT_REPO_SLUG")
+    return Deployment(
+        environment=read("VERCEL_ENV"),
+        commit=read("VERCEL_GIT_COMMIT_SHA"),
+        repository=f"{owner}/{slug}" if owner and slug else "",
+        region=read("VERCEL_REGION"),
+    )
 
 
 @lru_cache

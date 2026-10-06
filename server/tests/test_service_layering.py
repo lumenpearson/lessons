@@ -240,3 +240,13 @@ def test_the_walk_sees_a_v2_module_reach_a_v1_router():
     assert any(_within(name, V1_ROUTERS) for name in names)
     assert not _within("app.api.deps", V1_ROUTERS)
     assert not _within("app.api.publicity", V1_ROUTERS)
+
+
+def test_the_neutral_sender_reaches_neither_the_bot_nor_a_shell():
+    """``app.telegram_send`` is what ``services/`` sends through (the
+    self-check's alerts) and what the tick and v1's writes build their bot
+    with. Were it to import ``app.bot``, every service that sends would reach
+    the bot through it, and the walk above would name that chain only once a
+    service did; were it to import a shell, a service would stand on it."""
+    chains = _chains(("app.telegram_send",), (FORBIDDEN, "app.api", "app.rpc", "app.rest"))
+    assert chains == [], "\n".join(chains)

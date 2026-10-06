@@ -62,6 +62,13 @@ dependencies = [
     # even on a server, and pyqwest brings opentelemetry-api.
     "connectrpc>=0.12.1",
     "protobuf-py>=0.6.0",
+    # Sentry (docs/specs/2026-10-05-monitoring-design.md, part 3): each error
+    # with its place, and a 5 % sample of request timings. Imported only where
+    # SENTRY_DSN is set (app/observability.py), so a deployment without it pays
+    # nothing on its cold start. No extra: the FastAPI integration is in the
+    # package, and the `fastapi` extra would only ask for FastAPI, which is
+    # above. The floor is the release that was current when this was written.
+    "sentry-sdk>=2.71.0",
     # Schema changes. Not in requirements.txt: migrations are run from a
     # workstation against the database, never from inside a request, and the
     # function bundle is smaller without it.
