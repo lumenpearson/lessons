@@ -347,6 +347,33 @@ def test_a_setting_that_is_set_but_unusable_is_still_announced_as_off():
     assert settings.dadata_configured is False
 
 
+@pytest.mark.parametrize(
+    "dsn",
+    [
+        "https//public@o0.ingest.de.sentry.io/0",  # the scheme's colon is missing
+        "not-a-dsn",
+        "https://o0.ingest.de.sentry.io/0",  # no public key
+        "https://public@o0.ingest.de.sentry.io/",  # no project id
+    ],
+    ids=["no-colon", "not-a-url", "no-key", "no-project-id"],
+)
+def test_a_malformed_sentry_dsn_is_announced_as_off_not_fatal(dsn):
+    """``sentry_sdk.utils.Dsn`` raises ``BadDsn`` on every one of these, and
+    that call is reached from ``app.main``'s top level — on the cold start of
+    v1, v2, the webhook and the cron tick all at once. ``Settings`` judges the
+    shape first, exactly as it already does for ``DIARY_PROXY_URL``, so the
+    import never gets there."""
+    settings = deployed(SENTRY_DSN=dsn)
+
+    assert settings.deployment_problems() == []
+    assert settings.sentry_configured is False
+    announced = settings.disabled_features()
+    assert any("SENTRY_DSN is set but unusable" in line for line in announced)
+    # Never the value: a malformed DSN is still a DSN, and it may still carry
+    # a real key.
+    assert not any(dsn in line for line in announced)
+
+
 def test_the_shortest_usable_diary_secret_is_announced_as_on():
     """The boundary, from both sides, because this is where the two questions
     used to differ."""

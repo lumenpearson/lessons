@@ -51,7 +51,18 @@ def _everything() -> dict:
                     "type": "ValueError",
                     "module": None,
                     "value": f"no lessons for {CHILD}",
-                    "mechanism": {"type": "starlette", "handled": False, "data": {"t": TOKEN}},
+                    "mechanism": {
+                        "type": "starlette",
+                        "handled": False,
+                        # A chained or grouped exception's own links: safe to
+                        # keep, because none of the four is a message or a
+                        # value a caller could have written.
+                        "exception_id": 0,
+                        "parent_id": 1,
+                        "source": "__cause__",
+                        "is_exception_group": False,
+                        "data": {"t": TOKEN},
+                    },
                     "stacktrace": {
                         "frames": [
                             {
@@ -121,7 +132,14 @@ def test_an_error_keeps_its_type_its_place_and_its_route_and_nothing_else():
             "in_app": True,
         }
     ]
-    assert value["mechanism"] == {"type": "starlette", "handled": False}
+    assert value["mechanism"] == {
+        "type": "starlette",
+        "handled": False,
+        "exception_id": 0,
+        "parent_id": 1,
+        "source": "__cause__",
+        "is_exception_group": False,
+    }
     assert scrubbed["transaction"] == ROUTE
     assert scrubbed["contexts"] == {
         "trace": {
@@ -194,9 +212,33 @@ def test_the_sample_of_timings_is_the_owner_s_five_percent():
     assert not Settings(SENTRY_DSN="  ").sentry_configured
 
 
+def test_a_failure_starting_sentry_is_logged_by_type_and_does_not_propagate(monkeypatch):
+    """`app.main`'s guard: whatever `sentry_sdk.init` could still raise past
+    `Settings`' own shape check must not take the whole API down with it, and
+    the log line must not repeat whatever the exception's message carried -
+    that is where a real DSN's key would show up."""
+    import app.main as main_module
+
+    monkeypatch.setattr(get_settings(), "sentry_dsn", FAKE_DSN)
+
+    def boom(settings):
+        raise RuntimeError(f"a secret right here: {TOKEN}")
+
+    monkeypatch.setattr(observability, "init", boom)
+
+    messages: list[str] = []
+    monkeypatch.setattr(main_module.log, "error", lambda fmt, *args: messages.append(fmt % args))
+
+    main_module._start_sentry()  # must not raise
+
+    assert messages == ["Sentry did not start: RuntimeError"]
+
+
 #: Starts Sentry as ``app.main`` does, through a transport that keeps what it
 #: is handed, and fails one request that carries a diary token in its header
-#: and a child's name in its query, its body, its exception and a local.
+#: and a child's name in its query, its body, its exception and a local. A
+#: second request matches no route at all, with the token in its path - the
+#: one place a route template can never carry it.
 _REQUEST = """
 import asyncio, json, logging
 import httpx
@@ -208,11 +250,15 @@ from app.config import Settings
 
 TOKEN, CHILD, ROUTE = {token!r}, {child!r}, {route!r}
 caught = []
+types = []
+headers = []
 
 
 class Keep(Transport):
     def capture_envelope(self, envelope):
+        headers.append(dict(envelope.headers))
         for item in envelope.items:
+            types.append(item.type)
             if item.payload.json is not None:
                 caught.append(item.payload.json)
 
@@ -237,13 +283,17 @@ async def main():
             json={{"name": CHILD}},
             headers={{"Authorization": f"Bearer {{TOKEN}}", "Cookie": f"s={{TOKEN}}"}},
         )
-    assert answer.status_code == 500
+        assert answer.status_code == 500
+        unmatched = await client.get(f"/no-such-route/{{TOKEN}}")
+        assert unmatched.status_code == 404
 
 
 asyncio.run(main())
 import sentry_sdk
 sentry_sdk.flush()
-print(json.dumps(caught, ensure_ascii=False, default=str))
+print(json.dumps(
+    {{"events": caught, "types": types, "headers": headers}}, ensure_ascii=False, default=str,
+))
 """
 
 
@@ -259,14 +309,90 @@ def test_an_event_built_from_a_request_leaves_with_neither_the_token_nor_the_chi
         timeout=120,
     )
     assert result.returncode == 0, result.stderr
-    sent = json.loads(result.stdout.strip().splitlines()[-1])
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+    sent, types, envelope_headers = payload["events"], payload["types"], payload["headers"]
+
+    # Exactly the two kinds the design describes - not "everything that is
+    # not a transaction", which would also pass a release-health or a
+    # client-report item silently, had either been left on.
+    assert set(types) == {"event", "transaction"}
+    # The envelope's own header, never an item's: 2.71.0 always sets these
+    # two, and the dynamic sampling context - which would carry the route -
+    # is already gone by the time this is built, because scrub dropped it
+    # from `contexts.trace` first.
+    for header in envelope_headers:
+        assert set(header) <= {"event_id", "sent_at"}
+    assert _leaks(sent) == []
 
     errors = [event for event in sent if event.get("type") != "transaction"]
     timings = [event for event in sent if event.get("type") == "transaction"]
-    assert len(errors) == 1 and len(timings) == 1
-    assert _leaks(sent) == []
+    assert len(errors) == 1 and len(timings) == 2
     (value,) = errors[0]["exception"]["values"]
     assert value["type"] == "ValueError"
     assert any(frame.get("function") == "schedule" for frame in value["stacktrace"]["frames"])
-    assert errors[0]["transaction"] == timings[0]["transaction"] == ROUTE
-    assert timings[0]["spans"] == []
+    assert errors[0]["transaction"] == ROUTE
+    by_route = {timing["transaction"]: timing for timing in timings}
+    assert set(by_route) == {ROUTE, observability.UNMATCHED}
+    assert all(timing["spans"] == [] for timing in timings)
+
+
+#: A caller's own `sentry-trace` header, claiming the trace is sampled -
+#: nothing upstream of this server actually propagates one, so the sampler
+#: must decide on the rate alone, never on what a caller claims.
+_TRACE_HEADER_REQUEST = """
+import asyncio, json
+import httpx
+from fastapi import FastAPI
+from sentry_sdk.transport import Transport
+
+from app import observability
+from app.config import Settings
+
+types = []
+
+
+class Keep(Transport):
+    def capture_envelope(self, envelope):
+        for item in envelope.items:
+            types.append(item.type)
+
+
+observability.init(Settings(SENTRY_DSN={dsn!r}), transport=Keep(), traces_sample_rate=0.0)
+app = FastAPI()
+
+
+@app.get("/ping")
+async def ping():
+    return {{"ok": True}}
+
+
+async def main():
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        answer = await client.get(
+            "/ping",
+            headers={{"sentry-trace": "1" * 32 + "-" + "2" * 16 + "-1"}},
+        )
+    assert answer.status_code == 200
+
+
+asyncio.run(main())
+import sentry_sdk
+sentry_sdk.flush()
+print(json.dumps(types))
+"""
+
+
+def test_a_caller_s_sentry_trace_header_cannot_force_sampling():
+    script = _TRACE_HEADER_REQUEST.format(dsn=FAKE_DSN)
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=str(SERVER),
+        env={**os.environ, "SENTRY_DSN": FAKE_DSN},
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    types = json.loads(result.stdout.strip().splitlines()[-1])
+    assert "transaction" not in types

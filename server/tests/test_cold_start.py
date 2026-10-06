@@ -143,6 +143,19 @@ def test_without_a_dsn_the_api_never_imports_sentry(settings):
     )
 
 
+def test_a_malformed_dsn_still_imports_without_sentry():
+    """`Settings.sentry_dsn_value` judges the shape before anything here asks
+    `sentry_sdk` to - so a `SENTRY_DSN` that is set but unusable never reaches
+    `observability.init`, and the cold start is the one `SENTRY_DSN=""` gets."""
+    dsn = "not-a-dsn"
+    found = _import_in_a_fresh_interpreter("app.main", {**_VERCEL, "SENTRY_DSN": dsn})
+
+    assert found["sentry"] == [], (
+        f"importing app.main with a malformed SENTRY_DSN loaded {len(found['sentry'])} "
+        "sentry_sdk modules"
+    )
+
+
 def test_with_a_dsn_the_api_starts_sentry_and_still_leaves_aiogram_out():
     """And the other side, which is what proves the probe can see it: with
     the setting, Sentry is started at import. Its integrations are Starlette's

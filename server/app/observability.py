@@ -61,6 +61,12 @@ _TRANSACTION_KEYS = (
 )
 _FRAME_KEYS = ("filename", "function", "module", "lineno", "in_app")
 _TRACE_KEYS = ("trace_id", "span_id", "parent_span_id", "op", "status")
+#: ``type`` and ``handled`` say what caught it; the other four link one
+#: exception in a chain or a group to the next - integers, a fixed word and a
+#: boolean, none of them a message or a value a caller could have written.
+_MECHANISM_KEYS = (
+    "type", "handled", "exception_id", "parent_id", "source", "is_exception_group",
+)
 
 
 def init(
@@ -72,7 +78,7 @@ def init(
     """Start Sentry for this process. ``transport`` and the rate are for the tests."""
     running = deployment()
     sentry_sdk.init(
-        dsn=settings.sentry_dsn.strip(),
+        dsn=settings.sentry_dsn_value,
         # Vercel's own name for the environment, so a preview's errors stay
         # apart from production's.
         environment=running.environment or "self-hosted",
@@ -84,16 +90,23 @@ def init(
         # Sentry's headers on the diary's and Telegram's requests.
         default_integrations=False,
         auto_enabling_integrations=False,
-        # Release health: a per-minute count of crashed and errored sessions,
-        # keyed to no request and carrying no route - nothing in the 152-ФЗ
-        # whitelist, but an envelope item neither hook is asked to scrub, so
-        # it is switched off rather than trusted to stay harmless.
+        # Release health (a per-minute count of crashed and errored sessions)
+        # and client reports (a count of events this process dropped and
+        # why): both are envelope items neither hook below is asked to scrub,
+        # keyed to no request and carrying no route, so the rule - nothing
+        # leaves unless it is on the list - switches them off rather than
+        # trusting them to stay harmless.
         auto_session_tracking=False,
+        send_client_reports=False,
         integrations=[
             StarletteIntegration(transaction_style="url"),
             FastApiIntegration(transaction_style="url"),
         ],
-        traces_sample_rate=traces_sample_rate,
+        # Not `traces_sample_rate` alone: with no `traces_sampler`, an
+        # incoming `sentry-trace` header's own sampled flag overrides it, and
+        # nothing upstream of this server propagates a Sentry trace - so an
+        # incoming decision is never ours to honour.
+        traces_sampler=lambda _context: traces_sample_rate,
         send_default_pii=False,
         include_local_variables=False,
         include_source_context=False,
@@ -152,7 +165,7 @@ def _exception(value: dict[str, Any]) -> dict[str, Any]:
     kept: dict[str, Any] = {"type": value.get("type"), "module": value.get("module")}
     mechanism = value.get("mechanism") or {}
     if mechanism:
-        kept["mechanism"] = {key: mechanism[key] for key in ("type", "handled") if key in mechanism}
+        kept["mechanism"] = {key: mechanism[key] for key in _MECHANISM_KEYS if key in mechanism}
     frames = (value.get("stacktrace") or {}).get("frames") or []
     if frames:
         kept["stacktrace"] = {

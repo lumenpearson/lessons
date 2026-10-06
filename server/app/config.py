@@ -386,10 +386,37 @@ class Settings(BaseSettings):
         return value
 
     @property
+    def sentry_dsn_value(self) -> str | None:
+        """``SENTRY_DSN`` if ``sentry_sdk.init`` could use it, else ``None``.
+
+        Judged here, without importing ``sentry_sdk``, because the only place
+        that would otherwise raise is ``sentry_sdk.init`` itself, called from
+        ``app.main``'s top level (``observability.init``) - on the cold start
+        of v1, v2, the webhook and the cron tick at once. The shape mirrors
+        what ``sentry_sdk.utils.Dsn`` requires: an ``http``/``https`` scheme,
+        a public key as the username, a host, and a path whose last segment
+        is a numeric project id (Sentry allows a path prefix before it).
+        """
+        value = self.sentry_dsn.strip()
+        if not value:
+            return None
+        parts = urlsplit(value)
+        try:
+            # As in `diary_proxy`: reading the port is what checks it.
+            _ = parts.port
+        except ValueError:
+            return None
+        if parts.scheme not in ("http", "https") or not parts.hostname or not parts.username:
+            return None
+        if not parts.path.rsplit("/", 1)[-1].isdigit():
+            return None
+        return value
+
+    @property
     def sentry_configured(self) -> bool:
         """Whether errors go to Sentry - the question ``app.main`` and the
         bot's error handler ask before they import anything of it."""
-        return bool(self.sentry_dsn.strip())
+        return self.sentry_dsn_value is not None
 
     def disabled_features(self) -> list[str]:
         """What an empty optional setting has switched off, for the startup log.
@@ -432,7 +459,15 @@ class Settings(BaseSettings):
                 "sharing sixty requests an hour"
             )
         if not self.sentry_configured:
-            off.append("SENTRY_DSN is empty: errors and request timings are not sent to Sentry")
+            # Same split as `diary_proxy`: empty is a deliberate choice, a set
+            # but unusable value is a mistake worth a different sentence -
+            # and never the value itself, which may still be a real DSN.
+            if self.sentry_dsn.strip():
+                off.append("SENTRY_DSN is set but unusable: errors are not sent to Sentry")
+            else:
+                off.append(
+                    "SENTRY_DSN is empty: errors and request timings are not sent to Sentry"
+                )
         return off
 
 
