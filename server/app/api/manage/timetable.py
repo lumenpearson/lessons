@@ -1,7 +1,10 @@
 """``/timetable``: the weekly template as text, «📤 Экспорт» and «📥 Импорт».
 
 Part of :mod:`app.api.manage`; the rules every endpoint of it
-follows are in that package's docstring.
+follows are in that package's docstring. The import's rules - the parse, the
+conflicts, and a line for each lesson dropped or silenced - are
+``services/manage/timetable.import_paste``, which v2's ``ImportTimetable``
+calls too.
 """
 
 from __future__ import annotations
@@ -10,14 +13,13 @@ from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.api.deps import current_class
 from app.api.manage._common import Actor, admin_actor
 from app.api.routing import DishkaAnnotatedRoute
 from app.models import SchoolClass
 from app.schemas import ImportConflictOut, TimetableExportOut, TimetableImportIn, TimetableImportOut
-from app.services import structure, timetable_io
 from app.services.manage import timetable as timetable_service
-from app.wording import WEEKDAYS
 
 router = APIRouter(route_class=DishkaAnnotatedRoute)
 
@@ -65,61 +67,32 @@ async def timetable_import(
     emptied - that is how a paste says «в четверг уроков нет». A
     ``== Звонки ==`` block replaces the default schedule's rows outright, as it
     does in the bot; it is a schedule, not a day, and nothing else points at it.
+    The rules are ``services/manage/timetable.import_paste``.
     """
-    days, rejected = timetable_io.parse_timetable_block(payload.text)
-    bells, _rejected_bells = timetable_io.parse_bells_block(payload.text)
-    if not days and not bells:
+    try:
+        outcome = await timetable_service.import_paste(
+            session, school_class, actor.telegram_id, payload.text, replace=payload.replace
+        )
+    except timetable_service.PasteEmpty as empty:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="no weekday header and no bells block found in the text",
-        )
-
-    existing = await structure.lessons_per_weekday(session, school_class.id, list(days))
-    conflicts = [
-        ImportConflictOut(weekday=weekday, existing=count, incoming=len(days[weekday]))
-        for weekday, count in sorted(existing.items())
-        if count
-    ]
-    if conflicts and not payload.replace:
-        return TimetableImportOut(
-            applied=False,
-            days=sorted(days),
-            lessons=sum(len(rows) for rows in days.values()),
-            bells=len(bells),
-            conflicts=conflicts,
-            rejected=rejected,
-        )
-
-    result = await timetable_service.apply(session, school_class, actor.telegram_id, days, bells)
-    total = result.written
-    schedule = result.schedule
-    # Reported, not silently dropped: a lesson past the last bell has nowhere
-    # to be drawn, and «applied: true, lessons: N» with N short of what was
-    # pasted is exactly the answer that hides it. One line per dropped row,
-    # named by its weekday: the same number under two weekdays is two lessons
-    # gone, and while this counted the distinct numbers it admitted to one.
-    rejected = rejected + [
-        f"{WEEKDAYS[weekday - 1]}, урок {index}: "
-        "нет такого звонка в расписании звонков"
-        for weekday, index in result.dropped
-    ]
-    # The other direction, and the one nothing used to report: these lessons
-    # were already stored and the bells this import wrote no longer ring them,
-    # so they are still in the database and drawn nowhere.
-    rejected = rejected + [
-        f"{WEEKDAYS[weekday - 1]}, урок {index}: "
-        "больше не звонит — новые звонки короче"
-        for weekday, index in result.orphaned
-    ]
-    await session.commit()
-    if schedule is not None:
-        await session.refresh(schedule, ["periods"])
+            detail=wording.TIMETABLE_PASTE_EMPTY_DETAIL,
+        ) from empty
+    if outcome.applied:
+        await session.commit()
+        if outcome.schedule is not None:
+            await session.refresh(outcome.schedule, ["periods"])
 
     return TimetableImportOut(
-        applied=True,
-        days=sorted(days),
-        lessons=total,
-        bells=len(bells),
-        conflicts=conflicts,
-        rejected=rejected,
+        applied=outcome.applied,
+        days=outcome.days,
+        lessons=outcome.lessons,
+        bells=outcome.bells,
+        conflicts=[
+            ImportConflictOut(
+                weekday=conflict.weekday, existing=conflict.existing, incoming=conflict.incoming
+            )
+            for conflict in outcome.conflicts
+        ],
+        rejected=outcome.rejected,
     )

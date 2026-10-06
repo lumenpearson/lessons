@@ -362,9 +362,14 @@ both would silently move those days onto another schedule.
 Every phone that entered the class code:
 
 ```
-📱 Pixel 8 · привязан: @masha (Редактор) · был 2 ч назад
+📱 Pixel 8 · привязан: @masha (Редактор) · был 2 ч назад · сборка 412
 📱 Samsung A54 · не привязан · был 3 дн назад
 ```
+
+«сборка» is the app's build number, its versionCode, as the phone last sent it with a v2
+request; it is recorded at most every fifteen minutes, beside «был …». A phone that never
+sent one shows nothing about a version, and that is every APK that speaks only v1: the line
+exists so that an admin can see which phones still run an old APK before v1 is retired.
 
 A device token is read-only until its owner links it with `/link <код>`; from
 then on it writes with whatever role that account holds **at request time**. So

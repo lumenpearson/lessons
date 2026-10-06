@@ -20,7 +20,6 @@ from fastapi import FastAPI
 import app.rpc as rpc_module
 from app import main
 from app.api.public import router as public_router
-from app.config import get_settings
 from app.rpc import GRPC_REFUSED, _Services, rpc_app
 from app.rpc.handlers import HANDLERS
 
@@ -47,11 +46,13 @@ async def test_native_grpc_over_http_1_1_is_refused_before_the_library(v2) -> No
         assert response.text == GRPC_REFUSED
 
 
-async def test_grpc_web_is_not_native_grpc(v2) -> None:
+async def test_grpc_web_is_not_native_grpc(v2, unserved) -> None:
     """gRPC-Web runs over HTTP/1.1, and ``connectrpc`` serves it: the guard
-    must not take ``application/grpc-web…`` for ``application/grpc…``."""
+    must not take ``application/grpc-web…`` for ``application/grpc…``. The
+    method has no handler (``unserved``), so the library's answer is its
+    UNIMPLEMENTED, whichever methods a stage serves."""
     response = await v2.http.post(
-        "/api/rpc/lessons.v2.ClassService/GetClass",
+        f"/api/rpc/{unserved}",
         content=b"\x00\x00\x00\x00\x00",
         headers={"Content-Type": "application/grpc-web+proto"},
     )
@@ -59,10 +60,12 @@ async def test_grpc_web_is_not_native_grpc(v2) -> None:
     assert b"grpc-status: 12" in response.content
 
 
-async def test_native_grpc_over_http_2_reaches_the_library() -> None:
+async def test_native_grpc_over_http_2_reaches_the_library(unserved) -> None:
     """On the host target, over HTTP/2 with trailers, the guard steps aside
     (3c serves it). Asked of the app directly, with the scope an HTTP/2 server
-    would build, because httpx's ASGI transport speaks only HTTP/1.1."""
+    would build, because httpx's ASGI transport speaks only HTTP/1.1. The
+    method has no handler (``unserved``), so the library's answer is its
+    UNIMPLEMENTED, whichever methods a stage serves."""
     sent: list[dict] = []
     body = [{"type": "http.request", "body": b"\x00\x00\x00\x00\x00", "more_body": False}]
 
@@ -77,7 +80,7 @@ async def test_native_grpc_over_http_2_reaches_the_library() -> None:
         "http_version": "2",
         "method": "POST",
         "scheme": "http",
-        "path": "/lessons.v2.ClassService/GetClass",
+        "path": f"/{unserved}",
         "root_path": "",
         "query_string": b"",
         "headers": [(b"content-type", b"application/grpc"), (b"te", b"trailers")],
@@ -197,9 +200,9 @@ async def test_an_unknown_service_is_404_and_a_get_of_a_write_is_405(v2) -> None
 
 @pytest.mark.parametrize("vercel", ["1", ""], ids=["on-vercel", "elsewhere"])
 async def test_watch_class_is_not_served_and_says_so_after_the_gate(
-    v2, v2_tokens, monkeypatch, vercel
+    v2, v2_tokens, monkeypatch, served_settings, vercel
 ) -> None:
-    monkeypatch.setattr(get_settings(), "vercel", vercel)
+    monkeypatch.setattr(served_settings, "vercel", vercel)
     anonymous = await v2.stream("WatchService/WatchClass")
     assert (anonymous.code, anonymous.reason) == ("UNAUTHENTICATED", "DEVICE_TOKEN_INVALID")
 

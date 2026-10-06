@@ -43,8 +43,13 @@ async def _audit_lines() -> int:
         return await fresh.scalar(select(func.count()).select_from(AuditEntry)) or 0
 
 
-async def test_a_method_with_no_handler_answers_as_the_generated_protocol_does() -> None:
-    """Before any gate: no credential is asked of a method nobody serves."""
+async def test_a_method_with_no_handler_answers_as_the_generated_protocol_does(
+    monkeypatch,
+) -> None:
+    """Before any gate: no credential is asked of a method nobody serves.
+    ``GetClass`` is taken out of ``HANDLERS`` for the test, so that the answer
+    does not depend on which methods a stage serves: 3b-2 serves it."""
+    monkeypatch.delitem(HANDLERS, GET_CLASS.key, raising=False)
     with pytest.raises(ConnectError) as protocol:
         await school_class_connect.ClassService.get_class(None, GetClassRequest(), None)
     with pytest.raises(ConnectError) as served:

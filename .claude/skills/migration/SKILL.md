@@ -5,7 +5,7 @@ description: Write and apply an Alembic revision for this project — including 
 
 # A migration, start to finish
 
-Head is **`0017`**. Nothing after `0001` may use `create_all`.
+Head is **`0018`**. Nothing after `0001` may use `create_all`.
 
 ## 1. Decide the direction
 
@@ -64,6 +64,10 @@ the first ORM read raises `LookupError`. `0010` nearly shipped that.
 A revision that does not move it fails there.
 
 ## 5. Apply it
+
+**Twice: the Neon branch `preview` first, when the pull request is pushed, and production
+before the merge.** `0018` was the first to go that way; a preview whose database is behind
+its code answers `degraded`.
 
 Through the **Neon connector**, from the session. The owner does not run
 `alembic upgrade head` by hand and a session has no `DATABASE_URL`. The project is the one

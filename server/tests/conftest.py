@@ -630,6 +630,8 @@ class _V2:
 
         from protobuf import message_to_json_value
 
+        from app.rpc.methods import message_class
+
         method = self.method(name)
         request = request if request is not None else method.input()
         binding = method.binding
@@ -643,7 +645,13 @@ class _V2:
             parts = variable.split(".")
             for index, part in enumerate(parts):
                 field_desc = next(f for f in leaf.desc().fields if f.name == part)
-                leaf = leaf[field_desc]
+                nested = leaf[field_desc]
+                if nested is None:
+                    # An unset message on the way to a path variable, as in an
+                    # empty `UpdateSubjectRequest`: the variable is its field's
+                    # default, the URL a client writes from an empty resource.
+                    nested = message_class(field_desc.value.message)()
+                leaf = nested
                 if index < len(parts) - 1:
                     container = container.get(field_desc.json_name, {})
                 else:
@@ -827,6 +835,40 @@ async def v2() -> AsyncIterator[_V2]:
 
 
 @pytest.fixture
+async def served_settings():
+    """The ``Settings`` the served app reads, to patch for a call through ``v2``.
+
+    ``get_settings()`` is not it: a test module that clears that cache builds a
+    second instance, while v2's ``invoke`` goes on reading the one the process's
+    dishka container resolved once, so a patch on the copy changes nothing the
+    gate sees and the test fails only after whichever module cleared the cache.
+    """
+    from app.config import Settings
+    from app.di import container
+
+    return await container().get(Settings)
+
+
+@pytest.fixture
+async def settings_cache_cleared():
+    """Leave ``get_settings()`` building a different ``Settings`` from the one
+    the served app holds, as eight modules do when they clear its cache.
+
+    The container's instance is resolved first so that it exists to diverge
+    from; without that, a test would see the two agree whenever nothing had
+    cleared the cache before it, and would guard against the bug only by the
+    luck of its position in the run. Request it before ``served_settings``.
+    """
+    from app.config import Settings, get_settings
+    from app.di import container
+
+    await container().get(Settings)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+@pytest.fixture
 def statement_writes() -> Callable[[], contextlib.AbstractContextManager[list[str]]]:
     """``with statement_writes() as seen:`` — every INSERT, UPDATE and DELETE
     the engine sends while the block runs, whitespace folded.
@@ -851,3 +893,33 @@ def statement_writes() -> Callable[[], contextlib.AbstractContextManager[list[st
             event.remove(engine.sync_engine, "before_cursor_execute", record)
 
     return writes
+
+
+#: The writes a read may make, on purpose (decision 10 of the server-v2
+#: design): telemetry no client observes, a diary credential the upstream
+#: rotated and when it was used, and the throttles' and the directory
+#: counter's own rows. A fixture hands the rule out, because a test module may
+#: not import another one.
+ALLOWED_WRITES = (
+    # The phone's last call, and the app version it sent with it: one
+    # statement, on one fifteen-minute clock (decision 15).
+    re.compile(r"^UPDATE device_tokens SET last_seen_at=\?(?:, client_version=\?)? WHERE"),
+    re.compile(r"^UPDATE diary_sessions SET (?:(?:upstream_token|last_used_at)=\?(?:, )?)+ WHERE"),
+    re.compile(r"^(?:INSERT INTO|UPDATE|DELETE FROM) (?:join_attempts|usage_counters)\b"),
+)
+
+
+@pytest.fixture
+def unexpected_writes() -> Callable[[list[str]], list[str]]:
+    """The statements among those given that a read may not make."""
+
+    def unexpected(statements: list[str]) -> list[str]:
+        return [s for s in statements if not any(rule.match(s) for rule in ALLOWED_WRITES)]
+
+    return unexpected
+
+
+@pytest.fixture
+def last_seen_rule() -> re.Pattern[str]:
+    """The one write a plain authenticated read makes: the device's last call."""
+    return ALLOWED_WRITES[0]

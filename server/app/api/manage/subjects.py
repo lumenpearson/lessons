@@ -10,6 +10,7 @@ from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.api.deps import current_class
 from app.api.manage._common import Actor, _conflict, admin_actor, editor_actor
 from app.api.routing import DishkaAnnotatedRoute
@@ -40,7 +41,9 @@ async def _subject_or_404(
 ) -> Subject:
     subject = await subjects_service.subject_of(session, school_class.id, subject_id)
     if subject is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown subject")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_SUBJECT_DETAIL
+        )
     return subject
 
 
@@ -56,7 +59,9 @@ async def subjects_list(
 
     Adopts whatever the timetable already uses on the way, so this list is
     never emptily lying about a class with thirty-five lessons in it. Free once
-    the two agree, which after the first read they do.
+    the two agree, which after the first read they do. v2's ``ListSubjects``
+    does not adopt (the server-v2 design, decision 10); this read keeps doing
+    it until v1 is retired.
     """
     # Committed whatever the count says, the way `public.bundle` does it. The
     # number that comes back is how many dictionary entries were *created*, and
@@ -93,7 +98,7 @@ async def subject_create(
             color=payload.color,
         )
     except subjects_service.SubjectExists as taken:
-        raise _conflict("a subject with that name is already in this class") from taken
+        raise _conflict(wording.SUBJECT_EXISTS_DETAIL) from taken
     await session.commit()
     await session.refresh(subject)
     return SubjectSavedOut(subject=_subject_out(subject))
@@ -114,30 +119,22 @@ async def subject_update(
     subject as text, so all three move with it in this one transaction, and
     ``moved`` says how many rows did. Renaming onto a name the class already
     uses is refused - merging two subjects is a different operation, and doing
-    it by accident cannot be undone.
+    it by accident cannot be undone. The patch itself is
+    ``services/manage/subjects.update``, which v2's ``UpdateSubject`` applies too.
     """
     subject = await _subject_or_404(session, school_class, subject_id)
-    changes = payload.model_dump(exclude_unset=True)
-    new_name = changes.pop("name", None)
-    moved = 0
-
-    if new_name is not None:
-        try:
-            moved = (
-                await subjects_service.rename(
-                    session, school_class.id, actor.telegram_id, subject, new_name
-                )
-                or 0
-            )
-        except subjects_service.SubjectExists as taken:
-            raise _conflict("a subject with that name is already in this class") from taken
-        except subjects_service.HomeworkClash as clash:
-            raise _conflict(f"homework under both names on the same day: {clash}") from clash
-
-    for column, value in changes.items():
-        await subjects_service.set_detail(
-            session, school_class.id, actor.telegram_id, subject, column, value
+    try:
+        moved = await subjects_service.update(
+            session,
+            school_class.id,
+            actor.telegram_id,
+            subject,
+            payload.model_dump(exclude_unset=True),
         )
+    except subjects_service.SubjectExists as taken:
+        raise _conflict(wording.SUBJECT_EXISTS_DETAIL) from taken
+    except subjects_service.HomeworkClash as clash:
+        raise _conflict(wording.subject_rename_clash_detail(clash.days)) from clash
 
     await session.commit()
     await session.refresh(subject)
@@ -171,6 +168,6 @@ async def subject_delete(
     try:
         await subjects_service.delete(session, school_class.id, actor.telegram_id, subject)
     except subjects_service.SubjectInUse as in_use:
-        raise _conflict(f"{in_use.lessons} lesson(s) still use this subject") from in_use
+        raise _conflict(wording.subject_in_use_detail(in_use.lessons)) from in_use
     await session.commit()
     return DeletedOut(id=subject_id)

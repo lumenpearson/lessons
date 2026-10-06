@@ -6,23 +6,28 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **5 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
+Last updated: **6 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
-#313, #319, #328, #329, #332, #333 and #335 are merged**; `main` is at `175ff42`, the merge
-of #335, on 5 October 2026, and `dev` is level with it. **The four designs of sub-projects 3
+#313, #319, #328, #329, #332, #333, #335, #342 and #350 are merged**; `main` is at
+`09e17bd`, the merge of #350, at 22:20 UTC on 5 October 2026. **The four designs of sub-projects 3
 to 6 are approved and on `main`**: the owner answered every question with its recommendation
-on 5 October (#301, #306, #307, #308). **One pull request is open: #342, the one carrying
-this paragraph**, a draft from `server-v2/3a`, on milestone 11, `v0.10.0 — One contract: REST
-v2, Connect and native gRPC, build console`, which closes #336, #337, #338, #339, #340 and
-#341 and refers to #273: v2 is served beside v1, four methods of it, over REST and Connect.
-#335 closed #334, and GitHub closed #235 at the same merge. The schema head did not move: it
-is still `0017`, and `EXPECTED_REVISION` did not move either. Production answered
-`/api/v1/warmup` with `{"status":"ok","api_version":1,"schema":"0017"}` at 14:38 UTC on 5
-October, after the owner's redeploy of 13:20 UTC.
+on 5 October (#301, #306, #307, #308). **Four pull requests are open. One is #356, the one
+carrying this paragraph**, from `server-v2/3b-2`, on milestone 11, `v0.10.0 — One contract: REST
+v2, Connect and native gRPC, build console`, which closes #353 and
+refers to #273 and #354: v2 is served beside v1, twenty-eight methods of it now, over REST and
+Connect. The other three are dependabot's #344 (`cryptography` 50.0.2), #345 (the
+`sqlalchemy[asyncio]` floor at 2.1.2) and #346 (`fastapi` 0.142.2), left for a batch of their
+own. #342 closed #336–#341 at its merge. **The schema did not move**: the head is still `0018`, on production since 22:06 UTC on
+5 October, and `EXPECTED_REVISION` did not move either. The issues filed since #350
+merged are #353 (closed by #356), #354 (SQLite's savepoint commits on release, open) and
+#355 (a 3b-1 test that failed once in a full parallel run, open), and #357 (Connect's GET
+answers carry no `Cache-Control` while their REST twins are no-store, filed 6 October, open).
+#352 stays as it is: open, and not fixed in #356. #118, what Preview is for, was closed
+by #350.
 
-The section «What the last session added» below is #342's batch, and «What the session
-before it added» is #335's.
+The section «What the last session added» below is #356's batch, and «What the session
+before it added» is #350's.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -30,8 +35,7 @@ The SHA of its own merge is for the next close-out to write.
 #271, #272 and #275**, read back on 4 October. **#274 and #277 closed nothing.** Of the
 defects the survey and the plan filed on milestone 11, #268–#270 are open, #276 closed with
 #305, #309 and #310 with #311, #312 with #313, #314–#318 with #319, #320–#325 with #328, #331
-with #332, and #273 is that milestone's epic. #336–#341, filed on #342's branch, stay open
-until it merges.
+with #332, and #273 is that milestone's epic. #336–#341, filed on #342's branch, closed with it.
 **#235** closed at #335's merge on 5 October, and the proxy it asked for was verified in
 production the same day («Outside the pull request, the same day», in the section on #342).
 **#236**, a phone's sign-in showing nothing for over a minute, was closed as a duplicate of
@@ -39,13 +43,19 @@ production the same day («Outside the pull request, the same day», in the sect
 Of the device epic **#109**, **#111** and **#113** stay open for what only a phone can say,
 and **#112** (a macrobenchmark module) was not started.
 
-**The code expects head `0017`, and production is at `0017` since 26 September 2026 at 12:26 UTC.**
-`EXPECTED_REVISION` in `app/db.py` is `0017`, pinned to the real head by
-`tests/test_schema_version.py`. `0015` adds the eight nullable columns the second diary
+**The code expects head `0018`, and production has it since 22:06 UTC on 5 October 2026, before #350's merge.**
+`EXPECTED_REVISION` in `app/db.py` is `0018`, pinned to the real head by
+`tests/test_schema_version.py`. `0018` adds the nullable `device_tokens.client_version`, the
+app version a phone last sent to v2: additive, nothing destroyed and no row rewritten. It went
+to the Neon branch `preview` at 21:26 UTC and to production at 22:06 UTC, each as one
+transaction read first and read back after; production's `/api/v1/warmup` answered
+`degraded` with «База впереди кода» in the window between, which #350's merge at
+22:20:15 UTC on 5 October 2026 closed. `0015` adds the eight nullable columns the second diary
 needs. `0016` creates `usage_counters`, the anonymous school directory's daily count of
 DaData requests. `0017` files the diary corrections under the child rather than a login, and
-it is data only. All three went on through the Neon connector (the project named `lessons`)
-**before** #140's merge, in one transaction; «Schema» in the section on #140, in
+it is data only. Those three went on through the Neon connector (the project named `lessons`)
+**before** #140's merge, at 12:26 UTC on 26 September 2026, in one transaction; «Schema» in
+the section on #140, in
 [docs/history.md](docs/history.md) now, says what the database said. The `0014` chapter
 still holds: #83's pinned table of the enum column
 widths fails when a `SAEnum` member's **name** outgrows its `VARCHAR`, which SQLite cannot
@@ -151,206 +161,286 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: v2 served beside v1 — stage 3a of sub-project 3 (#273)
+## What the last session added: bells, the timetable and the class over v2 — stage 3b-2 of sub-project 3 (#273)
 
-Open as #342, a draft from `server-v2/3a` to `main`, on milestone 11, and on project 6 as In
-progress, P1, L, 21, started 5 October. It closes #336, #337, #338, #339, #340 and #341, and
-refers to #273. The branch was cut from `main` at `175ff42`, the merge of #335, and carries 23
-commits before this close-out, to `d501b42`. Written on 5 October 2026, after #335 merged.
-The schema head did not move. This is stage 3a of `docs/specs/2026-10-05-server-v2-design.md`,
-built by the plan beside it: v1 answers exactly as before, and v2 now answers too, four
-methods of it.
+Open as #356, from `server-v2/3b-2` to `main`, on milestone 11, and on project 6. It closes
+#353 and refers to #273 and #354. The branch was cut from `main` at `09e17bd`, the merge
+of #350, and carries 11 commits before this close-out, to `c83d532`. Written
+on 6 October 2026, after #350 merged. No revision goes with it: the schema stays at `0018`.
+This is stage 3b-2 of `docs/specs/2026-10-05-server-v2-design.md`, built by the task list for
+it in `docs/specs/2026-10-05-server-v2-3b-plan.md`. v1 answers as before; v2 now answers
+twenty-eight methods.
 
-- **The v1 rules v2 needs moved into `services/` first**, with v1 calling them: the join flow
-  (`services/join.py`), the window's tag and v2's school year (`services/window.py`), the
-  class's clock and the date bounds (`services/clock.py`), a device's access
-  (`linking.Access`), and the four limiters with the device cap and the diary's attempt
-  (`security.py`, one instance each). `caller_bucket` reads header lines and a peer host.
-- **`app/rpc/` and `app/rest/` serve v2**: one method table read from the descriptors, one
-  gate (client version, the diary's switch before any token, the bearer, the link, the role),
-  one `invoke` per call (scope, handler, the one commit, then effects), one error table, the
-  seventeen Connect apps at `/api/rpc` behind a `415` for native gRPC and a decoding guard,
-  and the REST transcoder under `/api/v2`. `main.mount_v2` answers `503` there if v2 will not
-  import.
-- **Four methods**: `GetScheduleWindow` (a school year, terms computed rather than seeded,
-  a strong tag and `not_modified`), `GetMe` (no code minted), `GetDiaryCapabilities` (v1's
-  answer in v2's shape), `CreateDevice` (v1's flow, on v1's budget). `WatchClass` refuses with
-  `FEATURE_UNSUPPORTED`. `MIN_CLIENT_VERSION` is a new optional setting.
-- **`google/rpc` is generated** beside `google/api`, pinned to `buf.lock`'s googleapis commit.
-- **`/api/v1/warmup` gains an additive `"v2": true|false`**, so a v2 that fell back to its
-  `503`s is visible. Its `status` is not changed by it.
-- **`Cache-Control: private, no-store`** goes on REST answers of the diary's GETs, of
-  `GetCalendarFeed` (its answer is a secret URL) and of `CreateDevice` (its answer is a device
-  token). The window keeps v1's answer: an ETag and no `Cache-Control`.
-- **The `v2` test harness**: `v2.connect`, `v2.rest` and `v2.both`, which asserts one outcome
-  on both transports. An unreadable answer is never equal to another.
-- **Six defects were found on the branch, each filed before its fix:**
-  - #337: a body claiming gzip that was not gzip gave a `500`;
-  - #338: a header or query that is not UTF-8 gave a `500` quoting the exception. It is now
-    read as latin-1, as v1 reads it;
-  - #339: a REST JSON body with a lone surrogate decoded where Connect refused it, then gave a
-    plain-text `500`;
-  - #340: REST read any body as JSON, so a cross-site simple POST could spend the join budget
-    v1 and v2 share. REST now takes `application/json` or `+json` only;
-  - #341: REST now refuses a compressed body, and Connect's encode failure is a logged
-    `INTERNAL` with the fixed sentence;
-  - #336: a sentence of the documents left `DIARY_PROXY_URL` out of what compose forwards.
-- **How it was built and reviewed**: eleven tasks, each with a review of the spec and the
-  quality; further review rounds on Tasks 5, 6, 7, 8, 9 and 10; and a review of the whole
-  branch, «Ready to merge: Yes», whose six Minors are all fixed in `d501b42`. The ledger is
-  git-ignored scratch and is not in the repository.
+- **The rules v1's routers held moved into `services/` first**, with v1 calling them:
+  - the bells' patch, `bells.update`: the rename, then the rows, then the default, with
+    `DefaultRequired` for `is_default` false;
+  - the timetable's import, `timetable.import_paste`, which also previews without writing,
+    with `PasteEmpty` for a paste with no day;
+  - the class card's patch, `classes.update`, and `classes.timezone_label`.
+
+  The sentences v1 and v2 both answer with are `app/wording.py`'s, `PUT /days`' refusal of an
+  empty schedule included.
+- **Fifteen methods.**
+  - `ListBellSchedules` and `GetBellSchedule`.
+  - `CreateBellSchedule`: `201`.
+  - `UpdateBellSchedule`: one masked update for v1's two writes; `silenced_lessons` counted
+    once; `EMPTY_BELL_SCHEDULE`, and `VALIDATION_FAILED` on `schedule.is_default`.
+  - `DeleteBellSchedule`: `RESOURCE_IN_USE`, with what uses the schedule.
+  - `GetTimetable`, and `ImportTimetable` with `validate_only`, a preview that writes nothing.
+  - `GetClass`, `UpdateClass` (masked; a join mode masked and left unspecified is refused) and
+    `GetClassStats`.
+  - `DeleteClass`, the owner's, after which the caller's token is dead.
+  - `GetTermScheme` and `ListTerms`, which never seed; `UpdateTermScheme` and `UpdateTerm`, with
+    `TERM_BOUNDS_REFUSED` in the service's own sentence.
+- **The error table gains eight rows**, each read back on both paths by a named test.
+  `EMPTY_BELL_SCHEDULE` and `TERM_BOUNDS_REFUSED` left `LATER`, and 3b-2 left `STAGES`. A
+  violation of a whole message now names the message (`errors._where`).
+- **The class card is never cached**: `GetClass` and `UpdateClass` answer with
+  `Cache-Control: private, no-store`, because the card carries the join code.
+- **`timetable.proto`** says what a preview counts, in comments only.
+- **One defect, filed before its fix**: #353, three tests of 3a that took `GetClass` for
+  a method nobody serves and would have failed once it was served. They take a method out of
+  `HANDLERS` for their own run now.
+- **The whole-branch review answered «ready to merge», with no Critical or Important
+  findings, and one commit made a final fix** (`c83d532`): two proto comments, regenerated;
+  the «send a mask» sentence in `docs/api.md`; `rest/__init__.py`'s docstring naming what is
+  no-store, and #357; and two pinned refusals the review found untested.
 
 ### Gates
 
-All at `d501b42`.
+All at `c83d532`, the head before this close-out. CI runs on the head the merge is made from,
+and the merge waits for it to be green.
 
 - **ruff**: `ruff check app tests scripts migrations`, all checks passed.
-- **mypy**: no issues found in 214 source files.
-- **The server suite.** `pytest -q -n auto`, run alone from `server/`, gave **2437 passed** in
-  731.59 s (12 min 11 s). The seven places the `handover` skill names say 2437.
-- **The contract**, per the review of the whole branch: `buf lint` exit 0;
-  `buf breaking --against .git#ref=175ff42` exit 0; `buf generate` reproduces the 48
-  committed files.
-- **CI on the head** is read before the merge.
+- **mypy**: no issues found in 221 source files.
+- **The server suite.** `pytest -q -n auto`, run alone from `server/` at `c83d532`, gave 2621
+  tests: 2620 passed, and one xdist worker crashed on
+  `test_v2_window.py::test_a_matching_tag_answers_not_modified_on_both_paths[weak]` — the
+  machine's own fault, a known condition of its faulty RAM, not the test's. That file passed
+  alone, 18/18. The seven places the `handover` skill names say 2621.
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files.
+- **CI on the head** is the clean run at `c83d532`, and the controller reads it before the
+  merge.
 - **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
   before.
 
 ### What was deliberately left alone
 
-- **Stage 3b**: the other 71 unary methods, the per-provider diary registry, and the Telegram
-  notices as effects. **Stage 3c**: the host, native gRPC, and `WatchClass`'s stream.
-- **#302 is not 3a's**: #303 fixed v1 on 5 October 2026, and v2's gate asks the diary's switch
-  before any token on its own.
-- **Ruled out of scope during review**, each with its reason in the ledger:
-  - `404`, `405` and `307` under `/api/v2` come in FastAPI's `{"detail"}` shape;
-  - connectrpc's own messages repeat the caller's own `Connect-Protocol-Version`,
-    `Connect-Timeout-Ms` and `Content-Encoding` header values;
-  - the native-gRPC guard keys on `http_version`;
-  - the window sends no `Cache-Control`: RFC 9111 §3.5 keeps shared caches off answers to
-    requests that carry `Authorization`, and `no-store` would defeat the ETag;
-  - an unusable `MIN_CLIENT_VERSION` fails at import, as `TRUSTED_PROXY_HOPS` does;
-  - a websocket scope under `/api/rpc` gets no explicit close;
-  - a raising `rollback()` masks a refusal.
-- **v1's `/join`** stays reachable through a body with no `Content-Type` until v1 is retired
-  (sub-project 5). #340 closed that door for REST v2 only.
-- **An import-time ceiling** in `test_cold_start.py` (the design's decision 8).
+- **3b-3 to 3b-8**, each summarised in the 3b plan, and **3c**.
+- **v1's behaviour**: `/manage/terms` still seeds on a read, and v1's two bell writes stay two.
+- **An `UpdateBellSchedule` or an `UpdateClass` without a mask that sends the resource as it
+  was read** writes what it sends: a schedule's rows again, with a `bells.edit` line, and a
+  line for each of the card's fields, as v1's `PATCH` would.
+- **`ImportTimetable`'s preview counts the lessons the paste holds**, not those an apply would
+  write: a lesson with no bell is found only on apply, as in the bot's preview.
+- **`substitutions_upcoming` counts substitutions and special days together**, as v1's
+  `overrides_upcoming` did.
+- **#354's fix is left for its own pull request**: it changes every SQLite test's transaction
+  shape, because the savepoint `terms.ensure` seeds commits on release instead of rolling
+  back.
+- **The bot's device page can still draw fewer phones than the buttons under it** (#352): 3b-2
+  touches neither the bot nor the page.
 
 ### What nobody has verified in this batch
 
-- **v2 on production, and Connect on any deployment.** `connectrpc`, the generated contract,
-  `protobuf-py-ext` and `pyqwest` do import on Vercel, and `mount_v2` mounted v2 there: Vercel's
-  Preview deployment of `d501b42`, `lessons-git-server-v2-3a-codeilluminators.vercel.app`,
-  behind Vercel Authentication, was read by the owner in their own browser on 5 October. It
-  answered `/api/v1/warmup` with `"v2": true`, and REST `GET /api/v2/diary/capabilities` with
-  JSON naming the NetSchool regions. Only those two were read; Connect was not called. The
-  production deployment is checked after the merge, Task 11 Step 10 of
-  `docs/specs/2026-10-05-server-v2-3a-plan.md`, and the fail-safe mount is there for a failure.
-- **v2 against Postgres**: every v2 test ran on SQLite.
-- **`x-vercel-forwarded-for` reaching a v2 call's bucket**: held by unit tests of
-  `caller_bucket`, never through Vercel's proxy.
-- **What `http_version` Vercel's Python bridge puts in the ASGI scope.** The native-gRPC
-  guard steps aside only for `"2"` and `"3"` and reads a missing one as HTTP/1.1, as ASGI
-  does; a bridge that said `"2"` for a request it carried over HTTP/1.1 would let native
-  gRPC through to the library's `500`. The check after the merge sends no `application/grpc`.
-- **`X-Lessons-Client` from an APK**: no APK sends it yet.
-- **A segfault in a native extension at import cannot be caught by `mount_v2`.** It turns an
-  import that raises into the `503`; an interpreter that crashes raises nothing to catch.
+- **The fifteen methods against Postgres**: every v2 test ran on SQLite, the import's bulk
+  delete and insert, the bells' bulk delete and the class's cascade among them.
+- **The year's turn on 1 September for a class in a zone far from Moscow**: `current_year`
+  reads the class's own clock, and every test ran on the day it ran.
+- **The card's `Cache-Control` through Vercel's edge**: the tests read it from the app.
+- **A refused `UpdateTerm` keeping nothing**, which is Postgres's behaviour and no test's: on
+  SQLite, where every test ran, the year's set `terms.ensure` seeded in a savepoint stays
+  (#354), and the test allows it.
+- **The fifteen on Vercel** beyond the post-merge check, which calls each new service once
+  without a token.
+- **#355's cause**: `test_an_admin_may_revoke_the_phone_in_their_hand` failed once in a full
+  parallel run, passed alone, and did not reproduce in two further parallel runs of the v2 and
+  rpc files.
 
-### Outside the pull request, the same day
+### After #350's merge: stage 3b-1 in production, and what followed
 
-None of this is code in #342, and all of it is state the next session needs.
+None of this is code in #356, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 6 October 2026.
 
-**The Petersburg diary's proxy (#235, #334) is set up and verified in production.**
+- **The merge.** #350 merged as `09e17bd` at 22:20:15 UTC on 5 October 2026, pinned to the
+  head `dae140c` that was checked first. The five checks:
+  - CI green on that head: Server, Contract, and the Vercel preview;
+  - `mergeable_state` clean;
+  - the gates run locally;
+  - milestone 11;
+  - no review requested.
+- **Vercel deployed it by itself this time.** «Vercel is deploying» showed 24 s after the
+  merge, and production served the new code by 22:21:00 UTC. #349, the dropped deploy of
+  #342's merge, did not recur. Keep #349 open: the monitoring design's `deploy` check is its
+  cure, and one good deploy does not close it.
+- **Production read at 22:21 UTC:**
+  - `/api/v1/warmup` answered `status` `ok`, `api_version` 1, `schema` `0018`, `v2` `true`;
+  - REST `/api/v2/class/auditEntries`, `/class/devices` and `/class/subjects` without a token
+    answered `401` in Google's body, with `DEVICE_TOKEN_INVALID`;
+  - Connect `SubjectService/ListSubjects` answered `401` `unauthenticated`;
+  - `/api/v1/health` answered `200`.
+- **The window `0018` made** («База впереди кода» from 22:06 UTC, when `0018` went on) closed
+  at that deploy.
+- **The owner did nothing in section 7 between the merges**, so nothing moves out of section
+  7. They are asleep, and this batch ran overnight.
 
-- **The VPS** is RUVDS, Rucloud Korolyov, on Ubuntu 24.04. Its address stays out of this
-  public repository, like the proxy's URL and every password; the owner has them.
-- **Squid on 23128** allows `CONNECT` to `dnevnik2.petersburgedu.ru:443` only, and only with
-  the password. ufw allows 22, 2222 and 23128, and fail2ban runs.
-- **SSH** is by key only, on 22 and 2222. The owner's home line blocks outgoing 22, so the
-  session used 2222.
-- **Checked from outside**:
-  - six allow-and-refuse checks pass, both from Russia and through Amsterdam;
-  - `PetersburgClient` reached the diary through the proxy (`TCP_TUNNEL/200`);
-  - check-host.net reached 23128 from Frankfurt, Nuremberg, Amsterdam, Helsinki, Los Angeles
-    and Moscow.
-- **`DIARY_PROXY_URL`** is set by the owner in Vercel for Production, Preview and Development.
-- **Production**, asked with a made-up Petersburg session:
-  - before the redeploy it answered `503`, «Дневник не ответил вовремя»;
-  - after the owner's redeploy at 13:20 UTC it answered `409`, «Дневник не принял эту сессию
-    с нашего сервера — дело не в пароле.» — the diary judging a session instead of not
-    answering;
-  - a live tunnel ran from AWS Frankfurt through Squid to `46.243.177.102`.
+## What the session before it added: the class's records over v2 — stage 3b-1 of sub-project 3 (#273)
 
-  This is recorded as a comment on #235, which had already closed.
-- **The root password** was rotated by the owner afterwards. The host key changed, and was
-  confirmed through the RUVDS console.
+Merged as #350 (`09e17bd`, 5 October 2026), from `server-v2/3b`, on milestone 11. It closes
+#347, #348, #351 and #118, and refers to #273 and #349. The branch was cut from `main` at
+`8d779ef`, the merge of #342, and carries 14 commits before this close-out, to `a1a52b6`.
+Written on 6 October 2026, after #342 merged. The schema head moved from `0017` to `0018`,
+which the session applied through the Neon connector to the branch `preview` at 21:26 UTC on
+5 October and to production at 22:06 UTC, both before the merge. This is stage 3b-1 of
+`docs/specs/2026-10-05-server-v2-design.md`, built by the plan beside it,
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, which also summarises 3b-2 to 3b-8. v1 answers
+as before; v2 now answers thirteen methods.
 
-**A real Petersburg account in the app: not confirmed.** On the emulator, with the debug build
-pointed at production and a temporary route to the diary through the Russian line, the diary
-answered `401` («Неверный логин или пароль») to an account the owner supplied. The same
-request sent directly got `401` too, and so does a made-up account: the same 772-byte HTML. So
-the answer does not tell a wrong password from another refusal. Further probing of the diary's
-sign-in was refused by the session's safety check and was not pursued. The owner is to try
-that login on the diary's own site, with the VPN off, since the site is fenced to Russia
-(section 7).
-
-Also observed: tapping «Войти» on the diary sign-in screen did nothing three times, while the
-keyboard's «Готово» submitted. It is not yet confirmed as a defect, because confirming it costs
-more attempts on a real account.
-
-## What the session before it added: the Petersburg diary can go through a Russian proxy (#334)
-
-Merged as #335 (`175ff42`, 5 October 2026), from `feat/diary-proxy`, on milestone 10, beside
-#235. It closed #334 and refers to #235 and #273; GitHub closed #235 at the same merge.
-Written on 5 October 2026, after #333 merged. The schema head did not move, and nothing under
-`/api/v2` exists yet.
-
-- **`DIARY_PROXY_URL`, optional and empty by default, routes the Petersburg diary through an
-  HTTP proxy.** It goes as a `CONNECT` tunnel, so TLS stays end to end and the proxy sees the
-  host name, never the family's credential. This is the server's half of the owner's
-  decision on #235: the bot and the API stay on Vercel and Neon, and only the diary's requests
-  go through a RUVDS VPS in Russia. Nothing else uses the proxy: the bot, Telegram, the
-  database, DaData and the NetSchool diaries go direct.
-  - **Empty means direct**, today's behaviour and right for a deployment inside Russia. It
-    is not announced and not in the deployment refusal's list, so a fully configured
-    deployment still announces nothing.
-  - **An unusable value is treated as unset rather than raised.** That means not `http://` or
-    `https://`, no host, or a port that is not a number. httpx would refuse it when the client
-    is built and take the diary down. The startup log says it is unusable, and never quotes it,
-    because it can carry the proxy's password.
-- **`test_diary_proxy.py` (14 tests)** holds the setting's reading, the announcement without
-  the value, and the client's route, read off the client httpx built. The route test failed
-  without the client change.
-- **`docker-compose.yml` hands the server the setting.** `test_compose` caught it on the first
-  full run.
-- **`.env.example`, `docs/deploy.md` and `CLAUDE.md`** name it.
-  `docs/deploy.md`'s «The electronic diary» says what the proxy must refuse: anything but
-  `CONNECT` to `dnevnik2.petersburgedu.ru:443`, and anyone without the password.
-- **After #333's merge**, `dev` was fast-forwarded to `2f529af`, Vercel reported the deploy
-  successful, and production answered `/api/v1/warmup` with
-  `{"status":"ok","api_version":1,"schema":"0017"}`. The board reads Done for #333 and #330.
+- **The manage routers' shared rules moved into `services/` first**, with v1 calling them:
+  the member names and the class's wall clock (`services/manage/classes.member_names`,
+  `services/clock.wall`), the dictionary read that adopts nothing
+  (`subjects.dictionary_of`, which v1's `/subjects` now reads too), the rename-then-details
+  patch (`subjects.update`), and a page of the journal keyed on its last line
+  (`audit.older_than`, `journal.page_after`). The sentences v1 and v2 both answer with are
+  `app/wording.py`'s.
+- **Nine methods.**
+  - `ListAuditEntries`: AIP-158 paging, with an opaque token that names the last line
+    served, so a line written between page turns moves nothing.
+  - `ListClassDevices`.
+  - `RevokeClassDevice`: idempotent, one audit line.
+  - `UnlinkClassDevice`: `CLASS_DEVICE_NOT_LINKED`.
+  - `ListSubjects` (no adoption) and `GetSubject`.
+  - `CreateSubject`: `201`; `RESOURCE_EXISTS`.
+  - `UpdateSubject`: AIP-134's mask, read once for every `Update…` by `rpc/masks.py`, in
+    lowerCamelCase over JSON; `SUBJECT_RENAME_CLASH`.
+  - `DeleteSubject`: `RESOURCE_IN_USE`.
+- **Each phone's last app version**, `device_tokens.client_version` (revision `0018`,
+  additive). The gate writes it beside `last_seen_at` and on its clock, and v1 never does.
+  It shows in v2's `ClassDevice` (a new optional field) and as «сборка N» in the bot's
+  «📱 Устройства». v1's `/manage/devices` keeps its shape.
+- **The error table's later reasons name the stage that brings each** (`STAGES`, `LATER`,
+  `HELD_BY`). A stage takes itself out of `STAGES` when it is done, so a reason it forgot
+  in `LATER` fails.
+- **Three defects, each filed before its fix**: #347, #348 and #351.
+  - #347: the 3a plan's quoted `/warmup` answer, which the head test read as a claim once the
+    head moved.
+  - #348: a v2 test patched `get_settings()` while the served app reads the `Settings` the
+    dishka container cached. After any of eight modules cleared the cache, a minimum-version
+    patch missed the gate, depending on test order. The `served_settings` and
+    `settings_cache_cleared` fixtures fix it, and the regression test fails on a fixture that
+    reverts.
+  - #351: the contract and `docs/api.md` promised that a device's owner was never the
+    Telegram id, while the owner falls back to the numeric id on purpose (an id is what an
+    admin can act on). The documents were corrected, and the behaviour was kept.
+- **The whole-branch review asked for fixes, and three commits made them** (`94b2896`,
+  `259fb55`, `a1a52b6`): #351's wording; the read tests now assert the write rule they claim
+  (a write happened, and none falls outside the one rule, which is a `conftest.py` fixture);
+  the no-echo sweep reaches into message fields; the audit keyset states `created_at <=` the
+  anchor so Postgres can bound the index range; and the counts.
+- **The documents say what Preview is** (#118): `docs/deploy.md` lists Preview's own
+  variables and the four it shares with Production, and says a revision goes to the Neon
+  branch `preview` when its pull request is pushed and to production before the merge. It also
+  says that cron-job.org drives the tick since 5 October and `reminders.yml` is the fallback.
 
 ### Gates
 
-- **The server suite.** `pytest -q -n auto`, run alone from this worktree's own venv, gave
-  2221 passed and one failure, `test_compose`, which the compose line fixed. `test_compose`,
-  `test_diary_proxy` and `test_env_example` then gave 21 passed. The suite is **2222**, which
-  the seven places the `handover` skill names now say.
-- **ruff and mypy** are clean; mypy covers 197 modules.
-- **Android** is unchanged, 1635 tests.
+All at `a1a52b6`, the head before this close-out. CI runs on the head the merge is made from,
+and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
+- **mypy**: no issues found in 218 source files.
+- **The server suite.** `pytest -q -n auto`, run alone from `server/`, gave **2527
+  passed**, the run the final fix's commit records. The seven places the `handover` skill
+  names say 2527. The run at `fb94f5e` gave 2521 in 787.80 s (13 min 7 s), and the final fixes
+  added six tests.
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
+  before.
 
 ### What was deliberately left alone
 
-- **The NetSchool diaries** go direct: no evidence says their regions drop foreign addresses,
-  and opting them in is one line when there is.
-- **Buying and setting up the VPS** is the owner's (section 7 then; done the same day, and in
-  `docs/history.md`, «Moved out of section 7 on 5 October 2026», now).
+- **3b-2 to 3b-8**, each summarised in the 3b plan with what it moves, its errors, its effects
+  and its open questions, and **3c**.
+- **v1's `/manage/devices` without `client_version`**: the design changes no v1 answer, and a
+  phone that speaks only v1 never sends the header (the 3b plan, Ruling 7).
+- **v1's manage list still adopts**, and v2's does not (decision 10).
+- **An `UpdateSubject` without a mask that sends a subject as it was read** writes a log line
+  per field it sends, as v1's `PATCH` does.
+- **v2 still gives an unnamed member's numeric id as `owner`** (#351): decided as wording, not
+  behaviour, and put to the owner.
+- **The bot's device page can draw fewer phones than the buttons under it** when owners have
+  long full names (#352): filed, and not fixed in #350.
 
 ### What nobody has verified in this batch
 
-- **No request has gone through a real proxy.** One request through the owner's VPS to the
-  diary is the test that closes #235. It was verified in production on 5 October, after the
-  merge: «Outside the pull request, the same day», in the section on #342 above.
+- **The nine methods against Postgres**: every v2 test ran on SQLite, the journal's keyset
+  query among them. On Postgres the stamps compare as timestamps, where SQLite compares them
+  as strings.
+- **`X-Lessons-Client` from an APK**: none sends it yet, so every `client_version` in
+  production is null and «сборка» shows on no phone.
+- **The nine on Vercel** beyond the post-merge check: it calls each new service once without
+  a token.
+- **A preview of this branch** was not read: the session's Vercel connector lacks the team's
+  scope, so a protected preview URL answers it `403`. CI's Vercel check reported the preview
+  built.
+
+### After #342's merge: stage 3a in production, and what the owner answered
+
+None of this is code in #350, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 5 October 2026.
+
+- **Vercel built no production deployment for the merge (#349).**
+  - The merge happened at 14:54:09 UTC. The only build was a Preview, from the `dev` push of
+    the same commit at 14:57:43, and production served `175ff42` until the owner promoted
+    that Preview at 15:40 UTC.
+  - Vercel never started on the push to `main`: `8d779ef` has no «Vercel is deploying» status
+    before the `dev` push's, and no deployment from `main`, not even a canceled one.
+  - So the Ignored Build Step did not skip it, and the Production Branch is `main`, because
+    #335, merged the same way that morning, built from `main` three seconds after its merge.
+  - The push event did not reach Vercel, or was not acted on. The monitoring design's
+    `deploy` check is the cure; until it exists, read production after every merge.
+- **Production after the promote:**
+  - `/api/v1/warmup` reported `status` `ok`, schema `0017` and `"v2": true`;
+  - REST `/api/v2/diary/capabilities` answered `200` with `private, no-store`;
+  - Connect answered `200` in JSON and in binary (`application/proto`, 180 bytes);
+  - native gRPC got `415` with the guard's sentence, so Vercel's bridge reports HTTP/1.1;
+  - `/api/v2/me` without a token answered `401 DEVICE_TOKEN_INVALID` in Google's body;
+  - `/api/v1/health` answered `200`.
+- **The diary proxy went down from about 15:20 to 16:06 UTC.**
+  - The VM was up and its outbound traffic worked, while nothing inbound arrived, not even
+    ping.
+  - The owner's password reset in the RUVDS panel had rebooted it and regenerated its SSH host
+    key, which the console confirmed.
+  - From 16:13 UTC everything answered again, and production's made-up Petersburg session
+    got `409` through the proxy again.
+- **The owner answered:**
+  - **Preview first held Production's variables, and by that evening had its own (#118).**
+    - Its own `DATABASE_URL`, on the Neon branch `preview`, which was made from production at
+      18:55 UTC with its data: one class and 22 devices.
+    - A second bot's `BOT_TOKEN` and `BOT_USERNAME`, and its own `WEBHOOK_SECRET` and
+      `DIARY_SECRET`.
+    - No `CRON_SECRET`, `DADATA_TOKEN` or `PUBLIC_BASE_URL`.
+    - The shared keys are `RUN_BOT` (`false`), `OWNER_IDS`, `TIMEZONE` and `DIARY_PROXY_URL`.
+    - These were read as keys only, with no value decrypted.
+    - Every revision now goes to `preview` when its pull request is pushed, then to
+      production before the merge, and `0018` was the first to go that way.
+  - **The real Petersburg account's password is right, but the account needs a code from SMS
+    or MAX.** The app has no second-factor step and tells the parent the password is wrong:
+    #343, on milestone 10, a sub-issue of #109, `needs:device`.
+- **The external cron is connected** (#120's first half). The owner set up cron-job.org at
+  about 18:45 UTC. Production has `CRON_SECRET`: a tick without it answers
+  `403 Bad cron secret`. Whether the service sends the matching secret shows only in its own
+  run history, which the owner reads; `200` with JSON means yes.
+- **Sentry, for the monitoring work to come.** The owner connected Sentry. At the owner's
+  request the session created the project `lessons` in the organisation `hubdpi`, in the EU
+  region. Its DSN went to the owner for Vercel's `SENTRY_DSN`, and no code reads it yet.
+- **Decided by the owner, not yet built.** Diary sign-in moves to the diary's own page in an
+  in-app browser, which takes only the diary's session; this reverses the «no WebView, no
+  Госуслуги» decision for the diaries, and keeps it for ТОР. The app is also to gain the
+  languages of Russia, in settings in the style of Essentials. Each comes as its own design
+  and pull request.
 
 ## The milestones
 
@@ -373,10 +463,10 @@ maps them. The
 | 7 | `Dependencies — dependabot bumps` | `Dependencies` | open, for good | every dependabot bump; deliberately not a version |
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332 (merged) and #342 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350 (merged) and #356 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
@@ -430,27 +520,28 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   (#304). The form breakout now treats «  /week» as a command because aiogram's `Command`
   filter does, after `text.split()`; its clients are not known to keep plain spaces there, but
   a no-break space is whitespace to `str.split`, and nobody has sent one.
-- **v2 as #342 serves it has been asked little outside the test client** (stage 3a; its
-  section above has the detail):
-  - **on Vercel, a preview and REST only**: `connectrpc`, the generated contract,
-    `protobuf-py-ext` and `pyqwest` import on a Vercel preview of `d501b42`, read by the owner
-    on 5 October, which answered `/api/v1/warmup` with `"v2": true` and REST
-    `GET /api/v2/diary/capabilities` with the NetSchool regions. Connect was not called there,
-    and the production deployment is checked after the merge, Task 11 Step 10 of
-    `docs/specs/2026-10-05-server-v2-3a-plan.md`;
-  - **against Postgres**: every v2 test ran on SQLite;
+- **v2 as #342, #350 and #356 serve it has been asked little outside the test client**
+  (stages 3a, 3b-1 and 3b-2; their sections above have the detail):
+  - **on production, only after #342's promote**: on 5 October `/api/v1/warmup` reported
+    `status` `ok`, schema `0017` and `"v2": true`; REST `/api/v2/diary/capabilities` answered
+    `200` with `private, no-store`; Connect answered `200` in JSON and in binary; native gRPC
+    got `415`; and `/api/v2/me` without a token answered `401 DEVICE_TOKEN_INVALID`. The nine
+    methods of 3b-1 were asked once after #350's merge, without a token: REST
+    `/class/auditEntries`, `/class/devices` and `/class/subjects` answered `401`
+    `DEVICE_TOKEN_INVALID`, and Connect `SubjectService/ListSubjects` answered `401`
+    `unauthenticated`; the fifteen of 3b-2 are asked after #356's merge, once, without a
+    token;
+  - **the twenty-four methods of 3b-1 and 3b-2 against Postgres**: every v2 test ran on
+    SQLite, the journal's keyset, the import's bulk delete and insert, the bells' bulk
+    delete and the class's cascade among them;
+  - **`ListTerms` and `GetTermScheme` across 1 September, in a zone far from Moscow**:
+    `current_year` reads the class's own clock, and every test ran on the day it ran;
   - **`x-vercel-forwarded-for` reaching a v2 call's bucket**: held by unit tests of
     `caller_bucket`, never through Vercel's proxy;
-  - **what `http_version` Vercel's Python bridge puts in the ASGI scope**, which is what the
-    native-gRPC guard keys on;
-  - **`X-Lessons-Client` from an APK**: no APK sends it yet;
+  - **a `client_version` from an APK**: none sends the header, so every one in production is
+    null;
   - **a segfault in a native extension at import**, which `mount_v2` cannot catch: it turns an
     import that raises into the `503`, and an interpreter that crashes raises nothing.
-- **Vercel's proxy in front of Connect has been asked nothing.** The v2 contract (#297)
-  writes `/api/rpc/lessons.v2.<Service>/<Method>` down, #342 serves four methods there, and
-  no deployment has been asked one over Connect: a preview was asked over REST only (above).
-  Whether Vercel passes a Connect request and its streaming body through is sub-project 3's
-  first question, and native gRPC is off the Vercel target for a reason `docs/api.md` states.
 - **Buf's unauthenticated rate limit has not been met.** CI's «Contract (Buf)» job fetches two
   remote plugins without a token; one run, 37230983817, was not throttled. If it ever is,
   either step can be the one that fails (the buf-action step fetches `googleapis` from the
@@ -1189,7 +1280,7 @@ has a Cyrillic identifier: Kotlin has none at all.
 All of this is beyond an agent's reach: it needs a phone, a key or a live service.
 
 **These are issues now**, so that they can be closed rather than re-read: #118 the Preview
-environment, #120 the external cron and `DADATA_TOKEN`, #121 the real diary, #122 the
+environment (closed by #350), #120 the external cron and `DADATA_TOKEN`, #121 the real diary, #122 the
 widget's tick cadence and the diary credential's bound, #135 the second diary, #144 a default
 server for a fresh install. Each carries the label `needs:owner`. #119 (`/api/v1/warmup` and
 `/start`) and #156 (the backup) were answered by #186 and closed at its merge on 26 September
@@ -1295,12 +1386,9 @@ through «Войти через GitHub», which a build without `LESSONS_GITHUB_
 push to this repository, and run the checks once from a phone's own network — the first
 answer to whether Petersburg's host answers a Russian mobile network at all.
 
-**Try the Petersburg account you supplied on the diary's own site, then change its
-password.** On 5 October the diary answered `401` to it from an emulator, through the Russian
-line and directly, and it answers a made-up account with the same 772 bytes, so only the site
-can say whether the login is right («Outside the pull request, the same day», in the section
-on #342). Turn the VPN off first, because the site is fenced to Russia. The password was
-typed into a chat, so change it afterwards.
+**The Petersburg account needs a second factor (#343).** Its password is right, and the diary
+asks for a code by SMS or MAX, which the app has no step for. Change the password once #343 is
+decided.
 
 **Sign in once, for real, from a phone — it is the one question #140 cannot answer about
 itself.** Build an APK from `main`, which has carried #140 since 26 September, install it on
@@ -1334,9 +1422,8 @@ most 4,000 of DaData's 10,000 daily requests. Without the key it answers `503` w
 `X-Directory-Unavailable: disabled`, and a family still finds its region in the bundled
 catalog — only the search by a school's name is gone.
 
-**The keep-alive is only as alive as the cron (#120).** «Сетевой город» sessions are held
-open from `GET /api/v1/cron/tick`, so they lapse if the external cron does not tick;
-`.github/workflows/reminders.yml` is the fallback, not the clock, exactly as for the digests.
+**The external cron is connected** (cron-job.org, 5 October). Read its run history once: `200`
+with JSON. `403` means its `X-Cron-Secret` is not Vercel's `CRON_SECRET`.
 
 **#135 now has an answer in the code to each of its three questions, and closing it is the
 owner's.** `docs/diaries.md` is the map:
@@ -1381,28 +1468,11 @@ the corners and at the seven day chips; drag it to four cells wide and tall and 
 then turn the font up and repeat both. Nothing in the suite can do any of it, and the corner
 half needs Android 31 or later to exist at all.
 
-**Decide what the Preview environment is for, because today it is a red herring.** All
-eleven of the project's variables on Vercel are scoped to **Production only**, so every
-preview deployment — one per push to `dev`, which is one per pull request — dies while
-importing `app.db` and answers `500` to every request. The build is green, Vercel comments
-«Ready» on the pull request, and the link leads to a function that refused to start. That
-refusal is `DeploymentNotConfigured` doing precisely its job: nothing is touched, no
-connection is opened, no webhook is registered, and no GitHub check turns red. It cost an
-export of the runtime logs to establish, which is why `docs/deploy.md` now says it in the
-variables section. Two honest ways out, and **copying Production's values across is not one
-of them** — that points every branch at the real database and hands a throwaway deployment
-the real bot token, and Telegram gives its updates to whoever registered the webhook last.
-Either give Preview its own set (a Neon branch, a second BotFather bot, its own secrets) or
-turn Preview deployments off in the project's Git settings; nothing here is a web page, so
-there is nothing for a preview to show. Only the owner can do either — this session can read
-which keys exist per environment but must not create them.
-**On 5 October 2026 this changed, and it is not known how.** The preview of #342 started and
-answered `/api/v1/warmup`, so Preview now has the mandatory variables. The owner added
-`DIARY_PROXY_URL` to Preview that day, but which `DATABASE_URL` and `BOT_TOKEN` Preview holds is
-not known here. If they are Production's, every pull request's preview reads and writes the real
-database. The code never registers the Telegram webhook itself — that is done by hand — so a
-preview cannot take the bot's updates, but `RUN_BOT` must stay `false` there. Check in Vercel
-which values Preview has, and decide this paragraph's question with that in view.
+**Since 5 October Preview has its own variables** (#118, closed by #350). Its database is the
+Neon branch `preview`, it has a second bot, and it has no `CRON_SECRET`. Every revision goes to
+`preview` when its pull request is pushed, then to production before the merge. Previews write
+to a copy of the real data, `RUN_BOT` must stay `false` there, and the webhook is safe only
+because it is registered by hand (`docs/deploy.md` has the list).
 
 **The APK's own badges are new in #80 and they are worth one press.** The about page now
 names the server's state, the repository, the ref and the commit the build came from. Two
@@ -1475,8 +1545,8 @@ which #186 made on an emulator (#115). All four are in [docs/history.md](docs/hi
    fourth on a class that was invite-only already, so the switch itself is still unflipped
    (section 5). On a phone those are a thumb's check rather than an open question; the diary
    is still nobody's (#121).
-3. **Make sure `DADATA_TOKEN` really works** on Vercel (Production and Preview; it is the API
-   key, not the secret one).
+3. **Make sure `DADATA_TOKEN` really works** on Vercel (Production; Preview has none, by design;
+   it is the API key, not the secret one).
 4. **Open «Настройки → О приложении → Лицензии» in the app** and look at the eighth row —
    Google Sans Flex. It is built and it compiles, but nobody has seen it with their eyes:
    what is of interest is how an eighth shade sits in a palette of six.
@@ -1521,8 +1591,8 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2437 tests, ~12 min alone on Windows
-cd server  && python -m mypy                             # clean, 214 modules
+cd server  && pytest -q -n auto                          # 2621 tests, ~12 min alone on Windows
+cd server  && python -m mypy                             # clean, 221 modules
 cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles

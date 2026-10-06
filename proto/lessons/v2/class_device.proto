@@ -50,7 +50,9 @@ message ClassDevice {
   int32 id = 1;
   optional string device_name = 2;
   bool linked = 3;
-  // Whose phone it is, as a display name: never the Telegram id.
+  // Whose phone it is, as a display name: the @username, else the name
+  // Telegram gave, else the numeric id, as the bot shows an admin. No field
+  // carries the Telegram id as such.
   optional string owner = 4;
   // The owner's role now; ROLE_UNSPECIFIED when unlinked.
   Role role = 5;
@@ -59,6 +61,11 @@ message ClassDevice {
   // Recorded at most every fifteen minutes.
   google.protobuf.Timestamp last_seen_at = 8;
   google.protobuf.Timestamp linked_at = 9;
+  // The X-Lessons-Client version this phone last sent to v2, recorded beside
+  // last_seen_at and on its fifteen-minute clock; absent for a phone that
+  // never sent one, which is every APK that speaks only v1. New in v2: v1's
+  // answer does not carry it.
+  optional int32 client_version = 10;
 }
 
 message ListClassDevicesRequest {

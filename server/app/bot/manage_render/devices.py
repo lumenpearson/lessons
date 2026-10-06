@@ -53,7 +53,7 @@ def time_ago(moment: datetime | None, now: datetime | None = None) -> str:
 
 
 def render_devices(devices: list, owners: dict[int, tuple[str, Role | None]]) -> str:
-    """«📱 Pixel 8 · привязан: @user (Редактор) · был 2 ч назад».
+    """«📱 Pixel 8 · привязан: @user (Редактор) · был 2 ч назад · сборка 412».
 
     ``owners`` maps a Telegram id to (display name, role in this class) - the
     role is looked up per device by the caller, because a device acts with
@@ -80,6 +80,14 @@ def render_devices(devices: list, owners: dict[int, tuple[str, Role | None]]) ->
             if device.last_seen_at is None
             else f"был {time_ago(device.last_seen_at)}"
         )
-        lines.append(f"📱 <b>{name}</b> · {link} · {seen}")
+        # The app's build, as the phone last sent it with a v2 request: which
+        # phones still run an old APK before v1 is retired (the server-v2
+        # design, decision 15). An integer from a column, so nothing to escape;
+        # a phone that never sent one — every APK that speaks only v1 — says
+        # nothing about a version.
+        build = (
+            f" · сборка {device.client_version}" if device.client_version is not None else ""
+        )
+        lines.append(f"📱 <b>{name}</b> · {link} · {seen}{build}")
     lines.extend(more_line(len(devices), DEVICES_MAX))
     return clamp(lines)

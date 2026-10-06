@@ -76,33 +76,30 @@ read back in the interface.
 Vercel applies them **at deploy time**: changing a value without rebuilding changes
 nothing, and the running deployment goes on holding the old one.
 
-**Every variable is scoped to an environment, and today every one of them is Production
-only.** That is a deliberate state rather than an oversight, and it has one visible
-consequence worth knowing before you go looking for a fault: **every Preview deployment
-answers `500` to every request.** A push to `dev` builds fine, Vercel comments on the pull
-request with a «Ready» link, and following it gets a function that died while importing
-`app.db` with the `DeploymentNotConfigured` above — `DATABASE_URL` unset, `BOT_TOKEN`
-empty, `RUN_BOT` not `false`. The build is green because the refusal happens at *runtime*;
-the check is doing exactly what the next section describes, and the preview is refusing
-rather than quietly standing up on a SQLite file it has no disk for.
+**Every variable is scoped to an environment, and Preview has its own set** (#118). A push
+to `dev` or to a pull request's branch builds a Preview, and it must not be pointed at
+Production's database or at the real bot, because Telegram gives its updates to whichever
+consumer registered the webhook last. So Preview holds:
 
-It does not affect anything: the process dies before it opens a connection or registers a
-route, so an unconfigured preview touches neither the database nor the Telegram webhook,
-and it turns no GitHub check red. If you want it to stop, there are two honest ways and
-copying Production's values into Preview is **neither** — that would point every branch at
-the real database and hand a throwaway deployment the real bot token, and Telegram gives
-its updates to whichever consumer registered the webhook last.
+- its own `DATABASE_URL`, on the Neon branch `preview`, which was made from production with
+  its data;
+- a second bot's `BOT_TOKEN` and `BOT_USERNAME`, and its own `WEBHOOK_SECRET` and
+  `DIARY_SECRET`;
+- no `CRON_SECRET`, `DADATA_TOKEN` or `PUBLIC_BASE_URL`, so the tick, the school search, the
+  link to the calendar feed that the bot's «📅 Календарь» offers and the diary's sign-in page
+  are off there, each refusing in view of whoever it concerns.
 
-- **Give Preview its own set**: a Neon branch for `DATABASE_URL`, a second bot from
-  BotFather for `BOT_TOKEN` and `BOT_USERNAME`, its own `WEBHOOK_SECRET`, `DIARY_SECRET`
-  and `PUBLIC_BASE_URL`. That is a staging environment, and it is worth it the day
-  something has to be tried against a real database before it merges.
-- **Turn Preview deployments off** in the project's Git settings. Nothing in this
-  repository is a web page — the one server-rendered form is `/diary/signin`, which without
-  a database and a diary account shows nothing — so a preview of it has nobody to serve.
+Four keys are shared with Production: `RUN_BOT` (`false`), `OWNER_IDS`, `TIMEZONE` and
+`DIARY_PROXY_URL`. Two things follow from that. **A preview reads and writes a real copy of
+the class**, so what is tried there is tried on data that looks like production's; and
+`RUN_BOT` must stay `false` in Preview, because the key is shared with Production and on
+Vercel `RUN_BOT=true` makes the deployment refuse to start (the check in the next section). A preview's
+bot is a second one with a token of its own, so it cannot take the real bot's updates.
 
-Until one of those is done, the «Ready» link on a pull request is noise, and this paragraph
-exists so that nobody exports the logs a second time to find that out.
+**A revision is applied to the Neon branch `preview` when its pull request is pushed, and to
+production before the merge** (`CLAUDE.md`, «Run the migration BEFORE the merge that needs
+it»). Otherwise the preview's code would know a column its database does not, and answer
+`degraded` from `/api/v1/warmup`.
 
 ### What is missing is said at the door
 
@@ -384,6 +381,11 @@ re-run `0017`. After any such window, run its statements again, or
 `alembic downgrade 0016 && alembic upgrade head`, which re-runs it because the downgrade does
 nothing.
 
+`0018` adds one column, `device_tokens.client_version`: the app version each phone last
+sent with a v2 request, written by v2's gate beside `last_seen_at` and on its clock. It
+is nullable with no default, additive, and on **before** the merge; its downgrade drops
+the column, which loses nothing but the versions.
+
 Everything up to `0012` checks with an inspector what is not in the database yet and does
 not rewrite existing tables, so those can be applied to a live class in the middle of a
 school day. `0013`, `0015` and `0016` ask the inspector too — per constraint, per column,
@@ -392,7 +394,7 @@ second `ADD COLUMN` or `ADD CONSTRAINT` there is a hard error that stops the `mi
 service below; and because a SQLite file `scripts.init_db` built before a model change is
 stamped at the old head without the new columns, and only the revision adds them. `0017`
 asks only whether the table is there; its statements are plain SQL that PostgreSQL and SQLite
-both run, and a second run finds nothing to do. The head is `0017`.
+both run, and a second run finds nothing to do. `0018` asks per column, as `0015` does. The head is `0018`.
 
 ### A migration goes BEFORE the deploy, not after
 
@@ -440,7 +442,7 @@ into the database by hand:
 curl -s https://<your-project>.vercel.app/api/v1/warmup
 ```
 
-`{"status":"ok","schema":"0017"}` means it all lines up. `"status":"degraded"` together with
+`{"status":"ok","schema":"0018"}` means it all lines up. `"status":"degraded"` together with
 `expected_schema` names both revisions and says which way they diverged: «База отстала от
 кода» — the database is behind the code — is an incident, except in the minutes a key
 rewrite such as `0017` is deliberately applied after the merge (above), while «База впереди
@@ -639,7 +641,7 @@ so `BOT_TOKEN` and `OWNER_IDS` are not its business (#322). The same import is w
 `alembic upgrade head` refuses wherever `VERCEL` *is* set and the deployment's settings
 are not.
 `GET /api/v1/warmup` is what confirms the result, and it is the endpoint that can: it says
-`{"status": "ok", "schema": "0017"}` when the two agree and names both revisions when they
+`{"status": "ok", "schema": "0018"}` when the two agree and names both revisions when they
 do not.
 
 The app on the phone needs to reach the API. The options are a public IP with a forwarded
@@ -685,7 +687,9 @@ schedule that is six hours from true.
 The workflow has not stopped asking for five minutes — on a public repository that costs
 nothing, and the measurement was made on a private one, so how the schedules behave here is
 yet to be seen. But its role is different now: a fallback that will notice the external clock
-has stopped. The clock itself is set up by hand.
+has stopped. The clock itself is set up by hand: since 5 October 2026 it is
+[cron-job.org](https://cron-job.org), calling the tick as the table below says, and
+`reminders.yml` is the fallback.
 
 ### The external cron
 

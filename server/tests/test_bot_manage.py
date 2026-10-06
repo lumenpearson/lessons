@@ -1089,6 +1089,39 @@ def test_time_ago_reads_like_russian():
     assert time_ago(datetime(2026, 1, 5, 9, 0), now) == "05.01.2026"
 
 
+def test_the_device_page_shows_the_build_a_phone_last_sent_and_nothing_if_none():
+    from app.bot.manage_render.devices import DEVICES_MAX
+    from app.wording import MESSAGE_LIMIT
+
+    def phone(n: int, name: str, build: int | None) -> SimpleNamespace:
+        return SimpleNamespace(
+            id=n, device_name=name, telegram_id=None, last_seen_at=None, client_version=build
+        )
+
+    lines = render_devices([phone(1, "Pixel 8", 412), phone(2, "Samsung A54", None)], {})
+    rows = lines.splitlines()
+    assert rows[2] == "📱 <b>Pixel 8</b> · не привязан · ещё не выходил на связь · сборка 412"
+    assert rows[3] == "📱 <b>Samsung A54</b> · не привязан · ещё не выходил на связь"
+    # A full page of the longest rows still fits one message: every device name
+    # at its column's width, a linked owner shown by the longest @username
+    # Telegram allows (it wins over the full name wherever there is one), and the
+    # largest build. Asked of what is drawn rather than of the length, which
+    # ``clamp`` bounds whatever is drawn: DEVICES_MAX rows and no «… и ещё» of
+    # clamp's own.
+    crowd = [phone(n, "Т" * 120, 2_100_000_000) for n in range(1, DEVICES_MAX + 1)]
+    for device in crowd:
+        device.telegram_id = device.id
+    owners = {device.id: ("@" + "я" * 32, Role.EDITOR) for device in crowd}
+    page = render_devices(crowd, owners)
+    assert page.count("📱 <b>") == DEVICES_MAX
+    assert "и ещё" not in page
+    assert len(page) <= MESSAGE_LIMIT
+    # One more than a page holds: the overflow is the page's own count, not a cut.
+    more = render_devices([*crowd, phone(99, "Т" * 120, 2_100_000_000)], owners)
+    assert more.count("📱 <b>") == DEVICES_MAX
+    assert more.endswith("… и ещё 1")
+
+
 def test_a_long_export_is_split_on_line_boundaries():
     body = "\n".join(f"{index}. Предмет" for index in range(1, 500))
     parts = split_text(body, limit=200)
@@ -4876,7 +4909,11 @@ def test_no_list_page_draws_a_row_the_keyboard_cannot_reach():
 
     devices = [
         SimpleNamespace(
-            id=n, device_name=f"Телефон {n}", telegram_id=None, last_seen_at=None
+            id=n,
+            device_name=f"Телефон {n}",
+            telegram_id=None,
+            last_seen_at=None,
+            client_version=None,
         )
         for n in range(1, count + 1)
     ]

@@ -1,7 +1,8 @@
 """``/class``: the card «⚙️ Класс» shows, its settings, and deleting the class.
 
 Part of :mod:`app.api.manage`; the rules every endpoint of it
-follows are in that package's docstring.
+follows are in that package's docstring. The card's patch is
+``services/manage/classes.update``, which v2's ``UpdateClass`` applies too.
 """
 
 from __future__ import annotations
@@ -12,15 +13,14 @@ from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.api.deps import current_class
 from app.api.manage._common import Actor, admin_actor, owner_actor
 from app.api.routing import DishkaAnnotatedRoute
-from app.models import JoinMode, SchoolClass
+from app.models import SchoolClass
 from app.schemas import ClassDeleteIn, ClassPatch, DeletedOut, ManagedClassOut
-from app.services import audit
-from app.services import terms as terms_service
 from app.services.manage import classes as classes_service
-from app.timezones import is_supported, label_for
+from app.timezones import label_for
 
 log = logging.getLogger(__name__)
 
@@ -77,62 +77,20 @@ async def class_update(
 
     One audit line per field changed rather than one for the request, because
     that is what the log is read for: «что изменилось», not «кто открыл
-    настройки». Changing the zone moves no stored time - a bell rings at 08:30
-    whatever the zone says - it changes which instant the class calls «сейчас».
-
-    Moving the grade or the letter recomposes the name, because that is where
-    the name came from; a name sent in the same request wins over both.
+    настройки». The patch is ``services/manage/classes.update``, which v2's
+    ``UpdateClass`` applies too: the letter read by the bot's rule, the zone
+    asked about before anything is written, the name recomposed from the grade
+    and the letter unless the request names the class, and the join mode last.
     """
-    changes = payload.model_dump(exclude_unset=True)
-    zone = changes.pop("timezone", None)
-    mode = changes.pop("join_mode", None)
-    if "letter" in changes:
-        # The same rule the bot's «Буква» step applies, not a second one. It
-        # trims, and it reads «-» as «no letter» — which is what the bot tells
-        # people to send and what the phone's own field offers. Stored raw, a
-        # «-» became the literal name «9-» and a padded « А » a `letter` that
-        # never equals the «А» anything compares it with, while `compose_name`
-        # trimmed on its way past and left the name looking correct.
-        changes["letter"] = terms_service.normalise_letter(changes["letter"])
-    if zone is not None and not is_supported(zone):
+    try:
+        await classes_service.update(
+            session, school_class, actor.telegram_id, payload.model_dump(exclude_unset=True)
+        )
+    except classes_service.UnknownTimezone as unknown:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="unknown timezone",
-        )
-
-    for column, value in changes.items():
-        await classes_service.set_field(session, school_class, actor.telegram_id, column, value)
-    if zone is not None:
-        await classes_service.set_timezone(session, school_class, actor.telegram_id, zone)
-    if ("grade" in changes or "letter" in changes) and "name" not in changes:
-        # A class moved from 9 to 10 is not called «9А» any more. The name was
-        # composed from these two at creation
-        # (`bot/handlers/start/onboarding.py`), and a move that left the old
-        # name standing showed the wrong class on every screen that prints one.
-        # Unless the same request also names the class: an admin who typed a
-        # name has said what they want, and recomposing over it would overrule
-        # them within the one request.
-        composed = terms_service.compose_name(
-            school_class.grade, school_class.letter, fallback=school_class.name
-        )
-        if composed != school_class.name:
-            school_class.name = composed
-            await audit.record(
-                session,
-                school_class.id,
-                actor.telegram_id,
-                "class.name",
-                f"name: {composed}",
-            )
-    if mode is not None:
-        # Through the enum rather than by the string, because the attribute is
-        # read back as one by `_class_out` in this same request. The same
-        # service the bot's own switch calls, so the log reads as one history
-        # however the switch was flipped - and a switch to the mode already in
-        # force writes no line from either side.
-        await classes_service.set_join_mode(
-            session, school_class, actor.telegram_id, JoinMode(mode)
-        )
+            detail=wording.UNKNOWN_TIMEZONE_DETAIL,
+        ) from unknown
 
     await session.commit()
     return await _class_out(session, school_class)

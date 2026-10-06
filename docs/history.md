@@ -28,6 +28,206 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: v2 served beside v1 — stage 3a of sub-project 3 (#273)
+
+Merged as #342 (`8d779ef`, 5 October 2026), from `server-v2/3a`, on milestone 11. It closes #336, #337, #338, #339, #340 and #341, and
+refers to #273. The branch was cut from `main` at `175ff42`, the merge of #335, and carries 23
+commits before this close-out, to `d501b42`. Written on 5 October 2026, after #335 merged.
+The schema head did not move. This is stage 3a of `docs/specs/2026-10-05-server-v2-design.md`,
+built by the plan beside it: v1 answers exactly as before, and v2 now answers too, four
+methods of it.
+
+- **The v1 rules v2 needs moved into `services/` first**, with v1 calling them: the join flow
+  (`services/join.py`), the window's tag and v2's school year (`services/window.py`), the
+  class's clock and the date bounds (`services/clock.py`), a device's access
+  (`linking.Access`), and the four limiters with the device cap and the diary's attempt
+  (`security.py`, one instance each). `caller_bucket` reads header lines and a peer host.
+- **`app/rpc/` and `app/rest/` serve v2**: one method table read from the descriptors, one
+  gate (client version, the diary's switch before any token, the bearer, the link, the role),
+  one `invoke` per call (scope, handler, the one commit, then effects), one error table, the
+  seventeen Connect apps at `/api/rpc` behind a `415` for native gRPC and a decoding guard,
+  and the REST transcoder under `/api/v2`. `main.mount_v2` answers `503` there if v2 will not
+  import.
+- **Four methods**: `GetScheduleWindow` (a school year, terms computed rather than seeded,
+  a strong tag and `not_modified`), `GetMe` (no code minted), `GetDiaryCapabilities` (v1's
+  answer in v2's shape), `CreateDevice` (v1's flow, on v1's budget). `WatchClass` refuses with
+  `FEATURE_UNSUPPORTED`. `MIN_CLIENT_VERSION` is a new optional setting.
+- **`google/rpc` is generated** beside `google/api`, pinned to `buf.lock`'s googleapis commit.
+- **`/api/v1/warmup` gains an additive `"v2": true|false`**, so a v2 that fell back to its
+  `503`s is visible. Its `status` is not changed by it.
+- **`Cache-Control: private, no-store`** goes on REST answers of the diary's GETs, of
+  `GetCalendarFeed` (its answer is a secret URL) and of `CreateDevice` (its answer is a device
+  token). The window keeps v1's answer: an ETag and no `Cache-Control`.
+- **The `v2` test harness**: `v2.connect`, `v2.rest` and `v2.both`, which asserts one outcome
+  on both transports. An unreadable answer is never equal to another.
+- **Six defects were found on the branch, each filed before its fix:**
+  - #337: a body claiming gzip that was not gzip gave a `500`;
+  - #338: a header or query that is not UTF-8 gave a `500` quoting the exception. It is now
+    read as latin-1, as v1 reads it;
+  - #339: a REST JSON body with a lone surrogate decoded where Connect refused it, then gave a
+    plain-text `500`;
+  - #340: REST read any body as JSON, so a cross-site simple POST could spend the join budget
+    v1 and v2 share. REST now takes `application/json` or `+json` only;
+  - #341: REST now refuses a compressed body, and Connect's encode failure is a logged
+    `INTERNAL` with the fixed sentence;
+  - #336: a sentence of the documents left `DIARY_PROXY_URL` out of what compose forwards.
+- **How it was built and reviewed**: eleven tasks, each with a review of the spec and the
+  quality; further review rounds on Tasks 5, 6, 7, 8, 9 and 10; and a review of the whole
+  branch, «Ready to merge: Yes», whose six Minors are all fixed in `d501b42`. The ledger is
+  git-ignored scratch and is not in the repository.
+
+### Gates
+
+All at `d501b42`.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
+- **mypy**: no issues found in 214 source files.
+- **The server suite.** `pytest -q -n auto`, run alone from `server/`, gave **2437 passed** in
+  731.59 s (12 min 11 s). The seven places the `handover` skill names say 2437.
+- **The contract**, per the review of the whole branch: `buf lint` exit 0;
+  `buf breaking --against .git#ref=175ff42` exit 0; `buf generate` reproduces the 48
+  committed files.
+- **CI on the head** is read before the merge.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
+  before.
+
+### What was deliberately left alone
+
+- **Stage 3b**: the other 71 unary methods, the per-provider diary registry, and the Telegram
+  notices as effects. **Stage 3c**: the host, native gRPC, and `WatchClass`'s stream.
+- **#302 is not 3a's**: #303 fixed v1 on 5 October 2026, and v2's gate asks the diary's switch
+  before any token on its own.
+- **Ruled out of scope during review**, each with its reason in the ledger:
+  - `404`, `405` and `307` under `/api/v2` come in FastAPI's `{"detail"}` shape;
+  - connectrpc's own messages repeat the caller's own `Connect-Protocol-Version`,
+    `Connect-Timeout-Ms` and `Content-Encoding` header values;
+  - the native-gRPC guard keys on `http_version`;
+  - the window sends no `Cache-Control`: RFC 9111 §3.5 keeps shared caches off answers to
+    requests that carry `Authorization`, and `no-store` would defeat the ETag;
+  - an unusable `MIN_CLIENT_VERSION` fails at import, as `TRUSTED_PROXY_HOPS` does;
+  - a websocket scope under `/api/rpc` gets no explicit close;
+  - a raising `rollback()` masks a refusal.
+- **v1's `/join`** stays reachable through a body with no `Content-Type` until v1 is retired
+  (sub-project 5). #340 closed that door for REST v2 only.
+- **An import-time ceiling** in `test_cold_start.py` (the design's decision 8).
+
+### What nobody has verified in this batch
+
+- **v2 on production, and Connect on any deployment.** `connectrpc`, the generated contract,
+  `protobuf-py-ext` and `pyqwest` do import on Vercel, and `mount_v2` mounted v2 there: Vercel's
+  Preview deployment of `d501b42`, `lessons-git-server-v2-3a-codeilluminators.vercel.app`,
+  behind Vercel Authentication, was read by the owner in their own browser on 5 October. It
+  answered `/api/v1/warmup` with `"v2": true`, and REST `GET /api/v2/diary/capabilities` with
+  JSON naming the NetSchool regions. Only those two were read; Connect was not called. The
+  production deployment is checked after the merge, Task 11 Step 10 of
+  `docs/specs/2026-10-05-server-v2-3a-plan.md`, and the fail-safe mount is there for a failure.
+- **v2 against Postgres**: every v2 test ran on SQLite.
+- **`x-vercel-forwarded-for` reaching a v2 call's bucket**: held by unit tests of
+  `caller_bucket`, never through Vercel's proxy.
+- **What `http_version` Vercel's Python bridge puts in the ASGI scope.** The native-gRPC
+  guard steps aside only for `"2"` and `"3"` and reads a missing one as HTTP/1.1, as ASGI
+  does; a bridge that said `"2"` for a request it carried over HTTP/1.1 would let native
+  gRPC through to the library's `500`. The check after the merge sends no `application/grpc`.
+- **`X-Lessons-Client` from an APK**: no APK sends it yet.
+- **A segfault in a native extension at import cannot be caught by `mount_v2`.** It turns an
+  import that raises into the `503`; an interpreter that crashes raises nothing to catch.
+
+### Outside the pull request, the same day
+
+None of this is code in #342, and all of it is state the next session needs.
+
+**The Petersburg diary's proxy (#235, #334) is set up and verified in production.**
+
+- **The VPS** is RUVDS, Rucloud Korolyov, on Ubuntu 24.04. Its address stays out of this
+  public repository, like the proxy's URL and every password; the owner has them.
+- **Squid on 23128** allows `CONNECT` to `dnevnik2.petersburgedu.ru:443` only, and only with
+  the password. ufw allows 22, 2222 and 23128, and fail2ban runs.
+- **SSH** is by key only, on 22 and 2222. The owner's home line blocks outgoing 22, so the
+  session used 2222.
+- **Checked from outside**:
+  - six allow-and-refuse checks pass, both from Russia and through Amsterdam;
+  - `PetersburgClient` reached the diary through the proxy (`TCP_TUNNEL/200`);
+  - check-host.net reached 23128 from Frankfurt, Nuremberg, Amsterdam, Helsinki, Los Angeles
+    and Moscow.
+- **`DIARY_PROXY_URL`** is set by the owner in Vercel for Production, Preview and Development.
+- **Production**, asked with a made-up Petersburg session:
+  - before the redeploy it answered `503`, «Дневник не ответил вовремя»;
+  - after the owner's redeploy at 13:20 UTC it answered `409`, «Дневник не принял эту сессию
+    с нашего сервера — дело не в пароле.» — the diary judging a session instead of not
+    answering;
+  - a live tunnel ran from AWS Frankfurt through Squid to `46.243.177.102`.
+
+  This is recorded as a comment on #235, which had already closed.
+- **The root password** was rotated by the owner afterwards. The host key changed, and was
+  confirmed through the RUVDS console.
+
+**A real Petersburg account in the app: not confirmed.** On the emulator, with the debug build
+pointed at production and a temporary route to the diary through the Russian line, the diary
+answered `401` («Неверный логин или пароль») to an account the owner supplied. The same
+request sent directly got `401` too, and so does a made-up account: the same 772-byte HTML. So
+the answer does not tell a wrong password from another refusal. Further probing of the diary's
+sign-in was refused by the session's safety check and was not pursued. The owner is to try
+that login on the diary's own site, with the VPN off, since the site is fenced to Russia
+(section 7).
+
+Also observed: tapping «Войти» on the diary sign-in screen did nothing three times, while the
+keyboard's «Готово» submitted. It is not yet confirmed as a defect, because confirming it costs
+more attempts on a real account.
+
+## What the batch before added: the Petersburg diary can go through a Russian proxy (#334)
+
+Merged as #335 (`175ff42`, 5 October 2026), from `feat/diary-proxy`, on milestone 10, beside
+#235. It closed #334 and refers to #235 and #273; GitHub closed #235 at the same merge.
+Written on 5 October 2026, after #333 merged. The schema head did not move, and nothing under
+`/api/v2` exists yet.
+
+- **`DIARY_PROXY_URL`, optional and empty by default, routes the Petersburg diary through an
+  HTTP proxy.** It goes as a `CONNECT` tunnel, so TLS stays end to end and the proxy sees the
+  host name, never the family's credential. This is the server's half of the owner's
+  decision on #235: the bot and the API stay on Vercel and Neon, and only the diary's requests
+  go through a RUVDS VPS in Russia. Nothing else uses the proxy: the bot, Telegram, the
+  database, DaData and the NetSchool diaries go direct.
+  - **Empty means direct**, today's behaviour and right for a deployment inside Russia. It
+    is not announced and not in the deployment refusal's list, so a fully configured
+    deployment still announces nothing.
+  - **An unusable value is treated as unset rather than raised.** That means not `http://` or
+    `https://`, no host, or a port that is not a number. httpx would refuse it when the client
+    is built and take the diary down. The startup log says it is unusable, and never quotes it,
+    because it can carry the proxy's password.
+- **`test_diary_proxy.py` (14 tests)** holds the setting's reading, the announcement without
+  the value, and the client's route, read off the client httpx built. The route test failed
+  without the client change.
+- **`docker-compose.yml` hands the server the setting.** `test_compose` caught it on the first
+  full run.
+- **`.env.example`, `docs/deploy.md` and `CLAUDE.md`** name it.
+  `docs/deploy.md`'s «The electronic diary» says what the proxy must refuse: anything but
+  `CONNECT` to `dnevnik2.petersburgedu.ru:443`, and anyone without the password.
+- **After #333's merge**, `dev` was fast-forwarded to `2f529af`, Vercel reported the deploy
+  successful, and production answered `/api/v1/warmup` with
+  `{"status":"ok","api_version":1,"schema":"0017"}`. The board reads Done for #333 and #330.
+
+### Gates
+
+- **The server suite.** `pytest -q -n auto`, run alone from this worktree's own venv, gave
+  2221 passed and one failure, `test_compose`, which the compose line fixed. `test_compose`,
+  `test_diary_proxy` and `test_env_example` then gave 21 passed. The suite is **2222**, which
+  the seven places the `handover` skill names now say.
+- **ruff and mypy** are clean; mypy covers 197 modules.
+- **Android** is unchanged, 1635 tests.
+
+### What was deliberately left alone
+
+- **The NetSchool diaries** go direct: no evidence says their regions drop foreign addresses,
+  and opting them in is one line when there is.
+- **Buying and setting up the VPS** is the owner's (section 7 then; done the same day, and in
+  `docs/history.md`, «Moved out of section 7 on 5 October 2026», now).
+
+### What nobody has verified in this batch
+
+- **No request has gone through a real proxy.** One request through the owner's VPS to the
+  diary is the test that closes #235. It was verified in production on 5 October, after the
+  merge: «Outside the pull request, the same day», in the section on #342 above.
+
 ## What the batch before added: the owner approved the four designs and decided #330, and an APK is signed with the real key only on main or a `v*` tag
 
 Merged as #333 (`2f529af`, 5 October 2026), from `chore/owner-decisions`, on milestone 12,
@@ -5841,6 +6041,15 @@ it has moved, here), so the bullet below lost its last sentences and `HANDOVER.m
   words as «Дневник не отвечает» — for every family, every time, until the diary traffic
   leaves from a Russian address. «Сетевой город»'s regions were not asked from Frankfurt.
 
+Production answered Connect on 5 October, `200` in JSON and in binary, after #342's merge and
+the owner's promote, so the bullet below left `HANDOVER.md`'s section 5. As it stood until then:
+
+- **Vercel's proxy in front of Connect has been asked nothing.** The v2 contract (#297)
+  writes `/api/rpc/lessons.v2.<Service>/<Method>` down, #342 serves four methods there, and
+  no deployment has been asked one over Connect: a preview was asked over REST only (above).
+  Whether Vercel passes a Connect request and its streaming body through is sub-project 3's
+  first question, and native gRPC is off the Vercel target for a reason `docs/api.md` states.
+
 ## Moved out of section 7 on 5 October 2026
 
 Done by the owner, in the working session of 5 October: every question of the four designs
@@ -5910,3 +6119,41 @@ The smallest fix is a password-protected HTTP proxy on a small Russian VPS and a
 `DIARY_PROXY_URL` that only the diary clients use; the code is a session's work once a host
 exists, and the host is the owner's to rent. Moving the whole server to Russian hosting would
 also settle the 152-ФЗ question in `HANDOVER.md`'s section 7. The issue has the three options.
+
+Answered later the same day, and so moved out in #350's close-out. Preview now has its own
+variables (#118), the diary asked for a code by SMS or MAX on the real Petersburg account
+(#343), and the owner connected the external cron. As they stood until then:
+
+**Decide what the Preview environment is for, because today it is a red herring.** All
+eleven of the project's variables on Vercel are scoped to **Production only**, so every
+preview deployment — one per push to `dev`, which is one per pull request — dies while
+importing `app.db` and answers `500` to every request. The build is green, Vercel comments
+«Ready» on the pull request, and the link leads to a function that refused to start. That
+refusal is `DeploymentNotConfigured` doing precisely its job: nothing is touched, no
+connection is opened, no webhook is registered, and no GitHub check turns red. It cost an
+export of the runtime logs to establish, which is why `docs/deploy.md` now says it in the
+variables section. Two honest ways out, and **copying Production's values across is not one
+of them** — that points every branch at the real database and hands a throwaway deployment
+the real bot token, and Telegram gives its updates to whoever registered the webhook last.
+Either give Preview its own set (a Neon branch, a second BotFather bot, its own secrets) or
+turn Preview deployments off in the project's Git settings; nothing here is a web page, so
+there is nothing for a preview to show. Only the owner can do either — this session can read
+which keys exist per environment but must not create them.
+**On 5 October 2026 this changed, and it is not known how.** The preview of #342 started and
+answered `/api/v1/warmup`, so Preview now has the mandatory variables. The owner added
+`DIARY_PROXY_URL` to Preview that day, but which `DATABASE_URL` and `BOT_TOKEN` Preview holds is
+not known here. If they are Production's, every pull request's preview reads and writes the real
+database. The code never registers the Telegram webhook itself — that is done by hand — so a
+preview cannot take the bot's updates, but `RUN_BOT` must stay `false` there. Check in Vercel
+which values Preview has, and decide this paragraph's question with that in view.
+
+**Try the Petersburg account you supplied on the diary's own site, then change its
+password.** On 5 October the diary answered `401` to it from an emulator, through the Russian
+line and directly, and it answers a made-up account with the same 772 bytes, so only the site
+can say whether the login is right («Outside the pull request, the same day», in the section
+on #342). Turn the VPN off first, because the site is fenced to Russia. The password was
+typed into a chat, so change it afterwards.
+
+**The keep-alive is only as alive as the cron (#120).** «Сетевой город» sessions are held
+open from `GET /api/v1/cron/tick`, so they lapse if the external cron does not tick;
+`.github/workflows/reminders.yml` is the fallback, not the clock, exactly as for the digests.

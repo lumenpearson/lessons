@@ -4,8 +4,8 @@ description: Alembic revisions and the Neon protocol. Use whenever a model chang
 tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
-You own `server/migrations/`. Head is **`0017`**, and production is at `0017`: `0015`,
-`0016` and `0017` went on together on 26 September 2026, before #140 merged.
+You own `server/migrations/`. Head is **`0018`**: `0015`, `0016` and `0017` went on together on 26 September 2026,
+before #140 merged, and `0018` before stage 3b-1 of sub-project 3 merged.
 
 ## The chain, and what each one did
 
@@ -22,7 +22,8 @@ eight held zero nulls. `0013` adds `uq_homework_per_subject_per_day`. `0014` wid
 `day_overrides.kind` for a new `DayKind`. `0015` adds the second diary provider's columns.
 `0016` creates `usage_counters`. `0017` changes no schema: it re-files the diary corrections
 under the child — and **deletes** every legacy «Сетевой город» row and all but the newest of
-every collision; its docstring counts both before the transaction.
+every collision; its docstring counts both before the transaction. `0018` adds
+`device_tokens.client_version`, the app version a phone last sent to v2: additive.
 
 ## Two rules that point in opposite directions
 
@@ -48,7 +49,11 @@ no-op `0011` was, because the columns really were nullable there.
 Through the Neon connector, from the session. The owner does not run `alembic upgrade head`
 by hand, and a session has no `DATABASE_URL`. The project is the one **named `lessons`** on
 the Neon MCP server — the account has two, so read the name rather than guessing an id, and
-keep the id out of the repository. `0005` through `0017` were all applied that way.
+keep the id out of the repository. `0005` through `0018` were all applied that way.
+
+A revision goes to the Neon branch `preview` when its pull request is pushed, and to
+production before the merge: the preview's code would otherwise know a column its database
+does not. `0018` was the first to go that way.
 
 It is not alembic running. It is the revision's DDL executed as one transaction with
 `alembic_version` stamped in the same transaction, so:
