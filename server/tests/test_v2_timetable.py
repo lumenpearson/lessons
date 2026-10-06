@@ -231,3 +231,137 @@ async def test_a_paste_with_no_day_in_it_is_refused_on_its_text(v2, v2_tokens, s
     assert empty.reason == "VALIDATION_FAILED"
     assert [field for field, _ in empty.violations] == ["text"]
     assert await _actions(session) == []
+
+
+CLEAN = (
+    "== Среда ==\n1. Музыка\n2. Технология\n\n"
+    "== Звонки ==\n1. 09:00-09:40\n2. 09:50-10:30\n3. 10:40-11:20\n"
+)
+
+
+async def test_a_clean_preview_counts_what_the_apply_then_writes(
+    v2, v2_tokens, session, school_class, statement_writes, unexpected_writes, last_seen_rule
+) -> None:
+    """No conflict to make v1 answer the same: the preview is the paste's own
+    counts with ``applied`` false, and the apply of the same text agrees."""
+    admin = v2_tokens["admin"]
+    request = ImportTimetableRequest(text=CLEAN, validate_only=True)
+    with statement_writes() as seen:
+        preview = await v2.both("TimetableService/ImportTimetable", request, token=admin)
+    assert preview.status == 200
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all(last_seen_rule.match(statement) for statement in seen), seen
+    assert preview.message.applied is False
+    assert (list(preview.message.days), preview.message.lessons, preview.message.bells) == (
+        [3],
+        2,
+        3,
+    )
+    assert list(preview.message.conflicts) == []
+    assert "Музыка" not in await _names(session, school_class)
+    assert await _actions(session) == []
+    applied = await v2.rest(
+        "TimetableService/ImportTimetable", ImportTimetableRequest(text=CLEAN), token=admin
+    )
+    assert applied.message.applied is True
+    assert (
+        list(applied.message.days),
+        applied.message.lessons,
+        applied.message.bells,
+    ) == (list(preview.message.days), preview.message.lessons, preview.message.bells)
+    assert "Музыка" in await _names(session, school_class)
+
+
+async def test_a_preview_counts_a_lesson_with_no_bell_that_the_apply_drops(
+    v2, v2_tokens, session
+) -> None:
+    """The documented divergence: a lesson with no bell to ring it is found
+    only when the paste is applied, so the preview counts it and lists no line."""
+    admin = v2_tokens["admin"]
+    preview = await v2.both(
+        "TimetableService/ImportTimetable",
+        ImportTimetableRequest(text=DROPPING, validate_only=True),
+        token=admin,
+    )
+    assert preview.message.applied is False
+    assert (preview.message.lessons, preview.message.bells) == (2, 2)
+    assert list(preview.message.rejected) == []
+    assert await _actions(session) == []
+    applied = await v2.rest(
+        "TimetableService/ImportTimetable", ImportTimetableRequest(text=DROPPING), token=admin
+    )
+    assert (applied.message.lessons, applied.message.bells) == (1, 2)
+    assert list(applied.message.rejected) == [
+        "вторник, урок 8: нет такого звонка в расписании звонков",
+        "понедельник, урок 3: больше не звонит — новые звонки короче",
+    ]
+
+
+async def test_a_preview_of_a_paste_with_no_day_is_refused_the_same(
+    v2, v2_tokens, session
+) -> None:
+    answer = await v2.both(
+        "TimetableService/ImportTimetable",
+        ImportTimetableRequest(text="просто текст без заголовков", validate_only=True),
+        token=v2_tokens["admin"],
+    )
+    assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED")
+    assert answer.violations == [("text", wording.TIMETABLE_PASTE_EMPTY_DETAIL)]
+    assert await _actions(session) == []
+
+
+async def test_a_paste_of_bells_alone_is_no_empty_paste_and_previews_its_bells(
+    v2, v2_tokens, session
+) -> None:
+    """The service takes a bells block for a paste: v1 applies it, and v2's
+    preview reports the counts v1's apply then does."""
+    admin = v2_tokens["admin"]
+    bells = "== Звонки ==\n1. 09:00-09:40\n2. 09:50-10:30\n"
+    preview = await v2.both(
+        "TimetableService/ImportTimetable",
+        ImportTimetableRequest(text=bells, validate_only=True),
+        token=admin,
+    )
+    assert preview.status == 200
+    assert preview.message.applied is False
+    assert (list(preview.message.days), preview.message.lessons, preview.message.bells) == (
+        [],
+        0,
+        2,
+    )
+    assert await _actions(session) == []
+    v1 = (
+        await v2.http.post(
+            "/api/v1/manage/timetable/import", json={"text": bells}, headers=_auth(admin)
+        )
+    ).json()
+    assert v1["applied"] is True
+    # The apply also reports Monday's third lesson, which the shorter bells
+    # stop ringing: a line a preview cannot know, as the proto says.
+    assert {**_plain(preview), "rejected": v1["rejected"]} == {**v1, "applied": False}
+    assert list(preview.message.rejected) == []
+
+
+async def test_replace_matches_v1_s_conflicts_and_keeps_the_weekdays_it_does_not_name(
+    v2, v2_tokens, session, school_class
+) -> None:
+    admin = v2_tokens["admin"]
+    await v2.rest(
+        "TimetableService/ImportTimetable",
+        ImportTimetableRequest(text="== Среда ==\n1. Физика"),
+        token=admin,
+    )
+    v1 = await v2.http.post(
+        "/api/v1/manage/timetable/import", json={"text": CONFLICTING}, headers=_auth(admin)
+    )
+    answer = await v2.rest(
+        "TimetableService/ImportTimetable",
+        ImportTimetableRequest(text=CONFLICTING, replace=True),
+        token=admin,
+    )
+    assert answer.message.applied is True
+    assert _plain(answer)["conflicts"] == v1.json()["conflicts"]
+    names = await _names(session, school_class)
+    assert {"Химия", "Биология", "Физика"} <= names
+    assert "Алгебра" not in names
