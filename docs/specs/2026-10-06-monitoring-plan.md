@@ -5362,9 +5362,42 @@ A `failing` row is a finding: file it as an issue before anything else. No rows 
 None of these blocks the work; each has a recommendation the plan already follows or can take later.
 
 1. **Should #349 close with this pull request, or only once the `deploy` check has caught a real late deploy?** Recommended: close with it, as the plan does. The issue's own text names this check as the cure «for good», and it can be reopened if the check ever misses one.
+   **Answered on 6 October 2026:** yes, close #349 with this pull request.
 2. **A read-only GitHub token for the `deploy` check?** Unauthenticated, it shares sixty requests an hour with every Vercel function on the same address, and a refusal reads ❔. Recommended: not now. Add an optional `GITHUB_TOKEN` only if `/health` shows the check ❔ with «GitHub answered HTTP 403» more than now and then.
+   **Answered on 6 October 2026:** left to the controller, who added the optional `GITHUB_READ_TOKEN` after the review of Task 4 found that an anonymous `304` is not free — it still spends one of the sixty an hour shared on Vercel's address, against a check that closes #349 on the strength of it. The owner set the token the same day.
 3. **Sentry for Preview too?** Recommended: Production only at first. A preview's errors are this session's own experiments, and they would spend the same 5,000 a month.
+   **Answered on 6 October 2026:** Production only, for now.
 4. **cron-job.org's failure email: after how many failures in a row?** Recommended: three, which is fifteen minutes. One is a blip on a cold start; three is an outage.
+   **Answered on 6 October 2026:** three failures in a row.
+
+## What changed while it was built
+
+The reviews of Tasks 4 and 6 changed what the code does in five ways, and this pull request's
+documents (Task 8) say what is true now rather than what this plan assumed when it was written.
+
+- **The order in the tick.** The self-check runs after the digests and the sweeps and before
+  the diary keep-alive, not last: the keep-alive goes through the diary's proxy and, when it
+  hangs, holds the request to its own hard stop, so after it the proxy check would have no
+  time left to report the one incident it exists for. Built this way in Task 5 (`6ebea80`).
+- **The time budget.** The network checks stop `SEND_RESERVE_SECONDS` (five seconds) before
+  the self-check's own hard stop, so an alert always has a real chance to send, and a check
+  given less than its full budget that then times out reads `unknown`, never `failing`, read
+  from the exception's type rather than its wording. Found by Task 4's review of its own first
+  commit (`de8dc68`, `1d63dcd`).
+- **`GITHUB_READ_TOKEN`**, a new optional setting. With it the `deploy` check's `304`s are
+  authorized and free, and the ceiling is 5,000 GitHub requests an hour instead of the sixty
+  shared anonymously. Found by the same review: an anonymous `304` still spends one of the
+  sixty against a check that closes #349 on the strength of it (`de8dc68`). The owner set it
+  on 6 October 2026.
+- **A malformed `SENTRY_DSN`.** `Settings` now judges its own shape and announces a
+  set-but-unusable value as off, instead of letting `sentry_sdk.init` raise `BadDsn` at
+  `app.main`'s import and take v1, v2, the webhook and the cron tick down together. Found by
+  Task 6's review (`238efeb`), which also switched off release-health sessions and client
+  reports and replaced the plain sample rate with `traces_sampler`.
+- **`test_client_version_revision.py` pinned the schema head to `0018` by number.** It failed
+  the moment `0019` moved the head, although nothing about `0018` had changed. Filed as #358
+  and fixed in Task 3 (`3e615b1`): the test now asks only for `0018`'s own place in the chain,
+  and `test_schema_version.py` stays the one pin.
 
 ## Self-review
 

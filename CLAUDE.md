@@ -59,7 +59,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2621 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2707 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -67,7 +67,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 221 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 228 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. A CI step since
   27 September 2026, right after ruff, because the owner asked for it through that day's
@@ -199,6 +199,9 @@ Server modules:
   `security.py`'s, one instance each, and the sentences both versions answer with (the
   join's four, the diary's «disabled», and the subjects', the devices', the bells', the
   import's and the zone's refusals) are `app/wording.py`'s.
+  The tick runs `health.py`'s self-check after the digests and the sweeps and before the
+  diary keep-alive: four checks, what each said last in `health_checks`, and the owner's
+  alerts on a change; the owner's «📊 Проект» reads `project_stats.py`, which writes nothing.
 - `api/` — `public.py` (the phone's reads and its own writes), `edit.py` (the day-to-day
   writes), `manage/` (running the class, one module per resource over
   `services/manage/`, with `_common.py` holding `Actor` and the one role dependency per
@@ -252,6 +255,16 @@ Server modules:
 - `rest/` — the transcoder: one Starlette route per unary method from its `google.api.http`
   rule, under `/api/v2`, calling the same `invoke`; `errors.py` writes Google's error body.
   `main.mount_v2` mounts both and answers `503` under their prefixes if v2 will not import
+- `telegram_send.py` — a bot built for one job and closed after it (`build_bot`, `close_bot`,
+  `send`), for the code that is not the bot: the tick, v1's notices and the self-check's
+  alerts. aiogram is imported inside its functions and never at the top, so it costs a cold
+  start nothing; `app.bot.bot` imports `build_bot` back from it, and
+  `tests/test_service_layering.py` holds that it reaches neither the bot nor a shell
+- `observability.py` — Sentry's start and its scrubbing hooks, imported only where
+  `SENTRY_DSN` is set (`app.main` and the bot's error handler ask first). Every event is
+  rebuilt from a list of what may leave: an exception's type and stack, the route template,
+  the release and the environment; never a body, a header, a query, a message or a local
+  (152-ФЗ), which `tests/test_observability.py` proves on an event built from a real request
 
 Android modules (`android/settings.gradle.kts`):
 
@@ -397,6 +410,10 @@ points Hilt does not inject cleanly.
   from "what is due and not yet sent today" rather than "did the last tick fire" — so a
   tick that dies halfway does not send twice and a tick ten minutes late still sends.
   Anything you are tempted to schedule in-process belongs in that tick instead.
+  The tick runs the self-check (`services/health.py`) after the digests and the sweeps and
+  before the diary keep-alive, which writes to `OWNER_IDS` when a check changes; when the
+  whole server is down, only the external cron's own failure email can say so
+  (`docs/deploy.md`, «The external cron»).
   **The caller is an external cron service, not GitHub.** `.github/workflows/reminders.yml`
   asked for a tick every five minutes and delivered 6.7 a day over five days of
   measurement, in gaps of two to six and a half hours — GitHub runs schedules on a
@@ -422,14 +439,19 @@ points Hilt does not inject cleanly.
   "this looks like production" anywhere else would one day refuse to start on somebody's
   laptop. **Do not add an optional setting to that list.** `DIARY_SECRET`, `DADATA_TOKEN`,
   `PUBLIC_BASE_URL`, `BOT_USERNAME` and `CRON_SECRET` are empty by design and each already
-  refuses in view of whoever it concerns; they are logged as switched off at startup
+  refuses in view of whoever it concerns; `SENTRY_DSN` (nothing reaches Sentry) and
+  `GITHUB_READ_TOKEN` (the `deploy` check asks GitHub anonymously instead) are two more,
+  neither ever a reason to refuse to start. All are logged as switched off at startup
   (`Settings.disabled_features`), which is a different decision from making them mandatory.
   `DIARY_PROXY_URL` (#334) is optional too, and empty is not a switch but a route: the
   Petersburg diary is called directly, which is right inside Russia. Only an unusable value
   is announced, and never quoted, because it can carry the proxy's password.
   `MIN_CLIENT_VERSION` is optional as well — empty means no minimum, and a request without
   `X-Lessons-Client` is never refused — and it is not a feature switched off, so it is in
-  neither list.
+  neither list. What Vercel says about the running deployment — `VERCEL_ENV`,
+  `VERCEL_GIT_COMMIT_SHA`, `VERCEL_GIT_REPO_OWNER`, `VERCEL_GIT_REPO_SLUG` and
+  `VERCEL_REGION` — is no setting at all: `config.deployment()` reads it from the environment
+  alone, never from `.env`, and off Vercel it is empty.
 - **The widget's size ladder has twelve rungs, and the count is the point.**
   `WidgetSizeClass` (in `:widget`) declares twelve breakpoints because the launcher and
   Glance both pick the **nearest** breakpoint by squared distance, not the largest that

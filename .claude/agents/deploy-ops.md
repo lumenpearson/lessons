@@ -35,6 +35,13 @@ Locally the bot long-polls from the `app/main.py` lifespan; on serverless it is 
    whoever calls `GET /api/v1/cron/tick` with `X-Cron-Secret`. `reminders.yml` is the
    fallback, not the clock — it delivered 6.7 ticks a day in measurement. The real caller is
    the external cron service named in `docs/deploy.md`.
+4. **Nobody was told.** The tick runs a self-check (`services/health.py`) after the digests
+   and the sweeps and before the diary keep-alive, which writes to the owner on a change, and
+   the bot's `/health` shows what each check said last: the schema, v2, the diary's proxy and
+   whether production runs `main`'s head. Read it first. A check that reads ❔ could not run,
+   and its reason says why — an anonymous `deploy` check that is out of GitHub's rate limit
+   says «set GITHUB_READ_TOKEN». Errors with their place are in Sentry where `SENTRY_DSN` is
+   set (`docs/deploy.md`, «Monitoring»).
 
 ## Redaction
 

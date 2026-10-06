@@ -9,7 +9,8 @@ not exist in this product, so a missing card is a missing feature, not a missing
 
 ## Layout
 
-- `handlers/` — `access`, `calendar`, `content`, `diary`, `editor`, `manage`, `reminders`,
+- `handlers/` — `access`, `calendar`, `content`, `diary`, `editor`, `manage`, `project` (the
+  deployment owner's «📊 Проект», answered as an unknown command to anybody else), `reminders`,
   `start`, `tasks`, `timetable`, `week` — `content`, `manage` and `start` are packages, one
   module per flow, each assembling its routers in a written-down order.
 - The weekly template has **two** editors and both are wanted: `timetable.py` pastes a whole

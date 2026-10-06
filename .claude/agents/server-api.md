@@ -12,7 +12,8 @@ every caller before you change a signature.
 - `public.py` reads (and writes an account's own tasks and ticks), `edit.py` and `manage/` write — the
   latter one module per resource over `services/manage/` — `diary.py` is the electronic diary,
   `diary_web.py` is the one server-rendered page in the project, `cron.py` is the clock the
-  server does not have, `telegram.py` is the webhook, `deps.py` is device-token auth.
+  server does not have, running the self-check before the diary keep-alive, each in its own
+  guard, `telegram.py` is the webhook, `deps.py` is device-token auth.
 - The write endpoints are a thin shell over `app/services/`. The bot handlers are the other
   shell over the same functions. If you implement a rule here rather than in a service, the
   bot and the API disagree about it within a month — that is the whole reason `services/`

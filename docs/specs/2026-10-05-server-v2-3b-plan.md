@@ -27,7 +27,7 @@ Each is one batch, with its own subagent-driven run, its own review, its own HAN
 | --- | --- | --- |
 | **3b-1** | The class's records: journal, devices, subjects, and each phone's app version | `AuditService.ListAuditEntries`; `ClassDeviceService.ListClassDevices`, `RevokeClassDevice`, `UnlinkClassDevice`; `SubjectService.ListSubjects`, `GetSubject`, `CreateSubject`, `UpdateSubject`, `DeleteSubject` (9) |
 | **3b-2** | Bells, the timetable and the class | `BellService` ×5, `TimetableService` ×2, `ClassService` ×8, the terms included (15) |
-| **3b-3** | Notices as effects; access requests; the school directory | `AccessRequestService` ×3, `DirectoryService` ×2, `server/app/telegram_send.py` (5) |
+| **3b-3** | Notices as effects; access requests; the school directory | `AccessRequestService` ×3, `DirectoryService` ×2, and v1's notices onto `server/app/telegram_send.py`, which the monitoring pull request writes first (5) |
 | **3b-4** | The phone's own | `MeService.UnlinkMe`, `CreateLinkCode`, `GetCalendarFeed`, `CreateCalendarFeed`; the tasks ×5; the homework ticks ×2 (11) |
 | **3b-5** | Homework and events | `HomeworkService` ×5, `EventService` ×5 (10) |
 | **3b-6** | Days and substitutions | `DayService` ×2, `SubstitutionService` ×5 (7) |
@@ -9845,15 +9845,14 @@ A `501` with `UNIMPLEMENTED` means production still runs the code from before th
 - `DirectoryService.ListSchoolRegions` (`AUTH_KIND_NONE`), and `ListSchools` (`ROLE_ADMIN`).
 
 **The notices become effects.**
-- **`server/app/telegram_send.py`, new and neutral**, holds:
-  - `build_bot()`, moved from `app/bot/bot.py:build_bot` and importing aiogram inside the function, so that the cold start stays free of aiogram (`test_cold_start.py`);
-  - a one-shot send to one person;
+- **`server/app/telegram_send.py` exists before 3b-3.** The monitoring pull request writes it (`docs/specs/2026-10-06-monitoring-plan.md`, Task 2), and 3b-3 reuses it rather than creating it. It already holds `build_bot()`, moved from `app/bot/bot.py` and importing aiogram inside the function, `close_bot()`, and `send()`, a batch of `(telegram_id, text)` that never raises. 3b-3 adds to it:
+  - a one-shot send to one person, unless `send()` of one is enough;
   - the class notice over `services/notify.notify_subscribers`.
 - **Both sends never fail the call.** Each logs and drops a failure, and each closes the bot's session, as `api/edit._tell` and `api/manage/requests._tell` do today.
-- **`app.bot.bot` re-exports `build_bot`**, so the bot is unchanged.
-- **The three copies of `_build_bot`** (`api/edit.py`, `api/manage/requests.py`, `api/cron.py`) call `telegram_send`. The tests that patch `manage.requests._build_bot` (`test_api_manage.py`'s `recording_bot`) patch `app.telegram_send.build_bot` instead, and that change is the stage's one edit to a v1 test, said in its commit.
+- **`app.bot.bot` already imports `build_bot` back from it**, since the monitoring pull request, so the bot is unchanged.
+- **The three copies of `_build_bot`** (`api/edit.py`, `api/manage/requests.py`, `api/cron.py`) already build through `telegram_send` since the monitoring pull request, and stay the seams the tests replace. If 3b-3 removes them, the tests that patch `manage.requests._build_bot` (`test_api_manage.py`'s `recording_bot`) patch `app.telegram_send.build_bot` instead, and that change is the stage's one edit to a v1 test, said in its commit.
 - **v2's approve and decline register the notice with `call.after_commit(…)`**, so it is sent only after the commit, and never on a refusal (the design's Risks). Each notifying method's test asserts that no notice goes out on a refusal.
-- **`tests/test_service_layering.py`** gains `app.telegram_send` among the modules that may reach neither `app.bot` nor a v1 router.
+- **`tests/test_service_layering.py`** already holds that `app.telegram_send` reaches neither `app.bot` nor a shell, since the monitoring pull request.
 
 **v1 rules that move into `services/` first.**
 - **Approving.** `api/manage/requests.py:request_approve` picks the role (absent means the one asked for) and turns `GrantRefused` into a 403. `GrantRefused` today carries two sentences (`str` for the bot, `.detail` for the API), and no fact. It gains a `why` (`"role_too_high"` or `"member_senior"`) for the proto's metadata, and both shells keep their own words.

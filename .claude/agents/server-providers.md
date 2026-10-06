@@ -45,9 +45,10 @@ or unusable — and it lists every one of them at once, because finding the next
 deploy.
 
 **Do not add an optional setting to that list.** `DIARY_SECRET`, `DADATA_TOKEN`,
-`PUBLIC_BASE_URL`, `BOT_USERNAME` and `CRON_SECRET` are empty by design and each already
-refuses in view of whoever it concerns. They are logged as switched off at startup
-(`Settings.disabled_features`), which is a different decision from making them mandatory.
+`PUBLIC_BASE_URL`, `BOT_USERNAME`, `CRON_SECRET`, `SENTRY_DSN` and `GITHUB_READ_TOKEN` are
+empty by design and each already refuses in view of whoever it concerns. They are logged as
+switched off at startup (`Settings.disabled_features`), which is a different decision from
+making them mandatory.
 
 The check hangs on `VERCEL` because the platform sets it about itself. Guessing "this looks
 like production" anywhere else would one day refuse to start on somebody's laptop.
