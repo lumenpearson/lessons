@@ -19,7 +19,7 @@ from hmac import compare_digest
 from typing import Any
 
 from dishka.integrations.fastapi import FromDishka
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, Request, status
 from sqlalchemy import delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,7 +29,7 @@ from app.config import get_settings
 from app.db import SessionLocal, rows_affected
 from app.models import DeviceToken, DiarySession, JoinAttempt
 from app.schemas import TickOut
-from app.services import device_invites, diary_keepalive, diary_link, reminders
+from app.services import device_invites, diary_keepalive, diary_link, health, reminders
 
 log = logging.getLogger(__name__)
 
@@ -131,6 +131,7 @@ async def _purge_device_tokens(session: AsyncSession) -> int:
 
 
 async def tick(
+    request: Request,
     x_cron_secret: str | None = Header(default=None),
     *,
     session: FromDishka[AsyncSession],
@@ -172,6 +173,31 @@ async def tick(
     # The personal join codes of a class in «по приглашению». Same reason again:
     # they expire in fifteen minutes and nothing would ever come back for them.
     invites_purged = await device_invites.prune(session)
+    # The self-check, after the digests and the sweeps and in its own guard and
+    # budget: a failing check, a slow GitHub or a Telegram that refuses the
+    # owner's alert must not fail the tick that reports it, nor cost the digests
+    # and sweeps above. It runs before the keep-alive, because the keep-alive
+    # goes through the diary's proxy and, when the proxy hangs, holds the
+    # request until its own hard stop; after it, the proxy check would have no
+    # time left in the one incident it exists to report. Its answer is in
+    # `health_checks` and the owner's chat, not in the tick's body, so the
+    # caller's history reads as it always has.
+    try:
+        await health.run(
+            session,
+            settings,
+            v2_mounted=bool(getattr(request.app.state, "v2_mounted", False)),
+            started=started,
+        )
+    except Exception:  # noqa: BLE001 - see above
+        log.exception("health checks failed")
+        try:
+            # The keep-alive runs next on this same session; a failed commit above
+            # (the first-run insert race, Ruling 5) would otherwise leave it needing
+            # this before anything else can use it.
+            await session.rollback()
+        except Exception:  # noqa: BLE001 - a failing rollback must not fail the tick either
+            log.exception("rolling back the session after a failed health check also failed")
     # Hold the «Сетевой город» sessions open. Last, and inside its own guard, so
     # a slow or raising keep-alive never fails the tick — that would turn the
     # fallback clock red every five minutes over a diary fault. Its deadline
