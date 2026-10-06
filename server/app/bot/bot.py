@@ -12,6 +12,7 @@ from aiogram.types import BotCommand, ErrorEvent
 
 from app.bot.handlers import build_router
 from app.bot.middlewares import CommandBreakoutMiddleware, ContextMiddleware
+from app.config import get_settings
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
 from app.telegram_send import build_bot  # neutral: the tick and the alerts need no app.bot
@@ -109,6 +110,13 @@ async def _on_error(event: ErrorEvent) -> bool:
         return True
 
     log.exception("Bot handler failed", exc_info=error)
+    # Sentry sees a request's own failures through its integration, and never
+    # these: the dispatcher catches them here, and the webhook answers 200
+    # whatever happened. Imported only where it is set, as in `app.main`.
+    if get_settings().sentry_configured:
+        from app.observability import capture
+
+        capture(error)
 
     if callback is not None:
         with suppress(TelegramBadRequest):

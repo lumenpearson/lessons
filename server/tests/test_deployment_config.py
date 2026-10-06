@@ -279,6 +279,7 @@ def test_get_settings_lets_a_local_run_through(monkeypatch):
         ("BOT_USERNAME", "BOT_USERNAME"),
         ("CRON_SECRET", "CRON_SECRET"),
         ("GITHUB_READ_TOKEN", "GITHUB_READ_TOKEN"),
+        ("SENTRY_DSN", "SENTRY_DSN"),
     ],
 )
 def test_an_optional_setting_is_announced_rather_than_fatal(setting, named):
@@ -315,6 +316,7 @@ def test_a_fully_configured_deployment_announces_nothing():
         BOT_USERNAME="lessons_bot",
         CRON_SECRET="k",
         GITHUB_READ_TOKEN="ghp_k",
+        SENTRY_DSN="https://public@o0.ingest.de.sentry.io/0",
     )
     assert settings.disabled_features() == []
 

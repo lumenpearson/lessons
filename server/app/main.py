@@ -36,6 +36,15 @@ from app.di import close_container, container
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
 
+# Sentry, where SENTRY_DSN is set, and imported only there: a deployment
+# without it never loads sentry_sdk (tests/test_cold_start.py). Before the app
+# is built, so that its integration sees the first request. Not in the
+# lifespan, which a serverless platform may never run.
+if get_settings().sentry_configured:
+    from app.observability import init as init_sentry
+
+    init_sentry(get_settings())
+
 
 def _report_bot_exit(task: asyncio.Task) -> None:
     """Log why the polling task stopped, if it stopped on its own."""

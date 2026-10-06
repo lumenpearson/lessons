@@ -53,3 +53,6 @@ cryptography>=50.0.1
 # import leaves v1 serving.
 connectrpc>=0.12.1
 protobuf-py>=0.6.0
+# Errors and a sample of timings, to Sentry; imported only where SENTRY_DSN
+# is set, so a deployment without it pays nothing on its cold start.
+sentry-sdk>=2.71.0

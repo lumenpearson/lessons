@@ -47,6 +47,7 @@ def from_aiogram(value):
 
 
 loaded = sorted(name for name in sys.modules if name.partition(".")[0] == "aiogram")
+sentry = sorted(name for name in sys.modules if name.partition(".")[0] == "sentry_sdk")
 holders = sorted(
     name
     for name, module in list(sys.modules.items())
@@ -58,6 +59,7 @@ print(
     json.dumps(
         {
             "aiogram": loaded,
+            "sentry": sentry,
             "holders": holders,
             "webhook": "app.api.telegram" in sys.modules,
         }
@@ -66,7 +68,7 @@ print(
 """
 
 #: The suite's own settings (`conftest.py`): no token, so no webhook and no bot.
-_LOCAL = {"BOT_TOKEN": "", "WEBHOOK_SECRET": "", "RUN_BOT": "false"}
+_LOCAL = {"BOT_TOKEN": "", "WEBHOOK_SECRET": "", "RUN_BOT": "false", "SENTRY_DSN": ""}
 
 #: What a Vercel deployment is started with — the set `tests/test_api_docs.py`
 #: uses, written out again because a test module may not import another
@@ -79,6 +81,7 @@ _VERCEL = {
     "RUN_BOT": "false",
     "OWNER_IDS": "1000",
     "TIMEZONE": "Europe/Moscow",
+    "SENTRY_DSN": "",
 }
 
 
@@ -127,3 +130,27 @@ def test_the_probe_sees_aiogram_where_it_is():
 
     assert "aiogram" in found["aiogram"]
     assert "app.bot.keyboards" in found["holders"]
+
+
+@pytest.mark.parametrize("settings", [_LOCAL, _VERCEL], ids=["webhook-unmounted", "vercel"])
+def test_without_a_dsn_the_api_never_imports_sentry(settings):
+    """The monitoring design's promise: a deployment without ``SENTRY_DSN``
+    starts as it did before Sentry was a dependency."""
+    found = _import_in_a_fresh_interpreter("app.main", settings)
+
+    assert found["sentry"] == [], (
+        f"importing app.main without SENTRY_DSN loaded {len(found['sentry'])} sentry_sdk modules"
+    )
+
+
+def test_with_a_dsn_the_api_starts_sentry_and_still_leaves_aiogram_out():
+    """And the other side, which is what proves the probe can see it: with
+    the setting, Sentry is started at import. Its integrations are Starlette's
+    and FastAPI's alone, so it brings no aiogram along either."""
+    dsn = "https://public@o0.ingest.de.sentry.io/0"
+    found = _import_in_a_fresh_interpreter(
+        "app.main", {**_VERCEL, "SENTRY_DSN": dsn, "VERCEL_ENV": "production"}
+    )
+
+    assert "sentry_sdk" in found["sentry"]
+    assert found["aiogram"] == []

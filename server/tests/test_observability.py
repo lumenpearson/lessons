@@ -1,0 +1,272 @@
+"""What leaves for Sentry, and what never does (152-ФЗ).
+
+Two halves. The scrubbing hooks are asked directly, with an event carrying
+everything the SDK could ever put in one. And one event is built for real: a
+fresh interpreter starts Sentry exactly as ``app.main`` does, sends a request
+carrying a diary token and a child's name through a route that fails, and
+hands back what the SDK would have put on the wire. Fresh, because Sentry's
+integrations patch Starlette for the life of a process, and this suite's
+process serves a thousand other requests.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
+from app import observability
+from app.config import Settings, get_settings
+
+SERVER = Path(__file__).resolve().parents[1]
+
+TOKEN = "dt_9f3b2c7e1a5d4f6b8c0e2a4d6f8b0c1e"
+CHILD = "Иванова Мария"
+FAKE_DSN = "https://public@o0.ingest.de.sentry.io/0"
+ROUTE = "/api/v1/diary/students/{student_id}/schedule"
+
+
+def _everything() -> dict:
+    """An error event as the SDK builds one, with every field that could
+    carry the token or the name filled with them."""
+    return {
+        "event_id": "e" * 32,
+        "timestamp": "2026-10-06T12:00:00Z",
+        "level": "error",
+        "platform": "python",
+        "sdk": {"name": "sentry.python", "version": "2.71.0"},
+        "release": "a" * 40,
+        "environment": "production",
+        "server_name": "ip-10-0-0-1",
+        "transaction": ROUTE,
+        "transaction_info": {"source": "route"},
+        "message": f"failed for {CHILD}",
+        "logentry": {"message": "diary read for %s", "params": [CHILD]},
+        "exception": {
+            "values": [
+                {
+                    "type": "ValueError",
+                    "module": None,
+                    "value": f"no lessons for {CHILD}",
+                    "mechanism": {"type": "starlette", "handled": False, "data": {"t": TOKEN}},
+                    "stacktrace": {
+                        "frames": [
+                            {
+                                "filename": "app/api/diary.py",
+                                "abs_path": f"/home/{CHILD}/app/api/diary.py",
+                                "function": "schedule",
+                                "module": "app.api.diary",
+                                "lineno": 120,
+                                "in_app": True,
+                                "context_line": f'    name = "{CHILD}"',
+                                "pre_context": [TOKEN],
+                                "vars": {"token": TOKEN, "name": CHILD},
+                            }
+                        ]
+                    },
+                }
+            ]
+        },
+        "request": {
+            "url": f"https://lessons.example/api/v1/diary/students/42/schedule?child={CHILD}",
+            "method": "GET",
+            "headers": {"authorization": f"Bearer {TOKEN}"},
+            "cookies": {"session": TOKEN},
+            "query_string": f"child={CHILD}",
+            "data": {"name": CHILD},
+        },
+        "breadcrumbs": {"values": [{"message": f"signed in as {CHILD}"}]},
+        "extra": {"token": TOKEN},
+        "user": {"id": "42", "username": CHILD},
+        "tags": {"child": CHILD},
+        "modules": {"fastapi": "0.141.1"},
+        "contexts": {
+            "trace": {
+                "trace_id": "1" * 32,
+                "span_id": "2" * 16,
+                "op": "http.server",
+                "status": "internal_error",
+                "data": {"url": f"/schedule?child={CHILD}"},
+                "dynamic_sampling_context": {"transaction": ROUTE},
+            },
+            "runtime": {"name": "CPython", "version": "3.12"},
+        },
+    }
+
+
+def _leaks(event: dict) -> list[str]:
+    dumped = json.dumps(event, ensure_ascii=False)
+    return [secret for secret in (TOKEN, CHILD, "Иванова", "Мария") if secret in dumped]
+
+
+def test_an_error_keeps_its_type_its_place_and_its_route_and_nothing_else():
+    scrubbed = observability.scrub(_everything())
+
+    assert _leaks(scrubbed) == []
+    assert set(scrubbed) == {
+        "event_id", "timestamp", "level", "platform", "sdk", "release", "environment",
+        "transaction", "transaction_info", "exception", "contexts",
+    }
+    (value,) = scrubbed["exception"]["values"]
+    assert value["type"] == "ValueError" and "value" not in value
+    assert value["stacktrace"]["frames"] == [
+        {
+            "filename": "app/api/diary.py",
+            "function": "schedule",
+            "module": "app.api.diary",
+            "lineno": 120,
+            "in_app": True,
+        }
+    ]
+    assert value["mechanism"] == {"type": "starlette", "handled": False}
+    assert scrubbed["transaction"] == ROUTE
+    assert scrubbed["contexts"] == {
+        "trace": {
+            "trace_id": "1" * 32,
+            "span_id": "2" * 16,
+            "op": "http.server",
+            "status": "internal_error",
+        }
+    }
+
+
+def test_a_timed_request_keeps_its_route_and_its_duration_and_nothing_else():
+    timed = {
+        **_everything(),
+        "type": "transaction",
+        "start_timestamp": "2026-10-06T11:59:59Z",
+        "spans": [
+            {"op": "http.client", "description": f"GET https://dnevnik2/?child={CHILD}"},
+            {"op": "db", "description": "SELECT * FROM diary_sessions WHERE token_hash = ?"},
+        ],
+        "measurements": {"x": {"value": 1}},
+    }
+    scrubbed = observability.scrub_transaction(timed)
+
+    assert _leaks(scrubbed) == []
+    assert scrubbed["spans"] == []
+    assert (scrubbed["transaction"], scrubbed["start_timestamp"], scrubbed["timestamp"]) == (
+        ROUTE, "2026-10-06T11:59:59Z", "2026-10-06T12:00:00Z",
+    )
+    assert "request" not in scrubbed and "measurements" not in scrubbed
+
+
+def test_a_path_no_route_matched_is_never_the_name():
+    """A path the router did not match is whatever the caller sent: a
+    calendar feed's carries its secret. A Connect method's names a service
+    and a method, and nothing a caller could hide a value in."""
+
+    def named(transaction: str) -> str:
+        event = {"transaction": transaction, "transaction_info": {"source": "url"}}
+        return observability.scrub(event)["transaction"]
+
+    assert named(f"http://test/api/v1/calendar/{TOKEN}.ics") == observability.UNMATCHED
+    assert named(f"http://test/api/rpc/lessons.v2.X/{CHILD}") == observability.UNMATCHED
+    assert (
+        named("http://test:None/api/rpc/lessons.v2.SubjectService/ListSubjects")
+        == "/api/rpc/lessons.v2.SubjectService/ListSubjects"
+    )
+
+
+async def test_a_bot_error_reaches_sentry_only_where_it_is_set(monkeypatch):
+    from app.bot import bot as bot_module
+
+    captured: list[BaseException] = []
+    monkeypatch.setattr(observability, "capture", captured.append)
+    failure = RuntimeError(f"a handler failed for {CHILD}")
+    event = SimpleNamespace(update=SimpleNamespace(callback_query=None), exception=failure)
+
+    monkeypatch.setattr(get_settings(), "sentry_dsn", "")
+    await bot_module._on_error(event)
+    assert captured == []
+
+    monkeypatch.setattr(get_settings(), "sentry_dsn", FAKE_DSN)
+    await bot_module._on_error(event)
+    assert captured == [failure]
+
+
+def test_the_sample_of_timings_is_the_owner_s_five_percent():
+    assert observability.TRACES_SAMPLE_RATE == 0.05
+    assert Settings(SENTRY_DSN=f" {FAKE_DSN} ").sentry_configured
+    assert not Settings(SENTRY_DSN="  ").sentry_configured
+
+
+#: Starts Sentry as ``app.main`` does, through a transport that keeps what it
+#: is handed, and fails one request that carries a diary token in its header
+#: and a child's name in its query, its body, its exception and a local.
+_REQUEST = """
+import asyncio, json, logging
+import httpx
+from fastapi import FastAPI
+from sentry_sdk.transport import Transport
+
+from app import observability
+from app.config import Settings
+
+TOKEN, CHILD, ROUTE = {token!r}, {child!r}, {route!r}
+caught = []
+
+
+class Keep(Transport):
+    def capture_envelope(self, envelope):
+        for item in envelope.items:
+            if item.payload.json is not None:
+                caught.append(item.payload.json)
+
+
+observability.init(Settings(SENTRY_DSN={dsn!r}), transport=Keep(), traces_sample_rate=1.0)
+app = FastAPI()
+
+
+@app.post(ROUTE)
+async def schedule(student_id: int, child: str = ""):
+    diary_token = TOKEN
+    logging.getLogger("app").error("reading the diary of %s", child)
+    raise ValueError(f"no lessons for {{child}} with {{diary_token}}")
+
+
+async def main():
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        answer = await client.post(
+            "/api/v1/diary/students/42/schedule",
+            params={{"child": CHILD}},
+            json={{"name": CHILD}},
+            headers={{"Authorization": f"Bearer {{TOKEN}}", "Cookie": f"s={{TOKEN}}"}},
+        )
+    assert answer.status_code == 500
+
+
+asyncio.run(main())
+import sentry_sdk
+sentry_sdk.flush()
+print(json.dumps(caught, ensure_ascii=False, default=str))
+"""
+
+
+def test_an_event_built_from_a_request_leaves_with_neither_the_token_nor_the_child_s_name():
+    script = _REQUEST.format(token=TOKEN, child=CHILD, route=ROUTE, dsn=FAKE_DSN)
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=str(SERVER),
+        env={**os.environ, "SENTRY_DSN": FAKE_DSN, "PYTHONIOENCODING": "utf-8"},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    sent = json.loads(result.stdout.strip().splitlines()[-1])
+
+    errors = [event for event in sent if event.get("type") != "transaction"]
+    timings = [event for event in sent if event.get("type") == "transaction"]
+    assert len(errors) == 1 and len(timings) == 1
+    assert _leaks(sent) == []
+    (value,) = errors[0]["exception"]["values"]
+    assert value["type"] == "ValueError"
+    assert any(frame.get("function") == "schedule" for frame in value["stacktrace"]["frames"])
+    assert errors[0]["transaction"] == timings[0]["transaction"] == ROUTE
+    assert timings[0]["spans"] == []

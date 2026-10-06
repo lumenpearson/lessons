@@ -151,6 +151,13 @@ class Settings(BaseSettings):
     # builds the URL from inside a Telegram update where there is no request.
     public_base_url: str = ""
 
+    # The DSN of a Sentry project, for errors with their place and a sample of
+    # timings (app/observability.py). Empty sends nothing and imports nothing
+    # of Sentry, and the startup log says it is off; it is never a reason to
+    # refuse to start. It names a project anybody could send events to, so it
+    # lives where the other secrets do.
+    sentry_dsn: str = ""
+
     # A fine-grained GitHub token with read-only access to public repositories
     # and no other permission, for the deploy check's read of `main`'s head
     # (services/health.py). With it the request is authorized: an unchanged
@@ -378,6 +385,12 @@ class Settings(BaseSettings):
             return None
         return value
 
+    @property
+    def sentry_configured(self) -> bool:
+        """Whether errors go to Sentry - the question ``app.main`` and the
+        bot's error handler ask before they import anything of it."""
+        return bool(self.sentry_dsn.strip())
+
     def disabled_features(self) -> list[str]:
         """What an empty optional setting has switched off, for the startup log.
 
@@ -418,6 +431,8 @@ class Settings(BaseSettings):
                 "GITHUB_READ_TOKEN is empty: the deploy check asks GitHub anonymously, "
                 "sharing sixty requests an hour"
             )
+        if not self.sentry_configured:
+            off.append("SENTRY_DSN is empty: errors and request timings are not sent to Sentry")
         return off
 
 

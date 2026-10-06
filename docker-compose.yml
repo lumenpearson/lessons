@@ -80,6 +80,8 @@ services:
       # address shares (services/health.py).
       GITHUB_READ_TOKEN: ${GITHUB_READ_TOKEN:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      # Empty sends nothing to Sentry, and imports nothing of it.
+      SENTRY_DSN: ${SENTRY_DSN:-}
       # A number, but unset is its default all the same: the setting reads an
       # empty value as 0, no minimum (app/config.py), as .env.example leaves it.
       MIN_CLIENT_VERSION: ${MIN_CLIENT_VERSION:-}
