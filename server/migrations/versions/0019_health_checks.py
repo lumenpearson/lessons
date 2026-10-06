@@ -4,8 +4,9 @@ Revision ID: 0019
 Revises: 0018
 Create Date: 2026-10-06
 
-Every tick ends with four checks (``services/health.py``): the schema, v2,
-the diary's proxy and the deploy. The owner is written to when one starts
+Every tick runs four checks (``services/health.py``) after its digests and
+sweeps and before the diary keep-alive: the schema, v2, the diary's proxy and
+the deploy. The owner is written to when one starts
 failing, when it comes back, and every six hours while it stays failing -
 never once per tick - so what each check said last has to outlive the
 function instance that asked it. ``health_checks`` holds one row per check,

@@ -84,5 +84,12 @@ async def send(messages: Sequence[tuple[int, str]]) -> list[bool]:
             else:
                 delivered.append(True)
     finally:
-        await close_bot(bot)
+        try:
+            await close_bot(bot)
+        except Exception as error:  # noqa: BLE001 - see the docstring
+            # A close that raises after delivery must not lose `delivered`:
+            # the caller (`health._tell`) would read the exception as nobody
+            # having been told and give a «down» or a reminder's claim back,
+            # so the next tick would send what the owner already has.
+            log.warning("could not close the bot: %s", type(error).__name__)
     return delivered

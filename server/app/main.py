@@ -36,6 +36,7 @@ from app.di import close_container, container
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
 
+
 def _start_sentry() -> None:
     """Sentry, where SENTRY_DSN is set, and imported only there: a deployment
     without it never loads sentry_sdk (tests/test_cold_start.py). Called at
@@ -45,15 +46,16 @@ def _start_sentry() -> None:
 
     ``Settings.sentry_dsn_value`` already refuses a DSN ``sentry_sdk.init``
     itself would raise ``BadDsn`` on, but a failure from anywhere else in the
-    SDK must not take v1, v2, the webhook and the cron tick down with it -
-    this function's own caller is every one of them, at cold start. Logged
-    by the exception's type alone: its message can carry the DSN's key.
+    SDK - including the import itself, if the package is missing or broken -
+    must not take v1, v2, the webhook and the cron tick down with it - this
+    function's own caller is every one of them, at cold start. Logged by the
+    exception's type alone: its message can carry the DSN's key.
     """
     if not get_settings().sentry_configured:
         return
-    from app.observability import init as init_sentry
-
     try:
+        from app.observability import init as init_sentry
+
         init_sentry(get_settings())
     except Exception as error:
         log.error("Sentry did not start: %s", type(error).__name__)

@@ -1,10 +1,11 @@
-"""The self-check every cron tick ends with, and what the owner is told of it.
+"""The self-check that runs inside every cron tick, and what the owner is told of it.
 
 Nothing inside a serverless deployment notices that it is broken. On 5 October
 a merge did not deploy for half an hour (#349) and the diary's proxy answered
 nothing for forty minutes, and the owner found each one by asking. So the tick,
-the one thing that arrives from outside every five minutes, ends by asking four
-questions (``docs/specs/2026-10-05-monitoring-design.md``):
+the one thing that arrives from outside every five minutes, asks four
+questions after its digests and sweeps and before the diary keep-alive
+(``docs/specs/2026-10-05-monitoring-design.md``):
 
 - ``schema``: is the database at the revision this code expects?
 - ``v2``: did v2 load, or does ``main.mount_v2`` answer 503 for it?
@@ -360,6 +361,11 @@ async def _read_main(repository: str, token: str, timeout: float) -> _MainHead:
             # an anonymous caller shares sixty an hour with the rest of
             # Vercel's egress, where an authorized one gets 5,000.
             reason += " (anonymous; set GITHUB_READ_TOKEN)"
+        elif response.status_code in (401, 403) and token:
+            # A fine-grained token expires; once it does, GitHub refuses the
+            # request that carried it rather than treating it as anonymous,
+            # so the anonymous branch above never fires for this case.
+            reason += " (the token was refused)"
         raise _Unreadable(reason)
     body = response.json()
     moved = datetime.fromisoformat(str(body["commit"]["committer"]["date"]))
@@ -568,11 +574,20 @@ async def _tell(
     the next tick tries again immediately rather than finding the alert
     already spoken for. Given back on a failed send so that tick tries again
     rather than six hours later; except «up», whose figure would be wrong by
-    then, so a recovery that does not get through is logged and not repeated.
+    then, so a recovery that does not get through is logged and not repeated -
+    and, with no time to send it at all, cleared without a word.
     """
     left = deadline - asyncio.get_running_loop().time()
     if left <= 0:
         log.warning("no time left in the tick to tell the owner of %s", alert.name)
+        if alert.kind == "up":
+            # The row already reads `ok`, with `since` restarted at this tick.
+            # A claim left standing would have the next tick send «up» again,
+            # counting the downtime from that `since` - a forty-minute failure
+            # reported as five. Clearing it, by the same compare-and-set
+            # (`claimed` is None for «up»), is what a failed send of «up»
+            # already does: the recovery is logged and not repeated.
+            await claim_alert(session, alert.name, alert.expected, alert.claimed)
         return
     if not await claim_alert(session, alert.name, alert.expected, alert.claimed):
         return

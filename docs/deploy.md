@@ -803,7 +803,9 @@ unchanged answer is a `304`. With `GITHUB_READ_TOKEN` set the request is authori
 costs nothing against GitHub's rate limit, and the ceiling is 5,000 requests an hour. Without
 it the request is anonymous, sharing sixty requests an hour with every Vercel function behind
 the same address, and a refusal reads as `unknown`, never as `failing`, with the reason naming
-the setting («… (anonymous; set GITHUB_READ_TOKEN)»). It learns which commit is running, and
+the setting («… (anonymous; set GITHUB_READ_TOKEN)»). A fine-grained token also expires: once
+it does, the check reads ❔ «the token was refused» until a new one is set, rather than falling
+back to the anonymous reading above. It learns which commit is running, and
 which repository to ask, from Vercel's system environment variables (`VERCEL_ENV`,
 `VERCEL_GIT_COMMIT_SHA`, `VERCEL_GIT_REPO_OWNER`, `VERCEL_GIT_REPO_SLUG`). They reach a
 function while the project's

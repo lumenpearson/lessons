@@ -1,4 +1,5 @@
-"""The self-check the tick ends with: four checks, their states, and the alert rule.
+"""The self-check the tick runs after its digests and sweeps, before the diary
+keep-alive: four checks, their states, and the alert rule.
 
 The outside world is faked at its three seams: the proxy's client
 (``health._proxy_client``), GitHub's (``health._github_client``) and Vercel's
@@ -425,6 +426,26 @@ async def test_a_github_rate_limit_with_no_token_names_itself_and_never_leaks_on
     assert secret not in anonymous.reason
 
 
+@pytest.mark.parametrize("status", [401, 403])
+async def test_an_expired_github_token_is_unknown_and_names_itself(monkeypatch, production, status):
+    """A fine-grained token expires rather than falling back to anonymous
+    access, so GitHub refuses the request that carried it with 401 or 403 -
+    a different, fixable reason from the shared rate limit above, and the
+    check stays ``unknown`` either way."""
+    secret = "github_pat_" + "e" * 30
+    with_token = Settings(VERCEL="1", GITHUB_READ_TOKEN=secret)
+    _fake_github(
+        monkeypatch, lambda request: httpx.Response(status, json={"message": "Bad credentials"})
+    )
+
+    refused = await health.check_deploy(with_token, _now())
+
+    assert refused.status == UNKNOWN
+    assert f"GitHub answered HTTP {status} (the token was refused)" in refused.reason
+    assert "(anonymous; set GITHUB_READ_TOKEN)" not in refused.reason
+    assert secret not in refused.reason
+
+
 def test_the_deployment_is_what_vercel_says_and_nothing_else():
     said = deployment(
         {
@@ -658,6 +679,35 @@ async def test_an_alert_with_no_time_left_at_all_is_neither_claimed_nor_sent(ses
     assert statuses["v2"] == FAILING
     assert sent.batches == []
     assert (await _rows(session))["v2"].last_alert_at is None
+
+
+async def test_an_up_with_no_time_left_clears_the_claim_and_tells_nothing(session):
+    """The no-time path used to leave ``last_alert_at`` exactly as it was on
+    an «up»: the row already read ``ok``, so the next tick that *did* have
+    time computed "how long it was down" from this tick's ``since`` instead
+    of the real outage - a forty-minute failure reported as the few minutes
+    since. Clearing the claim here, the same compare-and-set the normal path
+    uses, means a later tick starts clean rather than re-announcing a
+    recovery whose claim was never settled."""
+    await health.run(session, Settings(), v2_mounted=False, send=Sent())
+    assert (await _rows(session))["v2"].last_alert_at is not None
+
+    recovered = Sent()
+    long_ago = asyncio.get_running_loop().time() - 100
+    statuses = await health.run(
+        session, Settings(), v2_mounted=True, started=long_ago, send=recovered
+    )
+
+    assert statuses["v2"] == OK
+    assert recovered.batches == []
+    row = (await _rows(session))["v2"]
+    assert row.status == OK
+    assert row.last_alert_at is None
+
+    next_tick = Sent()
+    again = await health.run(session, Settings(), v2_mounted=True, send=next_tick)
+    assert again["v2"] == OK
+    assert next_tick.batches == []
 
 
 async def test_a_reminder_whose_send_reaches_nobody_gives_its_claim_back(session):

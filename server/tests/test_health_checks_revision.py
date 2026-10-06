@@ -63,10 +63,13 @@ def _alembic(database: Path, *args: str) -> subprocess.CompletedProcess:
     )
 
 
-def test_the_revision_follows_0018_and_is_the_head_the_code_expects():
+def test_the_revision_follows_0018_and_the_code_expects_it_or_a_later_one():
+    """Not the head by name: ``test_schema_version.py`` pins the head, and a
+    second pin here repeated #358's defect - it failed the moment a later
+    revision moved the head, although nothing about ``0019`` had changed."""
     revision = _revision()
     assert (revision.revision, revision.down_revision) == ("0019", "0018")
-    assert EXPECTED_REVISION == "0019"
+    assert EXPECTED_REVISION >= "0019"
 
 
 def test_on_postgres_it_builds_exactly_what_the_model_declares(monkeypatch):

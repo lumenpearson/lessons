@@ -37,6 +37,14 @@ class _Bot:
         self.closed = True
 
 
+class _BotWhoseCloseRaises(_Bot):
+    """Delivers normally, then raises closing its session - a close after a
+    real send, not a send that failed."""
+
+    async def close(self) -> None:
+        raise RuntimeError("session already closed")
+
+
 def test_the_bot_package_builds_its_bot_here():
     """One factory, imported back rather than copied: a copy is a second
     definition free to drift from the first (a parse mode, a token)."""
@@ -55,6 +63,20 @@ async def test_a_send_says_what_each_message_did_and_closes_its_bot(monkeypatch)
     assert delivered == [True, False, True]
     assert bot.sent == [(1, "раз"), (3, "три")]
     assert bot.closed
+
+
+async def test_a_bot_whose_close_raises_still_returns_the_delivered_flags(monkeypatch):
+    """A close that fails after delivery must not read, to the caller, as the
+    send itself having failed - ``health._tell`` would give a «down» alert's
+    claim back, and the next tick would send it to an owner who has it."""
+    bot = _BotWhoseCloseRaises(refuses={2})
+    monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
+    monkeypatch.setattr(telegram_send, "build_bot", lambda: bot)
+
+    delivered = await telegram_send.send([(1, "раз"), (2, "два"), (3, "три")])
+
+    assert delivered == [True, False, True]
+    assert bot.sent == [(1, "раз"), (3, "три")]
 
 
 async def test_without_a_token_nothing_is_built_and_nothing_is_sent(monkeypatch):
