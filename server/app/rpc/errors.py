@@ -31,6 +31,7 @@ from pydantic import BaseModel, ValidationError
 from app import wording
 from app.contract.google.rpc.error_details_pb import BadRequest, ErrorInfo, RetryInfo
 from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.services import access as access_service
 from app.services import diary as diary_service
 from app.services import join, window
 from app.services import terms as terms_service
@@ -250,6 +251,14 @@ def _term_bounds_refused(error: terms_service.TermError) -> Refusal:
     return Refusal(ErrorReason.TERM_BOUNDS_REFUSED, str(error))
 
 
+def _role_grant_refused(error: access_service.GrantRefused) -> Refusal:
+    return Refusal(
+        ErrorReason.ROLE_GRANT_REFUSED,
+        wording.GRANT_REFUSED_DETAILS[error.why],
+        why=error.why,
+    )
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -273,6 +282,7 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     classes_service.UnknownTimezone: _unknown_timezone,
     classes_service.NameMismatch: _class_name_mismatch,
     terms_service.TermError: _term_bounds_refused,
+    access_service.GrantRefused: _role_grant_refused,
 }
 
 

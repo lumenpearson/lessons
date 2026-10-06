@@ -24,6 +24,7 @@ from app.rest.errors import STATUS, error_response
 from app.rpc import errors
 from app.rpc.errors import CODES, Refusal, connect_error, validate
 from app.schemas import BellScheduleIn, JoinRequest, SubjectIn
+from app.services import access as access_service
 from app.services import diary as diary_service
 from app.services import join, window
 from app.services import terms as terms_service
@@ -57,7 +58,6 @@ LATER = {
     "DIARY_NO_STUDENTS": "3b-7",
     "DIARY_UPSTREAM_UNREADABLE": "3b-7",
     "CORRECTIONS_UNAVAILABLE": "3b-8",
-    "ROLE_GRANT_REFUSED": "3b-3",
     "NO_LESSON_ON_DAY": "3b-6",
     "LESSON_NOT_ON_TIMETABLE": "3b-6",
 }
@@ -133,6 +133,10 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     terms_service.TermError: (
         "test_v2_terms.py",
         "test_a_term_the_year_cannot_hold_is_refused_in_the_service_s_words",
+    ),
+    access_service.GrantRefused: (
+        "test_v2_access_request_writes.py",
+        "test_a_role_at_or_above_the_grantor_s_own_is_refused_and_tells_nobody",
     ),
     # The gate raises it for a diary method, and none is served before 3b-7:
     # test_rpc_gate.py holds the gate raising it until then.

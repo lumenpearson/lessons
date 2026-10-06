@@ -35,6 +35,8 @@ Handler = Callable[[Any, Any], Awaitable[Any]]
 
 #: Keyed as ``rpc.methods.METHODS`` is: ``"lessons.v2.<Service>/<Method>"``.
 HANDLERS: dict[str, Handler] = {
+    "lessons.v2.AccessRequestService/ApproveAccessRequest": access_request.approve_access_request,
+    "lessons.v2.AccessRequestService/DeclineAccessRequest": access_request.decline_access_request,
     "lessons.v2.AccessRequestService/ListAccessRequests": access_request.list_access_requests,
     "lessons.v2.AuditService/ListAuditEntries": audit.list_audit_entries,
     "lessons.v2.BellService/CreateBellSchedule": bell.create_bell_schedule,
