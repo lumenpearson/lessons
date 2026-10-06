@@ -5378,7 +5378,8 @@ documents (Task 8) say what is true now rather than what this plan assumed when 
 - **The order in the tick.** The self-check runs after the digests and the sweeps and before
   the diary keep-alive, not last: the keep-alive goes through the diary's proxy and, when it
   hangs, holds the request to its own hard stop, so after it the proxy check would have no
-  time left to report the one incident it exists for. Built this way in Task 5 (`6ebea80`).
+  time left to report the one incident it exists for. Found by Task 4's review, together with
+  the time budget below (`de8dc68`), and built into the tick by Task 5 (`6ebea80`).
 - **The time budget.** The network checks stop `SEND_RESERVE_SECONDS` (five seconds) before
   the self-check's own hard stop, so an alert always has a real chance to send, and a check
   given less than its full budget that then times out reads `unknown`, never `failing`, read
