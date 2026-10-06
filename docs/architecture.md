@@ -141,8 +141,9 @@ written to on a change — when a check starts failing, when it comes back, and 
 between — and never once per tick. Unknown is a check that could not run, and it never alerts.
 The rule is one function, `health.decide`, over what was stored and what was seen, and the
 claim on an alert is a compare-and-set on `last_alert_at`, so two ticks running together tell
-the owner once. The self-check runs before the keep-alive because the keep-alive goes through
-the diary's proxy and, when the proxy hangs, holds the request until its own hard stop; the
+the owner once. The self-check runs before the keep-alive because the keep-alive calls the
+regional «Сетевой город» servers, directly, and when one hangs it holds the request until its
+own hard stop; the
 checks stop five seconds before the self-check's own hard stop, so an alert always has time to
 go out, and a check the tick left less than its full five seconds that times out reads
 `unknown` rather than `failing`. Each — the self-check and the keep-alive — runs inside its

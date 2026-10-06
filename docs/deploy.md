@@ -777,9 +777,9 @@ cron's failure email above, and Sentry.
 
 Every tick runs four checks (`server/app/services/health.py`) after the digests and the
 sweeps and before the diary keep-alive, inside their own guard and their own time budget, so
-none of them can fail the tick. They run before the keep-alive because the keep-alive goes
-through the diary's proxy and, when the proxy hangs, holds the request until its own hard
-stop; the checks stop five seconds before theirs, so an alert always has time to go out, and a
+none of them can fail the tick. They run before the keep-alive because the keep-alive calls the
+regional «Сетевой город» servers, directly rather than through the proxy, and when one hangs
+it holds the request until its own hard stop; the checks stop five seconds before theirs, so an alert always has time to go out, and a
 check the tick left less than its full five seconds that times out reads `unknown` rather than
 raising a false alarm:
 
