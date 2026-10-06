@@ -164,8 +164,8 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
 ## What the last session added: bells, the timetable and the class over v2 — stage 3b-2 of sub-project 3 (#273)
 
 Open as #356, from `server-v2/3b-2` to `main`, on milestone 11, and on project 6. It closes
-#353 and refers to #273. The branch was cut from `main` at `09e17bd`, the merge of
-#350, and carries 11 commits before this close-out, to `c83d532`. Written
+#353 and refers to #273 and #354. The branch was cut from `main` at `09e17bd`, the merge
+of #350, and carries 11 commits before this close-out, to `c83d532`. Written
 on 6 October 2026, after #350 merged. No revision goes with it: the schema stays at `0018`.
 This is stage 3b-2 of `docs/specs/2026-10-05-server-v2-design.md`, built by the task list for
 it in `docs/specs/2026-10-05-server-v2-3b-plan.md`. v1 answers as before; v2 now answers
