@@ -785,7 +785,7 @@ raising a false alarm:
 
 | Check | Ok when |
 | --- | --- |
-| `schema` | the database is at the revision the code expects — the reading `/api/v1/warmup` makes |
+| `schema` | the database is at the revision the code expects, or ahead of it in the window a revision applied before its merge opens |
 | `v2` | v2 loaded, rather than answering `503` under its two prefixes |
 | `diary_proxy` | a `HEAD` of the Petersburg diary through `DIARY_PROXY_URL` gets any answer within five seconds; asked only when the setting is set |
 | `deploy` | production runs `main`'s head, or `main` moved less than fifteen minutes ago; asked on production only |

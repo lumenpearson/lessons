@@ -241,6 +241,33 @@ async def test_the_schema_check_reads_the_revision_warmup_reads(session, stamped
     assert "0001" in failing.reason and EXPECTED_REVISION in failing.reason
 
 
+async def test_a_database_ahead_of_the_code_reads_ok_as_warmup_does(session, stamped):
+    """#360: every additive revision is applied before the merge that needs
+    it (``CLAUDE.md``, "Run the migration BEFORE the merge"), so the database
+    sits briefly *ahead* of the running code on almost every migration. That
+    window is the documented procedure working, not an outage - exactly what
+    ``api/public.py:_drift_detail`` already tells ``/api/v1/warmup``'s reader
+    - so the tick must not alert on it either. *Behind* stays the outage it
+    always was."""
+    ahead = f"{int(EXPECTED_REVISION) + 1:04d}"
+    await stamped(ahead)
+    result = await health.check_schema(session)
+    assert result.status == OK
+    assert result.reason == (
+        f"database at {ahead}, ahead of code at {EXPECTED_REVISION}: migrated before its merge"
+    )
+
+    await stamped("0001")
+    behind = await health.check_schema(session)
+    assert behind.status == FAILING
+    assert behind.reason == f"database at 0001, code at {EXPECTED_REVISION}"
+
+    await stamped(EXPECTED_REVISION)
+    equal = await health.check_schema(session)
+    assert equal.status == OK
+    assert equal.reason == f"at {EXPECTED_REVISION}"
+
+
 def test_the_v2_check_is_the_mount_s_own_record():
     assert health.check_v2(True).status == OK
     assert health.check_v2(False).status == FAILING

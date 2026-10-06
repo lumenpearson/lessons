@@ -221,12 +221,31 @@ def message(name: str, step: Step, reason: str) -> str:
 
 
 async def check_schema(session: AsyncSession) -> Result:
-    """The same reading ``/api/v1/warmup`` makes."""
+    """The same reading ``/api/v1/warmup`` makes.
+
+    A database *ahead* of the code is the window the project's own migration
+    order creates on purpose - every additive revision goes on before the
+    merge that needs it - and it closes on its own when the deploy lands, so
+    it reads ``ok`` here exactly as ``api/public.py:_drift_detail`` already
+    tells ``/api/v1/warmup``'s reader. *Behind* is the outage: the code reads
+    a column that is not there, and that stays ``failing``. Every revision in
+    this project is a zero-padded number, so comparing them as integers is
+    meaningful; anything else (no ``alembic_version``, a non-numeric
+    revision) falls through to the unchanged reading, which guesses no
+    direction it cannot establish (#360).
+    """
     revision = await current_revision(session)
     if revision is None:
         return Result(UNKNOWN, "no alembic_version table to read")
     if revision == EXPECTED_REVISION:
         return Result(OK, f"at {revision}")
+    if revision.isdigit() and EXPECTED_REVISION.isdigit():
+        if int(revision) > int(EXPECTED_REVISION):
+            return Result(
+                OK,
+                f"database at {revision}, ahead of code at {EXPECTED_REVISION}: "
+                "migrated before its merge",
+            )
     return Result(FAILING, f"database at {revision}, code at {EXPECTED_REVISION}")
 
 

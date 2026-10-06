@@ -5399,6 +5399,12 @@ documents (Task 8) say what is true now rather than what this plan assumed when 
   the moment `0019` moved the head, although nothing about `0018` had changed. Filed as #358
   and fixed in Task 3 (`3e615b1`): the test now asks only for `0018`'s own place in the chain,
   and `test_schema_version.py` stays the one pin.
+- **The schema check reading a database ahead of the code as `failing`.** A database ahead of
+  the code is the window the project's own migration order creates on purpose — every additive
+  revision applied before the merge that needs it — and the check now reads `ok` in it, with a
+  reason naming the direction, exactly as `/api/v1/warmup` already reads that window
+  (`api/public.py:_drift_detail`). Behind the code stays `failing`. Found by the final review of
+  the whole branch; filed as #360 and fixed in this pull request.
 
 ## Self-review
 
