@@ -28,6 +28,163 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the class's records over v2 — stage 3b-1 of sub-project 3 (#273)
+
+Merged as #350 (`09e17bd`, 5 October 2026), from `server-v2/3b`, on milestone 11. It closes
+#347, #348, #351 and #118, and refers to #273 and #349. The branch was cut from `main` at
+`8d779ef`, the merge of #342, and carries 14 commits before this close-out, to `a1a52b6`.
+Written on 6 October 2026, after #342 merged. The schema head moved from `0017` to `0018`,
+which the session applied through the Neon connector to the branch `preview` at 21:26 UTC on
+5 October and to production at 22:06 UTC, both before the merge. This is stage 3b-1 of
+`docs/specs/2026-10-05-server-v2-design.md`, built by the plan beside it,
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, which also summarises 3b-2 to 3b-8. v1 answers
+as before; v2 now answers thirteen methods.
+
+- **The manage routers' shared rules moved into `services/` first**, with v1 calling them:
+  the member names and the class's wall clock (`services/manage/classes.member_names`,
+  `services/clock.wall`), the dictionary read that adopts nothing
+  (`subjects.dictionary_of`, which v1's `/subjects` now reads too), the rename-then-details
+  patch (`subjects.update`), and a page of the journal keyed on its last line
+  (`audit.older_than`, `journal.page_after`). The sentences v1 and v2 both answer with are
+  `app/wording.py`'s.
+- **Nine methods.**
+  - `ListAuditEntries`: AIP-158 paging, with an opaque token that names the last line
+    served, so a line written between page turns moves nothing.
+  - `ListClassDevices`.
+  - `RevokeClassDevice`: idempotent, one audit line.
+  - `UnlinkClassDevice`: `CLASS_DEVICE_NOT_LINKED`.
+  - `ListSubjects` (no adoption) and `GetSubject`.
+  - `CreateSubject`: `201`; `RESOURCE_EXISTS`.
+  - `UpdateSubject`: AIP-134's mask, read once for every `Update…` by `rpc/masks.py`, in
+    lowerCamelCase over JSON; `SUBJECT_RENAME_CLASH`.
+  - `DeleteSubject`: `RESOURCE_IN_USE`.
+- **Each phone's last app version**, `device_tokens.client_version` (revision `0018`,
+  additive). The gate writes it beside `last_seen_at` and on its clock, and v1 never does.
+  It shows in v2's `ClassDevice` (a new optional field) and as «сборка N» in the bot's
+  «📱 Устройства». v1's `/manage/devices` keeps its shape.
+- **The error table's later reasons name the stage that brings each** (`STAGES`, `LATER`,
+  `HELD_BY`). A stage takes itself out of `STAGES` when it is done, so a reason it forgot
+  in `LATER` fails.
+- **Three defects, each filed before its fix**: #347, #348 and #351.
+  - #347: the 3a plan's quoted `/warmup` answer, which the head test read as a claim once the
+    head moved.
+  - #348: a v2 test patched `get_settings()` while the served app reads the `Settings` the
+    dishka container cached. After any of eight modules cleared the cache, a minimum-version
+    patch missed the gate, depending on test order. The `served_settings` and
+    `settings_cache_cleared` fixtures fix it, and the regression test fails on a fixture that
+    reverts.
+  - #351: the contract and `docs/api.md` promised that a device's owner was never the
+    Telegram id, while the owner falls back to the numeric id on purpose (an id is what an
+    admin can act on). The documents were corrected, and the behaviour was kept.
+- **The whole-branch review asked for fixes, and three commits made them** (`94b2896`,
+  `259fb55`, `a1a52b6`): #351's wording; the read tests now assert the write rule they claim
+  (a write happened, and none falls outside the one rule, which is a `conftest.py` fixture);
+  the no-echo sweep reaches into message fields; the audit keyset states `created_at <=` the
+  anchor so Postgres can bound the index range; and the counts.
+- **The documents say what Preview is** (#118): `docs/deploy.md` lists Preview's own
+  variables and the four it shares with Production, and says a revision goes to the Neon
+  branch `preview` when its pull request is pushed and to production before the merge. It also
+  says that cron-job.org drives the tick since 5 October and `reminders.yml` is the fallback.
+
+### Gates
+
+All at `a1a52b6`, the head before this close-out. CI runs on the head the merge is made from,
+and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
+- **mypy**: no issues found in 218 source files.
+- **The server suite.** `pytest -q -n auto`, run alone from `server/`, gave **2527
+  passed**, the run the final fix's commit records. The seven places the `handover` skill
+  names say 2527. The run at `fb94f5e` gave 2521 in 787.80 s (13 min 7 s), and the final fixes
+  added six tests.
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
+  before.
+
+### What was deliberately left alone
+
+- **3b-2 to 3b-8**, each summarised in the 3b plan with what it moves, its errors, its effects
+  and its open questions, and **3c**.
+- **v1's `/manage/devices` without `client_version`**: the design changes no v1 answer, and a
+  phone that speaks only v1 never sends the header (the 3b plan, Ruling 7).
+- **v1's manage list still adopts**, and v2's does not (decision 10).
+- **An `UpdateSubject` without a mask that sends a subject as it was read** writes a log line
+  per field it sends, as v1's `PATCH` does.
+- **v2 still gives an unnamed member's numeric id as `owner`** (#351): decided as wording, not
+  behaviour, and put to the owner.
+- **The bot's device page can draw fewer phones than the buttons under it** when owners have
+  long full names (#352): filed, and not fixed in #350.
+
+### What nobody has verified in this batch
+
+- **The nine methods against Postgres**: every v2 test ran on SQLite, the journal's keyset
+  query among them. On Postgres the stamps compare as timestamps, where SQLite compares them
+  as strings.
+- **`X-Lessons-Client` from an APK**: none sends it yet, so every `client_version` in
+  production is null and «сборка» shows on no phone.
+- **The nine on Vercel** beyond the post-merge check: it calls each new service once without
+  a token.
+- **A preview of this branch** was not read: the session's Vercel connector lacks the team's
+  scope, so a protected preview URL answers it `403`. CI's Vercel check reported the preview
+  built.
+
+### After #342's merge: stage 3a in production, and what the owner answered
+
+None of this is code in #350, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 5 October 2026.
+
+- **Vercel built no production deployment for the merge (#349).**
+  - The merge happened at 14:54:09 UTC. The only build was a Preview, from the `dev` push of
+    the same commit at 14:57:43, and production served `175ff42` until the owner promoted
+    that Preview at 15:40 UTC.
+  - Vercel never started on the push to `main`: `8d779ef` has no «Vercel is deploying» status
+    before the `dev` push's, and no deployment from `main`, not even a canceled one.
+  - So the Ignored Build Step did not skip it, and the Production Branch is `main`, because
+    #335, merged the same way that morning, built from `main` three seconds after its merge.
+  - The push event did not reach Vercel, or was not acted on. The monitoring design's
+    `deploy` check is the cure; until it exists, read production after every merge.
+- **Production after the promote:**
+  - `/api/v1/warmup` reported `status` `ok`, schema `0017` and `"v2": true`;
+  - REST `/api/v2/diary/capabilities` answered `200` with `private, no-store`;
+  - Connect answered `200` in JSON and in binary (`application/proto`, 180 bytes);
+  - native gRPC got `415` with the guard's sentence, so Vercel's bridge reports HTTP/1.1;
+  - `/api/v2/me` without a token answered `401 DEVICE_TOKEN_INVALID` in Google's body;
+  - `/api/v1/health` answered `200`.
+- **The diary proxy went down from about 15:20 to 16:06 UTC.**
+  - The VM was up and its outbound traffic worked, while nothing inbound arrived, not even
+    ping.
+  - The owner's password reset in the RUVDS panel had rebooted it and regenerated its SSH host
+    key, which the console confirmed.
+  - From 16:13 UTC everything answered again, and production's made-up Petersburg session
+    got `409` through the proxy again.
+- **The owner answered:**
+  - **Preview first held Production's variables, and by that evening had its own (#118).**
+    - Its own `DATABASE_URL`, on the Neon branch `preview`, which was made from production at
+      18:55 UTC with its data: one class and 22 devices.
+    - A second bot's `BOT_TOKEN` and `BOT_USERNAME`, and its own `WEBHOOK_SECRET` and
+      `DIARY_SECRET`.
+    - No `CRON_SECRET`, `DADATA_TOKEN` or `PUBLIC_BASE_URL`.
+    - The shared keys are `RUN_BOT` (`false`), `OWNER_IDS`, `TIMEZONE` and `DIARY_PROXY_URL`.
+    - These were read as keys only, with no value decrypted.
+    - Every revision now goes to `preview` when its pull request is pushed, then to
+      production before the merge, and `0018` was the first to go that way.
+  - **The real Petersburg account's password is right, but the account needs a code from SMS
+    or MAX.** The app has no second-factor step and tells the parent the password is wrong:
+    #343, on milestone 10, a sub-issue of #109, `needs:device`.
+- **The external cron is connected** (#120's first half). The owner set up cron-job.org at
+  about 18:45 UTC. Production has `CRON_SECRET`: a tick without it answers
+  `403 Bad cron secret`. Whether the service sends the matching secret shows only in its own
+  run history, which the owner reads; `200` with JSON means yes.
+- **Sentry, for the monitoring work to come.** The owner connected Sentry. At the owner's
+  request the session created the project `lessons` in the organisation `hubdpi`, in the EU
+  region. Its DSN went to the owner for Vercel's `SENTRY_DSN`, and no code reads it yet.
+- **Decided by the owner, not yet built.** Diary sign-in moves to the diary's own page in an
+  in-app browser, which takes only the diary's session; this reverses the «no WebView, no
+  Госуслуги» decision for the diaries, and keeps it for ТОР. The app is also to gain the
+  languages of Russia, in settings in the style of Essentials. Each comes as its own design
+  and pull request.
+
 ## What the batch before added: v2 served beside v1 — stage 3a of sub-project 3 (#273)
 
 Merged as #342 (`8d779ef`, 5 October 2026), from `server-v2/3a`, on milestone 11. It closes #336, #337, #338, #339, #340 and #341, and
@@ -6157,3 +6314,21 @@ typed into a chat, so change it afterwards.
 **The keep-alive is only as alive as the cron (#120).** «Сетевой город» sessions are held
 open from `GET /api/v1/cron/tick`, so they lapse if the external cron does not tick;
 `.github/workflows/reminders.yml` is the fallback, not the clock, exactly as for the digests.
+
+## Moved out of section 7 on 6 October 2026
+
+Done by the owner on 6 October, for the monitoring of #359: `SENTRY_DSN` set in Vercel for
+Production, and the optional `GITHUB_READ_TOKEN` for Production, Preview and Development, both
+read back by the session as keys only. Section 7 had not asked for either in a paragraph of
+its own; the section on #350, here now, said the DSN had gone to the owner. And stage 3b of
+sub-project 3 got its plan and its first two stages, 3b-1 (#350) and 3b-2 (#356), so
+`HANDOVER.md`'s section 7 points at 3b-3 instead. As it stood until then:
+
+**Next for the programme: stage 3b of sub-project 3, once #342 is in.** Stage 3a is #342.
+After its merge, production is read as its plan's Task 11 Step 10 says
+(`docs/specs/2026-10-05-server-v2-3a-plan.md`), and what it shows goes into the next
+close-out; a `503` saying «v2 is not available on this deployment» there is a defect, filed as
+an issue before anything else. 3b — the other 71 unary methods, the per-provider diary
+registry and the Telegram notices as effects — has no plan yet, and sub-project 4's pull
+request A can still run beside it, one heavy job at a time. The questions in `HANDOVER.md`'s section 5 about
+Vercel's proxy and the second host (its section 7) are 3c's inputs.
