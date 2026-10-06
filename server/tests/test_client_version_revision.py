@@ -65,10 +65,12 @@ def _columns(database: Path) -> set[str]:
         return {row[1] for row in db.execute("PRAGMA table_info(device_tokens)")}
 
 
-def test_the_revision_follows_0017_and_is_the_one_the_code_expects() -> None:
+def test_the_revision_follows_0017_and_the_code_expects_it_or_a_later_one() -> None:
+    """Not the head by name: ``test_schema_version.py`` pins the head, and a
+    second pin here failed the moment ``0019`` moved it."""
     revision = _revision()
     assert (revision.revision, revision.down_revision) == ("0018", "0017")
-    assert EXPECTED_REVISION == "0018"
+    assert EXPECTED_REVISION >= "0018"
 
 
 def test_on_postgres_it_adds_exactly_the_column_the_model_declares() -> None:

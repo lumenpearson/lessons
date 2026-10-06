@@ -1035,6 +1035,43 @@ class DiaryOverride(Base):
     )
 
 
+class HealthCheck(Base):
+    """What one self-check of the cron tick said last, and when the owner was told.
+
+    One row per check (``services/health.py``: ``schema``, ``v2``,
+    ``diary_proxy``, ``deploy``), rewritten by every tick. It is what lets the
+    owner be told of a *change* rather than once per tick, and what the bot's
+    «📊 Проект» reads. Nothing in it names a class, a family or a child.
+    """
+
+    __tablename__ = "health_checks"
+
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)
+    #: ``ok``, ``failing`` or ``unknown``. A string rather than an ``SAEnum``:
+    #: a new state is then a value and not a migration, and never a ``.value``
+    #: stored where the ORM reads a member's name.
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    #: What the check saw, in English, for the log and the owner's screen. Built
+    #: by the check from facts - a revision, an HTTP status, an exception's
+    #: type - and never from an exception's own text, which can carry the
+    #: proxy's password.
+    reason: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    #: When the check last moved between ``ok`` and ``failing``. An ``unknown``
+    #: neither starts nor ends a period, so a recovery after one says how long
+    #: the whole failure lasted.
+    since: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    #: When the owner was last told this check is failing; ``NULL`` once they
+    #: have been told it is back, and before they were ever told anything.
+    last_alert_at: Mapped[datetime | None] = mapped_column(DateTime)
+    checked_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    #: The run before ``checked_at``, so the screen can show the gap between
+    #: the last two ticks: five minutes from the external clock, hours from
+    #: GitHub's.
+    previous_checked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    #: The round trip of the request a check makes, when it makes one.
+    round_trip_ms: Mapped[int | None] = mapped_column(Integer)
+
+
 DEFAULT_BELLS: list[tuple[int, time, time]] = [
     (1, time(8, 30), time(9, 15)),
     (2, time(9, 25), time(10, 10)),

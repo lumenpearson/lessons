@@ -482,8 +482,9 @@ points Hilt does not inject cleanly.
   `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is the
   one named `lessons` on the Neon MCP server — the account has two, so read the name rather
   than guessing an id, and the id itself stays out of the repository — and `0005` through
-  `0018` were all applied that way, `0018` to the Neon branch `preview` first, when its pull
-  request was pushed, and to production before the merge; every revision now goes that way. It is not alembic running — it is the revision's DDL executed as one
+  `0019` were all applied that way, and from `0018` on each went to the Neon branch `preview`
+  first, when its pull request was pushed, and to production before the merge; every revision
+  now goes that way. It is not alembic running — it is the revision's DDL executed as one
   transaction, with `alembic_version` stamped in the same transaction — so three things
   follow. Take the DDL from the model rather than writing it out: `CreateTable(...).compile(
   dialect=postgresql.dialect())` prints exactly what `create_all` would build, which is what
@@ -491,7 +492,7 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and the head is `0018`, applied before the merge of stage 3b-1 of sub-project 3; `0015` to `0017` were applied on 26 September 2026, before #140's merge.** `0001` is a guarded
+- **Migrations are Alembic and the head is `0019`, applied before the merge of the monitoring pull request, as `0018` was before stage 3b-1's; `0015` to `0017` were applied on 26 September 2026, before #140's merge.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
@@ -560,6 +561,10 @@ points Hilt does not inject cleanly.
   to v2 (the server-v2 design, decision 15): one nullable integer column, the
   ordinary additive shape, on **before** the merge. Its downgrade drops the column
   and with it nothing but the versions.
+  `0019` creates `health_checks`, one row per check of the tick's self-check
+  (`services/health.py`): what it said last, since when, and when the owner was last
+  told. One new table and nothing else, the ordinary additive shape, on **before** the
+  merge; its downgrade drops the table and with it nothing but what the checks remembered.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a

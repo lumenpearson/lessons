@@ -62,7 +62,7 @@ CI is exactly: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both 
    everything from outside must be HTML-escaped before it goes in.
 3. **A model change needs an Alembic revision**, and the direction matters: additive goes on
    before the merge, a `UNIQUE` or `NOT NULL` after, a rewrite of a key after where there are
-   rows to rewrite. Head is `0018`.
+   rows to rewrite. Head is `0019`.
 4. **`LocalDateTime.now()` and `ZoneId.systemDefault()` on the Android side are almost always
    a bug** — time is naive local wall time in the *class's* zone.
 5. **Secrets never enter the repository.** Redact as `<redacted>` in issues, logs and
