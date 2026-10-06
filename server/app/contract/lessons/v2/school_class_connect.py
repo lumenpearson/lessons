@@ -42,6 +42,8 @@ class ClassService(Protocol):
         name unless the same request names it. `update_mask` takes name, grade,
         letter, school, city, timezone and join_mode; a path whose field is
         absent clears it, except name and timezone, which cannot be cleared.
+        `join_mode` cannot be cleared either: masked and left JOIN_MODE_UNSPECIFIED
+        it is VALIDATION_FAILED on `school_class.join_mode`, never applied.
         Changing the zone moves no stored time: a bell rings at 08:30 whatever
         the zone says.
         """
@@ -244,6 +246,8 @@ class ClassServiceClient(ConnectClient):
         name unless the same request names it. `update_mask` takes name, grade,
         letter, school, city, timezone and join_mode; a path whose field is
         absent clears it, except name and timezone, which cannot be cleared.
+        `join_mode` cannot be cleared either: masked and left JOIN_MODE_UNSPECIFIED
+        it is VALIDATION_FAILED on `school_class.join_mode`, never applied.
         Changing the zone moves no stored time: a bell rings at 08:30 whatever
         the zone says.
         """
@@ -429,6 +433,8 @@ class ClassServiceSync(Protocol):
         name unless the same request names it. `update_mask` takes name, grade,
         letter, school, city, timezone and join_mode; a path whose field is
         absent clears it, except name and timezone, which cannot be cleared.
+        `join_mode` cannot be cleared either: masked and left JOIN_MODE_UNSPECIFIED
+        it is VALIDATION_FAILED on `school_class.join_mode`, never applied.
         Changing the zone moves no stored time: a bell rings at 08:30 whatever
         the zone says.
         """
@@ -628,6 +634,8 @@ class ClassServiceClientSync(ConnectClientSync):
         name unless the same request names it. `update_mask` takes name, grade,
         letter, school, city, timezone and join_mode; a path whose field is
         absent clears it, except name and timezone, which cannot be cleared.
+        `join_mode` cannot be cleared either: masked and left JOIN_MODE_UNSPECIFIED
+        it is VALIDATION_FAILED on `school_class.join_mode`, never applied.
         Changing the zone moves no stored time: a bell rings at 08:30 whatever
         the zone says.
         """

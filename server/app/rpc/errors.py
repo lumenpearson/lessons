@@ -33,8 +33,12 @@ from app.contract.google.rpc.error_details_pb import BadRequest, ErrorInfo, Retr
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.services import diary as diary_service
 from app.services import join, window
+from app.services import terms as terms_service
+from app.services.manage import bells as bells_service
+from app.services.manage import classes as classes_service
 from app.services.manage import devices as devices_service
 from app.services.manage import subjects as subjects_service
+from app.services.manage import timetable as timetable_service
 
 log = logging.getLogger(__name__)
 
@@ -48,6 +52,11 @@ INTERNAL_MESSAGE = "The server failed to answer this request"
 #: The sentence an undecodable request answers with, on both transports. It
 #: names no value on purpose: the decoder's own message quotes what was sent.
 UNDECODABLE_MESSAGE = "The request could not be decoded"
+
+#: ``DeleteClass``'s refusal of a name typed back that is not the class's. v1
+#: names its own field, ``confirm_name``, which v2 does not have, so this is
+#: v2's sentence: it names the field and never what was typed.
+CONFIRMATION_MISMATCH = "confirmation does not match the class name"
 
 #: Each reason's canonical code, as the comment beside it in ``errors.proto``
 #: begins. ``test_rpc_errors.py`` reads the file and holds the two level.
@@ -178,6 +187,69 @@ def _subject_in_use(error: subjects_service.SubjectInUse) -> Refusal:
     )
 
 
+def _empty_bell_schedule(_error: bells_service.ScheduleEmpty) -> Refusal:
+    return Refusal(ErrorReason.EMPTY_BELL_SCHEDULE, wording.EMPTY_BELL_SCHEDULE_DETAIL)
+
+
+def _bell_default_required(_error: bells_service.DefaultRequired) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.BELL_DEFAULT_REQUIRED_DETAIL,
+        violations=[("schedule.is_default", wording.BELL_DEFAULT_REQUIRED_DETAIL)],
+    )
+
+
+def _bell_schedule_is_default(_error: bells_service.ScheduleIsDefault) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_IN_USE,
+        wording.BELL_SCHEDULE_IS_DEFAULT_DETAIL,
+        resource="bell_schedule",
+        used_by="class",
+    )
+
+
+def _bell_schedule_in_use(error: bells_service.ScheduleInUse) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_IN_USE,
+        wording.bell_schedule_in_use_detail(error.days),
+        resource="bell_schedule",
+        used_by="days",
+        count=error.days,
+    )
+
+
+def _timetable_paste_empty(_error: timetable_service.PasteEmpty) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.TIMETABLE_PASTE_EMPTY_DETAIL,
+        violations=[("text", wording.TIMETABLE_PASTE_EMPTY_DETAIL)],
+    )
+
+
+def _unknown_timezone(_error: classes_service.UnknownTimezone) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.UNKNOWN_TIMEZONE_DETAIL,
+        violations=[("school_class.timezone", wording.UNKNOWN_TIMEZONE_DETAIL)],
+    )
+
+
+def _class_name_mismatch(_error: classes_service.NameMismatch) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        CONFIRMATION_MISMATCH,
+        violations=[("confirmation", CONFIRMATION_MISMATCH)],
+    )
+
+
+def _term_bounds_refused(error: terms_service.TermError) -> Refusal:
+    # The one row whose message is the exception's own text, as errors.proto
+    # says: TermError carries the service's Russian sentence for a person,
+    # built from the year's dates and the other terms', never from what was
+    # sent (the 3b plan, Ruling 27).
+    return Refusal(ErrorReason.TERM_BOUNDS_REFUSED, str(error))
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -193,6 +265,14 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     subjects_service.SubjectExists: _subject_exists,
     subjects_service.HomeworkClash: _subject_rename_clash,
     subjects_service.SubjectInUse: _subject_in_use,
+    bells_service.ScheduleEmpty: _empty_bell_schedule,
+    bells_service.DefaultRequired: _bell_default_required,
+    bells_service.ScheduleIsDefault: _bell_schedule_is_default,
+    bells_service.ScheduleInUse: _bell_schedule_in_use,
+    timetable_service.PasteEmpty: _timetable_paste_empty,
+    classes_service.UnknownTimezone: _unknown_timezone,
+    classes_service.NameMismatch: _class_name_mismatch,
+    terms_service.TermError: _term_bounds_refused,
 }
 
 
@@ -250,6 +330,18 @@ def undecodable() -> Refusal:
     return Refusal(ErrorReason.REQUEST_UNDECODABLE, UNDECODABLE_MESSAGE)
 
 
+def _where(at: str, loc: Sequence[object]) -> str:
+    """The request path of one pydantic error: ``at`` and the error's own location.
+
+    A validator of the whole model raises an error with no location, so it
+    names the message ``at`` points into — ``schedule`` for a
+    ``BellScheduleIn`` whose rows repeat a number — rather than ``schedule.``
+    with nothing after the dot.
+    """
+    field = ".".join(str(part) for part in loc)
+    return at + field if field else at.removesuffix(".")
+
+
 def validate(model: type[M], data: Mapping[str, object], *, at: str = "") -> M:
     """``model`` validated from ``data``, or ``VALIDATION_FAILED`` naming each
     field — and never the value, which pydantic keeps under ``input``.
@@ -260,13 +352,13 @@ def validate(model: type[M], data: Mapping[str, object], *, at: str = "") -> M:
     ``ValueError`` raised in one must not quote it either. ``at`` is where
     ``data`` sits in the request — ``"subject."`` for ``CreateSubject``'s
     ``subject`` — so that each violation names the field as the request spells
-    it.
+    it, and a violation of the whole model names the message (:func:`_where`).
     """
     try:
         return model.model_validate(dict(data))
     except ValidationError as failure:
         violations = [
-            (at + ".".join(str(part) for part in error["loc"]), error["msg"])
+            (_where(at, error["loc"]), error["msg"])
             for error in failure.errors(include_input=False, include_url=False)
         ]
         fields = ", ".join(sorted({field for field, _ in violations}))

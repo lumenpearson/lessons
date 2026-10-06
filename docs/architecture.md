@@ -119,7 +119,8 @@ never commits, and every refusal is worded by one table (`rpc/errors.py`), so th
 transports cannot disagree about a rule. The rules v1's routers held and v2 needs moved into
 `services/` first — the join flow, the window's tag, the clock and the bounds, then the
 member names, the class's wall clock, the dictionary read, the subject patch and the
-journal's page keyed on its last line — and the
+journal's page keyed on its last line, then the bells' patch, the timetable's import and
+the class card's patch — and the
 limiters into `security.py`, one instance each, so a caller cannot double its attempts by
 alternating versions. `main.mount_v2` catches a v2 that will not import and answers `503`
 under its two prefixes, so v1 and the webhook never go down with it.
@@ -896,7 +897,7 @@ with the host.
 
 ## Testing
 
-2527 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
+2621 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 161, `:widget` 126, `:app` 608 (#325).
 

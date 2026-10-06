@@ -74,11 +74,14 @@ message ImportTimetableResponse {
   bool applied = 1;
   // The weekdays the paste names, 1 to 7.
   repeated int32 days = 2;
+  // The lessons written. When nothing was, the lessons the paste holds: a
+  // lesson with no bell to ring it is found only when the paste is applied.
   int32 lessons = 3;
   int32 bells = 4;
   repeated ImportConflict conflicts = 5;
   // Lines the parser could not read, then one line per lesson dropped for
   // having no bell and per stored lesson the new bells no longer ring: an
-  // admin fixes the typos rather than re-reading the whole paste.
+  // admin fixes the typos rather than re-reading the whole paste. When
+  // nothing was written, the parser's lines alone.
   repeated string rejected = 6;
 }

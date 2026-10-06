@@ -15,7 +15,19 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.rpc import audit, class_device, device, diary, me, schedule, subject, watch
+from app.rpc import (
+    audit,
+    bell,
+    class_device,
+    device,
+    diary,
+    me,
+    schedule,
+    school_class,
+    subject,
+    timetable,
+    watch,
+)
 
 #: A handler: ``async def handler(call: Call, request: <Method>Request) -> <Method>Response``.
 Handler = Callable[[Any, Any], Awaitable[Any]]
@@ -23,9 +35,22 @@ Handler = Callable[[Any, Any], Awaitable[Any]]
 #: Keyed as ``rpc.methods.METHODS`` is: ``"lessons.v2.<Service>/<Method>"``.
 HANDLERS: dict[str, Handler] = {
     "lessons.v2.AuditService/ListAuditEntries": audit.list_audit_entries,
+    "lessons.v2.BellService/CreateBellSchedule": bell.create_bell_schedule,
+    "lessons.v2.BellService/DeleteBellSchedule": bell.delete_bell_schedule,
+    "lessons.v2.BellService/GetBellSchedule": bell.get_bell_schedule,
+    "lessons.v2.BellService/ListBellSchedules": bell.list_bell_schedules,
+    "lessons.v2.BellService/UpdateBellSchedule": bell.update_bell_schedule,
     "lessons.v2.ClassDeviceService/ListClassDevices": class_device.list_class_devices,
     "lessons.v2.ClassDeviceService/RevokeClassDevice": class_device.revoke_class_device,
     "lessons.v2.ClassDeviceService/UnlinkClassDevice": class_device.unlink_class_device,
+    "lessons.v2.ClassService/DeleteClass": school_class.delete_class,
+    "lessons.v2.ClassService/GetClass": school_class.get_class,
+    "lessons.v2.ClassService/GetClassStats": school_class.get_class_stats,
+    "lessons.v2.ClassService/GetTermScheme": school_class.get_term_scheme,
+    "lessons.v2.ClassService/ListTerms": school_class.list_terms,
+    "lessons.v2.ClassService/UpdateClass": school_class.update_class,
+    "lessons.v2.ClassService/UpdateTerm": school_class.update_term,
+    "lessons.v2.ClassService/UpdateTermScheme": school_class.update_term_scheme,
     "lessons.v2.DeviceService/CreateDevice": device.create_device,
     "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
     "lessons.v2.MeService/GetMe": me.get_me,
@@ -35,5 +60,7 @@ HANDLERS: dict[str, Handler] = {
     "lessons.v2.SubjectService/GetSubject": subject.get_subject,
     "lessons.v2.SubjectService/ListSubjects": subject.list_subjects,
     "lessons.v2.SubjectService/UpdateSubject": subject.update_subject,
+    "lessons.v2.TimetableService/GetTimetable": timetable.get_timetable,
+    "lessons.v2.TimetableService/ImportTimetable": timetable.import_timetable,
     "lessons.v2.WatchService/WatchClass": watch.watch_class,
 }

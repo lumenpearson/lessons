@@ -57,7 +57,7 @@ from app.schemas import (
 from app.services import audit, clock, linking, notify, subjects, timetable_edit
 from app.services import homework as homework_service
 from app.services import tasks as task_service
-from app.wording import human_date
+from app.wording import EMPTY_BELL_SCHEDULE_DETAIL, human_date
 
 log = logging.getLogger(__name__)
 
@@ -549,7 +549,7 @@ async def day_put(
         if rings is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="в этом расписании звонков нет ни одного урока",
+                detail=EMPTY_BELL_SCHEDULE_DETAIL,
             )
 
     # «Сокращённые уроки» is a claim about the times, and the times come from a

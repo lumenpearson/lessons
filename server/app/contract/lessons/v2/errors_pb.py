@@ -261,9 +261,9 @@ class ErrorReason(Enum):
             ```
         TERM_BOUNDS_REFUSED:
             FAILED_PRECONDITION. A term's dates the school year cannot hold: past
-            31 May, overlapping a neighbour, ending before they start. The message is
-            the service's own Russian sentence. v1: 422 from PUT /manage/terms/{index}
-            (TermError).
+            31 May, overlapping a neighbour, ending before they start; or a term the
+            year does not have («Такого периода нет.»). The message is the service's
+            own Russian sentence. v1: 422 from PUT /manage/terms/{index} (TermError).
 
             ```proto
             TERM_BOUNDS_REFUSED = 31

@@ -136,9 +136,9 @@ enum ErrorReason {
   // or senior). v1: 403 from POST /manage/requests/{id}/approve (GrantRefused).
   ROLE_GRANT_REFUSED = 30;
   // FAILED_PRECONDITION. A term's dates the school year cannot hold: past
-  // 31 May, overlapping a neighbour, ending before they start. The message is
-  // the service's own Russian sentence. v1: 422 from PUT /manage/terms/{index}
-  // (TermError).
+  // 31 May, overlapping a neighbour, ending before they start; or a term the
+  // year does not have («Такого периода нет.»). The message is the service's
+  // own Russian sentence. v1: 422 from PUT /manage/terms/{index} (TermError).
   TERM_BOUNDS_REFUSED = 31;
   // FAILED_PRECONDITION. metadata `why`: "out_of_year", "between_terms",
   // "public_holiday" or "marked_day_off". The day draws no lessons at all, so

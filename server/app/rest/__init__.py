@@ -31,9 +31,11 @@ sentence that quotes what was sent.
 **Answering**: ``201`` for the eight methods whose proto comment promises it
 (:data:`CREATED`), ``200`` for every other success, with the response as
 canonical JSON; ``304`` and no body when the response says ``not_modified``;
-its ``etag`` as ``ETag``; diary reads ``Cache-Control: private, no-store``;
-no CORS header at all (question 5). A refusal is Google's error body
-(``rest/errors.py``).
+its ``etag`` as ``ETag``; ``Cache-Control: private, no-store`` on diary reads, on
+``GetCalendarFeed`` and the class card (:data:`NO_STORE_ALSO`) and on the answers that
+carry a credential (:data:`NO_STORE_CREDENTIAL`) — this transcoder's header, which
+Connect's answers do not carry yet (#357); no CORS header at all (question 5). A refusal is
+Google's error body (``rest/errors.py``).
 """
 
 from __future__ import annotations
@@ -84,13 +86,19 @@ CREATED = frozenset(
 NO_STORE = "private, no-store"
 
 #: Reads outside the diary that are as private: the class's calendar
-#: subscription URL is a secret, and a shared cache must not keep it.
-NO_STORE_ALSO = frozenset({"lessons.v2.MeService/GetCalendarFeed"})
+#: subscription URL is a secret, and so is the class card's join code, which
+#: admits a phone to an open class; a shared cache must keep neither.
+NO_STORE_ALSO = frozenset(
+    {"lessons.v2.MeService/GetCalendarFeed", "lessons.v2.ClassService/GetClass"}
+)
 
-#: Writes whose *answer* is a credential: the token a phone will use for good.
-#: Nobody asked a cache to keep a POST, but the answer says so anyway, as
-#: defence in depth. 3b adds ``CreateDiarySession`` here.
-NO_STORE_CREDENTIAL = frozenset({"lessons.v2.DeviceService/CreateDevice"})
+#: Writes whose *answer* is a credential: the token a phone will use for good,
+#: and the class card ``UpdateClass`` answers with, join code included. Nobody
+#: asked a cache to keep a POST or a PATCH, but the answer says so anyway, as
+#: defence in depth. 3b-7 adds ``CreateDiarySession`` here.
+NO_STORE_CREDENTIAL = frozenset(
+    {"lessons.v2.DeviceService/CreateDevice", "lessons.v2.ClassService/UpdateClass"}
+)
 
 #: Connect's own limit on a request message, so the two transports refuse the
 #: same size with the same words.
