@@ -151,6 +151,19 @@ class Settings(BaseSettings):
     # builds the URL from inside a Telegram update where there is no request.
     public_base_url: str = ""
 
+    # A fine-grained GitHub token with read-only access to public repositories
+    # and no other permission, for the deploy check's read of `main`'s head
+    # (services/health.py). With it the request is authorized: an unchanged
+    # `main`'s 304 costs nothing against GitHub's rate limit, and the ceiling
+    # is 5,000 requests an hour instead of the sixty shared by every anonymous
+    # caller on Vercel's egress address. Empty means GitHub is asked
+    # anonymously, which the deploy check already treats as merely unknown
+    # rather than failing.
+    #
+    # Not GITHUB_TOKEN: GitHub Actions and plenty of tools reserve that name
+    # for a token with write access, and this one must never be that.
+    github_read_token: str = ""
+
     # The oldest v2 client this server still answers, as the APK's versionCode
     # in its `X-Lessons-Client` header (docs/specs/2026-10-05-server-v2-design.md,
     # decision 9). Empty, or 0, means no minimum. With one set, a present
@@ -333,6 +346,11 @@ class Settings(BaseSettings):
         return self.dadata_token.strip()
 
     @property
+    def github_read_token_value(self) -> str:
+        """``GITHUB_READ_TOKEN`` as it will actually be sent; see above."""
+        return self.github_read_token.strip()
+
+    @property
     def dadata_configured(self) -> bool:
         """Whether the school search has a key — the question `dadata` asks."""
         return bool(self.dadata_token_value)
@@ -391,6 +409,15 @@ class Settings(BaseSettings):
             off.append("BOT_USERNAME is empty: the phone's «привязать» deep link is not built")
         if not self.cron_secret:
             off.append("CRON_SECRET is empty: the tick answers 404, so no digest is ever sent")
+        # Only on Vercel: off this platform nothing calls the deploy check at
+        # all, so an empty token here is not a deployment that forgot
+        # anything. Never in `deployment_problems` either way - the check
+        # already reads an anonymous GitHub as merely unknown, never failing.
+        if self.behind_vercel and not self.github_read_token_value:
+            off.append(
+                "GITHUB_READ_TOKEN is empty: the deploy check asks GitHub anonymously, "
+                "sharing sixty requests an hour"
+            )
         return off
 
 

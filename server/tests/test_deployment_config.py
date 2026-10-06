@@ -278,12 +278,33 @@ def test_get_settings_lets_a_local_run_through(monkeypatch):
         ("PUBLIC_BASE_URL", "PUBLIC_BASE_URL"),
         ("BOT_USERNAME", "BOT_USERNAME"),
         ("CRON_SECRET", "CRON_SECRET"),
+        ("GITHUB_READ_TOKEN", "GITHUB_READ_TOKEN"),
     ],
 )
 def test_an_optional_setting_is_announced_rather_than_fatal(setting, named):
     settings = deployed(**{setting: ""})
     assert settings.deployment_problems() == []
     assert any(named in line for line in settings.disabled_features())
+
+
+def test_github_read_token_is_announced_only_on_vercel():
+    """Unlike the settings above, this one has nothing to say off Vercel: the
+    deploy check itself never runs there (`check_deploy` reads `unknown` from
+    `behind_vercel` before it looks at GitHub at all), so an empty token on a
+    laptop is not a deployment that forgot anything."""
+    off_vercel = Settings(GITHUB_READ_TOKEN="")
+    assert off_vercel.behind_vercel is False
+    assert not any("GITHUB_READ_TOKEN" in line for line in off_vercel.disabled_features())
+
+    on_vercel_and_set = deployed(GITHUB_READ_TOKEN="ghp_k")
+    assert not any("GITHUB_READ_TOKEN" in line for line in on_vercel_and_set.disabled_features())
+
+
+def test_github_read_token_never_joins_deployment_problems():
+    """Optional like `DIARY_SECRET` and the rest of that list: an empty value
+    is a documented way to run (anonymously, against GitHub's own rate limit),
+    never a reason to refuse to start."""
+    assert deployed(GITHUB_READ_TOKEN="").deployment_problems() == []
 
 
 def test_a_fully_configured_deployment_announces_nothing():
@@ -293,6 +314,7 @@ def test_a_fully_configured_deployment_announces_nothing():
         PUBLIC_BASE_URL="https://example.com",
         BOT_USERNAME="lessons_bot",
         CRON_SECRET="k",
+        GITHUB_READ_TOKEN="ghp_k",
     )
     assert settings.disabled_features() == []
 

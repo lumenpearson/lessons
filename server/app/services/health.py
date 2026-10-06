@@ -21,9 +21,13 @@ a check starts failing, when it comes back, and every six hours while it stays
 failing, never once per tick. The text names the infrastructure only, never a
 class, a family or a child.
 
-It runs last in the tick, inside its own guard and its own time budget, as the
-diary keep-alive does, so a failing check, a slow GitHub or a Telegram that
-refuses the alert never fails the tick (``api/cron.py``).
+It runs after the digests and before the diary keep-alive (``api/cron.py``,
+Task 5), inside its own guard and its own time budget, so a failing check, a
+slow GitHub or a Telegram that refuses the alert never fails the tick. The
+checks themselves stop :data:`SEND_RESERVE_SECONDS` before that budget runs
+out, so a check that ate most of the tick still leaves the alert itself a
+real chance to go out, rather than discovering there is no time left only
+once it has something to say.
 """
 
 from __future__ import annotations
@@ -71,8 +75,16 @@ SEND_TIMEOUT_SECONDS = 10.0
 #: Counted from the start of the request, as the keep-alive's deadlines are:
 #: nothing of the self-check is started past this point, so the tick ends
 #: inside the function's ceiling (``maxDuration: 30`` in ``vercel.json``)
-#: however long the digests and the keep-alive took first.
+#: however long the digests took first. This is the sends' bound; the network
+#: checks stop :data:`SEND_RESERVE_SECONDS` earlier than it.
 HEALTH_HARD_STOP_SECONDS = 28.0
+#: How much of the hard stop belongs to the sends alone, refused to the
+#: checks. Without this, a check clamped to a sliver of a second by a tick
+#: that had already spent most of its budget could time out and read
+#: ``failing`` for a thing that is actually fine (reclassified in
+#: :func:`_within`), and in a real incident the alert itself could be born
+#: with no time left to go out - the very case the self-check exists for.
+SEND_RESERVE_SECONDS = 5.0
 
 #: The longest reason kept: one line on a screen, and the column's width.
 REASON_MAX = 200
@@ -268,9 +280,13 @@ class _MainHead:
 
 
 #: ``main``'s head as GitHub last told this process, and the ``ETag`` to ask
-#: again with. In memory rather than in a row: a warm instance asks with it
-#: and an unchanged answer is a ``304``; a cold one asks without it and pays
-#: one request of the sixty an hour GitHub allows an address.
+#: again with. In memory rather than in a row: a warm instance asks with it,
+#: and an unchanged answer is a ``304`` - free of the rate limit only when the
+#: request carries a working ``Authorization`` header (GitHub's own rule, not
+#: this process's guess); an anonymous ``304`` still spends one of the sixty
+#: requests an hour shared by every function on Vercel's egress address, same
+#: as a cold instance asking without an ``ETag`` at all. ``GITHUB_READ_TOKEN``
+#: is what makes the ``304`` actually free.
 _main_head: _MainHead | None = None
 
 
@@ -288,10 +304,14 @@ def _github_client(timeout: float) -> httpx.AsyncClient:
     )
 
 
-async def _read_main(repository: str, timeout: float) -> _MainHead:
+async def _read_main(repository: str, token: str, timeout: float) -> _MainHead:
     global _main_head
     known = _main_head if _main_head is not None and _main_head.repository == repository else None
     headers = {"if-none-match": known.etag} if known is not None and known.etag else {}
+    if token:
+        # Never logged and never in a reason: it goes on the request and
+        # nowhere else.
+        headers["authorization"] = f"Bearer {token}"
     async with _github_client(timeout) as client:
         response = await client.get(f"/repos/{repository}/commits/main", headers=headers)
     if response.status_code == 304 and known is not None:
@@ -299,7 +319,13 @@ async def _read_main(repository: str, timeout: float) -> _MainHead:
     if response.status_code != 200:
         # 403 and 429 are the rate limit, shared by every function on the
         # address: a refusal is GitHub's state, never production's.
-        raise _Unreadable(f"GitHub answered HTTP {response.status_code}")
+        reason = f"GitHub answered HTTP {response.status_code}"
+        if response.status_code in (403, 429) and not token:
+            # The specific, fixable reason this address is out of requests:
+            # an anonymous caller shares sixty an hour with the rest of
+            # Vercel's egress, where an authorized one gets 5,000.
+            reason += " (anonymous; set GITHUB_READ_TOKEN)"
+        raise _Unreadable(reason)
     body = response.json()
     moved = datetime.fromisoformat(str(body["commit"]["committer"]["date"]))
     head = _MainHead(
@@ -324,7 +350,9 @@ async def check_deploy(
     if not running.commit or not running.repository:
         return Result(UNKNOWN, "Vercel's system environment variables are not exposed")
     try:
-        head = await asyncio.wait_for(_read_main(running.repository, timeout), timeout)
+        head = await asyncio.wait_for(
+            _read_main(running.repository, settings.github_read_token_value, timeout), timeout
+        )
     except _Unreadable as refused:
         return Result(UNKNOWN, str(refused))
     except (httpx.HTTPError, TimeoutError) as failure:
@@ -378,15 +406,30 @@ async def claim_alert(
 
 
 async def _within(deadline: float, check: Callable[[float], Awaitable[Result]]) -> Result:
-    """Run a check that goes to the network, inside what is left of the tick."""
+    """Run a check that goes to the network, inside what is left of the tick.
+
+    A check given less than its full :data:`CHECK_TIMEOUT_SECONDS` because the
+    tick had little of its own left, and that then times out, reads
+    ``unknown`` rather than ``failing``: what ran out was the tick's budget,
+    which says nothing about whether the thing being checked is actually
+    down, and a reminder tick a few minutes later would have called it fine.
+    """
     left = deadline - asyncio.get_running_loop().time()
     if left <= 0:
         return Result(UNKNOWN, "the tick ran out of time before this check")
+    budget = min(CHECK_TIMEOUT_SECONDS, left)
     try:
-        return await check(min(CHECK_TIMEOUT_SECONDS, left))
+        result = await check(budget)
     except Exception as failure:  # noqa: BLE001 - a check that raises is a check that could not run
-        log.exception("a health check raised")
+        # The type name only: an exception's own text, from a check that
+        # talks to the proxy or to GitHub, can carry a password or a token.
+        log.error("a health check raised %s", type(failure).__name__)
         return Result(UNKNOWN, f"the check raised {type(failure).__name__}")
+    if budget < CHECK_TIMEOUT_SECONDS and result.status == FAILING and "Timeout" in result.reason:
+        # Built from the number alone, never from the check's own reason,
+        # which already names the exception's type but not its text.
+        return Result(UNKNOWN, f"the tick left this check only {budget:.1f} s")
+    return result
 
 
 async def _results(
@@ -423,14 +466,20 @@ async def run(
     """Run the checks, keep what each said, and tell the owner of a change.
 
     ``started`` is ``loop.time()`` at the start of the request, so the budget
-    counts what the tick did first; omitted, it counts from here. ``send`` is
-    ``telegram_send.send`` unless a test hands another. Returns each check's
-    status.
+    counts what the tick did first; omitted, it counts from here. The network
+    checks stop :data:`SEND_RESERVE_SECONDS` before the sends' own bound, so a
+    check that used up most of the tick still leaves the alert a real chance
+    to be sent. ``send`` is ``telegram_send.send`` unless a test hands
+    another. Returns each check's status.
     """
     loop = asyncio.get_running_loop()
-    deadline = (started if started is not None else loop.time()) + HEALTH_HARD_STOP_SECONDS
+    start = started if started is not None else loop.time()
+    checks_deadline = start + HEALTH_HARD_STOP_SECONDS - SEND_RESERVE_SECONDS
+    send_deadline = start + HEALTH_HARD_STOP_SECONDS
     now = _now()
-    results = await _results(session, settings, v2_mounted=v2_mounted, deadline=deadline, now=now)
+    results = await _results(
+        session, settings, v2_mounted=v2_mounted, deadline=checks_deadline, now=now
+    )
 
     stored = {row.name: row for row in await session.scalars(select(HealthCheck))}
     alerts: list[_Alert] = []
@@ -467,7 +516,7 @@ async def run(
     owners = settings.owner_id_list
     if owners:
         for alert in alerts:
-            await _tell(session, alert, owners, send or telegram_send.send, deadline)
+            await _tell(session, alert, owners, send or telegram_send.send, send_deadline)
     return {name: results[name].status for name in CHECKS}
 
 
@@ -476,21 +525,26 @@ async def _tell(
 ) -> None:
     """Claim the alert, send it, and give the claim back if nobody got it.
 
-    Given back so that the next tick tries again rather than six hours later;
-    except «up», whose figure would be wrong by then, so a recovery that does
-    not get through is logged and not repeated.
+    The time is checked before the claim, not after: with none left, neither
+    claiming nor sending is worth doing, and leaving the claim untouched means
+    the next tick tries again immediately rather than finding the alert
+    already spoken for. Given back on a failed send so that tick tries again
+    rather than six hours later; except «up», whose figure would be wrong by
+    then, so a recovery that does not get through is logged and not repeated.
     """
+    left = deadline - asyncio.get_running_loop().time()
+    if left <= 0:
+        log.warning("no time left in the tick to tell the owner of %s", alert.name)
+        return
     if not await claim_alert(session, alert.name, alert.expected, alert.claimed):
         return
     delivered: list[bool] = []
-    left = deadline - asyncio.get_running_loop().time()
-    if left > 0:
-        try:
-            delivered = await asyncio.wait_for(
-                send([(owner, alert.text) for owner in owners]), min(SEND_TIMEOUT_SECONDS, left)
-            )
-        except Exception:  # noqa: BLE001 - a Telegram that refuses must not fail the tick
-            log.warning("could not tell the owner of %s", alert.name, exc_info=True)
+    try:
+        delivered = await asyncio.wait_for(
+            send([(owner, alert.text) for owner in owners]), min(SEND_TIMEOUT_SECONDS, left)
+        )
+    except Exception:  # noqa: BLE001 - a Telegram that refuses must not fail the tick
+        log.warning("could not tell the owner of %s", alert.name, exc_info=True)
     if not any(delivered):
         log.warning("nobody was told that %s is %s", alert.name, alert.kind)
         if alert.kind != "up":

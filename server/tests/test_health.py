@@ -365,6 +365,39 @@ async def test_an_unchanged_main_is_asked_with_its_etag_and_answered_304(monkeyp
     assert asked[0].url.path == "/repos/lumenpearson/lessons/commits/main"
 
 
+async def test_the_deploy_check_sends_a_bearer_token_when_one_is_set(monkeypatch, production):
+    asked = _fake_github(monkeypatch, lambda request: _commit(COMMIT, _now() - timedelta(days=1)))
+    token = "ghp_" + "x" * 36
+    with_token = Settings(VERCEL="1", GITHUB_READ_TOKEN=token)
+
+    await health.check_deploy(with_token, _now())
+    assert asked[-1].headers.get("authorization") == f"Bearer {token}"
+
+    health._main_head = None
+    await health.check_deploy(production, _now())
+    assert "authorization" not in asked[-1].headers
+
+
+async def test_a_github_rate_limit_with_no_token_names_itself_and_never_leaks_one(
+    monkeypatch, production
+):
+    _fake_github(
+        monkeypatch,
+        lambda request: httpx.Response(403, json={"message": "API rate limit exceeded"}),
+    )
+    anonymous = await health.check_deploy(production, _now())
+    assert anonymous.status == UNKNOWN
+    assert "(anonymous; set GITHUB_READ_TOKEN)" in anonymous.reason
+
+    health._main_head = None
+    secret = "ghp_" + "s" * 36
+    with_token = Settings(VERCEL="1", GITHUB_READ_TOKEN=secret)
+    authorized = await health.check_deploy(with_token, _now())
+    assert "(anonymous; set GITHUB_READ_TOKEN)" not in authorized.reason
+    assert secret not in authorized.reason
+    assert secret not in anonymous.reason
+
+
 def test_the_deployment_is_what_vercel_says_and_nothing_else():
     said = deployment(
         {
@@ -508,6 +541,106 @@ async def test_a_tick_out_of_time_asks_nobody_and_says_so(monkeypatch, session, 
     assert (proxies, asked) == ([], [])
     rows = await _rows(session)
     assert rows["deploy"].reason == "the tick ran out of time before this check"
+
+
+async def test_a_proxy_that_times_out_in_a_clamped_budget_is_unknown_not_failing(
+    monkeypatch, session
+):
+    """A tick that has little of its own budget left must not read a merely
+    slow proxy as actually down (review finding A, Ruling 3)."""
+
+    async def stall(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(5)
+        return httpx.Response(200)
+
+    _fake_proxy(monkeypatch, stall)
+    loop = asyncio.get_running_loop()
+    # Well under CHECK_TIMEOUT_SECONDS of the checks' own window is left.
+    started = loop.time() - (health.HEALTH_HARD_STOP_SECONDS - health.SEND_RESERVE_SECONDS - 0.3)
+    settings = Settings(DIARY_PROXY_URL=PROXY)
+
+    statuses = await health.run(session, settings, v2_mounted=True, started=started, send=Sent())
+
+    assert statuses["diary_proxy"] == UNKNOWN
+    row = (await _rows(session))["diary_proxy"]
+    assert row.status == UNKNOWN
+    assert row.reason.startswith("the tick left this check only ")
+    assert row.reason.endswith(" s")
+    left = float(row.reason.removeprefix("the tick left this check only ").removesuffix(" s"))
+    assert 0 < left < health.CHECK_TIMEOUT_SECONDS
+
+
+async def test_a_send_still_reaches_the_owner_when_only_the_sends_reserve_is_left(session):
+    """The checks' window (``HEALTH_HARD_STOP_SECONDS - SEND_RESERVE_SECONDS``)
+    can be spent while the sends' own bound is not: the alert must still go
+    out inside that reserve (review finding A, Ruling 2)."""
+    await health.run(session, Settings(), v2_mounted=False, send=Sent())
+    old_alert_at = _now() - timedelta(hours=6, minutes=1)
+    await session.execute(
+        update(HealthCheck)
+        .where(HealthCheck.name == "v2")
+        .values(since=old_alert_at, last_alert_at=old_alert_at)
+    )
+    await session.commit()
+
+    sent = Sent()
+    loop = asyncio.get_running_loop()
+    # The checks' deadline has already passed; the sends' deadline (24 s
+    # further on) has not.
+    started = loop.time() - 24
+
+    statuses = await health.run(session, Settings(), v2_mounted=False, started=started, send=sent)
+
+    assert statuses["v2"] == FAILING
+    assert sent.batches, "the reminder should still have gone out inside the reserve"
+    assert sent.texts[0].startswith("🔴 v2 не загрузился")
+    row = (await _rows(session))["v2"]
+    assert row.last_alert_at is not None
+    assert row.last_alert_at != old_alert_at
+
+
+async def test_an_alert_with_no_time_left_at_all_is_neither_claimed_nor_sent(session):
+    sent = Sent()
+    long_ago = asyncio.get_running_loop().time() - 100
+
+    statuses = await health.run(session, Settings(), v2_mounted=False, started=long_ago, send=sent)
+
+    assert statuses["v2"] == FAILING
+    assert sent.batches == []
+    assert (await _rows(session))["v2"].last_alert_at is None
+
+
+async def test_a_reminder_whose_send_reaches_nobody_gives_its_claim_back(session):
+    await health.run(session, Settings(), v2_mounted=False, send=Sent())
+    old_alert_at = _now() - timedelta(hours=6, minutes=1)
+    await session.execute(
+        update(HealthCheck)
+        .where(HealthCheck.name == "v2")
+        .values(since=old_alert_at, last_alert_at=old_alert_at)
+    )
+    await session.commit()
+
+    failing = Sent("refused")
+    await health.run(session, Settings(), v2_mounted=False, send=failing)
+
+    assert len(failing.batches) == 1
+    assert (await _rows(session))["v2"].last_alert_at == old_alert_at
+
+
+async def test_an_up_whose_send_reaches_nobody_is_not_given_back(session):
+    await health.run(session, Settings(), v2_mounted=False, send=Sent())
+    await session.execute(
+        update(HealthCheck)
+        .where(HealthCheck.name == "v2")
+        .values(since=_now() - timedelta(minutes=40))
+    )
+    await session.commit()
+
+    failing = Sent("refused")
+    await health.run(session, Settings(), v2_mounted=True, send=failing)
+
+    assert len(failing.batches) == 1
+    assert (await _rows(session))["v2"].last_alert_at is None
 
 
 async def test_a_check_that_raises_is_unknown_and_the_run_goes_on(monkeypatch, session):
