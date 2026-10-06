@@ -1,12 +1,18 @@
-"""``ClassService``: the class itself, as «⚙️ Класс» shows it and changes it.
+"""``ClassService``: the class itself, as «⚙️ Класс» runs it.
 
-v1's ``/manage/class`` and ``/manage/stats``, over the same services. The
-card's patch is ``classes_service.update``, which v1's ``PATCH`` applies too,
-read here through an ``update_mask`` (``rpc/masks.py``, AIP-134). Deleting the
-class is the owner's, confirmed by its name typed back; it takes every device
-token with it, the caller's own included, so the caller's next call is
-``DEVICE_TOKEN_INVALID`` (``docs/specs/2026-10-05-server-v2-3b-plan.md``,
-Ruling 18).
+v1's ``/manage/class``, ``/manage/stats`` and ``/manage/terms…``, over the
+same services. The card's patch is ``classes_service.update``, which v1's
+``PATCH`` applies too, read here through an ``update_mask`` (``rpc/masks.py``,
+AIP-134). Deleting the class is the owner's, confirmed by its name typed
+back; it takes every device token with it, the caller's own included, so the
+caller's next call is ``DEVICE_TOKEN_INVALID``
+(``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 18).
+
+The terms are read without seeding: a year with no rows is answered the
+conventional set for the class's scheme, computed (``terms.spans``), where
+v1's ``GET /manage/terms`` stored it on the read (the server-v2 design,
+decision 10). The two writes store the year's set inside their own write, as
+v1's do.
 """
 
 from __future__ import annotations
@@ -14,6 +20,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from app.contract.lessons.v2.common_pb import Term, TermKind
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.contract.lessons.v2.school_class_pb import (
     ClassStats,
@@ -23,20 +30,32 @@ from app.contract.lessons.v2.school_class_pb import (
     GetClassResponse,
     GetClassStatsRequest,
     GetClassStatsResponse,
+    GetTermSchemeRequest,
+    GetTermSchemeResponse,
     JoinMode,
+    ListTermsRequest,
+    ListTermsResponse,
     RoleCount,
     SubjectHours,
+    TermScheme,
     UpdateClassRequest,
     UpdateClassResponse,
+    UpdateTermRequest,
+    UpdateTermResponse,
+    UpdateTermSchemeRequest,
+    UpdateTermSchemeResponse,
 )
 from app.contract.lessons.v2.school_class_pb import SchoolClass as Card
 from app.models import SchoolClass
+from app.models import TermKind as SchemeRow
 from app.rpc import values
 from app.rpc.errors import Refusal, validate
 from app.rpc.masks import update_paths
-from app.schemas import ClassPatch
+from app.schemas import ClassPatch, TermBoundsIn
 from app.services import stats as stats_service
+from app.services import terms as terms_service
 from app.services.manage import classes as classes_service
+from app.services.manage import terms as terms_manage
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,9 +78,13 @@ _OPTIONAL = frozenset({"grade", "letter", "school", "city"})
 #: v2's join modes, as v1's ``ClassPatch`` spells them.
 _JOIN_MODES = {JoinMode.OPEN: "open", JoinMode.INVITE: "invite"}
 
+#: v2's schemes, as the model's.
+_SCHEMES = {TermKind.QUARTER: SchemeRow.QUARTER, TermKind.SEMESTER: SchemeRow.SEMESTER}
+
 #: Fixed, and naming no value: who may join is never decided by a field
-#: nobody filled in (Ruling 18).
+#: nobody filled in (Ruling 18), and a year is cut one of two ways.
 JOIN_MODE_REFUSED = "join_mode must be JOIN_MODE_OPEN or JOIN_MODE_INVITE"
+TERM_KIND_REFUSED = "kind must be TERM_KIND_QUARTER or TERM_KIND_SEMESTER"
 
 
 async def _card(session: AsyncSession, school_class: SchoolClass) -> Card:
@@ -96,6 +119,15 @@ def _sent(card: Card, field: str) -> Any:
     if field in _OPTIONAL and not card.has_field(field):
         return None
     return getattr(card, field)
+
+
+def _scheme(school_class: SchoolClass) -> TermScheme:
+    """The scheme in force, and the school year in force for the class, read
+    on the class's own clock."""
+    return TermScheme(
+        kind=values.term_kind(terms_service.scheme_of(school_class)),
+        year=terms_manage.current_year(school_class),
+    )
 
 
 async def get_class(call: Call, request: GetClassRequest) -> GetClassResponse:
@@ -172,4 +204,69 @@ async def get_class_stats(call: Call, request: GetClassStatsRequest) -> GetClass
             substitutions_upcoming=numbers["overrides_upcoming"],
             events_upcoming=numbers["events_upcoming"],
         )
+    )
+
+
+async def get_term_scheme(call: Call, request: GetTermSchemeRequest) -> GetTermSchemeResponse:
+    """Quarters or half-years, and the school year they are for. Never seeds."""
+    _admin, school_class = call.device_and_class()
+    return GetTermSchemeResponse(term_scheme=_scheme(school_class))
+
+
+async def update_term_scheme(
+    call: Call, request: UpdateTermSchemeRequest
+) -> UpdateTermSchemeResponse:
+    """Switch between quarters and half-years and reseed the year: four quarters
+    and two halves do not map onto each other. A scheme that is neither is
+    ``VALIDATION_FAILED`` on ``term_scheme.kind``."""
+    admin, school_class = call.device_and_class()
+    sent = request.term_scheme if request.term_scheme is not None else TermScheme()
+    if sent.kind not in _SCHEMES:
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED,
+            TERM_KIND_REFUSED,
+            violations=[("term_scheme.kind", TERM_KIND_REFUSED)],
+        )
+    rows = await terms_manage.change_scheme(
+        call.session, school_class, admin.telegram_id, _SCHEMES[sent.kind]
+    )
+    return UpdateTermSchemeResponse(
+        term_scheme=_scheme(school_class),
+        terms=[values.term(terms_service.TermSpan.of(row)) for row in rows],
+    )
+
+
+async def list_terms(call: Call, request: ListTermsRequest) -> ListTermsResponse:
+    """This school year's terms: the stored ones, or the conventional set for
+    the class's scheme, computed and never stored. Writes nothing."""
+    _admin, school_class = call.device_and_class()
+    year = terms_manage.current_year(school_class)
+    spans = await terms_service.spans(call.session, school_class, year)
+    return ListTermsResponse(year=year, terms=[values.term(span) for span in spans])
+
+
+async def update_term(call: Call, request: UpdateTermRequest) -> UpdateTermResponse:
+    """Move one term's edges, both at once, checked by v1's ``TermBoundsIn``.
+
+    The year's set is stored first if the class has none, inside this write,
+    as v1's does. Dates the year cannot hold are ``TERM_BOUNDS_REFUSED``, with
+    the service's own sentence: past 31 May, overlapping a neighbour, ending
+    before they start, or a term the year does not have.
+    """
+    admin, school_class = call.device_and_class()
+    sent = request.term if request.term is not None else Term()
+    bounds = validate(
+        TermBoundsIn, {"starts_on": sent.starts_on, "ends_on": sent.ends_on}, at="term."
+    )
+    year = await terms_manage.move_term(
+        call.session,
+        school_class,
+        admin.telegram_id,
+        sent.index,
+        bounds.starts_on,
+        bounds.ends_on,
+    )
+    rows = await terms_service.read(call.session, school_class.id, year)
+    return UpdateTermResponse(
+        year=year, terms=[values.term(terms_service.TermSpan.of(row)) for row in rows]
     )

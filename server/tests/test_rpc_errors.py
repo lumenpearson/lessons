@@ -26,6 +26,7 @@ from app.rpc.errors import CODES, Refusal, connect_error, validate
 from app.schemas import BellScheduleIn, JoinRequest, SubjectIn
 from app.services import diary as diary_service
 from app.services import join, window
+from app.services import terms as terms_service
 from app.services.manage import bells as bells_service
 from app.services.manage import classes as classes_service
 from app.services.manage import devices as devices_service
@@ -41,7 +42,7 @@ RPC = SERVER / "app" / "rpc"
 #: produces the last reason it brings, and a reason still listed under it in
 #: ``LATER`` then fails below
 #: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
-STAGES = {"3b-2", "3b-3", "3b-4", "3b-5", "3b-6", "3b-7", "3b-8"}
+STAGES = {"3b-3", "3b-4", "3b-5", "3b-6", "3b-7", "3b-8"}
 
 #: The reasons no served method produces yet, and the stage that brings each.
 #: A reason leaves this table in the commit whose handler raises it.
@@ -57,7 +58,6 @@ LATER = {
     "DIARY_UPSTREAM_UNREADABLE": "3b-7",
     "CORRECTIONS_UNAVAILABLE": "3b-8",
     "ROLE_GRANT_REFUSED": "3b-3",
-    "TERM_BOUNDS_REFUSED": "3b-2",
     "NO_LESSON_ON_DAY": "3b-6",
     "LESSON_NOT_ON_TIMETABLE": "3b-6",
 }
@@ -129,6 +129,10 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     classes_service.NameMismatch: (
         "test_v2_class.py",
         "test_a_confirmation_that_is_not_the_name_is_refused_on_its_field",
+    ),
+    terms_service.TermError: (
+        "test_v2_terms.py",
+        "test_a_term_the_year_cannot_hold_is_refused_in_the_service_s_words",
     ),
     # The gate raises it for a diary method, and none is served before 3b-7:
     # test_rpc_gate.py holds the gate raising it until then.

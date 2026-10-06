@@ -33,6 +33,7 @@ from app.contract.google.rpc.error_details_pb import BadRequest, ErrorInfo, Retr
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.services import diary as diary_service
 from app.services import join, window
+from app.services import terms as terms_service
 from app.services.manage import bells as bells_service
 from app.services.manage import classes as classes_service
 from app.services.manage import devices as devices_service
@@ -241,6 +242,14 @@ def _class_name_mismatch(_error: classes_service.NameMismatch) -> Refusal:
     )
 
 
+def _term_bounds_refused(error: terms_service.TermError) -> Refusal:
+    # The one row whose message is the exception's own text, as errors.proto
+    # says: TermError carries the service's Russian sentence for a person,
+    # built from the year's dates and the other terms', never from what was
+    # sent (the 3b plan, Ruling 27).
+    return Refusal(ErrorReason.TERM_BOUNDS_REFUSED, str(error))
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -263,6 +272,7 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     timetable_service.PasteEmpty: _timetable_paste_empty,
     classes_service.UnknownTimezone: _unknown_timezone,
     classes_service.NameMismatch: _class_name_mismatch,
+    terms_service.TermError: _term_bounds_refused,
 }
 
 
