@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import os
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from functools import lru_cache
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -388,6 +392,53 @@ class Settings(BaseSettings):
         if not self.cron_secret:
             off.append("CRON_SECRET is empty: the tick answers 404, so no digest is ever sent")
         return off
+
+
+#: When this process first loaded its settings, which every entry point does
+#: before anything else: on Vercel, the cold start of this function instance.
+#: «📊 Проект» shows how long ago that was, so a cold start reads as minutes.
+STARTED_AT = datetime.now(UTC).replace(tzinfo=None)
+
+
+@dataclass(frozen=True)
+class Deployment:
+    """What Vercel says about the deployment this process belongs to.
+
+    Its System Environment Variables, read from the process's environment and
+    never from ``.env``: none of them is configuration. A value the platform
+    states about itself has no business in the file people copy, for the
+    reason ``VERCEL`` is not there (``server/.env.example``), and off Vercel
+    every field is empty. They reach a function only while the project's
+    «Automatically expose System Environment Variables» is on, which is
+    Vercel's default (``docs/deploy.md``).
+    """
+
+    #: ``VERCEL_ENV``: ``production``, ``preview`` or ``development``.
+    environment: str
+    #: ``VERCEL_GIT_COMMIT_SHA``: the commit this deployment was built from.
+    commit: str
+    #: ``owner/slug``, from ``VERCEL_GIT_REPO_OWNER`` and
+    #: ``VERCEL_GIT_REPO_SLUG``; empty unless both are there. Read rather than
+    #: written down, so that a fork's deployment asks about its own ``main``.
+    repository: str
+    #: ``VERCEL_REGION``: where this function runs, ``fra1`` here.
+    region: str
+
+
+def deployment(environ: Mapping[str, str] | None = None) -> Deployment:
+    """The running deployment as Vercel describes it; see :class:`Deployment`."""
+    env = os.environ if environ is None else environ
+
+    def read(name: str) -> str:
+        return env.get(name, "").strip()
+
+    owner, slug = read("VERCEL_GIT_REPO_OWNER"), read("VERCEL_GIT_REPO_SLUG")
+    return Deployment(
+        environment=read("VERCEL_ENV"),
+        commit=read("VERCEL_GIT_COMMIT_SHA"),
+        repository=f"{owner}/{slug}" if owner and slug else "",
+        region=read("VERCEL_REGION"),
+    )
 
 
 @lru_cache

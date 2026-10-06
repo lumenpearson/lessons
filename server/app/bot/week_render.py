@@ -11,7 +11,15 @@ from html import escape
 
 from app.models import WeekParity
 from app.schedule import ResolvedDay, ResolvedLesson, week_parity
-from app.wording import DAY_KIND_LABELS, EVENT_ICONS, MONTHS_GENITIVE, WEEKDAYS_SHORT, clamp, plural
+from app.wording import (
+    DAY_KIND_LABELS,
+    EVENT_ICONS,
+    MONTHS_GENITIVE,
+    WEEKDAYS_SHORT,
+    clamp,
+    duration,
+    plural,
+)
 
 #: Longest message the week view may grow to before it starts dropping
 #: detail. Telegram's ceiling is 4096 characters *after* entity parsing; the
@@ -23,17 +31,6 @@ WEEK_TEXT_LIMIT = 3900
 #: re-rendered message that did not change, so that ``edit_text`` has
 #: something to edit instead of answering "message is not modified".
 INVISIBLE = "⁣"
-
-
-def duration(minutes: int) -> str:
-    """«1 ч 12 мин», «45 мин», «2 ч» — whole minutes, never seconds."""
-    hours, rest = divmod(max(minutes, 0), 60)
-    parts = []
-    if hours:
-        parts.append(plural(hours, "ч", "ч", "ч"))
-    if rest or not hours:
-        parts.append(f"{rest} мин")
-    return " ".join(parts)
 
 
 def _minutes_until(now: datetime, at: Time) -> int:
