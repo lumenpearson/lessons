@@ -16,6 +16,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.rpc import (
+    access_request,
     audit,
     bell,
     class_device,
@@ -34,6 +35,7 @@ Handler = Callable[[Any, Any], Awaitable[Any]]
 
 #: Keyed as ``rpc.methods.METHODS`` is: ``"lessons.v2.<Service>/<Method>"``.
 HANDLERS: dict[str, Handler] = {
+    "lessons.v2.AccessRequestService/ListAccessRequests": access_request.list_access_requests,
     "lessons.v2.AuditService/ListAuditEntries": audit.list_audit_entries,
     "lessons.v2.BellService/CreateBellSchedule": bell.create_bell_schedule,
     "lessons.v2.BellService/DeleteBellSchedule": bell.delete_bell_schedule,
