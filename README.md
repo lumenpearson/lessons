@@ -208,7 +208,7 @@ Read this before planning a release.
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 228 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 2707 tests, green, about four minutes — the command CI runs |
+| `pytest -q -n auto` | 2712 tests, green, about four minutes — the command CI runs |
 | buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
 | v2 over REST and Connect | twenty-eight methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), and the bells, the timetable and the class with its terms (3b-2), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
 | Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter; none of it has run in production yet |
