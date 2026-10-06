@@ -117,6 +117,13 @@ class Result:
     status: str
     reason: str = ""
     round_trip_ms: int | None = None
+    #: Whether a network check's own budget ran out, as opposed to any other
+    #: reason it is ``failing``. Set by the check itself, from the exception's
+    #: *type* (:func:`_within` reads it rather than matching the reason's
+    #: wording, which is free to change without silently breaking the clamp
+    #: rule). Never written to ``health_checks`` - only ``status``, ``reason``
+    #: and ``round_trip_ms`` are.
+    timed_out: bool = False
 
 
 @dataclass(frozen=True)
@@ -256,7 +263,16 @@ async def check_diary_proxy(
     try:
         async with _proxy_client(proxy, timeout) as client:
             response = await asyncio.wait_for(client.head(f"{DIARY_ORIGIN}/"), timeout)
-    except (httpx.HTTPError, TimeoutError) as failure:
+    except (httpx.TimeoutException, TimeoutError) as failure:
+        # Caught ahead of the broader httpx.HTTPError below, and by type
+        # rather than by the name it ends up in the reason: asyncio.wait_for's
+        # own timeout and httpx's ConnectTimeout/ReadTimeout/… family both
+        # land here, and only here is `timed_out` set, so the tick's clamp
+        # rule (`_within`) never depends on a diagnostic string's wording.
+        return Result(
+            FAILING, f"no answer through the proxy: {type(failure).__name__}", timed_out=True
+        )
+    except httpx.HTTPError as failure:
         # The exception's type and never its text: httpx's message for a
         # refused tunnel can carry the proxy's address, which carries its
         # password.
@@ -413,6 +429,9 @@ async def _within(deadline: float, check: Callable[[float], Awaitable[Result]]) 
     ``unknown`` rather than ``failing``: what ran out was the tick's budget,
     which says nothing about whether the thing being checked is actually
     down, and a reminder tick a few minutes later would have called it fine.
+    This reads the check's own ``Result.timed_out`` rather than its reason's
+    wording, so a rewording of that text can never silently bring the false
+    «down» back.
     """
     left = deadline - asyncio.get_running_loop().time()
     if left <= 0:
@@ -425,7 +444,7 @@ async def _within(deadline: float, check: Callable[[float], Awaitable[Result]]) 
         # talks to the proxy or to GitHub, can carry a password or a token.
         log.error("a health check raised %s", type(failure).__name__)
         return Result(UNKNOWN, f"the check raised {type(failure).__name__}")
-    if budget < CHECK_TIMEOUT_SECONDS and result.status == FAILING and "Timeout" in result.reason:
+    if budget < CHECK_TIMEOUT_SECONDS and result.status == FAILING and result.timed_out:
         # Built from the number alone, never from the check's own reason,
         # which already names the exception's type but not its text.
         return Result(UNKNOWN, f"the tick left this check only {budget:.1f} s")

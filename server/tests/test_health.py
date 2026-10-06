@@ -543,6 +543,29 @@ async def test_a_tick_out_of_time_asks_nobody_and_says_so(monkeypatch, session, 
     assert rows["deploy"].reason == "the tick ran out of time before this check"
 
 
+async def test_a_proxy_that_times_out_with_its_full_budget_stays_failing(monkeypatch, session):
+    """Through ``_within`` and ``run``, not a direct call: a check that gets
+    its whole budget and still times out is a real failure, not an artifact
+    of the tick's clamp (round 2 review, Minor). ``CHECK_TIMEOUT_SECONDS`` is
+    patched down rather than the test waiting out the real five seconds, the
+    same way the existing direct-call test patches ``timeout=0.05``."""
+    monkeypatch.setattr(health, "CHECK_TIMEOUT_SECONDS", 0.05)
+
+    async def stall(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(5)
+        return httpx.Response(200)
+
+    _fake_proxy(monkeypatch, stall)
+    settings = Settings(DIARY_PROXY_URL=PROXY)
+
+    statuses = await health.run(session, settings, v2_mounted=True, send=Sent())
+
+    assert statuses["diary_proxy"] == FAILING
+    row = (await _rows(session))["diary_proxy"]
+    assert row.status == FAILING
+    assert row.reason == "no answer through the proxy: TimeoutError"
+
+
 async def test_a_proxy_that_times_out_in_a_clamped_budget_is_unknown_not_failing(
     monkeypatch, session
 ):
