@@ -23,6 +23,7 @@ from fastapi import APIRouter, Header, HTTPException, status
 from sqlalchemy import delete, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import telegram_send
 from app.api.routing import DishkaAnnotatedRoute
 from app.config import get_settings
 from app.db import SessionLocal, rows_affected
@@ -72,17 +73,10 @@ DEVICE_TOKEN_TTL = timedelta(days=180)
 
 
 def _build_bot() -> Any:
-    """Imported lazily: aiogram costs seconds to import, and the module is
-    imported by ``app.main`` on every cold start of every endpoint."""
-    from app.bot.bot import build_bot
-
-    return build_bot()
-
-
-async def _close_bot(bot: Any) -> None:
-    bot_session = getattr(bot, "session", None)
-    if bot_session is not None:
-        await bot_session.close()
+    """The seam the tests replace. aiogram is imported inside
+    ``telegram_send.build_bot``, never here: this module is imported by
+    ``app.main`` on every cold start of every endpoint."""
+    return telegram_send.build_bot()
 
 
 async def _purge_fsm() -> int:
@@ -165,7 +159,7 @@ async def tick(
     try:
         counts = await reminders.send_due(session, bot, datetime.now(UTC))
     finally:
-        await _close_bot(bot)
+        await telegram_send.close_bot(bot)
 
     fsm_purged = await _purge_fsm()
     join_purged = await _purge_join_attempts(session)

@@ -6,17 +6,15 @@ import asyncio
 import logging
 from contextlib import suppress
 
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
+from aiogram import Dispatcher
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import BotCommand, ErrorEvent
 
 from app.bot.handlers import build_router
 from app.bot.middlewares import CommandBreakoutMiddleware, ContextMiddleware
-from app.config import get_settings
 from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
+from app.telegram_send import build_bot  # neutral: the tick and the alerts need no app.bot
 
 log = logging.getLogger(__name__)
 
@@ -116,13 +114,6 @@ async def _on_error(event: ErrorEvent) -> bool:
         with suppress(TelegramBadRequest):
             await callback.answer("Что-то пошло не так. Начните заново: /start", show_alert=True)
     return True
-
-
-def build_bot() -> Bot:
-    return Bot(
-        token=get_settings().bot_token,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
 
 
 async def run_polling(stop_event: asyncio.Event) -> None:
