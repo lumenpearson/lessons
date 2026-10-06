@@ -28,6 +28,130 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: bells, the timetable and the class over v2 — stage 3b-2 of sub-project 3 (#273)
+
+Merged as #356 (`089accf`, 6 October 2026), from `server-v2/3b-2`, on milestone 11. It closes
+#353 and refers to #273 and #354. The branch was cut from `main` at `09e17bd`, the merge
+of #350, and carries 11 commits before this close-out, to `c83d532`. Written
+on 6 October 2026, after #350 merged. No revision goes with it: the schema stays at `0018`.
+This is stage 3b-2 of `docs/specs/2026-10-05-server-v2-design.md`, built by the task list for
+it in `docs/specs/2026-10-05-server-v2-3b-plan.md`. v1 answers as before; v2 now answers
+twenty-eight methods.
+
+- **The rules v1's routers held moved into `services/` first**, with v1 calling them:
+  - the bells' patch, `bells.update`: the rename, then the rows, then the default, with
+    `DefaultRequired` for `is_default` false;
+  - the timetable's import, `timetable.import_paste`, which also previews without writing,
+    with `PasteEmpty` for a paste with no day;
+  - the class card's patch, `classes.update`, and `classes.timezone_label`.
+
+  The sentences v1 and v2 both answer with are `app/wording.py`'s, `PUT /days`' refusal of an
+  empty schedule included.
+- **Fifteen methods.**
+  - `ListBellSchedules` and `GetBellSchedule`.
+  - `CreateBellSchedule`: `201`.
+  - `UpdateBellSchedule`: one masked update for v1's two writes; `silenced_lessons` counted
+    once; `EMPTY_BELL_SCHEDULE`, and `VALIDATION_FAILED` on `schedule.is_default`.
+  - `DeleteBellSchedule`: `RESOURCE_IN_USE`, with what uses the schedule.
+  - `GetTimetable`, and `ImportTimetable` with `validate_only`, a preview that writes nothing.
+  - `GetClass`, `UpdateClass` (masked; a join mode masked and left unspecified is refused) and
+    `GetClassStats`.
+  - `DeleteClass`, the owner's, after which the caller's token is dead.
+  - `GetTermScheme` and `ListTerms`, which never seed; `UpdateTermScheme` and `UpdateTerm`, with
+    `TERM_BOUNDS_REFUSED` in the service's own sentence.
+- **The error table gains eight rows**, each read back on both paths by a named test.
+  `EMPTY_BELL_SCHEDULE` and `TERM_BOUNDS_REFUSED` left `LATER`, and 3b-2 left `STAGES`. A
+  violation of a whole message now names the message (`errors._where`).
+- **The class card is never cached**: `GetClass` and `UpdateClass` answer with
+  `Cache-Control: private, no-store`, because the card carries the join code.
+- **`timetable.proto`** says what a preview counts, in comments only.
+- **One defect, filed before its fix**: #353, three tests of 3a that took `GetClass` for
+  a method nobody serves and would have failed once it was served. They take a method out of
+  `HANDLERS` for their own run now.
+- **The whole-branch review answered «ready to merge», with no Critical or Important
+  findings, and one commit made a final fix** (`c83d532`): two proto comments, regenerated;
+  the «send a mask» sentence in `docs/api.md`; `rest/__init__.py`'s docstring naming what is
+  no-store, and #357; and two pinned refusals the review found untested.
+
+### Gates
+
+All at `c83d532`, the head before this close-out. CI runs on the head the merge is made from,
+and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
+- **mypy**: no issues found in 221 source files.
+- **The server suite.** `pytest -q -n auto`, run alone from `server/` at `c83d532`, gave 2621
+  tests: 2620 passed, and one xdist worker crashed on
+  `test_v2_window.py::test_a_matching_tag_answers_not_modified_on_both_paths[weak]` — the
+  machine's own fault, a known condition of its faulty RAM, not the test's. That file passed
+  alone, 18/18. The seven places the `handover` skill names say 2621.
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files.
+- **CI on the head** is the clean run at `c83d532`, and the controller reads it before the
+  merge.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
+  before.
+
+### What was deliberately left alone
+
+- **3b-3 to 3b-8**, each summarised in the 3b plan, and **3c**.
+- **v1's behaviour**: `/manage/terms` still seeds on a read, and v1's two bell writes stay two.
+- **An `UpdateBellSchedule` or an `UpdateClass` without a mask that sends the resource as it
+  was read** writes what it sends: a schedule's rows again, with a `bells.edit` line, and a
+  line for each of the card's fields, as v1's `PATCH` would.
+- **`ImportTimetable`'s preview counts the lessons the paste holds**, not those an apply would
+  write: a lesson with no bell is found only on apply, as in the bot's preview.
+- **`substitutions_upcoming` counts substitutions and special days together**, as v1's
+  `overrides_upcoming` did.
+- **#354's fix is left for its own pull request**: it changes every SQLite test's transaction
+  shape, because the savepoint `terms.ensure` seeds commits on release instead of rolling
+  back.
+- **The bot's device page can still draw fewer phones than the buttons under it** (#352): 3b-2
+  touches neither the bot nor the page.
+
+### What nobody has verified in this batch
+
+- **The fifteen methods against Postgres**: every v2 test ran on SQLite, the import's bulk
+  delete and insert, the bells' bulk delete and the class's cascade among them.
+- **The year's turn on 1 September for a class in a zone far from Moscow**: `current_year`
+  reads the class's own clock, and every test ran on the day it ran.
+- **The card's `Cache-Control` through Vercel's edge**: the tests read it from the app.
+- **A refused `UpdateTerm` keeping nothing**, which is Postgres's behaviour and no test's: on
+  SQLite, where every test ran, the year's set `terms.ensure` seeded in a savepoint stays
+  (#354), and the test allows it.
+- **The fifteen on Vercel** beyond the post-merge check, which calls each new service once
+  without a token.
+- **#355's cause**: `test_an_admin_may_revoke_the_phone_in_their_hand` failed once in a full
+  parallel run, passed alone, and did not reproduce in two further parallel runs of the v2 and
+  rpc files.
+
+### After #350's merge: stage 3b-1 in production, and what followed
+
+None of this is code in #356, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 6 October 2026.
+
+- **The merge.** #350 merged as `09e17bd` at 22:20:15 UTC on 5 October 2026, pinned to the
+  head `dae140c` that was checked first. The five checks:
+  - CI green on that head: Server, Contract, and the Vercel preview;
+  - `mergeable_state` clean;
+  - the gates run locally;
+  - milestone 11;
+  - no review requested.
+- **Vercel deployed it by itself this time.** «Vercel is deploying» showed 24 s after the
+  merge, and production served the new code by 22:21:00 UTC. #349, the dropped deploy of
+  #342's merge, did not recur. Keep #349 open: the monitoring design's `deploy` check is its
+  cure, and one good deploy does not close it.
+- **Production read at 22:21 UTC:**
+  - `/api/v1/warmup` answered `status` `ok`, `api_version` 1, `schema` `0018`, `v2` `true`;
+  - REST `/api/v2/class/auditEntries`, `/class/devices` and `/class/subjects` without a token
+    answered `401` in Google's body, with `DEVICE_TOKEN_INVALID`;
+  - Connect `SubjectService/ListSubjects` answered `401` `unauthenticated`;
+  - `/api/v1/health` answered `200`.
+- **The window `0018` made** («База впереди кода» from 22:06 UTC, when `0018` went on) closed
+  at that deploy.
+- **The owner did nothing in `HANDOVER.md`'s section 7 between the merges**, so nothing moves
+  out of it. They are asleep, and this batch ran overnight.
+
 ## What the batch before added: the class's records over v2 — stage 3b-1 of sub-project 3 (#273)
 
 Merged as #350 (`09e17bd`, 5 October 2026), from `server-v2/3b`, on milestone 11. It closes
@@ -6314,6 +6438,23 @@ typed into a chat, so change it afterwards.
 **The keep-alive is only as alive as the cron (#120).** «Сетевой город» sessions are held
 open from `GET /api/v1/cron/tick`, so they lapse if the external cron does not tick;
 `.github/workflows/reminders.yml` is the fallback, not the clock, exactly as for the digests.
+
+## Moved out of section 5 on 6 October 2026
+
+#359 merged and production was read («After #359's merge», in the section on #363, in
+`HANDOVER.md` or, once it has moved, here): the four checks ran against production and read
+`ok`, «📊 Проект»'s catalogue queries answered on Postgres, and Vercel's system variables
+reached the function. So the bullet below lost three of its items, and `HANDOVER.md`'s
+section 5 carries a narrower one. As it stood until then:
+
+- **The monitoring of #359 has been seen only by its tests** until the read after its merge:
+  - the four checks against production, and a real alert in the owner's chat;
+  - the claim on an alert, and «📊 Проект»'s catalogue queries, on Postgres: every test ran on
+    SQLite;
+  - two ticks at once, which are tested in sequence only;
+  - Vercel's system variables reaching the function, without which the `deploy` check stays
+    ❔ and says so;
+  - an event reaching Sentry, and whether the SDK sends it before a frozen instance is reaped.
 
 ## Moved out of section 7 on 6 October 2026
 

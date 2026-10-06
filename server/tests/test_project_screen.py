@@ -11,6 +11,7 @@ dispatcher only.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
@@ -225,6 +226,32 @@ def test_five_hundred_builds_and_four_long_failures_still_send():
     assert len(text) <= MESSAGE_LIMIT
     assert "… и ещё 490" in text
     assert text.count("• сборка") == project_render.BUILDS_MAX
+
+
+def test_nothing_on_the_screen_is_left_for_telegram_to_link():
+    """#362: Telegram links a bare ``name.tld`` by itself, from the text alone,
+    and ``.md`` is a country's domain - «docs/deploy.md» went out as a link to
+    a stranger's site, the one link on a screen whose dashboards are named and
+    never linked. Inside ``<code>`` Telegram links nothing, so anything shaped
+    like a file or a host goes there."""
+    now = _now()
+    stats = _stats(
+        now=now,
+        checks=[
+            _check("schema", "ok"),
+            _check("v2", "ok"),
+            _check("diary_proxy", "failing", "proxy refused: HTTP 407"),
+            _check("deploy", "unknown", "GitHub answered HTTP 401 (the token was refused)"),
+        ],
+        last_tick=now - timedelta(minutes=2),
+        builds=[(412, 15), (None, 4)],
+        diaries=[("petersburg", 3)],
+    )
+    text = project_render.render_project(stats, MOSCOW)
+
+    outside_code = re.sub(r"<code>.*?</code>", "", text, flags=re.S)
+    assert re.findall(r"[A-Za-z][\w-]*\.[A-Za-z]{2,}\b", outside_code) == []
+    assert "<code>docs/deploy.md</code>" in text
 
 
 def test_what_came_from_outside_is_escaped():

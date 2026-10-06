@@ -37,7 +37,7 @@ Escape everything from outside:
 `homework_render`, `tasks_render`, `access_render`), always did this.
 `diary_render.py` and `editor_render.py` never did, and both shipped that way.
 
-## Two traps in the same family
+## Three traps in the same family
 
 - `plural(n, …)` **already contains the number**. `f"{n} {plural(n, …)}"` prints «10 10
   минут». Three callers had it, and one had a test that passed because «10 минут» is a
@@ -45,6 +45,11 @@ Escape everything from outside:
 - `answerCallbackQuery` takes **no parse mode**, so a card built for a message shows its own
   tags in an alert. Run it through `editor_render.as_alert`, which also cuts at 200
   characters — past that Telegram answers 400 and the press answers nothing at all.
+- Telegram **links a bare `name.tld` by itself**, from the text alone, and a file's
+  extension can be a country's domain: «docs/deploy.md» on «📊 Проект» went out as a link to
+  `deploy.md`, somebody else's site (#362). No `<a>` is in the HTML, so no test of the
+  renderer's markup sees it. Put a path or a host in `<code>`, inside which Telegram links
+  nothing.
 
 ## A list page and its keyboard
 

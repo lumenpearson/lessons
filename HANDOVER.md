@@ -9,26 +9,22 @@ newest first.
 Last updated: **6 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
-#313, #319, #328, #329, #332, #333, #335, #342, #350 and #356 are merged**; `main` is at
-`089accf`, the merge of #356, at 10:40 UTC on 6 October 2026. **The four designs of sub-projects 3
+#313, #319, #328, #329, #332, #333, #335, #342, #350, #356 and #359 are merged**; `main` is at
+`55314b6`, the merge of #359, at 16:51 UTC on 6 October 2026. **The four designs of sub-projects 3
 to 6 are approved and on `main`**: the owner answered every question with its recommendation
-on 5 October (#301, #306, #307, #308). **Four pull requests are open. One is #359, the one
-carrying this paragraph**, from `monitoring`, on milestone 12, `v1.0.0 — A build somebody else
-can install`, which closes #349, #358, #360 and #361 and refers to #120, #127 and #269: every cron
-tick checks the deployment and tells the owner in Telegram when something breaks, Sentry
-receives the errors, and the bot gains «📊 Проект». The other three are dependabot's #344
-(`cryptography` 50.0.2), #345 (the `sqlalchemy[asyncio]` floor at 2.1.2) and #346 (`fastapi`
-0.142.2), left for a batch of their own. #356 closed #353 at its merge. **The schema head moved
-to `0019`**: it was applied before the merge to the Neon branch `preview` at 15:35 UTC and to
-production at 16:28 UTC on 6 October, and `EXPECTED_REVISION` moved with it. The issues
-filed since #356 merged are #358 (the test of `0018` pinning the head), #360 (the schema
-check's alarm while a revision goes on before its merge) and #361 (a test of «📊 Проект» that
-reads the clock twice and failed CI on Linux), all three closed by #359. #352, #354,
-#355 and #357 stay open, as #356's close-out left them. #118, what Preview is for, was closed
-by #350.
+on 5 October (#301, #306, #307, #308). **Four pull requests are open. One is #363, the one
+carrying this paragraph**, from `fix/project-screen-link`, on milestone 12, `v1.0.0 — A build
+somebody else can install`, which closes #362 and refers to #127: «📊 Проект» stops linking
+`docs/deploy.md` to a stranger's site, and the close-out records #359 in production. The
+other three are dependabot's #344 (`cryptography` 50.0.2), #345 (the `sqlalchemy[asyncio]`
+floor at 2.1.2) and #346 (`fastapi` 0.142.2), left for a batch of their own. #359 closed
+#349, #358, #360 and #361 at its merge. **The schema did not move**: the head is still `0019`,
+on production since 16:28 UTC on 6 October, and `EXPECTED_REVISION` did not move either. The
+issue filed since #359 merged is #362, closed by #363. #352, #354, #355 and #357 stay open.
+#118, what Preview is for, was closed by #350.
 
-The section «What the last session added» below is #359's batch, and «What the session
-before it added» is #356's.
+The section «What the last session added» below is #363's batch, and «What the session
+before it added» is #359's.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -50,8 +46,8 @@ and **#112** (a macrobenchmark module) was not started.
 tick's self-check, holding what it said last: additive, nothing destroyed and no row
 rewritten. It went to the Neon branch `preview` at 15:35 UTC and to production at 16:28 UTC,
 each as one transaction read first and read back after; production's `/api/v1/warmup`
-answers `degraded` with «База впереди кода» in the window between, which #359's merge
-closes. `0018` adds the nullable `device_tokens.client_version`, the app version a phone last
+answered `degraded` with «База впереди кода» in the window between, which #359's merge at
+16:51:58 UTC closed: production served the new code from 16:52:21 UTC. `0018` adds the nullable `device_tokens.client_version`, the app version a phone last
 sent to v2. `0015` adds the eight nullable columns the second diary
 needs. `0016` creates `usage_counters`, the anonymous school directory's daily count of
 DaData requests. `0017` files the diary corrections under the child rather than a login, and
@@ -163,9 +159,99 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: the deployment says when it is broken — monitoring (#349, #120)
+## What the last session added: «📊 Проект» links nothing (#362), and #359 in production
 
-Open as #359, from `monitoring` to `main`, on milestone 12, and on project 6. It closes #349,
+Open as #363, from `fix/project-screen-link` to `main`, on milestone 12, and on project 6. It
+closes #362 and refers to #127. The branch was cut from `main` at `55314b6`, the merge of #359,
+and carries 2 commits before this close-out, to `48c5522`. Written on 6 October 2026, after
+#359 merged. No revision goes with it: the schema stays at `0019`.
+
+- **«📊 Проект» names `docs/deploy.md` in `<code>`.** Telegram links a bare `name.tld` by
+  itself, from the text alone, and `.md` is Moldova's domain, so the screen's first look at
+  production drew `deploy.md` as a link to a stranger's site. Inside `<code>` Telegram links
+  nothing. A test renders the screen with every kind of block and finds nothing shaped like
+  `name.tld` outside `<code>`; it failed on the old sentence.
+- **The `bot-message` skill names the trap** beside the other two of its kind, because no test
+  of a renderer's markup can see a link Telegram adds.
+- **One defect, filed before its fix**: #362, found from the owner's screenshot of the screen's
+  first look at production.
+
+### Gates
+
+All at `48c5522`, the head before this close-out. CI runs on the head the merge is made from,
+and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
+- **mypy**: no issues found in 228 source files.
+- **The server suite.** `test_project_screen.py` with `test_bot_commands.py` gave 127 passed,
+  and `pytest --collect-only -q` counts 2713 tests, which the seven places the `handover` skill
+  names say. The full suite was not run locally: the change is one constant and one test, and a
+  full run on this machine is 26 minutes of its faulty RAM. CI's run on the head is the run of
+  all 2713.
+- **The contract** was not run: nothing under `proto/`, `buf.*` or `server/app/contract/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
+  before.
+
+### What was deliberately left alone
+
+- **The monitoring plan's quotation of the old sentence**
+  (`docs/specs/2026-10-06-monitoring-plan.md`), which records what was planned.
+- **A check over every screen the bot sends.** A grep of the renderers for file- and host-shaped
+  words outside docstrings found this one sentence; the new test covers «📊 Проект» alone.
+
+### What nobody has verified in this batch
+
+- **The changed sentence in a Telegram client**: nobody has looked at the screen since.
+
+### After #359's merge: the monitoring in production
+
+None of this is code in #363, and a close-out never gets a close-out of its own, so it is
+written here. The source is the session's own reads of 6 October 2026.
+
+- **The merge, by the session.** #359 merged as `55314b6` at 16:51:58 UTC on 6 October 2026,
+  from `monitoring` at head `6b9b58c`. It closed #349, #358, #360 and #361.
+  - The five checks held first: CI green on `6b9b58c` (Server, Vercel, What changed; Android
+    and Contract skipped), `mergeable_state` clean, the gates local, milestone 12, no review.
+  - The owner had allowed the session's merge in Claude Code's permission rules, after #356's
+    had been refused by the auto-mode classifier.
+- **Vercel deployed it by itself**: «Vercel: pending» four seconds after the merge, at
+  16:52:02 UTC, and the deployment completed at 16:52:41. #349 did not recur.
+- **Production read after it:**
+  - `/api/v1/warmup` answered `status` `ok`, `schema` `0019`, `v2` `true` from 16:52:21 UTC,
+    which closed the «База впереди кода» window `0019` had opened at 16:28;
+  - `/api/v1/health` answered `200`.
+- **The first tick on the new code, at 16:56:19 UTC**, wrote four rows of `health_checks`, all
+  `ok`, and told the owner nothing:
+  - `deploy` «running main's head 55314b6»: Vercel's system variables reach the function, and
+    the read of GitHub with `GITHUB_READ_TOKEN` works. The tick at 17:04:14 UTC got
+    `304 Not Modified` from GitHub, so the `ETag` held in the process works too;
+  - `diary_proxy` «HTTP 200», in 609 ms;
+  - `schema` «at 0019»;
+  - `v2` «mounted».
+- **«📊 Проект» and `/health` on production**, from the owner's screenshot at about 17:04 UTC.
+  Every block drew:
+  - the four checks ✅, since 19:56 Moscow time;
+  - commit `55314b6`, with `main`'s head ✅; `fra1`, Python 3.12.14; the instance 11 minutes
+    old;
+  - the database at `0019`, 9.4 MB and two connections, so the two Postgres catalogue queries
+    work;
+  - the proxy ✅ in 428 ms; the last tick at 20:04 Moscow time, and the one before three
+    minutes earlier;
+  - no digests today, which is true: neither account has a morning or an evening digest
+    switched on;
+  - one class, two accounts, one phone in a day and three in a week, four phones with no build,
+    and v2 on.
+
+  The one wrong thing on it is #362. A first `/health` seemed to answer with the whole screen.
+  Its message had most likely been rewritten by the buttons pressed under it («‹ Меню», then
+  «⚙️ Класс» → «📊 Проект»): the webhook's log shows eight updates in thirty seconds, and
+  `/health` draws only «🩺 Состояние» with «‹ Меню». Nobody asked the owner which buttons they
+  pressed.
+
+## What the session before it added: the deployment says when it is broken — monitoring (#349, #120)
+
+Merged as #359 (`55314b6`, 6 October 2026), from `monitoring`, on milestone 12. It closes #349,
 #358, #360 and #361, and refers to #120, #127 and #269. The branch was cut at `8035e54`, the head of
 #356, before #356 merged — the session could not merge it, and the owner did — and `main` was
 merged into it at `0b19609` once #356 had merged as `089accf`. It carries 16 commits after
@@ -328,130 +414,6 @@ written here. The source is the controller's notes of 6 October 2026.
   - gave a standing yes to every additive, non-cascading revision, `0019` among them, and
     kept a conversation for the destructive or cascading ones.
 
-## What the session before it added: bells, the timetable and the class over v2 — stage 3b-2 of sub-project 3 (#273)
-
-Merged as #356 (`089accf`, 6 October 2026), from `server-v2/3b-2`, on milestone 11. It closes
-#353 and refers to #273 and #354. The branch was cut from `main` at `09e17bd`, the merge
-of #350, and carries 11 commits before this close-out, to `c83d532`. Written
-on 6 October 2026, after #350 merged. No revision goes with it: the schema stays at `0018`.
-This is stage 3b-2 of `docs/specs/2026-10-05-server-v2-design.md`, built by the task list for
-it in `docs/specs/2026-10-05-server-v2-3b-plan.md`. v1 answers as before; v2 now answers
-twenty-eight methods.
-
-- **The rules v1's routers held moved into `services/` first**, with v1 calling them:
-  - the bells' patch, `bells.update`: the rename, then the rows, then the default, with
-    `DefaultRequired` for `is_default` false;
-  - the timetable's import, `timetable.import_paste`, which also previews without writing,
-    with `PasteEmpty` for a paste with no day;
-  - the class card's patch, `classes.update`, and `classes.timezone_label`.
-
-  The sentences v1 and v2 both answer with are `app/wording.py`'s, `PUT /days`' refusal of an
-  empty schedule included.
-- **Fifteen methods.**
-  - `ListBellSchedules` and `GetBellSchedule`.
-  - `CreateBellSchedule`: `201`.
-  - `UpdateBellSchedule`: one masked update for v1's two writes; `silenced_lessons` counted
-    once; `EMPTY_BELL_SCHEDULE`, and `VALIDATION_FAILED` on `schedule.is_default`.
-  - `DeleteBellSchedule`: `RESOURCE_IN_USE`, with what uses the schedule.
-  - `GetTimetable`, and `ImportTimetable` with `validate_only`, a preview that writes nothing.
-  - `GetClass`, `UpdateClass` (masked; a join mode masked and left unspecified is refused) and
-    `GetClassStats`.
-  - `DeleteClass`, the owner's, after which the caller's token is dead.
-  - `GetTermScheme` and `ListTerms`, which never seed; `UpdateTermScheme` and `UpdateTerm`, with
-    `TERM_BOUNDS_REFUSED` in the service's own sentence.
-- **The error table gains eight rows**, each read back on both paths by a named test.
-  `EMPTY_BELL_SCHEDULE` and `TERM_BOUNDS_REFUSED` left `LATER`, and 3b-2 left `STAGES`. A
-  violation of a whole message now names the message (`errors._where`).
-- **The class card is never cached**: `GetClass` and `UpdateClass` answer with
-  `Cache-Control: private, no-store`, because the card carries the join code.
-- **`timetable.proto`** says what a preview counts, in comments only.
-- **One defect, filed before its fix**: #353, three tests of 3a that took `GetClass` for
-  a method nobody serves and would have failed once it was served. They take a method out of
-  `HANDLERS` for their own run now.
-- **The whole-branch review answered «ready to merge», with no Critical or Important
-  findings, and one commit made a final fix** (`c83d532`): two proto comments, regenerated;
-  the «send a mask» sentence in `docs/api.md`; `rest/__init__.py`'s docstring naming what is
-  no-store, and #357; and two pinned refusals the review found untested.
-
-### Gates
-
-All at `c83d532`, the head before this close-out. CI runs on the head the merge is made from,
-and the merge waits for it to be green.
-
-- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
-- **mypy**: no issues found in 221 source files.
-- **The server suite.** `pytest -q -n auto`, run alone from `server/` at `c83d532`, gave 2621
-  tests: 2620 passed, and one xdist worker crashed on
-  `test_v2_window.py::test_a_matching_tag_answers_not_modified_on_both_paths[weak]` — the
-  machine's own fault, a known condition of its faulty RAM, not the test's. That file passed
-  alone, 18/18. The seven places the `handover` skill names say 2621.
-- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
-  `buf generate` reproduces the committed files.
-- **CI on the head** is the clean run at `c83d532`, and the controller reads it before the
-  merge.
-- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
-  before.
-
-### What was deliberately left alone
-
-- **3b-3 to 3b-8**, each summarised in the 3b plan, and **3c**.
-- **v1's behaviour**: `/manage/terms` still seeds on a read, and v1's two bell writes stay two.
-- **An `UpdateBellSchedule` or an `UpdateClass` without a mask that sends the resource as it
-  was read** writes what it sends: a schedule's rows again, with a `bells.edit` line, and a
-  line for each of the card's fields, as v1's `PATCH` would.
-- **`ImportTimetable`'s preview counts the lessons the paste holds**, not those an apply would
-  write: a lesson with no bell is found only on apply, as in the bot's preview.
-- **`substitutions_upcoming` counts substitutions and special days together**, as v1's
-  `overrides_upcoming` did.
-- **#354's fix is left for its own pull request**: it changes every SQLite test's transaction
-  shape, because the savepoint `terms.ensure` seeds commits on release instead of rolling
-  back.
-- **The bot's device page can still draw fewer phones than the buttons under it** (#352): 3b-2
-  touches neither the bot nor the page.
-
-### What nobody has verified in this batch
-
-- **The fifteen methods against Postgres**: every v2 test ran on SQLite, the import's bulk
-  delete and insert, the bells' bulk delete and the class's cascade among them.
-- **The year's turn on 1 September for a class in a zone far from Moscow**: `current_year`
-  reads the class's own clock, and every test ran on the day it ran.
-- **The card's `Cache-Control` through Vercel's edge**: the tests read it from the app.
-- **A refused `UpdateTerm` keeping nothing**, which is Postgres's behaviour and no test's: on
-  SQLite, where every test ran, the year's set `terms.ensure` seeded in a savepoint stays
-  (#354), and the test allows it.
-- **The fifteen on Vercel** beyond the post-merge check, which calls each new service once
-  without a token.
-- **#355's cause**: `test_an_admin_may_revoke_the_phone_in_their_hand` failed once in a full
-  parallel run, passed alone, and did not reproduce in two further parallel runs of the v2 and
-  rpc files.
-
-### After #350's merge: stage 3b-1 in production, and what followed
-
-None of this is code in #356, and a close-out never gets a close-out of its own, so it is
-written here. The source is the controller's notes of 6 October 2026.
-
-- **The merge.** #350 merged as `09e17bd` at 22:20:15 UTC on 5 October 2026, pinned to the
-  head `dae140c` that was checked first. The five checks:
-  - CI green on that head: Server, Contract, and the Vercel preview;
-  - `mergeable_state` clean;
-  - the gates run locally;
-  - milestone 11;
-  - no review requested.
-- **Vercel deployed it by itself this time.** «Vercel is deploying» showed 24 s after the
-  merge, and production served the new code by 22:21:00 UTC. #349, the dropped deploy of
-  #342's merge, did not recur. Keep #349 open: the monitoring design's `deploy` check is its
-  cure, and one good deploy does not close it.
-- **Production read at 22:21 UTC:**
-  - `/api/v1/warmup` answered `status` `ok`, `api_version` 1, `schema` `0018`, `v2` `true`;
-  - REST `/api/v2/class/auditEntries`, `/class/devices` and `/class/subjects` without a token
-    answered `401` in Google's body, with `DEVICE_TOKEN_INVALID`;
-  - Connect `SubjectService/ListSubjects` answered `401` `unauthenticated`;
-  - `/api/v1/health` answered `200`.
-- **The window `0018` made** («База впереди кода» from 22:06 UTC, when `0018` went on) closed
-  at that deploy.
-- **The owner did nothing in section 7 between the merges**, so nothing moves out of section
-  7. They are asleep, and this batch ran overnight.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -475,7 +437,7 @@ maps them. The
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
 | 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333 (merged) and #359 (open); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360, #361 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359 (merged) and #363 (open); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
@@ -554,13 +516,12 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     null;
   - **a segfault in a native extension at import**, which `mount_v2` cannot catch: it turns an
     import that raises into the `503`, and an interpreter that crashes raises nothing.
-- **The monitoring of #359 has been seen only by its tests** until the read after its merge:
-  - the four checks against production, and a real alert in the owner's chat;
-  - the claim on an alert, and «📊 Проект»'s catalogue queries, on Postgres: every test ran on
-    SQLite;
-  - two ticks at once, which are tested in sequence only;
-  - Vercel's system variables reaching the function, without which the `deploy` check stays
-    ❔ and says so;
+- **The monitoring of #359 has been seen working in production, and never failing.** Its four
+  checks read `ok` on the first tick, and «📊 Проект» drew on the owner's screen («After #359's
+  merge», in the section on #363). Still unseen:
+  - a real alert in the owner's chat, which needs a check to fail;
+  - the claim on an alert on Postgres, and two ticks at once, which are tested in sequence
+    only;
   - an event reaching Sentry, and whether the SDK sends it before a frozen instance is reaped.
 - **Buf's unauthenticated rate limit has not been met.** CI's «Contract (Buf)» job fetches two
   remote plugins without a token; one run, 37230983817, was not throttled. If it ever is,
@@ -1616,7 +1577,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2712 tests, ~12 min alone on Windows
+cd server  && pytest -q -n auto                          # 2713 tests, ~12 min alone on Windows
 cd server  && python -m mypy                             # clean, 228 modules
 cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
