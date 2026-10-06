@@ -327,8 +327,13 @@ async def test_a_decline_on_either_path_closes_the_request_and_tells_the_asker(
 async def test_answering_one_request_twice_is_one_decision_and_one_notice(
     v2, v2_tokens, session, school_class, telegram
 ) -> None:
-    """Two admins tapping at once, or a retry over a flaky network: the second
-    answer finds nothing open, whichever it is."""
+    """This pins the sequential case — a retry over a flaky network, or two
+    admins who happen not to overlap: the second answer finds nothing open,
+    whichever it is. Two admins genuinely at once, on the same instant, is
+    not reachable from this single-connection test client; that case rests on
+    ``requests_service.pending_one``'s row lock, which
+    ``test_services_access_requests.py``'s
+    ``test_pending_one_locks_the_row_for_update_on_postgres`` holds (#370)."""
     asked = await _asks(session, school_class)
     admin = v2_tokens["admin"]
     first = await v2.rest(APPROVE, _approve(asked.id), token=admin)

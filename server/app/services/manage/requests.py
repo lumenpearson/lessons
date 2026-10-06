@@ -83,15 +83,27 @@ async def pending(session: AsyncSession, class_id: int) -> list[AccessRequest]:
 async def pending_one(
     session: AsyncSession, class_id: int, request_id: int
 ) -> AccessRequest | None:
-    """Pending, and this class's. A request that has already been answered is
-    gone as far as either shell is concerned, so two admins tapping «Выдать» at
-    once cannot grant twice."""
+    """Pending, and this class's, with the row locked ``FOR UPDATE``.
+
+    A request already answered is gone as far as either shell is concerned —
+    but on PostgreSQL that guarantee needs the lock, not just the
+    ``WHERE status == "pending"``: without it, two admins tapping «Выдать» at
+    once, or an approval racing a decline, each run under their own snapshot
+    and both read the row as still pending, so both answers commit (#370).
+    With the lock, the second reader waits for the first answer's commit and
+    then re-checks ``status == "pending"`` against the row as it was just
+    left, finding none, so it takes the same not-found path as a request
+    answered a moment ago. SQLite ignores ``FOR UPDATE`` — it serialises
+    writes on its own — so this changes nothing there.
+    """
     return await session.scalar(
-        select(AccessRequest).where(
+        select(AccessRequest)
+        .where(
             AccessRequest.id == request_id,
             AccessRequest.class_id == class_id,
             AccessRequest.status == "pending",
         )
+        .with_for_update()
     )
 
 

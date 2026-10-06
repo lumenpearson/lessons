@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.dialects import postgresql
 
 from app import wording
 from app.models import AccessRequest, AuditEntry, BotUser, Role
@@ -117,3 +118,28 @@ def test_the_requests_sentences_are_v1_s() -> None:
         "role_too_high": "Нельзя выдать роль выше вашей",
         "member_senior": "Нельзя менять роль этого пользователя",
     }
+
+
+async def test_pending_one_locks_the_row_for_update_on_postgres() -> None:
+    """Two admins answering the same request at once, or an approval racing a
+    decline, must not both find it pending: the statement ``pending_one``
+    issues has to lock the row, so that on PostgreSQL a second concurrent
+    reader waits for the first answer's commit and then re-checks
+    ``status == "pending"`` against the row as it was just left — finding
+    none — rather than reading the old, still-pending value under its own
+    snapshot (#370). The statement is captured without a database and
+    compiled for the PostgreSQL dialect, because SQLite ignores ``FOR
+    UPDATE`` (it serialises writes on its own) and so cannot tell a locking
+    statement from a plain one.
+    """
+    captured: list[object] = []
+
+    class _Session:
+        async def scalar(self, statement):
+            captured.append(statement)
+            return None
+
+    await requests_service.pending_one(_Session(), class_id=1, request_id=1)
+    assert captured
+    compiled = str(captured[0].compile(dialect=postgresql.dialect()))
+    assert compiled.rstrip().endswith("FOR UPDATE")

@@ -6,8 +6,13 @@ each was asked as the class's wall time, v2 writes an instant.
 
 Answering is ``requests_service.approve`` and ``decline``, which v1 calls too:
 the ladder of «👥 Доступ» decides what an admin may grant, and a request
-already answered is ``RESOURCE_NOT_FOUND``, so two admins cannot answer one
-twice. Whoever asked is told in Telegram, where they asked, by an effect the
+already answered is ``RESOURCE_NOT_FOUND``. Two admins cannot answer one
+twice because ``requests_service.pending_one`` reads the row locked
+``FOR UPDATE``: a second concurrent answer waits for the first one's commit,
+then PostgreSQL re-checks ``status == "pending"`` against what was just
+written and finds none (#370) — the ``WHERE`` clause alone would let both
+readers see the row as still pending under their own snapshot. Whoever asked
+is told in Telegram, where they asked, by an effect the
 call runs once the decision is committed (``Call.after_commit``): never on a
 refusal, and a notice Telegram will not deliver — the person blocked the bot,
 or Telegram is down — is logged and dropped, because the decision stands
