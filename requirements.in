@@ -45,7 +45,7 @@ dishka>=1.10.1
 # that removed them would send every diary call without a session rather than
 # fail. What to check before raising it is written out in pyproject.toml.
 httpx>=0.28.1,<0.29
-cryptography>=50.0.1
+cryptography>=50.0.2
 # The v2 contract's runtime: the code generated into server/app/contract
 # imports protobuf-py, and its services import connectrpc. Floors are the
 # pinned plugins' versions (buf.gen.yaml); imported by app.main since stage 3a,
