@@ -4,7 +4,7 @@ Version `1`. Base path `/api/v1`. Every change since the first release is
 additive - new endpoints, new optional fields - so the version has not moved
 and a client built against the original `/bundle` keeps working unchanged.
 A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
-thirteen of its methods so far: «v2: the contract», at the end of this page.
+twenty-eight of its methods so far: «v2: the contract», at the end of this page.
 
 There is no user account and no password. A device holds a bearer token; a
 device that has been **linked** to a Telegram account through the bot acts
@@ -1596,15 +1596,16 @@ Postgres, which has been checked on SQLite only. Nothing here has been asked of 
 
 ## v2: the contract
 
-**Served beside v1, thirteen methods so far.** Everything above this section is v1, and v1 is
-unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository, checked by
-Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+**Served beside v1, twenty-eight methods so far.** Everything above this section is v1, and v1
+is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository, checked
+by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
 [the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
 ([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
-Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a),
-and `ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
-methods (3b-1). Every other method answers `UNIMPLEMENTED` until its stage, before it asks
-for any credential. No APK calls v2 yet. The proto files are
+Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+`ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1); and the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2). Every other method answers `UNIMPLEMENTED` until its
+stage, before it asks for any credential. No APK calls v2 yet. The proto files are
 the reference: every service, method, message and field there carries the comment that says
 what it means and what v1 sent in its place. This section says only what a file cannot.
 
@@ -1670,8 +1671,9 @@ unaffected.
   `etag` sends it as `ETag`. `GetScheduleWindow`'s tag is a strong SHA-256 of the window's
   canonical JSON without `generatedAt`, and its answer carries an `ETag` and no
   `Cache-Control`, as v1's `/bundle` does. `Cache-Control: private, no-store` goes on every
-  diary `GET`, on `GetCalendarFeed` (its answer is a secret URL) and on `CreateDevice` (its
-  answer is a device token).
+  diary `GET`, on `GetCalendarFeed` (its answer is a secret URL), on `GetClass` and
+  `UpdateClass` (their answer is the class card, whose join code admits a phone) and on
+  `CreateDevice` (its answer is a device token).
 - **No CORS header**, on any answer: v2 answers apps, not pages on other sites.
 - **A failure to write an answer** is Google's `INTERNAL` body like any other refusal, never
   plain text.
@@ -1690,7 +1692,15 @@ unaffected.
   `VALIDATION_FAILED` on `update_mask`, and the refusal does not repeat it. Without a mask, or
   with an empty one, the fields the request sets change and no other, which is what v1's
   `PATCH` did. The fields apply in the method's own order, whatever the mask's: `UpdateSubject`
-  renames before it sets anything else, because the rename is what can be refused.
+  renames before it sets anything else, because the rename is what can be refused, and
+  `UpdateBellSchedule` renames, then replaces the rows, then moves the default, so that
+  `silenced_lessons` counts once what the request stopped ringing. `UpdateClass` refuses
+  `join_mode` masked and left `JOIN_MODE_UNSPECIFIED`, on `school_class.join_mode`: a class is
+  never opened or closed by a field nobody filled in.
+- **A preview.** `ImportTimetable` with `validate_only` writes nothing, whatever `replace`
+  says, and answers what the bot shows before «Применить»: `applied` false, the weekdays, the
+  lessons the paste holds, the bells, the conflicts, and the lines the parser could not read.
+  A lesson with no bell to ring it is found only when the paste is applied.
 - **A mask's paths in JSON** (over REST, in the query or the body, and over Connect's JSON) are
   lowerCamelCase: `shortName`, `isDefault`. That is proto3's JSON mapping, and the server turns
   them into the proto names. A path written `short_name` in JSON is refused as
