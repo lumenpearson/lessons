@@ -36,6 +36,7 @@ from app.services import join, window
 from app.services.manage import bells as bells_service
 from app.services.manage import devices as devices_service
 from app.services.manage import subjects as subjects_service
+from app.services.manage import timetable as timetable_service
 
 log = logging.getLogger(__name__)
 
@@ -210,6 +211,14 @@ def _bell_schedule_in_use(error: bells_service.ScheduleInUse) -> Refusal:
     )
 
 
+def _timetable_paste_empty(_error: timetable_service.PasteEmpty) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.TIMETABLE_PASTE_EMPTY_DETAIL,
+        violations=[("text", wording.TIMETABLE_PASTE_EMPTY_DETAIL)],
+    )
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -229,6 +238,7 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     bells_service.DefaultRequired: _bell_default_required,
     bells_service.ScheduleIsDefault: _bell_schedule_is_default,
     bells_service.ScheduleInUse: _bell_schedule_in_use,
+    timetable_service.PasteEmpty: _timetable_paste_empty,
 }
 
 
