@@ -46,11 +46,13 @@ async def test_native_grpc_over_http_1_1_is_refused_before_the_library(v2) -> No
         assert response.text == GRPC_REFUSED
 
 
-async def test_grpc_web_is_not_native_grpc(v2) -> None:
+async def test_grpc_web_is_not_native_grpc(v2, unserved) -> None:
     """gRPC-Web runs over HTTP/1.1, and ``connectrpc`` serves it: the guard
-    must not take ``application/grpc-web…`` for ``application/grpc…``."""
+    must not take ``application/grpc-web…`` for ``application/grpc…``. The
+    method has no handler (``unserved``), so the library's answer is its
+    UNIMPLEMENTED, whichever methods a stage serves."""
     response = await v2.http.post(
-        "/api/rpc/lessons.v2.ClassService/GetClass",
+        f"/api/rpc/{unserved}",
         content=b"\x00\x00\x00\x00\x00",
         headers={"Content-Type": "application/grpc-web+proto"},
     )
@@ -58,10 +60,12 @@ async def test_grpc_web_is_not_native_grpc(v2) -> None:
     assert b"grpc-status: 12" in response.content
 
 
-async def test_native_grpc_over_http_2_reaches_the_library() -> None:
+async def test_native_grpc_over_http_2_reaches_the_library(unserved) -> None:
     """On the host target, over HTTP/2 with trailers, the guard steps aside
     (3c serves it). Asked of the app directly, with the scope an HTTP/2 server
-    would build, because httpx's ASGI transport speaks only HTTP/1.1."""
+    would build, because httpx's ASGI transport speaks only HTTP/1.1. The
+    method has no handler (``unserved``), so the library's answer is its
+    UNIMPLEMENTED, whichever methods a stage serves."""
     sent: list[dict] = []
     body = [{"type": "http.request", "body": b"\x00\x00\x00\x00\x00", "more_body": False}]
 
@@ -76,7 +80,7 @@ async def test_native_grpc_over_http_2_reaches_the_library() -> None:
         "http_version": "2",
         "method": "POST",
         "scheme": "http",
-        "path": "/lessons.v2.ClassService/GetClass",
+        "path": f"/{unserved}",
         "root_path": "",
         "query_string": b"",
         "headers": [(b"content-type", b"application/grpc"), (b"te", b"trailers")],

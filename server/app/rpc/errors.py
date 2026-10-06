@@ -34,6 +34,7 @@ from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.services import diary as diary_service
 from app.services import join, window
 from app.services.manage import bells as bells_service
+from app.services.manage import classes as classes_service
 from app.services.manage import devices as devices_service
 from app.services.manage import subjects as subjects_service
 from app.services.manage import timetable as timetable_service
@@ -50,6 +51,11 @@ INTERNAL_MESSAGE = "The server failed to answer this request"
 #: The sentence an undecodable request answers with, on both transports. It
 #: names no value on purpose: the decoder's own message quotes what was sent.
 UNDECODABLE_MESSAGE = "The request could not be decoded"
+
+#: ``DeleteClass``'s refusal of a name typed back that is not the class's. v1
+#: names its own field, ``confirm_name``, which v2 does not have, so this is
+#: v2's sentence: it names the field and never what was typed.
+CONFIRMATION_MISMATCH = "confirmation does not match the class name"
 
 #: Each reason's canonical code, as the comment beside it in ``errors.proto``
 #: begins. ``test_rpc_errors.py`` reads the file and holds the two level.
@@ -219,6 +225,22 @@ def _timetable_paste_empty(_error: timetable_service.PasteEmpty) -> Refusal:
     )
 
 
+def _unknown_timezone(_error: classes_service.UnknownTimezone) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.UNKNOWN_TIMEZONE_DETAIL,
+        violations=[("school_class.timezone", wording.UNKNOWN_TIMEZONE_DETAIL)],
+    )
+
+
+def _class_name_mismatch(_error: classes_service.NameMismatch) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        CONFIRMATION_MISMATCH,
+        violations=[("confirmation", CONFIRMATION_MISMATCH)],
+    )
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -239,6 +261,8 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     bells_service.ScheduleIsDefault: _bell_schedule_is_default,
     bells_service.ScheduleInUse: _bell_schedule_in_use,
     timetable_service.PasteEmpty: _timetable_paste_empty,
+    classes_service.UnknownTimezone: _unknown_timezone,
+    classes_service.NameMismatch: _class_name_mismatch,
 }
 
 

@@ -84,13 +84,19 @@ CREATED = frozenset(
 NO_STORE = "private, no-store"
 
 #: Reads outside the diary that are as private: the class's calendar
-#: subscription URL is a secret, and a shared cache must not keep it.
-NO_STORE_ALSO = frozenset({"lessons.v2.MeService/GetCalendarFeed"})
+#: subscription URL is a secret, and so is the class card's join code, which
+#: admits a phone to an open class; a shared cache must keep neither.
+NO_STORE_ALSO = frozenset(
+    {"lessons.v2.MeService/GetCalendarFeed", "lessons.v2.ClassService/GetClass"}
+)
 
-#: Writes whose *answer* is a credential: the token a phone will use for good.
-#: Nobody asked a cache to keep a POST, but the answer says so anyway, as
-#: defence in depth. 3b adds ``CreateDiarySession`` here.
-NO_STORE_CREDENTIAL = frozenset({"lessons.v2.DeviceService/CreateDevice"})
+#: Writes whose *answer* is a credential: the token a phone will use for good,
+#: and the class card ``UpdateClass`` answers with, join code included. Nobody
+#: asked a cache to keep a POST or a PATCH, but the answer says so anyway, as
+#: defence in depth. 3b-7 adds ``CreateDiarySession`` here.
+NO_STORE_CREDENTIAL = frozenset(
+    {"lessons.v2.DeviceService/CreateDevice", "lessons.v2.ClassService/UpdateClass"}
+)
 
 #: Connect's own limit on a request message, so the two transports refuse the
 #: same size with the same words.

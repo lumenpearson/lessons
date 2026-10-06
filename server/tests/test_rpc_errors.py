@@ -27,6 +27,7 @@ from app.schemas import BellScheduleIn, JoinRequest, SubjectIn
 from app.services import diary as diary_service
 from app.services import join, window
 from app.services.manage import bells as bells_service
+from app.services.manage import classes as classes_service
 from app.services.manage import devices as devices_service
 from app.services.manage import subjects as subjects_service
 from app.services.manage import timetable as timetable_service
@@ -120,6 +121,14 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     timetable_service.PasteEmpty: (
         "test_v2_timetable.py",
         "test_a_paste_with_no_day_in_it_is_refused_on_its_text",
+    ),
+    classes_service.UnknownTimezone: (
+        "test_v2_class.py",
+        "test_an_unknown_zone_is_refused_on_its_field_in_v1_s_words",
+    ),
+    classes_service.NameMismatch: (
+        "test_v2_class.py",
+        "test_a_confirmation_that_is_not_the_name_is_refused_on_its_field",
     ),
     # The gate raises it for a diary method, and none is served before 3b-7:
     # test_rpc_gate.py holds the gate raising it until then.
