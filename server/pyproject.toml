@@ -4,14 +4,14 @@ version = "0.1.0"
 description = "API + Telegram admin bot for the Lessons school diary app"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.141.1",
+    "fastapi>=0.142.2",
     "uvicorn[standard]>=0.30",
     # 3.31 is the floor, not a preference: it is the first release to carry
     # Bot API 9.3's ``InlineKeyboardButton.style``, and on anything older every
     # coloured keyboard in ``app/bot/button_style.py`` raises at construction
     # rather than quietly drawing grey. requirements.txt already said 3.31.
     "aiogram>=3.31.0",
-    "sqlalchemy[asyncio]>=2.1.1",
+    "sqlalchemy[asyncio]>=2.1.2",
     "aiosqlite>=0.20",
     "asyncpg>=0.31.0",
     "pydantic>=2.13.5",
@@ -50,7 +50,7 @@ dependencies = [
     # hashed — the diary's upstream session token (see app/crypto.py). It was
     # already present as somebody's transitive dependency; a security floor is
     # not something to inherit by accident.
-    "cryptography>=50.0.1",
+    "cryptography>=50.0.2",
     # The v2 contract's runtime (docs/specs/2026-10-04-contract-v2-design.md,
     # decision 2). The code generated into app/contract imports protobuf-py's
     # `protobuf` package, and its services import `connectrpc`; each floor is the

@@ -28,6 +28,171 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the deployment says when it is broken — monitoring (#349, #120)
+
+Merged as #359 (`55314b6`, 6 October 2026), from `monitoring`, on milestone 12. It closes #349,
+#358, #360 and #361, and refers to #120, #127 and #269. The branch was cut at `8035e54`, the head of
+#356, before #356 merged — the session could not merge it, and the owner did — and `main` was
+merged into it at `0b19609` once #356 had merged as `089accf`. It carries 16 commits after
+`089accf` before this close-out, to `7218ee2`. CI then failed on one test, filed as #361 and
+fixed in `5052df1`, after the close-out's first commit (`4b0cd19`). Written on 6 October 2026, after #356 merged.
+The schema head moved from `0018` to `0019`, which the session applied through the Neon
+connector to the branch `preview` at 15:35 UTC on 6 October 2026 and to production at
+16:28 UTC, both before the merge. This is `docs/specs/2026-10-05-monitoring-design.md`,
+built by the plan beside it, `docs/specs/2026-10-06-monitoring-plan.md`.
+
+- **Every cron tick runs a self-check** (`services/health.py`) after the digests and the
+  sweeps and before the diary keep-alive, because the keep-alive goes through the diary's
+  proxy and can hold the request to its own hard stop when the proxy hangs. It asks four
+  things: the schema, v2, the diary's proxy, and whether production runs `main`'s head. Each
+  says `ok`, `failing` or `unknown`, and `health_checks` (revision `0019`) keeps what it said
+  last.
+  - The owner, every `OWNER_IDS` account, is written to when a check starts failing, when it
+    comes back with how long it was down, and every six hours while it stays failing; never
+    once per tick, and never for `unknown`. The rule is one pure function, `decide`.
+  - An alert is claimed by a compare-and-set, so two ticks tell once, and a claim nobody
+    received is given back.
+  - It runs in its own guard, and a failed self-check rolls the session back so the
+    keep-alive still runs. The tick's body is otherwise unchanged.
+  - The self-check stops at 28 seconds of the request, and its checks stop five seconds
+    before that, so an alert always has time to go out. A check the tick cut short that times
+    out reads `unknown`, never a false alarm.
+- **The schema check** reads a database ahead of the code — the window a revision applied
+  before its merge opens — as `ok`, as `/api/v1/warmup` reads it, and behind as `failing`
+  (#360).
+- **The `deploy` check is #349's cure.** It reads `main`'s head from GitHub with an `ETag`
+  held in the process, and production's commit from Vercel's system variables, which
+  `config.deployment()` reads from the environment alone.
+  - With the optional `GITHUB_READ_TOKEN`, a fine-grained read-only token, the request is
+    authorized and its `304`s are free.
+  - Without it GitHub is asked anonymously, and an anonymous `304` counts against the sixty an
+    hour (the Task 4 review read GitHub's documentation).
+  - A refusal is `unknown`, never `failing`. It names the setting when the token is missing,
+    and says «the token was refused» when one was sent.
+- **A neutral sender**, `app/telegram_send.py`: `build_bot`, `close_bot` and `send`, which
+  never raises. The tick and v1's two notice seams build through it, and `app.bot.bot`
+  imports `build_bot` back. 3b-3 reuses it, and the 3b plan says so now.
+- **Sentry**, where `SENTRY_DSN` is set and nowhere else (`app/observability.py`).
+  - Each error goes with its type, its stack, its route template, the commit and
+    `VERCEL_ENV`, and 5 % of requests go as a route and a duration.
+  - Two hooks rebuild every event from a list of what may leave, and a request carrying a
+    diary token and a child's name leaves with neither (152-ФЗ).
+  - Release-health sessions and client reports are off, and a caller cannot force the sample.
+  - Without the setting nothing of Sentry is imported. A malformed `SENTRY_DSN` is announced
+    as off and never stops the start.
+- **«📊 Проект» in the bot**, `/project` and `/health`, and a button on «⚙️ Класс», for an
+  `OWNER_IDS` account alone. To anybody else they answer as an unknown command. It reads
+  and writes nothing.
+- **The external clock's documents**: `docs/deploy.md` says the owner set up cron-job.org on
+  5 October, names its failure email, after three failures in a row, as the one alarm for a
+  server that is down, and lists the dashboards.
+- **Three defects, each filed before its fix**:
+  - #358: `test_client_version_revision.py` pinned the head to `0018`. It asks for `0018`'s
+    own place in the chain now.
+  - #360: the schema check's alarm in the window above, found by the whole-branch review.
+  - #361: `test_project_screen.py`'s helper read the clock a second time for the instance's
+    start, so the screen said «Экземпляр жив: 11 мин» for twelve wherever consecutive
+    readings differ. That is CI's Linux, every run, and never this Windows machine, where
+    99,957 of 99,999 consecutive readings were equal. It failed CI on `4cb751a` and on
+    `4b0cd19`, unseen the first time because the machine went down; every local run passed.
+    The helper reads the clock once now.
+- **The whole-branch review answered «with fixes»**, with no Critical finding, and two commits
+  made them (`4fe6f3d`, `c12daa8`; `7218ee2` then counted the tests):
+  - #360;
+  - a «🟢» that a tick had no time to send now clears its claim, instead of being sent later
+    with the wrong downtime;
+  - `send` keeps what it delivered when closing the bot raises;
+  - an expired `GITHUB_READ_TOKEN` says so;
+  - `0019`'s own test no longer pins the head a second time;
+  - the Sentry SDK's import is inside the start's guard;
+  - the docstrings say where the self-check runs.
+
+  The machine went down during that fix's first full run, at 39 %, and the session after it
+  checked the tree for zero-filled files, found none, reviewed the uncommitted fix, ran each
+  new test red against the code before it, and then committed it.
+
+### Gates
+
+All at `7218ee2`, the head before this close-out. CI runs on the head the merge is made from,
+and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
+- **mypy**: no issues found in 228 source files.
+- **The server suite.** `pytest -q -n 4`, run alone from `server/`, gave **2712 passed** in
+  1583 s (26 min 23 s). It used four workers rather than `-n auto`, to spare the machine's faulty RAM.
+  The seven places the `handover` skill names say 2712.
+- **The contract** was not run: nothing under `proto/`, `buf.*` or `server/app/contract/`
+  changed.
+- **CI on the head** is read before the merge.
+- **After the close-out**, `5052df1` changed one test helper and nothing else. On it,
+  `test_project_screen.py` with `test_bot_commands.py` gave 126 passed, and
+  `test_project_screen.py` under a clock that moves a microsecond per call gave 7 passed,
+  where it failed before the change; ruff is clean.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
+  before.
+
+### What was deliberately left alone
+
+- **v1's `_tell` helpers**, for 3b-3, which reuses `telegram_send`.
+- **v2's own `INTERNAL` answers** reach no Sentry: `invoke` turns the exception into a
+  `ConnectError` before any integration sees it.
+- **The exceptions the tick catches and logs itself** — the keep-alive's and the self-check's
+  — are logged and not sent to Sentry; the logging integration is off on purpose.
+- **A send that times out after one owner got the alert** gives the claim back, so that owner
+  can get it twice on the next tick (T4-m6, accepted).
+- **A recovery during two ticks at once can go untold.** A tick with no time left clears the
+  «up» it cannot send, and a tick overlapping it that could have sent it then finds the claim
+  gone and stays silent. A recovery that does not get through is logged and not repeated
+  either way; found by the final fix's review, and accepted.
+- **Request counting in the database**, which the design rules out: the request graphs are
+  Vercel's and Sentry's.
+- **#120's `DADATA_TOKEN` half**, which is the owner's.
+
+### What nobody has verified in this batch
+
+- **The self-check in production** until the post-merge read, and a real alert in the
+  owner's chat.
+- **Anything of it on Postgres**: the claim's compare-and-set on `last_alert_at`, the two
+  catalogue queries of «📊 Проект», and the screen itself.
+- **Two ticks at once**: they are tested in sequence, not concurrently.
+- **Vercel's system variables reaching the function**, and `VERCEL_REGION` at runtime.
+- **An event reaching Sentry.** The DSN is set, for Production, by the owner on 6 October.
+  Nobody has seen an event arrive, or knows whether the SDK's background transport sends
+  before a frozen Vercel instance is reaped: nothing flushes after a request (T6-w1). If the
+  owner's first real error never shows in Sentry, a bounded `flush` is the remedy.
+
+### After #356's merge: stage 3b-2 in production, and what followed
+
+None of this is code in #359, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 6 October 2026.
+
+- **The merge, by the owner.** #356 merged as `089accf` at 10:40:19 UTC on 6 October 2026,
+  from `server-v2/3b-2` at head `8035e54`. It closed #353.
+  - The session ran the five checks at 08:39 UTC: CI green on `8035e54` (Server, Contract, the
+    Vercel preview; Android skipped), `mergeable_state` clean, the gates local, milestone 11,
+    no review.
+  - Its merge call was refused by Claude Code's auto-mode permission classifier, and the
+    owner merged it by hand.
+- **Vercel deployed it by itself**: the production deployment of `089accf` was created at
+  10:40:22 UTC, three seconds after the merge. #349 did not recur.
+- **Production read at 11:55 UTC:**
+  - `/api/v1/warmup` answered `status` `ok`, `api_version` 1, `schema` `0018`, `v2` `true`;
+  - REST `/api/v2/class`, `/class/bellSchedules`, `/class/timetable` and `/class/terms`
+    without a token answered `401` in Google's body, with `DEVICE_TOKEN_INVALID`;
+  - Connect `BellService/ListBellSchedules` answered `401` `unauthenticated`;
+  - `/api/v1/health` answered `200`.
+
+  Before the merge, at 08:13 UTC, the same four REST paths and the Connect call answered
+  `501`.
+- **What the owner did and decided on 6 October:**
+  - answered the plan's four questions: close #349 with #359; the GitHub token left to the
+    session, which added it; Sentry for Production only; cron-job.org's failure email after
+    three failures in a row;
+  - set `SENTRY_DSN` in Vercel for Production, and `GITHUB_READ_TOKEN` for Production, Preview
+    and Development, read back by the session as keys, never values;
+  - gave a standing yes to every additive, non-cascading revision, `0019` among them, and
+    kept a conversation for the destructive or cascading ones.
+
 ## What the batch before added: bells, the timetable and the class over v2 — stage 3b-2 of sub-project 3 (#273)
 
 Merged as #356 (`089accf`, 6 October 2026), from `server-v2/3b-2`, on milestone 11. It closes
@@ -6454,6 +6619,19 @@ section 5 carries a narrower one. As it stood until then:
   - two ticks at once, which are tested in sequence only;
   - Vercel's system variables reaching the function, without which the `deploy` check stays
     ❔ and says so;
+  - an event reaching Sentry, and whether the SDK sends it before a frozen instance is reaped.
+
+Later the same evening a check failed for real, the owner got its alerts and recoveries,
+and a transaction reached Sentry («After #363's merge», in the section on #366, in
+`HANDOVER.md` or, once it has moved, here). So the bullet below lost two more items, and
+`HANDOVER.md`'s section 5 carries a narrower one. As it stood until then:
+
+- **The monitoring of #359 has been seen working in production, and never failing.** Its four
+  checks read `ok` on the first tick, and «📊 Проект» drew on the owner's screen («After #359's
+  merge», in the section on #363). Still unseen:
+  - a real alert in the owner's chat, which needs a check to fail;
+  - the claim on an alert on Postgres, and two ticks at once, which are tested in sequence
+    only;
   - an event reaching Sentry, and whether the SDK sends it before a frozen instance is reaped.
 
 ## Moved out of section 7 on 6 October 2026
