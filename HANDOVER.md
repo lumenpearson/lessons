@@ -14,15 +14,16 @@ Last updated: **6 October 2026**. **PRs #63 through #85, #128, #129, #133, #134,
 to 6 are approved and on `main`**: the owner answered every question with its recommendation
 on 5 October (#301, #306, #307, #308). **Four pull requests are open. One is #359, the one
 carrying this paragraph**, from `monitoring`, on milestone 12, `v1.0.0 — A build somebody else
-can install`, which closes #349, #358 and #360 and refers to #120, #127 and #269: every cron
+can install`, which closes #349, #358, #360 and #361 and refers to #120, #127 and #269: every cron
 tick checks the deployment and tells the owner in Telegram when something breaks, Sentry
 receives the errors, and the bot gains «📊 Проект». The other three are dependabot's #344
 (`cryptography` 50.0.2), #345 (the `sqlalchemy[asyncio]` floor at 2.1.2) and #346 (`fastapi`
 0.142.2), left for a batch of their own. #356 closed #353 at its merge. **The schema head moved
 to `0019`**: it was applied before the merge to the Neon branch `preview` at 15:35 UTC and to
 production at 16:28 UTC on 6 October, and `EXPECTED_REVISION` moved with it. The issues
-filed since #356 merged are #358 (the test of `0018` pinning the head) and #360 (the schema
-check's alarm while a revision goes on before its merge), both closed by #359. #352, #354,
+filed since #356 merged are #358 (the test of `0018` pinning the head), #360 (the schema
+check's alarm while a revision goes on before its merge) and #361 (a test of «📊 Проект» that
+reads the clock twice and failed CI on Linux), all three closed by #359. #352, #354,
 #355 and #357 stay open, as #356's close-out left them. #118, what Preview is for, was closed
 by #350.
 
@@ -165,10 +166,11 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
 ## What the last session added: the deployment says when it is broken — monitoring (#349, #120)
 
 Open as #359, from `monitoring` to `main`, on milestone 12, and on project 6. It closes #349,
-#358 and #360, and refers to #120, #127 and #269. The branch was cut at `8035e54`, the head of
+#358, #360 and #361, and refers to #120, #127 and #269. The branch was cut at `8035e54`, the head of
 #356, before #356 merged — the session could not merge it, and the owner did — and `main` was
 merged into it at `0b19609` once #356 had merged as `089accf`. It carries 16 commits after
-`089accf` before this close-out, to `7218ee2`. Written on 6 October 2026, after #356 merged.
+`089accf` before this close-out, to `7218ee2`. CI then failed on one test, filed as #361 and
+fixed in `5052df1`, after the close-out's first commit (`4b0cd19`). Written on 6 October 2026, after #356 merged.
 The schema head moved from `0018` to `0019`, which the session applied through the Neon
 connector to the branch `preview` at 15:35 UTC on 6 October 2026 and to production at
 16:28 UTC, both before the merge. This is `docs/specs/2026-10-05-monitoring-design.md`,
@@ -219,10 +221,16 @@ built by the plan beside it, `docs/specs/2026-10-06-monitoring-plan.md`.
 - **The external clock's documents**: `docs/deploy.md` says the owner set up cron-job.org on
   5 October, names its failure email, after three failures in a row, as the one alarm for a
   server that is down, and lists the dashboards.
-- **Two defects, each filed before its fix**:
+- **Three defects, each filed before its fix**:
   - #358: `test_client_version_revision.py` pinned the head to `0018`. It asks for `0018`'s
     own place in the chain now.
   - #360: the schema check's alarm in the window above, found by the whole-branch review.
+  - #361: `test_project_screen.py`'s helper read the clock a second time for the instance's
+    start, so the screen said «Экземпляр жив: 11 мин» for twelve wherever consecutive
+    readings differ. That is CI's Linux, every run, and never this Windows machine, where
+    99,957 of 99,999 consecutive readings were equal. It failed CI on `4cb751a` and on
+    `4b0cd19`, unseen the first time because the machine went down; every local run passed.
+    The helper reads the clock once now.
 - **The whole-branch review answered «with fixes»**, with no Critical finding, and two commits
   made them (`4fe6f3d`, `c12daa8`; `7218ee2` then counted the tests):
   - #360;
@@ -251,6 +259,10 @@ and the merge waits for it to be green.
 - **The contract** was not run: nothing under `proto/`, `buf.*` or `server/app/contract/`
   changed.
 - **CI on the head** is read before the merge.
+- **After the close-out**, `5052df1` changed one test helper and nothing else. On it,
+  `test_project_screen.py` with `test_bot_commands.py` gave 126 passed, and
+  `test_project_screen.py` under a clock that moves a microsecond per call gave 7 passed,
+  where it failed before the change; ruff is clean.
 - **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
   before.
 
@@ -463,7 +475,7 @@ maps them. The
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
 | 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333 (merged) and #359 (open); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333 (merged) and #359 (open); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360, #361 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
