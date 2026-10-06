@@ -189,6 +189,8 @@ async def test_a_term_the_year_cannot_hold_is_refused_in_the_service_s_words(
         (1, f"{year}-09-01", f"{year}-12-01", "ересекается"),
         # Past 31 May, into the summer.
         (4, f"{year + 1}-04-01", f"{year + 1}-06-20", "учебный год"),
+        # An end before the start, which is checked before any neighbour.
+        (1, f"{year}-10-20", f"{year}-10-01", "раньше"),
         # A term the year does not have.
         (9, f"{year}-09-01", f"{year}-09-10", "Такого периода нет"),
     ):

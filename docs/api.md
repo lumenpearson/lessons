@@ -1696,7 +1696,10 @@ unaffected.
   `UpdateBellSchedule` renames, then replaces the rows, then moves the default, so that
   `silenced_lessons` counts once what the request stopped ringing. `UpdateClass` refuses
   `join_mode` masked and left `JOIN_MODE_UNSPECIFIED`, on `school_class.join_mode`: a class is
-  never opened or closed by a field nobody filled in.
+  never opened or closed by a field nobody filled in. Send a mask: an update without one
+  changes every field it carries, so a class card read and sent back whole names the class (its
+  name is no longer recomposed from the grade and the letter), writes an audit line for every
+  field it carries, and pins a timezone the class never stored to the one the card printed.
 - **A preview.** `ImportTimetable` with `validate_only` writes nothing, whatever `replace`
   says, and answers what the bot shows before «Применить»: `applied` false, the weekdays, the
   lessons the paste holds, the bells, the conflicts, and the lines the parser could not read.

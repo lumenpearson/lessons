@@ -321,6 +321,43 @@ async def test_masked_rows_left_out_are_refused_rather_than_emptied(
     assert await _indexes(session, default_id) == [1, 2, 3, 4, 5, 6, 7]
 
 
+async def test_masked_rows_that_repeat_a_lesson_number_are_refused_on_the_schedule(
+    v2, v2_tokens, session, school_class
+) -> None:
+    """The rule of the whole schedule names the schedule itself, as the create
+    does (Ruling 28), and the rows the class has stay as they were."""
+    admin = v2_tokens["admin"]
+    default_id = school_class.bell_schedule_id
+    twice = [
+        BellPeriod(index=1, starts_at="09:00", ends_at="09:40"),
+        BellPeriod(index=1, starts_at="10:00", ends_at="10:40"),
+    ]
+    v1 = await v2.http.put(
+        f"/api/v1/manage/bells/{default_id}/periods",
+        json={
+            "periods": [
+                {"index": 1, "starts_at": "09:00", "ends_at": "09:40"},
+                {"index": 1, "starts_at": "10:00", "ends_at": "10:40"},
+            ]
+        },
+        headers=_auth(admin),
+    )
+    answer = await v2.both(
+        "BellService/UpdateBellSchedule",
+        _update(BellSchedule(id=default_id, periods=twice), "periods"),
+        token=admin,
+    )
+    assert (answer.status, answer.code, answer.reason) == (
+        400,
+        "INVALID_ARGUMENT",
+        "VALIDATION_FAILED",
+    )
+    assert [field for field, _ in answer.violations] == ["schedule"]
+    assert v1.status_code == 422
+    assert await _indexes(session, default_id) == [1, 2, 3, 4, 5, 6, 7]
+    assert await _actions(session) == []
+
+
 async def test_a_mask_naming_a_field_the_method_does_not_change_is_refused_on_it(
     v2, v2_tokens, session, school_class
 ) -> None:

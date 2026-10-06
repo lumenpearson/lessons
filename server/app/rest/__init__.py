@@ -31,9 +31,11 @@ sentence that quotes what was sent.
 **Answering**: ``201`` for the eight methods whose proto comment promises it
 (:data:`CREATED`), ``200`` for every other success, with the response as
 canonical JSON; ``304`` and no body when the response says ``not_modified``;
-its ``etag`` as ``ETag``; diary reads ``Cache-Control: private, no-store``;
-no CORS header at all (question 5). A refusal is Google's error body
-(``rest/errors.py``).
+its ``etag`` as ``ETag``; ``Cache-Control: private, no-store`` on diary reads, on
+``GetCalendarFeed`` and the class card (:data:`NO_STORE_ALSO`) and on the answers that
+carry a credential (:data:`NO_STORE_CREDENTIAL`) — this transcoder's header, which
+Connect's answers do not carry yet (#357); no CORS header at all (question 5). A refusal is
+Google's error body (``rest/errors.py``).
 """
 
 from __future__ import annotations
