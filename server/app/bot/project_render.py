@@ -34,10 +34,12 @@ CHECK_TITLES = {
 ICONS = {OK: "✅", FAILING: "🔴", UNKNOWN: "❔"}
 
 #: The dashboards, by name and never by link: a link names the owner's
-#: accounts, and ``docs/deploy.md`` keeps them.
+#: accounts, and ``docs/deploy.md`` keeps them. The path is in ``<code>``
+#: because Telegram links a bare ``name.tld`` by itself, and ``.md`` is a
+#: country's domain: bare, «deploy.md» was a link to a stranger's site (#362).
 GRAPHS = (
     "Vercel → Observability (запросы, ошибки, время по маршрутам), "
-    "Sentry → Issues и Performance, Neon → Monitoring. Ссылки — в docs/deploy.md."
+    "Sentry → Issues и Performance, Neon → Monitoring. Ссылки — в <code>docs/deploy.md</code>."
 )
 
 
