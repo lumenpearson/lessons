@@ -2,12 +2,15 @@
 
 Granting is :func:`app.services.access.approve_request`, which both shells
 already shared; this is the rest of what they wrote twice - finding a request
-that is still open, and saying no - and what only the bot does, because only
+that is still open, answering yes with the role sent or the one asked for
+(:func:`approve`, which v1's router held and v2's ``ApproveAccessRequest``
+applies too), and saying no - and what only the bot does, because only
 Telegram can be asked in: raising a request, and finding who to tell.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from html import escape
 
@@ -15,7 +18,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AccessRequest, BotUser, Role, SchoolClass
-from app.services import audit
+from app.services import access, audit
+from app.services.manage import classes
 
 #: The note a requester may leave, in characters; the column is as wide.
 NOTE_MAX = 300
@@ -88,6 +92,54 @@ async def pending_one(
             AccessRequest.class_id == class_id,
             AccessRequest.status == "pending",
         )
+    )
+
+
+@dataclass(frozen=True)
+class Approval:
+    """What answering yes did."""
+
+    #: The membership as it now stands: made, raised, or left where it was,
+    #: because an existing member is never lowered.
+    member: BotUser
+    #: The role the request was answered with: the one sent, else the one asked for.
+    granted: Role
+    #: The member as an admin reads them (``classes.display_name``).
+    who: str
+
+
+async def approve(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    request: AccessRequest,
+    *,
+    actor_id: int,
+    actor_role: Role,
+    role: Role | None = None,
+) -> Approval:
+    """Answer yes with ``role``, or with the role asked for when none is sent.
+
+    v1 and v2 let an admin answer with another role than the one asked for;
+    the bot always grants the one asked for. Either way it goes through the
+    ladder :func:`app.services.access.approve_request` holds. Nothing is
+    committed: the caller commits the grant with its audit line, and only then
+    tells whoever asked.
+
+    @raises app.services.access.GrantRefused when the ladder does not allow it.
+    """
+    granted = role if role is not None else request.requested_role
+    member = await access.approve_request(
+        session,
+        school_class,
+        request,
+        actor_id=actor_id,
+        actor_role=actor_role,
+        role=granted,
+    )
+    return Approval(
+        member=member,
+        granted=granted,
+        who=classes.display_name(member.full_name, member.username, member.telegram_id),
     )
 
 

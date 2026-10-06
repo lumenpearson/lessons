@@ -1,7 +1,10 @@
 """``/requests``: the access requests waiting for an admin, and the answer.
 
 Part of :mod:`app.api.manage`; the rules every endpoint of it
-follows are in that package's docstring.
+follows are in that package's docstring. Answering yes is
+``services/manage/requests.approve``, which v2's ``ApproveAccessRequest``
+applies too, and the sentences the refusals answer with are
+``app/wording.py``'s.
 """
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.api.deps import current_class
 from app.api.manage._common import Actor, admin_actor
 from app.api.routing import DishkaAnnotatedRoute
@@ -73,7 +77,9 @@ async def _request_or_404(
     at once cannot grant twice."""
     request = await requests_service.pending_one(session, school_class.id, request_id)
     if request is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown request")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_ACCESS_REQUEST_DETAIL
+        )
     return request
 
 
@@ -111,35 +117,35 @@ async def request_approve(
     """Grant the role, through the same rules as «👥 Доступ» in the bot.
 
     Literally the same rules: `services/access.approve_request` is what the
-    bot's own «✅ Выдать» calls, so the two surfaces cannot drift apart. The
-    only thing this one does differently is let an admin answer with a role
-    other than the one asked for - which `can_grant` still gates, inside the
-    service.
+    bot's own «✅ Выдать» calls, so the two surfaces cannot drift apart, and
+    `services/manage/requests.approve` around it is what v2's
+    `ApproveAccessRequest` calls. The only thing this one does differently
+    from the bot is let an admin answer with a role other than the one asked
+    for - which `can_grant` still gates, inside the service.
 
     The requester is told in Telegram, because that is where they asked.
     """
     request = await _request_or_404(session, school_class, request_id)
-    target = Role(payload.role) if payload is not None and payload.role else request.requested_role
-
     try:
-        member = await access_service.approve_request(
+        approval = await requests_service.approve(
             session,
             school_class,
             request,
             actor_id=actor.telegram_id,
             actor_role=actor.role,
-            role=target,
+            role=Role(payload.role) if payload is not None and payload.role else None,
         )
     except access_service.GrantRefused as refused:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail=refused.detail
         ) from refused
 
-    who = classes_service.display_name(member.full_name, member.username, member.telegram_id)
     await session.commit()
 
-    await _tell(request.telegram_id, access_service.approval_notice(school_class, target))
-    return RequestDecisionOut(id=request_id, status="approved", role=target.value, who=who)
+    await _tell(request.telegram_id, access_service.approval_notice(school_class, approval.granted))
+    return RequestDecisionOut(
+        id=request_id, status="approved", role=approval.granted.value, who=approval.who
+    )
 
 
 @router.post("/requests/{request_id}/decline", response_model=RequestDecisionOut)

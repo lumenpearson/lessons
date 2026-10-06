@@ -375,3 +375,21 @@ TIMETABLE_PASTE_EMPTY_DETAIL = "no weekday header and no bells block found in th
 #: v1's ``PATCH /manage/class`` and v2's ``UpdateClass``: a zone this
 #: deployment does not offer.
 UNKNOWN_TIMEZONE_DETAIL = "unknown timezone"
+
+
+#: v1's ``/manage/requests`` and v2's ``AccessRequestService``: an id that names
+#: no open request of the class — answered already, another class's, or none.
+UNKNOWN_ACCESS_REQUEST_DETAIL = "Unknown request"
+
+#: Why ``services/access.approve_request`` refused a grant, by the ``why`` its
+#: refusal carries: a role at or above the grantor's own, and a member who is
+#: the grantor's peer or senior. The English is v1's 403 and v2's
+#: ``ROLE_GRANT_REFUSED``; the Russian is the bot's alert on «✅ Выдать».
+GRANT_REFUSED_DETAILS = {
+    "role_too_high": "cannot grant a role at or above your own",
+    "member_senior": "cannot change this member's role",
+}
+GRANT_REFUSED_ALERTS = {
+    "role_too_high": "Нельзя выдать роль выше вашей",
+    "member_senior": "Нельзя менять роль этого пользователя",
+}
