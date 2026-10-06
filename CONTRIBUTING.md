@@ -37,7 +37,7 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 | --- | --- |
 | `ruff check app tests scripts migrations` | lints the server — exactly what CI runs |
 | `python -m mypy` | one question of all 228 modules: does anything reach for an attribute its type does not have? |
-| `pytest -q -n auto` | the server tests, 2712 of them, in about four minutes on CI — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
+| `pytest -q -n auto` | the server tests, 2713 of them, in about four minutes on CI — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
 | `python -m pytest -q tests/test_schedule.py -k parity` | one file, one test |
 | `python -m uvicorn app.main:app --reload` | run the server |
 | `alembic upgrade head` | apply the migrations (with a working `DATABASE_URL`) |
