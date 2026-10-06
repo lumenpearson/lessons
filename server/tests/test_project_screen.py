@@ -43,7 +43,11 @@ def _now() -> datetime:
 
 
 def _stats(**overrides) -> ProjectStats:
-    now = _now()
+    # The test's own `now` when it passes one. Read again here, the clock put
+    # `started_at` a few microseconds after the screen's `now`, and the
+    # renderer's whole minutes said 11 for 12 - on Linux, where consecutive
+    # readings differ, while on Windows they are nearly always equal (#361).
+    now = overrides.get("now") or _now()
     values = dict(
         now=now,
         checks=[],
