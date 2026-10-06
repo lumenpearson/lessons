@@ -38,7 +38,10 @@ class AccessRequest(Message[_AccessRequestFields]):
             int32 id = 1;
             ```
         who:
-            A display name, never the Telegram id.
+            The author as a display name, as v1 shows it: the @username or the name
+            Telegram gave when the author holds a role in the class, else the numeric
+            id, which is what a person still waiting for a role usually is. No field
+            carries the Telegram id as such.
 
             ```proto
             string who = 2;

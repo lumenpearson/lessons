@@ -59,7 +59,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2437 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2621 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -67,7 +67,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 214 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 221 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. A CI step since
   27 September 2026, right after ruff, because the owner asked for it through that day's
@@ -189,9 +189,16 @@ Server modules:
   Russian wording, and a refusal is an exception carrying facts, never a sentence, so each
   shell keeps its own words — «Предмет … уже есть» in a chat, a `409` on the wire. The rules
   v2 shares with v1 live here too: `join.py` (the join flow, refusing with facts),
-  `window.py` (the year's window and its tag), `clock.py` (the class's clock and the date
-  bounds); the limiters are `security.py`'s, one instance each, and the sentences both
-  versions answer with (the join's four, the diary's «disabled») are `app/wording.py`'s.
+  `window.py` (the year's window and its tag), `clock.py` (the class's clock, the date
+  bounds and `wall`, a stored stamp on the class's clock), `manage/classes.py`'s
+  `member_names` and `update` (the card's patch, the name recomposed), `manage/subjects.py`'s
+  `dictionary_of` (the read that adopts nothing) and `update` (the rename-then-details
+  patch), `manage/bells.py`'s `update` (the rename, the rows, then the default),
+  `manage/timetable.py`'s `import_paste` (the parse, the conflicts, and a preview that writes
+  nothing), and `audit.py`'s `older_than` (a page keyed on its last line); the limiters are
+  `security.py`'s, one instance each, and the sentences both versions answer with (the
+  join's four, the diary's «disabled», and the subjects', the devices', the bells', the
+  import's and the zone's refusals) are `app/wording.py`'s.
 - `api/` — `public.py` (the phone's reads and its own writes), `edit.py` (the day-to-day
   writes), `manage/` (running the class, one module per resource over
   `services/manage/`, with `_common.py` holding `Actor` and the one role dependency per
@@ -235,7 +242,8 @@ Server modules:
   method shares: `methods.py` (each method's facts, read from the descriptors), `gate.py`
   (client version, then the bearer, the link and the role), `call.py` (`invoke`: the gate,
   one dishka scope, the handler, the one commit, then the effects), `errors.py` (the one error
-  table) and `handlers.py` (which methods are served). A handler never commits and never
+  table), `masks.py` (one reading of an `update_mask`, AIP-134) and `handlers.py` (which
+  methods are served). A handler never commits and never
   checks a credential; `rpc_app()` mounts the seventeen Connect apps at `/api/rpc`, refusing
   native gRPC over HTTP/1.1 with `415`. May import `services/`, `models`, `schedule`,
   `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry
@@ -474,7 +482,8 @@ points Hilt does not inject cleanly.
   `alembic upgrade head` by hand and this session has no `DATABASE_URL`; the project is the
   one named `lessons` on the Neon MCP server — the account has two, so read the name rather
   than guessing an id, and the id itself stays out of the repository — and `0005` through
-  `0017` were all applied that way. It is not alembic running — it is the revision's DDL executed as one
+  `0018` were all applied that way, `0018` to the Neon branch `preview` first, when its pull
+  request was pushed, and to production before the merge; every revision now goes that way. It is not alembic running — it is the revision's DDL executed as one
   transaction, with `alembic_version` stamped in the same transaction — so three things
   follow. Take the DDL from the model rather than writing it out: `CreateTable(...).compile(
   dialect=postgresql.dialect())` prints exactly what `create_all` would build, which is what
@@ -482,7 +491,7 @@ points Hilt does not inject cleanly.
   a half-applied revision cannot claim to be whole. And say what a revision destroys before
   running it — `0006` deletes every row of `diary_sessions` on purpose, and that is a
   sentence the owner needs *before* the transaction, not after.
-- **Migrations are Alembic and the head is `0017`, on production since 26 September 2026 with `0015` and `0016`, before #140's merge.** `0001` is a guarded
+- **Migrations are Alembic and the head is `0018`, applied before the merge of stage 3b-1 of sub-project 3; `0015` to `0017` were applied on 26 September 2026, before #140's merge.** `0001` is a guarded
   `create_all`, `0002` widens Telegram ids to 64 bits, `0003` adds tasks/reminders/links,
   `0004` adds diary sessions, `0005` adds `bell_schedules.canteen_after_index`, `0006`
   encrypts the diary credential (and **deletes** the existing sessions, on purpose) and adds
@@ -547,6 +556,10 @@ points Hilt does not inject cleanly.
   minutes. Its downgrade is a no-op, and a revert is **not** lossless: after
   any window of older code, run its statements again, or
   `alembic downgrade 0016 && alembic upgrade head`.
+  `0018` adds `device_tokens.client_version`, the app version each phone last sent
+  to v2 (the server-v2 design, decision 15): one nullable integer column, the
+  ordinary additive shape, on **before** the merge. Its downgrade drops the column
+  and with it nothing but the versions.
   Nothing after `0001` may use `create_all`.
   Beware the enum: `SAEnum(SomeStrEnum)` stores the member **name**, so a `server_default`
   written as `.value` is a string the ORM cannot read back — which on `classes` is a

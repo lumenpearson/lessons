@@ -6949,7 +6949,7 @@ curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/diary/capabilities
 curl -s -i -X POST -H 'Content-Type: application/json' --data '{}' https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.DiaryService/GetDiaryCapabilities
 curl -s -o /dev/null -w '%{http_code} %{content_type}\n' -X POST -H 'Content-Type: application/proto' --data-binary '' https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.DiaryService/GetDiaryCapabilities
 ```
-Expected: `{"status":"ok","api_version":1,"schema":"0017"}`; `HTTP/1.1 200` with `cache-control: private, no-store` and a JSON body naming `petersburg` and `netschool`; a `200` JSON body from Connect; `200 application/proto`. A `503` saying «v2 is not available on this deployment» means `mount_v2` caught a failed import: read the function's runtime log for «v2 could not be loaded», and file the defect as an issue before anything else. Write what was seen into `HANDOVER.md`'s next close-out.
+Expected: `/api/v1/warmup` reporting `status` `"ok"` at schema `0017`, the head when this plan ran; `HTTP/1.1 200` with `cache-control: private, no-store` and a JSON body naming `petersburg` and `netschool`; a `200` JSON body from Connect; `200 application/proto`. A `503` saying «v2 is not available on this deployment» means `mount_v2` caught a failed import: read the function's runtime log for «v2 could not be loaded», and file the defect as an issue before anything else. Write what was seen into `HANDOVER.md`'s next close-out.
 
 ---
 

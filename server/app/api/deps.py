@@ -167,11 +167,18 @@ async def find_device(session: AsyncSession, token: str) -> DeviceToken | None:
     )
 
 
-async def touch_last_seen(session: AsyncSession, device: DeviceToken) -> None:
+async def touch_last_seen(
+    session: AsyncSession, device: DeviceToken, *, client_version: int | None = None
+) -> None:
     """Record that ``device`` phoned home, at most every fifteen minutes. Commits.
 
     Kept on every read on purpose — v1's and v2's alike — because it is
     telemetry no client observes (the server-v2 design, decision 10).
+    ``client_version`` is the ``X-Lessons-Client`` v2's gate read, recorded in
+    the same statement and on the same clock (decision 15): never on its own,
+    so a read writes one column more of an update it already makes, and never
+    ``None`` over a version already known, so a call without the header
+    forgets nothing. v1 passes none and never writes it.
     """
     now = _utcnow()
     seen = device.last_seen_at
@@ -179,6 +186,8 @@ async def touch_last_seen(session: AsyncSession, device: DeviceToken) -> None:
         return
 
     device.last_seen_at = now
+    if client_version is not None:
+        device.client_version = client_version
     try:
         await session.commit()
     except SQLAlchemyError:

@@ -9,8 +9,8 @@ one day disagrees with itself.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from datetime import date as Date
-from datetime import datetime
 
 from app.models import SchoolClass
 
@@ -42,3 +42,18 @@ def now(school_class: SchoolClass) -> datetime:
 def today(school_class: SchoolClass) -> Date:
     """The class's date, which is not the server's when they are hours apart."""
     return now(school_class).date()
+
+
+def wall(stamp: datetime | None, school_class: SchoolClass) -> datetime | None:
+    """A stored UTC stamp on the class's own wall clock.
+
+    ``created_at`` and friends are naive UTC in the database. An admin in
+    Vladivostok reading a Moscow server's log should not see yesterday evening
+    against this morning's change, so v1's management answers convert them
+    here, as the bot's «📜 Журнал» does. v2 sends instants instead
+    (``rpc.values.instant``), and a client converts them with the class's zone.
+    Moved from ``api/manage/_common._wall`` (the server-v2 design, decision 2).
+    """
+    if stamp is None:
+        return None
+    return stamp.replace(tzinfo=UTC).astimezone(school_class.tz).replace(tzinfo=None)

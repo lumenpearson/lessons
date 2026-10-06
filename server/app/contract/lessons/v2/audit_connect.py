@@ -30,9 +30,13 @@ if TYPE_CHECKING:
 class AuditService(Protocol):
     async def list_audit_entries(self, request: ListAuditEntriesRequest, ctx: RequestContext[ListAuditEntriesRequest, ListAuditEntriesResponse], /) -> ListAuditEntriesResponse:
         """
-        Newest first, `page_size` lines at a time: 30 when unset, 100 at most.
-        `next_page_token` is empty on the last page. There is no total, because
-        the log only grows and counting it would scan it on every page turn.
+        Newest first, `page_size` lines at a time: 30 when unset, and a larger
+        one than 100 is read as 100 (AIP-158). `next_page_token` is empty on the
+        last page. There is no total, because the log only grows and counting it
+        would scan it on every page turn. A page token is opaque: send back a
+        `next_page_token` unchanged. A line written between two page turns moves
+        nothing on the next page. A token this list did not hand out, or a
+        negative `page_size`, is VALIDATION_FAILED on that field.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -87,9 +91,13 @@ class AuditServiceClient(ConnectClient):
         use_get: bool = False,
     ) -> ListAuditEntriesResponse:
         """
-        Newest first, `page_size` lines at a time: 30 when unset, 100 at most.
-        `next_page_token` is empty on the last page. There is no total, because
-        the log only grows and counting it would scan it on every page turn.
+        Newest first, `page_size` lines at a time: 30 when unset, and a larger
+        one than 100 is read as 100 (AIP-158). `next_page_token` is empty on the
+        last page. There is no total, because the log only grows and counting it
+        would scan it on every page turn. A page token is opaque: send back a
+        `next_page_token` unchanged. A line written between two page turns moves
+        nothing on the next page. A token this list did not hand out, or a
+        negative `page_size`, is VALIDATION_FAILED on that field.
         """
         return await self.execute_unary(
             request=request,
@@ -108,9 +116,13 @@ class AuditServiceClient(ConnectClient):
 class AuditServiceSync(Protocol):
     def list_audit_entries(self, request: ListAuditEntriesRequest, ctx: RequestContext[ListAuditEntriesRequest, ListAuditEntriesResponse], /) -> ListAuditEntriesResponse:
         """
-        Newest first, `page_size` lines at a time: 30 when unset, 100 at most.
-        `next_page_token` is empty on the last page. There is no total, because
-        the log only grows and counting it would scan it on every page turn.
+        Newest first, `page_size` lines at a time: 30 when unset, and a larger
+        one than 100 is read as 100 (AIP-158). `next_page_token` is empty on the
+        last page. There is no total, because the log only grows and counting it
+        would scan it on every page turn. A page token is opaque: send back a
+        `next_page_token` unchanged. A line written between two page turns moves
+        nothing on the next page. A token this list did not hand out, or a
+        negative `page_size`, is VALIDATION_FAILED on that field.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -163,9 +175,13 @@ class AuditServiceClientSync(ConnectClientSync):
         use_get: bool = False,
     ) -> ListAuditEntriesResponse:
         """
-        Newest first, `page_size` lines at a time: 30 when unset, 100 at most.
-        `next_page_token` is empty on the last page. There is no total, because
-        the log only grows and counting it would scan it on every page turn.
+        Newest first, `page_size` lines at a time: 30 when unset, and a larger
+        one than 100 is read as 100 (AIP-158). `next_page_token` is empty on the
+        last page. There is no total, because the log only grows and counting it
+        would scan it on every page turn. A page token is opaque: send back a
+        `next_page_token` unchanged. A line written between two page turns moves
+        nothing on the next page. A token this list did not hand out, or a
+        negative `page_size`, is VALIDATION_FAILED on that field.
         """
         return self.execute_unary(
             request=request,

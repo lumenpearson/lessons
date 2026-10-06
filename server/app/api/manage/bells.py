@@ -1,7 +1,10 @@
 """``/bells``: the class's bell schedules, as «🔔 Звонки» edits them.
 
 Part of :mod:`app.api.manage`; the rules every endpoint of it
-follows are in that package's docstring.
+follows are in that package's docstring. The patch the two writes to one
+schedule apply is ``services/manage/bells.update``, which v2's
+``UpdateBellSchedule`` applies too, and the sentences the refusals answer
+with are ``app/wording.py``'s.
 """
 
 from __future__ import annotations
@@ -12,6 +15,7 @@ from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.api.deps import current_class
 from app.api.manage._common import Actor, _conflict, admin_actor
 from app.api.routing import DishkaAnnotatedRoute
@@ -54,7 +58,9 @@ async def _schedule_or_404(
 ) -> BellSchedule:
     schedule = await bells_service.schedule_of(session, school_class.id, schedule_id)
     if schedule is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown bell schedule")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_BELL_SCHEDULE_DETAIL
+        )
     return schedule
 
 
@@ -111,33 +117,30 @@ async def bells_update(
 
     ``is_default: false`` is refused: a class with no default schedule has no
     times for an ordinary day, so the way to stop using this one is to make
-    another one the default.
+    another one the default. A schedule that rings nothing cannot become it,
+    for the reason ``ScheduleEmpty`` gives, and making the default what it
+    already is writes nothing. The patch is ``services/manage/bells.update``,
+    which ``PUT …/periods`` and v2's ``UpdateBellSchedule`` apply too.
     """
     schedule = await _schedule_or_404(session, school_class, schedule_id)
-    silenced: list[tuple[int, int]] = []
-
-    if payload.name is not None:
-        await bells_service.rename(
-            session, school_class, actor.telegram_id, schedule, payload.name
+    try:
+        silenced = await bells_service.update(
+            session,
+            school_class,
+            actor.telegram_id,
+            schedule,
+            payload.model_dump(exclude_unset=True),
         )
-
-    if payload.is_default is not None:
-        if not payload.is_default:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="make another schedule the default instead",
-            )
-        # Refused when it rings nothing, for the reason `ScheduleEmpty` gives;
-        # making the default what it already is writes nothing.
-        try:
-            silenced = await bells_service.make_default(
-                session, school_class, actor.telegram_id, schedule
-            )
-        except bells_service.ScheduleEmpty as empty:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="в этом расписании звонков нет ни одного урока",
-            ) from empty
+    except bells_service.DefaultRequired as required:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=wording.BELL_DEFAULT_REQUIRED_DETAIL,
+        ) from required
+    except bells_service.ScheduleEmpty as empty:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=wording.EMPTY_BELL_SCHEDULE_DETAIL,
+        ) from empty
 
     await session.commit()
     await session.refresh(schedule, ["periods"])
@@ -160,12 +163,12 @@ async def bells_periods(
     sending the six rows that are now true is one intention, not six.
     """
     schedule = await _schedule_or_404(session, school_class, schedule_id)
-    orphaned = await bells_service.replace_rows(
-        session, school_class, actor.telegram_id, schedule, _rows_of(payload)
+    silenced = await bells_service.update(
+        session, school_class, actor.telegram_id, schedule, {"periods": _rows_of(payload)}
     )
     await session.commit()
     await session.refresh(schedule, ["periods"])
-    return _schedule_out(schedule, school_class, len(orphaned))
+    return _schedule_out(schedule, school_class, len(silenced))
 
 
 @router.delete("/bells/{schedule_id}", response_model=DeletedOut)
@@ -186,10 +189,8 @@ async def bells_delete(
     try:
         await bells_service.delete(session, school_class, actor.telegram_id, schedule)
     except bells_service.ScheduleIsDefault as default:
-        raise _conflict(
-            "this is the class default; make another one the default first"
-        ) from default
+        raise _conflict(wording.BELL_SCHEDULE_IS_DEFAULT_DETAIL) from default
     except bells_service.ScheduleInUse as in_use:
-        raise _conflict(f"{in_use.days} special day(s) still use this schedule") from in_use
+        raise _conflict(wording.bell_schedule_in_use_detail(in_use.days)) from in_use
     await session.commit()
     return DeletedOut(id=schedule_id)

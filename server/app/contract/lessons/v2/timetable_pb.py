@@ -216,6 +216,9 @@ class ImportTimetableResponse(Message[_ImportTimetableResponseFields]):
             repeated int32 days = 2 [packed = true];
             ```
         lessons:
+            The lessons written. When nothing was, the lessons the paste holds: a
+            lesson with no bell to ring it is found only when the paste is applied.
+
             ```proto
             int32 lessons = 3;
             ```
@@ -230,7 +233,8 @@ class ImportTimetableResponse(Message[_ImportTimetableResponseFields]):
         rejected:
             Lines the parser could not read, then one line per lesson dropped for
             having no bell and per stored lesson the new bells no longer ring: an
-            admin fixes the typos rather than re-reading the whole paste.
+            admin fixes the typos rather than re-reading the whole paste. When
+            nothing was written, the parser's lines alone.
 
             ```proto
             repeated string rejected = 6;

@@ -11,9 +11,13 @@ option java_multiple_files = true;
 option java_package = "com.lumenpearson.lessons.contract.v2";
 
 service AuditService {
-  // Newest first, `page_size` lines at a time: 30 when unset, 100 at most.
-  // `next_page_token` is empty on the last page. There is no total, because
-  // the log only grows and counting it would scan it on every page turn.
+  // Newest first, `page_size` lines at a time: 30 when unset, and a larger
+  // one than 100 is read as 100 (AIP-158). `next_page_token` is empty on the
+  // last page. There is no total, because the log only grows and counting it
+  // would scan it on every page turn. A page token is opaque: send back a
+  // `next_page_token` unchanged. A line written between two page turns moves
+  // nothing on the next page. A token this list did not hand out, or a
+  // negative `page_size`, is VALIDATION_FAILED on that field.
   rpc ListAuditEntries(ListAuditEntriesRequest) returns (ListAuditEntriesResponse) {
     option (google.api.http) = {get: "/v2/class/auditEntries"};
     option idempotency_level = NO_SIDE_EFFECTS;

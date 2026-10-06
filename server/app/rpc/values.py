@@ -46,6 +46,12 @@ def instant(moment: datetime) -> Timestamp:
     return Timestamp.from_datetime(moment)
 
 
+def maybe_instant(moment: datetime | None) -> Timestamp | None:
+    """:func:`instant`, or ``None`` — the field left unset — for a column that
+    holds no moment: a phone never seen, never linked."""
+    return instant(moment) if moment is not None else None
+
+
 def role(value: Role | None) -> options_pb.Role:
     return options_pb.Role[value.name] if value is not None else options_pb.Role.UNSPECIFIED
 
