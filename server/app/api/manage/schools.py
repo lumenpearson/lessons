@@ -29,7 +29,7 @@ async def schools_search(
         le=dadata.MAX_SUGGESTIONS,
         description="Строк на странице; 20 отдаёт всё найденное за один запрос",
     ),
-    region: str | None = Query(None, max_length=120),
+    region: str | None = Query(None, max_length=schools_service.MAX_REGION),
     _: Actor = Depends(admin_actor),
     __: SchoolClass = Depends(current_class),
 ) -> SchoolSearchOut:

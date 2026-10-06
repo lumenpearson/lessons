@@ -11,7 +11,10 @@ against its caller (twenty in fifteen minutes, on the table `/join` counts in),
 and every request it makes upstream is spent from the anonymous share of the
 directory's daily allowance (``services/quota.py``) — so neither one address
 nor many can spend what the bot and ``/manage/schools`` need to create a
-class. Those two keep their own search, unchanged and unmetered here.
+class. Those two keep their own search, unchanged and unmetered here. The
+order of the checks is ``services/directory.school_regions``, which v2's
+``ListSchoolRegions`` calls too, so the two versions count a caller once;
+this module words what it refuses.
 
 Every 503 carries ``X-Directory-Unavailable`` — ``disabled``, ``spent`` or
 ``upstream`` — for the same reason every diary 503 carries its own header: the
@@ -24,11 +27,12 @@ from dishka.integrations.fastapi import FromDishka
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.api.deps import request_bucket
 from app.api.routing import DishkaAnnotatedRoute
-from app.providers import dadata
 from app.schemas import SchoolRegionOut, SchoolRegionsOut
 from app.security import directory_limiter as directory_limiter
+from app.services import directory as directory_service
 from app.services import quota
 from app.services import schools as schools_service
 
@@ -37,16 +41,19 @@ router = APIRouter(
 )
 
 # `directory_limiter` is `app.security`'s, the one instance v1 and v2 share
-# (the server-v2 design, decision 11); imported above under its own name so
-# that this module, and the tests that read it here, keep it.
+# (the server-v2 design, decision 11), and `services/directory.py` counts on
+# it; imported above under its own name so that the tests that read it here
+# keep it.
 
 #: The header every 503 here carries, and its three values.
 UNAVAILABLE_HEADER = "X-Directory-Unavailable"
 
-DISABLED_DETAIL = "Поиск школ не настроен — выберите регион из списка"
-SPENT_DETAIL = "Поиск школ на сегодня исчерпан — выберите регион из списка"
-UPSTREAM_DETAIL = "Поиск школ сейчас недоступен — выберите регион из списка"
-THROTTLED_DETAIL = "Слишком много поисков подряд. Выберите регион из списка или попробуйте позже."
+#: v1's sentences, under the names this module has always given them; they are
+#: ``app/wording.py``'s, which v2's ``ListSchoolRegions`` answers with too.
+DISABLED_DETAIL = wording.DIRECTORY_DISABLED_DETAIL
+SPENT_DETAIL = wording.DIRECTORY_SPENT_DETAIL
+UPSTREAM_DETAIL = wording.DIRECTORY_UPSTREAM_DETAIL
+THROTTLED_DETAIL = wording.DIRECTORY_THROTTLED_DETAIL
 
 
 def _unavailable(detail: str, reason: str, *, retry_after: int | None = None) -> HTTPException:
@@ -67,7 +74,8 @@ async def school_regions(
 ) -> SchoolRegionsOut:
     """The regions a school called ``q`` may be in, best-ranked first.
 
-    In this order, and the order is the contract:
+    In this order, and the order is the contract
+    (``services/directory.school_regions`` keeps it):
 
     1. a caller over its limit is 429 with ``Retry-After``;
     2. a query under three characters is 422, **not counted** — nothing was
@@ -85,41 +93,30 @@ async def school_regions(
     # Scoped, so twenty searches do not spend a phone's thirty join attempts,
     # and hashed with the scope inside it — see `deps.caller_bucket` for why a
     # prefix on the digest is a 500 on Postgres.
-    client = request_bucket(request, scope="directory:")
-    # Counted first and handed back on a 422, rather than checked here and
-    # recorded after the validation: between a check and a later record, every
-    # request of a parallel burst from one address read the count from before
-    # any of them, and each went on to spend the anonymous share.
-    attempt = await directory_limiter.admit(session, client)
-    if attempt.retry_after is not None:
+    client = request_bucket(request, scope=directory_service.BUCKET_SCOPE)
+    try:
+        found = await directory_service.school_regions(session, q, client_key=client)
+    except directory_service.DirectoryThrottled as throttled:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=THROTTLED_DETAIL,
-            headers={"Retry-After": str(int(attempt.retry_after) + 1)},
-        )
-
-    try:
-        query = schools_service.normalise_query(q)
+            headers={"Retry-After": str(throttled.seconds)},
+        ) from throttled
     except schools_service.SearchError as error:
-        await directory_limiter.forgive(session, attempt)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
         ) from error
-
-    if not schools_service.available():
-        raise _unavailable(DISABLED_DETAIL, "disabled")
-
-    try:
-        found = await schools_service.regions_for(session, query)
+    except directory_service.DirectoryDisabled as disabled:
+        raise _unavailable(DISABLED_DETAIL, "disabled") from disabled
     except quota.AllowanceSpent as spent:
         raise _unavailable(SPENT_DETAIL, "spent", retry_after=spent.retry_after) from spent
-    except dadata.DirectoryError as error:
+    except directory_service.DirectoryUnavailable as failed:
         # The bot's own wording for these ends «введите название вручную»,
         # which is the bot's way out and not the phone's. DaData's refusal of
         # the key or of its own daily allowance lands here too: it is the
         # owner's to fix, and to the person holding the phone it is the same
         # «not now».
-        raise _unavailable(UPSTREAM_DETAIL, "upstream") from error
+        raise _unavailable(UPSTREAM_DETAIL, "upstream") from failed
 
     return SchoolRegionsOut(
         query=found.query,

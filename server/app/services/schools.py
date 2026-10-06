@@ -50,6 +50,17 @@ PAGE_SIZE = 5
 #: is six.
 MIN_QUERY = 3
 
+#: What a query too short to search with is refused with: by the bot in a
+#: message, by v1 as a 422 and by v2 as ``VALIDATION_FAILED`` on ``query``. A
+#: constant, so that v2's error table words the refusal with it rather than
+#: with the exception's own text.
+QUERY_TOO_SHORT = f"Введите хотя бы {MIN_QUERY} символа названия школы"
+
+#: The longest region hint a search takes. It goes upstream as a ranking
+#: boost, and v1's ``/manage/schools`` has always refused a longer one; v2's
+#: ``ListSchools`` refuses it on ``region``.
+MAX_REGION = 120
+
 #: What is sent upstream, and what the bot echoes back when nothing was found.
 #: Their query field is a search box rather than an identifier, so a longer
 #: query is a paste of a whole address and ranks worse than the name alone.
@@ -79,7 +90,7 @@ def normalise_query(raw: str | None) -> str:
     """The query as it will be sent, or a Russian sentence saying why not."""
     query = " ".join((raw or "").split())
     if len(query) < MIN_QUERY:
-        raise SearchError(f"Введите хотя бы {MIN_QUERY} символа названия школы")
+        raise SearchError(QUERY_TOO_SHORT)
     return query[:MAX_QUERY]
 
 

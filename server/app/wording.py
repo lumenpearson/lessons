@@ -393,3 +393,15 @@ GRANT_REFUSED_ALERTS = {
     "role_too_high": "Нельзя выдать роль выше вашей",
     "member_senior": "Нельзя менять роль этого пользователя",
 }
+
+
+#: v1's ``GET /directory/school-regions`` and v2's ``ListSchoolRegions``, the
+#: anonymous school directory: too many searches, no ``DADATA_TOKEN``, today's
+#: anonymous share spent, and the directory failing. Each names the way on,
+#: the region list, because picking the region from it always works.
+DIRECTORY_THROTTLED_DETAIL = (
+    "Слишком много поисков подряд. Выберите регион из списка или попробуйте позже."
+)
+DIRECTORY_DISABLED_DETAIL = "Поиск школ не настроен — выберите регион из списка"
+DIRECTORY_SPENT_DETAIL = "Поиск школ на сегодня исчерпан — выберите регион из списка"
+DIRECTORY_UPSTREAM_DETAIL = "Поиск школ сейчас недоступен — выберите регион из списка"
