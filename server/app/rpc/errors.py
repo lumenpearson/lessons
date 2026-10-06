@@ -33,6 +33,7 @@ from app.contract.google.rpc.error_details_pb import BadRequest, ErrorInfo, Retr
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.services import diary as diary_service
 from app.services import join, window
+from app.services.manage import bells as bells_service
 from app.services.manage import devices as devices_service
 from app.services.manage import subjects as subjects_service
 
@@ -178,6 +179,37 @@ def _subject_in_use(error: subjects_service.SubjectInUse) -> Refusal:
     )
 
 
+def _empty_bell_schedule(_error: bells_service.ScheduleEmpty) -> Refusal:
+    return Refusal(ErrorReason.EMPTY_BELL_SCHEDULE, wording.EMPTY_BELL_SCHEDULE_DETAIL)
+
+
+def _bell_default_required(_error: bells_service.DefaultRequired) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.BELL_DEFAULT_REQUIRED_DETAIL,
+        violations=[("schedule.is_default", wording.BELL_DEFAULT_REQUIRED_DETAIL)],
+    )
+
+
+def _bell_schedule_is_default(_error: bells_service.ScheduleIsDefault) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_IN_USE,
+        wording.BELL_SCHEDULE_IS_DEFAULT_DETAIL,
+        resource="bell_schedule",
+        used_by="class",
+    )
+
+
+def _bell_schedule_in_use(error: bells_service.ScheduleInUse) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_IN_USE,
+        wording.bell_schedule_in_use_detail(error.days),
+        resource="bell_schedule",
+        used_by="days",
+        count=error.days,
+    )
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -193,6 +225,10 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     subjects_service.SubjectExists: _subject_exists,
     subjects_service.HomeworkClash: _subject_rename_clash,
     subjects_service.SubjectInUse: _subject_in_use,
+    bells_service.ScheduleEmpty: _empty_bell_schedule,
+    bells_service.DefaultRequired: _bell_default_required,
+    bells_service.ScheduleIsDefault: _bell_schedule_is_default,
+    bells_service.ScheduleInUse: _bell_schedule_in_use,
 }
 
 
@@ -250,6 +286,18 @@ def undecodable() -> Refusal:
     return Refusal(ErrorReason.REQUEST_UNDECODABLE, UNDECODABLE_MESSAGE)
 
 
+def _where(at: str, loc: Sequence[object]) -> str:
+    """The request path of one pydantic error: ``at`` and the error's own location.
+
+    A validator of the whole model raises an error with no location, so it
+    names the message ``at`` points into — ``schedule`` for a
+    ``BellScheduleIn`` whose rows repeat a number — rather than ``schedule.``
+    with nothing after the dot.
+    """
+    field = ".".join(str(part) for part in loc)
+    return at + field if field else at.removesuffix(".")
+
+
 def validate(model: type[M], data: Mapping[str, object], *, at: str = "") -> M:
     """``model`` validated from ``data``, or ``VALIDATION_FAILED`` naming each
     field — and never the value, which pydantic keeps under ``input``.
@@ -260,13 +308,13 @@ def validate(model: type[M], data: Mapping[str, object], *, at: str = "") -> M:
     ``ValueError`` raised in one must not quote it either. ``at`` is where
     ``data`` sits in the request — ``"subject."`` for ``CreateSubject``'s
     ``subject`` — so that each violation names the field as the request spells
-    it.
+    it, and a violation of the whole model names the message (:func:`_where`).
     """
     try:
         return model.model_validate(dict(data))
     except ValidationError as failure:
         violations = [
-            (at + ".".join(str(part) for part in error["loc"]), error["msg"])
+            (_where(at, error["loc"]), error["msg"])
             for error in failure.errors(include_input=False, include_url=False)
         ]
         fields = ", ".join(sorted({field for field, _ in violations}))

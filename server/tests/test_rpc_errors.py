@@ -23,9 +23,10 @@ from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.rest.errors import STATUS, error_response
 from app.rpc import errors
 from app.rpc.errors import CODES, Refusal, connect_error, validate
-from app.schemas import JoinRequest, SubjectIn
+from app.schemas import BellScheduleIn, JoinRequest, SubjectIn
 from app.services import diary as diary_service
 from app.services import join, window
+from app.services.manage import bells as bells_service
 from app.services.manage import devices as devices_service
 from app.services.manage import subjects as subjects_service
 
@@ -44,7 +45,6 @@ STAGES = {"3b-2", "3b-3", "3b-4", "3b-5", "3b-6", "3b-7", "3b-8"}
 #: A reason leaves this table in the commit whose handler raises it.
 LATER = {
     "NO_BELL_FOR_LESSON": "3b-6",
-    "EMPTY_BELL_SCHEDULE": "3b-2",
     "DIARY_UNAVAILABLE": "3b-7",
     "DIARY_REAUTH": "3b-7",
     "DIARY_CREDENTIALS_REJECTED": "3b-7",
@@ -99,6 +99,22 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     subjects_service.SubjectInUse: (
         "test_v2_subject_writes.py",
         "test_a_subject_the_timetable_teaches_is_refused_as_in_use",
+    ),
+    bells_service.ScheduleEmpty: (
+        "test_v2_bell_writes.py",
+        "test_a_schedule_that_rings_nothing_cannot_become_the_default",
+    ),
+    bells_service.DefaultRequired: (
+        "test_v2_bell_writes.py",
+        "test_a_masked_is_default_left_out_is_refused_and_the_class_keeps_its_default",
+    ),
+    bells_service.ScheduleIsDefault: (
+        "test_v2_bell_writes.py",
+        "test_the_default_and_a_schedule_days_use_are_refused_as_in_use",
+    ),
+    bells_service.ScheduleInUse: (
+        "test_v2_bell_writes.py",
+        "test_the_default_and_a_schedule_days_use_are_refused_as_in_use",
     ),
     # The gate raises it for a diary method, and none is served before 3b-7:
     # test_rpc_gate.py holds the gate raising it until then.
@@ -262,6 +278,23 @@ def test_validation_names_a_nested_field_by_its_request_path() -> None:
         assert refusal.message == "invalid request field: subject.name"
     else:
         raise AssertionError("a blank name was accepted")
+
+
+def test_a_model_level_violation_names_the_message_it_sits_in() -> None:
+    """``BellScheduleIn`` refuses repeated lesson numbers in a validator of the
+    whole model, whose error has no location of its own: it names
+    ``schedule``, the message, and never ``schedule.`` with nothing after it."""
+    rows = [
+        {"index": 1, "starts_at": "09:00", "ends_at": "09:40"},
+        {"index": 1, "starts_at": "10:00", "ends_at": "10:40"},
+    ]
+    try:
+        validate(BellScheduleIn, {"name": "Суббота", "periods": rows}, at="schedule.")
+    except Refusal as refusal:
+        assert [field for field, _ in refusal.violations] == ["schedule"]
+        assert refusal.message == "invalid request field: schedule"
+    else:
+        raise AssertionError("repeated lesson numbers were accepted")
 
 
 def test_rest_writes_google_s_error_body_through_the_type_registry() -> None:

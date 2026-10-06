@@ -23,8 +23,11 @@ Handler = Callable[[Any, Any], Awaitable[Any]]
 #: Keyed as ``rpc.methods.METHODS`` is: ``"lessons.v2.<Service>/<Method>"``.
 HANDLERS: dict[str, Handler] = {
     "lessons.v2.AuditService/ListAuditEntries": audit.list_audit_entries,
+    "lessons.v2.BellService/CreateBellSchedule": bell.create_bell_schedule,
+    "lessons.v2.BellService/DeleteBellSchedule": bell.delete_bell_schedule,
     "lessons.v2.BellService/GetBellSchedule": bell.get_bell_schedule,
     "lessons.v2.BellService/ListBellSchedules": bell.list_bell_schedules,
+    "lessons.v2.BellService/UpdateBellSchedule": bell.update_bell_schedule,
     "lessons.v2.ClassDeviceService/ListClassDevices": class_device.list_class_devices,
     "lessons.v2.ClassDeviceService/RevokeClassDevice": class_device.revoke_class_device,
     "lessons.v2.ClassDeviceService/UnlinkClassDevice": class_device.unlink_class_device,
