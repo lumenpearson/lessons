@@ -5,6 +5,12 @@ Everything here is scoped to one Telegram account. A task is looked up by
 in callback data, and a crafted callback must not be able to tick or delete a
 classmate's list.
 
+Nothing here commits: every caller does, after the call — v1's routers, the
+bot's handlers before they tell Telegram, and v2's ``invoke``, since a v2
+handler never commits (``docs/specs/2026-10-05-server-v2-design.md``,
+decision 4). The one write that can meet a racing twin, a tick, concedes
+inside a savepoint rather than by failing a commit.
+
 :func:`parse_task_text` is the one-message grammar - «Купить тетрадь до 15.09
 в 18:00 !» - because typing a date into a picker on a phone is slower than
 writing it, and the class chat already speaks this dialect.
@@ -246,22 +252,23 @@ async def add_task(
         remind_at=remind_at,
     )
     session.add(task)
-    await session.commit()
-    # Server defaults (``created_at``) are not fetched by the insert; the
-    # caller renders the row it gets back, so load them now.
+    # Flushed, not committed: the caller commits it. Server defaults
+    # (``created_at``) are not fetched by the insert, and the caller renders
+    # the row it gets back, so the id and the stamps are loaded now.
+    await session.flush()
     await session.refresh(task)
     return task
 
 
 async def set_done(session: AsyncSession, task: PersonalTask, done: bool) -> None:
+    """Tick ``task`` off, or back on, and stamp when. The caller commits."""
     task.done = done
     task.done_at = _utcnow() if done else None
-    await session.commit()
 
 
 async def delete_task(session: AsyncSession, task: PersonalTask) -> None:
+    """Delete ``task``. The caller commits."""
     await session.delete(task)
-    await session.commit()
 
 
 async def get_task(
@@ -300,7 +307,8 @@ async def homework_ticks(
 async def toggle_homework_done(
     session: AsyncSession, homework: Homework, telegram_id: int
 ) -> bool:
-    """Flip this person's tick on ``homework``; returns the new state."""
+    """Flip this person's tick on ``homework``; returns the new state. The
+    caller commits."""
     homework_id = homework.id
     existing = await session.scalar(
         select(HomeworkDone).where(
@@ -309,18 +317,18 @@ async def toggle_homework_done(
     )
     if existing is not None:
         await session.delete(existing)
-        await session.commit()
         return False
 
-    session.add(HomeworkDone(homework_id=homework_id, telegram_id=telegram_id, done_at=_utcnow()))
     try:
-        await session.commit()
+        async with session.begin_nested():
+            session.add(
+                HomeworkDone(homework_id=homework_id, telegram_id=telegram_id, done_at=_utcnow())
+            )
+            await session.flush()
     except IntegrityError:
         # Two taps in flight at once - the app and the bot, or a double tap on
         # a slow connection. The other one won and the tick is there, which is
-        # the state this tap wanted too.
-        await session.rollback()
-        # The rollback expired every loaded row; in an async session the
-        # caller cannot lazily reload ``homework`` when it renders the reply.
-        await session.refresh(homework)
+        # the state this tap wanted too. Only the savepoint is rolled back, so
+        # the caller's transaction, and ``homework`` in it, go on as they were.
+        pass
     return True

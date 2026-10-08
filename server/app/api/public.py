@@ -476,6 +476,7 @@ async def me(
     deep_link: str | None = None
     if not device.is_linked:
         link_code = await linking.issue_link_code(session, device)
+        await session.commit()
         username = get_settings().bot_username.lstrip("@")
         if username:
             deep_link = f"https://t.me/{username}?start=link_{link_code}"
@@ -584,6 +585,7 @@ async def homework_done(
     current = item.id in await task_service.homework_ticks(session, telegram_id, [item.id])
     if current != payload.done:
         current = await task_service.toggle_homework_done(session, item, telegram_id)
+        await session.commit()
     return DoneOut(id=item.id, done=current)
 
 
@@ -782,6 +784,7 @@ async def tasks_create(
         homework_id=payload.homework_id,
         remind_at=_wall_time(payload.remind_at, school_class),
     )
+    await session.commit()
     return _task_out(task)
 
 
@@ -807,8 +810,7 @@ async def tasks_update(
         setattr(task, name, value)
     if done is not None and done != task.done:
         await task_service.set_done(session, task, done)
-    else:
-        await session.commit()
+    await session.commit()
     await session.refresh(task)
     return _task_out(task)
 
@@ -824,6 +826,7 @@ async def tasks_delete(
     telegram_id = _linked_id(device)
     task = await _own_task(session, task_id, school_class, telegram_id)
     await task_service.delete_task(session, task)
+    await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -840,6 +843,7 @@ async def tasks_done(
     task = await _own_task(session, task_id, school_class, telegram_id)
     if task.done != payload.done:
         await task_service.set_done(session, task, payload.done)
+        await session.commit()
         # ``updated_at`` is set by the database on update and expired by the
         # commit; reading it back lazily is not possible on an async session.
         await session.refresh(task)
@@ -860,6 +864,7 @@ async def calendar_url(
 ) -> CalendarOut:
     """The subscription URL for this class, minting the feed secret on first ask."""
     token = await calendar_service.ensure_calendar_token(session, school_class)
+    await session.commit()
     base = get_settings().public_base_url.rstrip("/") or str(request.base_url).rstrip("/")
     return CalendarOut(url=f"{base}/api/v1/calendar/{token}.ics")
 

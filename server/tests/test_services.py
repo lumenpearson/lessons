@@ -152,6 +152,8 @@ async def test_issue_link_code_is_short_unambiguous_and_stable(session, school_c
     assert not set(code) & set("O0I1")
     assert await linking.issue_link_code(session, device) == code
 
+    # The caller's commit: the service leaves it to whoever shows the code.
+    await session.commit()
     async with SessionLocal() as other:
         assert (await other.get(DeviceToken, device.id)).link_code == code
 
@@ -392,18 +394,22 @@ async def test_homework_ticks_toggle_per_person(session, school_class):
 
 
 async def test_toggle_survives_a_racing_duplicate(session, school_class):
-    """The app and the bot ticking the same homework in the same instant."""
-    homework = await _homework(session, school_class, MONDAY)
-    real_commit = session.commit
+    """The app and the bot ticking the same homework in the same instant.
 
-    async def racing_commit() -> None:
+    The other tick lands between this one's check and its write, so the write
+    meets the unique index inside its savepoint; the caller's transaction goes
+    on, and nothing is committed until the caller commits it."""
+    homework = await _homework(session, school_class, MONDAY)
+    real_flush = session.flush
+
+    async def racing_flush(*args, **kwargs) -> None:
         async with SessionLocal() as other:
             other.add(HomeworkDone(homework_id=homework.id, telegram_id=42))
             await other.commit()
-        session.commit = real_commit
-        await real_commit()
+        session.flush = real_flush
+        await real_flush(*args, **kwargs)
 
-    session.commit = racing_commit
+    session.flush = racing_flush
     assert await tasks.toggle_homework_done(session, homework, 42) is True
     # The row the caller is holding still renders after the rollback.
     assert homework.subject_name == "Алгебра"
@@ -849,6 +855,9 @@ async def test_two_requests_minting_the_calendar_token_hand_out_the_same_one(
         winner = await calendar.ensure_calendar_token(
             first, await first.get(SchoolClass, class_id)
         )
+        # The first request finishes: its caller commits, as every caller of
+        # the service now does.
+        await first.commit()
         handed_out = await calendar.ensure_calendar_token(second, stale)
 
     async with SessionLocal() as after:
@@ -1500,6 +1509,9 @@ async def test_two_overlapping_ticks_do_not_send_one_task_reminder_twice(
         "Взять форму",
         remind_at=datetime(2026, 9, 7, 7, 0),
     )
+    # The caller's commit, as the bot's «/task» makes it: the overlapping tick
+    # reads the task from a session of its own.
+    await session.commit()
 
     async with SessionLocal() as overlapping:
         # The second tick selected this row a moment ago and is still working

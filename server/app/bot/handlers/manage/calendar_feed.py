@@ -37,6 +37,9 @@ async def _calendar_text(session: AsyncSession, school_class: SchoolClass, rotat
         token = await calendar_service.rotate_calendar_token(session, school_class)
     else:
         token = await calendar_service.ensure_calendar_token(session, school_class)
+        # Committed before the address is shown: an address for a secret the
+        # database never kept is a subscription that answers 404 for ever.
+        await session.commit()
     return mr.render_calendar(f"{base}/api/v1/calendar/{token}.ics", rotated=rotated)
 
 

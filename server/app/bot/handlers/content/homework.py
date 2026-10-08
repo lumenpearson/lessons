@@ -406,6 +406,9 @@ async def homework_toggle(
     now_done = await task_service.toggle_homework_done(
         session, homework, callback.from_user.id
     )
+    # Committed before Telegram is told: the middleware commits after the
+    # handler, and an edit Telegram refuses would roll the tick back with it.
+    await session.commit()
     text, keyboard = await homework_view(session, school_class, callback.from_user.id, role)
     await callback.message.edit_text(text, reply_markup=keyboard)
     await callback.answer("Сделано ✅" if now_done else "Отметка снята")

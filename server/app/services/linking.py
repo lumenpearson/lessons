@@ -42,7 +42,9 @@ async def issue_link_code(session: AsyncSession, device: DeviceToken) -> str:
     """The code the app shows. Stable until used: asking twice returns the same one.
 
     The app polls its own status while the link screen is open, and a code
-    that changed on every poll would be unreadable.
+    that changed on every poll would be unreadable. Nothing is committed: the
+    caller commits before it shows the code, because a code the database
+    never kept links nothing.
     """
     if device.link_code:
         return device.link_code
@@ -52,13 +54,16 @@ async def issue_link_code(session: AsyncSession, device: DeviceToken) -> str:
         taken = await session.scalar(select(DeviceToken.id).where(DeviceToken.link_code == code))
         if taken is not None:
             continue
-        device.link_code = code
         try:
-            await session.commit()
+            async with session.begin_nested():
+                device.link_code = code
+                await session.flush()
         except IntegrityError:
             # Two invocations drew the same code between the check and the
-            # commit; the unique index caught it. Draw again.
-            await session.rollback()
+            # write; the unique index caught it. Only the savepoint is rolled
+            # back, so the caller's transaction goes on; the row is read
+            # again, because the rollback expired what this write changed.
+            # Draw again.
             await session.refresh(device)
             continue
         return code
@@ -101,7 +106,7 @@ async def link_device(session: AsyncSession, code: str, telegram_id: int) -> Dev
 async def unlink_device(session: AsyncSession, device: DeviceToken) -> None:
     """Back to read-only. A fresh code is issued on the next request.
 
-    Leaves the transaction open, unlike the functions above it, because two of
+    Leaves the transaction open, unlike :func:`link_device`, because two of
     the three callers write an audit line straight afterwards and the line has
     to land with the unlink or not at all. Committing here made "phone unlinked,
     nothing in the log" a possible outcome of one failed insert - and the log is
