@@ -13938,6 +13938,4555 @@ No new reason.
 - **`Cache-Control: private, no-store`** on `CreateCalendarFeed`'s and `CreateLinkCode`'s answers, which are a secret URL and a short-lived code. Recommended: yes, through `rest.NO_STORE_CREDENTIAL`.
 - **`UnlinkMe` on a phone that is not linked.** Recommended: success with nothing written, as the proto says.
 
+### 3b-4 task list
+
+**Status:** written on 9 October 2026, against `main` at `128fe15`, the merge of #372 (stage 3b-3), in the worktree `continue-previous-session-991230`, the one 3b-3 was finished in after `spec-one-contract` was deleted. Every code step was applied in order to a copy of that tree and checked («What was verified», below). Where it differs from the 3b-4 summary above, this list is the one to follow; «Defects in the summary» says where and why.
+
+**Branch:** `server-v2/3b-4`, cut from `origin/main` at `128fe15`, in the same worktree. It is its own pull request, on milestone 11, referring to #273.
+
+**Before Task 1, the controller files the three defects this list found**, as `#373`, `#374` and `#375` («Defects found while writing this list», below), and writes their numbers into this list in place of the placeholders. 3b-4 fixes `#374` in Task 8 and leaves `#373` and `#375` alone.
+
+**Scope.** The eleven `MeService` methods 3a left, and what they need first:
+- six services that committed inside themselves stop, and every caller commits after the call (Task 1);
+- the rules v1's `api/public.py` held for a phone's own things move into `services/`, with v1 calling them (Task 2);
+- `UnlinkMe` and `CreateLinkCode` (Task 3), `GetCalendarFeed` and `CreateCalendarFeed` (Task 4), `ListTasks`, `GetTask` and `CreateTask` (Task 5), `UpdateTask` and `DeleteTask` (Task 6), and `CreateHomeworkTick` and `DeleteHomeworkTick` (Task 7).
+
+No revision. One comment-only change to the contract, in Task 4.
+
+| Task | Title | Tests added | Suite after | mypy after |
+| --- | --- | --- | --- | --- |
+| 1 | Six services stop committing, and their callers commit | 10 | 2777 | 231 |
+| 2 | What v1's `public.py` held for a phone's own things, in `services/` | 9 | 2786 | 231 |
+| 3 | `UnlinkMe` and `CreateLinkCode` | 5 + 4 | 2795 | 231 |
+| 4 | `GetCalendarFeed` and `CreateCalendarFeed`, and what `me.proto` says of a deployment with no address | 4 + 4 | 2803 | 231 |
+| 5 | `ListTasks`, `GetTask` and `CreateTask`, and 3b-4 leaves `STAGES` | 8 + 6 | 2817 | 231 |
+| 6 | `UpdateTask` and `DeleteTask` | 7 + 4 | 2828 | 231 |
+| 7 | `CreateHomeworkTick` and `DeleteHomeworkTick`, and the batch's one full run | 4 + 4 | 2836 | 231 |
+| 8 | The documents, the counts, the HANDOVER close-out, and production after the merge | — | 2836 | 231 |
+
+**Counts.**
+- Tests: 10 + 9 + 9 + 8 + 14 + 11 + 8 = **69**, so **2767 becomes 2836**. Each «+ N» counts the cases the served methods add by themselves: `test_v2_reads.py`'s gate test and `test_v2_no_echo.py`'s sweep are each parametrized over `rpc/handlers.HANDLERS`, so every method served adds one case to each, twenty-two in all. No other test is parametrized over the served methods.
+- The base is 2767: what `pytest --collect-only` counts at `128fe15`, and what the seven places the `handover` skill names say. If anything else lands on the branch before Task 1 and moves it, shift every total by the difference; Task 7's full run is the truth.
+- mypy: **231 stays 231**. `mypy` reads `app/` only, every handler goes into `rpc/me.py`, which 3a wrote (Ruling 16), and no module is added under `app/`.
+
+**Commands.** `spec-one-contract` is gone, so the Global Constraints' `WT` is not this list's. Here:
+- `WT` is `/c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230`, and its venv is `$WT/server/.venv`, made in that tree, which the #312 guard asks for.
+- `pytest` is `$WT/server/.venv/Scripts/pytest.exe`, run from `$WT/server`, bare, as CI runs it; a task's gate adds `-p no:xdist` and names its files. The full suite runs once, alone, at the end of Task 7, as `pytest -q -n 4`.
+- `ruff` and `mypy` are `$WT/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations` and `… -m mypy`, from `$WT/server`.
+- `buf` is `/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe` (1.73.0), run from `$WT`; `buf breaking` runs from `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b4.sh`, because the shell refuses `.git#ref` on a command line.
+- Commit messages are `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b4-t<N>.txt`, written with the Write tool and committed with `git commit -F`.
+- The shell refuses a compound command that `cd`s to a computed path, so every command below spells its paths out. One heavy job at a time: never two test processes at once, and never the suite beside Gradle.
+
+`#373`, `#374`, `#375` and `#PR` are numbers the controller obtains before Task 1 and at Task 8 Step 7. `[AFTER-372]` is the slot in Task 8 Step 8 for what the controller hands over about #372's merge.
+
+### Rulings for 3b-4
+
+Numbered after the plan's own 1 to 17, 3b-2's 18 to 33 and 3b-3's 34 to 51, which still hold.
+
+52. **Six services stop committing** — the controller's ruling for 3b-4, which 3b-8 reuses for the diary's corrections. `tasks.add_task`, `set_done`, `delete_task` and `toggle_homework_done`, `calendar.ensure_calendar_token` and `linking.issue_link_code` leave the commit to their caller, so that one implementation serves v1, the bot and a v2 handler, which never commits. `add_task` flushes and refreshes instead, because every caller renders the id and the server's stamps. Each caller was found by grep, and each stays correct:
+
+    | Caller | What it does after the write | Why it stays correct |
+    | --- | --- | --- |
+    | v1's `GET /me` (`issue_link_code`) | shows the code | commits before it returns |
+    | v1's `POST /homework/{id}/done` (`toggle_homework_done`) | answers the tick's state | commits before it returns |
+    | v1's `POST /tasks`, `PATCH /tasks/{id}`, `DELETE /tasks/{id}` and `POST /tasks/{id}/done` | answer the row, or nothing | commit before they return; `PATCH` commits once, where it used to commit inside `set_done` or else itself |
+    | v1's `GET /calendar` (`ensure_calendar_token`) | answers the address | commits before it returns: an address for a secret the database never kept answers 404 for ever |
+    | the bot's «/task» and its form, «✅» and «🗑» on a task (`handlers/tasks.py`), the tick on homework (`handlers/content/homework.py`), and «📅 Календарь» (`handlers/manage/calendar_feed.py`) | tells Telegram, and only then does the update end | `ContextMiddleware` commits after the handler returns and **rolls back when it raises**, and an edit Telegram refuses («message is not modified», a deleted message) raises. So each handler commits right after the call and before it speaks, which keeps the order it had: written, then told. Five tests of Task 1 read the database from a session of their own whenever the handler speaks |
+    | four tests of `test_services.py` that read the service's own commit | — | three make the caller's commit themselves, and the tick's race is injected at the flush, where the savepoint meets it (Task 1, Step 1) |
+
+    `linking.link_device` and `calendar.rotate_calendar_token` keep their commits: only the bot calls them, and v2 has no rotation.
+53. **Two retries move into savepoints.** `issue_link_code` drew again when its commit failed on the unique index, and `toggle_homework_done` conceded when its commit met a racing twin; neither can fail a commit now. Each writes inside `session.begin_nested()` and catches the `IntegrityError` there, as `homework.upsert` and `subjects._adopt` do: only the savepoint is rolled back, and the caller's transaction, with whatever it wrote before, goes on. The ruling names the first; the second has the same shape, and the summary named its commits without its retry.
+54. **On SQLite, a savepoint that opens the transaction commits when it is released (`#373`).** A test that shows one of those two writes waiting for the caller's commit therefore makes a write of its own first, as a caller does; and the bot's test of the tick takes a tick off, which goes through no savepoint. On Postgres the savepoint is what the code means, and nothing here has run there.
+55. **`Cache-Control: private, no-store` on `CreateLinkCode`'s and `CreateCalendarFeed`'s answers**, through `rest.NO_STORE_CREDENTIAL`, as the summary recommended and the controller ruled. Connect's answers carry no such header yet, for these as for `CreateDevice` and `UpdateClass` (#357).
+56. **`UnlinkMe` on a phone that is not linked succeeds and writes nothing**, as the proto says. `linking.unlink_self` leaves such a phone alone, its link code included, which `unlink_device` would clear. Neither path writes an audit line, as v1's `/me/unlink` wrote none.
+57. **What v2 does not repeat** stands as the summary has it: `CreateLinkCode` mints and `GetMe` never does; `GetCalendarFeed` never mints; both feed methods ask for a linked account, where v1 let any phone mint; and v1's `POST /tasks/{id}/done` is `UpdateTask` with `done`.
+58. **The feed's address is written on `PUBLIC_BASE_URL`, and without it both feed methods answer `FEATURE_UNSUPPORTED` with `feature` `calendar_feed`, minting nothing.** The summary says nothing of the origin. v1 falls back to the request's own host, which `docs/api.md` calls an internal one behind Vercel; «📅 Календарь» offers no address without `PUBLIC_BASE_URL`, and `Settings.disabled_features` already says the feed «has no address to offer». `errors.proto` allows a server capability as `feature`, as `WatchClass`'s `streaming` is one. `me.proto`'s comment on `CreateCalendarFeed` says so (Task 4), and only `me_connect.py` is regenerated. This is the one place where the list decides what the summary left open, and the controller may strike it: the request's own host instead needs the request's scheme, which `invoke` does not carry, and changes `_feed_origin`, the proto comment and two tests of Task 4.
+59. **An unknown id is a `Refusal` in the handler**, as 3b-1's are (Ruling 14): a task (`resource: "task"`) or a homework (`resource: "homework"`) for which the services' lookups answer `None` — `tasks.get_task`, the scoped lookup v1's `_own_task` wrapped, and `homework.homework_of`. Their sentences are v1's, moved into `app/wording.py`. A `homework_id` of another class's homework, or of none, is a fact, `tasks.HomeworkNotInClass`, raised by the service before anything changes; the error table's one new row words it as `VALIDATION_FAILED` on `task.homework_id`, the field as `CreateTask` and `UpdateTask` both spell it.
+60. **The homework's lookup lives in `services/homework.py`**, as `homework_of`, not in `services/tasks.py` as the summary has it: it is the homework's, and 3b-5's `HomeworkService` reads it. `tasks.check_homework_id` calls it.
+61. **More moves than the summary lists**, each a rule a v1 router held that a v2 handler needs: `tasks.set_homework_done` (v1's `homework_done` sets the tick, never toggles it), `linking.link_code_for` (a linked phone gets no code) and `deep_link`, `linking.unlink_self`, `calendar.feed_url` (v1's router and the bot built the address twice), and `tasks.LIST_MAX` (200, a literal of v1's router). `_wall_time` moves as `tasks.wall_time`, which `create_task` and `update_task` call: a `remind_at` with an offset is converted as v1 converts it, though the contract writes a wall time, so that v1 and v2 take the same requests.
+62. **`CreateTask` validates with v1's `TaskIn` and `UpdateTask` with `TaskPatch`** (`validate(…, at="task.")`, Ruling 6). A create reads an `optional` field only when it is set, so a `priority` left out takes `TaskIn`'s 1; the id, `done` and the stamps a client sends on a create are ignored, as `TaskIn` has none of them. `UpdateTask`'s mask takes the proto comment's list, which is `TaskPatch`'s; a masked `title` or `priority` left unset is refused on its field by `TaskPatch`, which is the proto's «cannot be cleared».
+63. **`done` is a plain `bool`, so false is unset.** An update without a mask cannot take a task back from done, and one whose mask names `done` can. `docs/api.md` says so.
+64. **`UpdateTask` flushes and refreshes the row** to answer `updated_at`, which the database sets on the update. A flush is not a commit (Ruling 15).
+65. **Every handler is `rpc/me.py`'s** (Ruling 16): no module is added, and mypy stays at 231.
+66. **3b-4 leaves `STAGES` in Task 5**, with the row it adds: it brings no reason of its own, so nothing in `LATER` waits for it.
+67. **Process, as the controller ruled it for 3b-3 and again here.** Each task's gate is its named test files with `-p no:xdist`, then ruff and mypy; the full suite runs once, alone, with `-n 4`, at the end of Task 7, the last code task. Implementers and task reviewers are sonnet, the final review opus. Commit messages carry no trailer lines (Ruling 51).
+
+### What 3b-1 to 3b-3 left that every task here uses
+
+- **The statement listener** (`statement_writes`, `unexpected_writes`, `last_seen_rule`, from `conftest.py`). A read of 3b-4 writes the phone's last call and nothing else; `UnlinkMe` on a phone that is not linked, asked inside the fifteen minutes after its last call, writes nothing at all.
+- **`served_settings` is what the gate and `call.settings` read.** v2's `bot_username` and `public_base_url` are patched there; v1 reads `get_settings()`, which a test patches beside it when it asks v1 the same question.
+- **`v2_tokens`**: `viewer` to `owner` are phones linked to members 2001 to 2004, `stranger` a phone linked to 2005, who is no member, and `unlinked` the class code's anonymous phone. A phone's own tasks and ticks are its account's whatever its role, as in v1, and no method of 3b-4 names a least role, so the gate test passes `viewer` through each of them.
+- **The gate test and the no-echo sweep** call each served method with an empty request. `UnlinkMe` unlinks the viewer's phone over REST, and Connect then finds it unlinked and answers the same; `CreateLinkCode` gives the unlinked phone one code, twice; the feed methods answer `FEATURE_UNSUPPORTED`, the suite's `PUBLIC_BASE_URL` being empty; the task and tick methods are refused on a missing title or an id of 0. The sweep runs as the owner, 2004, one level into `task` and `homework_tick`: `CreateTask` with the secret as its title succeeds, which is no refusal and is not swept, and every other field is refused by the decoder or by `TaskIn` in words that quote nothing.
+- **`v2.both` calls REST and then Connect**, so a write's success is asked once per transport (Ruling 17), and the idempotent writes — `UnlinkMe`, `CreateLinkCode`, `CreateCalendarFeed`, the two ticks — through `both`.
+- **The REST harness builds `{task.id}` from an empty `UpdateTaskRequest`** (3b-1's harness change), and `masks.update_paths` and `validate(…, at=)` are 3b-1's.
+- **No test borrows a 3b-4 method as unserved**: `test_rpc_mount.py`'s `unserved` takes `DiaryService/ListStudents` out of `HANDLERS`, and `test_rpc_call.py` takes `GetClass` out. `test_rest.py` and `test_rpc_mount.py` replace `MeService` handlers with `monkeypatch.setitem`, which works on a served key as on an unserved one.
+
+### Review Focus (3b-4)
+
+The five inputs most likely to bite a person using 3b-4 that the generic tests do not reach, each with the test that pins it and the task that owns it.
+
+1. **A reply Telegram refuses, after the write moved out of the service.** A task saved, ticked or deleted in the bot, a homework tick taken off, a feed address shown: each is committed before Telegram is told, so a refused edit cannot roll it back.
+   - `test_a_task_typed_into_the_bot_is_committed_before_it_is_confirmed`, `test_a_task_ticked_in_the_bot_is_committed_before_the_list_is_redrawn`, `test_a_task_deleted_in_the_bot_is_committed_before_the_list_is_redrawn`, `test_a_tick_taken_off_in_the_bot_is_committed_before_the_list_is_redrawn` and `test_the_feed_secret_the_bot_shows_is_committed_before_it_is_shown` (Task 1).
+2. **Two invocations racing for one link code, or two taps for one tick.** The loser concedes inside its savepoint, and the caller's transaction goes on, uncommitted.
+   - `test_a_link_code_drawn_twice_is_drawn_again_without_a_commit` (Task 1);
+   - `test_toggle_survives_a_racing_duplicate` (Task 1, rewritten onto the flush).
+3. **Somebody else's task, by id.** Not found, as a task that never existed, on every method that takes an id.
+   - `test_somebody_else_s_task_is_not_found_as_one_that_never_was` (Task 5);
+   - `test_somebody_else_s_task_can_be_neither_changed_nor_deleted` (Task 6).
+4. **An update without a mask, or one whose mask names a field the body leaves out.** Sending a title alone leaves the rest; a masked note is cleared; a masked title is refused; and `done` false needs the mask.
+   - `test_an_update_without_a_mask_changes_only_what_it_sends`, `test_a_masked_field_left_out_is_cleared_but_a_title_or_a_priority_is_refused` and `test_done_is_v1_s_post_done_and_taking_it_back_needs_the_mask` (Task 6).
+5. **A read that mints, or a feed minted where it cannot be published.**
+   - `test_reading_the_feed_mints_nothing` and `test_a_deployment_with_no_public_address_offers_no_feed_and_mints_none` (Task 4);
+   - `test_unlinking_a_phone_that_is_not_linked_writes_nothing` and `test_a_code_minted_over_v2_is_the_one_v1_shows_and_the_bot_links_with` (Task 3).
+
+### Defects in the summary, and how this list resolves them
+
+- **«`_check_homework_id` and the homework-in-class lookup (`_homework_in_class`), which 3b-5 shares … move into `services/tasks.py`»**: the lookup goes to `services/homework.py` as `homework_of` (Ruling 60), and the check to `tasks.check_homework_id`, which raises a fact where v1 raised a 422.
+- **«`_own_task`»**: nothing of a rule is left in it to move. `tasks.get_task` already is the lookup scoped to the owner; what `_own_task` added is v1's 404, and its sentence moves to `app/wording.py`, which v2's `Refusal` answers with too (Ruling 59).
+- **«The commits inside services … `calendar.ensure_calendar_token` (lines 69 and 81)»**: line 81 is `rotate_calendar_token`, which v2 never calls; it keeps its commit (Ruling 52).
+- **The summary names `toggle_homework_done`'s commits and not its retry**, which depended on the commit failing exactly as `issue_link_code`'s did. It moves into a savepoint too (Ruling 53).
+- **«The bot loses nothing by it, because its `ContextMiddleware` commits at the end of every update»** holds only for a handler that has finished speaking: the middleware rolls back when the handler raises, and a reply Telegram refuses raises. Every bot caller commits explicitly before it speaks (Ruling 52's table).
+- **The summary's list of moves leaves out five rules v2 needs**: the tick set rather than toggled, no link code for a linked phone and its deep link, unlinking a phone that is not linked, the feed's address, and the list's 200 (Ruling 61).
+- **The summary says nothing of the feed's origin**, which v1 takes from the request when `PUBLIC_BASE_URL` is empty (Ruling 58).
+- **«Error-table rows: An unknown or foreign task → `RESOURCE_NOT_FOUND` … An unknown homework for a tick → `RESOURCE_NOT_FOUND`»**: these are `Refusal`s in the handler, as every unknown id of 3b-1 to 3b-3 is; the table gains one row, the foreign `homework_id` (Ruling 59).
+- **«They move into `services/tasks.py`, and v1 calls them»**, with v1's tests as the proof: v1's own tests (`test_api_extended.py`) and the bot's are not edited. Four tests of `test_services.py` are, because what they asserted was the service's own commit, which is what this stage removes; Task 1 says what each now does.
+
+### Defects found while writing this list
+
+The controller files each, with `type:bug`, its `area:` labels, a `status:`, the milestone its fix lands in, and an item on project 6, as the `github-pr` skill says, and writes its number into this list in place of the placeholder.
+
+**`#373`, before Task 1.** Title: «On SQLite, a savepoint that opens the transaction commits when it is released, so a rollback after it keeps the write». Labels `type:bug`, `area:server`, `area:db`, `status:next`; milestone 11 is recommended, because the programme's tests run on SQLite. Where: `server/app/db.py:40` (the engine, built with no transaction handling of its own), met by every `begin_nested()` under `services/` (`homework.py:78`, `reminders.py:434`, `subjects.py:151`, `terms.py:207`) and, from Task 1, `tasks.py` and `linking.py`. The fix lands outside 3b-4; before 3b-5 is recommended, whose `CreateHomework` writes through `homework.upsert`'s savepoint. Body, written to `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\issue-3b4-savepoint.md`:
+```markdown
+`app/db.py` builds the SQLite engine with the driver's default transaction handling. pysqlite
+(and aiosqlite over it) emits no `BEGIN` before a `SELECT`, so a session whose transaction
+has written nothing yet is, to SQLite, in autocommit mode. `session.begin_nested()` then sends
+`SAVEPOINT sa_savepoint_1`, which SQLite treats as the start of a transaction, and its
+`RELEASE` commits that transaction. A later `session.rollback()` undoes nothing of it.
+
+Probed on 9 October 2026 at `128fe15`, SQLAlchemy 2.1.2, aiosqlite: a device read, then
+`async with session.begin_nested(): device.link_code = "AAAAAA"; await session.flush()`, then
+`await session.rollback()`. A fresh session read `link_code = 'AAAAAA'`. The statements were
+`SELECT`, `SAVEPOINT`, `UPDATE`, `RELEASE SAVEPOINT`, and no `BEGIN`.
+
+**Failure scenario:** a write through a savepoint — `homework.upsert`, `subjects._adopt`,
+`terms.ensure`, and from stage 3b-4 a link code and a homework tick — followed by a refusal
+or a raise. On Postgres, which production runs, the write is rolled back with the rest; on
+SQLite, which the test suite and a local development server run, it stays. A test that asserts
+«a refusal writes nothing» after such a write passes or fails for the driver's reason, not the
+code's, and a bot handler that raises after one keeps its write on a developer's database only.
+
+The fix is SQLAlchemy's documented recipe for pysqlite: no implicit `BEGIN` from the driver,
+and an explicit one on the engine's `begin` event. It changes how every SQLite transaction in
+the suite begins, and holds a reader's lock from its first `SELECT` until it ends, so tests
+that interleave two sessions — the races of `test_services.py` and of stage 3b-4's
+`test_the_caller_commits.py` among them — have to be read again under it, and it needs a full
+run of its own. Stage 3b-4 does not fix it: its tests of a write behind a savepoint make a
+write of their own first, so that what they read is the function.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && gh issue create --repo lumenpearson/lessons --title "On SQLite, a savepoint that opens the transaction commits when it is released, so a rollback after it keeps the write" --body-file C:/Users/lumen/.claude/jobs/c9e2d980/tmp/issue-3b4-savepoint.md --label type:bug --label area:server --label area:db --label status:next --milestone "v0.10.0 — One contract: REST v2, Connect and native gRPC, build console"
+```
+
+**`#374`, before Task 1.** Title: «CLAUDE.md says nothing under services/ commits, and more than thirty writes there do». Labels `type:bug`, `area:docs`, `status:now`, milestone 11. Where: `CLAUDE.md:184`. The fix lands in this list, Task 8 Step 4. Body, written to `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\issue-3b4-claude-commits.md`:
+```markdown
+`CLAUDE.md`, «Server modules», the `services/` bullet: «Nothing there commits (the caller
+commits the change together with its audit line)». At `128fe15`, `server/app/services/` holds
+37 `session.commit()` calls: the join flow and the directory's allowance, the diary's
+sessions, keep-alive, sign-in tickets and corrections, the reminders' claims, the notices'
+switch-off, the self-check, the device invites and the roles they grant, the link code and its
+claim, the feed secret and its rotation, and the tasks and the ticks.
+
+**Failure scenario:** an agent, trusting the sentence, writes a v2 handler around a service
+that commits inside itself — a v2 handler never commits, `invoke` does, once. The service's
+write then stands when the call is refused, and the all-or-nothing the handler promises is
+not true. Stage 3b-8's `BatchUpdateCorrections` is exactly that shape over
+`diary_corrections.put_override`.
+
+Stage 3b-4 stops six of them committing and rewrites the sentence in the same change, to say
+which still commit and why.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && gh issue create --repo lumenpearson/lessons --title "CLAUDE.md says nothing under services/ commits, and more than thirty writes there do" --body-file C:/Users/lumen/.claude/jobs/c9e2d980/tmp/issue-3b4-claude-commits.md --label type:bug --label area:docs --label status:now --milestone "v0.10.0 — One contract: REST v2, Connect and native gRPC, build console"
+```
+
+**`#375`, before Task 1.** Title: ««🔁 Новая ссылка» commits the new feed secret before the journal line that records it». Labels `type:bug`, `area:bot`, `status:someday`; the backlog, milestone 13, is recommended. Where: `server/app/bot/handlers/manage/calendar_feed.py:100-105` (`calendar_rotate`) over `server/app/services/calendar.py:78` (`rotate_calendar_token`, which commits). The fix lands outside 3b-4, which serves no rotation. Body, written to `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\issue-3b4-rotation.md`:
+```markdown
+`server/app/bot/handlers/manage/calendar_feed.py`, `calendar_rotate`: `_calendar_text(…,
+rotated=True)` calls `calendar.rotate_calendar_token`, which commits the new secret; only then
+does the handler write the `calendar.rotate` audit line and commit a second time.
+
+**Failure scenario:** the second commit fails (the connection drops, the database refuses the
+insert). The class's feed has a new secret, every calendar subscribed to the old one has
+stopped updating, and «📜 Журнал» has no line saying who did it — the outcome
+`linking.unlink_device`'s docstring names as the reason it leaves the commit to its caller.
+
+Not fixed in stage 3b-4, which serves no rotation: v2 has none. The fix is the same shape as
+3b-4's, `rotate_calendar_token` leaving the commit to the handler, which commits it with its
+line.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && gh issue create --repo lumenpearson/lessons --title "«🔁 Новая ссылка» commits the new feed secret before the journal line that records it" --body-file C:/Users/lumen/.claude/jobs/c9e2d980/tmp/issue-3b4-rotation.md --label type:bug --label area:bot --label status:someday --milestone "Backlog — not scheduled"
+```
+
+**Not filed, and said here so that it is not lost:** `rpc/me.py`'s docstring at `128fe15` says «the other eight methods are 3b's»; there are eleven. Task 3 replaces the docstring whole. The controller may file it before Task 3 if it is to be an issue of its own.
+
+### What was verified while writing this list, and what was not
+
+**Read, at `128fe15`'s code:** `api/public.py`; `services/tasks.py`, `calendar.py`, `linking.py`, `homework.py`; every caller of the six committing functions, in `app/` (the bot included) and `tests/`; `bot/middlewares.py`'s `ContextMiddleware`; `di.py`'s session provider; `rpc/` (`call.py`, `gate.py`, `errors.py`, `handlers.py`, `masks.py`, `methods.py`, `values.py`, `me.py`, `watch.py`, `subject.py`, `class_device.py`, `bell.py`, `access_request.py`, `directory.py`); `rest/__init__.py`; `proto/lessons/v2/me.proto` and `errors.proto` and the generated `me_pb.py` and `me_connect.py`; `schemas/tasks.py`; and the tests that read any of them: `conftest.py`, `test_v2_reads.py`, `test_v2_no_echo.py`, `test_rpc_errors.py`, `test_rpc_call.py`, `test_rpc_mount.py`, `test_rest.py`, `test_contract.py`, `test_contract_mirror.py`, `test_services.py`, `test_api_extended.py`, `test_bot_views.py` and `test_bot_manage.py`.
+
+**Probed**, with the copy's venv and nothing in the worktree changed:
+- protobuf-py: `Task()` has neither `title` nor `done` set, and reads them as `""` and false; `Task(priority=None, notes=None, done_at=None)` leaves all three unset; `UpdateTaskRequest().task` and `.update_mask` are `None`; `{"task": {"id": 3, "done": false}, "updateMask": "done"}` reads as `done` false, unset, under the path `done`; `CreateLinkCodeResponse()` writes `{}`.
+- pydantic, through `TaskIn`: `"18:00"`, `"2026-09-15"` and `"2026-09-15T08:00"` parse; `"2026-09-15T08:00+03:00"` parses as aware; `"25:00"` is refused.
+- SQLite and a savepoint (`#373`): a write inside `begin_nested()` on a session that had written nothing was still there after `rollback()`.
+
+**Applied and run, in a scratch copy** (`git archive` of `128fe15` without `android/`; never the worktree):
+- **The venv.** One made for the copy by `uv` from `requirements.txt` and `-e ".[dev]"` on Python 3.12, so the #312 guard took it: its editable install is the copy's. It lives at a short path in the session's scratch directory, because under the copy's own `server/` Windows refused to load SQLAlchemy's compiled modules for the length of their path; with those removed from the venv, SQLAlchemy ran its pure-Python twins, which are the same source.
+- **How the code got in.** Every code step of Tasks 1 to 8 was applied by a script from the one source this list's code blocks are rendered from, so each «replace» anchor was found exactly once, in order, and what ran is what is written here.
+- **Red and green.** Each task's new tests were run before its code and failed as its Red step says, then passed; Task 1's bot tests were also run with the services changed and the bot's commits not yet added, and all five failed, each reading the old state.
+- **After each task**, `ruff check app tests scripts migrations` printed `All checks passed!`, every new test file is as `ruff format` writes it, and `pytest --collect-only` counted 2777, 2786, 2795, 2803, 2817, 2828 and 2836 after Tasks 1 to 7. After the last, `mypy` printed `Success: no issues found in 231 source files`.
+- **The touched and new files, run together once with every task applied:** `test_the_caller_commits.py`, `test_services_tasks.py`, the five new `test_v2_*.py`, `test_v2_reads.py`, `test_v2_no_echo.py`, `test_rpc_errors.py`, `test_rpc_call.py`, `test_rpc_mount.py`, `test_rpc_gate.py`, `test_rest.py`, the three `test_contract*.py`, `test_api_extended.py`, `test_services.py`, `test_service_layering.py`, `test_cold_start.py`, `test_bot_views.py` and `test_bot_commands.py`: 795 passed. Then `test_bot_manage.py`, `test_rpc_masks.py`, `test_announcements.py` and `test_v2_client_version.py`: 202 passed.
+- **The contract**: `buf lint` exit 0; `buf generate` after Task 4's comment changed `server/app/contract/lessons/v2/me_connect.py` alone, four docstrings; `buf breaking --against .git#ref=HEAD`, the copy's own commit of `128fe15`, exit 0.
+- **Task 8**, with this list inserted into the copy's plan after the 3b-4 summary, where the controller will put it: `docs3b4.py` printed thirteen `missing` lines and six `still says` lines before the edits, and «the documents say what 3b-4 serves» after them and `plan3b4.py`; `counts3b2_3b3.py`, pointed at the copy, printed `written`; 3b-3's head scan named `0019` alone and no line of `docs/specs/`; and `test_rpc_errors.py`, `test_schema_version.py`, `test_ci_paths.py`, `test_contract.py` and `test_rest.py` gave 94 passed.
+
+**Not run:**
+- the full suite, in the copy or the worktree;
+- anything on Postgres or Vercel, Telegram itself, or a phone;
+- Task 8's HANDOVER edits, which wait for facts that exist only at the merge.
+
+The run at each task's gate is the truth.
+
+### File map (3b-4)
+
+| File | Task | What it holds |
+| --- | --- | --- |
+| `server/app/services/tasks.py` | 1, 2 | no commits; the tick's savepoint; `LIST_MAX`, `HomeworkNotInClass`, `wall_time`, `check_homework_id`, `create_task`, `update_task`, `set_homework_done` |
+| `server/app/services/calendar.py` | 1, 2 | `ensure_calendar_token` without its commit; `feed_url` |
+| `server/app/services/linking.py` | 1, 2 | `issue_link_code`'s savepoint; `link_code_for`, `deep_link`, `unlink_self` |
+| `server/app/services/homework.py` | 2 | `homework_of` |
+| `server/app/wording.py` | 2 | the tasks' and the ticks' three sentences |
+| `server/app/api/public.py` | 1, 2 | v1 committing, then calling the moved code |
+| `server/app/bot/handlers/tasks.py`, `content/homework.py`, `manage/calendar_feed.py` | 1, 2 | the bot committing before it speaks; `feed_url` |
+| `server/app/rpc/me.py` | 3–7 | the eleven handlers |
+| `server/app/rpc/handlers.py` | 3–7 | `HANDLERS` |
+| `server/app/rest/__init__.py` | 3, 4 | `NO_STORE_CREDENTIAL` |
+| `proto/lessons/v2/me.proto`, `server/app/contract/**` | 4 | `CreateCalendarFeed`'s comment, regenerated |
+| `server/app/rpc/values.py` | 5 | `wall_moment` |
+| `server/app/rpc/errors.py` | 5 | the `HomeworkNotInClass` row |
+| `server/tests/test_the_caller_commits.py`, `server/tests/test_services.py` | 1 | the services leave the commit; the bot commits first; four tests make the caller's commit |
+| `server/tests/test_services_tasks.py` | 2 | the moved rules |
+| `server/tests/test_v2_link.py` | 3 | `UnlinkMe`, `CreateLinkCode` |
+| `server/tests/test_v2_calendar_feed.py` | 4 | the feed |
+| `server/tests/test_v2_tasks.py`, `server/tests/test_rpc_errors.py` | 5 | the task reads and `CreateTask`; `HELD_BY` and `STAGES` |
+| `server/tests/test_v2_task_writes.py` | 6 | `UpdateTask`, `DeleteTask` |
+| `server/tests/test_v2_homework_ticks.py` | 7 | the ticks |
+| documents | 8 | `docs/api.md`, `docs/README.md`, `docs/architecture.md`, `CLAUDE.md`, `README.md`, the 3b-5 and 3b-8 summaries in this plan, the counts in the seven places; `HANDOVER.md` and `docs/history.md` |
+
+---
+
+### 3b-4 Task 1: Six services stop committing, and their callers commit
+
+Decision 4; Rulings 52 to 54. v1 keeps its answers and the bot its order: `test_api_extended.py`, `test_bot_views.py`, `test_bot_manage.py` and `test_bot_commands.py` are the proof and are not edited.
+
+**Files:**
+- Modify: `server/app/services/tasks.py`, `server/app/services/calendar.py`, `server/app/services/linking.py`, `server/app/api/public.py`, `server/app/bot/handlers/tasks.py`, `server/app/bot/handlers/content/homework.py`, `server/app/bot/handlers/manage/calendar_feed.py`, `server/tests/test_services.py`
+- Create: `server/tests/test_the_caller_commits.py`
+
+**Interfaces:**
+- Consumes: `AsyncSession.begin_nested()`, as `homework.upsert` and `subjects._adopt` use it; the bot's handlers as `test_bot_views.py` and `test_bot_manage.py` call them.
+- Produces, every signature unchanged:
+  - `tasks.add_task(...) -> PersonalTask`, flushed and refreshed, not committed;
+  - `tasks.set_done(session, task, done) -> None` and `tasks.delete_task(session, task) -> None`, not committed;
+  - `tasks.toggle_homework_done(session, homework, telegram_id) -> bool`, not committed; a racing twin concedes in a savepoint;
+  - `calendar.ensure_calendar_token(session, school_class) -> str`, not committed;
+  - `linking.issue_link_code(session, device) -> str`, not committed; a code drawn twice is drawn again in a savepoint.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_the_caller_commits.py`:
+```python
+"""The phone's own writes are committed by whoever called them, never inside the service.
+
+``tasks.add_task``, ``set_done``, ``delete_task`` and ``toggle_homework_done``,
+``calendar.ensure_calendar_token`` and ``linking.issue_link_code`` used to
+commit inside themselves, which v2 cannot use: a v2 handler never commits,
+``invoke`` does, once (``docs/specs/2026-10-05-server-v2-design.md``, decision
+4). They stop, and every caller commits after the call: v1's routers, as the
+manage endpoints do, and the bot's handlers before they tell Telegram, because
+the middleware commits only after the handler and rolls back when a reply
+fails. The two retries that relied on a failing commit, a link code drawn
+twice and a racing tick, concede inside a savepoint instead.
+
+On SQLite, which these tests run on, a savepoint that opens the transaction
+commits when it is released (#373). A test of a write behind a savepoint makes
+a write of its own first, as a caller does, so that what it reads is the
+function and not the driver.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from datetime import date
+from types import SimpleNamespace
+from typing import Any
+
+from sqlalchemy import func, select, update
+
+from app.bot.handlers.content.homework import homework_toggle
+from app.bot.handlers.manage.calendar_feed import cmd_calendar
+from app.bot.handlers.tasks import cmd_task, task_delete, task_toggle_done
+from app.config import get_settings
+from app.db import SessionLocal
+from app.models import (
+    AuditEntry,
+    DeviceToken,
+    Homework,
+    HomeworkDone,
+    PersonalTask,
+    Role,
+    SchoolClass,
+)
+from app.security import hash_token
+from app.services import audit, calendar, linking, tasks
+
+MONDAY = date(2026, 9, 7)
+
+
+async def _committed(statement: Any) -> Any:
+    """What a session of its own reads: only what is committed."""
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(statement)
+
+
+async def _a_write_of_the_caller_s_own(session, school_class) -> None:
+    """Open the transaction with a write, as a caller's own would: SQLite
+    commits a savepoint that opens the transaction when it is released (#373)."""
+    await audit.record(session, school_class.id, 42, "test.earlier", "раньше в той же транзакции")
+    await session.flush()
+
+
+async def _homework(session, school_class) -> Homework:
+    item = Homework(class_id=school_class.id, due_date=MONDAY, subject_name="Алгебра", text="№ 1")
+    session.add(item)
+    await session.commit()
+    return item
+
+
+# ---- the services ------------------------------------------------------------
+
+
+async def test_a_task_s_writes_are_the_caller_s_to_commit(session, school_class) -> None:
+    # Read before the rollbacks: each expires every loaded row, and an expired
+    # attribute cannot be reloaded from an async session by plain access.
+    class_id = school_class.id
+    added = await tasks.add_task(session, class_id, 42, "Купить тетрадь")
+    # Flushed, so that the caller can render it: the id and the server's stamp.
+    assert added.id is not None and added.created_at is not None
+    await session.rollback()
+    assert await _committed(select(func.count()).select_from(PersonalTask)) == 0
+
+    kept = await tasks.add_task(session, class_id, 42, "Сдать реферат")
+    await session.commit()
+    kept_id = kept.id
+    await tasks.set_done(session, kept, True)
+    await session.rollback()
+    assert await _committed(select(PersonalTask.done).where(PersonalTask.id == kept_id)) is False
+
+    await session.refresh(kept)
+    await tasks.delete_task(session, kept)
+    await session.rollback()
+    assert await _committed(select(PersonalTask.id).where(PersonalTask.id == kept_id)) == kept_id
+
+
+async def test_a_tick_is_the_caller_s_to_commit(session, school_class) -> None:
+    homework = await _homework(session, school_class)
+    ticks = select(func.count()).select_from(HomeworkDone)
+    await _a_write_of_the_caller_s_own(session, school_class)
+    assert await tasks.toggle_homework_done(session, homework, 42) is True
+    await session.rollback()
+    assert await _committed(ticks) == 0
+    assert await _committed(select(func.count()).select_from(AuditEntry)) == 0
+
+    await session.refresh(homework)
+    session.add(HomeworkDone(homework_id=homework.id, telegram_id=42))
+    await session.commit()
+    assert await tasks.toggle_homework_done(session, homework, 42) is False
+    await session.rollback()
+    assert await _committed(ticks) == 1
+
+
+async def test_the_feed_secret_is_the_caller_s_to_commit(session, school_class) -> None:
+    stored = select(SchoolClass.calendar_token).where(SchoolClass.id == school_class.id)
+    assert await calendar.ensure_calendar_token(session, school_class)
+    await session.rollback()
+    assert await _committed(stored) is None
+
+    await session.refresh(school_class)
+    kept = await calendar.ensure_calendar_token(session, school_class)
+    await session.commit()
+    assert await _committed(stored) == kept
+
+
+async def test_a_link_code_is_the_caller_s_to_commit(session, school_class) -> None:
+    device = DeviceToken(token_hash=hash_token("the-caller-commits"), class_id=school_class.id)
+    session.add(device)
+    await session.commit()
+    device_id = device.id
+    await _a_write_of_the_caller_s_own(session, school_class)
+    code = await linking.issue_link_code(session, device)
+    assert len(code) == linking.LINK_CODE_LENGTH
+    await session.rollback()
+    stored = select(DeviceToken.link_code).where(DeviceToken.id == device_id)
+    assert await _committed(stored) is None
+    assert await _committed(select(func.count()).select_from(AuditEntry)) == 0
+
+
+async def test_a_link_code_drawn_twice_is_drawn_again_without_a_commit(
+    session, school_class, monkeypatch
+) -> None:
+    """Two invocations draw the same code between the check and the write. The
+    unique index catches the second inside its savepoint, it draws again, and
+    nothing is committed: the old retry rolled the caller's whole transaction
+    back and committed the next draw itself."""
+    winner = DeviceToken(token_hash=hash_token("winner"), class_id=school_class.id)
+    loser = DeviceToken(token_hash=hash_token("loser"), class_id=school_class.id)
+    session.add_all([winner, loser])
+    await session.commit()
+    winner_id, loser_id = winner.id, loser.id
+    draws = iter(["AAAAAA", "BBBBBB"])
+    monkeypatch.setattr(linking, "new_join_code", lambda length: next(draws))
+
+    checks: list[object] = []
+    check = session.scalar
+
+    async def checked_then_taken(statement, *args, **kwargs):
+        found = await check(statement, *args, **kwargs)
+        checks.append(found)
+        if len(checks) == 1:
+            # The other invocation, between this one's check and its write.
+            async with SessionLocal() as other:
+                await other.execute(
+                    update(DeviceToken)
+                    .where(DeviceToken.id == winner_id)
+                    .values(link_code="AAAAAA")
+                )
+                await other.commit()
+        return found
+
+    commits: list[str] = []
+    commit = session.commit
+
+    async def counted() -> None:
+        commits.append("commit")
+        await commit()
+
+    monkeypatch.setattr(session, "scalar", checked_then_taken)
+    monkeypatch.setattr(session, "commit", counted)
+
+    assert await linking.issue_link_code(session, loser) == "BBBBBB"
+    assert checks == [None, None]
+    assert commits == []
+    await session.commit()
+    codes = select(DeviceToken.id, DeviceToken.link_code).order_by(DeviceToken.id)
+    async with SessionLocal() as fresh:
+        assert list(await fresh.execute(codes)) == [(winner_id, "AAAAAA"), (loser_id, "BBBBBB")]
+
+
+# ---- the bot: committed before Telegram is told -----------------------------
+
+
+@dataclass
+class _Witness:
+    """A chat the bot speaks in, as a message or as a press and its message.
+    Whenever the bot says anything, it reads the database from a session of
+    its own, so what it saw is what was committed by then."""
+
+    looks: Callable[[], Awaitable[Any]]
+    user_id: int = 42
+    saw: list[Any] = field(default_factory=list)
+
+    @property
+    def from_user(self) -> SimpleNamespace:
+        return SimpleNamespace(id=self.user_id, username="tester", full_name="Тестер")
+
+    @property
+    def message(self) -> _Witness:
+        return self
+
+    async def answer(self, text: str | None = None, *args: Any, **kwargs: Any) -> None:
+        self.saw.append(await self.looks())
+
+    edit_text = answer
+
+
+async def test_a_task_typed_into_the_bot_is_committed_before_it_is_confirmed(
+    session, school_class, FakeState
+) -> None:
+    chat = _Witness(lambda: _committed(select(PersonalTask.title)))
+    await cmd_task(
+        chat,
+        SimpleNamespace(args="Купить тетрадь"),
+        FakeState(),
+        session,
+        school_class,
+        Role.VIEWER,
+    )
+    assert chat.saw == ["Купить тетрадь"]
+
+
+async def test_a_task_ticked_in_the_bot_is_committed_before_the_list_is_redrawn(
+    session, school_class
+) -> None:
+    task = PersonalTask(class_id=school_class.id, telegram_id=42, title="Сдать реферат")
+    session.add(task)
+    await session.commit()
+    done = select(PersonalTask.done).where(PersonalTask.id == task.id)
+    press = _Witness(lambda: _committed(done))
+    await task_toggle_done(
+        press, SimpleNamespace(value=str(task.id), show_done=0), session, school_class, Role.VIEWER
+    )
+    assert press.saw == [True, True]
+
+
+async def test_a_task_deleted_in_the_bot_is_committed_before_the_list_is_redrawn(
+    session, school_class
+) -> None:
+    task = PersonalTask(class_id=school_class.id, telegram_id=42, title="Удалить меня")
+    session.add(task)
+    await session.commit()
+    press = _Witness(lambda: _committed(select(func.count()).select_from(PersonalTask)))
+    await task_delete(
+        press, SimpleNamespace(value=str(task.id), show_done=0), session, school_class, Role.VIEWER
+    )
+    assert press.saw == [0, 0]
+
+
+async def test_a_tick_taken_off_in_the_bot_is_committed_before_the_list_is_redrawn(
+    session, school_class
+) -> None:
+    """The tick taken off, not put on: putting it on goes through a savepoint
+    that opens the transaction, which SQLite commits on release whoever else
+    does (#373), so only taking it off can show the handler's own commit."""
+    homework = await _homework(session, school_class)
+    session.add(HomeworkDone(homework_id=homework.id, telegram_id=42))
+    await session.commit()
+    press = _Witness(lambda: _committed(select(func.count()).select_from(HomeworkDone)))
+    await homework_toggle(
+        press,
+        SimpleNamespace(action="toggle", value=str(homework.id)),
+        session,
+        school_class,
+        Role.VIEWER,
+    )
+    assert press.saw == [0, 0]
+
+
+async def test_the_feed_secret_the_bot_shows_is_committed_before_it_is_shown(
+    session, school_class, FakeState, monkeypatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "public_base_url", "https://lessons.example.com")
+    stored = select(SchoolClass.calendar_token).where(SchoolClass.id == school_class.id)
+    chat = _Witness(lambda: _committed(stored))
+    await cmd_calendar(chat, FakeState(), session, school_class, Role.VIEWER)
+    assert chat.saw == [school_class.calendar_token]
+    assert chat.saw[0]
+```
+In `server/tests/test_services.py`, four tests read the service's own commit from another session. Each now makes the caller's commit itself, and the tick's race moves onto the flush, where the savepoint meets it:
+1. In `test_issue_link_code_is_short_unambiguous_and_stable`, replace:
+```python
+    assert not set(code) & set("O0I1")
+    assert await linking.issue_link_code(session, device) == code
+
+    async with SessionLocal() as other:
+```
+   with:
+```python
+    assert not set(code) & set("O0I1")
+    assert await linking.issue_link_code(session, device) == code
+
+    # The caller's commit: the service leaves it to whoever shows the code.
+    await session.commit()
+    async with SessionLocal() as other:
+```
+2. Replace `test_toggle_survives_a_racing_duplicate` from its `def` down to its first assertion:
+```python
+async def test_toggle_survives_a_racing_duplicate(session, school_class):
+    """The app and the bot ticking the same homework in the same instant."""
+    homework = await _homework(session, school_class, MONDAY)
+    real_commit = session.commit
+
+    async def racing_commit() -> None:
+        async with SessionLocal() as other:
+            other.add(HomeworkDone(homework_id=homework.id, telegram_id=42))
+            await other.commit()
+        session.commit = real_commit
+        await real_commit()
+
+    session.commit = racing_commit
+    assert await tasks.toggle_homework_done(session, homework, 42) is True
+```
+   with:
+```python
+async def test_toggle_survives_a_racing_duplicate(session, school_class):
+    """The app and the bot ticking the same homework in the same instant.
+
+    The other tick lands between this one's check and its write, so the write
+    meets the unique index inside its savepoint; the caller's transaction goes
+    on, and nothing is committed until the caller commits it."""
+    homework = await _homework(session, school_class, MONDAY)
+    real_flush = session.flush
+
+    async def racing_flush(*args, **kwargs) -> None:
+        async with SessionLocal() as other:
+            other.add(HomeworkDone(homework_id=homework.id, telegram_id=42))
+            await other.commit()
+        session.flush = real_flush
+        await real_flush(*args, **kwargs)
+
+    session.flush = racing_flush
+    assert await tasks.toggle_homework_done(session, homework, 42) is True
+```
+   Its last three lines stay as they are.
+3. In `test_two_requests_minting_the_calendar_token_hand_out_the_same_one`, replace:
+```python
+        winner = await calendar.ensure_calendar_token(
+            first, await first.get(SchoolClass, class_id)
+        )
+        handed_out = await calendar.ensure_calendar_token(second, stale)
+```
+   with:
+```python
+        winner = await calendar.ensure_calendar_token(
+            first, await first.get(SchoolClass, class_id)
+        )
+        # The first request finishes: its caller commits, as every caller of
+        # the service now does.
+        await first.commit()
+        handed_out = await calendar.ensure_calendar_token(second, stale)
+```
+   Without it, the second session's update would wait for the first one's lock: thirty seconds on SQLite, then «database is locked».
+4. In `test_two_overlapping_ticks_do_not_send_one_task_reminder_twice`, replace:
+```python
+        remind_at=datetime(2026, 9, 7, 7, 0),
+    )
+
+    async with SessionLocal() as overlapping:
+```
+   with:
+```python
+        remind_at=datetime(2026, 9, 7, 7, 0),
+    )
+    # The caller's commit, as the bot's «/task» makes it: the overlapping tick
+    # reads the task from a session of its own.
+    await session.commit()
+
+    async with SessionLocal() as overlapping:
+```
+
+Run, from `$WT/server`:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_the_caller_commits.py tests/test_services.py
+```
+Expected: 5 failed and 129 passed. The five tests of the services fail on their first read from a fresh session: `assert 1 == 0` for a task and for a tick, the feed's secret and the link code read back where `None` was expected, and `['commit', 'commit'] == []` for the code drawn twice, whose old retry committed twice. The five tests of the bot pass, because the services still commit before the bot speaks; Step 5 shows them guarding. The four edited tests of `test_services.py` pass on both sides of this task. Keep this output: the task's report quotes it as the evidence that the tests failed before the code.
+
+- [ ] **Step 2: `services/tasks.py` commits nothing.**
+  1. In the module docstring, replace:
+```python
+classmate's list.
+
+:func:`parse_task_text` is the one-message grammar
+```
+     with:
+```python
+classmate's list.
+
+Nothing here commits: every caller does, after the call — v1's routers, the
+bot's handlers before they tell Telegram, and v2's ``invoke``, since a v2
+handler never commits (``docs/specs/2026-10-05-server-v2-design.md``,
+decision 4). The one write that can meet a racing twin, a tick, concedes
+inside a savepoint rather than by failing a commit.
+
+:func:`parse_task_text` is the one-message grammar
+```
+  2. Replace the end of `add_task`, and `set_done` and `delete_task`:
+```python
+    session.add(task)
+    await session.commit()
+    # Server defaults (``created_at``) are not fetched by the insert; the
+    # caller renders the row it gets back, so load them now.
+    await session.refresh(task)
+    return task
+
+
+async def set_done(session: AsyncSession, task: PersonalTask, done: bool) -> None:
+    task.done = done
+    task.done_at = _utcnow() if done else None
+    await session.commit()
+
+
+async def delete_task(session: AsyncSession, task: PersonalTask) -> None:
+    await session.delete(task)
+    await session.commit()
+```
+     with:
+```python
+    session.add(task)
+    # Flushed, not committed: the caller commits it. Server defaults
+    # (``created_at``) are not fetched by the insert, and the caller renders
+    # the row it gets back, so the id and the stamps are loaded now.
+    await session.flush()
+    await session.refresh(task)
+    return task
+
+
+async def set_done(session: AsyncSession, task: PersonalTask, done: bool) -> None:
+    """Tick ``task`` off, or back on, and stamp when. The caller commits."""
+    task.done = done
+    task.done_at = _utcnow() if done else None
+
+
+async def delete_task(session: AsyncSession, task: PersonalTask) -> None:
+    """Delete ``task``. The caller commits."""
+    await session.delete(task)
+```
+  3. In `toggle_homework_done`, replace everything after its signature:
+```python
+    """Flip this person's tick on ``homework``; returns the new state."""
+    homework_id = homework.id
+    existing = await session.scalar(
+        select(HomeworkDone).where(
+            HomeworkDone.homework_id == homework_id, HomeworkDone.telegram_id == telegram_id
+        )
+    )
+    if existing is not None:
+        await session.delete(existing)
+        await session.commit()
+        return False
+
+    session.add(HomeworkDone(homework_id=homework_id, telegram_id=telegram_id, done_at=_utcnow()))
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Two taps in flight at once - the app and the bot, or a double tap on
+        # a slow connection. The other one won and the tick is there, which is
+        # the state this tap wanted too.
+        await session.rollback()
+        # The rollback expired every loaded row; in an async session the
+        # caller cannot lazily reload ``homework`` when it renders the reply.
+        await session.refresh(homework)
+    return True
+```
+     with:
+```python
+    """Flip this person's tick on ``homework``; returns the new state. The
+    caller commits."""
+    homework_id = homework.id
+    existing = await session.scalar(
+        select(HomeworkDone).where(
+            HomeworkDone.homework_id == homework_id, HomeworkDone.telegram_id == telegram_id
+        )
+    )
+    if existing is not None:
+        await session.delete(existing)
+        return False
+
+    try:
+        async with session.begin_nested():
+            session.add(
+                HomeworkDone(homework_id=homework_id, telegram_id=telegram_id, done_at=_utcnow())
+            )
+            await session.flush()
+    except IntegrityError:
+        # Two taps in flight at once - the app and the bot, or a double tap on
+        # a slow connection. The other one won and the tick is there, which is
+        # the state this tap wanted too. Only the savepoint is rolled back, so
+        # the caller's transaction, and ``homework`` in it, go on as they were.
+        pass
+    return True
+```
+
+- [ ] **Step 3: `services/calendar.py`: `ensure_calendar_token` commits nothing.** Replace the end of its docstring and its body:
+```python
+    loser of the `WHERE calendar_token IS NULL` now writes nothing and takes
+    the winner's token, which is the same answer.
+    """
+    if school_class.calendar_token:
+        return school_class.calendar_token
+
+    await session.execute(
+        sa_update(SchoolClass)
+        .where(SchoolClass.id == school_class.id, SchoolClass.calendar_token.is_(None))
+        .values(calendar_token=secrets.token_urlsafe(24))
+    )
+    await session.commit()
+    await session.refresh(school_class, ["calendar_token"])
+    # Not reachable: after that commit the column holds somebody's token, ours
+```
+with:
+```python
+    loser of the `WHERE calendar_token IS NULL` waits for the winner's commit,
+    then writes nothing and takes the winner's token, which is the same answer.
+
+    Nothing is committed here. The caller commits before it hands the address
+    out — v1's router, the bot's handler before it answers, v2's ``invoke``
+    before the response leaves — for the same reason: an address for a secret
+    the database never kept is a feed that answers 404 for ever.
+    """
+    if school_class.calendar_token:
+        return school_class.calendar_token
+
+    await session.execute(
+        sa_update(SchoolClass)
+        .where(SchoolClass.id == school_class.id, SchoolClass.calendar_token.is_(None))
+        .values(calendar_token=secrets.token_urlsafe(24))
+    )
+    await session.refresh(school_class, ["calendar_token"])
+    # Not reachable: after that update the column holds somebody's token, ours
+```
+The comment's last three lines, from `# or the winner's,`, and the `return` stay as they are.
+
+- [ ] **Step 4: `services/linking.py`: `issue_link_code` commits nothing, and draws again in a savepoint.**
+  1. Replace the end of its docstring and its body:
+```python
+    The app polls its own status while the link screen is open, and a code
+    that changed on every poll would be unreadable.
+    """
+    if device.link_code:
+        return device.link_code
+
+    for _ in range(_ATTEMPTS):
+        code = new_join_code(LINK_CODE_LENGTH)
+        taken = await session.scalar(select(DeviceToken.id).where(DeviceToken.link_code == code))
+        if taken is not None:
+            continue
+        device.link_code = code
+        try:
+            await session.commit()
+        except IntegrityError:
+            # Two invocations drew the same code between the check and the
+            # commit; the unique index caught it. Draw again.
+            await session.rollback()
+            await session.refresh(device)
+            continue
+        return code
+```
+     with:
+```python
+    The app polls its own status while the link screen is open, and a code
+    that changed on every poll would be unreadable. Nothing is committed: the
+    caller commits before it shows the code, because a code the database
+    never kept links nothing.
+    """
+    if device.link_code:
+        return device.link_code
+
+    for _ in range(_ATTEMPTS):
+        code = new_join_code(LINK_CODE_LENGTH)
+        taken = await session.scalar(select(DeviceToken.id).where(DeviceToken.link_code == code))
+        if taken is not None:
+            continue
+        try:
+            async with session.begin_nested():
+                device.link_code = code
+                await session.flush()
+        except IntegrityError:
+            # Two invocations drew the same code between the check and the
+            # write; the unique index caught it. Only the savepoint is rolled
+            # back, so the caller's transaction goes on; the row is read
+            # again, because the rollback expired what this write changed.
+            # Draw again.
+            await session.refresh(device)
+            continue
+        return code
+```
+  2. In `unlink_device`'s docstring, replace:
+```python
+    Leaves the transaction open, unlike the functions above it, because two of
+```
+     with:
+```python
+    Leaves the transaction open, unlike :func:`link_device`, because two of
+```
+
+- [ ] **Step 5: The bot's tests now guard.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_the_caller_commits.py
+```
+Expected: 5 passed and 5 failed. The services' five pass. The bot's five fail, each having read the state from before the write whenever the handler spoke: `[None]` for the task typed, `[False, False]` for the tick on a task, `[1, 1]` for the task deleted and for the homework tick taken off, and `[None]` for the feed's secret. That is the evidence that the bot needs Step 7. v1's own tests are not run here: its routers commit nothing until Step 6.
+
+- [ ] **Step 6: v1 commits after the call.** In `server/app/api/public.py`:
+  1. In `me`, replace:
+```python
+    if not device.is_linked:
+        link_code = await linking.issue_link_code(session, device)
+        username = get_settings().bot_username.lstrip("@")
+```
+     with:
+```python
+    if not device.is_linked:
+        link_code = await linking.issue_link_code(session, device)
+        await session.commit()
+        username = get_settings().bot_username.lstrip("@")
+```
+  2. In `homework_done`, replace:
+```python
+    if current != payload.done:
+        current = await task_service.toggle_homework_done(session, item, telegram_id)
+    return DoneOut(id=item.id, done=current)
+```
+     with:
+```python
+    if current != payload.done:
+        current = await task_service.toggle_homework_done(session, item, telegram_id)
+        await session.commit()
+    return DoneOut(id=item.id, done=current)
+```
+  3. In `tasks_create`, replace:
+```python
+        remind_at=_wall_time(payload.remind_at, school_class),
+    )
+    return _task_out(task)
+```
+     with:
+```python
+        remind_at=_wall_time(payload.remind_at, school_class),
+    )
+    await session.commit()
+    return _task_out(task)
+```
+  4. In `tasks_update`, replace:
+```python
+    if done is not None and done != task.done:
+        await task_service.set_done(session, task, done)
+    else:
+        await session.commit()
+    await session.refresh(task)
+```
+     with:
+```python
+    if done is not None and done != task.done:
+        await task_service.set_done(session, task, done)
+    await session.commit()
+    await session.refresh(task)
+```
+  5. In `tasks_delete`, replace:
+```python
+    await task_service.delete_task(session, task)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+```
+     with:
+```python
+    await task_service.delete_task(session, task)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+```
+  6. In `tasks_done`, replace:
+```python
+    if task.done != payload.done:
+        await task_service.set_done(session, task, payload.done)
+        # ``updated_at`` is set by the database on update and expired by the
+```
+     with:
+```python
+    if task.done != payload.done:
+        await task_service.set_done(session, task, payload.done)
+        await session.commit()
+        # ``updated_at`` is set by the database on update and expired by the
+```
+  7. In `calendar_url`, replace:
+```python
+    token = await calendar_service.ensure_calendar_token(session, school_class)
+    base = get_settings().public_base_url.rstrip("/") or str(request.base_url).rstrip("/")
+```
+     with:
+```python
+    token = await calendar_service.ensure_calendar_token(session, school_class)
+    await session.commit()
+    base = get_settings().public_base_url.rstrip("/") or str(request.base_url).rstrip("/")
+```
+
+- [ ] **Step 7: The bot commits before it speaks.**
+  1. In `server/app/bot/handlers/tasks.py`, in `task_toggle_done`, replace:
+```python
+    await task_service.set_done(session, task, not task.done)
+    text, keyboard = await task_view(
+```
+     with:
+```python
+    await task_service.set_done(session, task, not task.done)
+    # Committed before Telegram is told: the middleware commits after the
+    # handler, and an edit Telegram refuses would roll the tick back with it.
+    await session.commit()
+    text, keyboard = await task_view(
+```
+  2. In the same file, in `_save_from_text`, replace:
+```python
+        due_time=due_time,
+        priority=priority,
+    )
+
+    text = render_task_saved(task, today)
+```
+     with:
+```python
+        due_time=due_time,
+        priority=priority,
+    )
+    # Committed before the confirmation, whose buttons carry the task's id: a
+    # reply Telegram refuses must not take the task down with it.
+    await session.commit()
+
+    text = render_task_saved(task, today)
+```
+  3. In the same file, in `task_delete`, replace:
+```python
+    if task is not None:
+        await task_service.delete_task(session, task)
+    text, keyboard = await task_view(
+```
+     with:
+```python
+    if task is not None:
+        await task_service.delete_task(session, task)
+        # Before the list is redrawn, for the same reason as the tick above.
+        await session.commit()
+    text, keyboard = await task_view(
+```
+  4. In `server/app/bot/handlers/content/homework.py`, in `homework_toggle`, replace:
+```python
+    now_done = await task_service.toggle_homework_done(
+        session, homework, callback.from_user.id
+    )
+    text, keyboard = await homework_view
+```
+     with:
+```python
+    now_done = await task_service.toggle_homework_done(
+        session, homework, callback.from_user.id
+    )
+    # Committed before Telegram is told: the middleware commits after the
+    # handler, and an edit Telegram refuses would roll the tick back with it.
+    await session.commit()
+    text, keyboard = await homework_view
+```
+  5. In `server/app/bot/handlers/manage/calendar_feed.py`, in `_calendar_text`, replace:
+```python
+    else:
+        token = await calendar_service.ensure_calendar_token(session, school_class)
+    return mr.render_calendar
+```
+     with:
+```python
+    else:
+        token = await calendar_service.ensure_calendar_token(session, school_class)
+        # Committed before the address is shown: an address for a secret the
+        # database never kept is a subscription that answers 404 for ever.
+        await session.commit()
+    return mr.render_calendar
+```
+     The rotation's branch keeps `rotate_calendar_token`, which commits itself (Ruling 52; `#375` is its journal line).
+
+- [ ] **Step 8: Green, and v1 and the bot unchanged.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_the_caller_commits.py tests/test_services.py tests/test_api_extended.py tests/test_bot_views.py tests/test_bot_manage.py tests/test_bot_commands.py tests/test_service_layering.py
+```
+Expected: all pass; `test_the_caller_commits.py` has 10. v1's and the bot's files pass unedited:
+- `test_api_extended.py` holds `/me`'s code minted once and repeated, the tick set and set again, every task route, and `/calendar`'s address minted once, each read back by a later request on a session of its own. For the tasks and the address, that read sees only what v1 committed. For the code and the tick it proves nothing of v1's commit, because on SQLite their savepoint commits itself when it is released (`#373`): the review reads those two commits in the diff;
+- `test_bot_views.py`, `test_bot_manage.py` and `test_bot_commands.py` hold the bot's task, tick and calendar screens.
+
+- [ ] **Step 9: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 231 source files`. The full suite waits for Task 7.
+
+- [ ] **Step 10: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b4-t1.txt`, with `#373` replaced by the number the controller filed it as:
+```text
+Leave the commit of a phone's own writes to whoever calls them
+
+tasks.add_task, set_done, delete_task and toggle_homework_done,
+calendar.ensure_calendar_token and linking.issue_link_code committed
+inside themselves, and a v2 handler cannot: invoke commits, once. They
+stop, and every caller commits after the call. v1's routers commit
+before they return, as the manage endpoints do. The bot's handlers
+commit before they speak, because ContextMiddleware commits only after
+the handler and rolls back when it raises, and an edit Telegram refuses
+raises: a refused reply would otherwise take the write with it.
+add_task flushes and refreshes, since every caller renders the id and
+the stamps.
+
+The two retries that relied on a failing commit, a link code drawn
+twice and a racing tick, concede inside a savepoint, so the caller's
+transaction goes on with whatever it wrote before.
+
+Four tests of test_services.py read the service's own commit from
+another session; each now makes the caller's commit, and the tick's
+race is injected at the flush, where the savepoint meets it. v1's tests
+and the bot's are not edited.
+
+Not covered: Postgres. On SQLite a savepoint that opens the transaction
+commits when it is released (#373), so the new tests of a write behind a
+savepoint make a write of their own first.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/services/tasks.py server/app/services/calendar.py server/app/services/linking.py server/app/api/public.py server/app/bot/handlers/tasks.py server/app/bot/handlers/content/homework.py server/app/bot/handlers/manage/calendar_feed.py server/tests/test_services.py server/tests/test_the_caller_commits.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b4-t1.txt
+```
+
+---
+
+### 3b-4 Task 2: What v1's `public.py` held for a phone's own things, in `services/`
+
+Decision 2; Rulings 59 to 61. v1 keeps its answers: `test_api_extended.py` is the proof and is not edited.
+
+**Files:**
+- Modify: `server/app/services/tasks.py`, `server/app/services/homework.py`, `server/app/services/linking.py`, `server/app/services/calendar.py`, `server/app/wording.py`, `server/app/api/public.py`, `server/app/bot/handlers/manage/calendar_feed.py`
+- Create: `server/tests/test_services_tasks.py`
+
+**Interfaces:**
+- Consumes: Task 1's services; `homework_ticks`, `get_task`, `unlink_device`, `issue_link_code`.
+- Produces:
+  - `tasks.LIST_MAX = 200`;
+  - `tasks.HomeworkNotInClass(ValueError)`;
+  - `tasks.wall_time(value: datetime | None, school_class: SchoolClass) -> datetime | None`;
+  - `tasks.check_homework_id(session, class_id: int, homework_id: int | None) -> None`;
+  - `tasks.create_task(session, school_class, telegram_id, title, *, notes=None, subject_name=None, due_date=None, due_time=None, priority=1, homework_id=None, remind_at=None) -> PersonalTask`;
+  - `tasks.update_task(session, school_class, task, changes: Mapping[str, Any]) -> None`;
+  - `tasks.set_homework_done(session, homework, telegram_id, done: bool) -> bool`;
+  - `homework.homework_of(session, class_id: int, homework_id: int) -> Homework | None`;
+  - `linking.link_code_for(session, device) -> str | None`, `linking.deep_link(bot_username: str, code: str) -> str | None`, `linking.unlink_self(session, device) -> None`;
+  - `calendar.feed_url(base: str, token: str) -> str`;
+  - `wording.UNKNOWN_TASK_DETAIL`, `UNKNOWN_HOMEWORK_DETAIL`, `HOMEWORK_NOT_IN_CLASS_DETAIL`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_services_tasks.py`:
+```python
+"""What v1's ``public.py`` held for a phone's own things, in ``services/``.
+
+v1's ``/tasks``, ``/homework/{id}/done``, ``/me``, ``/me/unlink`` and
+``/calendar`` held these rules in their router: a task's link to homework
+checked against the class, a reminder stored as the class's wall time, a
+patch applied field by field with ``done`` through ``set_done``, a tick set
+rather than toggled, no link code for a phone already linked, the code's deep
+link, unlinking a phone that is not linked, and the feed's address. v2's
+``MeService`` needs every one of them, so they moved before its handlers were
+written, with v1 calling them (``docs/specs/2026-10-05-server-v2-design.md``,
+decision 2). ``test_api_extended.py``, untouched, is the proof that v1's
+answers did not move; these hold the rules a fact at a time.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, date, datetime
+
+import pytest
+from sqlalchemy import func, select
+
+from app import wording
+from app.models import DeviceToken, Homework, HomeworkDone, PersonalTask, SchoolClass
+from app.security import hash_token
+from app.services import calendar, linking, tasks
+from app.services import homework as homework_service
+
+MONDAY = date(2026, 9, 7)
+
+
+async def _other_class_s_homework(session) -> Homework:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = Homework(class_id=other.id, due_date=MONDAY, subject_name="Алгебра", text="№ 1")
+    session.add(foreign)
+    await session.commit()
+    return foreign
+
+
+async def _homework(session, school_class) -> Homework:
+    own = Homework(class_id=school_class.id, due_date=MONDAY, subject_name="Физика", text="§ 3")
+    session.add(own)
+    await session.commit()
+    return own
+
+
+async def test_a_task_from_the_api_is_checked_against_the_class_and_reminded_on_its_clock(
+    session, school_class
+) -> None:
+    foreign = await _other_class_s_homework(session)
+    with pytest.raises(tasks.HomeworkNotInClass):
+        await tasks.create_task(session, school_class, 42, "Чужое", homework_id=foreign.id)
+    assert await session.scalar(select(func.count()).select_from(PersonalTask)) == 0
+
+    own = await _homework(session, school_class)
+    # 05:00 UTC is 08:00 in Moscow, the class's zone.
+    linked = await tasks.create_task(
+        session,
+        school_class,
+        42,
+        "Своё",
+        homework_id=own.id,
+        remind_at=datetime(2026, 9, 15, 5, 0, tzinfo=UTC),
+    )
+    assert (linked.homework_id, linked.remind_at) == (own.id, datetime(2026, 9, 15, 8, 0))
+    # A naive reminder is wall time already.
+    plain = await tasks.create_task(
+        session, school_class, 42, "Без зоны", remind_at=datetime(2026, 9, 15, 8, 0)
+    )
+    assert plain.remind_at == datetime(2026, 9, 15, 8, 0)
+
+
+async def test_an_update_changes_what_it_names_and_stamps_done_only_when_it_changes(
+    session, school_class
+) -> None:
+    task = await tasks.add_task(
+        session, school_class.id, 42, "Купить тетрадь", notes="в клетку", due_date=MONDAY
+    )
+    await tasks.update_task(session, school_class, task, {"title": "Две тетради", "due_date": None})
+    assert (task.title, task.due_date, task.notes) == ("Две тетради", None, "в клетку")
+
+    await tasks.update_task(session, school_class, task, {"done": True})
+    stamped = task.done_at
+    assert task.done is True and stamped is not None
+    await tasks.update_task(session, school_class, task, {"done": True})
+    assert task.done_at is stamped
+    await tasks.update_task(session, school_class, task, {"done": False})
+    assert (task.done, task.done_at) == (False, None)
+
+    await tasks.update_task(
+        session, school_class, task, {"remind_at": datetime(2026, 9, 15, 5, 0, tzinfo=UTC)}
+    )
+    assert task.remind_at == datetime(2026, 9, 15, 8, 0)
+
+    foreign = await _other_class_s_homework(session)
+    with pytest.raises(tasks.HomeworkNotInClass):
+        await tasks.update_task(
+            session, school_class, task, {"title": "Чужое", "homework_id": foreign.id}
+        )
+    # Checked before anything changed.
+    assert (task.title, task.homework_id) == ("Две тетради", None)
+
+
+async def test_a_tick_is_set_not_toggled(session, school_class) -> None:
+    homework = await _homework(session, school_class)
+    ticks = select(func.count()).select_from(HomeworkDone)
+    assert await tasks.set_homework_done(session, homework, 42, True) is True
+    assert await tasks.set_homework_done(session, homework, 42, True) is True
+    assert await session.scalar(ticks) == 1
+    assert await tasks.set_homework_done(session, homework, 42, False) is False
+    assert await tasks.set_homework_done(session, homework, 42, False) is False
+    assert await session.scalar(ticks) == 0
+
+
+async def test_homework_is_found_only_in_its_own_class(session, school_class) -> None:
+    own = await _homework(session, school_class)
+    foreign = await _other_class_s_homework(session)
+    assert await homework_service.homework_of(session, school_class.id, own.id) is own
+    assert await homework_service.homework_of(session, school_class.id, foreign.id) is None
+    assert await homework_service.homework_of(session, school_class.id, 999_999) is None
+
+
+async def test_a_linked_phone_gets_no_link_code_and_an_unlinked_one_keeps_its_own(
+    session, school_class
+) -> None:
+    unlinked = DeviceToken(token_hash=hash_token("unlinked"), class_id=school_class.id)
+    linked = DeviceToken(token_hash=hash_token("linked"), class_id=school_class.id, telegram_id=42)
+    session.add_all([unlinked, linked])
+    await session.commit()
+    code = await linking.link_code_for(session, unlinked)
+    assert code is not None and len(code) == linking.LINK_CODE_LENGTH
+    assert await linking.link_code_for(session, unlinked) == code
+    assert await linking.link_code_for(session, linked) is None
+    assert linked.link_code is None
+
+
+def test_the_deep_link_names_the_bot_or_nothing() -> None:
+    expected = "https://t.me/lessons_bot?start=link_ABC234"
+    assert linking.deep_link("@lessons_bot", "ABC234") == expected
+    assert linking.deep_link("lessons_bot", "ABC234") == expected
+    assert linking.deep_link("", "ABC234") is None
+    assert linking.deep_link("@", "ABC234") is None
+
+
+async def test_unlinking_a_phone_no_account_is_behind_changes_nothing(
+    session, school_class
+) -> None:
+    unlinked = DeviceToken(
+        token_hash=hash_token("unlinked"), class_id=school_class.id, link_code="ABC234"
+    )
+    linked = DeviceToken(
+        token_hash=hash_token("linked"),
+        class_id=school_class.id,
+        telegram_id=42,
+        linked_at=datetime(2026, 9, 1),
+    )
+    session.add_all([unlinked, linked])
+    await session.commit()
+    await linking.unlink_self(session, unlinked)
+    assert unlinked.link_code == "ABC234"
+    assert not session.dirty
+    await linking.unlink_self(session, linked)
+    assert (linked.telegram_id, linked.linked_at, linked.link_code) == (None, None, None)
+
+
+def test_the_feed_s_address_is_v1_s_path_on_any_origin() -> None:
+    expected = "https://lessons.example.com/api/v1/calendar/s3cret.ics"
+    assert calendar.feed_url("https://lessons.example.com", "s3cret") == expected
+    assert calendar.feed_url("https://lessons.example.com/", "s3cret") == expected
+
+
+def test_the_phone_s_own_sentences_are_v1_s() -> None:
+    assert wording.UNKNOWN_TASK_DETAIL == "Unknown task"
+    assert wording.UNKNOWN_HOMEWORK_DETAIL == "Unknown homework"
+    assert wording.HOMEWORK_NOT_IN_CLASS_DETAIL == "homework_id is not in this class"
+    # Written inline in v1's router until it moved.
+    assert tasks.LIST_MAX == 200
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_tasks.py
+```
+Expected: 9 tests, every one failing with `AttributeError` on a name this task adds: `tasks.HomeworkNotInClass`, `update_task`, `set_homework_done`, `homework.homework_of`, `linking.link_code_for`, `deep_link`, `unlink_self`, `calendar.feed_url` or `wording.UNKNOWN_TASK_DETAIL`. Keep this output as the evidence.
+
+- [ ] **Step 2: `services/tasks.py` gains what v1's router held.**
+  1. Replace the imports:
+```python
+import re
+from datetime import UTC, datetime, timedelta
+from datetime import date as Date
+from datetime import time as Time
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Homework, HomeworkDone, PersonalTask, TaskPriority
+```
+     with:
+```python
+import re
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
+from datetime import date as Date
+from datetime import time as Time
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Homework, HomeworkDone, PersonalTask, SchoolClass, TaskPriority
+from app.services import homework as homework_service
+```
+  2. Replace:
+```python
+def _clamp_priority(priority: int) -> int:
+    return max(int(TaskPriority.LOW), min(int(TaskPriority.HIGH), int(priority)))
+```
+     with:
+```python
+#: The most tasks one list answers: v1's ``GET /tasks`` and v2's ``ListTasks``.
+#: The bot's own list shows fewer, and pages nothing.
+LIST_MAX = 200
+
+
+def _clamp_priority(priority: int) -> int:
+    return max(int(TaskPriority.LOW), min(int(TaskPriority.HIGH), int(priority)))
+```
+  3. Replace `get_task`'s docstring and body, which end the «Tasks» section:
+```python
+    """Always scoped to the owner: an id from a callback proves nothing by itself."""
+    return await session.scalar(
+        select(PersonalTask).where(
+            PersonalTask.id == task_id,
+            PersonalTask.class_id == class_id,
+            PersonalTask.telegram_id == telegram_id,
+        )
+    )
+```
+     with:
+```python
+    """Always scoped to the owner: an id from a callback proves nothing by itself."""
+    return await session.scalar(
+        select(PersonalTask).where(
+            PersonalTask.id == task_id,
+            PersonalTask.class_id == class_id,
+            PersonalTask.telegram_id == telegram_id,
+        )
+    )
+
+
+# --------------------------------------------------------------------------
+# Tasks from the API
+#
+# What v1's ``/tasks`` held in its router and v2's ``MeService`` needs too:
+# a task's link to homework checked against the class, a reminder stored as
+# the class's wall time, and a patch applied field by field with ``done``
+# through ``set_done``. The bot types neither a homework id nor an instant,
+# so it calls ``add_task`` and ``set_done`` directly.
+# --------------------------------------------------------------------------
+
+
+class HomeworkNotInClass(ValueError):
+    """A task's ``homework_id`` names homework this class does not have:
+    another class's, or none."""
+
+
+def wall_time(value: datetime | None, school_class: SchoolClass) -> datetime | None:
+    """Class wall time for the naive ``remind_at`` column. A naive value is taken
+    as wall time already; an aware one is an instant, and is converted to the
+    class's zone, which is the clock the reminder tick reads."""
+    if value is None or value.tzinfo is None:
+        return value
+    return value.astimezone(school_class.tz).replace(tzinfo=None)
+
+
+async def check_homework_id(session: AsyncSession, class_id: int, homework_id: int | None) -> None:
+    """Refuse a link from a task to homework the class does not have.
+
+    @raises HomeworkNotInClass for another class's homework, or none.
+    """
+    if homework_id is None:
+        return
+    if await homework_service.homework_of(session, class_id, homework_id) is None:
+        raise HomeworkNotInClass()
+
+
+async def create_task(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    telegram_id: int,
+    title: str,
+    *,
+    notes: str | None = None,
+    subject_name: str | None = None,
+    due_date: Date | None = None,
+    due_time: Time | None = None,
+    priority: int = int(TaskPriority.NORMAL),
+    homework_id: int | None = None,
+    remind_at: datetime | None = None,
+) -> PersonalTask:
+    """A task from v1's ``POST /tasks`` or v2's ``CreateTask``: :func:`add_task`,
+    after the two things the API asks and the bot has no need of. A
+    ``homework_id`` must be this class's, and a ``remind_at`` with an offset is
+    stored as the class's wall time. Nothing is committed.
+
+    @raises HomeworkNotInClass for another class's homework, or none.
+    """
+    await check_homework_id(session, school_class.id, homework_id)
+    return await add_task(
+        session,
+        school_class.id,
+        telegram_id,
+        title,
+        due_date=due_date,
+        due_time=due_time,
+        priority=priority,
+        subject_name=subject_name,
+        notes=notes,
+        homework_id=homework_id,
+        remind_at=wall_time(remind_at, school_class),
+    )
+
+
+async def update_task(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    task: PersonalTask,
+    changes: Mapping[str, Any],
+) -> None:
+    """Change the fields ``changes`` names, and no other: v1's ``PATCH
+    /tasks/{id}``, and v2's ``UpdateTask``, which with ``done`` is v1's
+    ``POST /tasks/{id}/done`` too.
+
+    ``None`` clears a nullable field. A ``homework_id`` must be this class's,
+    and is checked before anything changes; a ``remind_at`` with an offset is
+    stored as the class's wall time; ``done`` goes through :func:`set_done`,
+    which stamps when, and only when it changes. Nothing is committed.
+
+    @raises HomeworkNotInClass for another class's homework, or none.
+    """
+    fields = dict(changes)
+    if "homework_id" in fields:
+        await check_homework_id(session, school_class.id, fields["homework_id"])
+    if "remind_at" in fields:
+        fields["remind_at"] = wall_time(fields["remind_at"], school_class)
+    done = fields.pop("done", None)
+    for name, value in fields.items():
+        setattr(task, name, value)
+    if done is not None and done != task.done:
+        await set_done(session, task, done)
+```
+  4. Replace the end of `toggle_homework_done`, as Task 1 left it:
+```python
+        # the caller's transaction, and ``homework`` in it, go on as they were.
+        pass
+    return True
+```
+     with:
+```python
+        # the caller's transaction, and ``homework`` in it, go on as they were.
+        pass
+    return True
+
+
+async def set_homework_done(
+    session: AsyncSession, homework: Homework, telegram_id: int, done: bool
+) -> bool:
+    """Set, not toggle, this person's tick on ``homework``, and answer the state
+    it is in now: the app sends the state it shows, so a retried request lands
+    on the same answer. v1's ``POST /homework/{id}/done``, and v2's
+    ``CreateHomeworkTick`` and ``DeleteHomeworkTick``. Nothing is committed."""
+    ticked = homework.id in await homework_ticks(session, telegram_id, [homework.id])
+    if ticked == done:
+        return ticked
+    return await toggle_homework_done(session, homework, telegram_id)
+```
+
+- [ ] **Step 3: `services/homework.py` gains the homework's lookup.** Replace:
+```python
+async def upsert(
+    session: AsyncSession,
+```
+with:
+```python
+async def homework_of(session: AsyncSession, class_id: int, homework_id: int) -> Homework | None:
+    """This class's homework ``homework_id``, or ``None``: an id of another
+    class's homework finds nothing, as every lookup by id here does. v1's
+    ``/homework/{id}/done`` and v2's homework ticks read it, and v2's
+    ``HomeworkService`` will."""
+    return await session.scalar(
+        select(Homework).where(Homework.id == homework_id, Homework.class_id == class_id)
+    )
+
+
+async def upsert(
+    session: AsyncSession,
+```
+
+- [ ] **Step 4: `services/linking.py` gains the code for a phone, its deep link, and unlinking oneself.**
+  1. Replace the end of `issue_link_code`:
+```python
+        return code
+    raise RuntimeError("could not find a free link code")
+```
+     with:
+```python
+        return code
+    raise RuntimeError("could not find a free link code")
+
+
+async def link_code_for(session: AsyncSession, device: DeviceToken) -> str | None:
+    """The code this phone shows to be linked, or ``None`` for a phone that is
+    linked already: a code left on a linked row could be typed by somebody
+    else and re-home the phone. v1's ``GET /me`` and v2's ``CreateLinkCode``.
+    Nothing is committed."""
+    if device.is_linked:
+        return None
+    return await issue_link_code(session, device)
+
+
+def deep_link(bot_username: str, code: str) -> str | None:
+    """``https://t.me/<bot>?start=link_<code>``: the bot opened with the code
+    already in it, which its ``/start link_<code>`` reads. ``None`` when the
+    deployment names no bot (``BOT_USERNAME``), written with its «@» or not."""
+    username = bot_username.lstrip("@")
+    return f"https://t.me/{username}?start=link_{code}" if username else None
+```
+  2. Replace the end of `unlink_device`:
+```python
+    device.telegram_id = None
+    device.linked_at = None
+    device.link_code = None
+```
+     with:
+```python
+    device.telegram_id = None
+    device.linked_at = None
+    device.link_code = None
+
+
+async def unlink_self(session: AsyncSession, device: DeviceToken) -> None:
+    """Back to read-only, at the phone's own asking: v1's ``POST /me/unlink``
+    and v2's ``UnlinkMe``.
+
+    A phone no account is behind changes nothing, its link code included,
+    which :func:`unlink_device` would clear; so asking twice is not an error,
+    and the second time writes nothing. No audit line: the phone did it to
+    itself, and v1 wrote none. Nothing is committed.
+    """
+    if device.is_linked:
+        await unlink_device(session, device)
+```
+
+- [ ] **Step 5: `services/calendar.py` gains the feed's address.** Replace `rotate_calendar_token`'s docstring and body:
+```python
+    """A new secret; every existing subscription stops updating."""
+    school_class.calendar_token = secrets.token_urlsafe(24)
+    await session.commit()
+    return school_class.calendar_token
+```
+with:
+```python
+    """A new secret; every existing subscription stops updating."""
+    school_class.calendar_token = secrets.token_urlsafe(24)
+    await session.commit()
+    return school_class.calendar_token
+
+
+def feed_url(base: str, token: str) -> str:
+    """The subscription address of the feed whose secret is ``token``, on the
+    origin ``base``. The feed itself stays plain HTTP at its v1 path,
+    whichever version or screen handed the address out (``me.proto``,
+    ``CalendarFeed.url``)."""
+    return f"{base.rstrip('/')}/api/v1/calendar/{token}.ics"
+```
+
+- [ ] **Step 6: `app/wording.py` gains the three sentences.** Replace the file's last line:
+```python
+DIRECTORY_UPSTREAM_DETAIL = "Поиск школ сейчас недоступен — выберите регион из списка"
+```
+with:
+```python
+DIRECTORY_UPSTREAM_DETAIL = "Поиск школ сейчас недоступен — выберите регион из списка"
+
+
+#: v1's ``/tasks/{id}`` and v2's ``GetTask``, ``UpdateTask`` and ``DeleteTask``:
+#: no task of this person's has that id. Somebody else's task and a task that
+#: never existed are the same answer, so an id never reveals that a classmate
+#: keeps a list.
+UNKNOWN_TASK_DETAIL = "Unknown task"
+
+#: v1's ``POST /homework/{id}/done`` and v2's homework ticks: no homework of
+#: this class has that id.
+UNKNOWN_HOMEWORK_DETAIL = "Unknown homework"
+
+#: v1's ``POST`` and ``PATCH /tasks`` and v2's ``CreateTask`` and
+#: ``UpdateTask``: a task's ``homework_id`` names homework of another class, or
+#: none. It names the field, never the value.
+HOMEWORK_NOT_IN_CLASS_DETAIL = "homework_id is not in this class"
+```
+
+- [ ] **Step 7: v1 calls the moved code.** In `server/app/api/public.py`:
+  1. Replace:
+```python
+from app.services import clock, linking, window
+from app.services import join as join_service
+```
+     with:
+```python
+from app.services import clock, linking, window
+from app.services import homework as homework_service
+from app.services import join as join_service
+```
+  2. In `me`, replace:
+```python
+    access = await linking.access_of(session, device)
+    link_code: str | None = None
+    deep_link: str | None = None
+    if not device.is_linked:
+        link_code = await linking.issue_link_code(session, device)
+        await session.commit()
+        username = get_settings().bot_username.lstrip("@")
+        if username:
+            deep_link = f"https://t.me/{username}?start=link_{link_code}"
+    return MeOut(
+```
+     with:
+```python
+    access = await linking.access_of(session, device)
+    link_code = await linking.link_code_for(session, device)
+    await session.commit()
+    deep_link = (
+        linking.deep_link(get_settings().bot_username, link_code) if link_code is not None else None
+    )
+    return MeOut(
+```
+  3. In `unlink`, replace:
+```python
+    """Back to read-only. Idempotent: unlinking an unlinked device is fine."""
+    if device.is_linked:
+        await linking.unlink_device(session, device)
+        await session.commit()
+    return UnlinkOut(linked=False)
+```
+     with:
+```python
+    """Back to read-only. Idempotent: unlinking an unlinked device is fine, and
+    changes nothing (``linking.unlink_self``, which v2's ``UnlinkMe`` calls)."""
+    await linking.unlink_self(session, device)
+    await session.commit()
+    return UnlinkOut(linked=False)
+```
+  4. Delete `_homework_in_class`, which reads, with the two blank lines after it:
+```python
+async def _homework_in_class(
+    session: AsyncSession, homework_id: int, school_class: SchoolClass
+) -> Homework:
+    item = await session.scalar(
+        select(Homework).where(Homework.id == homework_id, Homework.class_id == school_class.id)
+    )
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown homework")
+    return item
+
+
+```
+  5. In `homework_done`, replace:
+```python
+    """Set (not toggle) this person's tick: the app sends the state it shows,
+    so a retried request lands on the same answer."""
+    telegram_id = _linked_id(device)
+    item = await _homework_in_class(session, homework_id, school_class)
+    current = item.id in await task_service.homework_ticks(session, telegram_id, [item.id])
+    if current != payload.done:
+        current = await task_service.toggle_homework_done(session, item, telegram_id)
+        await session.commit()
+    return DoneOut(id=item.id, done=current)
+```
+     with:
+```python
+    """Set (not toggle) this person's tick: the app sends the state it shows,
+    so a retried request lands on the same answer (``tasks.set_homework_done``,
+    which v2's homework ticks call too)."""
+    telegram_id = _linked_id(device)
+    item = await homework_service.homework_of(session, school_class.id, homework_id)
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_HOMEWORK_DETAIL
+        )
+    done = await task_service.set_homework_done(session, item, telegram_id, payload.done)
+    await session.commit()
+    return DoneOut(id=item.id, done=done)
+```
+  6. Replace `_wall_time`, `_check_homework_id` and `_own_task`:
+```python
+def _wall_time(value: datetime | None, school_class: SchoolClass) -> datetime | None:
+    """Class wall time for the naive column. A naive value is taken as already
+    being wall time; an aware one is an instant and is converted."""
+    if value is None or value.tzinfo is None:
+        return value
+    return value.astimezone(school_class.tz).replace(tzinfo=None)
+
+
+async def _check_homework_id(
+    session: AsyncSession, homework_id: int | None, school_class: SchoolClass
+) -> None:
+    if homework_id is None:
+        return
+    found = await session.scalar(
+        select(Homework.id).where(Homework.id == homework_id, Homework.class_id == school_class.id)
+    )
+    if found is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="homework_id is not in this class",
+        )
+
+
+async def _own_task(
+    session: AsyncSession, task_id: int, school_class: SchoolClass, telegram_id: int
+) -> PersonalTask:
+    task = await task_service.get_task(session, task_id, school_class.id, telegram_id)
+    if task is None:
+        # Somebody else's task and a task that never existed are the same
+        # answer: an id must not reveal that a classmate has a list.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown task")
+    return task
+```
+     with:
+```python
+def _homework_not_in_class() -> HTTPException:
+    """A task's ``homework_id`` of another class's homework, or none, which
+    ``tasks.create_task`` and ``update_task`` refuse with a fact."""
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=wording.HOMEWORK_NOT_IN_CLASS_DETAIL,
+    )
+
+
+async def _own_task(
+    session: AsyncSession, task_id: int, school_class: SchoolClass, telegram_id: int
+) -> PersonalTask:
+    task = await task_service.get_task(session, task_id, school_class.id, telegram_id)
+    if task is None:
+        # Somebody else's task and a task that never existed are the same
+        # answer: an id must not reveal that a classmate has a list.
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_TASK_DETAIL
+        )
+    return task
+```
+  7. In `tasks_list`, replace:
+```python
+        session, school_class.id, telegram_id, include_done=include_done, limit=200
+    )
+```
+     with:
+```python
+        session,
+        school_class.id,
+        telegram_id,
+        include_done=include_done,
+        limit=task_service.LIST_MAX,
+    )
+```
+  8. In `tasks_create`, replace:
+```python
+    telegram_id = _linked_id(device)
+    await _check_homework_id(session, payload.homework_id, school_class)
+    task = await task_service.add_task(
+        session,
+        school_class.id,
+        telegram_id,
+        payload.title,
+        due_date=payload.due_date,
+        due_time=payload.due_time,
+        priority=payload.priority,
+        subject_name=payload.subject_name,
+        notes=payload.notes,
+        homework_id=payload.homework_id,
+        remind_at=_wall_time(payload.remind_at, school_class),
+    )
+    await session.commit()
+    return _task_out(task)
+```
+     with:
+```python
+    telegram_id = _linked_id(device)
+    try:
+        task = await task_service.create_task(
+            session,
+            school_class,
+            telegram_id,
+            payload.title,
+            due_date=payload.due_date,
+            due_time=payload.due_time,
+            priority=payload.priority,
+            subject_name=payload.subject_name,
+            notes=payload.notes,
+            homework_id=payload.homework_id,
+            remind_at=payload.remind_at,
+        )
+    except task_service.HomeworkNotInClass:
+        raise _homework_not_in_class() from None
+    await session.commit()
+    return _task_out(task)
+```
+  9. In `tasks_update`, replace:
+```python
+    task = await _own_task(session, task_id, school_class, telegram_id)
+
+    changes = payload.model_dump(exclude_unset=True)
+    if "homework_id" in changes:
+        await _check_homework_id(session, changes["homework_id"], school_class)
+    if "remind_at" in changes:
+        changes["remind_at"] = _wall_time(changes["remind_at"], school_class)
+    done = changes.pop("done", None)
+    for name, value in changes.items():
+        setattr(task, name, value)
+    if done is not None and done != task.done:
+        await task_service.set_done(session, task, done)
+    await session.commit()
+    await session.refresh(task)
+    return _task_out(task)
+```
+     with:
+```python
+    task = await _own_task(session, task_id, school_class, telegram_id)
+    try:
+        await task_service.update_task(
+            session, school_class, task, payload.model_dump(exclude_unset=True)
+        )
+    except task_service.HomeworkNotInClass:
+        raise _homework_not_in_class() from None
+    await session.commit()
+    await session.refresh(task)
+    return _task_out(task)
+```
+  10. In `calendar_url`, replace:
+```python
+    return CalendarOut(url=f"{base}/api/v1/calendar/{token}.ics")
+```
+      with:
+```python
+    return CalendarOut(url=calendar_service.feed_url(base, token))
+```
+  11. In `server/app/bot/handlers/manage/calendar_feed.py`, in `_calendar_text`, replace:
+```python
+    return mr.render_calendar(f"{base}/api/v1/calendar/{token}.ics", rotated=rotated)
+```
+      with:
+```python
+    return mr.render_calendar(calendar_service.feed_url(base, token), rotated=rotated)
+```
+
+  `tasks_done` keeps calling `set_done` as Task 1 left it, and `datetime`, `select` and `Homework` stay imported: `bundle` and `homework_list` use them.
+
+- [ ] **Step 8: Green, and v1 unchanged.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_tasks.py tests/test_the_caller_commits.py tests/test_api_extended.py tests/test_services.py tests/test_bot_manage.py tests/test_service_layering.py tests/test_v2_reads.py
+```
+Expected: all pass; `test_services_tasks.py` has 9. `test_api_extended.py` passes unedited: it holds `/me`'s code and deep link, `/me/unlink` twice, the tick per person and its 404 outside the class, every task route with its 404 for somebody else's task, its 422s (a foreign `homework_id` among them, in v1's words) and an aware `remind_at` stored as wall time, and `/calendar`'s address on `PUBLIC_BASE_URL` and on the request's own host. `test_bot_manage.py` holds «📅 Календарь»'s address and its rotation.
+
+- [ ] **Step 9: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 231 source files`.
+
+- [ ] **Step 10: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b4-t2.txt`:
+```text
+Move what v1's public.py held for a phone's own things into services
+
+v1's /tasks, /homework/{id}/done, /me, /me/unlink and /calendar held
+rules in the router that v2's MeService needs too, and a v2 handler may
+not import a router. They move, and v1 calls them:
+tasks.create_task and update_task (a homework_id of this class only,
+refused as HomeworkNotInClass before anything changes; a remind_at with
+an offset stored on the class's clock; a patch whose done goes through
+set_done), tasks.set_homework_done (the tick set, not toggled), the
+200 of the list, homework.homework_of, linking.link_code_for (none for
+a linked phone), deep_link and unlink_self (nothing changes for a phone
+that is not linked, its code included), and calendar.feed_url, which
+the bot's «📅 Календарь» builds with too. v1's three sentences move into
+app/wording.py.
+
+Not covered: no v2 method uses any of this yet.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/services/tasks.py server/app/services/homework.py server/app/services/linking.py server/app/services/calendar.py server/app/wording.py server/app/api/public.py server/app/bot/handlers/manage/calendar_feed.py server/tests/test_services_tasks.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b4-t2.txt
+```
+
+---
+
+### 3b-4 Task 3: `UnlinkMe` and `CreateLinkCode`
+
+Decisions 2, 10 and 14; Rulings 55 to 57.
+
+**Files:**
+- Create: `server/tests/test_v2_link.py`
+- Modify: `server/app/rpc/me.py` (replaced), `server/app/rpc/handlers.py`, `server/app/rest/__init__.py`
+
+**Interfaces:**
+- Consumes: Task 2's `linking.unlink_self`, `link_code_for` and `deep_link`; `linking.Access`; `values.role`; `call.settings.bot_username`.
+- Produces: `me.unlink_me`, `me.create_link_code`, and `me._me(device, access) -> Me`, which `get_me` now uses too; `rest.NO_STORE_CREDENTIAL` with `CreateLinkCode`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_link.py`:
+```python
+"""``MeService``'s link: the code a phone shows to be linked, and unlinking it.
+
+v1's ``GET /me`` minted the code on a read, and ``POST /me/unlink`` took the
+phone back to read-only. v2 mints only in ``CreateLinkCode``; ``GetMe`` mints
+nothing (``docs/specs/2026-10-05-server-v2-design.md``, decision 10). The code
+is the one either version shows, stable until it is used, and the bot links
+with it as it always has. ``UnlinkMe`` on a phone that is not linked writes
+nothing, as the proto says.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy import func, select
+
+from app.contract.lessons.v2.me_pb import Me
+from app.contract.lessons.v2.options_pb import Role as ProtoRole
+from app.models import AuditEntry, DeviceToken
+from app.services import linking
+
+LINK = "MeService/CreateLinkCode"
+UNLINK = "MeService/UnlinkMe"
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def _link_columns(session, device_name: str):
+    return (
+        await session.execute(
+            select(DeviceToken.telegram_id, DeviceToken.linked_at, DeviceToken.link_code).where(
+                DeviceToken.device_name == device_name
+            )
+        )
+    ).one()
+
+
+async def test_a_code_minted_over_v2_is_the_one_v1_shows_and_the_bot_links_with(
+    v2, v2_tokens, session
+) -> None:
+    token = v2_tokens["unlinked"]
+    answer = await v2.both(LINK, token=token)
+    code = answer.message.link_code.code
+    assert len(code) == linking.LINK_CODE_LENGTH
+    # This deployment names no bot, so there is no deep link to offer.
+    assert not answer.message.link_code.has_field("bot_deep_link")
+    # A credential for the minutes until it is used: nobody's cache's.
+    assert answer.headers["cache-control"] == "private, no-store"
+    assert (await v2.http.get("/api/v1/me", headers=_auth(token))).json()["link_code"] == code
+
+    # The bot's «/link» with it, as account 2001, the class's viewer.
+    assert await linking.link_device(session, code, 2001) is not None
+    me = await v2.both("MeService/GetMe", token=token)
+    assert (me.message.me.linked, me.message.me.role) == (True, ProtoRole.VIEWER)
+
+
+async def test_a_linked_phone_gets_no_code(v2, v2_tokens, session) -> None:
+    answer = await v2.both(LINK, token=v2_tokens["editor"])
+    assert answer.status == 200
+    assert answer.message.link_code is None
+    assert set(await session.scalars(select(DeviceToken.link_code))) == {None}
+
+
+async def test_the_deep_link_names_the_deployment_s_bot(
+    v2, v2_tokens, monkeypatch, served_settings
+) -> None:
+    monkeypatch.setattr(served_settings, "bot_username", "@lessons_bot")
+    link = (await v2.both(LINK, token=v2_tokens["unlinked"])).message.link_code
+    assert link.bot_deep_link == f"https://t.me/lessons_bot?start=link_{link.code}"
+
+
+async def test_unlinking_goes_back_to_read_only_and_a_retry_lands_on_the_same_answer(
+    v2, v2_tokens, session
+) -> None:
+    token = v2_tokens["editor"]
+    answer = await v2.both(UNLINK, token=token)
+    assert answer.message.me == Me(
+        device_name="editor phone", linked=False, role=ProtoRole.UNSPECIFIED, can_edit=False
+    )
+    assert tuple(await _link_columns(session, "editor phone")) == (None, None, None)
+    # Still the class's phone, read-only now, and nothing in the journal.
+    assert (await v2.both("MeService/GetMe", token=token)).message.me.linked is False
+    assert await session.scalar(select(func.count()).select_from(AuditEntry)) == 0
+    # v1's /me offers it a fresh code, as after v1's own unlink.
+    assert len((await v2.http.get("/api/v1/me", headers=_auth(token))).json()["link_code"]) == 6
+
+
+async def test_unlinking_a_phone_that_is_not_linked_writes_nothing(
+    v2, v2_tokens, session, statement_writes
+) -> None:
+    """Not even its link code goes: unlinking a phone nobody is behind changes
+    nothing. The call before it touched the phone's last call, so inside the
+    fifteen minutes there is nothing else this one may write."""
+    token = v2_tokens["unlinked"]
+    code = (await v2.rest(LINK, token=token)).message.link_code.code
+    with statement_writes() as seen:
+        answer = await v2.both(UNLINK, token=token)
+    assert answer.message.me.linked is False
+    assert seen == []
+    assert tuple(await _link_columns(session, "unlinked phone")) == (None, None, code)
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_link.py
+```
+Expected: 5 tests, every one failing because both methods answer `UNIMPLEMENTED` (`501` over REST): the answer holds no message. Keep this output as the evidence.
+
+- [ ] **Step 2: Replace `server/app/rpc/me.py` whole**, with `GetMe` as 3a wrote it and the two methods added:
+```python
+"""``MeService``: what a phone does for itself.
+
+Who it is, its link to an account, the class's calendar feed, and the linked
+account's own tasks and homework ticks, which nobody else in the class sees.
+Nothing here changes the class. 3a serves ``GetMe`` and 3b-4 the rest, each
+v1's ``/me``, ``/me/unlink``, ``/calendar``, ``/tasks`` or
+``/homework/{id}/done`` through the same services. What v2 does not repeat is
+minting on a read: ``GetMe`` and ``GetCalendarFeed`` mint nothing, and
+``CreateLinkCode`` and ``CreateCalendarFeed`` do
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 10).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from app.contract.lessons.v2.me_pb import (
+    CreateLinkCodeRequest,
+    CreateLinkCodeResponse,
+    GetMeRequest,
+    GetMeResponse,
+    LinkCode,
+    Me,
+    UnlinkMeRequest,
+    UnlinkMeResponse,
+)
+from app.models import DeviceToken
+from app.rpc import values
+from app.services import linking
+from app.services.linking import Access
+
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+
+def _me(device: DeviceToken, access: Access) -> Me:
+    return Me(
+        device_name=device.device_name,
+        linked=access.linked,
+        role=values.role(access.role),
+        can_edit=access.can_edit,
+    )
+
+
+async def get_me(call: Call, request: GetMeRequest) -> GetMeResponse:
+    """Who this device is. Mints nothing: v1's ``/me`` issued a link code as a
+    side effect, which ``CreateLinkCode`` does in v2 (decision 10). The role is
+    the one the gate read for this call."""
+    device, _school_class = call.device_and_class()
+    return GetMeResponse(me=_me(device, Access.of(device, call.role)))
+
+
+async def unlink_me(call: Call, request: UnlinkMeRequest) -> UnlinkMeResponse:
+    """Back to read-only, keeping the phone in the class: v1's ``/me/unlink``.
+
+    A phone no account is behind changes nothing, its link code included, and
+    is answered as it is, so a retry lands on the first answer. No audit line,
+    as v1 wrote none: the phone did it to itself.
+    """
+    device, _school_class = call.device_and_class()
+    await linking.unlink_self(call.session, device)
+    # Nobody is behind the phone now, so it holds no role, whatever the gate read.
+    return UnlinkMeResponse(me=_me(device, Access.of(device, None)))
+
+
+async def create_link_code(call: Call, request: CreateLinkCodeRequest) -> CreateLinkCodeResponse:
+    """The code to send the bot, minted on the first ask and the same until it
+    is used, which is the code v1's ``/me`` shows too; none for a phone that is
+    linked already. The deep link is there when the deployment names its bot.
+    Never cached (``rest.NO_STORE_CREDENTIAL``): it links the phone to whoever
+    sends it."""
+    device, _school_class = call.device_and_class()
+    code = await linking.link_code_for(call.session, device)
+    if code is None:
+        return CreateLinkCodeResponse()
+    return CreateLinkCodeResponse(
+        link_code=LinkCode(
+            code=code, bot_deep_link=linking.deep_link(call.settings.bot_username, code)
+        )
+    )
+```
+
+- [ ] **Step 3: Serve them, and keep the code out of caches.**
+  1. In `server/app/rpc/handlers.py`'s `HANDLERS`, replace:
+```python
+    "lessons.v2.MeService/GetMe": me.get_me,
+```
+     with:
+```python
+    "lessons.v2.MeService/CreateLinkCode": me.create_link_code,
+    "lessons.v2.MeService/GetMe": me.get_me,
+    "lessons.v2.MeService/UnlinkMe": me.unlink_me,
+```
+  2. In `server/app/rest/__init__.py`, replace:
+```python
+#: Writes whose *answer* is a credential: the token a phone will use for good,
+#: and the class card ``UpdateClass`` answers with, join code included. Nobody
+#: asked a cache to keep a POST or a PATCH, but the answer says so anyway, as
+#: defence in depth. 3b-7 adds ``CreateDiarySession`` here.
+NO_STORE_CREDENTIAL = frozenset(
+    {"lessons.v2.DeviceService/CreateDevice", "lessons.v2.ClassService/UpdateClass"}
+)
+```
+     with:
+```python
+#: Writes whose *answer* is a credential: the token a phone will use for good,
+#: the class card ``UpdateClass`` answers with, join code included, and the
+#: code that links a phone to whoever sends it to the bot, until it is used.
+#: Nobody asked a cache to keep a POST or a PATCH, but the answer says so
+#: anyway, as defence in depth. 3b-7 adds ``CreateDiarySession`` here.
+NO_STORE_CREDENTIAL = frozenset(
+    {
+        "lessons.v2.DeviceService/CreateDevice",
+        "lessons.v2.ClassService/UpdateClass",
+        "lessons.v2.MeService/CreateLinkCode",
+    }
+)
+```
+
+- [ ] **Step 4: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_link.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_rpc_errors.py tests/test_rpc_call.py tests/test_api_extended.py tests/test_service_layering.py
+```
+Expected: all pass.
+- `test_v2_link.py` has 5.
+- The gate test and the no-echo sweep each gain two cases. The gate test's viewer is unlinked by `UnlinkMe` over REST, and Connect then finds the phone unlinked and answers the same; its unlinked phone gets one code from `CreateLinkCode`, twice. Neither request has a field, so the sweep sends only its bearer and its client header.
+- `test_v2_reads.py`'s `GetMe` tests pass unchanged through the shared `_me`.
+
+- [ ] **Step 5: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 231 source files`.
+
+- [ ] **Step 6: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b4-t3.txt`:
+```text
+Serve unlinking a phone and its link code over v2
+
+UnlinkMe is v1's POST /me/unlink through linking.unlink_self: back to
+read-only, the phone kept in the class, no audit line, and on a phone
+that is not linked nothing at all, its link code included, as the proto
+says. CreateLinkCode mints the code v1's GET /me shows, the same until
+the bot uses it, with the bot's deep link when the deployment names
+one; a linked phone gets none. GetMe still mints nothing.
+
+CreateLinkCode's answer joins rest.NO_STORE_CREDENTIAL, so REST sends
+Cache-Control: private, no-store: the code links the phone to whoever
+sends it to the bot. Connect's answers carry no such header yet (#357).
+
+rpc/me.py's docstring, which counted eight methods left for 3b, now
+says what the whole service does.
+
+Not covered: a phone sending the code to a real bot; the tests link it
+through linking.link_device, which «/link» calls.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/rpc/me.py server/app/rpc/handlers.py server/app/rest/__init__.py server/tests/test_v2_link.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b4-t3.txt
+```
+
+---
+
+### 3b-4 Task 4: `GetCalendarFeed` and `CreateCalendarFeed`, and what `me.proto` says of a deployment with no address
+
+Decisions 2, 10 and 14; Rulings 55, 57 and 58.
+
+**Files:**
+- Create: `server/tests/test_v2_calendar_feed.py`
+- Modify: `proto/lessons/v2/me.proto` (a comment) and `server/app/contract/**` (regenerated); `server/app/rpc/me.py`, `server/app/rpc/handlers.py`, `server/app/rest/__init__.py`
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b4.sh`
+
+**Interfaces:**
+- Consumes: Task 1's `calendar.ensure_calendar_token`; Task 2's `calendar.feed_url`; `call.settings.public_base_url`; `school_class.calendar_token`.
+- Produces: `me.get_calendar_feed`, `me.create_calendar_feed`, `me.CALENDAR_FEED = "calendar_feed"`, `me.NO_FEED_ADDRESS`; `rest.NO_STORE_CREDENTIAL` with `CreateCalendarFeed`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_calendar_feed.py`:
+```python
+"""``MeService``'s calendar feed: the class's subscription address.
+
+v1's ``GET /calendar`` minted the feed's secret on a read, for any phone of
+the class, an anonymous one included. v2 mints only in ``CreateCalendarFeed``,
+and both methods ask for a linked account, as the proto says; ``GetCalendarFeed``
+reads and writes nothing (``docs/specs/2026-10-05-server-v2-design.md``,
+decision 10). The address is v1's, on the deployment's ``PUBLIC_BASE_URL``,
+and the feed itself stays at its v1 path. A deployment with no public address
+offers no feed and mints nothing, as «📅 Календарь» offers none.
+"""
+
+from __future__ import annotations
+
+import pytest
+from sqlalchemy import select
+
+from app.config import get_settings
+from app.models import SchoolClass
+from app.rpc.me import NO_FEED_ADDRESS
+
+READ = "MeService/GetCalendarFeed"
+MINT = "MeService/CreateCalendarFeed"
+ORIGIN = "https://lessons.example.com"
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def published(monkeypatch, served_settings) -> None:
+    """A deployment with a public address, as v2 reads it and as v1 reads it."""
+    monkeypatch.setattr(served_settings, "public_base_url", ORIGIN)
+    monkeypatch.setattr(get_settings(), "public_base_url", ORIGIN)
+
+
+async def _secret(session, school_class) -> str | None:
+    return await session.scalar(
+        select(SchoolClass.calendar_token).where(SchoolClass.id == school_class.id)
+    )
+
+
+async def test_the_feed_is_minted_once_and_read_after_at_v1_s_address(
+    v2, v2_tokens, session, school_class, published
+) -> None:
+    token = v2_tokens["viewer"]
+    before = await v2.both(READ, token=token)
+    assert not before.message.calendar_feed.has_field("url")
+
+    minted = await v2.both(MINT, token=token)
+    url = minted.message.calendar_feed.url
+    assert url == f"{ORIGIN}/api/v1/calendar/{await _secret(session, school_class)}.ics"
+    read = await v2.both(READ, token=token)
+    assert read.message.calendar_feed.url == url
+    v1 = await v2.http.get("/api/v1/calendar", headers=_auth(token))
+    assert v1.json()["url"] == url
+    # A secret address is nobody's cache's, minted or read.
+    assert minted.headers["cache-control"] == read.headers["cache-control"] == "private, no-store"
+    # And it is the feed, at its v1 path.
+    feed = await v2.http.get(url.removeprefix(ORIGIN))
+    assert feed.status_code == 200
+    assert feed.text.startswith("BEGIN:VCALENDAR")
+
+
+async def test_reading_the_feed_mints_nothing(
+    v2,
+    v2_tokens,
+    session,
+    school_class,
+    published,
+    statement_writes,
+    unexpected_writes,
+    last_seen_rule,
+) -> None:
+    with statement_writes() as seen:
+        answer = await v2.both(READ, token=v2_tokens["viewer"])
+    assert answer.status == 200
+    assert not answer.message.calendar_feed.has_field("url")
+    # A write happened, the phone's last call, and nothing else did.
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all(last_seen_rule.match(statement) for statement in seen), seen
+    assert await _secret(session, school_class) is None
+
+
+async def test_a_deployment_with_no_public_address_offers_no_feed_and_mints_none(
+    v2, v2_tokens, session, school_class, monkeypatch, served_settings
+) -> None:
+    monkeypatch.setattr(served_settings, "public_base_url", "")
+    for name in (READ, MINT):
+        answer = await v2.both(name, token=v2_tokens["viewer"])
+        assert (answer.status, answer.code, answer.reason) == (
+            501,
+            "UNIMPLEMENTED",
+            "FEATURE_UNSUPPORTED",
+        ), name
+        assert answer.metadata == {"feature": "calendar_feed"}
+        assert answer.error == NO_FEED_ADDRESS
+    assert await _secret(session, school_class) is None
+
+
+async def test_a_phone_nobody_is_behind_mints_no_feed_as_it_could_over_v1(
+    v2, v2_tokens, session, school_class, published
+) -> None:
+    token = v2_tokens["unlinked"]
+    for name in (READ, MINT):
+        refused = await v2.both(name, token=token)
+        assert (refused.status, refused.reason) == (403, "DEVICE_NOT_LINKED"), name
+    assert await _secret(session, school_class) is None
+    # v1 still mints for it: v1's answers do not change.
+    assert (await v2.http.get("/api/v1/calendar", headers=_auth(token))).status_code == 200
+    assert await _secret(session, school_class) is not None
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_calendar_feed.py
+```
+Expected: an error at collection, `ImportError: cannot import name 'NO_FEED_ADDRESS' from 'app.rpc.me'`. Keep this output as the evidence.
+
+- [ ] **Step 2: The contract says what a deployment with no address answers.** In `proto/lessons/v2/me.proto`, at the end of `CreateCalendarFeed`'s comment, replace:
+```protobuf
+  // purpose: v1 let any device, an anonymous one included, mint the feed, and
+  // v2 asks for a linked account.
+```
+with:
+```protobuf
+  // purpose: v1 let any device, an anonymous one included, mint the feed, and
+  // v2 asks for a linked account. A deployment with no public address
+  // (PUBLIC_BASE_URL) offers no feed: both answer FEATURE_UNSUPPORTED, with
+  // `feature` "calendar_feed", and nothing is minted.
+```
+Then, from `$WT`:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe lint && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe generate && git status --short server/app/contract
+```
+Expected: `buf lint` prints nothing; `buf generate` rewrites `server/app/contract/` whole, and `git status` names one file, `server/app/contract/lessons/v2/me_connect.py`, whose four docstrings of `create_calendar_feed` gain the two lines. A method's comment lands in its service's `_connect.py` and nowhere else. Then write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b4.sh`:
+```bash
+#!/bin/bash
+# buf breaking for 3b-4, from a file: the shell refuses `.git#ref` on a command line.
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 || exit 2
+git fetch origin main || exit 2
+/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe breaking --against ".git#ref=origin/main"
+echo "exit=$?"
+```
+and run it:
+```bash
+bash C:/Users/lumen/.claude/jobs/c9e2d980/tmp/breaking3b4.sh
+```
+Expected: `exit=0`. A comment breaks nothing.
+
+- [ ] **Step 3: The two feed methods.** In `server/app/rpc/me.py`:
+  1. Replace the imports Task 3 wrote:
+```python
+from app.contract.lessons.v2.me_pb import (
+    CreateLinkCodeRequest,
+    CreateLinkCodeResponse,
+    GetMeRequest,
+    GetMeResponse,
+    LinkCode,
+    Me,
+    UnlinkMeRequest,
+    UnlinkMeResponse,
+)
+from app.models import DeviceToken
+from app.rpc import values
+from app.services import linking
+from app.services.linking import Access
+```
+     with:
+```python
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.me_pb import (
+    CalendarFeed,
+    CreateCalendarFeedRequest,
+    CreateCalendarFeedResponse,
+    CreateLinkCodeRequest,
+    CreateLinkCodeResponse,
+    GetCalendarFeedRequest,
+    GetCalendarFeedResponse,
+    GetMeRequest,
+    GetMeResponse,
+    LinkCode,
+    Me,
+    UnlinkMeRequest,
+    UnlinkMeResponse,
+)
+from app.models import DeviceToken
+from app.rpc import values
+from app.rpc.errors import Refusal
+from app.services import calendar as calendar_service
+from app.services import linking
+from app.services.linking import Access
+```
+  2. Replace:
+```python
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+
+def _me(
+```
+     with:
+```python
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+#: ``FEATURE_UNSUPPORTED``'s ``feature`` for a deployment with no public
+#: address, a server capability as ``errors.proto`` allows beside a
+#: ``DiaryFeature`` name.
+CALENDAR_FEED = "calendar_feed"
+
+#: New in v2, so English like v1's own generic answers.
+NO_FEED_ADDRESS = "This server has no public address to give a calendar feed"
+
+
+def _me(
+```
+  3. Replace the end of `create_link_code`:
+```python
+    return CreateLinkCodeResponse(
+        link_code=LinkCode(
+            code=code, bot_deep_link=linking.deep_link(call.settings.bot_username, code)
+        )
+    )
+```
+     with:
+```python
+    return CreateLinkCodeResponse(
+        link_code=LinkCode(
+            code=code, bot_deep_link=linking.deep_link(call.settings.bot_username, code)
+        )
+    )
+
+
+def _feed_origin(call: Call) -> str:
+    """The origin the feed's address is written on, ``PUBLIC_BASE_URL``, or
+    ``FEATURE_UNSUPPORTED``. v1 falls back to the request's own host, which
+    behind Vercel is an internal one (``docs/api.md``); v2 hands out no
+    address it cannot stand behind, as «📅 Календарь» hands out none."""
+    origin = call.settings.public_base_url.rstrip("/")
+    if not origin:
+        raise Refusal(ErrorReason.FEATURE_UNSUPPORTED, NO_FEED_ADDRESS, feature=CALENDAR_FEED)
+    return origin
+
+
+async def get_calendar_feed(call: Call, request: GetCalendarFeedRequest) -> GetCalendarFeedResponse:
+    """The class's subscription address when the class has a feed secret, and
+    none when it has not. Mints nothing, where v1's ``GET /calendar`` did:
+    ``CreateCalendarFeed`` mints now. Writes nothing."""
+    _device, school_class = call.device_and_class()
+    origin = _feed_origin(call)
+    secret = school_class.calendar_token
+    return GetCalendarFeedResponse(
+        calendar_feed=CalendarFeed(
+            url=calendar_service.feed_url(origin, secret) if secret else None
+        )
+    )
+
+
+async def create_calendar_feed(
+    call: Call, request: CreateCalendarFeedRequest
+) -> CreateCalendarFeedResponse:
+    """The class's subscription address, minting its secret when it has none,
+    and the same address on every ask after (``calendar.ensure_calendar_token``,
+    which v1 and the bot call too). Asks for a linked account, where v1 let any
+    phone of the class mint it; no rotation, since the feed is the whole
+    class's. Never cached (``rest.NO_STORE_CREDENTIAL``)."""
+    _device, school_class = call.device_and_class()
+    origin = _feed_origin(call)
+    secret = await calendar_service.ensure_calendar_token(call.session, school_class)
+    return CreateCalendarFeedResponse(
+        calendar_feed=CalendarFeed(url=calendar_service.feed_url(origin, secret))
+    )
+```
+
+- [ ] **Step 4: Serve them, and keep the minted address out of caches.**
+  1. In `server/app/rpc/handlers.py`'s `HANDLERS`, replace:
+```python
+    "lessons.v2.MeService/CreateLinkCode": me.create_link_code,
+    "lessons.v2.MeService/GetMe": me.get_me,
+```
+     with:
+```python
+    "lessons.v2.MeService/CreateCalendarFeed": me.create_calendar_feed,
+    "lessons.v2.MeService/CreateLinkCode": me.create_link_code,
+    "lessons.v2.MeService/GetCalendarFeed": me.get_calendar_feed,
+    "lessons.v2.MeService/GetMe": me.get_me,
+```
+  2. In `server/app/rest/__init__.py`, replace:
+```python
+#: the class card ``UpdateClass`` answers with, join code included, and the
+#: code that links a phone to whoever sends it to the bot, until it is used.
+#: Nobody asked a cache to keep a POST or a PATCH, but the answer says so
+#: anyway, as defence in depth. 3b-7 adds ``CreateDiarySession`` here.
+NO_STORE_CREDENTIAL = frozenset(
+    {
+        "lessons.v2.DeviceService/CreateDevice",
+        "lessons.v2.ClassService/UpdateClass",
+        "lessons.v2.MeService/CreateLinkCode",
+    }
+)
+```
+     with:
+```python
+#: the class card ``UpdateClass`` answers with, join code included, the code
+#: that links a phone to whoever sends it to the bot, until it is used, and
+#: the class's secret calendar address, which ``GetCalendarFeed`` keeps from
+#: caches too. Nobody asked a cache to keep a POST or a PATCH, but the answer
+#: says so anyway, as defence in depth. 3b-7 adds ``CreateDiarySession`` here.
+NO_STORE_CREDENTIAL = frozenset(
+    {
+        "lessons.v2.DeviceService/CreateDevice",
+        "lessons.v2.ClassService/UpdateClass",
+        "lessons.v2.MeService/CreateLinkCode",
+        "lessons.v2.MeService/CreateCalendarFeed",
+    }
+)
+```
+     `GetCalendarFeed` is in `NO_STORE_ALSO` already.
+
+- [ ] **Step 5: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_calendar_feed.py tests/test_v2_link.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_rpc_errors.py tests/test_contract.py tests/test_contract_json.py tests/test_contract_mirror.py tests/test_api_extended.py tests/test_service_layering.py
+```
+Expected: all pass.
+- `test_v2_calendar_feed.py` has 4.
+- The gate test and the no-echo sweep each gain two cases. Under the suite's empty `PUBLIC_BASE_URL` both methods answer `FEATURE_UNSUPPORTED` to the gate test's viewer and to the sweep's owner, a refusal that quotes nothing; neither request has a field.
+- `test_rest.py`'s `test_the_class_s_secret_calendar_url_is_never_cached` replaces `GetCalendarFeed`'s handler as before.
+- `test_rpc_errors.py` passes: `FEATURE_UNSUPPORTED`'s `feature` is a key `errors.proto` names, and the reason was produced already.
+- `test_contract.py`, `test_contract_json.py` and `test_contract_mirror.py` pass: no field changed, only a comment.
+
+- [ ] **Step 6: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 231 source files`.
+
+- [ ] **Step 7: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b4-t4.txt`:
+```text
+Serve the class's calendar feed over v2, minted only by a linked account
+
+GetCalendarFeed answers the class's subscription address when it has a
+feed secret and none when it has not, and mints nothing, where v1's GET
+/calendar minted on a read. CreateCalendarFeed mints through
+calendar.ensure_calendar_token, which v1 and the bot call too, and
+answers the same address on every ask after. Both ask for a linked
+account, as the proto says, where v1 let any phone of the class mint
+the feed; v1 still does. The address is v1's, written on
+PUBLIC_BASE_URL by calendar.feed_url, and the minted one joins
+rest.NO_STORE_CREDENTIAL.
+
+A deployment with no PUBLIC_BASE_URL has no address to offer, as
+«📅 Календарь» and Settings.disabled_features already say: both methods
+answer FEATURE_UNSUPPORTED with feature calendar_feed, and nothing is
+minted. v1 falls back to the request's own host, which behind Vercel is
+an internal one. me.proto's comment on CreateCalendarFeed says so; only
+me_connect.py's docstrings were regenerated.
+
+Not covered: a calendar app subscribing to the address; the test fetches
+the feed once.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add proto/lessons/v2/me.proto server/app/contract server/app/rpc/me.py server/app/rpc/handlers.py server/app/rest/__init__.py server/tests/test_v2_calendar_feed.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b4-t4.txt
+```
+
+---
+
+### 3b-4 Task 5: `ListTasks`, `GetTask` and `CreateTask`, and 3b-4 leaves `STAGES`
+
+Decisions 2, 5, 10 and 14; Rulings 59, 61, 62 and 66.
+
+**Files:**
+- Create: `server/tests/test_v2_tasks.py`
+- Modify: `server/app/rpc/me.py`, `server/app/rpc/handlers.py`, `server/app/rpc/values.py`, `server/app/rpc/errors.py`, `server/tests/test_rpc_errors.py`
+
+**Interfaces:**
+- Consumes: Task 2's `tasks.create_task`, `HomeworkNotInClass`, `LIST_MAX` and `wording.UNKNOWN_TASK_DETAIL` and `HOMEWORK_NOT_IN_CLASS_DETAIL`; `tasks.list_tasks` and `get_task`; v1's `TaskIn`; `validate(…, at=)`; `values.date_string`, `time_string`, `maybe_instant`.
+- Produces:
+  - `me.list_tasks`, `me.get_task`, `me.create_task`;
+  - `me._owner(call) -> int`, `me._task(row) -> Task`, `me._own(call, task_id) -> PersonalTask`, `me._given(task, fields) -> dict[str, object]`, `me._WRITTEN`, `me._OPTIONAL`, which Task 6 keeps;
+  - `values.wall_moment(moment: datetime) -> str`;
+  - `errors.TABLE[tasks_service.HomeworkNotInClass]`;
+  - `test_rpc_errors.STAGES` without `"3b-4"`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_tasks.py`:
+```python
+"""``MeService``'s tasks, read and created: the linked account's own list.
+
+v1's ``GET /tasks`` and ``POST /tasks`` over v2, through the same services:
+the same list in the same order, at most 200; somebody else's task not found,
+as one that never existed is not; a new task cleaned and checked by v1's
+``TaskIn``, with a ``homework_id`` of this class only and a reminder kept as
+the class's wall time. A date is ``"YYYY-MM-DD"``, a time ``"HH:MM"``, a
+reminder ``"YYYY-MM-DDTHH:MM"``, and when something happened is an instant
+(``docs/api.md``, «What the values look like»). A read writes nothing
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 10).
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, date, datetime
+
+from sqlalchemy import func, select
+
+from app import wording
+from app.contract.lessons.v2.me_pb import (
+    CreateTaskRequest,
+    GetTaskRequest,
+    ListTasksRequest,
+    Task,
+)
+from app.models import Homework, PersonalTask, SchoolClass
+
+#: The accounts behind v2_tokens' viewer and editor phones.
+VIEWER = 2001
+EDITOR = 2002
+CREATE = "MeService/CreateTask"
+MONDAY = date(2026, 9, 7)
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def _row(session, school_class, telegram_id: int = VIEWER, **fields) -> PersonalTask:
+    task = PersonalTask(class_id=school_class.id, telegram_id=telegram_id, **fields)
+    session.add(task)
+    await session.commit()
+    return task
+
+
+async def _count(session) -> int:
+    return await session.scalar(select(func.count()).select_from(PersonalTask)) or 0
+
+
+async def test_the_tasks_are_v1_s_in_v2_s_shape(v2, v2_tokens) -> None:
+    viewer = v2_tokens["viewer"]
+    created = await v2.http.post(
+        "/api/v1/tasks",
+        json={
+            "title": "Купить тетрадь",
+            "notes": "в клетку",
+            "due_date": "2026-09-15",
+            "due_time": "18:00",
+            "priority": 2,
+            "subject_name": "Алгебра",
+            "remind_at": "2026-09-15T08:00:00",
+        },
+        headers=_auth(viewer),
+    )
+    assert created.status_code == 201
+    v1 = (await v2.http.get("/api/v1/tasks", headers=_auth(viewer))).json()
+    answer = await v2.both("MeService/ListTasks", token=viewer)
+    rows = answer.message.tasks
+    assert [row.id for row in rows] == [row["id"] for row in v1]
+    task = rows[0]
+    assert (task.title, task.notes, task.subject_name) == ("Купить тетрадь", "в клетку", "Алгебра")
+    # "HH:MM" and a wall-clock minute, where v1 wrote seconds.
+    assert (task.due_date, task.due_time, task.remind_at) == (
+        "2026-09-15",
+        "18:00",
+        "2026-09-15T08:00",
+    )
+    assert (task.priority, task.done, task.done_at) == (2, False, None)
+    assert not task.has_field("homework_id")
+    # An instant, where v1 wrote the same stamp with no zone.
+    stamp = datetime.fromisoformat(v1[0]["created_at"]).replace(tzinfo=UTC)
+    assert task.created_at.to_datetime() == stamp
+
+
+async def test_done_tasks_are_listed_only_when_asked_for(
+    v2, v2_tokens, session, school_class
+) -> None:
+    done = await _row(
+        session, school_class, title="Сделано", done=True, done_at=datetime(2026, 9, 7, 6, 0)
+    )
+    open_ = await _row(session, school_class, title="Сделать")
+    viewer = v2_tokens["viewer"]
+    plain = await v2.both("MeService/ListTasks", token=viewer)
+    every = await v2.both("MeService/ListTasks", ListTasksRequest(include_done=True), token=viewer)
+    assert [row.id for row in plain.message.tasks] == [open_.id]
+    # Undone first.
+    assert [row.id for row in every.message.tasks] == [open_.id, done.id]
+    assert every.message.tasks[1].done_at.to_datetime() == datetime(2026, 9, 7, 6, 0, tzinfo=UTC)
+
+
+async def test_somebody_else_s_task_is_not_found_as_one_that_never_was(
+    v2, v2_tokens, session, school_class
+) -> None:
+    mine = await _row(session, school_class, title="Моя")
+    theirs = await _row(session, school_class, telegram_id=EDITOR, title="Чужая")
+    viewer = v2_tokens["viewer"]
+    own = await v2.both("MeService/GetTask", GetTaskRequest(task_id=mine.id), token=viewer)
+    assert own.message.task.title == "Моя"
+    v1 = await v2.http.patch(
+        f"/api/v1/tasks/{theirs.id}", json={"title": "x"}, headers=_auth(viewer)
+    )
+    assert v1.status_code == 404
+    for task_id in (theirs.id, 999_999):
+        answer = await v2.both("MeService/GetTask", GetTaskRequest(task_id=task_id), token=viewer)
+        assert (answer.status, answer.code, answer.reason) == (
+            404,
+            "NOT_FOUND",
+            "RESOURCE_NOT_FOUND",
+        )
+        assert answer.metadata == {"resource": "task"}
+        assert answer.error == v1.json()["detail"] == wording.UNKNOWN_TASK_DETAIL
+    listed = await v2.both("MeService/ListTasks", token=viewer)
+    assert [row.id for row in listed.message.tasks] == [mine.id]
+
+
+async def test_reading_tasks_writes_nothing_but_the_last_seen(
+    v2, v2_tokens, session, school_class, statement_writes, unexpected_writes, last_seen_rule
+) -> None:
+    task = await _row(session, school_class, title="Моя")
+    viewer = v2_tokens["viewer"]
+    with statement_writes() as seen:
+        listed = await v2.both("MeService/ListTasks", token=viewer)
+        one = await v2.both("MeService/GetTask", GetTaskRequest(task_id=task.id), token=viewer)
+    assert (len(listed.message.tasks), one.message.task.id) == (1, task.id)
+    # A write happened, the phone's last call, and nothing else did.
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all(last_seen_rule.match(statement) for statement in seen), seen
+
+
+async def test_a_new_task_answers_201_and_is_cleaned_as_v1_cleans_it(
+    v2, v2_tokens, session
+) -> None:
+    viewer = v2_tokens["viewer"]
+    sent = Task(id=777, title="  Сдать   реферат ", subject_name=" Физика ", done=True)
+    rest = await v2.rest(CREATE, CreateTaskRequest(task=sent), token=viewer)
+    connect = await v2.connect(CREATE, CreateTaskRequest(task=Task(title="Конспект")), token=viewer)
+    assert (rest.status, connect.status) == (201, 200)
+    made = rest.message.task
+    # One line, single-spaced; priority 1 when none is sent; the id and
+    # `done` are the server's.
+    assert (made.title, made.subject_name, made.priority, made.done) == (
+        "Сдать реферат",
+        "Физика",
+        1,
+        False,
+    )
+    assert made.id != 777 and made.created_at is not None
+    rows = await session.execute(
+        select(PersonalTask.id, PersonalTask.telegram_id, PersonalTask.title).order_by(
+            PersonalTask.id
+        )
+    )
+    assert list(rows) == [
+        (made.id, VIEWER, "Сдать реферат"),
+        (connect.message.task.id, VIEWER, "Конспект"),
+    ]
+
+
+async def test_a_task_naming_homework_of_another_class_is_refused_on_its_field(
+    v2, v2_tokens, session, school_class
+) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = Homework(class_id=other.id, due_date=MONDAY, subject_name="Алгебра", text="№ 1")
+    own = Homework(class_id=school_class.id, due_date=MONDAY, subject_name="Физика", text="§ 3")
+    session.add_all([foreign, own])
+    await session.commit()
+    viewer = v2_tokens["viewer"]
+    v1 = await v2.http.post(
+        "/api/v1/tasks", json={"title": "x", "homework_id": foreign.id}, headers=_auth(viewer)
+    )
+    assert v1.status_code == 422
+    for homework_id in (foreign.id, 999_999):
+        answer = await v2.both(
+            CREATE, CreateTaskRequest(task=Task(title="x", homework_id=homework_id)), token=viewer
+        )
+        assert (answer.status, answer.code, answer.reason) == (
+            400,
+            "INVALID_ARGUMENT",
+            "VALIDATION_FAILED",
+        )
+        assert answer.violations == [("task.homework_id", wording.HOMEWORK_NOT_IN_CLASS_DETAIL)]
+        assert answer.error == v1.json()["detail"] == wording.HOMEWORK_NOT_IN_CLASS_DETAIL
+    assert await _count(session) == 0
+
+    linked = await v2.rest(
+        CREATE, CreateTaskRequest(task=Task(title="x", homework_id=own.id)), token=viewer
+    )
+    assert linked.message.task.homework_id == own.id
+
+
+async def test_a_task_without_a_title_or_past_the_priorities_is_refused_on_its_field(
+    v2, v2_tokens, session
+) -> None:
+    for task, field in (
+        (Task(), "task.title"),
+        (Task(title="   "), "task.title"),
+        (Task(title="x" * 201), "task.title"),
+        (Task(title="x", priority=3), "task.priority"),
+    ):
+        answer = await v2.both(CREATE, CreateTaskRequest(task=task), token=v2_tokens["viewer"])
+        assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED"), field
+        assert [name for name, _ in answer.violations] == [field]
+    assert await _count(session) == 0
+
+
+async def test_a_reminder_with_an_offset_is_kept_as_the_class_s_wall_time(
+    v2, v2_tokens, session
+) -> None:
+    """The contract writes a reminder as the class's wall time. One sent with an
+    offset is taken as v1 takes it: as an instant, stored at the class's own
+    clock, which is the one the reminder tick reads."""
+    viewer = v2_tokens["viewer"]
+    instant = await v2.rest(
+        CREATE,
+        CreateTaskRequest(task=Task(title="x", remind_at="2026-09-15T05:00:00Z")),
+        token=viewer,
+    )
+    # 05:00 UTC is 08:00 in Moscow, the class's zone.
+    assert instant.message.task.remind_at == "2026-09-15T08:00"
+    wall = await v2.connect(
+        CREATE, CreateTaskRequest(task=Task(title="y", remind_at="2026-09-15T08:00")), token=viewer
+    )
+    assert wall.message.task.remind_at == "2026-09-15T08:00"
+    stored = await session.scalars(select(PersonalTask.remind_at).order_by(PersonalTask.id))
+    assert list(stored) == [datetime(2026, 9, 15, 8, 0)] * 2
+```
+In `server/tests/test_rpc_errors.py`:
+1. Replace:
+```python
+from app.services import schools as schools_service
+from app.services import terms as terms_service
+```
+   with:
+```python
+from app.services import schools as schools_service
+from app.services import tasks as tasks_service
+from app.services import terms as terms_service
+```
+2. Replace:
+```python
+STAGES = {"3b-4", "3b-5", "3b-6", "3b-7", "3b-8"}
+```
+   with:
+```python
+STAGES = {"3b-5", "3b-6", "3b-7", "3b-8"}
+```
+3. In `HELD_BY`, replace:
+```python
+    dadata.DirectoryError: (
+        "test_v2_schools.py",
+        "test_a_failing_directory_is_unavailable_in_v1_s_words",
+    ),
+```
+   with:
+```python
+    dadata.DirectoryError: (
+        "test_v2_schools.py",
+        "test_a_failing_directory_is_unavailable_in_v1_s_words",
+    ),
+    tasks_service.HomeworkNotInClass: (
+        "test_v2_tasks.py",
+        "test_a_task_naming_homework_of_another_class_is_refused_on_its_field",
+    ),
+```
+
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_tasks.py tests/test_rpc_errors.py
+```
+Expected: 9 failed and 14 passed.
+- Every test of `test_v2_tasks.py` fails: the three methods answer `UNIMPLEMENTED`, `501` over REST.
+- In `test_rpc_errors.py`, `test_every_row_of_the_table_names_the_test_that_reads_it_back` fails on the row `TABLE` lacks. The stage test passes without `"3b-4"`: nothing in `LATER` names it.
+
+Keep this output as the evidence.
+
+- [ ] **Step 2: `rpc/values.py` writes a wall-clock minute.**
+  1. In the module docstring, replace:
+```python
+cannot write a date, a time or a role two ways: a date is ``"YYYY-MM-DD"``, a
+time of day ``"HH:MM"`` (v1 wrote seconds; v2 does not), an instant a
+``Timestamp``, and an enum is matched to the model's by its member name —
+```
+     with:
+```python
+cannot write a date, a time or a role two ways: a date is ``"YYYY-MM-DD"``, a
+time of day ``"HH:MM"`` (v1 wrote seconds; v2 does not), a moment on the
+class's wall clock ``"YYYY-MM-DDTHH:MM"``, an instant a ``Timestamp``, and an
+enum is matched to the model's by its member name —
+```
+  2. Replace:
+```python
+def time_string(clock: Time) -> str:
+    return clock.strftime("%H:%M")
+```
+     with:
+```python
+def time_string(clock: Time) -> str:
+    return clock.strftime("%H:%M")
+
+
+def wall_moment(moment: datetime) -> str:
+    """A moment on the class's wall clock, ``"YYYY-MM-DDTHH:MM"``: a task's
+    reminder, which a naive column holds in the class's zone."""
+    return moment.strftime("%Y-%m-%dT%H:%M")
+```
+
+- [ ] **Step 3: The table's row.** In `server/app/rpc/errors.py`:
+  1. Replace:
+```python
+from app.services import schools as schools_service
+from app.services import terms as terms_service
+```
+     with:
+```python
+from app.services import schools as schools_service
+from app.services import tasks as tasks_service
+from app.services import terms as terms_service
+```
+  2. Replace:
+```python
+def _school_search_unavailable(error: dadata.DirectoryError) -> Refusal:
+    return Refusal(ErrorReason.DIRECTORY_UNAVAILABLE, error.message)
+```
+     with:
+```python
+def _school_search_unavailable(error: dadata.DirectoryError) -> Refusal:
+    return Refusal(ErrorReason.DIRECTORY_UNAVAILABLE, error.message)
+
+
+def _homework_not_in_class(_error: tasks_service.HomeworkNotInClass) -> Refusal:
+    # CreateTask and UpdateTask both carry the field as task.homework_id.
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.HOMEWORK_NOT_IN_CLASS_DETAIL,
+        violations=[("task.homework_id", wording.HOMEWORK_NOT_IN_CLASS_DETAIL)],
+    )
+```
+  3. In `TABLE`, replace:
+```python
+    dadata.DirectoryError: _school_search_unavailable,
+}
+```
+     with:
+```python
+    dadata.DirectoryError: _school_search_unavailable,
+    tasks_service.HomeworkNotInClass: _homework_not_in_class,
+}
+```
+
+- [ ] **Step 4: The three task reads and the create.** In `server/app/rpc/me.py`:
+  1. Replace the imports Task 4 wrote:
+```python
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.me_pb import (
+    CalendarFeed,
+    CreateCalendarFeedRequest,
+    CreateCalendarFeedResponse,
+    CreateLinkCodeRequest,
+    CreateLinkCodeResponse,
+    GetCalendarFeedRequest,
+    GetCalendarFeedResponse,
+    GetMeRequest,
+    GetMeResponse,
+    LinkCode,
+    Me,
+    UnlinkMeRequest,
+    UnlinkMeResponse,
+)
+from app.models import DeviceToken
+from app.rpc import values
+from app.rpc.errors import Refusal
+from app.services import calendar as calendar_service
+from app.services import linking
+from app.services.linking import Access
+```
+     with:
+```python
+from app import wording
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.me_pb import (
+    CalendarFeed,
+    CreateCalendarFeedRequest,
+    CreateCalendarFeedResponse,
+    CreateLinkCodeRequest,
+    CreateLinkCodeResponse,
+    CreateTaskRequest,
+    CreateTaskResponse,
+    GetCalendarFeedRequest,
+    GetCalendarFeedResponse,
+    GetMeRequest,
+    GetMeResponse,
+    GetTaskRequest,
+    GetTaskResponse,
+    LinkCode,
+    ListTasksRequest,
+    ListTasksResponse,
+    Me,
+    Task,
+    UnlinkMeRequest,
+    UnlinkMeResponse,
+)
+from app.models import DeviceToken, PersonalTask
+from app.rpc import values
+from app.rpc.errors import Refusal, validate
+from app.schemas import TaskIn
+from app.services import calendar as calendar_service
+from app.services import linking
+from app.services import tasks as tasks_service
+from app.services.linking import Access
+```
+  2. Replace:
+```python
+#: New in v2, so English like v1's own generic answers.
+NO_FEED_ADDRESS = "This server has no public address to give a calendar feed"
+```
+     with:
+```python
+#: New in v2, so English like v1's own generic answers.
+NO_FEED_ADDRESS = "This server has no public address to give a calendar feed"
+
+#: What ``CreateTask`` reads of a ``Task``, as v1's ``TaskIn`` takes it: the
+#: id, ``done`` and the stamps are the server's.
+_WRITTEN = (
+    "title",
+    "notes",
+    "subject_name",
+    "due_date",
+    "due_time",
+    "priority",
+    "homework_id",
+    "remind_at",
+)
+
+#: The ``optional`` fields of ``Task``: unset reads as ``""`` or 0, and means none.
+_OPTIONAL = frozenset(_WRITTEN) - {"title"}
+```
+  3. Replace the end of `create_calendar_feed`, the file's last lines:
+```python
+    secret = await calendar_service.ensure_calendar_token(call.session, school_class)
+    return CreateCalendarFeedResponse(
+        calendar_feed=CalendarFeed(url=calendar_service.feed_url(origin, secret))
+    )
+```
+     with:
+```python
+    secret = await calendar_service.ensure_calendar_token(call.session, school_class)
+    return CreateCalendarFeedResponse(
+        calendar_feed=CalendarFeed(url=calendar_service.feed_url(origin, secret))
+    )
+
+
+def _owner(call: Call) -> int:
+    """The account behind the phone, which the gate let through for every
+    ``AUTH_KIND_DEVICE_LINKED`` method: whose tasks and ticks these are."""
+    device, _school_class = call.device_and_class()
+    if device.telegram_id is None:
+        raise RuntimeError(f"{call.method.key} reached its handler with no account behind it")
+    return device.telegram_id
+
+
+def _task(row: PersonalTask) -> Task:
+    return Task(
+        id=row.id,
+        title=row.title,
+        notes=row.notes,
+        subject_name=row.subject_name,
+        due_date=values.date_string(row.due_date) if row.due_date is not None else None,
+        due_time=values.time_string(row.due_time) if row.due_time is not None else None,
+        priority=row.priority,
+        done=row.done,
+        done_at=values.maybe_instant(row.done_at),
+        homework_id=row.homework_id,
+        # The class's wall time, as the column holds it; the three stamps
+        # around it are instants.
+        remind_at=values.wall_moment(row.remind_at) if row.remind_at is not None else None,
+        created_at=values.maybe_instant(row.created_at),
+        updated_at=values.maybe_instant(row.updated_at),
+    )
+
+
+async def _own(call: Call, task_id: int) -> PersonalTask:
+    """The linked account's own task ``task_id`` in this class, or
+    ``RESOURCE_NOT_FOUND``, the same for somebody else's task as for one that
+    never existed, so an id never reveals that a classmate keeps a list."""
+    _device, school_class = call.device_and_class()
+    row = await tasks_service.get_task(call.session, task_id, school_class.id, _owner(call))
+    if row is None:
+        raise Refusal(ErrorReason.RESOURCE_NOT_FOUND, wording.UNKNOWN_TASK_DETAIL, resource="task")
+    return row
+
+
+def _given(task: Task, fields: tuple[str, ...]) -> dict[str, object]:
+    """The fields of ``task`` a create reads, as v1's ``TaskIn`` takes them: an
+    ``optional`` one only when it is set, so that one left out takes
+    ``TaskIn``'s default, a priority of 1 among them."""
+    return {
+        name: getattr(task, name)
+        for name in fields
+        if name not in _OPTIONAL or task.has_field(name)
+    }
+
+
+async def list_tasks(call: Call, request: ListTasksRequest) -> ListTasksResponse:
+    """The linked account's tasks in this class, at most 200: undone first, then
+    by deadline with undated ones last, urgent first. Done ones only when asked
+    for. Writes nothing."""
+    _device, school_class = call.device_and_class()
+    rows = await tasks_service.list_tasks(
+        call.session,
+        school_class.id,
+        _owner(call),
+        include_done=request.include_done,
+        limit=tasks_service.LIST_MAX,
+    )
+    return ListTasksResponse(tasks=[_task(row) for row in rows])
+
+
+async def get_task(call: Call, request: GetTaskRequest) -> GetTaskResponse:
+    """One of the linked account's own tasks. Writes nothing."""
+    return GetTaskResponse(task=_task(await _own(call, request.task_id)))
+
+
+async def create_task(call: Call, request: CreateTaskRequest) -> CreateTaskResponse:
+    """A new task, cleaned and checked by v1's ``TaskIn``: a title of 1 to 200
+    characters on one line, priority 1 when none is sent, a ``homework_id`` of
+    this class's homework (``VALIDATION_FAILED`` on ``task.homework_id``
+    otherwise), and a reminder kept as the class's wall time. The id, ``done``
+    and the stamps a client sends are ignored, as ``TaskIn`` has none of them;
+    REST answers 201."""
+    _device, school_class = call.device_and_class()
+    sent = request.task if request.task is not None else Task()
+    form = validate(TaskIn, _given(sent, _WRITTEN), at="task.")
+    row = await tasks_service.create_task(
+        call.session,
+        school_class,
+        _owner(call),
+        form.title,
+        notes=form.notes,
+        subject_name=form.subject_name,
+        due_date=form.due_date,
+        due_time=form.due_time,
+        priority=form.priority,
+        homework_id=form.homework_id,
+        remind_at=form.remind_at,
+    )
+    return CreateTaskResponse(task=_task(row))
+```
+
+- [ ] **Step 5: Serve them.** In `server/app/rpc/handlers.py`'s `HANDLERS`:
+  1. Replace:
+```python
+    "lessons.v2.MeService/CreateLinkCode": me.create_link_code,
+```
+     with:
+```python
+    "lessons.v2.MeService/CreateLinkCode": me.create_link_code,
+    "lessons.v2.MeService/CreateTask": me.create_task,
+```
+  2. Replace:
+```python
+    "lessons.v2.MeService/GetMe": me.get_me,
+```
+     with:
+```python
+    "lessons.v2.MeService/GetMe": me.get_me,
+    "lessons.v2.MeService/GetTask": me.get_task,
+    "lessons.v2.MeService/ListTasks": me.list_tasks,
+```
+
+- [ ] **Step 6: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_tasks.py tests/test_rpc_errors.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_contract_json.py tests/test_api_extended.py tests/test_service_layering.py
+```
+Expected: all pass.
+- `test_v2_tasks.py` has 8.
+- The gate test and the no-echo sweep each gain three cases. The gate test's empty `CreateTask` is refused on `task.title`, and its empty `GetTask` is `RESOURCE_NOT_FOUND` for the id 0. The sweep, as the owner, creates a task titled with its secret, which is no refusal; each other field is refused by the decoder or by `TaskIn` in words that quote nothing.
+- `test_rpc_errors.py` holds the new row by its test, and `STAGES` without `"3b-4"`.
+
+- [ ] **Step 7: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 231 source files`.
+
+- [ ] **Step 8: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b4-t5.txt`:
+```text
+Serve a phone's own tasks over v2: the list, one task, and a new one
+
+ListTasks and GetTask are v1's GET /tasks over the same services: the
+linked account's tasks in this class, at most 200, undone first, and
+done ones only when asked for. Somebody else's task is
+RESOURCE_NOT_FOUND, as one that never existed is, in v1's words. A date
+is "YYYY-MM-DD", a time "HH:MM", a reminder the class's wall-clock
+minute (values.wall_moment), and when something happened an instant.
+
+CreateTask is v1's POST /tasks through tasks.create_task, checked by
+v1's TaskIn: priority 1 when none is sent, the id, done and the stamps a
+client sends ignored, and REST answers 201. A homework_id of another
+class is tasks.HomeworkNotInClass, whose row joins the error table as
+VALIDATION_FAILED on task.homework_id, read back on both paths. A
+remind_at with an offset is stored on the class's clock, as v1 stores
+it.
+
+3b-4 brings no reason of its own, so it leaves STAGES with this row.
+
+Not covered: a list past 200, which no test fills.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/rpc/me.py server/app/rpc/handlers.py server/app/rpc/values.py server/app/rpc/errors.py server/tests/test_v2_tasks.py server/tests/test_rpc_errors.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b4-t5.txt
+```
+
+---
+
+### 3b-4 Task 6: `UpdateTask` and `DeleteTask`
+
+Decisions 2, 10 and 14; Rulings 5, 17, 62 to 64.
+
+**Files:**
+- Create: `server/tests/test_v2_task_writes.py`
+- Modify: `server/app/rpc/me.py`, `server/app/rpc/handlers.py`
+
+**Interfaces:**
+- Consumes: Task 2's `tasks.update_task`; `tasks.delete_task`; v1's `TaskPatch`; `masks.update_paths` and `masks.NOT_CHANGEABLE`; Task 5's `_own`, `_task`, `_WRITTEN` and `_OPTIONAL`.
+- Produces: `me.update_task`, `me.delete_task`, `me.CHANGEABLE`, `me._sent(task, field) -> object`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_task_writes.py`:
+```python
+"""``MeService``'s task writes: ``UpdateTask`` and ``DeleteTask``.
+
+v1's ``PATCH /tasks/{id}``, ``POST /tasks/{id}/done`` and ``DELETE
+/tasks/{id}`` over v2, through ``tasks.update_task`` and ``delete_task``. The
+mask is read once, by ``masks.update_paths`` (AIP-134): no mask changes what
+the request sets, as v1's ``PATCH`` did; a masked field left unset is cleared,
+except ``title`` and ``priority``, which cannot be; ``done`` is v1's
+``POST …/done``, and taking it back needs the mask, because an unset ``bool``
+reads as false. A write's success is asked once per transport on fresh data,
+and its refusals through ``both`` (the 3b plan, Ruling 17).
+"""
+
+from __future__ import annotations
+
+from datetime import date, time
+
+from protobuf.wkt import FieldMask
+from sqlalchemy import func, select
+
+from app import wording
+from app.contract.lessons.v2.me_pb import DeleteTaskRequest, Task, UpdateTaskRequest
+from app.models import Homework, PersonalTask, SchoolClass
+from app.rpc.masks import NOT_CHANGEABLE
+
+#: The accounts behind v2_tokens' viewer and editor phones.
+VIEWER = 2001
+EDITOR = 2002
+UPDATE = "MeService/UpdateTask"
+DELETE = "MeService/DeleteTask"
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def _row(session, school_class, telegram_id: int = VIEWER) -> PersonalTask:
+    task = PersonalTask(
+        class_id=school_class.id,
+        telegram_id=telegram_id,
+        title="Купить тетрадь",
+        notes="в клетку",
+        subject_name="Алгебра",
+        due_date=date(2026, 9, 15),
+        due_time=time(18, 0),
+        priority=2,
+    )
+    session.add(task)
+    await session.commit()
+    return task
+
+
+async def _columns(session, task_id: int):
+    return (
+        await session.execute(
+            select(
+                PersonalTask.title,
+                PersonalTask.notes,
+                PersonalTask.subject_name,
+                PersonalTask.due_date,
+                PersonalTask.due_time,
+                PersonalTask.priority,
+                PersonalTask.homework_id,
+            ).where(PersonalTask.id == task_id)
+        )
+    ).one()
+
+
+def _update(task_id: int, *paths: str, **fields) -> UpdateTaskRequest:
+    mask = FieldMask(paths=list(paths)) if paths else None
+    return UpdateTaskRequest(task=Task(id=task_id, **fields), update_mask=mask)
+
+
+async def test_an_update_without_a_mask_changes_only_what_it_sends(
+    v2, v2_tokens, session, school_class
+) -> None:
+    first = await _row(session, school_class)
+    second = await _row(session, school_class)
+    viewer = v2_tokens["viewer"]
+    rest = await v2.rest(UPDATE, _update(first.id, title="Купить две тетради"), token=viewer)
+    connect = await v2.connect(UPDATE, _update(second.id, subject_name="Физика"), token=viewer)
+    assert (rest.status, connect.status) == (200, 200)
+    assert tuple(await _columns(session, first.id)) == (
+        "Купить две тетради",
+        "в клетку",
+        "Алгебра",
+        date(2026, 9, 15),
+        time(18, 0),
+        2,
+        None,
+    )
+    assert (connect.message.task.title, connect.message.task.subject_name) == (
+        "Купить тетрадь",
+        "Физика",
+    )
+    # The database's stamp of this very update, read back into the answer.
+    assert rest.message.task.updated_at is not None
+
+
+async def test_a_masked_field_left_out_is_cleared_but_a_title_or_a_priority_is_refused(
+    v2, v2_tokens, session, school_class
+) -> None:
+    task = await _row(session, school_class)
+    viewer = v2_tokens["viewer"]
+    cleared = await v2.rest(
+        UPDATE, _update(task.id, "notes", "due_time", "subject_name"), token=viewer
+    )
+    assert cleared.status == 200
+    columns = await _columns(session, task.id)
+    assert (columns.notes, columns.due_time, columns.subject_name) == (None, None, None)
+    assert columns.due_date == date(2026, 9, 15)
+    for path in ("title", "priority"):
+        refused = await v2.both(UPDATE, _update(task.id, path), token=viewer)
+        assert (refused.status, refused.reason) == (400, "VALIDATION_FAILED"), path
+        assert [name for name, _ in refused.violations] == [f"task.{path}"]
+    columns = await _columns(session, task.id)
+    assert (columns.title, columns.priority) == ("Купить тетрадь", 2)
+
+
+async def test_done_is_v1_s_post_done_and_taking_it_back_needs_the_mask(
+    v2, v2_tokens, session, school_class
+) -> None:
+    task = await _row(session, school_class)
+    viewer = v2_tokens["viewer"]
+    done = await v2.rest(UPDATE, _update(task.id, done=True), token=viewer)
+    assert done.message.task.done is True
+    assert done.message.task.done_at is not None
+    v1 = await v2.http.get("/api/v1/tasks", params={"include_done": "true"}, headers=_auth(viewer))
+    assert v1.json()[0]["done"] is True
+    # Without a mask an unset bool is no change, and false is unset.
+    unmasked = await v2.connect(UPDATE, _update(task.id, done=False), token=viewer)
+    assert unmasked.message.task.done is True
+    undone = await v2.connect(UPDATE, _update(task.id, "done"), token=viewer)
+    assert (undone.message.task.done, undone.message.task.done_at) == (False, None)
+
+
+async def test_an_update_naming_homework_of_another_class_changes_nothing(
+    v2, v2_tokens, session, school_class
+) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = Homework(
+        class_id=other.id, due_date=date(2026, 9, 7), subject_name="Алгебра", text="№ 1"
+    )
+    session.add(foreign)
+    await session.commit()
+    task = await _row(session, school_class)
+    refused = await v2.both(
+        UPDATE, _update(task.id, title="Чужое", homework_id=foreign.id), token=v2_tokens["viewer"]
+    )
+    assert (refused.status, refused.reason) == (400, "VALIDATION_FAILED")
+    assert refused.violations == [("task.homework_id", wording.HOMEWORK_NOT_IN_CLASS_DETAIL)]
+    columns = await _columns(session, task.id)
+    assert (columns.title, columns.homework_id) == ("Купить тетрадь", None)
+
+
+async def test_somebody_else_s_task_can_be_neither_changed_nor_deleted(
+    v2, v2_tokens, session, school_class
+) -> None:
+    theirs = await _row(session, school_class, telegram_id=EDITOR)
+    for name, request in (
+        (UPDATE, _update(theirs.id, title="Моё")),
+        (DELETE, DeleteTaskRequest(task_id=theirs.id)),
+    ):
+        answer = await v2.both(name, request, token=v2_tokens["viewer"])
+        assert (answer.status, answer.reason, answer.metadata) == (
+            404,
+            "RESOURCE_NOT_FOUND",
+            {"resource": "task"},
+        ), name
+        assert answer.error == wording.UNKNOWN_TASK_DETAIL
+    assert (await _columns(session, theirs.id)).title == "Купить тетрадь"
+
+
+async def test_deleting_a_task_answers_empty_and_again_finds_nothing(
+    v2, v2_tokens, session, school_class
+) -> None:
+    first = await _row(session, school_class)
+    second = await _row(session, school_class)
+    viewer = v2_tokens["viewer"]
+    rest = await v2.rest(DELETE, DeleteTaskRequest(task_id=first.id), token=viewer)
+    connect = await v2.connect(DELETE, DeleteTaskRequest(task_id=second.id), token=viewer)
+    assert (rest.status, rest.body, connect.status) == (200, b"{}", 200)
+    assert await session.scalar(select(func.count()).select_from(PersonalTask)) == 0
+    again = await v2.both(DELETE, DeleteTaskRequest(task_id=first.id), token=viewer)
+    assert (again.status, again.reason) == (404, "RESOURCE_NOT_FOUND")
+
+
+async def test_a_mask_naming_a_field_the_method_does_not_change_is_refused_on_it(
+    v2, v2_tokens, session, school_class
+) -> None:
+    task = await _row(session, school_class)
+    for path in ("id", "created_at", "done_at"):
+        answer = await v2.both(UPDATE, _update(task.id, path, title="x"), token=v2_tokens["viewer"])
+        assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED"), path
+        assert answer.violations == [("update_mask", NOT_CHANGEABLE)]
+    assert (await _columns(session, task.id)).title == "Купить тетрадь"
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_task_writes.py
+```
+Expected: 7 tests, every one failing because both methods answer `UNIMPLEMENTED`. Keep this output as the evidence.
+
+- [ ] **Step 2: The update and the delete.** In `server/app/rpc/me.py`:
+  1. Replace the imports Task 5 wrote:
+```python
+from app import wording
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.me_pb import (
+    CalendarFeed,
+    CreateCalendarFeedRequest,
+    CreateCalendarFeedResponse,
+    CreateLinkCodeRequest,
+    CreateLinkCodeResponse,
+    CreateTaskRequest,
+    CreateTaskResponse,
+    GetCalendarFeedRequest,
+    GetCalendarFeedResponse,
+    GetMeRequest,
+    GetMeResponse,
+    GetTaskRequest,
+    GetTaskResponse,
+    LinkCode,
+    ListTasksRequest,
+    ListTasksResponse,
+    Me,
+    Task,
+    UnlinkMeRequest,
+    UnlinkMeResponse,
+)
+from app.models import DeviceToken, PersonalTask
+from app.rpc import values
+from app.rpc.errors import Refusal, validate
+from app.schemas import TaskIn
+from app.services import calendar as calendar_service
+from app.services import linking
+from app.services import tasks as tasks_service
+from app.services.linking import Access
+```
+     with:
+```python
+from app import wording
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.me_pb import (
+    CalendarFeed,
+    CreateCalendarFeedRequest,
+    CreateCalendarFeedResponse,
+    CreateLinkCodeRequest,
+    CreateLinkCodeResponse,
+    CreateTaskRequest,
+    CreateTaskResponse,
+    DeleteTaskRequest,
+    DeleteTaskResponse,
+    GetCalendarFeedRequest,
+    GetCalendarFeedResponse,
+    GetMeRequest,
+    GetMeResponse,
+    GetTaskRequest,
+    GetTaskResponse,
+    LinkCode,
+    ListTasksRequest,
+    ListTasksResponse,
+    Me,
+    Task,
+    UnlinkMeRequest,
+    UnlinkMeResponse,
+    UpdateTaskRequest,
+    UpdateTaskResponse,
+)
+from app.models import DeviceToken, PersonalTask
+from app.rpc import values
+from app.rpc.errors import Refusal, validate
+from app.rpc.masks import update_paths
+from app.schemas import TaskIn, TaskPatch
+from app.services import calendar as calendar_service
+from app.services import linking
+from app.services import tasks as tasks_service
+from app.services.linking import Access
+```
+  2. Replace:
+```python
+#: The ``optional`` fields of ``Task``: unset reads as ``""`` or 0, and means none.
+_OPTIONAL = frozenset(_WRITTEN) - {"title"}
+```
+     with:
+```python
+#: The ``optional`` fields of ``Task``: unset reads as ``""`` or 0, and means none.
+_OPTIONAL = frozenset(_WRITTEN) - {"title"}
+
+#: What ``update_mask`` may name, and nothing more: the proto comment's list,
+#: which is v1's ``TaskPatch``. ``tasks.update_task`` decides the order.
+CHANGEABLE = (*_WRITTEN, "done")
+```
+  3. Replace the end of `create_task`, the file's last lines:
+```python
+        homework_id=form.homework_id,
+        remind_at=form.remind_at,
+    )
+    return CreateTaskResponse(task=_task(row))
+```
+     with:
+```python
+        homework_id=form.homework_id,
+        remind_at=form.remind_at,
+    )
+    return CreateTaskResponse(task=_task(row))
+
+
+def _sent(task: Task, field: str) -> object:
+    """What an update says of ``field``: ``None`` for an ``optional`` one it
+    leaves unset, which clears it. A masked ``title`` left unset reads as
+    ``""`` and a masked ``priority`` as ``None``, and ``TaskPatch`` refuses
+    both: the proto says neither can be cleared."""
+    if field in _OPTIONAL and not task.has_field(field):
+        return None
+    return getattr(task, field)
+
+
+async def update_task(call: Call, request: UpdateTaskRequest) -> UpdateTaskResponse:
+    """Change one of the linked account's own tasks: v1's ``PATCH /tasks/{id}``,
+    and with ``done`` its ``POST /tasks/{id}/done``.
+
+    The mask is read once, by ``masks.update_paths``: without one, what the
+    request sets changes and nothing else. An unset ``bool`` reads as false,
+    so ``done`` is taken back only under a mask that names it. The fields are
+    checked by v1's ``TaskPatch`` and applied by ``tasks.update_task``, which
+    refuses a ``homework_id`` of another class before it changes anything.
+    """
+    _device, school_class = call.device_and_class()
+    sent = request.task if request.task is not None else Task()
+    paths = update_paths(request.update_mask, request.task, CHANGEABLE)
+    patch = validate(TaskPatch, {name: _sent(sent, name) for name in paths}, at="task.")
+    row = await _own(call, sent.id)
+    await tasks_service.update_task(
+        call.session, school_class, row, patch.model_dump(exclude_unset=True)
+    )
+    # ``updated_at`` is the database's, set by this very update: flushed and
+    # read back, so that the answer carries it. ``invoke`` commits.
+    await call.session.flush()
+    await call.session.refresh(row)
+    return UpdateTaskResponse(task=_task(row))
+
+
+async def delete_task(call: Call, request: DeleteTaskRequest) -> DeleteTaskResponse:
+    """Delete one of the linked account's own tasks. Asked again, the task is
+    ``RESOURCE_NOT_FOUND``, as v1's ``DELETE`` answered 404."""
+    row = await _own(call, request.task_id)
+    await tasks_service.delete_task(call.session, row)
+    return DeleteTaskResponse()
+```
+
+- [ ] **Step 3: Serve them.** In `server/app/rpc/handlers.py`'s `HANDLERS`:
+  1. Replace:
+```python
+    "lessons.v2.MeService/CreateTask": me.create_task,
+```
+     with:
+```python
+    "lessons.v2.MeService/CreateTask": me.create_task,
+    "lessons.v2.MeService/DeleteTask": me.delete_task,
+```
+  2. Replace:
+```python
+    "lessons.v2.MeService/UnlinkMe": me.unlink_me,
+```
+     with:
+```python
+    "lessons.v2.MeService/UnlinkMe": me.unlink_me,
+    "lessons.v2.MeService/UpdateTask": me.update_task,
+```
+
+- [ ] **Step 4: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_task_writes.py tests/test_v2_tasks.py tests/test_rpc_masks.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_rpc_errors.py tests/test_api_extended.py
+```
+Expected: all pass.
+- `test_v2_task_writes.py` has 7.
+- The gate test and the no-echo sweep each gain two cases. An empty `UpdateTask` reaches `/api/v2/me/tasks/0`, reads no path, and is `RESOURCE_NOT_FOUND`; an empty `DeleteTask` is the same. The sweep's secret in `updateMask` becomes a path the method does not take and is refused without being repeated.
+- `test_rest.py` and `test_rpc_mount.py`, which replace `UpdateTask`'s handler with their own, pass as before.
+
+- [ ] **Step 5: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 231 source files`.
+
+- [ ] **Step 6: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b4-t6.txt`:
+```text
+Serve changing and deleting a phone's own task over v2
+
+UpdateTask is v1's PATCH /tasks/{id} through tasks.update_task, its
+mask read once by masks.update_paths and its fields checked by v1's
+TaskPatch. Without a mask, what the request sets changes; a masked field
+left unset is cleared, but title and priority, which cannot be, are
+refused on their fields. v1's POST /tasks/{id}/done is this with done,
+and since an unset bool reads as false, taking done back needs the mask.
+A homework_id of another class changes nothing at all. The answer
+carries the database's updated_at, flushed and read back; invoke
+commits.
+
+DeleteTask is v1's DELETE /tasks/{id}: an empty answer, and the same
+task asked again is RESOURCE_NOT_FOUND. Somebody else's task can be
+neither changed nor deleted, and is not found, as none is.
+
+Not covered: a mask in Connect's binary encoding; the tests send JSON.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/rpc/me.py server/app/rpc/handlers.py server/tests/test_v2_task_writes.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b4-t6.txt
+```
+
+---
+
+### 3b-4 Task 7: `CreateHomeworkTick` and `DeleteHomeworkTick`, and the batch's one full run
+
+Decisions 2, 10 and 14; Rulings 59, 61 and 67.
+
+**Files:**
+- Create: `server/tests/test_v2_homework_ticks.py`
+- Modify: `server/app/rpc/me.py`, `server/app/rpc/handlers.py`
+
+**Interfaces:**
+- Consumes: Task 2's `homework.homework_of`, `tasks.set_homework_done` and `wording.UNKNOWN_HOMEWORK_DETAIL`; Task 5's `_owner`.
+- Produces: `me.create_homework_tick`, `me.delete_homework_tick`, `me._homework(call, homework_id) -> Homework`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_homework_ticks.py`:
+```python
+"""``MeService``'s homework ticks: «сделал», for the linked account alone.
+
+v1's ``POST /homework/{id}/done`` set a tick to the state the app showed; v2
+makes the tick a resource, put on with ``CreateHomeworkTick`` and taken off
+with ``DeleteHomeworkTick``, through the same ``tasks.set_homework_done``.
+Either asked twice lands on the same answer, as the proto says, and homework
+of another class is not found, as in v1. The tick is the account's: another
+member of the class does not see it.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+
+from sqlalchemy import func, select
+
+from app import wording
+from app.contract.lessons.v2.me_pb import (
+    CreateHomeworkTickRequest,
+    DeleteHomeworkTickRequest,
+    HomeworkTick,
+)
+from app.models import Homework, HomeworkDone, SchoolClass
+
+#: The account behind v2_tokens' viewer phone.
+VIEWER = 2001
+TICK = "MeService/CreateHomeworkTick"
+UNTICK = "MeService/DeleteHomeworkTick"
+MONDAY = date(2026, 9, 7)
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def _homework(session, school_class) -> Homework:
+    item = Homework(class_id=school_class.id, due_date=MONDAY, subject_name="Алгебра", text="№ 1")
+    session.add(item)
+    await session.commit()
+    return item
+
+
+def _tick(homework_id: int) -> CreateHomeworkTickRequest:
+    return CreateHomeworkTickRequest(homework_tick=HomeworkTick(homework_id=homework_id))
+
+
+async def _ticks(session) -> list[tuple[int, int]]:
+    rows = await session.execute(select(HomeworkDone.homework_id, HomeworkDone.telegram_id))
+    return [tuple(row) for row in rows]
+
+
+async def _v1_done(v2, token: str) -> bool:
+    params = {"from": MONDAY.isoformat(), "to": MONDAY.isoformat()}
+    rows = (await v2.http.get("/api/v1/homework", params=params, headers=_auth(token))).json()
+    return rows[0]["done"]
+
+
+async def test_a_tick_is_v1_s_done_and_ticking_twice_is_one_tick(
+    v2, v2_tokens, session, school_class
+) -> None:
+    homework = await _homework(session, school_class)
+    answer = await v2.both(TICK, _tick(homework.id), token=v2_tokens["viewer"])
+    assert answer.status == 200
+    assert answer.message.homework_tick.homework_id == homework.id
+    assert await _ticks(session) == [(homework.id, VIEWER)]
+    # v1 reads it as done for this account, and not for another one.
+    assert await _v1_done(v2, v2_tokens["viewer"]) is True
+    assert await _v1_done(v2, v2_tokens["editor"]) is False
+
+
+async def test_taking_a_tick_off_twice_is_not_an_error(
+    v2, v2_tokens, session, school_class
+) -> None:
+    homework = await _homework(session, school_class)
+    session.add(HomeworkDone(homework_id=homework.id, telegram_id=VIEWER))
+    await session.commit()
+    answer = await v2.both(
+        UNTICK, DeleteHomeworkTickRequest(homework_id=homework.id), token=v2_tokens["viewer"]
+    )
+    assert (answer.status, answer.body) == (200, b"{}")
+    assert await _ticks(session) == []
+    assert await _v1_done(v2, v2_tokens["viewer"]) is False
+
+
+async def test_homework_of_another_class_or_none_is_not_found(
+    v2, v2_tokens, session, school_class
+) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = Homework(class_id=other.id, due_date=MONDAY, subject_name="Алгебра", text="№ 1")
+    session.add(foreign)
+    await session.commit()
+    viewer = v2_tokens["viewer"]
+    v1 = await v2.http.post(
+        f"/api/v1/homework/{foreign.id}/done", json={"done": True}, headers=_auth(viewer)
+    )
+    assert v1.status_code == 404
+    for homework_id in (foreign.id, 999_999):
+        for name, request in (
+            (TICK, _tick(homework_id)),
+            (UNTICK, DeleteHomeworkTickRequest(homework_id=homework_id)),
+        ):
+            answer = await v2.both(name, request, token=viewer)
+            assert (answer.status, answer.code, answer.reason) == (
+                404,
+                "NOT_FOUND",
+                "RESOURCE_NOT_FOUND",
+            ), name
+            assert answer.metadata == {"resource": "homework"}
+            assert answer.error == v1.json()["detail"] == wording.UNKNOWN_HOMEWORK_DETAIL
+    assert await session.scalar(select(func.count()).select_from(HomeworkDone)) == 0
+
+
+async def test_taking_off_a_tick_that_is_not_there_writes_nothing_but_the_last_seen(
+    v2, v2_tokens, session, school_class, statement_writes, unexpected_writes, last_seen_rule
+) -> None:
+    homework = await _homework(session, school_class)
+    with statement_writes() as seen:
+        answer = await v2.both(
+            UNTICK, DeleteHomeworkTickRequest(homework_id=homework.id), token=v2_tokens["viewer"]
+        )
+    assert answer.status == 200
+    # A write happened, the phone's last call, and nothing else did.
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all(last_seen_rule.match(statement) for statement in seen), seen
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_homework_ticks.py
+```
+Expected: 4 tests, every one failing because both methods answer `UNIMPLEMENTED`. Keep this output as the evidence.
+
+- [ ] **Step 2: The two ticks.** In `server/app/rpc/me.py`:
+  1. Replace the imports Task 6 wrote:
+```python
+from app import wording
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.me_pb import (
+    CalendarFeed,
+    CreateCalendarFeedRequest,
+    CreateCalendarFeedResponse,
+    CreateLinkCodeRequest,
+    CreateLinkCodeResponse,
+    CreateTaskRequest,
+    CreateTaskResponse,
+    DeleteTaskRequest,
+    DeleteTaskResponse,
+    GetCalendarFeedRequest,
+    GetCalendarFeedResponse,
+    GetMeRequest,
+    GetMeResponse,
+    GetTaskRequest,
+    GetTaskResponse,
+    LinkCode,
+    ListTasksRequest,
+    ListTasksResponse,
+    Me,
+    Task,
+    UnlinkMeRequest,
+    UnlinkMeResponse,
+    UpdateTaskRequest,
+    UpdateTaskResponse,
+)
+from app.models import DeviceToken, PersonalTask
+from app.rpc import values
+from app.rpc.errors import Refusal, validate
+from app.rpc.masks import update_paths
+from app.schemas import TaskIn, TaskPatch
+from app.services import calendar as calendar_service
+from app.services import linking
+from app.services import tasks as tasks_service
+from app.services.linking import Access
+```
+     with:
+```python
+from app import wording
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.me_pb import (
+    CalendarFeed,
+    CreateCalendarFeedRequest,
+    CreateCalendarFeedResponse,
+    CreateHomeworkTickRequest,
+    CreateHomeworkTickResponse,
+    CreateLinkCodeRequest,
+    CreateLinkCodeResponse,
+    CreateTaskRequest,
+    CreateTaskResponse,
+    DeleteHomeworkTickRequest,
+    DeleteHomeworkTickResponse,
+    DeleteTaskRequest,
+    DeleteTaskResponse,
+    GetCalendarFeedRequest,
+    GetCalendarFeedResponse,
+    GetMeRequest,
+    GetMeResponse,
+    GetTaskRequest,
+    GetTaskResponse,
+    HomeworkTick,
+    LinkCode,
+    ListTasksRequest,
+    ListTasksResponse,
+    Me,
+    Task,
+    UnlinkMeRequest,
+    UnlinkMeResponse,
+    UpdateTaskRequest,
+    UpdateTaskResponse,
+)
+from app.models import DeviceToken, Homework, PersonalTask
+from app.rpc import values
+from app.rpc.errors import Refusal, validate
+from app.rpc.masks import update_paths
+from app.schemas import TaskIn, TaskPatch
+from app.services import calendar as calendar_service
+from app.services import homework as homework_service
+from app.services import linking
+from app.services import tasks as tasks_service
+from app.services.linking import Access
+```
+  2. Replace the end of `delete_task`, the file's last lines:
+```python
+    row = await _own(call, request.task_id)
+    await tasks_service.delete_task(call.session, row)
+    return DeleteTaskResponse()
+```
+     with:
+```python
+    row = await _own(call, request.task_id)
+    await tasks_service.delete_task(call.session, row)
+    return DeleteTaskResponse()
+
+
+async def _homework(call: Call, homework_id: int) -> Homework:
+    """This class's homework ``homework_id``, or ``RESOURCE_NOT_FOUND``: an id of
+    another class's homework finds nothing, as in v1."""
+    _device, school_class = call.device_and_class()
+    item = await homework_service.homework_of(call.session, school_class.id, homework_id)
+    if item is None:
+        raise Refusal(
+            ErrorReason.RESOURCE_NOT_FOUND, wording.UNKNOWN_HOMEWORK_DETAIL, resource="homework"
+        )
+    return item
+
+
+async def create_homework_tick(
+    call: Call, request: CreateHomeworkTickRequest
+) -> CreateHomeworkTickResponse:
+    """Tick homework of this class off for the linked account: v1's ``POST
+    /homework/{id}/done`` with ``true``. Ticking it twice is not an error: the
+    state asked for is the state answered (``tasks.set_homework_done``)."""
+    sent = request.homework_tick if request.homework_tick is not None else HomeworkTick()
+    item = await _homework(call, sent.homework_id)
+    await tasks_service.set_homework_done(call.session, item, _owner(call), True)
+    return CreateHomeworkTickResponse(homework_tick=HomeworkTick(homework_id=item.id))
+
+
+async def delete_homework_tick(
+    call: Call, request: DeleteHomeworkTickRequest
+) -> DeleteHomeworkTickResponse:
+    """Take the linked account's tick off: v1's ``POST /homework/{id}/done`` with
+    ``false``. Taking off a tick that is not there is not an error."""
+    item = await _homework(call, request.homework_id)
+    await tasks_service.set_homework_done(call.session, item, _owner(call), False)
+    return DeleteHomeworkTickResponse()
+```
+
+- [ ] **Step 3: Serve them.** In `server/app/rpc/handlers.py`'s `HANDLERS`:
+  1. Replace:
+```python
+    "lessons.v2.MeService/CreateCalendarFeed": me.create_calendar_feed,
+```
+     with:
+```python
+    "lessons.v2.MeService/CreateCalendarFeed": me.create_calendar_feed,
+    "lessons.v2.MeService/CreateHomeworkTick": me.create_homework_tick,
+```
+  2. Replace:
+```python
+    "lessons.v2.MeService/DeleteTask": me.delete_task,
+```
+     with:
+```python
+    "lessons.v2.MeService/DeleteHomeworkTick": me.delete_homework_tick,
+    "lessons.v2.MeService/DeleteTask": me.delete_task,
+```
+
+  `HANDLERS` now holds every one of `MeService`'s twelve methods.
+
+- [ ] **Step 4: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_homework_ticks.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_rpc_errors.py tests/test_api_extended.py tests/test_services.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass.
+- `test_v2_homework_ticks.py` has 4.
+- The gate test and the no-echo sweep each gain two cases. Both empty requests name the homework 0 and are `RESOURCE_NOT_FOUND`; the sweep's secret in `homeworkTick.homeworkId` or the path is refused by the decoder.
+- `test_cold_start.py` passes: `rpc/me.py` imports nothing that reaches aiogram.
+
+- [ ] **Step 5: Gates, and the batch's one full run.** ruff: `All checks passed!`. mypy: `Success: no issues found in 231 source files`. Then the full suite once, alone — nothing else running, no Gradle, no second test process:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -n 4
+```
+Expected: `2836 passed` (2767 + 69) and its time, which Task 8 writes down. If the count is not 2836, find the test file that moved before anything else.
+
+- [ ] **Step 6: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b4-t7.txt`:
+```text
+Serve a phone's homework ticks over v2
+
+CreateHomeworkTick and DeleteHomeworkTick are v1's POST
+/homework/{id}/done with true and with false, through
+tasks.set_homework_done: the tick is set, not toggled, so either asked
+twice lands on the same answer, and taking off a tick that is not there
+writes nothing. The tick is the linked account's: v1 reads it as done
+for that account and for nobody else. Homework of another class, or of
+none, is RESOURCE_NOT_FOUND in v1's words.
+
+With these, MeService is served whole, and v2 answers forty-four
+methods.
+
+Not covered: two phones of one account ticking at once over v2; the
+race is held at the service (test_services.py).
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/rpc/me.py server/app/rpc/handlers.py server/tests/test_v2_homework_ticks.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b4-t7.txt
+```
+
+---
+
+### 3b-4 Task 8: The documents, the counts, the HANDOVER close-out, and production after the merge
+
+**Files:**
+- Modify: `docs/api.md`, `docs/README.md`, `docs/architecture.md`, `CLAUDE.md`, `README.md`, `docs/specs/2026-10-05-server-v2-3b-plan.md` (the 3b-5 and 3b-8 summaries), `CONTRIBUTING.md`, `.claude/skills/gates/SKILL.md`, `.claude/agents/server-tests.md`, `HANDOVER.md`, `docs/history.md`
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b4.py` and `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\plan3b4.py`. 3b-3's `counts3b2_3b3.py` and `scan_heads_3b3.py`, in the same folder, whose root is this worktree already, are used again as they are.
+
+**Interfaces:**
+- Consumes:
+  - Tasks 1 to 7, and the numbers of Task 7's full run;
+  - the documents as #372's merge leaves them: «thirty-three methods», the counts 2767 and 231, and `HANDOVER.md` with #372's batch as «What the last session added» and #366's as «What the session before it added»;
+  - what followed #372's merge, which the controller hands over at Step 8 for the slot `[AFTER-372]`;
+  - this pull request's number, `#PR`, which exists only once the controller opens it (Step 7), and `#373`, `#374` and `#375`.
+- Produces: documents that are true at the moment the pull request merges, and the post-merge read.
+
+- [ ] **Step 1: Red: the documents still describe 3b-3.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b4.py`:
+```python
+"""Which documents do not yet say what 3b-4 serves (3b-4, Task 8)."""
+
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
+    "C:/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230"
+)
+SAID = {
+    "docs/api.md": [
+        "forty-four of its methods so far",
+        "**Served beside v1, forty-four methods so far.**",
+        "### A phone's own",
+        "`UpdateTask` refuses `title` or `priority` masked and left unset",
+        "on `CreateDevice` (its answer is a device token) and on `CreateLinkCode`",
+    ],
+    "docs/README.md": ["served beside v1, forty-four methods so far"],
+    "README.md": ["| v2 over REST and Connect | forty-four methods served beside v1"],
+    "docs/architecture.md": [
+        "order of checks, then a phone's own: its link code",
+        "a service a v2 handler calls leaves the commit to its caller",
+    ],
+    "CLAUDE.md": [
+        "`tasks.py`'s `create_task`, `update_task` and `set_homework_done`",
+        "A write leaves the commit to its caller",
+    ],
+}
+STALE_IN = ["docs/api.md", "docs/README.md", "README.md", "docs/architecture.md", "CLAUDE.md"]
+STALE = re.compile(r"thirty-three (?:of its )?methods|Nothing there commits")
+
+#: Two summaries of the plan, each read alone: this task list, which the plan
+#: holds too, quotes both the line each loses and the one it gains.
+PLAN = "docs/specs/2026-10-05-server-v2-3b-plan.md"
+SUMMARIES = (
+    ("\n## 3b-5: ", "\n## 3b-6: ", "3b-4 added the homework's lookup", None),
+    (
+        "\n## 3b-8: ",
+        "\n## Self-review",
+        "The controller confirmed the second for 3b-4",
+        "3b-8's task list follows whichever the controller confirms.",
+    ),
+)
+
+problems = []
+for name, phrases in SAID.items():
+    text = (ROOT / name).read_text("utf-8")
+    problems += [f"{name}: missing {phrase!r}" for phrase in phrases if phrase not in text]
+for name in STALE_IN:
+    text = (ROOT / name).read_text("utf-8")
+    problems += [f"{name}: still says {match.group(0)!r}" for match in STALE.finditer(text)]
+plan = (ROOT / PLAN).read_text("utf-8")
+for start, end, said, stale in SUMMARIES:
+    section = plan.split(start, 1)[1].split(end, 1)[0]
+    if said not in section:
+        problems.append(f"{PLAN}, {start.strip()}: missing {said!r}")
+    if stale is not None and stale in section:
+        problems.append(f"{PLAN}, {start.strip()}: still says {stale!r}")
+print("\n".join(problems) or "the documents say what 3b-4 serves")
+sys.exit(1 if problems else 0)
+```
+and run it:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b4.py
+```
+Expected: exit 1, with thirteen `missing` lines and six `still says` lines: `docs/api.md` twice, and `docs/README.md`, `README.md`, `CLAUDE.md` («Nothing there commits») and the plan's 3b-8 summary once each. Keep this output as the evidence.
+
+- [ ] **Step 2: `docs/api.md`.**
+  1. In the opening, replace:
+```markdown
+thirty-three of its methods so far: «v2: the contract», at the end of this page.
+```
+     with:
+```markdown
+forty-four of its methods so far: «v2: the contract», at the end of this page.
+```
+  2. Under «v2: the contract», replace:
+```markdown
+**Served beside v1, thirty-three methods so far.** Everything above this section is v1, and
+v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
+checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+[the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
+([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
+Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+`ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2); and the three `AccessRequestService` methods and the two
+`DirectoryService` methods (3b-3). Every other method answers `UNIMPLEMENTED` until its
+stage, before it asks for any credential. No APK calls v2 yet. The proto files are
+```
+     with:
+```markdown
+**Served beside v1, forty-four methods so far.** Everything above this section is v1, and
+v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
+checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+[the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
+([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
+Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+`ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
+`DirectoryService` methods (3b-3); and the other eleven `MeService` methods, a phone's own
+(3b-4). Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
+credential. No APK calls v2 yet. The proto files are
+```
+  3. Under «What REST adds», at the end of «Caching», replace:
+```markdown
+  diary `GET`, on `GetCalendarFeed` (its answer is a secret URL), on `GetClass` and
+  `UpdateClass` (their answer is the class card, whose join code admits a phone) and on
+  `CreateDevice` (its answer is a device token).
+```
+     with:
+```markdown
+  diary `GET`, on `GetCalendarFeed` and `CreateCalendarFeed` (their answer is a secret URL),
+  on `GetClass` and `UpdateClass` (their answer is the class card, whose join code admits a
+  phone), on `CreateDevice` (its answer is a device token) and on `CreateLinkCode` (its answer
+  links the phone to whoever sends it to the bot).
+```
+  4. Under «Paging and updating», at the end of «An `Update…`», replace:
+```markdown
+  field it carries, and pins a timezone the class never stored to the one the card printed.
+```
+     with:
+```markdown
+  field it carries, and pins a timezone the class never stored to the one the card printed.
+  `UpdateTask` refuses `title` or `priority` masked and left unset, on `task.title` or
+  `task.priority`, because neither can be cleared; and since an unset `bool` reads as
+  false, a task is taken back from done only under a mask that names `done`.
+```
+  5. Directly above «What the values look like», replace:
+```markdown
+  when the directory fails. `ListSchoolRegions` and v1's `/directory/school-regions` count a
+  caller once: twenty searches in fifteen minutes, whichever version asks.
+
+### What the values look like
+```
+     with:
+```markdown
+  when the directory fails. `ListSchoolRegions` and v1's `/directory/school-regions` count a
+  caller once: twenty searches in fifteen minutes, whichever version asks.
+
+### A phone's own
+
+- **Minting is a write.** `CreateLinkCode` mints the code a phone shows to be linked, and
+  `CreateCalendarFeed` the class's feed secret; `GetMe` and `GetCalendarFeed` mint nothing,
+  where v1's `GET /me` and `GET /calendar` minted on a read. The code is the one v1's `/me`
+  shows too, the same until the bot uses it, and a phone already linked gets none.
+- **The calendar feed asks for a linked account**, where v1 let any phone of the class, an
+  anonymous one included, mint it. Its address is v1's, on the deployment's
+  `PUBLIC_BASE_URL`, and the feed itself stays at `/api/v1/calendar/{secret}.ics`. A
+  deployment with no `PUBLIC_BASE_URL` offers no feed: both methods answer `UNIMPLEMENTED`
+  with `FEATURE_UNSUPPORTED` (`feature: "calendar_feed"`), and nothing is minted. v1 falls
+  back to the request's own host, which behind Vercel is an internal one.
+- **`UnlinkMe` on a phone that is not linked** succeeds, writes nothing, and leaves the phone
+  its link code.
+- **Tasks and ticks are the linked account's.** Somebody else's task is `RESOURCE_NOT_FOUND`,
+  as one that never existed is, so an id never reveals that a classmate keeps a list. A
+  task's `homework_id` names homework of this class, or the request is `VALIDATION_FAILED`
+  on `task.homework_id`. A `remind_at` sent with an offset is taken as v1 takes it, as an
+  instant, and is stored and answered as the class's wall time. v1's
+  `POST /tasks/{id}/done` is `UpdateTask` with `done`. `CreateHomeworkTick` and
+  `DeleteHomeworkTick` set the tick rather than toggle it, so either asked twice lands on the
+  same answer, and homework of another class is `RESOURCE_NOT_FOUND`.
+
+### What the values look like
+```
+
+- [ ] **Step 3: `docs/README.md`, `README.md`, `docs/architecture.md`, and the 3b-5 and 3b-8 summaries.**
+  1. In `docs/README.md`'s row for `api.md`, replace:
+```markdown
+served beside v1, thirty-three methods so far
+```
+     with:
+```markdown
+served beside v1, forty-four methods so far
+```
+  2. In `README.md`'s «Honest status», replace the row:
+```markdown
+| v2 over REST and Connect | thirty-three methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), and the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+```
+     with:
+```markdown
+| v2 over REST and Connect | forty-four methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), and a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+```
+  3. In `docs/architecture.md`, under «v2: one invoke behind two transports», replace:
+```markdown
+the class card's patch, then the answer to an access request and the anonymous directory's
+order of checks — and the
+```
+     with:
+```markdown
+the class card's patch, then the answer to an access request and the anonymous directory's
+order of checks, then a phone's own: its link code and the code's deep link, unlinking
+itself, the feed's address, a task's checks and its patch, and a tick set rather than
+toggled — and the
+```
+     and replace:
+```markdown
+«📱 Устройства» show. The first effects are 3b-3's: the Telegram notice to whoever asked for
+a role, sent through `app/telegram_send.py` once the answer is committed, and never when it
+is refused.
+```
+     with:
+```markdown
+«📱 Устройства» show. The first effects are 3b-3's: the Telegram notice to whoever asked for
+a role, sent through `app/telegram_send.py` once the answer is committed, and never when it
+is refused. Apart from the few writes `rpc/call.py` names, which commit inside themselves on
+purpose, a service a v2 handler calls leaves the commit to its caller: 3b-4 stopped the
+tasks', the ticks', the link code's and the feed secret's services committing, so v1's
+routers commit after the call and the bot's handlers before they tell Telegram, and the two
+retries that leaned on a failing commit, a link code drawn twice and a racing tick, concede
+inside a savepoint.
+```
+  4. In this plan, the 3b-5 summary's «Error-table rows» gain the homework's lookup 3b-4 added, and the 3b-8 summary's «The commits» the ruling it follows. This task list quotes both lines, and the plan holds this task list, so they are edited by a script that touches each summary alone. Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\plan3b4.py`:
+```python
+"""Say in the 3b-5 and 3b-8 summaries what 3b-4 settled for them (3b-4, Task 8).
+
+Each summary alone is edited: this task list, which the plan holds too, quotes
+the lines it replaces.
+"""
+
+import sys
+from pathlib import Path
+
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
+    "C:/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230"
+)
+PLAN = ROOT / "docs/specs/2026-10-05-server-v2-3b-plan.md"
+EDITS = (
+    (
+        "\n## 3b-5: ",
+        "\n## 3b-6: ",
+        '- An unknown id → `RESOURCE_NOT_FOUND`, with `resource` `"homework"` or `"event"`.\n',
+        '- An unknown id → `RESOURCE_NOT_FOUND`, with `resource` `"homework"` or `"event"`.'
+        " 3b-4 added the homework's lookup, `services/homework.homework_of`, for the ticks,"
+        " and its sentence, `wording.UNKNOWN_HOMEWORK_DETAIL`; `api/edit.py`'s own literal"
+        " «Unknown homework» moves onto it.\n",
+    ),
+    (
+        "\n## 3b-8: ",
+        "\n## Self-review",
+        "  - 3b-8's task list follows whichever the controller confirms.\n",
+        "  - The controller confirmed the second for 3b-4 on 9 October 2026 (the 3b-4 task"
+        " list, «Rulings for 3b-4»), and 3b-8 follows it. A retry that relied on a failing"
+        " commit moves into a savepoint, as 3b-4's link code and tick did, and a test of a"
+        " write behind one makes a write of its own first, because SQLite commits a savepoint"
+        " that opens the transaction when it is released (#373).\n",
+    ),
+)
+
+text = PLAN.read_text("utf-8")
+for start, end, old, new in EDITS:
+    head, rest = text.split(start, 1)
+    section, tail = rest.split(end, 1)
+    assert section.count(old) == 1, f"the {start.strip()} summary's line is not where it was"
+    text = head + start + section.replace(old, new) + end + tail
+PLAN.write_bytes(text.encode("utf-8"))
+print("the 3b-5 and 3b-8 summaries say what 3b-4 settled")
+```
+     and run it:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/plan3b4.py
+```
+     Expected: `the 3b-5 and 3b-8 summaries say what 3b-4 settled`.
+
+- [ ] **Step 4: `CLAUDE.md`** (`#374`'s fix).
+  1. In «Server modules», replace the head of the `services/` bullet:
+```markdown
+- `services/` — the rules, as async functions over a session. Nothing there commits (the
+  caller commits the change together with its audit line), and nothing may import `app.bot`.
+```
+     with:
+```markdown
+- `services/` — the rules, as async functions over a session, and nothing may import
+  `app.bot`. A write leaves the commit to its caller, which commits it together with its
+  audit line, and a v2 handler cannot commit at all (`invoke` does). What still commits
+  inside itself does so either because its write has to stand whatever the caller does next
+  — a counted attempt, a spent unit, a phone's last call, a dead diary credential, a tick's
+  claim; `rpc/call.py` names those a v2 call meets — or because only the bot or the tick
+  calls it, as `linking.link_device` and `calendar.rotate_calendar_token`; v2 calls none of
+  those until its commit moves out, as 3b-4 moved the tasks', the ticks', the link code's and
+  the feed secret's, and as 3b-8 moves the diary corrections'.
+```
+  2. In the same bullet, replace:
+```markdown
+  versions), and `audit.py`'s `older_than` (a page keyed on its last line); the limiters are
+  `security.py`'s, one instance each, and the sentences both versions answer with (the
+  join's four, the diary's «disabled», and the subjects', the devices', the bells', the
+  import's, the zone's, the access requests' and the directory's refusals) are
+  `app/wording.py`'s.
+```
+     with:
+```markdown
+  versions), `tasks.py`'s `create_task`, `update_task` and `set_homework_done` (a task's
+  homework of this class only, its reminder on the class's clock, a patch with `done`, a
+  tick set rather than toggled), `homework.py`'s `homework_of`, `linking.py`'s
+  `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s `feed_url`, and
+  `audit.py`'s `older_than` (a page keyed on its last line); the limiters are
+  `security.py`'s, one instance each, and the sentences both versions answer with (the
+  join's four, the diary's «disabled», and the subjects', the devices', the bells', the
+  import's, the zone's, the access requests', the directory's, the tasks' and the ticks'
+  refusals) are `app/wording.py`'s.
+```
+
+- [ ] **Step 5: Green: the documents, and what the tests read of them.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b4.py
+```
+Expected: `the documents say what 3b-4 serves`, exit 0. Then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_rpc_errors.py tests/test_schema_version.py tests/test_ci_paths.py tests/test_contract.py tests/test_rest.py
+```
+Expected: all pass. `test_rpc_errors.py` reads `docs/api.md`'s status table, and `test_schema_version.py` reads every document that names the schema, this plan included. Then 3b-3's head scan:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/scan_heads_3b3.py
+```
+Expected: the last line names `0019` alone, and no line names `docs/specs/`.
+
+- [ ] **Step 6: The gates, and their numbers everywhere.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe -m mypy
+```
+Expected: `All checks passed!`, and `Success: no issues found in 231 source files`. The suite is not run again: Task 7's run is the batch's one, and nothing but documents has changed since it, whose tests Step 5 ran. Read the numbers the documents carry now, which #372's merge leaves at 2767 and 231:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git grep -n "tests in about four minutes" -- CLAUDE.md
+```
+The number in that line is `OLD_TESTS`; mypy's is in the line of `CLAUDE.md` that says `of all … modules`, `OLD_MODULES`. Then 3b-3's script, which takes the four numbers, the old count first:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/counts3b2_3b3.py 2767 2836 231 231
+```
+(with Task 7's count and mypy's in place of `2836` and the second `231`). Expected: `written`. The module count does not move, and the script writes it back as it was. These are the seven places the `handover` skill names; the batch sections' own counts in `HANDOVER.md` are records of their commits, and they stay.
+
+- [ ] **Step 7: Commit the documents, and the controller opens the pull request.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b4-t8.txt`, with `#374` replaced by its number:
+```text
+Describe the forty-four v2 methods served, and the counts from the run
+
+docs/api.md's «v2: the contract» names what 3b-4 serves, says which
+answers are never cached and how UpdateTask's mask treats title,
+priority and done, and a new «A phone's own» says where minting moved,
+what the calendar feed asks for and answers without PUBLIC_BASE_URL,
+and whose tasks and ticks they are. CLAUDE.md and docs/architecture.md
+name the rules that moved into services/ and the six services that
+stopped committing, and CLAUDE.md no longer says that nothing under
+services/ commits (#374): it says which writes still do, and why. The
+3b-5 and 3b-8 summaries say what 3b-4 settled for them. The counts are
+the run's own, in the seven places that carry them.
+
+Not covered: HANDOVER.md's close-out, written once the pull request has
+a number.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add docs/api.md docs/README.md docs/architecture.md docs/specs/2026-10-05-server-v2-3b-plan.md CLAUDE.md README.md CONTRIBUTING.md .claude/skills/gates/SKILL.md .claude/agents/server-tests.md HANDOVER.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b4-t8.txt
+```
+The controller pushes and opens the pull request (the `github-pr` skill), from `server-v2/3b-4` to `main`, on milestone 11, with its board item filled as the skill says. Its body says `Closes #374` (with its number), and `Closes #NN` for any other issue the batch fixes, one per line; it refers to #273, `#373` and `#375`, which it does not fix, and says that no revision goes with it and that `me.proto` changes in a comment only. Write the number it gets down as `#PR`.
+
+- [ ] **Step 8: The HANDOVER close-out** (the `handover` skill, «What goes stale mechanically»). Write it while the pull request is open. The titles below are `HANDOVER.md`'s as #372 left it at `128fe15`; read them again before editing, in case a later merge to `main` moved one.
+  1. **The chain of batch sections.**
+     - «## What the session before it added: three dependency bumps, and the monitoring's first evening», with its four subsections («Gates», «What was deliberately left alone», «What nobody has verified in this batch» and «After #363's merge: the monitoring's first evening»), moves verbatim to the top of `docs/history.md`: directly under the `---` that closes the file's introduction, above «## What the batch before added: «📊 Проект» links nothing (#362), and #359 in production». It is retitled «## What the batch before added: three dependency bumps, and the monitoring's first evening», and its subsections keep their titles. A sentence in it that says «section 5» or «above» now names `HANDOVER.md`, as the skill says.
+     - «## What the last session added: access requests and the school directory over v2, and the first notices as effects — stage 3b-3 of sub-project 3 (#273)» becomes «## What the session before it added: access requests and the school directory over v2, and the first notices as effects — stage 3b-3 of sub-project 3 (#273)». Its subsection «After #366's merge: production on the bumps, the proxy's next host, and a lost worktree» stays with it. Its first sentence, «Open as #372, from `server-v2/3b-3` to `main`, on milestone 11, and on project 6.», becomes «Merged as #372 (`128fe15`, 8 October 2026), from `server-v2/3b-3`, on milestone 11.»
+  2. **The new section**, above it, with the run's numbers, the real SHAs and the numbers in place of the bracketed words and the placeholders:
+```markdown
+## What the last session added: a phone's own over v2 — its link, the calendar feed, its tasks and its homework ticks — stage 3b-4 of sub-project 3 (#273)
+
+Open as #PR, from `server-v2/3b-4` to `main`, on milestone 11, and on project 6. It closes
+#374, and refers to #273, #373 and #375. The branch was cut from `main` at `128fe15`, the merge
+of #372, and carries [the number of] commits before this close-out, to `[short SHA]`.
+Written on [date], after #372 merged. No revision goes with it: the schema stays at `0019`.
+This is stage 3b-4 of `docs/specs/2026-10-05-server-v2-design.md`, built by the task list for
+it in `docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before
+the next. v1 answers as before; v2 now answers forty-four methods.
+
+- **Six services stopped committing**, by the controller's ruling for 3b-4, which 3b-8
+  reuses: `tasks.add_task`, `set_done`, `delete_task` and `toggle_homework_done`,
+  `calendar.ensure_calendar_token` and `linking.issue_link_code`. v1's routers commit after
+  the call. The bot's handlers commit before they tell Telegram, because the middleware's own
+  commit comes after the handler and a reply Telegram refuses would roll the write back. The
+  two retries that relied on a failing commit, a link code drawn twice and a racing tick,
+  concede inside a savepoint. Four tests of `test_services.py` that read the service's own
+  commit now make the caller's.
+- **The rules v1's `public.py` held moved into `services/` first**, with v1 calling them:
+  `tasks.create_task` and `update_task` (a task's homework of this class only, its reminder on
+  the class's clock, a patch with `done` through `set_done`), `set_homework_done` (a tick set,
+  not toggled) and `LIST_MAX`; `homework.homework_of`; `linking.link_code_for`, `deep_link`
+  and `unlink_self`; `calendar.feed_url`, which the bot builds with too; and three sentences
+  in `app/wording.py`.
+- **Eleven methods, `MeService` whole:**
+  - `UnlinkMe`, which on a phone that is not linked writes nothing and keeps its code;
+  - `CreateLinkCode`, the code v1's `/me` shows, never cached; `GetMe` still mints nothing;
+  - `GetCalendarFeed` and `CreateCalendarFeed`: a linked account only, v1's address on
+    `PUBLIC_BASE_URL`, `FEATURE_UNSUPPORTED` (`feature` `calendar_feed`) without it, and the
+    minted address never cached;
+  - `ListTasks`, `GetTask`, `CreateTask` (`201`), `UpdateTask` (masked; v1's `POST …/done` is
+    it with `done`) and `DeleteTask`, somebody else's task not found as none is;
+  - `CreateHomeworkTick` and `DeleteHomeworkTick`, either asked twice landing on one answer.
+- **The error table gains one row**, `tasks.HomeworkNotInClass` as `VALIDATION_FAILED` on
+  `task.homework_id`, read back on both paths by a named test. No reason is new, and 3b-4
+  left `STAGES`.
+- **`me.proto`** says, in a comment only, what the feed methods answer on a deployment with
+  no public address.
+- **Three defects filed**: #374, fixed here (`CLAUDE.md` said nothing under `services/`
+  commits); #373 (on SQLite a savepoint that opens the transaction commits when it is
+  released) and #375 (the bot's feed rotation commits before its journal line), which are not.
+
+### Gates
+
+The full suite ran once, at `[short SHA]`, the head of the seven code tasks; the documents
+(`[short SHA]`) came after it, and their own files ran again. CI runs on the head the merge
+is made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `[short SHA]`.
+- **mypy**: no issues found in [the number] source files, at `[short SHA]`.
+- **The server suite.** `pytest -q -n 4`, run alone from `server/` at `[short SHA]`, gave
+  **[the number] passed** in [the time]. The seven places the `handover` skill names say
+  [the number].
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files, `me_connect.py`'s four docstrings the only
+  change.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand
+  from before.
+
+### What was deliberately left alone
+
+- **3b-5 to 3b-8**, each summarised in the 3b plan, and **3c**.
+- **v1's behaviour**: `GET /me` and `GET /calendar` still mint on a read, and any phone of the
+  class still mints the feed over v1, which also builds its address on the request's own host
+  without `PUBLIC_BASE_URL`.
+- **The services that still commit inside themselves**: `linking.link_device` and
+  `calendar.rotate_calendar_token`, which only the bot calls; the diary's corrections, 3b-8's;
+  and those `rpc/call.py` names, which commit on purpose.
+- **#373**: the fix changes how every SQLite transaction begins and turns the suite's
+  interleaved-session tests into lock waits, so it wants a run of its own.
+- **#375**: v2 has no rotation.
+- **A `remind_at` sent with an offset** is converted, as v1 converts it, though the contract
+  writes a wall time.
+- **The bot's own homework lookup** in its tick handler stays; the bot calls
+  `toggle_homework_done` and commits after it.
+
+### What nobody has verified in this batch
+
+- **The eleven methods against Postgres**: every v2 test ran on SQLite, the link code's and
+  the tick's savepoints among them, and on SQLite a savepoint that opens the transaction
+  commits when it is released (#373).
+- **The bot committing before it answers, through Telegram itself**: the tests hand the
+  handlers a chat that reads the database from a session of its own whenever they speak.
+- **The eleven on Vercel** beyond the post-merge check, which asks four REST routes and one
+  Connect method once, without a token.
+- **A phone using any of them**: no APK calls v2 yet.
+
+### After #372's merge: [the controller's title for it]
+
+None of this is code in #PR, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of [date].
+
+[AFTER-372: the controller's facts, handed over at this step and written in the shape of
+#372's section's «After #366's merge», one bullet each: the merge itself and its CI; whether
+Vercel built production from the merge or the owner had to promote it; what production
+answered after it, the post-merge read of 3b-3's Task 7 Step 10 included; what the
+monitoring said meanwhile, #365 included; and anything the owner did or decided since #372's
+close-out. Nothing here is guessed: what the controller does not hand over is left out, and
+if it hands over nothing, this subsection is left out whole and the report says so.]
+```
+  3. **The opening paragraph**, in the shape #372's close-out left it:
+     - «Last updated:» is the day of writing. The merged list gains #372 (read it back with `gh pr view 372` first); `main` is at `128fe15`, the merge of #372, at 20:32 UTC on 8 October 2026; read `git log -1 origin/main` first, in case something merged since.
+     - The sentence on the designs stays.
+     - The open pull requests are read from `gh pr list --state open`, not assumed. #PR is one, «the one carrying this paragraph», from `server-v2/3b-4`, on milestone 11, which closes #374 and refers to #273, #373 and #375: v2 is served beside v1, forty-four methods of it now.
+     - The schema did not move: still `0019`, on production since 16:28 UTC on 6 October, and `EXPECTED_REVISION` did not move either.
+     - The issues filed since #372 merged are named: #373, open; #374, closed by #PR; #375, open, on the backlog; and any the `[AFTER-372]` facts add. #352, #354, #355, #357, #365, #368 and #371 stay as #372's close-out left them, unless those facts say otherwise.
+     - «The section «What the last session added» below is #372's batch, and «What the session before it added» is #366's.» names #PR and #372 instead.
+     - It still ends: «The SHA of its own merge is for the next close-out to write.»
+     - The bold paragraph on the code's revision and production's stays as it is: no revision moved.
+  4. **The milestone table**: milestone 11's row reads «… #342, #350, #356, #372 (merged) and #PR (open); issues … #367, #368, #369, #370, and those of #373 and #374 the controller filed on it — …». Milestone 13's row gains #375 if it was filed there. Milestone 7's row stays: it lists no numbers.
+  5. **Section 5**, the bullet «v2 as #342, #350, #356 and #372 serve it has been asked little outside the test client (stages 3a, 3b-1, 3b-2 and 3b-3; …)»:
+     - its head becomes «v2 as #342, #350, #356, #372 and #PR serve it …», and the stages «3a, 3b-1, 3b-2, 3b-3 and 3b-4»;
+     - the sub-item on production keeps its sentences, its clause on 3b-3 says what the `[AFTER-372]` facts say of the read after #372's merge, and its last gains: «the eleven of 3b-4 are asked after #PR's merge, once, without a token;»;
+     - «**the twenty-nine methods of 3b-1 to 3b-3 against Postgres**: every v2 test ran on SQLite, the journal's keyset, the import's bulk delete and insert, the bells' bulk delete, the class's cascade and the directory's allowance among them;» becomes «**the forty methods of 3b-1 to 3b-4 against Postgres**: every v2 test ran on SQLite, the journal's keyset, the import's bulk delete and insert, the bells' bulk delete, the class's cascade, the directory's allowance and the link code's and the tick's savepoints among them, and on SQLite a savepoint that opens the transaction commits when it is released (#373);»;
+     - add the sub-item: «**the bot committing before it speaks, through Telegram itself**, for a task, a tick and the feed's address: the tests hand the handlers a chat that reads the database as they speak;».
+  6. **Section 7**: replace the paragraph that begins «**Next for the programme: stage 3b-4 of sub-project 3, from the 3b plan.**», up to and including its sentence «Sub-project 4's pull request A can still run beside it, one heavy job at a time.», with:
+```markdown
+**Next for the programme: stage 3b-5 of sub-project 3, from the 3b plan.** Stages 3a (#342),
+3b-1 (#350), 3b-2 (#356), 3b-3 (#372) and 3b-4 (#PR) are merged, and v2 serves forty-four
+methods. `docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-5 to 3b-8. 3b-5 covers
+homework and events, and the first notices to the class as effects; its two open questions,
+and whether #373 is fixed before it, are the controller's before its task list is written.
+Sub-project 4's pull request A can still run beside it, one heavy job at a time.
+```
+     Read section 7 for anything the owner did since #372's close-out (the `[AFTER-372]` facts say), and move what they did to «## Moved out of section 7 on [date]» in `docs/history.md`, as the skill says.
+  7. The cheat-sheet's counts under «How to continue» were written by Step 6.
+
+  Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b4-handover.txt`, with the placeholders replaced by their numbers:
+```text
+Hand over stage 3b-4: a phone's own over v2, and the services that stopped committing
+
+HANDOVER.md's close-out is written while the pull request is open, so
+the file is true when it merges. It describes 3b-4: the six services
+that leave the commit to their callers and the bot committing before it
+speaks, the rules that moved out of public.py, the eleven methods, the
+error table's one row, the comment in me.proto, the three defects filed
+(#374 fixed here, #373 and #375 not), what is left alone and unverified,
+and what followed #372's merge. #372's section becomes the session
+before, its merge recorded, and #366's moves to docs/history.md.
+Section 5 asks the same of Postgres for four stages and adds the bot's
+commits through Telegram; section 7 names 3b-5 as next.
+
+Not covered: production after this pull request's merge; the next
+close-out records it.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add HANDOVER.md docs/history.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b4-handover.txt
+```
+and push.
+
+- [ ] **Step 9: The merge** is the controller's, under the `github-pr` skill's five checks:
+  1. CI is green on the exact head, the «Contract» job included, since `proto/` changed;
+  2. `mergeable_state` is clean;
+  3. the gates ran locally before the push;
+  4. a milestone is attached;
+  5. no review is waiting.
+
+  No revision has to go on first: 3b-4 has none.
+
+- [ ] **Step 10: After the merge, read production.** A merge to `main` has not always deployed production by itself (#349).
+```bash
+curl -s https://lessons-ruddy-zeta.vercel.app/api/v1/warmup; echo
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/me/tasks
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/me/calendarFeed
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/v2/me/linkCodes
+curl -s -i -X DELETE https://lessons-ruddy-zeta.vercel.app/api/v2/me/homeworkTicks/1
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.MeService/ListTasks
+```
+Expected:
+- `/api/v1/warmup` reports `status` `ok`, `schema` `0019` and `v2` `true`.
+- The four REST routes answer `401`, with `WWW-Authenticate: Bearer`, Google's body and the reason `DEVICE_TOKEN_INVALID`. The gate refuses each before any handler runs, so nothing is written and nothing is minted.
+- The Connect call answers `401`, with `"code":"unauthenticated"`.
+
+A `501` with `UNIMPLEMENTED` means production still runs the code from before the merge: ask the owner to promote or redeploy the merge, then read again. Write what was seen into the controller's notes for the next close-out.
+
+### Self-review (3b-4)
+
+- **Against the 3b-4 summary.** Every method is served by a task: `UnlinkMe` and `CreateLinkCode` (3), `GetCalendarFeed` and `CreateCalendarFeed` (4), `ListTasks`, `GetTask` and `CreateTask` (5), `UpdateTask` and `DeleteTask` (6), `CreateHomeworkTick` and `DeleteHomeworkTick` (7). Every move is a task's: the commits inside services (1), and `_check_homework_id`, the homework lookup, `_wall_time`, `_own_task`'s sentence and `tasks_update`'s loop with `done` (2), with the five more Ruling 61 names. Every row the summary lists is here, with its reason and metadata: an unknown or foreign task, `RESOURCE_NOT_FOUND` with `resource: "task"` (5, 6); a foreign `homework_id`, `VALIDATION_FAILED` on `task.homework_id` (5, 6); an unknown homework for a tick, `RESOURCE_NOT_FOUND` with `resource: "homework"` (7). No reason is new, and `STAGES` loses `"3b-4"` in Task 5. «What v2 does not repeat» is held by tests in Tasks 3 to 6, and both open questions are decided (Rulings 55 and 56). Where this list departs from the summary, «Defects in the summary» says so, and Ruling 58 decides one thing the summary did not raise.
+- **The controller's rulings.** The six services stop committing, every caller is in Ruling 52's table, and the bot's handlers commit before they speak (1); `issue_link_code` retries in a savepoint, and the test makes two draws produce the same code (1); `CreateCalendarFeed` and `CreateLinkCode` join `rest.NO_STORE_CREDENTIAL` (3, 4); `UnlinkMe` on a phone that is not linked writes nothing (3); the summary's «What v2 does not repeat» stands (57); and the process rulings are 67's.
+- **Placeholders.** Every code step is the code, rendered from the source that was applied to the scratch copy, linted and type-checked. The bracketed words left are the facts that exist only later: `#373`, `#374`, `#375` and `#PR`, the SHAs, dates and counts of the real run, and `[AFTER-372]`.
+- **Types across tasks.** `tasks.create_task` returns the `PersonalTask` that `add_task` flushed and refreshed (2), which `me._task` reads (5). `tasks.update_task` takes `TaskPatch.model_dump(exclude_unset=True)` from v1 and v2 alike (2, 6). `tasks.set_homework_done` returns the tick's state (2), which v1 answers and v2's ticks ignore (7). `homework.homework_of` returns `Homework | None` (2), read by v1's `homework_done` and `me._homework` (7). `linking.link_code_for` returns `str | None` (2), whose `None` is `CreateLinkCodeResponse` with no `link_code` (3). `me._me`, `_owner`, `_task`, `_own`, `_given`, `_WRITTEN` and `_OPTIONAL` survive every later task's edits unchanged.
+- **Review Focus.** Each of its five lines names tests that exist in the task it names: Task 1's five bot tests, `test_a_link_code_drawn_twice_is_drawn_again_without_a_commit` and the rewritten `test_toggle_survives_a_racing_duplicate`; Task 5's `test_somebody_else_s_task_is_not_found_as_one_that_never_was`; Task 6's `test_somebody_else_s_task_can_be_neither_changed_nor_deleted`, `test_an_update_without_a_mask_changes_only_what_it_sends`, `test_a_masked_field_left_out_is_cleared_but_a_title_or_a_priority_is_refused` and `test_done_is_v1_s_post_done_and_taking_it_back_needs_the_mask`; Task 4's `test_reading_the_feed_mints_nothing` and `test_a_deployment_with_no_public_address_offers_no_feed_and_mints_none`; Task 3's `test_unlinking_a_phone_that_is_not_linked_writes_nothing` and `test_a_code_minted_over_v2_is_the_one_v1_shows_and_the_bot_links_with`.
+- **`HELD_BY`.** Its one new row names `test_a_task_naming_homework_of_another_class_is_refused_on_its_field`, a function of `test_v2_tasks.py` (Task 5), which raises `HomeworkNotInClass` through `CreateTask` and reads the refusal back on both paths; Task 6's `test_an_update_naming_homework_of_another_class_changes_nothing` reads the same row through `UpdateTask`.
+- **The head test's three shapes** appear nowhere in this list: no «head is» or «expects» before a backticked revision, and no line with `/warmup`'s quoted JSON.
+
 ## 3b-5: Homework and events (10 methods)
 
 **Methods.**
