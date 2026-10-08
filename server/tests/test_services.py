@@ -13,7 +13,8 @@ from typing import Any
 
 import pytest
 from aiogram.exceptions import TelegramForbiddenError
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 
 from app.crypto import seal
 from app.db import SessionLocal
@@ -401,8 +402,11 @@ async def test_toggle_survives_a_racing_duplicate(session, school_class):
     on, and nothing is committed until the caller commits it."""
     homework = await _homework(session, school_class, MONDAY)
     real_flush = session.flush
+    raced = False
 
     async def racing_flush(*args, **kwargs) -> None:
+        nonlocal raced
+        raced = True
         async with SessionLocal() as other:
             other.add(HomeworkDone(homework_id=homework.id, telegram_id=42))
             await other.commit()
@@ -411,9 +415,78 @@ async def test_toggle_survives_a_racing_duplicate(session, school_class):
 
     session.flush = racing_flush
     assert await tasks.toggle_homework_done(session, homework, 42) is True
+    # Proof the injected race actually ran, rather than the assertions below
+    # having passed because nothing exercised the collision at all.
+    assert raced
     # The row the caller is holding still renders after the rollback.
     assert homework.subject_name == "Алгебра"
     assert await tasks.homework_ticks(session, 42, [homework.id]) == {homework.id}
+
+
+async def test_a_racing_tick_s_savepoint_keeps_the_caller_s_earlier_write(
+    session, school_class, monkeypatch
+) -> None:
+    """The wrong fix for the race above - ``commit`` turned into ``flush``,
+    with the except-clause's full ``session.rollback()`` left standing - rolls
+    back whatever the caller wrote earlier in the same transaction along with
+    the collision, for the same reason the link code's counterpart test above
+    proves it: a whole-session rollback cannot tell the caller's write from
+    the savepoint's. Forcing the collision against a tick already committed,
+    by making the existence check miss it once, needs no second session
+    racing this one for SQLite's single write lock.
+
+    As there, the caller's write has to be the session's first, or the
+    savepoint commits it anyway on SQLite (#373) and the test would not tell
+    the two fixes apart."""
+    homework = await _homework(session, school_class, MONDAY)
+    session.add(HomeworkDone(homework_id=homework.id, telegram_id=42))
+    await session.commit()
+
+    await audit.record(session, school_class.id, 42, "test.earlier", "раньше в той же транзакции")
+    await session.flush()
+
+    check = session.scalar
+    seen: list[object] = []
+
+    async def miss_the_first_check(statement, *args, **kwargs):
+        found = await check(statement, *args, **kwargs)
+        seen.append(found)
+        return None if len(seen) == 1 else found
+
+    monkeypatch.setattr(session, "scalar", miss_the_first_check)
+
+    assert await tasks.toggle_homework_done(session, homework, 42) is True
+    await session.commit()
+    async with SessionLocal() as fresh:
+        assert await fresh.scalar(select(func.count()).select_from(AuditEntry)) == 1
+
+
+async def test_a_tick_on_a_homework_deleted_meanwhile_raises_instead_of_ticking(
+    session, school_class
+) -> None:
+    """The homework is deleted, by someone else, between the check and the
+    insert that ticks it. That insert violates the foreign key
+    ``homework_done.homework_id`` points at, which raises the identical
+    ``IntegrityError`` a racing duplicate tick does - and the bare
+    ``except IntegrityError`` used to read both of them the same way:
+    "someone already ticked it", answer ``True``, store nothing. Re-reading
+    whether the tick actually exists, after the catch, is what tells the two
+    apart; this one does not exist, so it raises instead of reporting a tick
+    that was never stored."""
+    homework = await _homework(session, school_class, MONDAY)
+    homework_id = homework.id
+    real_flush = session.flush
+
+    async def deleting_flush(*args, **kwargs) -> None:
+        async with SessionLocal() as other:
+            await other.execute(delete(Homework).where(Homework.id == homework_id))
+            await other.commit()
+        session.flush = real_flush
+        await real_flush(*args, **kwargs)
+
+    session.flush = deleting_flush
+    with pytest.raises(IntegrityError):
+        await tasks.toggle_homework_done(session, homework, 42)
 
 
 # --------------------------------------------------------------------------

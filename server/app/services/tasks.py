@@ -327,8 +327,23 @@ async def toggle_homework_done(
             await session.flush()
     except IntegrityError:
         # Two taps in flight at once - the app and the bot, or a double tap on
-        # a slow connection. The other one won and the tick is there, which is
-        # the state this tap wanted too. Only the savepoint is rolled back, so
-        # the caller's transaction, and ``homework`` in it, go on as they were.
-        pass
+        # a slow connection - raise this same error: a duplicate of the unique
+        # (homework_id, telegram_id) pair. So does the homework being deleted
+        # out from under this tick, a foreign-key violation on the same
+        # insert, and the exception alone cannot tell the two apart. What the
+        # row is now can: a duplicate tap leaves the other tap's tick there, a
+        # deleted homework leaves no tick at all. Reporting ``True`` for the
+        # second case said a tick was stored when nothing was. Only the
+        # savepoint is rolled back, so the caller's transaction, and
+        # ``homework`` in it, go on as they were either way.
+        if (
+            await session.scalar(
+                select(HomeworkDone).where(
+                    HomeworkDone.homework_id == homework_id,
+                    HomeworkDone.telegram_id == telegram_id,
+                )
+            )
+            is None
+        ):
+            raise
     return True

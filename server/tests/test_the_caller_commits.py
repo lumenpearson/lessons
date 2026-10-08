@@ -186,6 +186,51 @@ async def test_a_link_code_drawn_twice_is_drawn_again_without_a_commit(
         assert list(await fresh.execute(codes)) == [(winner_id, "AAAAAA"), (loser_id, "BBBBBB")]
 
 
+async def test_a_link_code_collision_keeps_the_caller_s_earlier_write(
+    session, school_class, monkeypatch
+) -> None:
+    """The wrong fix for the retry above - ``commit`` turned into ``flush``,
+    with the except-clause's full ``session.rollback()`` left standing - rolls
+    back whatever the caller wrote earlier in the same transaction along with
+    the collision, because a whole-session rollback cannot tell the caller's
+    write from the savepoint's. Forcing the collision against a code already
+    committed, by making the existence check miss it once, needs no second
+    session: a second one here would just wait on this session's own write
+    lock, on SQLite, until the test's own timeout.
+
+    The caller's write has to be the session's first. On SQLite a savepoint
+    that opens the transaction commits on release regardless of what the
+    caller does afterwards (#373), so without that ordering this test would
+    pass on the wrong fix too, for the driver's reason rather than the
+    function's."""
+    taken = DeviceToken(
+        token_hash=hash_token("taken"), class_id=school_class.id, link_code="AAAAAA"
+    )
+    device = DeviceToken(token_hash=hash_token("mine"), class_id=school_class.id)
+    session.add_all([taken, device])
+    await session.commit()
+    draws = iter(["AAAAAA", "BBBBBB"])
+    monkeypatch.setattr(linking, "new_join_code", lambda length: next(draws))
+
+    await _a_write_of_the_caller_s_own(session, school_class)
+
+    check = session.scalar
+    seen: list[object] = []
+
+    async def miss_the_first_check(statement, *args, **kwargs):
+        found = await check(statement, *args, **kwargs)
+        seen.append(found)
+        # The first check is made to miss the code that is already taken, so
+        # this one session meets its own collision without a second to cause it.
+        return None if len(seen) == 1 else found
+
+    monkeypatch.setattr(session, "scalar", miss_the_first_check)
+
+    assert await linking.issue_link_code(session, device) == "BBBBBB"
+    await session.commit()
+    assert await _committed(select(func.count()).select_from(AuditEntry)) == 1
+
+
 # ---- the bot: committed before Telegram is told -----------------------------
 
 
