@@ -42,6 +42,16 @@ async def _find(
     )
 
 
+async def homework_of(session: AsyncSession, class_id: int, homework_id: int) -> Homework | None:
+    """This class's homework ``homework_id``, or ``None``: an id of another
+    class's homework finds nothing, as every lookup by id here does. v1's
+    ``/homework/{id}/done`` and v2's homework ticks read it, and v2's
+    ``HomeworkService`` will."""
+    return await session.scalar(
+        select(Homework).where(Homework.id == homework_id, Homework.class_id == class_id)
+    )
+
+
 async def upsert(
     session: AsyncSession,
     class_id: int,

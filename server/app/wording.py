@@ -405,3 +405,19 @@ DIRECTORY_THROTTLED_DETAIL = (
 DIRECTORY_DISABLED_DETAIL = "Поиск школ не настроен — выберите регион из списка"
 DIRECTORY_SPENT_DETAIL = "Поиск школ на сегодня исчерпан — выберите регион из списка"
 DIRECTORY_UPSTREAM_DETAIL = "Поиск школ сейчас недоступен — выберите регион из списка"
+
+
+#: v1's ``/tasks/{id}`` and v2's ``GetTask``, ``UpdateTask`` and ``DeleteTask``:
+#: no task of this person's has that id. Somebody else's task and a task that
+#: never existed are the same answer, so an id never reveals that a classmate
+#: keeps a list.
+UNKNOWN_TASK_DETAIL = "Unknown task"
+
+#: v1's ``POST /homework/{id}/done`` and v2's homework ticks: no homework of
+#: this class has that id.
+UNKNOWN_HOMEWORK_DETAIL = "Unknown homework"
+
+#: v1's ``POST`` and ``PATCH /tasks`` and v2's ``CreateTask`` and
+#: ``UpdateTask``: a task's ``homework_id`` names homework of another class, or
+#: none. It names the field, never the value.
+HOMEWORK_NOT_IN_CLASS_DETAIL = "homework_id is not in this class"

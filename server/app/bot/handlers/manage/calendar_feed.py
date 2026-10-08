@@ -40,7 +40,7 @@ async def _calendar_text(session: AsyncSession, school_class: SchoolClass, rotat
         # Committed before the address is shown: an address for a secret the
         # database never kept is a subscription that answers 404 for ever.
         await session.commit()
-    return mr.render_calendar(f"{base}/api/v1/calendar/{token}.ics", rotated=rotated)
+    return mr.render_calendar(calendar_service.feed_url(base, token), rotated=rotated)
 
 
 def _calendar_keyboard(role: Role):

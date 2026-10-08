@@ -70,6 +70,24 @@ async def issue_link_code(session: AsyncSession, device: DeviceToken) -> str:
     raise RuntimeError("could not find a free link code")
 
 
+async def link_code_for(session: AsyncSession, device: DeviceToken) -> str | None:
+    """The code this phone shows to be linked, or ``None`` for a phone that is
+    linked already: a code left on a linked row could be typed by somebody
+    else and re-home the phone. v1's ``GET /me`` and v2's ``CreateLinkCode``.
+    Nothing is committed."""
+    if device.is_linked:
+        return None
+    return await issue_link_code(session, device)
+
+
+def deep_link(bot_username: str, code: str) -> str | None:
+    """``https://t.me/<bot>?start=link_<code>``: the bot opened with the code
+    already in it, which its ``/start link_<code>`` reads. ``None`` when the
+    deployment names no bot (``BOT_USERNAME``), written with its «@» or not."""
+    username = bot_username.lstrip("@")
+    return f"https://t.me/{username}?start=link_{code}" if username else None
+
+
 async def link_device(session: AsyncSession, code: str, telegram_id: int) -> DeviceToken | None:
     """Claim the device showing ``code`` for ``telegram_id``.
 
@@ -115,6 +133,19 @@ async def unlink_device(session: AsyncSession, device: DeviceToken) -> None:
     device.telegram_id = None
     device.linked_at = None
     device.link_code = None
+
+
+async def unlink_self(session: AsyncSession, device: DeviceToken) -> None:
+    """Back to read-only, at the phone's own asking: v1's ``POST /me/unlink``
+    and v2's ``UnlinkMe``.
+
+    A phone no account is behind changes nothing, its link code included,
+    which :func:`unlink_device` would clear; so asking twice is not an error,
+    and the second time writes nothing. No audit line: the phone did it to
+    itself, and v1 wrote none. Nothing is committed.
+    """
+    if device.is_linked:
+        await unlink_device(session, device)
 
 
 async def devices_of(

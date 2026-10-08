@@ -86,6 +86,14 @@ async def rotate_calendar_token(session: AsyncSession, school_class: SchoolClass
     return school_class.calendar_token
 
 
+def feed_url(base: str, token: str) -> str:
+    """The subscription address of the feed whose secret is ``token``, on the
+    origin ``base``. The feed itself stays plain HTTP at its v1 path,
+    whichever version or screen handed the address out (``me.proto``,
+    ``CalendarFeed.url``)."""
+    return f"{base.rstrip('/')}/api/v1/calendar/{token}.ics"
+
+
 # --------------------------------------------------------------------------
 # Text encoding
 # --------------------------------------------------------------------------
