@@ -20,6 +20,7 @@ from connectrpc.code import Code
 
 from app.contract.google.rpc.error_details_pb import ErrorInfo, RetryInfo
 from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.providers import dadata
 from app.rest.errors import STATUS, error_response
 from app.rpc import errors
 from app.rpc.errors import CODES, Refusal, connect_error, validate
@@ -156,6 +157,14 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     directory_service.DirectoryUnavailable: (
         "test_v2_school_regions.py",
         "test_a_failing_directory_is_unavailable_and_what_it_counted_stays",
+    ),
+    dadata.NotConfigured: (
+        "test_v2_schools.py",
+        "test_without_a_key_the_search_is_disabled_in_v1_s_words",
+    ),
+    dadata.DirectoryError: (
+        "test_v2_schools.py",
+        "test_a_failing_directory_is_unavailable_in_v1_s_words",
     ),
     # The gate raises it for a diary method, and none is served before 3b-7:
     # test_rpc_gate.py holds the gate raising it until then.

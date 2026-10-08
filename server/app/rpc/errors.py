@@ -31,6 +31,7 @@ from pydantic import BaseModel, ValidationError
 from app import wording
 from app.contract.google.rpc.error_details_pb import BadRequest, ErrorInfo, RetryInfo
 from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.providers import dadata
 from app.services import access as access_service
 from app.services import diary as diary_service
 from app.services import directory as directory_service
@@ -295,6 +296,18 @@ def _directory_unavailable(_error: directory_service.DirectoryUnavailable) -> Re
     return Refusal(ErrorReason.DIRECTORY_UNAVAILABLE, wording.DIRECTORY_UPSTREAM_DETAIL)
 
 
+def _school_search_disabled(error: dadata.NotConfigured) -> Refusal:
+    # ListSchools says what v1's /manage/schools and the bot say: the
+    # provider's own sentence, a literal of providers/dadata/client.py, never
+    # what was sent or what the directory answered (test_v2_schools.py reads
+    # the client so). It ends «введите название вручную», an admin's way on.
+    return Refusal(ErrorReason.DIRECTORY_DISABLED, error.message)
+
+
+def _school_search_unavailable(error: dadata.DirectoryError) -> Refusal:
+    return Refusal(ErrorReason.DIRECTORY_UNAVAILABLE, error.message)
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -324,6 +337,8 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     directory_service.DirectoryDisabled: _directory_disabled,
     quota.AllowanceSpent: _directory_spent,
     directory_service.DirectoryUnavailable: _directory_unavailable,
+    dadata.NotConfigured: _school_search_disabled,
+    dadata.DirectoryError: _school_search_unavailable,
 }
 
 

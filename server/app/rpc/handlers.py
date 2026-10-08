@@ -59,6 +59,7 @@ HANDLERS: dict[str, Handler] = {
     "lessons.v2.DeviceService/CreateDevice": device.create_device,
     "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
     "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
+    "lessons.v2.DirectoryService/ListSchools": directory.list_schools,
     "lessons.v2.MeService/GetMe": me.get_me,
     "lessons.v2.ScheduleService/GetScheduleWindow": schedule.get_schedule_window,
     "lessons.v2.SubjectService/CreateSubject": subject.create_subject,

@@ -91,11 +91,19 @@ message ListSchoolRegionsResponse {
 
 message ListSchoolsRequest {
   string query = 1;
-  // Narrows the search to a region's name.
+  // A region or a city the search prefers, as people write it («Татарстан»),
+  // at most 120 characters. A hint, not a filter: a school across the road
+  // from the boundary is still that school.
   optional string region = 2;
   // 1 to 20; 20 returns everything one search found. Unset means 5, v1's
-  // page size.
+  // page size; a larger one reads as 20, as AIP-158 has it, and a negative
+  // one is VALIDATION_FAILED.
   int32 page_size = 3;
+  // The next_page_token of the call before, sent back unchanged. It names
+  // the first school of the next page, so a page_size changed between two
+  // calls still starts where the last page ended, and one past what the
+  // search finds now is an empty last page. A token this list did not hand
+  // out is VALIDATION_FAILED.
   string page_token = 4;
 }
 
