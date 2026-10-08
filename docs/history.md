@@ -28,6 +28,96 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: «📊 Проект» links nothing (#362), and #359 in production
+
+Merged as #363 (`c292c74`, 6 October 2026), from `fix/project-screen-link`, on milestone 12. It
+closes #362 and refers to #127. The branch was cut from `main` at `55314b6`, the merge of #359,
+and carries 2 commits before this close-out, to `48c5522`. Written on 6 October 2026, after
+#359 merged. No revision goes with it: the schema stays at `0019`.
+
+- **«📊 Проект» names `docs/deploy.md` in `<code>`.** Telegram links a bare `name.tld` by
+  itself, from the text alone, and `.md` is Moldova's domain, so the screen's first look at
+  production drew `deploy.md` as a link to a stranger's site. Inside `<code>` Telegram links
+  nothing. A test renders the screen with every kind of block and finds nothing shaped like
+  `name.tld` outside `<code>`; it failed on the old sentence.
+- **The `bot-message` skill names the trap** beside the other two of its kind, because no test
+  of a renderer's markup can see a link Telegram adds.
+- **One defect, filed before its fix**: #362, found from the owner's screenshot of the screen's
+  first look at production.
+
+### Gates
+
+All at `48c5522`, the head before this close-out. CI runs on the head the merge is made from,
+and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
+- **mypy**: no issues found in 228 source files.
+- **The server suite.** `test_project_screen.py` with `test_bot_commands.py` gave 127 passed,
+  and `pytest --collect-only -q` counts 2713 tests, which the seven places the `handover` skill
+  names say. The full suite was not run locally: the change is one constant and one test, and a
+  full run on this machine is 26 minutes of its faulty RAM. CI's run on the head is the run of
+  all 2713.
+- **The contract** was not run: nothing under `proto/`, `buf.*` or `server/app/contract/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
+  before.
+
+### What was deliberately left alone
+
+- **The monitoring plan's quotation of the old sentence**
+  (`docs/specs/2026-10-06-monitoring-plan.md`), which records what was planned.
+- **A check over every screen the bot sends.** A grep of the renderers for file- and host-shaped
+  words outside docstrings found this one sentence; the new test covers «📊 Проект» alone.
+
+### What nobody has verified in this batch
+
+- **The changed sentence in a Telegram client**: nobody has looked at the screen since.
+
+### After #359's merge: the monitoring in production
+
+None of this is code in #363, and a close-out never gets a close-out of its own, so it is
+written here. The source is the session's own reads of 6 October 2026.
+
+- **The merge, by the session.** #359 merged as `55314b6` at 16:51:58 UTC on 6 October 2026,
+  from `monitoring` at head `6b9b58c`. It closed #349, #358, #360 and #361.
+  - The five checks held first: CI green on `6b9b58c` (Server, Vercel, What changed; Android
+    and Contract skipped), `mergeable_state` clean, the gates local, milestone 12, no review.
+  - The owner had allowed the session's merge in Claude Code's permission rules, after #356's
+    had been refused by the auto-mode classifier.
+- **Vercel deployed it by itself**: «Vercel: pending» four seconds after the merge, at
+  16:52:02 UTC, and the deployment completed at 16:52:41. #349 did not recur.
+- **Production read after it:**
+  - `/api/v1/warmup` answered `status` `ok`, `schema` `0019`, `v2` `true` from 16:52:21 UTC,
+    which closed the «База впереди кода» window `0019` had opened at 16:28;
+  - `/api/v1/health` answered `200`.
+- **The first tick on the new code, at 16:56:19 UTC**, wrote four rows of `health_checks`, all
+  `ok`, and told the owner nothing:
+  - `deploy` «running main's head 55314b6»: Vercel's system variables reach the function, and
+    the read of GitHub with `GITHUB_READ_TOKEN` works. The tick at 17:04:14 UTC got
+    `304 Not Modified` from GitHub, so the `ETag` held in the process works too;
+  - `diary_proxy` «HTTP 200», in 609 ms;
+  - `schema` «at 0019»;
+  - `v2` «mounted».
+- **«📊 Проект» and `/health` on production**, from the owner's screenshot at about 17:04 UTC.
+  Every block drew:
+  - the four checks ✅, since 19:56 Moscow time;
+  - commit `55314b6`, with `main`'s head ✅; `fra1`, Python 3.12.14; the instance 11 minutes
+    old;
+  - the database at `0019`, 9.4 MB and two connections, so the two Postgres catalogue queries
+    work;
+  - the proxy ✅ in 428 ms; the last tick at 20:04 Moscow time, and the one before three
+    minutes earlier;
+  - no digests today, which is true: neither account has a morning or an evening digest
+    switched on;
+  - one class, two accounts, one phone in a day and three in a week, four phones with no build,
+    and v2 on.
+
+  The one wrong thing on it is #362. A first `/health` seemed to answer with the whole screen.
+  Its message had most likely been rewritten by the buttons pressed under it («‹ Меню», then
+  «⚙️ Класс» → «📊 Проект»): the webhook's log shows eight updates in thirty seconds, and
+  `/health` draws only «🩺 Состояние» with «‹ Меню». Nobody asked the owner which buttons they
+  pressed.
+
 ## What the batch before added: the deployment says when it is broken — monitoring (#349, #120)
 
 Merged as #359 (`55314b6`, 6 October 2026), from `monitoring`, on milestone 12. It closes #349,
@@ -6651,3 +6741,23 @@ an issue before anything else. 3b — the other 71 unary methods, the per-provid
 registry and the Telegram notices as effects — has no plan yet, and sub-project 4's pull
 request A can still run beside it, one heavy job at a time. The questions in `HANDOVER.md`'s section 5 about
 Vercel's proxy and the second host (its section 7) are 3c's inputs.
+
+## Moved out of section 7 on 8 October 2026
+
+Stage 3b-3 was built (#372), so `HANDOVER.md`'s section 7 points at 3b-4 instead; and the
+owner decided #365 on 6 October: the diary proxy moves to Timeweb Cloud, which waits for
+the new server's address. As the two paragraphs stood until then:
+
+**Next for the programme: stage 3b-3 of sub-project 3, from the 3b plan.** Stages 3a (#342),
+3b-1 (#350) and 3b-2 (#356) are merged, and v2 serves twenty-eight methods.
+`docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-3 to 3b-8. 3b-3 covers the notices
+as effects, the access requests and the school directory, and it reuses `telegram_send`, which
+#359 writes. Sub-project 4's pull request A can still run beside it, one heavy job at a time.
+The questions in `HANDOVER.md`'s section 5 about Vercel's proxy and the second host (its
+section 7) are 3c's inputs.
+
+**Decide #365: the diary proxy is unreachable from Vercel for minutes at a time.** On its first
+evening the self-check found four failing ticks in an hour, and Squid never saw them. The
+options are in the issue: watch a day by the alerts, ask RUVDS whether inbound connections
+from AWS Frankfurt are filtered, or move the proxy to another host. A retry in code does not
+span a window of minutes.
