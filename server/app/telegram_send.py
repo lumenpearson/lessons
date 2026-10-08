@@ -11,8 +11,10 @@ place for that. aiogram is imported inside the functions and never at the top,
 so importing this module costs a cold start nothing, and ``app.bot.bot``
 imports ``build_bot`` back from here.
 
-Stage 3b-3 of the server-v2 design moves v1's notices here too (decision 2);
-the tick and the alerts use it from the start.
+v2's notices are sent from here, as effects ``rpc/call.py`` runs after the
+commit (stage 3b-3). v1's keep their own ``_build_bot`` seams in
+``api/manage/requests.py`` and ``api/edit.py``, which build through
+``build_bot`` here, so that no v1 test had to change.
 """
 
 from __future__ import annotations

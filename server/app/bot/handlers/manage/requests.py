@@ -245,6 +245,11 @@ async def request_approve(
             role=target_role,
         )
     except access_service.GrantRefused as refused:
+        # The request was read FOR UPDATE (#370), and over the webhook the
+        # alert is a call to Telegram: end the transaction first, or another
+        # admin's answer to this request waits on the row for as long as
+        # Telegram takes. A refusal wrote nothing, so there is nothing to keep.
+        await session.rollback()
         await callback.answer(str(refused), show_alert=True)
         return
 

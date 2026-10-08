@@ -80,7 +80,16 @@ def _module_of(dotted: str, modules: dict[str, Path]) -> str | None:
 
 #: The v1 routers a v2 module may not import (the server-v2 design, decision 2):
 #: a rule a v2 handler needs moves out of them into ``services/`` first.
-V1_ROUTERS = ("app.api.public", "app.api.edit", "app.api.manage", "app.api.diary")
+#: ``app.api.directory`` joined in 3b-3, when v2 began serving its twin: it
+#: still re-exports the directory's sentences under v1's old names, which makes
+#: it the tempting import for ``rpc/directory.py``.
+V1_ROUTERS = (
+    "app.api.public",
+    "app.api.edit",
+    "app.api.manage",
+    "app.api.diary",
+    "app.api.directory",
+)
 
 
 def _within(dotted: str, packages: tuple[str, ...]) -> bool:
