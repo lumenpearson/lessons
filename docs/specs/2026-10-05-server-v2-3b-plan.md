@@ -13960,7 +13960,7 @@ No new reason.
 - A date out of bounds, or a window over 62 days → `VALIDATION_FAILED` on the field.
 - An unknown id → `RESOURCE_NOT_FOUND`, with `resource` `"homework"` or `"event"`.
 
-**Effects.** Notices, through 3b-3's `telegram_send` and `call.after_commit`, after the commit and never on a refusal, with the author excluded:
+**Effects.** Notices to the class, through `telegram_send` and `call.after_commit` as 3b-3's notice to a requester goes, after the commit and never on a refusal, with the author excluded. 3b-3 left the class notice to this stage, whose handlers are its first v2 callers: `tests/test_announcements.py` finds every place that pushes to the class by the name `notify_subscribers` within one file, and has to learn about an effect registered in `rpc/` in the same change (the 3b-3 task list, «Rulings for 3b-3»).
 - homework is kind `"homework"`, for v1's create, update and delete;
 - events are kind `"changes"`.
 
