@@ -26,7 +26,9 @@ from app.rpc.errors import CODES, Refusal, connect_error, validate
 from app.schemas import BellScheduleIn, JoinRequest, SubjectIn
 from app.services import access as access_service
 from app.services import diary as diary_service
-from app.services import join, window
+from app.services import directory as directory_service
+from app.services import join, quota, window
+from app.services import schools as schools_service
 from app.services import terms as terms_service
 from app.services.manage import bells as bells_service
 from app.services.manage import classes as classes_service
@@ -43,7 +45,7 @@ RPC = SERVER / "app" / "rpc"
 #: produces the last reason it brings, and a reason still listed under it in
 #: ``LATER`` then fails below
 #: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
-STAGES = {"3b-3", "3b-4", "3b-5", "3b-6", "3b-7", "3b-8"}
+STAGES = {"3b-4", "3b-5", "3b-6", "3b-7", "3b-8"}
 
 #: The reasons no served method produces yet, and the stage that brings each.
 #: A reason leaves this table in the commit whose handler raises it.
@@ -52,9 +54,6 @@ LATER = {
     "DIARY_UNAVAILABLE": "3b-7",
     "DIARY_REAUTH": "3b-7",
     "DIARY_CREDENTIALS_REJECTED": "3b-7",
-    "DIRECTORY_DISABLED": "3b-3",
-    "DIRECTORY_SPENT": "3b-3",
-    "DIRECTORY_UNAVAILABLE": "3b-3",
     "DIARY_NO_STUDENTS": "3b-7",
     "DIARY_UPSTREAM_UNREADABLE": "3b-7",
     "CORRECTIONS_UNAVAILABLE": "3b-8",
@@ -137,6 +136,26 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     access_service.GrantRefused: (
         "test_v2_access_request_writes.py",
         "test_a_role_at_or_above_the_grantor_s_own_is_refused_and_tells_nobody",
+    ),
+    directory_service.DirectoryThrottled: (
+        "test_v2_school_regions.py",
+        "test_v1_and_v2_draw_on_one_budget",
+    ),
+    schools_service.SearchError: (
+        "test_v2_school_regions.py",
+        "test_a_short_query_is_refused_on_its_field_and_not_counted",
+    ),
+    directory_service.DirectoryDisabled: (
+        "test_v2_school_regions.py",
+        "test_without_a_key_the_search_is_disabled_in_v1_s_words",
+    ),
+    quota.AllowanceSpent: (
+        "test_v2_school_regions.py",
+        "test_a_spent_share_says_until_when",
+    ),
+    directory_service.DirectoryUnavailable: (
+        "test_v2_school_regions.py",
+        "test_a_failing_directory_is_unavailable_and_what_it_counted_stays",
     ),
     # The gate raises it for a diary method, and none is served before 3b-7:
     # test_rpc_gate.py holds the gate raising it until then.

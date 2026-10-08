@@ -21,7 +21,10 @@ the session rolls back and no effect runs. ``test_rpc_call.py`` greps
 **What a refusal does not roll back, on purpose.** Services that commit inside
 themselves keep doing so, and their writes stay when the call is refused:
 
-- ``JoinThrottle.admit`` — a wrong join code stays counted;
+- ``JoinThrottle.admit`` — a wrong join code stays counted, and so does a
+  search of the anonymous school directory;
+- ``quota.spend`` — a unit of the directory's daily allowance stays spent,
+  because the directory counted the request it paid for either way;
 - ``services.join.join`` — the device token it mints is committed inside
   the call, as v1's ``/join`` committed it, so a refusal raised after it
   would not take the phone's token back (``CreateDevice`` raises none);
