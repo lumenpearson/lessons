@@ -4,7 +4,7 @@ Version `1`. Base path `/api/v1`. Every change since the first release is
 additive - new endpoints, new optional fields - so the version has not moved
 and a client built against the original `/bundle` keeps working unchanged.
 A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
-twenty-eight of its methods so far: «v2: the contract», at the end of this page.
+thirty-three of its methods so far: «v2: the contract», at the end of this page.
 
 There is no user account and no password. A device holds a bearer token; a
 device that has been **linked** to a Telegram account through the bot acts
@@ -1596,15 +1596,16 @@ Postgres, which has been checked on SQLite only. Nothing here has been asked of 
 
 ## v2: the contract
 
-**Served beside v1, twenty-eight methods so far.** Everything above this section is v1, and v1
-is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository, checked
-by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+**Served beside v1, thirty-three methods so far.** Everything above this section is v1, and
+v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
+checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
 [the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
 ([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
 Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
 `ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
-methods (3b-1); and the five `BellService` methods, the two `TimetableService` methods and the
-eight `ClassService` methods (3b-2). Every other method answers `UNIMPLEMENTED` until its
+methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2); and the three `AccessRequestService` methods and the two
+`DirectoryService` methods (3b-3). Every other method answers `UNIMPLEMENTED` until its
 stage, before it asks for any credential. No APK calls v2 yet. The proto files are
 the reference: every service, method, message and field there carries the comment that says
 what it means and what v1 sent in its place. This section says only what a file cannot.
@@ -1687,6 +1688,14 @@ unaffected.
   page, so a line written between two page turns moves nothing on the next page. A token this
   list did not hand out, another class's or an edited one, is `VALIDATION_FAILED` on
   `page_token`.
+- **`ListSchools` pages one search.** Every call is one search of the directory, whatever the
+  page, because the directory has no offset: ask once with `page_size` 20 and cut the answer
+  up yourself, as v1's `/manage/schools` advises. It reads 5 schools when `page_size` is
+  unset and a larger one than 20 as 20, where v1 refused it; a negative one is
+  `VALIDATION_FAILED`. Its token names the first school of the next page, so a `page_size`
+  changed between two calls still starts where the last page ended, and a token past what
+  the search finds now (the directory may find fewer than it did a page ago) is an empty
+  last page.
 - **An `Update…`** takes an `update_mask` (AIP-134). A masked field the request leaves unset
   is cleared, as each method's comment says. A path the method does not take is
   `VALIDATION_FAILED` on `update_mask`, and the refusal does not repeat it. Without a mask, or
@@ -1713,6 +1722,24 @@ unaffected.
   recorded beside `last_seen_at` and on its fifteen-minute clock, and absent for a phone that
   never sent one. v1's `GET /manage/devices` does not carry it: v1's answers do not change, and
   a phone that speaks only v1 never sends the header.
+
+### Notices, and the directory's refusals
+
+- **`ApproveAccessRequest` and `DeclineAccessRequest` tell whoever asked**, in Telegram and in
+  v1's words, once the decision is committed. A refused decision tells nobody, and a notice
+  Telegram will not deliver (the person blocked the bot, or Telegram is down) is logged and
+  dropped: the decision stands. `ApproveAccessRequest`'s `role` is the role the member holds
+  afterwards, which for a member already above the role asked for is their own: an existing
+  member is never lowered. A `role` no value of `Role` names is `VALIDATION_FAILED` when it
+  arrives, which is in the binary encoding: JSON is read with unknown fields ignored, on both
+  transports, and proto3's parser then drops an unknown enum value, so the request reads as
+  naming no role and grants the one asked for, which the ladder still decides.
+- **The directory's refusals are reasons**, where v1 sent `503` with
+  `X-Directory-Unavailable`: `DIRECTORY_DISABLED` without a `DADATA_TOKEN`, `DIRECTORY_SPENT`
+  when today's anonymous share is gone (with `retry_after_seconds` until the next Moscow day,
+  and over REST a `429` with `Retry-After` where v1 sent `503`), and `DIRECTORY_UNAVAILABLE`
+  when the directory fails. `ListSchoolRegions` and v1's `/directory/school-regions` count a
+  caller once: twenty searches in fifteen minutes, whichever version asks.
 
 ### What the values look like
 

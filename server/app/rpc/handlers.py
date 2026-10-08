@@ -16,11 +16,13 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.rpc import (
+    access_request,
     audit,
     bell,
     class_device,
     device,
     diary,
+    directory,
     me,
     schedule,
     school_class,
@@ -34,6 +36,9 @@ Handler = Callable[[Any, Any], Awaitable[Any]]
 
 #: Keyed as ``rpc.methods.METHODS`` is: ``"lessons.v2.<Service>/<Method>"``.
 HANDLERS: dict[str, Handler] = {
+    "lessons.v2.AccessRequestService/ApproveAccessRequest": access_request.approve_access_request,
+    "lessons.v2.AccessRequestService/DeclineAccessRequest": access_request.decline_access_request,
+    "lessons.v2.AccessRequestService/ListAccessRequests": access_request.list_access_requests,
     "lessons.v2.AuditService/ListAuditEntries": audit.list_audit_entries,
     "lessons.v2.BellService/CreateBellSchedule": bell.create_bell_schedule,
     "lessons.v2.BellService/DeleteBellSchedule": bell.delete_bell_schedule,
@@ -53,6 +58,8 @@ HANDLERS: dict[str, Handler] = {
     "lessons.v2.ClassService/UpdateTermScheme": school_class.update_term_scheme,
     "lessons.v2.DeviceService/CreateDevice": device.create_device,
     "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+    "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
+    "lessons.v2.DirectoryService/ListSchools": directory.list_schools,
     "lessons.v2.MeService/GetMe": me.get_me,
     "lessons.v2.ScheduleService/GetScheduleWindow": schedule.get_schedule_window,
     "lessons.v2.SubjectService/CreateSubject": subject.create_subject,

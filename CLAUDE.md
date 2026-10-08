@@ -59,7 +59,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2713 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2767 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -67,7 +67,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 228 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 231 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. A CI step since
   27 September 2026, right after ruff, because the owner asked for it through that day's
@@ -195,10 +195,14 @@ Server modules:
   `dictionary_of` (the read that adopts nothing) and `update` (the rename-then-details
   patch), `manage/bells.py`'s `update` (the rename, the rows, then the default),
   `manage/timetable.py`'s `import_paste` (the parse, the conflicts, and a preview that writes
-  nothing), and `audit.py`'s `older_than` (a page keyed on its last line); the limiters are
+  nothing), `manage/requests.py`'s `approve` (the role sent or the one asked for, through
+  `access.approve_request`, whose `GrantRefused` says `why`), `directory.py`'s
+  `school_regions` (the anonymous directory's order of checks, one bucket for both
+  versions), and `audit.py`'s `older_than` (a page keyed on its last line); the limiters are
   `security.py`'s, one instance each, and the sentences both versions answer with (the
   join's four, the diary's «disabled», and the subjects', the devices', the bells', the
-  import's and the zone's refusals) are `app/wording.py`'s.
+  import's, the zone's, the access requests' and the directory's refusals) are
+  `app/wording.py`'s.
   The tick runs `health.py`'s self-check after the digests and the sweeps and before the
   diary keep-alive: four checks, what each said last in `health_checks`, and the owner's
   alerts on a change; the owner's «📊 Проект» reads `project_stats.py`, which writes nothing.
@@ -249,15 +253,17 @@ Server modules:
   methods are served). A handler never commits and never
   checks a credential; `rpc_app()` mounts the seventeen Connect apps at `/api/rpc`, refusing
   native gRPC over HTTP/1.1 with `415`. May import `services/`, `models`, `schedule`,
-  `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry
-  and the contract — never `app.bot`
-  or a v1 router; `tests/test_service_layering.py` walks it
+  `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry,
+  the school directory's provider (`providers/dadata`, whose refusals the error table maps),
+  `telegram_send` and the contract — never `app.bot`
+  or a v1 router, `api/directory.py` among them; `tests/test_service_layering.py` walks it
 - `rest/` — the transcoder: one Starlette route per unary method from its `google.api.http`
   rule, under `/api/v2`, calling the same `invoke`; `errors.py` writes Google's error body.
   `main.mount_v2` mounts both and answers `503` under their prefixes if v2 will not import
 - `telegram_send.py` — a bot built for one job and closed after it (`build_bot`, `close_bot`,
-  `send`), for the code that is not the bot: the tick, v1's notices and the self-check's
-  alerts. aiogram is imported inside its functions and never at the top, so it costs a cold
+  `send`), for the code that is not the bot: the tick, v1's notices, v2's (an effect run
+  after the commit) and the self-check's alerts. aiogram is imported inside its functions and
+  never at the top, so it costs a cold
   start nothing; `app.bot.bot` imports `build_bot` back from it, and
   `tests/test_service_layering.py` holds that it reaches neither the bot nor a shell
 - `observability.py` — Sentry's start and its scrubbing hooks, imported only where

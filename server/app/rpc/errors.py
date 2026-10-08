@@ -31,8 +31,12 @@ from pydantic import BaseModel, ValidationError
 from app import wording
 from app.contract.google.rpc.error_details_pb import BadRequest, ErrorInfo, RetryInfo
 from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.providers import dadata
+from app.services import access as access_service
 from app.services import diary as diary_service
-from app.services import join, window
+from app.services import directory as directory_service
+from app.services import join, quota, window
+from app.services import schools as schools_service
 from app.services import terms as terms_service
 from app.services.manage import bells as bells_service
 from app.services.manage import classes as classes_service
@@ -250,6 +254,60 @@ def _term_bounds_refused(error: terms_service.TermError) -> Refusal:
     return Refusal(ErrorReason.TERM_BOUNDS_REFUSED, str(error))
 
 
+def _role_grant_refused(error: access_service.GrantRefused) -> Refusal:
+    return Refusal(
+        ErrorReason.ROLE_GRANT_REFUSED,
+        wording.GRANT_REFUSED_DETAILS[error.why],
+        why=error.why,
+    )
+
+
+def _directory_throttled(error: directory_service.DirectoryThrottled) -> Refusal:
+    return Refusal(
+        ErrorReason.THROTTLED,
+        wording.DIRECTORY_THROTTLED_DETAIL,
+        retry_after_seconds=error.seconds,
+    )
+
+
+def _school_query_too_short(_error: schools_service.SearchError) -> Refusal:
+    # The service's sentence for a person, a constant built from MIN_QUERY and
+    # never from what was sent; the exception's own text is not read.
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        schools_service.QUERY_TOO_SHORT,
+        violations=[("query", schools_service.QUERY_TOO_SHORT)],
+    )
+
+
+def _directory_disabled(_error: directory_service.DirectoryDisabled) -> Refusal:
+    return Refusal(ErrorReason.DIRECTORY_DISABLED, wording.DIRECTORY_DISABLED_DETAIL)
+
+
+def _directory_spent(error: quota.AllowanceSpent) -> Refusal:
+    return Refusal(
+        ErrorReason.DIRECTORY_SPENT,
+        wording.DIRECTORY_SPENT_DETAIL,
+        retry_after_seconds=error.retry_after,
+    )
+
+
+def _directory_unavailable(_error: directory_service.DirectoryUnavailable) -> Refusal:
+    return Refusal(ErrorReason.DIRECTORY_UNAVAILABLE, wording.DIRECTORY_UPSTREAM_DETAIL)
+
+
+def _school_search_disabled(error: dadata.NotConfigured) -> Refusal:
+    # ListSchools says what v1's /manage/schools and the bot say: the
+    # provider's own sentence, a literal of providers/dadata/client.py, never
+    # what was sent or what the directory answered (test_v2_schools.py reads
+    # the client so). It ends «введите название вручную», an admin's way on.
+    return Refusal(ErrorReason.DIRECTORY_DISABLED, error.message)
+
+
+def _school_search_unavailable(error: dadata.DirectoryError) -> Refusal:
+    return Refusal(ErrorReason.DIRECTORY_UNAVAILABLE, error.message)
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -273,6 +331,14 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     classes_service.UnknownTimezone: _unknown_timezone,
     classes_service.NameMismatch: _class_name_mismatch,
     terms_service.TermError: _term_bounds_refused,
+    access_service.GrantRefused: _role_grant_refused,
+    directory_service.DirectoryThrottled: _directory_throttled,
+    schools_service.SearchError: _school_query_too_short,
+    directory_service.DirectoryDisabled: _directory_disabled,
+    quota.AllowanceSpent: _directory_spent,
+    directory_service.DirectoryUnavailable: _directory_unavailable,
+    dadata.NotConfigured: _school_search_disabled,
+    dadata.DirectoryError: _school_search_unavailable,
 }
 
 

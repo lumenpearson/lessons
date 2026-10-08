@@ -707,6 +707,45 @@ async def test_approving_is_refused_when_the_actor_cannot_grant_that_role(sessio
     assert callback.alerted
 
 
+async def test_a_refused_approval_lets_go_of_the_request_before_it_answers(
+    session, school_class
+):
+    """The request is read ``FOR UPDATE`` (#370), so the transaction holding it
+    must end before the alert: over the webhook ``callback.answer`` is a call to
+    Telegram, and while it waits, another admin's answer to the same request
+    waits on the row. The success and decline paths commit before they tell
+    anyone; a refusal has nothing to commit, so it rolls back."""
+    session.add(BotUser(telegram_id=55, class_id=school_class.id, role=Role.VIEWER))
+    request = AccessRequest(
+        class_id=school_class.id,
+        telegram_id=55,
+        requested_role=Role.ADMIN,
+        status="pending",
+    )
+    session.add(request)
+    await session.commit()
+
+    held: list[bool] = []
+
+    @dataclass
+    class Watching(FakeCallback):
+        async def answer(self, text: str | None = None, show_alert: bool = False, **_: Any) -> None:
+            held.append(session.in_transaction())
+            await super().answer(text, show_alert)
+
+    callback = Watching(message=FakeEditable())
+    await request_approve(
+        callback,
+        SimpleNamespace(action="approve", value=str(request.id)),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert callback.alerted
+    assert held == [False]
+
+
 async def test_a_viewer_cannot_approve_a_request(session, school_class):
     request = AccessRequest(
         class_id=school_class.id,

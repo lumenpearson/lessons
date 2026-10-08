@@ -46,6 +46,11 @@ os.environ["DIARY_SECRET"] = "test-secret-not-a-real-one-0123456789abcdef"
 # Whatever the shell holds: the suite reports to nobody's Sentry. A test that
 # wants it on starts it in a fresh interpreter (test_observability.py).
 os.environ["SENTRY_DSN"] = ""
+# Whatever the shell holds: the suite asks nobody's DaData. v2's gate test and
+# no-echo sweep call every served method, the school searches included, and a
+# key exported in the shell would send a password-shaped query to the real
+# directory. A test that wants the directory configures one and replaces it.
+os.environ["DADATA_TOKEN"] = ""
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402

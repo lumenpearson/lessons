@@ -51,7 +51,7 @@ app/
 ├── security.py    tokens, join codes, phone normalisation
 ├── di.py          the container both shells take a session from
 ├── wording.py     the words both shells print: dates, plurals, a day's card
-├── telegram_send.py  a bot built for one job: the tick's, v1's notices', the owner's alerts
+├── telegram_send.py  a bot built for one job: the tick's, v1's and v2's notices', the owner's alerts
 ├── observability.py  Sentry's start and its scrubbing, imported only where SENTRY_DSN is set
 ├── catalog/       the region catalog — generated data, never edited by hand
 ├── services/      the rules both shells call — pure async functions over a session
@@ -122,13 +122,16 @@ transports cannot disagree about a rule. The rules v1's routers held and v2 need
 `services/` first — the join flow, the window's tag, the clock and the bounds, then the
 member names, the class's wall clock, the dictionary read, the subject patch and the
 journal's page keyed on its last line, then the bells' patch, the timetable's import and
-the class card's patch — and the
+the class card's patch, then the answer to an access request and the anonymous directory's
+order of checks — and the
 limiters into `security.py`, one instance each, so a caller cannot double its attempts by
 alternating versions. `main.mount_v2` catches a v2 that will not import and answers `503`
 under its two prefixes, so v1 and the webhook never go down with it.
 Every `Update…` reads its mask through `rpc/masks.py` (AIP-134), and the gate records the app
 version a phone sends beside its `last_seen_at`, which v2's `ClassDevice` and the bot's
-«📱 Устройства» show.
+«📱 Устройства» show. The first effects are 3b-3's: the Telegram notice to whoever asked for
+a role, sent through `app/telegram_send.py` once the answer is committed, and never when it
+is refused.
 
 ### The tick checks the deployment, and tells its owner
 
@@ -141,8 +144,9 @@ written to on a change — when a check starts failing, when it comes back, and 
 between — and never once per tick. Unknown is a check that could not run, and it never alerts.
 The rule is one function, `health.decide`, over what was stored and what was seen, and the
 claim on an alert is a compare-and-set on `last_alert_at`, so two ticks running together tell
-the owner once. The self-check runs before the keep-alive because the keep-alive goes through
-the diary's proxy and, when the proxy hangs, holds the request until its own hard stop; the
+the owner once. The self-check runs before the keep-alive because the keep-alive calls the
+regional «Сетевой город» servers, directly, and when one hangs it holds the request until its
+own hard stop; the
 checks stop five seconds before the self-check's own hard stop, so an alert always has time to
 go out, and a check the tick left less than its full five seconds that times out reads
 `unknown` rather than `failing`. Each — the self-check and the keep-alive — runs inside its
@@ -927,7 +931,7 @@ with the host.
 
 ## Testing
 
-2713 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
+2767 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 161, `:widget` 126, `:app` 608 (#325).
 

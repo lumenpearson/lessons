@@ -9884,6 +9884,4018 @@ A `501` with `UNIMPLEMENTED` means production still runs the code from before th
 - **`ListSchools`' `page_token`**, when the directory itself has no offset (the proto says every call is one upstream search). Recommended: an opaque token carrying the next page's number, refused as 3b-1's are.
 - **A notice to a requester who blocked the bot.** Recommended: logged and dropped, as v1's `_tell`; the decision stands.
 
+### 3b-3 task list
+
+**Status:** written on 6 and 7 October 2026, against `main` at `c292c74` (the merge of #363) as the branch `deps/2026-10-06` carried it. #366, that branch's pull request, merged as `5d2e530` at 21:16 UTC on 6 October; it changed `requirements.txt`, `requirements.in`, `server/pyproject.toml`'s floors, `HANDOVER.md` and `docs/history.md`, and no line of `server/app/` or `server/tests/`, so every code anchor below is `c292c74`'s and `5d2e530`'s alike. The branch already carries `9c944e4`, which fixes #367 in a comment of `api/cron.py` and in `docs/architecture.md` and `docs/deploy.md`; none of its lines is an anchor below, and Task 7's document edits were run again over it. Every code step was applied to a copy of that tree and checked («What was verified», below). Where it differs from the 3b-3 summary above, this list is the one to follow; «Defects in the summary» says where and why.
+
+**Branch:** `server-v2/3b-3`, cut from `origin/main` at `5d2e530`, the merge of #366, in the same worktree (`$WT`). It is its own pull request, on milestone 11, referring to #273.
+
+**Before Task 4 and before Task 6, the controller files two defects** this list found, as `#368` and `#369` («Two defects found while writing this list», below). 3b-3 fixes `#369` in Task 6 and leaves `#368` alone.
+
+**Scope.** Five methods, the rules they need moved into `services/` first, and the first notices sent as effects:
+- **`AccessRequestService`**, all `ROLE_ADMIN`: `ListAccessRequests`, `ApproveAccessRequest` and `DeclineAccessRequest`, the last two telling whoever asked in Telegram once the answer is committed.
+- **`DirectoryService`**: `ListSchoolRegions` (`AUTH_KIND_NONE`, on v1's budget) and `ListSchools` (`ROLE_ADMIN`, paged by a token).
+
+No revision. One comment-only change to the contract, in Task 6.
+
+| Task | Title | Tests added | Suite after | mypy after |
+| --- | --- | --- | --- | --- |
+| 1 | The answer to an access request, in `services/` | 4 | 2717 | 228 |
+| 2 | The anonymous directory's order of checks, in `services/` | 5 | 2722 | 229 |
+| 3 | `ListAccessRequests` | 3 + 2 | 2727 | 230 |
+| 4 | `ApproveAccessRequest` and `DeclineAccessRequest`, and the notice after the commit | 11 + 4 | 2742 | 230 |
+| 5 | `ListSchoolRegions`, on v1's budget, and 3b-3 leaves `STAGES` | 8 + 2 | 2752 | 231 |
+| 6 | `ListSchools`, a page at a time from one search, and what `directory.proto` says of it | 11 + 2 | 2765 | 231 |
+| 7 | The documents, the counts, the HANDOVER close-out, and production after the merge | — | 2765 | 231 |
+
+**Counts.**
+- Tests: 4 + 5 + 5 + 15 + 10 + 13 = **52**, so **2713 becomes 2765**. The «+ 2» and «+ 4» are the cases each served method adds by itself, one to the gate test and one to the no-echo sweep: ten of the 52.
+- The base is 2713, the count the seven places the `handover` skill names carry at `5d2e530`, and the count #366's own run gave (`pytest -q -n 4`, 2713 passed); `9c944e4` adds no test. If anything else lands on the branch before Task 1 and moves it, shift every total by the difference; Task 1's first full run is the truth.
+- mypy: **228 becomes 231**, with `services/directory.py` (Task 2), `rpc/access_request.py` (Task 3) and `rpc/directory.py` (Task 5). If mypy on the branch's first commit prints another number, shift every N by the difference.
+
+### Rulings for 3b-3
+
+Numbered after the plan's own 1 to 17 and 3b-2's 18 to 33, which still hold.
+
+34. **The summary's two questions take their recommendations, one with a change of what the token carries:**
+    - **`ListSchools`' `page_token` is opaque and refused as 3b-1's are, and it names the first school of the next page rather than a page number.** A page number names other schools under another `page_size`; a position does not, so a client that widens its page between two calls still starts where the last page ended. Positions run from 1 to 19, because a next page starts after the first school and no search finds a twenty-first. A token past what the search finds now is an empty last page, not a refusal: the directory answers each call afresh and may find fewer than it did a page ago, and the token was one this list handed out. This is the one place where the list departs from a recommendation, and the controller may strike it: a page number instead changes `_first`, `page_token` and two tests of Task 6, and nothing else.
+    - **A notice to a requester who blocked the bot** is logged and dropped, and the decision stands, as v1's `_tell` does it.
+35. **The one-person notice is `telegram_send.send([(telegram_id, text)])`**: the summary allowed for `send()` of one being enough, and it is. It builds a bot only when `BOT_TOKEN` is set, never raises, logs what Telegram refuses and closes the bot whatever happened (#359's `test_telegram_send.py` holds all of it). The effect captures the requester's id and the sentence before the commit, so it reads nothing of the session.
+36. **v1's notice seams stay as they are.** `_build_bot` and `_tell` in `api/manage/requests.py`, `api/edit.py` and `api/cron.py` have built their bot through `telegram_send.build_bot` since #359, which is what the summary's «v1's notices onto `telegram_send.py`» asked for. Removing them is not required by anything 3b-3 serves, so **no v1 test changes**: `test_api_manage.py`'s `recording_bot`, `test_api_extended.py`'s and `test_announcements.py`'s `edit._build_bot` and `test_access_service.py`'s `requests._tell` all stand.
+37. **The class notice is 3b-5's, not 3b-3's.** No method of 3b-3 tells the class anything. And `tests/test_announcements.py` finds every place that pushes to the class by the name `notify_subscribers`, through wrappers in one file: a `telegram_send` wrapper would be an unlisted call site, and moving `edit._tell` onto it would hide v1's announcing endpoints from the walk, which finds them through that wrapper. 3b-5, whose handlers are the class notice's first v2 callers, has to teach that walk about an effect registered in `rpc/` anyway. Task 7 says so in the 3b-5 summary.
+38. **`GrantRefused` carries a fact, `why`** (`access.ROLE_TOO_HIGH` or `access.MEMBER_SENIOR`, the two values `errors.proto` names), and its two sentences move to `app/wording.py`, keyed by it. `str(…)` and `.detail` are what they were, so the bot, v1 and `test_access_service.py` read the same words untouched.
+39. **`requests_service.approve(…) -> Approval`** holds what v1's router held: the role sent, or the one asked for when none is, through `access.approve_request`, and the member's name as an admin reads it. v1 and v2 call it. The bot keeps calling `approve_request` with the role asked for, because its card names the member with its own escaping twin.
+40. **`ApproveAccessRequestResponse.role` is the role the member holds afterwards** (`approval.member.role`), as the proto says. v1's `role` stays the role the request was answered with (`approval.granted`), and the notice stays v1's sentence word for word, which names that role too. The two differ only for a member already above the role asked for, which is `#368`, filed and not fixed here.
+41. **A `Role` number no value names is `VALIDATION_FAILED` on `role` when it reaches the handler, which is in the binary encoding only.** Both transports read JSON with unknown fields ignored (`rest/__init__.py`; `connectrpc`'s JSON codec by default), and protobuf-py then drops an unknown enum value, so in JSON such a request reads as naming no role and grants the one asked for, which the ladder still decides. That is proto3's JSON mapping for every enum, and `test_contract_json.py` already holds the parser's side of it. Found by this list's one test run («What was verified»).
+42. **The anonymous door's refusals are facts of `services/directory.py`**: `DirectoryThrottled(security.Throttled)`, `DirectoryDisabled` and `DirectoryUnavailable`, where v1 raised inline. `security.Throttled` gets no row of its own: 3b-7's diary throttle raises it too, and a row for it would word that with the directory's sentence. `quota.AllowanceSpent` and `schools.SearchError` are worded where they already live.
+43. **A short query is worded with `schools.QUERY_TOO_SHORT`**, a constant built from `MIN_QUERY`, rather than with the exception's text, which is the same sentence: the table never reads an exception's text where a constant says it.
+44. **`ListSchools`' refusals are the provider's own exceptions**, `dadata.NotConfigured` and `dadata.DirectoryError`, worded with their `message`: v1's `/manage/schools` and the bot answer an admin with exactly that sentence, which ends «введите название вручную», the admin's way on. After `TermError` (Ruling 27) this is the second row whose message is an exception's text. It may be, because `providers/dadata/client.py` raises each of them with no argument or a literal one, never with what was sent or what DaData answered, and `test_v2_schools.py` reads the client to hold that.
+45. **`ListSchools` checks its own fields before it asks the directory anything.** `page_size` 0 reads as 5, v1's; above 20 it reads as 20, as AIP-158 has it and as `ListAuditEntries` reads one above 100, where v1 refused it with `422`; a negative one is `VALIDATION_FAILED` on `page_size`. A region hint over 120 characters is `VALIDATION_FAILED` on `region`, as v1's `422`, and the number moves from v1's `Query` into `services/schools.MAX_REGION`.
+46. **`directory.proto` changes in comments only** (Task 6): the region is a hint, not a filter (`#369`), and what a page size and a page token do. Only `server/app/contract/lessons/v2/directory_pb.py` is regenerated, and `buf breaking` passes a comment.
+47. **The suite empties `DADATA_TOKEN`**, as it empties `SENTRY_DSN`. The gate test and the no-echo sweep call every served method, the two searches included, and a key exported in the shell would send a password-shaped query to the real directory.
+48. **`rpc/` may import `telegram_send`.** The design's decision 2 lists it among what `rpc/` and `rest/` may import, and the plan's «Global Constraints» left it out; `tests/test_service_layering.py` forbids only `app.bot` and the v1 routers.
+49. **Handler modules are named for their proto file** (Ruling 16): `rpc/access_request.py` and `rpc/directory.py`.
+50. **No answer of 3b-3 joins `rest.NO_STORE_ALSO` or `NO_STORE_CREDENTIAL`.** None carries a credential; the requests' names are an admin's to read, as `ListClassDevices`' owners are, which 3b-1 left cacheable too.
+51. **Commit messages carry no trailer lines** (the controller's ruling for 3b-3): the two lines the plan's «Global Constraints» ask for are not written.
+
+### What 3b-1 and 3b-2 left that every task here uses
+
+- **The statement listener** (`statement_writes`, `unexpected_writes`, `last_seen_rule`, from `conftest.py`). Its allowlist already holds `join_attempts` and `usage_counters`, which `ListSchoolRegions` writes on purpose (decision 10). An anonymous call has no phone, so it writes no `last_seen_at`.
+- **`served_settings` is what the gate reads**, and nothing below patches a setting the gate reads. The directory (`dadata.configured`, the client's key) and `telegram_send.send` read `get_settings()` at the moment of the call, as v1's tests patch them, so the tests below patch `get_settings()` for `dadata_token` and `bot_token`.
+- **The no-echo sweep** goes one level into a request's message fields as the method's most privileged caller, and calls an `AUTH_KIND_NONE` method with no bearer. It calls `ListSchoolRegions` about ten times, inside the directory's twenty: a query is refused by the decoder, too short and handed back, or answered `DIRECTORY_DISABLED` with the conftest's empty key.
+- **`v2.both` calls twice**, so a search through it is counted twice against the throttle and spends twice from the allowance; the counts below say so.
+- **The REST harness builds `{request_id}:approve` and `:decline`** as it built 3b-1's `{device_id}:revoke`.
+- **`Call.after_commit` and its effects** are 3a's (`rpc/call.py`), held by `test_rpc_call.py`: they run after the commit, never on a refusal, and an effect that fails is logged. 3b-3 is the first stage whose handlers register one.
+- **No test borrows a 3b-3 method as unserved**: `test_rpc_mount.py`'s `unserved` takes `DiaryService/ListStudents` out of `HANDLERS`, and `test_rpc_call.py` takes `GetClass` out; no test of `test_rest.py` patches a 3b-3 key.
+
+### Review Focus (3b-3)
+
+The five inputs most likely to bite a person using 3b-3 that the generic tests do not reach, each with the test that pins it and the task that owns it.
+
+1. **Two admins answering one request, or one answer retried over a flaky network.** One grant, one audit line, one notice; the second answer, yes or no, is `RESOURCE_NOT_FOUND`.
+   - `test_answering_one_request_twice_is_one_decision_and_one_notice` (Task 4).
+2. **A grant the ladder refuses.** Nothing is written and nobody is told, whichever transport, whether the role is too high or the member is a peer.
+   - `test_a_role_at_or_above_the_grantor_s_own_is_refused_and_tells_nobody` and `test_a_member_at_or_above_the_grantor_is_refused_and_tells_nobody` (Task 4);
+   - their service-level twin, `test_a_refused_grant_says_why_and_keeps_each_shell_s_words` (Task 1).
+3. **The notice and the commit.** The notice goes out only once the decision is committed, and one Telegram refuses leaves the decision standing.
+   - `test_an_approval_grants_the_role_asked_for_and_tells_the_asker_after_the_commit`, whose bot reads the request from a session of its own while it sends (Task 4);
+   - `test_a_notice_telegram_refuses_leaves_the_decision_standing` (Task 4).
+4. **A phone alternating v1 and v2 on the anonymous directory.** Twenty searches between them, not forty; a short query is not counted; a refusal does not hand back what it counted or spent.
+   - `test_v1_and_v2_draw_on_one_budget`, `test_a_short_query_is_refused_on_its_field_and_not_counted` and `test_a_failing_directory_is_unavailable_and_what_it_counted_stays` (Task 5);
+   - their service-level twin, `test_a_caller_over_the_limit_is_refused_before_the_query_is_read` (Task 2).
+5. **Paging a school search that changes between calls, or with an edited token.** No refusal of a token this list handed out, no school repeated across a widened page, and no token the list did not write accepted.
+   - `test_a_token_past_what_the_search_finds_now_is_an_empty_last_page`, `test_the_pages_walk_one_answer_and_each_asks_again` and `test_a_token_this_list_did_not_hand_out_is_refused_without_repeating_it` (Task 6).
+
+### Defects in the summary, and how this list resolves them
+
+- **«3b-3 adds to it a one-shot send to one person, unless `send()` of one is enough»**: it is enough (Ruling 35). Nothing is added to `telegram_send.py`.
+- **«…and the class notice over `services/notify.notify_subscribers`»**: no 3b-3 method sends one, and adding it here would break `test_announcements.py`'s walk for nothing. It is 3b-5's (Ruling 37), and Task 7 amends the 3b-5 summary, whose «Effects» said it would find it built.
+- **«The three copies of `_build_bot` … stay the seams the tests replace. If 3b-3 removes them…»**: verified true at `c292c74`, and they stay (Ruling 36). No v1 test changes.
+- **«`api/directory.py:school_regions` holds the order of its checks»** listed six steps and left out one: a name too common to place is answered with nothing spent, after the key is asked about and before the allowance is. `services/directory.school_regions` keeps all of it.
+- **«The schools search. `api/manage/schools.py:schools_search`'s error mapping and paging move beside it»**: the search and the paging (`schools.search`, `schools.page_of`) were in `services/` already, and the error mapping is each shell's own wording. What v1's router held of a rule is the region hint's ceiling, written into its `Query`, which moves to `schools.MAX_REGION`. v2 does not page with `page_of`: its token names a position (Ruling 34).
+- **«The directory's disabled and upstream facts → `DIRECTORY_DISABLED` and `DIRECTORY_UNAVAILABLE`»**: there were no such facts. Task 2 makes them for the anonymous door; `ListSchools`' are the provider's own exceptions, which take two more rows (Ruling 44).
+- **«The throttle → `THROTTLED`»**: v1 refused inline; Task 2 makes `DirectoryThrottled`, a fact of its own rather than `security.Throttled` (Ruling 42).
+- **«`schools.SearchError` → `VALIDATION_FAILED` on `query`»**: worded with a constant rather than the exception's text (Ruling 43).
+- **«An answered or unknown request → a `Refusal` of `RESOURCE_NOT_FOUND`»**: v1's sentence, «Unknown request», was a literal in its router; it moves to `app/wording.py`.
+- **Found while writing, and in no summary:**
+  - `ApproveAccessRequestResponse.role` is the role held, where v1 answers the role asked for, and the bot and the notice say the role asked for too: `#368` (Ruling 40);
+  - a `Role` number no value names, which needs its own refusal and reaches it only in binary (Ruling 41);
+  - `directory.proto` calls the region hint a filter: `#369` (Ruling 46);
+  - the plan's import list for `rpc/` without `telegram_send` (Ruling 48);
+  - a key in the shell reaching the real directory from the sweeps (Ruling 47).
+
+### Two defects found while writing this list
+
+The controller files each, with `type:bug`, its `area:` labels, a `status:`, milestone 11, and an item on project 6, as the `github-pr` skill says, and writes its number into this list in place of the name.
+
+**`#368`, before Task 4.** Title: «Approving an old request of a member already above the role asked for says they now hold the role asked for». Labels `type:bug`, `area:bot`, `area:server`, `status:next`. Body, written to `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\issue-3b3-stalegrant.md`:
+```markdown
+A viewer asks for the editor's role with «🙋 /request». Before anybody answers, an owner makes
+them an admin in «👥 Доступ», and the request stays open. The owner then presses «✅ Выдать» on
+it, or a phone sends `POST /api/v1/manage/requests/{id}/approve`.
+
+`services/access.approve_request` never lowers a member, so they stay an admin, which is right.
+Every word around it says otherwise:
+- the bot edits the card to «✅ … — теперь <b>Редактор</b>»;
+- v1 answers `"role": "editor"`, though `RequestDecisionOut.role` says «The role actually
+  granted»;
+- the member is told «✅ Доступ выдан: <b>Редактор</b> …» in Telegram.
+
+**Failure scenario:** an admin reads that they were made an editor, and an owner reads that the
+person is now an editor, while both are looking at an admin.
+
+v2's `ApproveAccessRequest` (stage 3b-3) answers the role held, as its proto says. It sends
+v1's notice word for word, so the notice carries this defect until it is fixed. Found while
+writing 3b-3's task list, and not fixed there: 3b-3 keeps v1's answers and the bot's words.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && gh issue create --repo lumenpearson/lessons --title "Approving an old request of a member already above the role asked for says they now hold the role asked for" --body-file C:/Users/lumen/.claude/jobs/c9e2d980/tmp/issue-3b3-stalegrant.md --label type:bug --label area:bot --label area:server --label status:next --milestone "v0.10.0 — One contract: REST v2, Connect and native gRPC, build console"
+```
+
+**`#369`, before Task 6.** Title: «directory.proto says ListSchools' region narrows the search, and the server only ranks by it». Labels `type:bug`, `area:docs`, `area:server`, `status:now`. Body, written to `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\issue-3b3-regionhint.md`:
+```markdown
+`proto/lessons/v2/directory.proto`, `ListSchoolsRequest.region`: «Narrows the search to a
+region's name.» The server passes it to DaData as `locations_boost`, a ranking hint
+(`providers/dadata/client.py`, `suggest_schools`: «A boost, not `locations`: theirs is a hard
+filter»), which is what `docs/api.md` says of v1's `region`: «a ranking hint, not a filter».
+
+**Failure scenario:** a client written from the contract sends `region` and shows the answer as
+that region's schools. A school from the next region is in the list, and the client presents
+it as local.
+
+Stage 3b-3 serves `ListSchools` and corrects the comment, together with what the page size and
+the page token do, which the comment leaves unsaid.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && gh issue create --repo lumenpearson/lessons --title "directory.proto says ListSchools' region narrows the search, and the server only ranks by it" --body-file C:/Users/lumen/.claude/jobs/c9e2d980/tmp/issue-3b3-regionhint.md --label type:bug --label area:docs --label area:server --label status:now --milestone "v0.10.0 — One contract: REST v2, Connect and native gRPC, build console"
+```
+
+### What was verified while writing this list, and what was not
+
+**Read, at `c292c74`'s code:** the routers (`api/manage/requests.py`, `api/directory.py`, `api/manage/schools.py`, `api/edit.py`'s and `api/cron.py`'s notice seams), `telegram_send.py`, `services/notify.py`, `services/access.py`, `services/manage/requests.py`, `services/schools.py`, `services/quota.py`, `security.py`'s throttles, the DaData provider, `rpc/` (`call.py`, `errors.py`, `gate.py`, `methods.py`, `handlers.py`, `values.py` and three handlers), `rest/`, both proto files and their generated modules, and the tests that read any of them: `test_rpc_errors.py`, `test_v2_reads.py`, `test_v2_no_echo.py`, `test_rpc_call.py`, `test_rpc_mount.py`, `test_rest.py`, `test_contract_mirror.py`, `test_contract_json.py`, `test_service_layering.py`, `test_cold_start.py`, `test_announcements.py`, `test_access_service.py`, `test_api_manage.py`, `test_directory.py`, `test_shared_rules.py` and `test_deployment_config.py`.
+
+**Probed**, with the worktree's venv and nothing in the worktree changed:
+- protobuf-py reads `{"role": 99}` as `Role(99)` when unknown fields are refused and as `Role.UNSPECIFIED` when they are ignored, which both transports do; the binary encoding keeps `Role(99)`; `ApproveAccessRequestRequest(role=Role(99))` writes `99`.
+- `SchoolRegion(region=None, label=None, …)` leaves both fields unset; `ListSchoolsRequest().region` reads `""` with `has_field` false; `{"pageSize": -1}` reads as `-1`.
+- `rest/__init__.py` decodes a body with `ignore_unknown_fields=True`, and `connectrpc`'s JSON codec defaults to it.
+- `server/.env` does not exist in the worktree, and `DADATA_TOKEN` defaults to `""`.
+
+**Applied and run, in a scratch copy** (`git ls-files` of `server/` at `620afac`, whose `app/` and `tests/` are `c292c74`'s; never the worktree):
+- Every code step of Tasks 1 to 6, applied in order. After each task, `ruff check app tests scripts migrations` printed `All checks passed!`; the new modules and test files are as `ruff format` writes them. mypy over the result printed `Success: no issues found in 231 source files`.
+- **One focused file, the brief's limit:** `test_v2_access_request_writes.py`, against the copy with its conftest's borrowed-venv guard (#312) switched off in the copy alone. The first run gave 10 passed and 1 failed: the unknown-role test, sent through `both`, was granted over REST as a request naming no role and found nothing open over Connect. That is Ruling 41; the test now sends the number in binary, and the second run gave **11 passed** in 5.5 s.
+- Task 7's document edits, applied by script to fresh copies of the six documents, with this list inserted into the plan's copy after the 3b-3 summary, where the controller will put it: each anchor outside the plan was found exactly once, `plan3b5.py` found the 3b-5 summary's «Effects» line once in that summary (this list quotes it a second time, which is why the plan is edited by that script), and `docs3b3.py` printed eleven missing phrases and five stale ones before the edits and «the documents say what 3b-3 serves» after. None of the head test's three shapes is in this list.
+
+**Searched:** no test borrows a 3b-3 method as unserved or patches one into `HANDLERS`; `test_announcements.py`'s walk names call sites by `notify_subscribers` within a file (Ruling 37); `providers/dadata/client.py` raises its nine directory errors with no argument or a literal (Ruling 44).
+
+**Not run:**
+- the other five new test files, and v1's own test files against the moved code;
+- the full suite, in the copy or the worktree;
+- `buf lint`, `buf generate` and `buf breaking`: the regenerated file is expected to be `directory_pb.py` alone, as 3b-2's probe found field comments to be docstrings of their own file only;
+- anything on Postgres or Vercel, and a notice through a real bot.
+
+The run at each task's gate is the truth.
+
+### File map (3b-3)
+
+| File | Task | What it holds |
+| --- | --- | --- |
+| `server/app/services/access.py` | 1 | `ROLE_TOO_HIGH`, `MEMBER_SENIOR`, `GrantRefused(why)` |
+| `server/app/services/manage/requests.py` | 1 | `Approval`, `approve` |
+| `server/app/wording.py` | 1, 2 | the requests' and the directory's sentences |
+| `server/app/api/manage/requests.py` | 1 | v1 calling the moved code |
+| `server/app/services/directory.py` | 2 | `BUCKET_SCOPE`, `DirectoryThrottled`, `DirectoryDisabled`, `DirectoryUnavailable`, `school_regions` |
+| `server/app/services/schools.py` | 2 | `QUERY_TOO_SHORT`, `MAX_REGION` |
+| `server/app/api/directory.py`, `server/app/api/manage/schools.py` | 2 | v1 calling the moved code |
+| `server/tests/conftest.py` | 2 | `DADATA_TOKEN` emptied for the suite |
+| `server/app/rpc/access_request.py` | 3, 4 | `AccessRequestService` |
+| `server/app/rpc/directory.py` | 5, 6 | `DirectoryService` |
+| `server/app/rpc/errors.py` | 4, 5, 6 | eight rows |
+| `server/app/rpc/call.py` | 5 | the docstring's list of what a refusal keeps |
+| `server/app/rpc/handlers.py` | 3–6 | `HANDLERS` |
+| `proto/lessons/v2/directory.proto`, `server/app/contract/**` | 6 | `ListSchoolsRequest`'s comments, regenerated |
+| `server/tests/test_services_access_requests.py` | 1 | the answer, in `services/` |
+| `server/tests/test_services_directory.py` | 2 | the anonymous door, in `services/` |
+| `server/tests/test_v2_access_requests.py`, `server/tests/test_v2_access_request_writes.py` | 3, 4 | `AccessRequestService` |
+| `server/tests/test_v2_school_regions.py`, `server/tests/test_v2_schools.py` | 5, 6 | `DirectoryService` |
+| `server/tests/test_rpc_errors.py` | 4, 5, 6 | `HELD_BY`, `LATER` and `STAGES` |
+| documents | 7 | `docs/api.md`, `docs/README.md`, `docs/architecture.md`, `CLAUDE.md`, `README.md`, the 3b-5 summary in this plan, and the counts in `CONTRIBUTING.md`, the `gates` skill and the `server-tests` agent; `HANDOVER.md` and `docs/history.md` |
+
+Every task's commands follow the Global Constraints, with these names for its scratch files, never committed:
+- the commit messages are `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b3-t<N>.txt`;
+- `buf breaking` runs from `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b3.sh`, because the shell refuses `.git#ref` on a command line.
+
+`#368`, `#369` and `#PR` are numbers the controller obtains before Task 4, before Task 6 and at Task 7 Step 7. `[AFTER-366]` is the slot in Task 7 Step 8 for what the controller hands over about #366's merge.
+
+The full suite at each gate is `pytest -q -n auto`, run alone; the dependency batch ran it as `pytest -q -n 4` to spare the machine's RAM, and either is the gate.
+
+---
+
+### 3b-3 Task 1: The answer to an access request, in `services/`
+
+Decision 2; Rulings 38 and 39. v1 keeps its answers; `test_api_manage.py`, `test_access_service.py` and `test_bot_manage.py` are the proof and are not edited.
+
+**Files:**
+- Modify: `server/app/services/access.py`, `server/app/wording.py`, `server/app/services/manage/requests.py`, `server/app/api/manage/requests.py` (replaced)
+- Create: `server/tests/test_services_access_requests.py`
+
+**Interfaces:**
+- Consumes:
+  - `access.approve_request(session, school_class, request, *, actor_id: int, actor_role: Role, role: Role) -> BotUser`, called by attribute so that `test_access_service.py`'s watch on it still sees both shells;
+  - `classes.display_name(full_name, username, telegram_id) -> str`.
+- Produces:
+  - `access.ROLE_TOO_HIGH = "role_too_high"`, `access.MEMBER_SENIOR = "member_senior"`;
+  - `access.GrantRefused(why: str)`, with `.why`, `.detail` (English) and `str(…)` (Russian);
+  - `requests_service.Approval(member: BotUser, granted: Role, who: str)`, frozen;
+  - `requests_service.approve(session: AsyncSession, school_class: SchoolClass, request: AccessRequest, *, actor_id: int, actor_role: Role, role: Role | None = None) -> Approval`;
+  - `wording.UNKNOWN_ACCESS_REQUEST_DETAIL`, `wording.GRANT_REFUSED_DETAILS: dict[str, str]`, `wording.GRANT_REFUSED_ALERTS: dict[str, str]`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_services_access_requests.py`:
+```python
+"""Answering an access request, in ``services/``: what v1's router held.
+
+v1's ``POST /manage/requests/{id}/approve`` picked the role in its router (none
+sent means the one asked for) and put a name to the member it answered with.
+v2's ``ApproveAccessRequest`` does both too, so they moved to
+``requests_service.approve`` before v2's handler was written, with v1 calling
+it (``docs/specs/2026-10-05-server-v2-design.md``, decision 2). A refused grant
+now says why, which v2 sends as ``ROLE_GRANT_REFUSED``'s ``why``, and the bot
+and v1 keep their words. ``test_api_manage.py`` and ``test_access_service.py``,
+untouched, are the proof that neither moved.
+"""
+
+from __future__ import annotations
+
+import pytest
+from sqlalchemy import select
+
+from app import wording
+from app.models import AccessRequest, AuditEntry, BotUser, Role
+from app.services import access
+from app.services.manage import requests as requests_service
+
+ASKER = 7701
+
+
+async def _asks(session, school_class, telegram_id: int = ASKER, role: Role = Role.EDITOR):
+    request = AccessRequest(
+        class_id=school_class.id, telegram_id=telegram_id, requested_role=role, status="pending"
+    )
+    session.add(request)
+    await session.commit()
+    return request
+
+
+async def test_a_refused_grant_says_why_and_keeps_each_shell_s_words(session, school_class) -> None:
+    """The fact is ``why``. The bot shows ``str(…)`` and v1 sends ``detail``,
+    each the sentence it showed before the fact existed."""
+    for_admin = await _asks(session, school_class, role=Role.ADMIN)
+    with pytest.raises(access.GrantRefused) as too_high:
+        await requests_service.approve(
+            session, school_class, for_admin, actor_id=9001, actor_role=Role.ADMIN
+        )
+    assert too_high.value.why == access.ROLE_TOO_HIGH == "role_too_high"
+    assert str(too_high.value) == "Нельзя выдать роль выше вашей"
+    assert too_high.value.detail == "cannot grant a role at or above your own"
+
+    session.add(BotUser(telegram_id=7702, class_id=school_class.id, role=Role.ADMIN))
+    await session.commit()
+    from_a_peer = await _asks(session, school_class, telegram_id=7702)
+    with pytest.raises(access.GrantRefused) as senior:
+        await requests_service.approve(
+            session, school_class, from_a_peer, actor_id=9001, actor_role=Role.ADMIN
+        )
+    assert senior.value.why == access.MEMBER_SENIOR == "member_senior"
+    assert str(senior.value) == "Нельзя менять роль этого пользователя"
+    assert senior.value.detail == "cannot change this member's role"
+
+    assert (for_admin.status, from_a_peer.status) == ("pending", "pending")
+    assert [row for row in session.new if isinstance(row, AuditEntry)] == []
+
+
+async def test_an_approval_grants_the_role_asked_for_and_names_the_member(
+    session, school_class
+) -> None:
+    """No role sent is the role asked for, as «✅ Выдать» grants it; a role sent
+    goes through the same ladder. The name is the one an admin reads: the
+    @username of a member the class knows, else the numeric id."""
+    session.add(
+        BotUser(telegram_id=ASKER, class_id=school_class.id, role=Role.VIEWER, username="masha")
+    )
+    await session.commit()
+    asked = await _asks(session, school_class)
+    approval = await requests_service.approve(
+        session, school_class, asked, actor_id=9001, actor_role=Role.ADMIN
+    )
+    assert (approval.granted, approval.member.role, approval.who) == (
+        Role.EDITOR,
+        Role.EDITOR,
+        "@masha",
+    )
+    assert asked.status == "approved"
+
+    newcomer = await _asks(session, school_class, telegram_id=7702)
+    chosen = await requests_service.approve(
+        session, school_class, newcomer, actor_id=9001, actor_role=Role.ADMIN, role=Role.VIEWER
+    )
+    assert (chosen.granted, chosen.member.role, chosen.who) == (Role.VIEWER, Role.VIEWER, "7702")
+    await session.commit()
+    actions = await session.scalars(select(AuditEntry.action).order_by(AuditEntry.id))
+    assert list(actions) == ["access.approve", "access.approve"]
+
+
+async def test_an_approval_never_lowers_a_member_above_the_role_asked_for(
+    session, school_class
+) -> None:
+    """A viewer who asked for editor and was made an admin before anybody
+    answered stays an admin when the owner says yes to the old request."""
+    session.add(
+        BotUser(telegram_id=ASKER, class_id=school_class.id, role=Role.ADMIN, full_name="Маша")
+    )
+    await session.commit()
+    asked = await _asks(session, school_class)
+    approval = await requests_service.approve(
+        session, school_class, asked, actor_id=9001, actor_role=Role.OWNER
+    )
+    assert (approval.member.role, approval.who) == (Role.ADMIN, "Маша")
+    assert asked.status == "approved"
+
+
+def test_the_requests_sentences_are_v1_s() -> None:
+    assert wording.UNKNOWN_ACCESS_REQUEST_DETAIL == "Unknown request"
+    assert wording.GRANT_REFUSED_DETAILS == {
+        "role_too_high": "cannot grant a role at or above your own",
+        "member_senior": "cannot change this member's role",
+    }
+    assert wording.GRANT_REFUSED_ALERTS == {
+        "role_too_high": "Нельзя выдать роль выше вашей",
+        "member_senior": "Нельзя менять роль этого пользователя",
+    }
+```
+Run, from `$WT/server`:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_access_requests.py
+```
+Expected: 4 tests, every one failing with `AttributeError` on a name this task adds: `requests_service.approve` or `wording.UNKNOWN_ACCESS_REQUEST_DETAIL`. Keep this output: the task's report quotes it as the evidence that the tests failed before the code.
+
+- [ ] **Step 2: `services/access.py`: the refusal carries why.**
+  1. In the module docstring, replace:
+```python
+The refusals carry both sentences, because the two surfaces say different
+things to different people: the bot shows Russian in an alert to the admin who
+pressed the button, the API answers a 403 whose `detail` is English like every
+other detail it sends.
+```
+     with:
+```python
+A refusal carries why it refused, and the surfaces say it differently to
+different people: the bot shows Russian in an alert to the admin who pressed
+the button, v1 answers a 403 whose `detail` is English like every other detail
+it sends, and v2 answers `ROLE_GRANT_REFUSED` with the same English and the
+fact itself as `why`. The sentences are `app/wording.py`'s.
+```
+  2. Replace:
+```python
+from app.models import AccessRequest, BotUser, Role, SchoolClass
+from app.services import audit
+from app.services.roles import can_grant
+
+
+class GrantRefused(Exception):
+    """A grant the role ladder does not allow.
+
+    ``str(…)`` is the Russian sentence the bot shows in an alert; ``detail`` is
+    the English one the API puts in its 403. One exception rather than two
+    return values, because every refusal here ends the same way: nothing is
+    written and somebody is told why.
+    """
+
+    def __init__(self, message: str, detail: str) -> None:
+        super().__init__(message)
+        self.detail = detail
+```
+     with:
+```python
+from app import wording
+from app.models import AccessRequest, BotUser, Role, SchoolClass
+from app.services import audit
+from app.services.roles import can_grant
+
+#: Why a grant was refused: nobody grants a role at or above their own, and a
+#: member who is the grantor's peer or senior is not theirs to change. v2
+#: sends it as ``ROLE_GRANT_REFUSED``'s ``why`` (``errors.proto``).
+ROLE_TOO_HIGH = "role_too_high"
+MEMBER_SENIOR = "member_senior"
+
+
+class GrantRefused(Exception):
+    """A grant the role ladder does not allow, and why: :data:`ROLE_TOO_HIGH`
+    or :data:`MEMBER_SENIOR`.
+
+    ``why`` is the fact. ``str(…)`` is the Russian sentence the bot shows in an
+    alert, and ``detail`` the English one v1 puts in its 403 and v2 in its
+    refusal, both looked up by ``why`` in ``app/wording.py``. One exception
+    rather than two return values, because every refusal here ends the same
+    way: nothing is written and somebody is told why.
+    """
+
+    def __init__(self, why: str) -> None:
+        super().__init__(wording.GRANT_REFUSED_ALERTS[why])
+        self.why = why
+        self.detail = wording.GRANT_REFUSED_DETAILS[why]
+```
+  3. In `approve_request`, replace:
+```python
+    if not can_grant(actor_role, role):
+        raise GrantRefused(
+            "Нельзя выдать роль выше вашей",
+            detail="cannot grant a role at or above your own",
+        )
+```
+     with:
+```python
+    if not can_grant(actor_role, role):
+        raise GrantRefused(ROLE_TOO_HIGH)
+```
+     and replace:
+```python
+    if member is not None and member.role.rank >= actor_role.rank:
+        raise GrantRefused(
+            "Нельзя менять роль этого пользователя",
+            detail="cannot change this member's role",
+        )
+```
+     with:
+```python
+    if member is not None and member.role.rank >= actor_role.rank:
+        raise GrantRefused(MEMBER_SENIOR)
+```
+
+- [ ] **Step 3: `app/wording.py` gains the requests' sentences.** Below the file's last line, `UNKNOWN_TIMEZONE_DETAIL = "unknown timezone"`, append:
+```python
+
+
+#: v1's ``/manage/requests`` and v2's ``AccessRequestService``: an id that names
+#: no open request of the class — answered already, another class's, or none.
+UNKNOWN_ACCESS_REQUEST_DETAIL = "Unknown request"
+
+#: Why ``services/access.approve_request`` refused a grant, by the ``why`` its
+#: refusal carries: a role at or above the grantor's own, and a member who is
+#: the grantor's peer or senior. The English is v1's 403 and v2's
+#: ``ROLE_GRANT_REFUSED``; the Russian is the bot's alert on «✅ Выдать».
+GRANT_REFUSED_DETAILS = {
+    "role_too_high": "cannot grant a role at or above your own",
+    "member_senior": "cannot change this member's role",
+}
+GRANT_REFUSED_ALERTS = {
+    "role_too_high": "Нельзя выдать роль выше вашей",
+    "member_senior": "Нельзя менять роль этого пользователя",
+}
+```
+
+- [ ] **Step 4: `services/manage/requests.py` gains `approve`.**
+  1. Replace the module docstring and the imports:
+```python
+"""«🙋 Запрос доступа» and ``/manage/requests``: the requests waiting for an answer.
+
+Granting is :func:`app.services.access.approve_request`, which both shells
+already shared; this is the rest of what they wrote twice - finding a request
+that is still open, and saying no - and what only the bot does, because only
+Telegram can be asked in: raising a request, and finding who to tell.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from html import escape
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import AccessRequest, BotUser, Role, SchoolClass
+from app.services import audit
+```
+     with:
+```python
+"""«🙋 Запрос доступа» and ``/manage/requests``: the requests waiting for an answer.
+
+Granting is :func:`app.services.access.approve_request`, which both shells
+already shared; this is the rest of what they wrote twice - finding a request
+that is still open, answering yes with the role sent or the one asked for
+(:func:`approve`, which v1's router held and v2's ``ApproveAccessRequest``
+applies too), and saying no - and what only the bot does, because only
+Telegram can be asked in: raising a request, and finding who to tell.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from html import escape
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import AccessRequest, BotUser, Role, SchoolClass
+from app.services import access, audit
+from app.services.manage import classes
+```
+  2. Directly above the line `async def decline(` (followed by `    session: AsyncSession, class_id: int, actor_id: int, request: AccessRequest`), insert:
+```python
+@dataclass(frozen=True)
+class Approval:
+    """What answering yes did."""
+
+    #: The membership as it now stands: made, raised, or left where it was,
+    #: because an existing member is never lowered.
+    member: BotUser
+    #: The role the request was answered with: the one sent, else the one asked for.
+    granted: Role
+    #: The member as an admin reads them (``classes.display_name``).
+    who: str
+
+
+async def approve(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    request: AccessRequest,
+    *,
+    actor_id: int,
+    actor_role: Role,
+    role: Role | None = None,
+) -> Approval:
+    """Answer yes with ``role``, or with the role asked for when none is sent.
+
+    v1 and v2 let an admin answer with another role than the one asked for;
+    the bot always grants the one asked for. Either way it goes through the
+    ladder :func:`app.services.access.approve_request` holds. Nothing is
+    committed: the caller commits the grant with its audit line, and only then
+    tells whoever asked.
+
+    @raises app.services.access.GrantRefused when the ladder does not allow it.
+    """
+    granted = role if role is not None else request.requested_role
+    member = await access.approve_request(
+        session,
+        school_class,
+        request,
+        actor_id=actor_id,
+        actor_role=actor_role,
+        role=granted,
+    )
+    return Approval(
+        member=member,
+        granted=granted,
+        who=classes.display_name(member.full_name, member.username, member.telegram_id),
+    )
+
+
+```
+     (Two blank lines follow the inserted code, before `async def decline(`.)
+
+- [ ] **Step 5: v1 calls the moved code.** Replace `server/app/api/manage/requests.py` whole with:
+```python
+"""``/requests``: the access requests waiting for an admin, and the answer.
+
+Part of :mod:`app.api.manage`; the rules every endpoint of it
+follows are in that package's docstring. Answering yes is
+``services/manage/requests.approve``, which v2's ``ApproveAccessRequest``
+applies too, and the sentences the refusals answer with are
+``app/wording.py``'s.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from dishka.integrations.fastapi import FromDishka
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app import wording
+from app.api.deps import current_class
+from app.api.manage._common import Actor, admin_actor
+from app.api.routing import DishkaAnnotatedRoute
+from app.config import get_settings
+from app.models import AccessRequest, Role, SchoolClass
+from app.schemas import AccessRequestOut, RequestDecisionIn, RequestDecisionOut
+from app.services import access as access_service
+from app.services.clock import wall
+from app.services.manage import classes as classes_service
+from app.services.manage import requests as requests_service
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(route_class=DishkaAnnotatedRoute)
+
+
+def _build_bot() -> Any | None:
+    """A bot for one send, or ``None`` when the deployment has no token.
+
+    Imported lazily: aiogram costs seconds to import and a management endpoint
+    should not pay that on a deployment that has no bot to notify with. One
+    per router module, as in ``app.api.edit`` and ``app.api.cron`` - it is the
+    seam the tests replace.
+    """
+    if not get_settings().bot_token:
+        return None
+    from app.telegram_send import build_bot
+
+    return build_bot()
+
+
+async def _tell(telegram_id: int, text: str) -> None:
+    """Tell one person what was decided. Never fails the request: the decision
+    is already committed, and a Telegram outage does not undo it."""
+    bot = _build_bot()
+    if bot is None:
+        return
+    try:
+        await bot.send_message(telegram_id, text)
+    except Exception:  # noqa: BLE001 - see the docstring
+        log.warning("could not tell %s about the decision", telegram_id, exc_info=True)
+    finally:
+        bot_session = getattr(bot, "session", None)
+        if bot_session is not None:
+            await bot_session.close()
+
+
+# --------------------------------------------------------------------------
+# 🙋 Access requests
+# --------------------------------------------------------------------------
+
+
+async def _request_or_404(
+    session: AsyncSession, school_class: SchoolClass, request_id: int
+) -> AccessRequest:
+    """Pending, and this class's. A request that has already been answered is
+    gone as far as this endpoint is concerned, so two admins tapping «Выдать»
+    at once cannot grant twice."""
+    request = await requests_service.pending_one(session, school_class.id, request_id)
+    if request is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_ACCESS_REQUEST_DETAIL
+        )
+    return request
+
+
+@router.get("/requests", response_model=list[AccessRequestOut])
+async def requests_list(
+    _: Actor = Depends(admin_actor),
+    school_class: SchoolClass = Depends(current_class),
+    *,
+    session: FromDishka[AsyncSession],
+) -> list[AccessRequestOut]:
+    """Everybody waiting for a role, oldest first."""
+    rows = await requests_service.pending(session, school_class.id)
+    names = await classes_service.member_names(session, school_class.id)
+    return [
+        AccessRequestOut(
+            id=row.id,
+            who=names.get(row.telegram_id, str(row.telegram_id)),
+            requested_role=row.requested_role.value,
+            message=row.message,
+            created_at=wall(row.created_at, school_class),
+        )
+        for row in rows
+    ]
+
+
+@router.post("/requests/{request_id}/approve", response_model=RequestDecisionOut)
+async def request_approve(
+    request_id: int,
+    payload: RequestDecisionIn | None = None,
+    actor: Actor = Depends(admin_actor),
+    school_class: SchoolClass = Depends(current_class),
+    *,
+    session: FromDishka[AsyncSession],
+) -> RequestDecisionOut:
+    """Grant the role, through the same rules as «👥 Доступ» in the bot.
+
+    Literally the same rules: `services/access.approve_request` is what the
+    bot's own «✅ Выдать» calls, so the two surfaces cannot drift apart, and
+    `services/manage/requests.approve` around it is what v2's
+    `ApproveAccessRequest` calls. The only thing this one does differently
+    from the bot is let an admin answer with a role other than the one asked
+    for - which `can_grant` still gates, inside the service.
+
+    The requester is told in Telegram, because that is where they asked.
+    """
+    request = await _request_or_404(session, school_class, request_id)
+    try:
+        approval = await requests_service.approve(
+            session,
+            school_class,
+            request,
+            actor_id=actor.telegram_id,
+            actor_role=actor.role,
+            role=Role(payload.role) if payload is not None and payload.role else None,
+        )
+    except access_service.GrantRefused as refused:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=refused.detail
+        ) from refused
+
+    await session.commit()
+
+    await _tell(request.telegram_id, access_service.approval_notice(school_class, approval.granted))
+    return RequestDecisionOut(
+        id=request_id, status="approved", role=approval.granted.value, who=approval.who
+    )
+
+
+@router.post("/requests/{request_id}/decline", response_model=RequestDecisionOut)
+async def request_decline(
+    request_id: int,
+    actor: Actor = Depends(admin_actor),
+    school_class: SchoolClass = Depends(current_class),
+    *,
+    session: FromDishka[AsyncSession],
+) -> RequestDecisionOut:
+    """Say no. The person keeps whatever role they already had, and is told -
+    silence would leave them asking again."""
+    request = await _request_or_404(session, school_class, request_id)
+    names = await classes_service.member_names(session, school_class.id)
+    who = names.get(request.telegram_id, str(request.telegram_id))
+
+    await requests_service.decline(session, school_class.id, actor.telegram_id, request)
+    await session.commit()
+
+    await _tell(request.telegram_id, requests_service.decline_notice(school_class))
+    return RequestDecisionOut(id=request_id, status="declined", who=who)
+```
+
+- [ ] **Step 6: Green, and v1 unchanged.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_access_requests.py tests/test_access_service.py tests/test_api_manage.py tests/test_bot_manage.py tests/test_service_layering.py
+```
+Expected: every test passes, and `test_services_access_requests.py` has 4. v1's files pass unchanged:
+- `test_access_service.py` reads `str(…)` and `.detail` of both refusals, and watches both shells call `approve_request`;
+- `test_api_manage.py` holds every answer of `/manage/requests`, its 403s in their words, and the notice through its `recording_bot`;
+- `test_bot_manage.py` holds that the bot's «✅ Выдать» refuses a grant the ladder does not allow with an alert, and writes nothing.
+
+- [ ] **Step 7: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 228 source files`. Then the full suite once:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -n auto
+```
+Expected: 2717 passed (2713 + 4).
+
+- [ ] **Step 8: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b3-t1.txt`:
+```text
+Move the answer to an access request into services before v2 needs it
+
+v1's POST /manage/requests/{id}/approve picked the role in its router,
+the one sent or else the one asked for, and named the member it answered
+with. v2's ApproveAccessRequest needs both and may not import a router,
+so they move to services/manage/requests.approve, and v1 calls it.
+
+GrantRefused carried two sentences and no fact. It now carries why,
+role_too_high or member_senior, the values errors.proto names for
+ROLE_GRANT_REFUSED, and looks both sentences up in app/wording.py by it,
+so str() and .detail are what they were: the bot's alert, v1's 403 and
+test_access_service.py read the same words untouched. v1's «Unknown
+request» moves into app/wording.py too.
+
+Not covered: no v2 method uses any of this yet.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/services/access.py server/app/wording.py server/app/services/manage/requests.py server/app/api/manage/requests.py server/tests/test_services_access_requests.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b3-t1.txt
+```
+
+---
+
+### 3b-3 Task 2: The anonymous directory's order of checks, in `services/`
+
+Decisions 2 and 11; Rulings 42, 43, 45 and 47. v1 keeps its answers; `test_directory.py`, `test_api_manage.py`, `test_shared_rules.py` and `test_schools.py` are the proof and are not edited.
+
+**Files:**
+- Create: `server/app/services/directory.py`, `server/tests/test_services_directory.py`
+- Modify: `server/app/services/schools.py`, `server/app/wording.py`, `server/app/api/directory.py` (replaced), `server/app/api/manage/schools.py`, `server/tests/conftest.py`
+
+**Interfaces:**
+- Consumes:
+  - `security.directory_limiter` (`admit`, `forgive`) and `security.Throttled` (its `.seconds`);
+  - `schools.normalise_query`, `available`, `regions_for`, `RegionSearch`, `SearchError`;
+  - `quota.AllowanceSpent` (its `.retry_after`), `dadata.DirectoryError`;
+  - `api.deps.request_bucket(request, *, scope)`.
+- Produces:
+  - `directory.BUCKET_SCOPE = "directory:"`;
+  - `directory.DirectoryThrottled(security.Throttled)`, `directory.DirectoryDisabled(Exception)`, `directory.DirectoryUnavailable(Exception)`;
+  - `directory.school_regions(session: AsyncSession, raw_query: str | None, *, client_key: str) -> schools.RegionSearch`;
+  - `schools.QUERY_TOO_SHORT`, `schools.MAX_REGION = 120`;
+  - `wording.DIRECTORY_THROTTLED_DETAIL`, `DIRECTORY_DISABLED_DETAIL`, `DIRECTORY_SPENT_DETAIL`, `DIRECTORY_UPSTREAM_DETAIL`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_services_directory.py`:
+```python
+"""The anonymous directory's door, in ``services/``: what v1's router held.
+
+v1's ``GET /directory/school-regions`` held the order of its checks in its
+router; v2's ``ListSchoolRegions`` asks the same question, so the order moved
+to ``directory.school_regions`` before v2's handler was written, with v1
+calling it (``docs/specs/2026-10-05-server-v2-design.md``, decisions 2 and 11).
+``test_directory.py``, untouched, is the proof that v1's answers did not move;
+these hold the order a fact at a time, and the sentences both versions answer
+with.
+
+Nothing reaches DaData: ``dadata.suggest_schools`` is replaced, and keeps the
+queries it was asked.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+from sqlalchemy import func, select
+
+from app import wording
+from app.config import get_settings
+from app.models import JoinAttempt
+from app.providers import dadata
+from app.security import directory_limiter
+from app.services import directory as directory_service
+from app.services import quota
+from app.services import schools as schools_service
+
+#: One caller's bucket, as a shell would hand it in.
+KEY = "test-directory-caller"
+
+#: One school in Moscow, as DaData's ``suggest/party`` writes it.
+MOSCOW = {
+    "value": 'ГБОУ "ЛИЦЕЙ № 1535"',
+    "data": {
+        "ogrn": "1",
+        "name": {"short_with_opf": 'ГБОУ "ЛИЦЕЙ № 1535"'},
+        "state": {"status": "ACTIVE"},
+        "address": {"value": "Москва", "data": {"region_kladr_id": "7700000000000"}},
+    },
+}
+
+
+@pytest.fixture
+def asked(monkeypatch) -> list[str]:
+    """A configured directory that finds the one school in Moscow; the queries
+    it was asked, in order."""
+    monkeypatch.setattr(get_settings(), "dadata_token", "<redacted>")
+    queries: list[str] = []
+
+    async def suggest(query: str, *, region: str | None = None, may_retry: Any = None):
+        queries.append(query)
+        return [MOSCOW]
+
+    monkeypatch.setattr(dadata, "suggest_schools", suggest)
+    return queries
+
+
+async def _attempts(session) -> int:
+    return await session.scalar(select(func.count()).select_from(JoinAttempt)) or 0
+
+
+async def _spent(session) -> int:
+    return await quota.used(session, quota.DADATA_ANONYMOUS, quota.quota_day())
+
+
+async def test_a_short_query_is_handed_back_and_any_other_stays_counted(session, asked) -> None:
+    with pytest.raises(schools_service.SearchError) as short:
+        await directory_service.school_regions(session, " шк ", client_key=KEY)
+    assert str(short.value) == schools_service.QUERY_TOO_SHORT
+    assert await _attempts(session) == 0
+
+    found = await directory_service.school_regions(session, "лицей  1535", client_key=KEY)
+    assert found.query == "лицей 1535"
+    assert [group.region for group in found.groups] == ["moscow"]
+    assert asked == ["лицей 1535"]
+    assert (await _attempts(session), await _spent(session)) == (1, 1)
+
+
+async def test_a_caller_over_the_limit_is_refused_before_the_query_is_read(session, asked) -> None:
+    for _ in range(directory_limiter.limit):
+        found = await directory_service.school_regions(session, "школа № 5", client_key=KEY)
+        assert found.generic is True
+    with pytest.raises(directory_service.DirectoryThrottled) as throttled:
+        # Too short as well: the limit is asked first, so this is no SearchError.
+        await directory_service.school_regions(session, "шк", client_key=KEY)
+    assert throttled.value.seconds >= 1
+    # A name too common to place asked nothing and spent nothing.
+    assert asked == []
+    assert await _spent(session) == 0
+    # Another caller's budget is its own.
+    other = await directory_service.school_regions(session, "школа № 5", client_key="another")
+    assert other.generic is True
+
+
+async def test_without_a_key_even_a_common_name_is_disabled_and_stays_counted(
+    session, monkeypatch
+) -> None:
+    """The key is asked about before the name is: v1 answered «не настроен»
+    rather than «too common to place» on a deployment that has no directory."""
+    monkeypatch.setattr(get_settings(), "dadata_token", "")
+    with pytest.raises(directory_service.DirectoryDisabled):
+        await directory_service.school_regions(session, "школа № 5", client_key=KEY)
+    assert (await _attempts(session), await _spent(session)) == (1, 0)
+
+
+async def test_a_failing_directory_is_one_fact_and_its_unit_stays_spent(
+    session, monkeypatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "dadata_token", "<redacted>")
+    failures = [dadata.UpstreamUnavailable(), dadata.QuotaExceeded(), dadata.UnexpectedResponse()]
+
+    async def fail(query: str, *, region: str | None = None, may_retry: Any = None):
+        raise failures.pop(0)
+
+    monkeypatch.setattr(dadata, "suggest_schools", fail)
+    for _ in range(3):
+        with pytest.raises(directory_service.DirectoryUnavailable):
+            await directory_service.school_regions(session, "лицей 1535", client_key=KEY)
+    assert failures == []
+    assert (await _attempts(session), await _spent(session)) == (3, 3)
+
+
+def test_the_directory_s_sentences_are_v1_s() -> None:
+    assert wording.DIRECTORY_THROTTLED_DETAIL == (
+        "Слишком много поисков подряд. Выберите регион из списка или попробуйте позже."
+    )
+    assert wording.DIRECTORY_DISABLED_DETAIL == (
+        "Поиск школ не настроен — выберите регион из списка"
+    )
+    assert wording.DIRECTORY_SPENT_DETAIL == (
+        "Поиск школ на сегодня исчерпан — выберите регион из списка"
+    )
+    assert wording.DIRECTORY_UPSTREAM_DETAIL == (
+        "Поиск школ сейчас недоступен — выберите регион из списка"
+    )
+    assert schools_service.QUERY_TOO_SHORT == "Введите хотя бы 3 символа названия школы"
+    # Written inline in v1's router until they moved: its region hint's
+    # ceiling, and the scope of its bucket.
+    assert schools_service.MAX_REGION == 120
+    assert directory_service.BUCKET_SCOPE == "directory:"
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_directory.py
+```
+Expected: an error at collection, `ImportError: cannot import name 'directory' from 'app.services'`. Keep this output as the evidence.
+
+- [ ] **Step 2: `services/schools.py` gains the short query's sentence and the region's ceiling.**
+  1. Replace the line `MIN_QUERY = 3` with:
+```python
+MIN_QUERY = 3
+
+#: What a query too short to search with is refused with: by the bot in a
+#: message, by v1 as a 422 and by v2 as ``VALIDATION_FAILED`` on ``query``. A
+#: constant, so that v2's error table words the refusal with it rather than
+#: with the exception's own text.
+QUERY_TOO_SHORT = f"Введите хотя бы {MIN_QUERY} символа названия школы"
+
+#: The longest region hint a search takes. It goes upstream as a ranking
+#: boost, and v1's ``/manage/schools`` has always refused a longer one; v2's
+#: ``ListSchools`` refuses it on ``region``.
+MAX_REGION = 120
+```
+  2. In `normalise_query`, replace:
+```python
+        raise SearchError(f"Введите хотя бы {MIN_QUERY} символа названия школы")
+```
+     with:
+```python
+        raise SearchError(QUERY_TOO_SHORT)
+```
+  3. In `server/app/api/manage/schools.py`, replace:
+```python
+    region: str | None = Query(None, max_length=120),
+```
+     with:
+```python
+    region: str | None = Query(None, max_length=schools_service.MAX_REGION),
+```
+
+- [ ] **Step 3: `app/wording.py` gains the directory's sentences.** Below the block Task 1 appended, which ends:
+```python
+GRANT_REFUSED_ALERTS = {
+    "role_too_high": "Нельзя выдать роль выше вашей",
+    "member_senior": "Нельзя менять роль этого пользователя",
+}
+```
+append:
+```python
+
+
+#: v1's ``GET /directory/school-regions`` and v2's ``ListSchoolRegions``, the
+#: anonymous school directory: too many searches, no ``DADATA_TOKEN``, today's
+#: anonymous share spent, and the directory failing. Each names the way on,
+#: the region list, because picking the region from it always works.
+DIRECTORY_THROTTLED_DETAIL = (
+    "Слишком много поисков подряд. Выберите регион из списка или попробуйте позже."
+)
+DIRECTORY_DISABLED_DETAIL = "Поиск школ не настроен — выберите регион из списка"
+DIRECTORY_SPENT_DETAIL = "Поиск школ на сегодня исчерпан — выберите регион из списка"
+DIRECTORY_UPSTREAM_DETAIL = "Поиск школ сейчас недоступен — выберите регион из списка"
+```
+
+- [ ] **Step 4: Create `server/app/services/directory.py`:**
+```python
+"""The anonymous school directory's door: «which regions is a school of this name in».
+
+v1's ``GET /directory/school-regions`` held the order of its checks in its
+router, and v2's ``ListSchoolRegions`` asks the same question, so the order
+moved here (``docs/specs/2026-10-05-server-v2-design.md``, decisions 2 and 11).
+Both versions count the caller in one bucket, scoped :data:`BUCKET_SCOPE`, on
+``security.directory_limiter``, and spend from one anonymous share of the
+directory's daily allowance (``services/quota.py``): a caller alternating the
+two versions has twenty searches, not forty.
+
+A refusal is an exception carrying facts, never a sentence, and each shell
+words it in ``app/wording.py``'s sentences: v1 as a 429, a 422 or a 503 with
+``X-Directory-Unavailable``, v2 through its error table. The admins' search
+(``/manage/schools``, ``ListSchools``) has no door here: it is
+``schools.search``, unmetered, and its refusals are the provider's own.
+
+It commits, as the limiter and the allowance it stands on do: an attempt
+counted and a unit spent stay so whatever the caller does next, because the
+directory counts its requests either way.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.providers import dadata
+from app.security import Throttled, directory_limiter
+from app.services import schools
+
+#: Mixed into the caller's bucket, so that twenty searches spend nothing of a
+#: phone's thirty join attempts or its ten diary sign-ins: the three doors
+#: count on one table (``security.JoinThrottle``).
+BUCKET_SCOPE = "directory:"
+
+
+class DirectoryThrottled(Throttled):
+    """This caller has made its twenty searches inside the window."""
+
+
+class DirectoryDisabled(Exception):
+    """This deployment has no ``DADATA_TOKEN``, so there is no directory to ask."""
+
+
+class DirectoryUnavailable(Exception):
+    """The directory failed: down, refusing the key or its own daily allowance,
+    or answering something new. One fact for all of them, because to a phone
+    with no class they are one «not now», and the region list is the way on."""
+
+
+async def school_regions(
+    session: AsyncSession, raw_query: str | None, *, client_key: str
+) -> schools.RegionSearch:
+    """The regions a school called ``raw_query`` may be in, best first.
+
+    In this order, which is the contract (``directory.proto``):
+
+    1. the attempt is counted, and a caller over its limit is refused;
+    2. a query under three characters is refused, and the attempt handed back,
+       because nothing was asked of anybody;
+    3. a deployment with no directory is refused;
+    4. a name too common to place is answered with nothing spent; any other
+       spends one unit of today's anonymous share first, or is refused;
+    5. the directory failing, in any way, is refused.
+
+    ``client_key`` is the caller's bucket under :data:`BUCKET_SCOPE`.
+
+    @raises DirectoryThrottled over the limit, with the seconds to wait.
+    @raises schools.SearchError for a query too short to search with.
+    @raises DirectoryDisabled without a key.
+    @raises quota.AllowanceSpent when today's anonymous share is gone.
+    @raises DirectoryUnavailable when the directory failed.
+    """
+    # Counted first and handed back on a short query, rather than checked here
+    # and recorded after the validation: between a check and a later record,
+    # every request of a parallel burst from one address read the count from
+    # before any of them, and each went on to spend the anonymous share.
+    attempt = await directory_limiter.admit(session, client_key)
+    if attempt.retry_after is not None:
+        raise DirectoryThrottled(attempt.retry_after)
+    try:
+        query = schools.normalise_query(raw_query)
+    except schools.SearchError:
+        await directory_limiter.forgive(session, attempt)
+        raise
+    if not schools.available():
+        raise DirectoryDisabled("DADATA_TOKEN is empty")
+    try:
+        return await schools.regions_for(session, query)
+    except dadata.DirectoryError as failure:
+        raise DirectoryUnavailable(type(failure).__name__) from failure
+```
+
+- [ ] **Step 5: v1 calls the moved code.** Replace `server/app/api/directory.py` whole with:
+```python
+"""The school directory, for a phone that belongs to no class yet.
+
+One question: «which regions is a school of this name in». The phone asks it
+on its first screen, before it has a class, a diary or any token at all, so
+that somebody who types «лицей 1535» is offered Москва rather than a list of
+eighty-nine regions to scroll. It is a convenience and nothing depends on it:
+picking the region from the list always works, and every failure here says so.
+
+**Anonymous, and therefore metered twice.** Every call past validation counts
+against its caller (twenty in fifteen minutes, on the table `/join` counts in),
+and every request it makes upstream is spent from the anonymous share of the
+directory's daily allowance (``services/quota.py``) — so neither one address
+nor many can spend what the bot and ``/manage/schools`` need to create a
+class. Those two keep their own search, unchanged and unmetered here. The
+order of the checks is ``services/directory.school_regions``, which v2's
+``ListSchoolRegions`` calls too, so the two versions count a caller once;
+this module words what it refuses.
+
+Every 503 carries ``X-Directory-Unavailable`` — ``disabled``, ``spent`` or
+``upstream`` — for the same reason every diary 503 carries its own header: the
+app picks its sentence without reading the Russian.
+"""
+
+from __future__ import annotations
+
+from dishka.integrations.fastapi import FromDishka
+from fastapi import APIRouter, HTTPException, Query, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app import wording
+from app.api.deps import request_bucket
+from app.api.routing import DishkaAnnotatedRoute
+from app.schemas import SchoolRegionOut, SchoolRegionsOut
+from app.security import directory_limiter as directory_limiter
+from app.services import directory as directory_service
+from app.services import quota
+from app.services import schools as schools_service
+
+router = APIRouter(
+    route_class=DishkaAnnotatedRoute, prefix="/api/v1/directory", tags=["directory"]
+)
+
+# `directory_limiter` is `app.security`'s, the one instance v1 and v2 share
+# (the server-v2 design, decision 11), and `services/directory.py` counts on
+# it; imported above under its own name so that the tests that read it here
+# keep it.
+
+#: The header every 503 here carries, and its three values.
+UNAVAILABLE_HEADER = "X-Directory-Unavailable"
+
+#: v1's sentences, under the names this module has always given them; they are
+#: ``app/wording.py``'s, which v2's ``ListSchoolRegions`` answers with too.
+DISABLED_DETAIL = wording.DIRECTORY_DISABLED_DETAIL
+SPENT_DETAIL = wording.DIRECTORY_SPENT_DETAIL
+UPSTREAM_DETAIL = wording.DIRECTORY_UPSTREAM_DETAIL
+THROTTLED_DETAIL = wording.DIRECTORY_THROTTLED_DETAIL
+
+
+def _unavailable(detail: str, reason: str, *, retry_after: int | None = None) -> HTTPException:
+    headers = {UNAVAILABLE_HEADER: reason}
+    if retry_after is not None:
+        headers["Retry-After"] = str(retry_after)
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail, headers=headers
+    )
+
+
+@router.get("/school-regions", response_model=SchoolRegionsOut)
+async def school_regions(
+    request: Request,
+    q: str | None = Query(None, description="Название школы, как его пишут люди"),
+    *,
+    session: FromDishka[AsyncSession],
+) -> SchoolRegionsOut:
+    """The regions a school called ``q`` may be in, best-ranked first.
+
+    In this order, and the order is the contract
+    (``services/directory.school_regions`` keeps it):
+
+    1. a caller over its limit is 429 with ``Retry-After``;
+    2. a query under three characters is 422, **not counted** — nothing was
+       asked of anybody;
+    3. everything after that is counted against the caller;
+    4. no directory key on this deployment is 503 ``disabled``;
+    5. a name that is only a kind of school and a small number («школа № 5»)
+       is 200 with ``generic`` and no upstream call; anything else spends from
+       today's anonymous share, and a spent share is 503 ``spent`` with
+       ``Retry-After`` until the next day;
+    6. the directory failing, in any way, is 503 ``upstream``.
+
+    Not per keystroke: the phone asks on submit or after a pause in typing.
+    """
+    # Scoped, so twenty searches do not spend a phone's thirty join attempts,
+    # and hashed with the scope inside it — see `deps.caller_bucket` for why a
+    # prefix on the digest is a 500 on Postgres.
+    client = request_bucket(request, scope=directory_service.BUCKET_SCOPE)
+    try:
+        found = await directory_service.school_regions(session, q, client_key=client)
+    except directory_service.DirectoryThrottled as throttled:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=THROTTLED_DETAIL,
+            headers={"Retry-After": str(throttled.seconds)},
+        ) from throttled
+    except schools_service.SearchError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
+        ) from error
+    except directory_service.DirectoryDisabled as disabled:
+        raise _unavailable(DISABLED_DETAIL, "disabled") from disabled
+    except quota.AllowanceSpent as spent:
+        raise _unavailable(SPENT_DETAIL, "spent", retry_after=spent.retry_after) from spent
+    except directory_service.DirectoryUnavailable as failed:
+        # The bot's own wording for these ends «введите название вручную»,
+        # which is the bot's way out and not the phone's. DaData's refusal of
+        # the key or of its own daily allowance lands here too: it is the
+        # owner's to fix, and to the person holding the phone it is the same
+        # «not now».
+        raise _unavailable(UPSTREAM_DETAIL, "upstream") from failed
+
+    return SchoolRegionsOut(
+        query=found.query,
+        regions=[
+            SchoolRegionOut(
+                region=group.region,
+                code=group.code,
+                label=group.label,
+                schools=group.schools,
+                cities=group.cities,
+                examples=group.examples,
+            )
+            for group in found.groups
+        ],
+        truncated=found.truncated,
+        generic=found.generic,
+    )
+```
+  The four sentences keep their old names here, because `test_directory.py` reads `directory.DISABLED_DETAIL` and `directory.UPSTREAM_DETAIL`, and `directory_limiter` stays importable from this module, because `test_directory.py` and `test_shared_rules.py` read it here.
+
+- [ ] **Step 6: The suite asks nobody's DaData.** In `server/tests/conftest.py`, replace:
+```python
+os.environ["SENTRY_DSN"] = ""
+```
+  with:
+```python
+os.environ["SENTRY_DSN"] = ""
+# Whatever the shell holds: the suite asks nobody's DaData. v2's gate test and
+# no-echo sweep call every served method, the school searches included, and a
+# key exported in the shell would send a password-shaped query to the real
+# directory. A test that wants the directory configures one and replaces it.
+os.environ["DADATA_TOKEN"] = ""
+```
+  `test_deployment_config.py` builds its `Settings` from arguments, which win over the environment, so it reads its own `DADATA_TOKEN` values as before.
+
+- [ ] **Step 7: Green, and v1 unchanged.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_directory.py tests/test_directory.py tests/test_api_manage.py tests/test_schools.py tests/test_shared_rules.py tests/test_service_layering.py tests/test_deployment_config.py
+```
+Expected: every test passes, and `test_services_directory.py` has 5. v1's files pass unchanged:
+- `test_directory.py` holds every answer of `/directory/school-regions`, its order, its headers, its counts and the burst of a hundred;
+- `test_api_manage.py` holds `/manage/schools`' answers, its 422 and 503 in their words and its paging, whose region hint's ceiling is now read from `schools.MAX_REGION`; Task 6's `test_a_region_longer_than_v1_takes_is_refused_on_its_field` asks v1 for that ceiling's 422 beside v2's refusal.
+
+- [ ] **Step 8: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 229 source files`. Then the full suite once. Expected: 2722 passed (2717 + 5).
+
+- [ ] **Step 9: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b3-t2.txt`:
+```text
+Move the anonymous directory's order of checks into services
+
+v1's GET /directory/school-regions kept the order of its checks in the
+router: the caller counted first, a short query handed back, the key
+asked about, a name too common to place answered for free, the day's
+anonymous share spent, the directory's failure. v2's ListSchoolRegions
+asks the same question on the same budget, so the order moves to
+services/directory.school_regions, which raises facts where v1 raised
+inline (DirectoryThrottled, DirectoryDisabled, DirectoryUnavailable),
+and v1 words them as before. Both versions bucket the caller under one
+scope, BUCKET_SCOPE.
+
+The short query's sentence and the region hint's ceiling of 120, which
+v1's /manage/schools wrote into its Query, become constants of
+services/schools.py; the directory's four sentences move into
+app/wording.py and keep their old names in api/directory.py, where its
+tests read them.
+
+The suite now empties DADATA_TOKEN, as it empties SENTRY_DSN: once v2
+serves the searches, the gate test and the no-echo sweep reach them, and
+a key exported in the shell would send their queries to the real
+directory.
+
+Not covered: no v2 method uses any of this yet.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/services/directory.py server/app/services/schools.py server/app/wording.py server/app/api/directory.py server/app/api/manage/schools.py server/tests/conftest.py server/tests/test_services_directory.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b3-t2.txt
+```
+
+---
+
+### 3b-3 Task 3: `ListAccessRequests`
+
+Decisions 2, 10 and 14; Ruling 49.
+
+**Files:**
+- Create: `server/app/rpc/access_request.py`, `server/tests/test_v2_access_requests.py`
+- Modify: `server/app/rpc/handlers.py`
+
+**Interfaces:**
+- Consumes:
+  - `requests_service.pending(session, class_id) -> list[AccessRequest]`, oldest first;
+  - `classes_service.member_names(session, class_id) -> dict[int, str]`;
+  - `values.role`, `values.instant`.
+- Produces:
+  - `access_request.list_access_requests`;
+  - `access_request._message(row: models.AccessRequest, names: dict[int, str]) -> access_request_pb.AccessRequest`, which Task 4 keeps.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_access_requests.py`:
+```python
+"""``AccessRequestService``'s read: everybody waiting for a role in the class.
+
+v1's ``GET /manage/requests`` over v2, through the same services: the open
+requests of the class, oldest first, each with who asked as an admin reads
+them (``classes.member_names``), and when, as an instant where v1 wrote the
+class's wall time. A read writes nothing
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 10).
+"""
+
+from __future__ import annotations
+
+from datetime import UTC
+
+from sqlalchemy import select
+
+from app.contract.lessons.v2.options_pb import Role as ProtoRole
+from app.models import AccessRequest, BotUser, Role, SchoolClass
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def _asks(
+    session, school_class, telegram_id: int, *, note: str | None = None, status: str = "pending"
+) -> AccessRequest:
+    request = AccessRequest(
+        class_id=school_class.id,
+        telegram_id=telegram_id,
+        requested_role=Role.EDITOR,
+        status=status,
+        message=note,
+    )
+    session.add(request)
+    await session.commit()
+    return request
+
+
+async def test_the_requests_are_v1_s_oldest_first(v2, v2_tokens, session, school_class) -> None:
+    session.add(
+        BotUser(telegram_id=7702, class_id=school_class.id, role=Role.VIEWER, username="masha")
+    )
+    await session.commit()
+    first = await _asks(session, school_class, 7701, note="я староста")
+    second = await _asks(session, school_class, 7702)
+    admin = v2_tokens["admin"]
+    v1 = (await v2.http.get("/api/v1/manage/requests", headers=_auth(admin))).json()
+    answer = await v2.both("AccessRequestService/ListAccessRequests", token=admin)
+    rows = answer.message.access_requests
+    assert [row.id for row in rows] == [row["id"] for row in v1] == [first.id, second.id]
+    # A stranger by the number, a member by the name the class knows.
+    assert [row.who for row in rows] == [row["who"] for row in v1] == ["7701", "@masha"]
+    assert [row.requested_role for row in rows] == [ProtoRole.EDITOR, ProtoRole.EDITOR]
+    assert [row["requested_role"] for row in v1] == ["editor", "editor"]
+    # A note left is carried; none is the field unset, where v1 wrote null.
+    notes = [row.message if row.has_field("message") else None for row in rows]
+    assert notes == [row["message"] for row in v1] == ["я староста", None]
+    # An instant, where v1 wrote the class's wall time with no zone.
+    stamps = await session.scalars(select(AccessRequest.created_at).order_by(AccessRequest.id))
+    assert [row.created_at.to_datetime() for row in rows] == [
+        stamp.replace(tzinfo=UTC) for stamp in stamps
+    ]
+
+
+async def test_only_this_class_s_open_requests_are_listed(
+    v2, v2_tokens, session, school_class
+) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    session.add(
+        AccessRequest(
+            class_id=other.id, telegram_id=7703, requested_role=Role.EDITOR, status="pending"
+        )
+    )
+    await session.commit()
+    await _asks(session, school_class, 7704, status="approved")
+    await _asks(session, school_class, 7705, status="declined")
+    waiting = await _asks(session, school_class, 7701)
+    answer = await v2.both("AccessRequestService/ListAccessRequests", token=v2_tokens["admin"])
+    assert [row.id for row in answer.message.access_requests] == [waiting.id]
+
+
+async def test_reading_the_requests_writes_nothing_but_the_last_seen(
+    v2, v2_tokens, session, school_class, statement_writes, unexpected_writes, last_seen_rule
+) -> None:
+    await _asks(session, school_class, 7701)
+    with statement_writes() as seen:
+        answer = await v2.both("AccessRequestService/ListAccessRequests", token=v2_tokens["admin"])
+    assert answer.status == 200
+    assert len(answer.message.access_requests) == 1
+    # A write happened, the phone's last call, and nothing else did.
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all(last_seen_rule.match(statement) for statement in seen), seen
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_access_requests.py
+```
+Expected: 3 tests, every one failing because the method answers `UNIMPLEMENTED` (`501` over REST): the answer holds no message. Keep this output as the evidence.
+
+- [ ] **Step 2: Create `server/app/rpc/access_request.py`** with the read; Task 4 replaces the file with the answers added:
+```python
+"""``AccessRequestService``: «🙋 Запросы доступа», the people waiting for a role.
+
+v1's ``GET /manage/requests``, over the same services: the class's open
+requests, oldest first, each named as an admin reads them. v1 wrote when each
+was asked as the class's wall time; v2 writes an instant.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from app.contract.lessons.v2.access_request_pb import (
+    AccessRequest,
+    ListAccessRequestsRequest,
+    ListAccessRequestsResponse,
+)
+from app.models import AccessRequest as RequestRow
+from app.rpc import values
+from app.services.manage import classes as classes_service
+from app.services.manage import requests as requests_service
+
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+
+def _message(row: RequestRow, names: dict[int, str]) -> AccessRequest:
+    return AccessRequest(
+        id=row.id,
+        # The @username or the name Telegram gave, for somebody who holds a
+        # role in the class, else the numeric id, which is what a person
+        # still waiting for one usually is (``classes.display_name``).
+        who=names.get(row.telegram_id, str(row.telegram_id)),
+        requested_role=values.role(row.requested_role),
+        message=row.message,
+        created_at=values.instant(row.created_at),
+    )
+
+
+async def list_access_requests(
+    call: Call, request: ListAccessRequestsRequest
+) -> ListAccessRequestsResponse:
+    """Everybody waiting for a role in the class, oldest first. Writes nothing."""
+    _admin, school_class = call.device_and_class()
+    rows = await requests_service.pending(call.session, school_class.id)
+    names = await classes_service.member_names(call.session, school_class.id)
+    return ListAccessRequestsResponse(access_requests=[_message(row, names) for row in rows])
+```
+
+- [ ] **Step 3: Serve it.** In `server/app/rpc/handlers.py`:
+  1. Replace:
+```python
+from app.rpc import (
+    audit,
+```
+     with:
+```python
+from app.rpc import (
+    access_request,
+    audit,
+```
+  2. In `HANDLERS`, replace:
+```python
+    "lessons.v2.AuditService/ListAuditEntries": audit.list_audit_entries,
+```
+     with:
+```python
+    "lessons.v2.AccessRequestService/ListAccessRequests": access_request.list_access_requests,
+    "lessons.v2.AuditService/ListAuditEntries": audit.list_audit_entries,
+```
+
+- [ ] **Step 4: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_access_requests.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rpc_errors.py tests/test_rest.py tests/test_api_manage.py tests/test_service_layering.py
+```
+Expected: all pass. `test_v2_access_requests.py` has 3, and the gate test and the no-echo sweep each gain one case.
+
+- [ ] **Step 5: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 230 source files`. Then the full suite once. Expected: 2727 passed (2722 + 5).
+
+- [ ] **Step 6: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b3-t3.txt`:
+```text
+Serve the access requests waiting for an answer over v2
+
+ListAccessRequests is v1's GET /manage/requests through the same
+services: the class's open requests, oldest first, each with who asked
+as an admin reads them, a member by the name the class knows and anybody
+else by the number. When each was asked is an instant, where v1 wrote
+the class's wall time. It writes nothing but the last seen, which the
+statement listener holds.
+
+Not covered: the answers, approve and decline, the next commit.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/rpc/access_request.py server/app/rpc/handlers.py server/tests/test_v2_access_requests.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b3-t3.txt
+```
+
+---
+
+### 3b-3 Task 4: `ApproveAccessRequest` and `DeclineAccessRequest`, and the notice after the commit
+
+Decisions 2, 4, 5 and 14, and the design's «Risks» on notices; Rulings 17, 34, 35, 38, 40, 41 and 48. Before this task the controller files `#368` («Two defects found while writing this list»).
+
+**Files:**
+- Create: `server/tests/test_v2_access_request_writes.py`
+- Modify: `server/app/rpc/access_request.py` (replaced), `server/app/rpc/errors.py`, `server/app/rpc/handlers.py`, `server/tests/test_rpc_errors.py`
+
+**Interfaces:**
+- Consumes:
+  - Task 1's `requests_service.approve`, `Approval`, `access.GrantRefused` (`.why`) and the wording;
+  - `requests_service.pending_one`, `decline`, `decline_notice`, and `access.approval_notice`;
+  - `telegram_send.send(messages: Sequence[tuple[int, str]]) -> list[bool]`, which never raises;
+  - `Call.after_commit(effect: Effect)`, `Call.role`, and `rpc.call.Effect = Callable[[], Awaitable[None]]`;
+  - Task 3's `_message`.
+- Produces:
+  - `access_request.approve_access_request`, `access_request.decline_access_request`;
+  - `access_request.ROLE_REFUSED`;
+  - `errors.TABLE[access_service.GrantRefused]`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_access_request_writes.py`:
+```python
+"""``AccessRequestService``'s answers: yes and no, by v1's rules, and the notice after the commit.
+
+v1's ``POST /manage/requests/{id}/approve`` and ``…/decline`` over v2,
+through the same ``requests_service.approve`` and ``decline``: the ladder of
+«👥 Доступ», ``RESOURCE_NOT_FOUND`` for a request already answered, and
+whoever asked told in Telegram in v1's words. The notice is an effect
+(``Call.after_commit``): it goes out once the decision is committed, never on
+a refusal, and one Telegram refuses leaves the decision standing
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 4 and «Risks»). A
+write's success is asked once per transport on fresh data, and its refusals
+through ``both`` (the 3b plan, Ruling 17).
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from typing import Any
+
+import pytest
+from sqlalchemy import select
+
+from app import telegram_send, wording
+from app.config import get_settings
+from app.contract.lessons.v2.access_request_pb import (
+    ApproveAccessRequestRequest,
+    DeclineAccessRequestRequest,
+)
+from app.contract.lessons.v2.options_pb import Role as ProtoRole
+from app.db import SessionLocal
+from app.models import AccessRequest, AuditEntry, BotUser, Role, SchoolClass
+from app.rpc.access_request import ROLE_REFUSED
+
+ASKER = 7701
+OTHER_ASKER = 7702
+APPROVE = "AccessRequestService/ApproveAccessRequest"
+DECLINE = "AccessRequestService/DeclineAccessRequest"
+
+
+@dataclass
+class _Telegram:
+    """The bot ``telegram_send.build_bot`` hands out: what it was asked to
+    send, with the request's status as a session of its own read it at that
+    moment, so that only a committed decision is seen; how often it was built
+    and closed; and whether Telegram refuses."""
+
+    sent: list[tuple[int, str, str | None]] = field(default_factory=list)
+    built: int = 0
+    closed: int = 0
+    refuses: bool = False
+
+    async def send_message(self, chat_id: int, text: str, **_: Any) -> None:
+        async with SessionLocal() as fresh:
+            status = await fresh.scalar(
+                select(AccessRequest.status)
+                .where(AccessRequest.telegram_id == chat_id)
+                .order_by(AccessRequest.id.desc())
+            )
+        self.sent.append((chat_id, text, status))
+        if self.refuses:
+            raise RuntimeError("Forbidden: bot was blocked by the user")
+
+    @property
+    def session(self) -> _Telegram:
+        return self
+
+    async def close(self) -> None:
+        self.closed += 1
+
+
+@pytest.fixture
+def telegram(monkeypatch) -> _Telegram:
+    """A deployment with a bot, every send of which the test reads."""
+    bot = _Telegram()
+    monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
+
+    def build() -> _Telegram:
+        bot.built += 1
+        return bot
+
+    monkeypatch.setattr(telegram_send, "build_bot", build)
+    return bot
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _approve(request_id: int, role: ProtoRole = ProtoRole.UNSPECIFIED):
+    return ApproveAccessRequestRequest(request_id=request_id, role=role)
+
+
+async def _asks(session, school_class, telegram_id: int = ASKER, role: Role = Role.EDITOR):
+    request = AccessRequest(
+        class_id=school_class.id, telegram_id=telegram_id, requested_role=role, status="pending"
+    )
+    session.add(request)
+    await session.commit()
+    return request
+
+
+async def _status(session, request_id: int) -> str | None:
+    return await session.scalar(select(AccessRequest.status).where(AccessRequest.id == request_id))
+
+
+async def _role_of(session, school_class, telegram_id: int) -> Role | None:
+    return await session.scalar(
+        select(BotUser.role).where(
+            BotUser.class_id == school_class.id, BotUser.telegram_id == telegram_id
+        )
+    )
+
+
+async def _actions(session) -> list[str]:
+    return list(await session.scalars(select(AuditEntry.action).order_by(AuditEntry.id)))
+
+
+async def test_an_approval_grants_the_role_asked_for_and_tells_the_asker_after_the_commit(
+    v2, v2_tokens, session, school_class, telegram
+) -> None:
+    first = await _asks(session, school_class, ASKER)
+    second = await _asks(session, school_class, OTHER_ASKER)
+    admin = v2_tokens["admin"]
+    rest = await v2.rest(APPROVE, _approve(first.id), token=admin)
+    connect = await v2.connect(APPROVE, _approve(second.id), token=admin)
+    assert (rest.status, connect.status) == (200, 200)
+    assert (rest.message.request_id, rest.message.role, rest.message.who) == (
+        first.id,
+        ProtoRole.EDITOR,
+        str(ASKER),
+    )
+    assert (connect.message.request_id, connect.message.role) == (second.id, ProtoRole.EDITOR)
+    assert await _role_of(session, school_class, ASKER) is Role.EDITOR
+    assert await _role_of(session, school_class, OTHER_ASKER) is Role.EDITOR
+    assert await _actions(session) == ["access.approve", "access.approve"]
+    # Told once each, in v1's words, and only after the commit: a session of
+    # the bot's own read the request as approved already.
+    assert [(chat, status) for chat, _, status in telegram.sent] == [
+        (ASKER, "approved"),
+        (OTHER_ASKER, "approved"),
+    ]
+    assert all("<b>Редактор</b>" in text and "9А" in text for _, text, _ in telegram.sent)
+    assert telegram.closed == telegram.built == 2
+
+
+async def test_an_approval_naming_a_role_grants_that_role(
+    v2, v2_tokens, session, school_class, telegram
+) -> None:
+    asked = await _asks(session, school_class)
+    answer = await v2.rest(
+        APPROVE,
+        _approve(asked.id, ProtoRole.VIEWER),
+        token=v2_tokens["admin"],
+    )
+    assert answer.status == 200
+    assert answer.message.role == ProtoRole.VIEWER
+    assert await _role_of(session, school_class, ASKER) is Role.VIEWER
+    assert [text for _, text, _ in telegram.sent] == [
+        "✅ Доступ выдан: <b>Наблюдатель</b> в классе <b>9А</b>. Откройте /start."
+    ]
+
+
+async def test_a_role_at_or_above_the_grantor_s_own_is_refused_and_tells_nobody(
+    v2, v2_tokens, session, school_class, telegram
+) -> None:
+    """Nobody grants at or above their own role, and the owner's role nobody
+    grants at all: ``OWNER_IDS`` makes an owner."""
+    asked = await _asks(session, school_class)
+    admin = v2_tokens["admin"]
+    v1 = await v2.http.post(
+        f"/api/v1/manage/requests/{asked.id}/approve", json={"role": "admin"}, headers=_auth(admin)
+    )
+    for token, role in ((admin, ProtoRole.ADMIN), (v2_tokens["owner"], ProtoRole.OWNER)):
+        answer = await v2.both(APPROVE, _approve(asked.id, role), token=token)
+        assert (answer.status, answer.code, answer.reason) == (
+            403,
+            "PERMISSION_DENIED",
+            "ROLE_GRANT_REFUSED",
+        ), role
+        assert answer.metadata == {"why": "role_too_high"}
+        assert answer.error == v1.json()["detail"] == wording.GRANT_REFUSED_DETAILS["role_too_high"]
+    assert v1.status_code == 403
+    assert await _status(session, asked.id) == "pending"
+    assert await _role_of(session, school_class, ASKER) is None
+    assert await _actions(session) == []
+    assert (telegram.sent, telegram.built) == ([], 0)
+
+
+async def test_a_member_at_or_above_the_grantor_is_refused_and_tells_nobody(
+    v2, v2_tokens, session, school_class, telegram
+) -> None:
+    session.add(BotUser(telegram_id=ASKER, class_id=school_class.id, role=Role.ADMIN))
+    await session.commit()
+    asked = await _asks(session, school_class)
+    admin = v2_tokens["admin"]
+    v1 = await v2.http.post(f"/api/v1/manage/requests/{asked.id}/approve", headers=_auth(admin))
+    answer = await v2.both(APPROVE, _approve(asked.id), token=admin)
+    assert (answer.status, answer.reason, answer.metadata) == (
+        403,
+        "ROLE_GRANT_REFUSED",
+        {"why": "member_senior"},
+    )
+    assert answer.error == v1.json()["detail"] == wording.GRANT_REFUSED_DETAILS["member_senior"]
+    assert await _status(session, asked.id) == "pending"
+    assert await _role_of(session, school_class, ASKER) is Role.ADMIN
+    assert (telegram.sent, telegram.built) == ([], 0)
+
+
+async def test_an_owner_saying_yes_to_an_admin_s_old_request_answers_the_role_they_keep(
+    v2, v2_tokens, session, school_class, telegram
+) -> None:
+    """Asked for as a viewer, answered after a promotion to admin: the member
+    is never lowered, and the answer says what they hold, as the proto does."""
+    session.add(
+        BotUser(telegram_id=ASKER, class_id=school_class.id, role=Role.ADMIN, username="masha")
+    )
+    await session.commit()
+    asked = await _asks(session, school_class)
+    answer = await v2.rest(APPROVE, _approve(asked.id), token=v2_tokens["owner"])
+    assert answer.status == 200
+    assert (answer.message.role, answer.message.who) == (ProtoRole.ADMIN, "@masha")
+    assert await _role_of(session, school_class, ASKER) is Role.ADMIN
+    assert await _status(session, asked.id) == "approved"
+    assert len(telegram.sent) == 1
+
+
+async def test_a_request_answered_or_of_another_class_is_not_found_and_tells_nobody(
+    v2, v2_tokens, session, school_class, telegram
+) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    theirs = AccessRequest(
+        class_id=other.id, telegram_id=OTHER_ASKER, requested_role=Role.EDITOR, status="pending"
+    )
+    answered = AccessRequest(
+        class_id=school_class.id, telegram_id=ASKER, requested_role=Role.EDITOR, status="declined"
+    )
+    session.add_all([theirs, answered])
+    await session.commit()
+    admin = v2_tokens["admin"]
+    v1 = await v2.http.post(f"/api/v1/manage/requests/{theirs.id}/approve", headers=_auth(admin))
+    assert v1.status_code == 404
+    for request_id in (theirs.id, answered.id, 999_999):
+        for name, request in (
+            ("ApproveAccessRequest", _approve(request_id)),
+            ("DeclineAccessRequest", DeclineAccessRequestRequest(request_id=request_id)),
+        ):
+            answer = await v2.both(f"AccessRequestService/{name}", request, token=admin)
+            assert (answer.status, answer.code, answer.reason) == (
+                404,
+                "NOT_FOUND",
+                "RESOURCE_NOT_FOUND",
+            ), name
+            assert answer.metadata == {"resource": "access_request"}
+            assert answer.error == v1.json()["detail"] == wording.UNKNOWN_ACCESS_REQUEST_DETAIL
+    assert (await _status(session, theirs.id), await _status(session, answered.id)) == (
+        "pending",
+        "declined",
+    )
+    assert await _actions(session) == []
+    assert telegram.sent == []
+
+
+async def test_a_role_no_value_of_the_contract_names_is_refused_on_its_field(
+    v2, v2_tokens, session, school_class, telegram
+) -> None:
+    """A number no value of ``Role`` names reaches the handler in the binary
+    encoding, which keeps it, and is refused there. Read as JSON it never
+    arrives: both transports parse JSON with unknown fields ignored, and
+    proto3's parser then drops an unknown enum value, so such a request reads
+    as one naming no role (the 3b plan, «Rulings for 3b-3»)."""
+    asked = await _asks(session, school_class)
+    answer = await v2.connect(
+        APPROVE, _approve(asked.id, ProtoRole(99)), token=v2_tokens["admin"], binary=True
+    )
+    assert (answer.status, answer.code, answer.reason) == (
+        400,
+        "INVALID_ARGUMENT",
+        "VALIDATION_FAILED",
+    )
+    assert answer.violations == [("role", ROLE_REFUSED)]
+    assert await _status(session, asked.id) == "pending"
+    assert telegram.sent == []
+
+
+async def test_a_decline_on_either_path_closes_the_request_and_tells_the_asker(
+    v2, v2_tokens, session, school_class, telegram
+) -> None:
+    session.add(
+        BotUser(
+            telegram_id=OTHER_ASKER, class_id=school_class.id, role=Role.VIEWER, username="masha"
+        )
+    )
+    await session.commit()
+    first = await _asks(session, school_class, ASKER)
+    second = await _asks(session, school_class, OTHER_ASKER)
+    admin = v2_tokens["admin"]
+    rest = await v2.rest(
+        DECLINE,
+        DeclineAccessRequestRequest(request_id=first.id),
+        token=admin,
+    )
+    connect = await v2.connect(
+        DECLINE,
+        DeclineAccessRequestRequest(request_id=second.id),
+        token=admin,
+    )
+    assert (rest.status, connect.status) == (200, 200)
+    assert (rest.message.request_id, rest.message.who) == (first.id, str(ASKER))
+    assert (connect.message.request_id, connect.message.who) == (second.id, "@masha")
+    assert (await _status(session, first.id), await _status(session, second.id)) == (
+        "declined",
+        "declined",
+    )
+    # Each keeps what they had: nothing, and a viewer's role.
+    assert await _role_of(session, school_class, ASKER) is None
+    assert await _role_of(session, school_class, OTHER_ASKER) is Role.VIEWER
+    assert await _actions(session) == ["access.decline", "access.decline"]
+    assert [(chat, status) for chat, _, status in telegram.sent] == [
+        (ASKER, "declined"),
+        (OTHER_ASKER, "declined"),
+    ]
+    assert all("отклонён" in text for _, text, _ in telegram.sent)
+
+
+async def test_answering_one_request_twice_is_one_decision_and_one_notice(
+    v2, v2_tokens, session, school_class, telegram
+) -> None:
+    """Two admins tapping at once, or a retry over a flaky network: the second
+    answer finds nothing open, whichever it is."""
+    asked = await _asks(session, school_class)
+    admin = v2_tokens["admin"]
+    first = await v2.rest(APPROVE, _approve(asked.id), token=admin)
+    again = await v2.connect(APPROVE, _approve(asked.id), token=admin)
+    declined = await v2.connect(
+        DECLINE,
+        DeclineAccessRequestRequest(request_id=asked.id),
+        token=admin,
+    )
+    assert first.status == 200
+    assert (again.reason, declined.reason) == ("RESOURCE_NOT_FOUND", "RESOURCE_NOT_FOUND")
+    assert await _status(session, asked.id) == "approved"
+    assert await _actions(session) == ["access.approve"]
+    assert len(telegram.sent) == 1
+
+
+async def test_a_notice_telegram_refuses_leaves_the_decision_standing(
+    v2, v2_tokens, session, school_class, telegram, caplog
+) -> None:
+    telegram.refuses = True
+    asked = await _asks(session, school_class)
+    with caplog.at_level(logging.WARNING, logger="app.telegram_send"):
+        answer = await v2.connect(APPROVE, _approve(asked.id), token=v2_tokens["admin"])
+    assert answer.status == 200
+    assert await _status(session, asked.id) == "approved"
+    assert await _role_of(session, school_class, ASKER) is Role.EDITOR
+    assert (len(telegram.sent), telegram.closed) == (1, 1)
+    assert any(
+        f"could not send a message to {ASKER}" in record.getMessage() for record in caplog.records
+    )
+
+
+async def test_a_deployment_with_no_bot_still_decides_and_builds_none(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    built: list[object] = []
+    monkeypatch.setattr(telegram_send, "build_bot", lambda: built.append("bot"))
+    monkeypatch.setattr(get_settings(), "bot_token", "")
+    asked = await _asks(session, school_class)
+    answer = await v2.rest(APPROVE, _approve(asked.id), token=v2_tokens["admin"])
+    assert answer.status == 200
+    assert await _role_of(session, school_class, ASKER) is Role.EDITOR
+    assert built == []
+```
+In `server/tests/test_rpc_errors.py`:
+1. Replace `from app.services import diary as diary_service` with the two lines:
+```python
+from app.services import access as access_service
+from app.services import diary as diary_service
+```
+2. From `LATER`, delete the line `    "ROLE_GRANT_REFUSED": "3b-3",`.
+3. In `HELD_BY`, replace:
+```python
+    terms_service.TermError: (
+        "test_v2_terms.py",
+        "test_a_term_the_year_cannot_hold_is_refused_in_the_service_s_words",
+    ),
+```
+   with:
+```python
+    terms_service.TermError: (
+        "test_v2_terms.py",
+        "test_a_term_the_year_cannot_hold_is_refused_in_the_service_s_words",
+    ),
+    access_service.GrantRefused: (
+        "test_v2_access_request_writes.py",
+        "test_a_role_at_or_above_the_grantor_s_own_is_refused_and_tells_nobody",
+    ),
+```
+
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_access_request_writes.py tests/test_rpc_errors.py
+```
+Expected:
+- `test_v2_access_request_writes.py` fails at collection with `ImportError`: `ROLE_REFUSED` is not in `app.rpc.access_request` yet.
+- In `test_rpc_errors.py`, the `HELD_BY` test fails on the row `TABLE` lacks, and the stage test on `ROLE_GRANT_REFUSED`, which nothing produces and `LATER` no longer lists.
+
+Keep this output as the evidence.
+
+- [ ] **Step 2: The table's row.** In `server/app/rpc/errors.py`:
+  1. Replace `from app.services import diary as diary_service` with the two lines:
+```python
+from app.services import access as access_service
+from app.services import diary as diary_service
+```
+  2. Replace the end of `_term_bounds_refused`:
+```python
+    return Refusal(ErrorReason.TERM_BOUNDS_REFUSED, str(error))
+```
+     with:
+```python
+    return Refusal(ErrorReason.TERM_BOUNDS_REFUSED, str(error))
+
+
+def _role_grant_refused(error: access_service.GrantRefused) -> Refusal:
+    return Refusal(
+        ErrorReason.ROLE_GRANT_REFUSED,
+        wording.GRANT_REFUSED_DETAILS[error.why],
+        why=error.why,
+    )
+```
+  3. In `TABLE`, replace:
+```python
+    terms_service.TermError: _term_bounds_refused,
+}
+```
+     with:
+```python
+    terms_service.TermError: _term_bounds_refused,
+    access_service.GrantRefused: _role_grant_refused,
+}
+```
+
+- [ ] **Step 3: Replace `server/app/rpc/access_request.py` whole**, adding the answers:
+```python
+"""``AccessRequestService``: «🙋 Запросы доступа», and the admin's answer.
+
+v1's ``/manage/requests``, over the same services. The list is the class's
+open requests, oldest first, each named as an admin reads them; v1 wrote when
+each was asked as the class's wall time, v2 writes an instant.
+
+Answering is ``requests_service.approve`` and ``decline``, which v1 calls too:
+the ladder of «👥 Доступ» decides what an admin may grant, and a request
+already answered is ``RESOURCE_NOT_FOUND``, so two admins cannot answer one
+twice. Whoever asked is told in Telegram, where they asked, by an effect the
+call runs once the decision is committed (``Call.after_commit``): never on a
+refusal, and a notice Telegram will not deliver — the person blocked the bot,
+or Telegram is down — is logged and dropped, because the decision stands
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 4 and «Risks»).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from app import telegram_send, wording
+from app.contract.lessons.v2.access_request_pb import (
+    AccessRequest,
+    ApproveAccessRequestRequest,
+    ApproveAccessRequestResponse,
+    DeclineAccessRequestRequest,
+    DeclineAccessRequestResponse,
+    ListAccessRequestsRequest,
+    ListAccessRequestsResponse,
+)
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.options_pb import Role as ProtoRole
+from app.models import AccessRequest as RequestRow
+from app.models import Role, SchoolClass
+from app.rpc import values
+from app.rpc.errors import Refusal
+from app.services import access as access_service
+from app.services.manage import classes as classes_service
+from app.services.manage import requests as requests_service
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.rpc.call import Call, Effect
+
+#: The roles a request may be answered with, by their v2 names. The ladder
+#: refuses some of them for some admins, ``ROLE_OWNER`` for everybody; that is
+#: ``ROLE_GRANT_REFUSED``, and only a number no value names is refused here.
+_ROLES = {
+    ProtoRole.VIEWER: Role.VIEWER,
+    ProtoRole.EDITOR: Role.EDITOR,
+    ProtoRole.ADMIN: Role.ADMIN,
+    ProtoRole.OWNER: Role.OWNER,
+}
+
+#: Fixed, and naming no value: a refusal never repeats what was sent.
+ROLE_REFUSED = "role must be a role the contract names, or unset for the role asked for"
+
+
+def _message(row: RequestRow, names: dict[int, str]) -> AccessRequest:
+    return AccessRequest(
+        id=row.id,
+        # The @username or the name Telegram gave, for somebody who holds a
+        # role in the class, else the numeric id, which is what a person
+        # still waiting for one usually is (``classes.display_name``).
+        who=names.get(row.telegram_id, str(row.telegram_id)),
+        requested_role=values.role(row.requested_role),
+        message=row.message,
+        created_at=values.instant(row.created_at),
+    )
+
+
+async def _pending(session: AsyncSession, school_class: SchoolClass, request_id: int) -> RequestRow:
+    """This class's open request ``request_id``, or ``RESOURCE_NOT_FOUND``: one
+    already answered is gone, as in v1, and another class's finds nothing."""
+    pending = await requests_service.pending_one(session, school_class.id, request_id)
+    if pending is None:
+        raise Refusal(
+            ErrorReason.RESOURCE_NOT_FOUND,
+            wording.UNKNOWN_ACCESS_REQUEST_DETAIL,
+            resource="access_request",
+        )
+    return pending
+
+
+def _granting(sent: ProtoRole) -> Role | None:
+    """The role an approval names, or ``None`` for the one asked for."""
+    if sent == ProtoRole.UNSPECIFIED:
+        return None
+    role = _ROLES.get(sent)
+    if role is None:
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED, ROLE_REFUSED, violations=[("role", ROLE_REFUSED)]
+        )
+    return role
+
+
+def _actor_role(call: Call) -> Role:
+    """The caller's role, which the gate read on this call and let through at
+    ``ROLE_ADMIN`` or above."""
+    if call.role is None:
+        raise RuntimeError(f"{call.method.key} reached its handler without a role")
+    return call.role
+
+
+def _tell(telegram_id: int, text: str) -> Effect:
+    """The notice to whoever asked, as an effect: sent once the decision is
+    committed, by a bot built for it, which logs and drops whatever Telegram
+    refuses (``telegram_send.send``). The two values are captured here, so
+    the effect reads nothing of the session."""
+
+    async def tell() -> None:
+        await telegram_send.send([(telegram_id, text)])
+
+    return tell
+
+
+async def list_access_requests(
+    call: Call, request: ListAccessRequestsRequest
+) -> ListAccessRequestsResponse:
+    """Everybody waiting for a role in the class, oldest first. Writes nothing."""
+    _admin, school_class = call.device_and_class()
+    rows = await requests_service.pending(call.session, school_class.id)
+    names = await classes_service.member_names(call.session, school_class.id)
+    return ListAccessRequestsResponse(access_requests=[_message(row, names) for row in rows])
+
+
+async def approve_access_request(
+    call: Call, request: ApproveAccessRequestRequest
+) -> ApproveAccessRequestResponse:
+    """Grant the role asked for, or the one the request names, by the ladder of
+    «👥 Доступ», and tell whoever asked once it is committed.
+
+    The answer's ``role`` is the role the member holds now, as the proto
+    says: an existing member is never lowered, so an owner saying yes to an
+    admin's old request for editor answers ``ROLE_ADMIN``. A role the ladder
+    does not allow is ``ROLE_GRANT_REFUSED`` with ``why``, and tells nobody.
+    """
+    admin, school_class = call.device_and_class()
+    role = _granting(request.role)
+    pending = await _pending(call.session, school_class, request.request_id)
+    approval = await requests_service.approve(
+        call.session,
+        school_class,
+        pending,
+        actor_id=admin.telegram_id,
+        actor_role=_actor_role(call),
+        role=role,
+    )
+    # v1's notice and the bot's, word for word: the role the request was
+    # answered with.
+    notice = access_service.approval_notice(school_class, approval.granted)
+    call.after_commit(_tell(pending.telegram_id, notice))
+    return ApproveAccessRequestResponse(
+        request_id=pending.id, role=values.role(approval.member.role), who=approval.who
+    )
+
+
+async def decline_access_request(
+    call: Call, request: DeclineAccessRequestRequest
+) -> DeclineAccessRequestResponse:
+    """Say no, and tell whoever asked once it is committed; they keep whatever
+    role they had."""
+    admin, school_class = call.device_and_class()
+    pending = await _pending(call.session, school_class, request.request_id)
+    names = await classes_service.member_names(call.session, school_class.id)
+    await requests_service.decline(call.session, school_class.id, admin.telegram_id, pending)
+    call.after_commit(_tell(pending.telegram_id, requests_service.decline_notice(school_class)))
+    return DeclineAccessRequestResponse(
+        request_id=pending.id, who=names.get(pending.telegram_id, str(pending.telegram_id))
+    )
+```
+
+- [ ] **Step 4: Serve them.** In `server/app/rpc/handlers.py`'s `HANDLERS`, replace:
+```python
+    "lessons.v2.AccessRequestService/ListAccessRequests": access_request.list_access_requests,
+```
+with the three, in this order:
+```python
+    "lessons.v2.AccessRequestService/ApproveAccessRequest": access_request.approve_access_request,
+    "lessons.v2.AccessRequestService/DeclineAccessRequest": access_request.decline_access_request,
+    "lessons.v2.AccessRequestService/ListAccessRequests": access_request.list_access_requests,
+```
+
+- [ ] **Step 5: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_access_request_writes.py tests/test_v2_access_requests.py tests/test_rpc_errors.py tests/test_rpc_call.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_api_manage.py tests/test_access_service.py tests/test_telegram_send.py tests/test_announcements.py tests/test_cold_start.py tests/test_service_layering.py
+```
+Expected: all pass.
+- `test_v2_access_request_writes.py` has 11.
+- The gate test and the no-echo sweep each gain two cases. An empty request reaches `/api/v2/class/accessRequests/0:approve` and `…:decline`, and is `RESOURCE_NOT_FOUND` on both transports. The sweep's secret in `requestId` or `role` is refused by the decoder, in `rpc/errors.py`'s fixed sentence.
+- `test_announcements.py` passes untouched: nothing new calls `notify_subscribers` (Ruling 37).
+- `test_cold_start.py` passes: `rpc/access_request.py` imports `telegram_send`, which imports aiogram inside its functions only.
+
+- [ ] **Step 6: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 230 source files`. Then the full suite once. Expected: 2742 passed (2727 + 15).
+
+- [ ] **Step 7: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b3-t4.txt`, with `#368` replaced by the number the controller filed it as:
+```text
+Answer access requests over v2, and tell whoever asked once it is committed
+
+ApproveAccessRequest and DeclineAccessRequest go through the services
+v1's /manage/requests uses: the ladder of «👥 Доступ» decides what an
+admin may grant, a request already answered is RESOURCE_NOT_FOUND, so
+two admins cannot answer one twice, and a refused grant is
+ROLE_GRANT_REFUSED with why, role_too_high or member_senior, in v1's
+words. ROLE_GRANT_REFUSED leaves LATER. The answer's role is the role
+the member holds, as the proto says; for a member already above the
+role asked for, v1 and the notice still name the role asked for, which
+is #368 and not fixed here.
+
+Whoever asked is told in Telegram, in v1's words, by an effect the call
+registers with after_commit: it runs once the decision is committed,
+never on a refusal, through telegram_send.send, and a notice Telegram
+refuses is logged while the decision stands. The tests' bot reads the
+request from a session of its own while it sends, so a notice sent
+before the commit would be seen. v1's notices keep their own seams.
+
+A role no value of Role names is refused on its field when it arrives,
+which is in binary: both transports read JSON with unknown fields
+ignored, and an unknown enum value is then dropped before the handler.
+
+Not covered: a notice through a real bot; every test hands
+telegram_send a fake.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/rpc/access_request.py server/app/rpc/errors.py server/app/rpc/handlers.py server/tests/test_v2_access_request_writes.py server/tests/test_rpc_errors.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b3-t4.txt
+```
+
+---
+
+### 3b-3 Task 5: `ListSchoolRegions`, on v1's budget, and 3b-3 leaves `STAGES`
+
+Decisions 2, 4, 5, 10, 11 and 14; Rulings 2, 17, 42, 43 and 49.
+
+**Files:**
+- Create: `server/app/rpc/directory.py`, `server/tests/test_v2_school_regions.py`
+- Modify: `server/app/rpc/errors.py`, `server/app/rpc/handlers.py`, `server/app/rpc/call.py` (its docstring), `server/tests/test_rpc_errors.py`
+
+**Interfaces:**
+- Consumes:
+  - Task 2's `directory.school_regions`, `BUCKET_SCOPE`, `DirectoryThrottled`, `DirectoryDisabled`, `DirectoryUnavailable`, `schools.QUERY_TOO_SHORT` and the wording;
+  - `quota.AllowanceSpent` (`.retry_after`), `schools.SearchError`, `schools.RegionGroup`;
+  - `Call.bucket(scope: str = "") -> str`, v1's bucket for the same caller.
+- Produces:
+  - `directory.list_school_regions`, and `directory._region(group: schools.RegionGroup) -> directory_pb.SchoolRegion`, which Task 6 keeps;
+  - five `TABLE` rows;
+  - `test_rpc_errors.STAGES` without `"3b-3"`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_school_regions.py`:
+```python
+"""``DirectoryService.ListSchoolRegions``: which regions a school of this name is in.
+
+v1's ``GET /directory/school-regions`` over v2, through the same
+``directory.school_regions``: the same answer, best-ranked region first; the
+same refusals in the same order and words; and one budget for both versions,
+twenty searches a caller and one anonymous share of the directory's allowance
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 11). Anonymous, so no
+call here carries a token. Every call past validation is counted, both of
+``both``'s, and stays counted when it is refused (decision 4).
+
+Nothing reaches DaData: ``dadata.suggest_schools`` is replaced, and keeps the
+queries it was asked.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+import pytest
+from sqlalchemy import func, select
+
+from app import wording
+from app.config import get_settings
+from app.contract.lessons.v2.directory_pb import ListSchoolRegionsRequest
+from app.models import JoinAttempt
+from app.providers import dadata
+from app.security import directory_limiter
+from app.services import quota
+from app.services import schools as schools_service
+
+METHOD = "DirectoryService/ListSchoolRegions"
+V1 = "/api/v1/directory/school-regions"
+
+
+def _row(name: str, *, ogrn: str, city: str, kladr: str) -> dict[str, Any]:
+    """One suggestion of DaData's ``suggest/party``, carrying what the mapper reads."""
+    return {
+        "value": name,
+        "data": {
+            "ogrn": ogrn,
+            "name": {"short_with_opf": name},
+            "state": {"status": "ACTIVE"},
+            "address": {"value": city, "data": {"city": city, "region_kladr_id": kladr}},
+        },
+    }
+
+
+#: Moscow's one hit ranks first, so Moscow comes first, though Tatarstan has two.
+LYCEUM = [
+    _row('ГБОУ "ЛИЦЕЙ № 1535"', ogrn="1", city="Москва", kladr="7700000000000"),
+    _row('МБОУ "ЛИЦЕЙ № 1535"', ogrn="2", city="Казань", kladr="1600000000000"),
+    _row('МАОУ "ЛИЦЕЙ № 1535"', ogrn="3", city="Набережные Челны", kladr="1600000000000"),
+]
+
+
+@dataclass
+class _Upstream:
+    """A configured directory: what it answers, what it fails with, and the
+    queries it was asked."""
+
+    rows: list[dict[str, Any]] = field(default_factory=list)
+    failure: Exception | None = None
+    asked: list[str] = field(default_factory=list)
+
+
+@pytest.fixture
+def upstream(monkeypatch) -> _Upstream:
+    directory = _Upstream()
+    monkeypatch.setattr(get_settings(), "dadata_token", "<redacted>")
+
+    async def suggest(query: str, *, region: str | None = None, may_retry: Any = None):
+        directory.asked.append(query)
+        if directory.failure is not None:
+            raise directory.failure
+        return directory.rows
+
+    monkeypatch.setattr(dadata, "suggest_schools", suggest)
+    return directory
+
+
+def _ask(query: str) -> ListSchoolRegionsRequest:
+    return ListSchoolRegionsRequest(query=query)
+
+
+def _plain(region: Any) -> dict[str, Any]:
+    """A v2 region as v1's ``SchoolRegionOut`` writes it."""
+    return {
+        "region": region.region if region.has_field("region") else None,
+        "code": region.code if region.has_field("code") else None,
+        "label": region.label if region.has_field("label") else None,
+        "schools": region.schools,
+        "cities": list(region.cities),
+        "examples": list(region.examples),
+    }
+
+
+async def _attempts(session) -> int:
+    return await session.scalar(select(func.count()).select_from(JoinAttempt)) or 0
+
+
+async def _spent(session) -> int:
+    return await quota.used(session, quota.DADATA_ANONYMOUS, quota.quota_day())
+
+
+async def test_the_regions_are_v1_s_best_first(v2, upstream) -> None:
+    upstream.rows = LYCEUM
+    answer = await v2.both(METHOD, _ask("  лицей   1535 "))
+    v1 = (await v2.http.get(V1, params={"q": "  лицей   1535 "})).json()
+    message = answer.message
+    assert (message.query, message.truncated, message.generic) == (
+        v1["query"],
+        v1["truncated"],
+        v1["generic"],
+    )
+    assert message.query == "лицей 1535"
+    assert [_plain(region) for region in message.regions] == v1["regions"]
+    assert [(region.region, region.code, region.schools) for region in message.regions] == [
+        ("moscow", "77", 1),
+        ("tatarstan", "16", 2),
+    ]
+    # One search a call, the two of `both` and v1's.
+    assert upstream.asked == ["лицей 1535"] * 3
+
+
+async def test_a_name_too_common_to_place_is_answered_without_the_directory(
+    v2, session, upstream
+) -> None:
+    answer = await v2.both(METHOD, _ask("Школа № 5"))
+    assert (answer.message.generic, list(answer.message.regions)) == (True, [])
+    assert upstream.asked == []
+    assert await _spent(session) == 0
+
+
+async def test_a_short_query_is_refused_on_its_field_and_not_counted(v2, session, upstream) -> None:
+    v1 = await v2.http.get(V1, params={"q": "шк"})
+    answer = await v2.both(METHOD, _ask(" шк "))
+    assert (answer.status, answer.code, answer.reason) == (
+        400,
+        "INVALID_ARGUMENT",
+        "VALIDATION_FAILED",
+    )
+    assert answer.violations == [("query", schools_service.QUERY_TOO_SHORT)]
+    assert answer.error == v1.json()["detail"] == schools_service.QUERY_TOO_SHORT
+    assert v1.status_code == 422
+    assert await _attempts(session) == 0
+    assert upstream.asked == []
+
+
+async def test_v1_and_v2_draw_on_one_budget(v2, session, upstream) -> None:
+    """Alternating versions does not double a caller's twenty searches, and a
+    search that finds its answer counts as much as one that does not."""
+    for attempt in range(directory_limiter.limit):
+        if attempt % 2:
+            assert (await v2.http.get(V1, params={"q": "школа № 5"})).json()["generic"] is True
+        else:
+            assert (await v2.rest(METHOD, _ask("школа № 5"))).message.generic is True
+
+    # Each transport on its own, not `both`: the seconds left are counted at
+    # each call, and two calls a millisecond apart may straddle a second.
+    rest = await v2.rest(METHOD, _ask("школа № 5"))
+    connect = await v2.connect(METHOD, _ask("школа № 5"))
+    for refused in (rest, connect):
+        assert (refused.code, refused.reason) == ("RESOURCE_EXHAUSTED", "THROTTLED")
+        assert refused.error == wording.DIRECTORY_THROTTLED_DETAIL
+        seconds = int(refused.metadata["retry_after_seconds"])
+        assert seconds >= 1 and refused.retry_seconds == seconds
+    assert rest.status == 429
+    assert rest.headers["retry-after"] == rest.metadata["retry_after_seconds"]
+    assert (await v2.http.get(V1, params={"q": "школа № 5"})).status_code == 429
+    assert await _attempts(session) == directory_limiter.limit
+
+
+async def test_without_a_key_the_search_is_disabled_in_v1_s_words(v2, session, monkeypatch) -> None:
+    monkeypatch.setattr(get_settings(), "dadata_token", "")
+    v1 = await v2.http.get(V1, params={"q": "лицей 1535"})
+    # A name too common to place is refused too: the key is asked about first.
+    answer = await v2.both(METHOD, _ask("школа № 5"))
+    assert (answer.status, answer.code, answer.reason) == (503, "UNAVAILABLE", "DIRECTORY_DISABLED")
+    assert answer.metadata == {}
+    assert answer.error == v1.json()["detail"] == wording.DIRECTORY_DISABLED_DETAIL
+    assert v1.headers["X-Directory-Unavailable"] == "disabled"
+    # Refused after it was counted, and it stays counted (decision 4).
+    assert await _attempts(session) == 3
+    assert await _spent(session) == 0
+
+
+async def test_a_spent_share_says_until_when(v2, session, upstream, monkeypatch) -> None:
+    monkeypatch.setattr(quota, "ANONYMOUS_DAILY_UNITS", 2)
+    upstream.rows = LYCEUM
+    assert (await v2.both(METHOD, _ask("лицей 1535"))).status == 200
+    assert await _spent(session) == 2
+
+    v1 = await v2.http.get(V1, params={"q": "лицей 1535"})
+    longest = quota.seconds_to_reset()
+    rest = await v2.rest(METHOD, _ask("лицей 1535"))
+    connect = await v2.connect(METHOD, _ask("лицей 1535"))
+    shortest = quota.seconds_to_reset()
+    for refused in (rest, connect):
+        assert (refused.code, refused.reason) == ("RESOURCE_EXHAUSTED", "DIRECTORY_SPENT")
+        assert refused.error == v1.json()["detail"] == wording.DIRECTORY_SPENT_DETAIL
+        seconds = int(refused.metadata["retry_after_seconds"])
+        # Until Moscow midnight, when the next day's share begins.
+        assert shortest <= seconds <= longest
+        assert refused.retry_seconds == seconds
+    # 429 where v1 sent 503: errors.proto files DIRECTORY_SPENT under
+    # RESOURCE_EXHAUSTED.
+    assert (rest.status, v1.status_code) == (429, 503)
+    assert rest.headers["retry-after"] == rest.metadata["retry_after_seconds"]
+    assert len(upstream.asked) == 2
+    assert await _spent(session) == 2
+
+
+async def test_a_failing_directory_is_unavailable_and_what_it_counted_stays(
+    v2, session, upstream
+) -> None:
+    """Down, refusing the key or its own allowance, or answering something
+    new: one «not now» in v1's words, never the bot's «вручную». The unit was
+    spent before the request went out, and the call's refusal takes back
+    neither it nor the attempt (decision 4)."""
+    for failure in (
+        dadata.UpstreamUnavailable(),
+        dadata.QuotaExceeded(),
+        dadata.UnexpectedResponse(),
+    ):
+        upstream.failure = failure
+        answer = await v2.both(METHOD, _ask("лицей 1535"))
+        assert (answer.status, answer.code, answer.reason) == (
+            503,
+            "UNAVAILABLE",
+            "DIRECTORY_UNAVAILABLE",
+        ), failure
+        assert answer.metadata == {}
+        assert answer.error == wording.DIRECTORY_UPSTREAM_DETAIL
+        assert "вручную" not in answer.error
+    v1 = await v2.http.get(V1, params={"q": "лицей 1535"})
+    assert v1.json()["detail"] == wording.DIRECTORY_UPSTREAM_DETAIL
+    assert v1.headers["X-Directory-Unavailable"] == "upstream"
+    assert (await _attempts(session), await _spent(session)) == (7, 7)
+
+
+async def test_a_search_writes_only_what_it_counts(
+    v2, upstream, statement_writes, unexpected_writes
+) -> None:
+    upstream.rows = LYCEUM
+    with statement_writes() as seen:
+        answer = await v2.both(METHOD, _ask("лицей 1535"))
+    assert answer.status == 200
+    # The attempt counted and the unit spent, on each call, and nothing else:
+    # an anonymous call has no phone to have seen.
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all("join_attempts" in s or "usage_counters" in s for s in seen), seen
+```
+In `server/tests/test_rpc_errors.py`:
+1. Replace:
+```python
+from app.services import diary as diary_service
+from app.services import join, window
+from app.services import terms as terms_service
+```
+   with:
+```python
+from app.services import diary as diary_service
+from app.services import directory as directory_service
+from app.services import join, quota, window
+from app.services import schools as schools_service
+from app.services import terms as terms_service
+```
+2. Replace `STAGES = {"3b-3", "3b-4", "3b-5", "3b-6", "3b-7", "3b-8"}` with `STAGES = {"3b-4", "3b-5", "3b-6", "3b-7", "3b-8"}`.
+3. From `LATER`, delete the three lines:
+```python
+    "DIRECTORY_DISABLED": "3b-3",
+    "DIRECTORY_SPENT": "3b-3",
+    "DIRECTORY_UNAVAILABLE": "3b-3",
+```
+4. In `HELD_BY`, replace:
+```python
+    access_service.GrantRefused: (
+        "test_v2_access_request_writes.py",
+        "test_a_role_at_or_above_the_grantor_s_own_is_refused_and_tells_nobody",
+    ),
+```
+   with:
+```python
+    access_service.GrantRefused: (
+        "test_v2_access_request_writes.py",
+        "test_a_role_at_or_above_the_grantor_s_own_is_refused_and_tells_nobody",
+    ),
+    directory_service.DirectoryThrottled: (
+        "test_v2_school_regions.py",
+        "test_v1_and_v2_draw_on_one_budget",
+    ),
+    schools_service.SearchError: (
+        "test_v2_school_regions.py",
+        "test_a_short_query_is_refused_on_its_field_and_not_counted",
+    ),
+    directory_service.DirectoryDisabled: (
+        "test_v2_school_regions.py",
+        "test_without_a_key_the_search_is_disabled_in_v1_s_words",
+    ),
+    quota.AllowanceSpent: (
+        "test_v2_school_regions.py",
+        "test_a_spent_share_says_until_when",
+    ),
+    directory_service.DirectoryUnavailable: (
+        "test_v2_school_regions.py",
+        "test_a_failing_directory_is_unavailable_and_what_it_counted_stays",
+    ),
+```
+
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_school_regions.py tests/test_rpc_errors.py
+```
+Expected:
+- Every test of `test_v2_school_regions.py` fails: the method answers `UNIMPLEMENTED`.
+- In `test_rpc_errors.py`, the `HELD_BY` test fails on five rows `TABLE` lacks, and the stage test on the three `DIRECTORY_` reasons, which nothing produces and `LATER` no longer lists.
+
+Keep this output as the evidence.
+
+- [ ] **Step 2: The table's five rows.** In `server/app/rpc/errors.py`:
+  1. Replace:
+```python
+from app.services import diary as diary_service
+from app.services import join, window
+from app.services import terms as terms_service
+```
+     with:
+```python
+from app.services import diary as diary_service
+from app.services import directory as directory_service
+from app.services import join, quota, window
+from app.services import schools as schools_service
+from app.services import terms as terms_service
+```
+  2. Replace the end of `_role_grant_refused`:
+```python
+        wording.GRANT_REFUSED_DETAILS[error.why],
+        why=error.why,
+    )
+```
+     with:
+```python
+        wording.GRANT_REFUSED_DETAILS[error.why],
+        why=error.why,
+    )
+
+
+def _directory_throttled(error: directory_service.DirectoryThrottled) -> Refusal:
+    return Refusal(
+        ErrorReason.THROTTLED,
+        wording.DIRECTORY_THROTTLED_DETAIL,
+        retry_after_seconds=error.seconds,
+    )
+
+
+def _school_query_too_short(_error: schools_service.SearchError) -> Refusal:
+    # The service's sentence for a person, a constant built from MIN_QUERY and
+    # never from what was sent; the exception's own text is not read.
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        schools_service.QUERY_TOO_SHORT,
+        violations=[("query", schools_service.QUERY_TOO_SHORT)],
+    )
+
+
+def _directory_disabled(_error: directory_service.DirectoryDisabled) -> Refusal:
+    return Refusal(ErrorReason.DIRECTORY_DISABLED, wording.DIRECTORY_DISABLED_DETAIL)
+
+
+def _directory_spent(error: quota.AllowanceSpent) -> Refusal:
+    return Refusal(
+        ErrorReason.DIRECTORY_SPENT,
+        wording.DIRECTORY_SPENT_DETAIL,
+        retry_after_seconds=error.retry_after,
+    )
+
+
+def _directory_unavailable(_error: directory_service.DirectoryUnavailable) -> Refusal:
+    return Refusal(ErrorReason.DIRECTORY_UNAVAILABLE, wording.DIRECTORY_UPSTREAM_DETAIL)
+```
+  3. In `TABLE`, replace:
+```python
+    access_service.GrantRefused: _role_grant_refused,
+}
+```
+     with:
+```python
+    access_service.GrantRefused: _role_grant_refused,
+    directory_service.DirectoryThrottled: _directory_throttled,
+    schools_service.SearchError: _school_query_too_short,
+    directory_service.DirectoryDisabled: _directory_disabled,
+    quota.AllowanceSpent: _directory_spent,
+    directory_service.DirectoryUnavailable: _directory_unavailable,
+}
+```
+
+- [ ] **Step 3: Create `server/app/rpc/directory.py`** with the anonymous search; Task 6 replaces the file with `ListSchools` added:
+```python
+"""``DirectoryService``: the school directory, a search over the ЕГРЮЛ company register.
+
+``ListSchoolRegions`` is v1's ``GET /directory/school-regions``, for a phone
+that belongs to no class yet: anonymous, and the same door, in the same order
+(``directory.school_regions``), so a caller has twenty searches and one
+anonymous share of the directory's allowance whichever version it asks
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 11).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from app.contract.lessons.v2.directory_pb import (
+    ListSchoolRegionsRequest,
+    ListSchoolRegionsResponse,
+    SchoolRegion,
+)
+from app.services import directory as directory_service
+from app.services import schools as schools_service
+
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+
+def _region(group: schools_service.RegionGroup) -> SchoolRegion:
+    return SchoolRegion(
+        region=group.region,
+        code=group.code,
+        label=group.label,
+        schools=group.schools,
+        cities=group.cities,
+        examples=group.examples,
+    )
+
+
+async def list_school_regions(
+    call: Call, request: ListSchoolRegionsRequest
+) -> ListSchoolRegionsResponse:
+    """The regions a school called ``query`` may be in, best first, at most ten.
+
+    Counted against the caller in v1's bucket, and refused in v1's order and
+    words: throttled, a query too short (not counted), no directory, today's
+    anonymous share spent, the directory failing. Writes the throttle's row
+    and the allowance's count, and nothing else.
+    """
+    found = await directory_service.school_regions(
+        call.session,
+        request.query,
+        client_key=call.bucket(scope=directory_service.BUCKET_SCOPE),
+    )
+    return ListSchoolRegionsResponse(
+        query=found.query,
+        regions=[_region(group) for group in found.groups],
+        truncated=found.truncated,
+        generic=found.generic,
+    )
+```
+
+- [ ] **Step 4: Serve it, and say what a refusal keeps.**
+  1. In `server/app/rpc/handlers.py`, replace:
+```python
+    diary,
+    me,
+```
+     with:
+```python
+    diary,
+    directory,
+    me,
+```
+     and in `HANDLERS`, replace:
+```python
+    "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+```
+     with:
+```python
+    "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+    "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
+```
+  2. In `server/app/rpc/call.py`'s docstring, under «What a refusal does not roll back, on purpose», replace:
+```python
+- ``JoinThrottle.admit`` — a wrong join code stays counted;
+```
+     with:
+```python
+- ``JoinThrottle.admit`` — a wrong join code stays counted, and so does a
+  search of the anonymous school directory;
+- ``quota.spend`` — a unit of the directory's daily allowance stays spent,
+  because the directory counted the request it paid for either way;
+```
+     `test_a_failing_directory_is_unavailable_and_what_it_counted_stays` is the test over v2 that the docstring's «Each has a test over v2» promises for both.
+
+- [ ] **Step 5: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_school_regions.py tests/test_services_directory.py tests/test_directory.py tests/test_rpc_errors.py tests/test_rpc_call.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_service_layering.py
+```
+Expected: all pass.
+- `test_v2_school_regions.py` has 8.
+- The gate test and the no-echo sweep each gain one case. The gate test's three anonymous calls send an empty query, which is too short and handed back; the sweep's queries are refused by the decoder, handed back, or answered `DIRECTORY_DISABLED` under the conftest's empty key, about ten of the caller's twenty.
+- `test_rpc_errors.py` holds `STAGES` without `"3b-3"`: every reason 3b-3 brings is produced.
+
+- [ ] **Step 6: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 231 source files`. Then the full suite once. Expected: 2752 passed (2742 + 10).
+
+- [ ] **Step 7: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b3-t5.txt`:
+```text
+Serve the anonymous school directory over v2, on v1's budget
+
+ListSchoolRegions is v1's GET /directory/school-regions through the same
+services/directory.school_regions, for a phone with no class: the same
+regions, best first, and the same refusals in the same order and words.
+A caller is bucketed as v1 buckets it, under one scope, so alternating
+versions gives twenty searches, not forty, and one anonymous share of
+the directory's allowance; a short query is not counted.
+
+Five rows join the error table, each read back on both paths by a named
+test: THROTTLED, VALIDATION_FAILED on query, DIRECTORY_DISABLED,
+DIRECTORY_SPENT with the seconds to the next Moscow day (a 429 over REST,
+where v1 sent 503), and DIRECTORY_UNAVAILABLE. The three DIRECTORY_
+reasons leave LATER, and with them every reason 3b-3 brings is produced,
+so 3b-3 leaves STAGES. call.py's docstring adds the directory's attempt
+and its spent unit to what a refused call keeps.
+
+Not covered: DaData itself; every test replaces the search.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add server/app/rpc/directory.py server/app/rpc/errors.py server/app/rpc/handlers.py server/app/rpc/call.py server/tests/test_v2_school_regions.py server/tests/test_rpc_errors.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b3-t5.txt
+```
+
+---
+
+### 3b-3 Task 6: `ListSchools`, a page at a time from one search, and what `directory.proto` says of it
+
+Decisions 2, 5, 10 and 14; Rulings 17, 34, 44, 45 and 46. Before this task the controller files `#369` («Two defects found while writing this list»), which this task fixes.
+
+**Files:**
+- Create: `server/tests/test_v2_schools.py`
+- Modify:
+  - `proto/lessons/v2/directory.proto` (comments only) and `server/app/contract/**` (regenerated);
+  - `server/app/rpc/directory.py` (replaced), `server/app/rpc/errors.py`, `server/app/rpc/handlers.py` and `server/tests/test_rpc_errors.py`.
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b3.sh`
+
+**Interfaces:**
+- Consumes:
+  - `schools.search(raw_query, *, region) -> schools.SearchResult` (`.schools`, `.truncated`), `schools.PAGE_SIZE`, Task 2's `schools.MAX_REGION`;
+  - `dadata.School`, `dadata.MAX_SUGGESTIONS`, `dadata.NotConfigured`, `dadata.DirectoryError` (`.message`);
+  - Task 5's `_region` and `list_school_regions`.
+- Produces:
+  - `directory.list_schools`, `directory.page_token(first: int) -> str`;
+  - `directory.DEFAULT_PAGE_SIZE`, `MAX_PAGE_SIZE`, `PAGE_SIZE_REFUSED`, `PAGE_TOKEN_REFUSED`, `REGION_REFUSED`;
+  - two `TABLE` rows.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_schools.py`:
+```python
+"""``DirectoryService.ListSchools``: the schools matching a name, for an admin naming the class's.
+
+v1's ``GET /manage/schools`` over v2, through the same ``schools.search``: one
+upstream search a call, whatever the page, because the directory has no
+offset. What v2 changes is the paging: AIP-158's ``page_size`` and an opaque
+``page_token`` naming the first school of the next page, where v1 took a page
+number (the 3b plan, «Rulings for 3b-3»). The refusals are v1's, in v1's
+words: the provider's own sentence when the directory is not configured or
+fails, which ends «введите название вручную», because an admin can type the
+name. A read writes nothing (``docs/specs/2026-10-05-server-v2-design.md``,
+decision 10).
+
+Nothing reaches DaData: ``dadata.suggest_schools`` is replaced, and keeps what
+it was asked.
+"""
+
+from __future__ import annotations
+
+import ast
+import base64
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from app.config import get_settings
+from app.contract.lessons.v2.directory_pb import ListSchoolsRequest
+from app.providers import dadata
+from app.rpc.directory import PAGE_SIZE_REFUSED, PAGE_TOKEN_REFUSED, REGION_REFUSED
+from app.services import schools as schools_service
+
+METHOD = "DirectoryService/ListSchools"
+V1 = "/api/v1/manage/schools"
+CLIENT = Path(__file__).resolve().parents[1] / "app" / "providers" / "dadata" / "client.py"
+
+#: Every exception of the directory's, by the name ``client.py`` raises it under.
+DIRECTORY_ERRORS = {
+    "DirectoryError",
+    "NotConfigured",
+    "UpstreamUnavailable",
+    "QuotaExceeded",
+    "UnexpectedResponse",
+}
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _row(index: int) -> dict[str, Any]:
+    """One suggestion of DaData's ``suggest/party``: a gymnasium in Perm, every
+    second one closed by the register."""
+    name = f'МБОУ "ГИМНАЗИЯ № {index}"'
+    return {
+        "value": name,
+        "data": {
+            "ogrn": f"102780000{index:04d}",
+            "inn": f"59000{index:05d}",
+            "name": {"short_with_opf": name, "full_with_opf": f"УЧРЕЖДЕНИЕ {name}"},
+            "state": {"status": "ACTIVE" if index % 2 else "LIQUIDATED"},
+            "address": {
+                "value": f"г Пермь, ул Ленина, д {index}",
+                "data": {"city": "Пермь", "region_with_type": "Пермский край"},
+            },
+        },
+    }
+
+
+def _rows(count: int) -> list[dict[str, Any]]:
+    return [_row(index) for index in range(1, count + 1)]
+
+
+def _ogrns(count: int) -> list[str]:
+    return [f"102780000{index:04d}" for index in range(1, count + 1)]
+
+
+@dataclass
+class _Upstream:
+    """A configured directory: what it answers, what it fails with, and the
+    (query, region) of every search it was asked."""
+
+    rows: list[dict[str, Any]] = field(default_factory=list)
+    failure: Exception | None = None
+    asked: list[tuple[str, str | None]] = field(default_factory=list)
+
+
+@pytest.fixture
+def upstream(monkeypatch) -> _Upstream:
+    directory = _Upstream()
+    monkeypatch.setattr(get_settings(), "dadata_token", "<redacted>")
+
+    async def suggest(query: str, *, region: str | None = None, may_retry: Any = None):
+        directory.asked.append((query, region))
+        if directory.failure is not None:
+            raise directory.failure
+        return directory.rows
+
+    monkeypatch.setattr(dadata, "suggest_schools", suggest)
+    return directory
+
+
+def _plain(school: Any) -> dict[str, Any]:
+    """A v2 school as v1's ``SchoolOut`` writes it."""
+    optional = ("ogrn", "inn", "address", "city", "region")
+    return {
+        "name": school.name,
+        "full_name": school.full_name,
+        **{key: getattr(school, key) if school.has_field(key) else None for key in optional},
+        "active": school.active,
+    }
+
+
+def _token(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
+async def test_the_schools_are_v1_s_from_one_search(v2, v2_tokens, upstream) -> None:
+    upstream.rows = _rows(7)
+    admin = v2_tokens["admin"]
+    request = ListSchoolsRequest(query=" гимназия  3 ", region="Пермский край", page_size=20)
+    answer = await v2.both(METHOD, request, token=admin)
+    v1 = await v2.http.get(
+        V1,
+        params={"q": " гимназия  3 ", "region": "Пермский край", "page_size": 20},
+        headers=_auth(admin),
+    )
+    message = answer.message
+    assert [_plain(school) for school in message.schools] == v1.json()["items"]
+    assert (message.total_size, message.truncated) == (v1.json()["total"], v1.json()["truncated"])
+    assert (message.total_size, message.next_page_token) == (7, "")
+    # A school the register has closed is shown, not hidden.
+    assert [school.active for school in message.schools] == [i % 2 == 1 for i in range(1, 8)]
+    # One search a call, and the region a hint passed on as it was sent.
+    assert upstream.asked == [("гимназия 3", "Пермский край")] * 3
+
+
+async def test_the_pages_walk_one_answer_and_each_asks_again(v2, v2_tokens, upstream) -> None:
+    """Twelve schools, five to a page: three pages, the last of two, each a
+    search of its own, and nothing repeated or skipped."""
+    upstream.rows = _rows(12)
+    admin = v2_tokens["admin"]
+    first = await v2.both(METHOD, ListSchoolsRequest(query="гимназия", page_size=5), token=admin)
+    seen = [school.ogrn for school in first.message.schools]
+    token = first.message.next_page_token
+    for expected in (5, 2):
+        page = await v2.rest(
+            METHOD, ListSchoolsRequest(query="гимназия", page_size=5, page_token=token), token=admin
+        )
+        assert (len(page.message.schools), page.message.total_size) == (expected, 12)
+        seen += [school.ogrn for school in page.message.schools]
+        token = page.message.next_page_token
+    assert token == ""
+    assert seen == _ogrns(12)
+    assert len(upstream.asked) == 4
+    # A page size changed between calls starts where the last page ended.
+    wider = await v2.rest(
+        METHOD,
+        ListSchoolsRequest(
+            query="гимназия", page_size=20, page_token=first.message.next_page_token
+        ),
+        token=admin,
+    )
+    assert [school.ogrn for school in wider.message.schools] == _ogrns(12)[5:]
+    assert wider.message.next_page_token == ""
+
+
+async def test_the_page_size_is_five_unset_twenty_at_most_and_never_negative(
+    v2, v2_tokens, upstream
+) -> None:
+    upstream.rows = _rows(7)
+    admin = v2_tokens["admin"]
+    unset = await v2.both(METHOD, ListSchoolsRequest(query="гимназия"), token=admin)
+    assert len(unset.message.schools) == schools_service.PAGE_SIZE == 5
+    assert unset.message.next_page_token != ""
+    # Read as the most a page holds, as AIP-158 has it, where v1 refused it.
+    large = await v2.both(METHOD, ListSchoolsRequest(query="гимназия", page_size=50), token=admin)
+    assert (len(large.message.schools), large.message.next_page_token) == (7, "")
+    searched = len(upstream.asked)
+    negative = await v2.both(
+        METHOD, ListSchoolsRequest(query="гимназия", page_size=-1), token=admin
+    )
+    assert (negative.status, negative.reason) == (400, "VALIDATION_FAILED")
+    assert negative.violations == [("page_size", PAGE_SIZE_REFUSED)]
+    assert len(upstream.asked) == searched
+
+
+async def test_a_token_this_list_did_not_hand_out_is_refused_without_repeating_it(
+    v2, v2_tokens, upstream
+) -> None:
+    upstream.rows = _rows(7)
+    for token in (
+        "not a token!",
+        _token(b"audit:5"),  # another list's
+        _token(b"schools:0"),  # the first page has no token
+        _token(b"schools:05"),  # never written so
+        _token(b"schools:20"),  # no search finds a twenty-first school
+        _token(b"schools:-1"),
+        "A" * 64,
+    ):
+        answer = await v2.both(
+            METHOD,
+            ListSchoolsRequest(query="гимназия", page_token=token),
+            token=v2_tokens["admin"],
+        )
+        assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED"), token
+        assert answer.violations == [("page_token", PAGE_TOKEN_REFUSED)]
+        assert token not in (answer.error or "")
+    assert upstream.asked == []
+
+
+async def test_a_token_past_what_the_search_finds_now_is_an_empty_last_page(
+    v2, v2_tokens, upstream
+) -> None:
+    """The directory answers each call afresh and may find fewer schools than
+    it did a page ago: the page after them is empty and the last, rather than
+    a refusal of a token this list did hand out."""
+    upstream.rows = _rows(12)
+    admin = v2_tokens["admin"]
+    first = await v2.rest(METHOD, ListSchoolsRequest(query="гимназия", page_size=10), token=admin)
+    upstream.rows = _rows(7)
+    after = await v2.both(
+        METHOD,
+        ListSchoolsRequest(
+            query="гимназия", page_size=10, page_token=first.message.next_page_token
+        ),
+        token=admin,
+    )
+    assert after.status == 200
+    assert (list(after.message.schools), after.message.next_page_token) == ([], "")
+    assert after.message.total_size == 7
+
+
+async def test_a_region_longer_than_v1_takes_is_refused_on_its_field(
+    v2, v2_tokens, upstream
+) -> None:
+    admin = v2_tokens["admin"]
+    region = "Пермский край " * 10
+    v1 = await v2.http.get(V1, params={"q": "гимназия", "region": region}, headers=_auth(admin))
+    answer = await v2.both(METHOD, ListSchoolsRequest(query="гимназия", region=region), token=admin)
+    assert v1.status_code == 422
+    assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED")
+    assert answer.violations == [("region", REGION_REFUSED)]
+    assert upstream.asked == []
+
+
+async def test_a_short_query_is_refused_on_its_field_in_v1_s_words(v2, v2_tokens, upstream) -> None:
+    admin = v2_tokens["admin"]
+    v1 = await v2.http.get(V1, params={"q": "шк"}, headers=_auth(admin))
+    answer = await v2.both(METHOD, ListSchoolsRequest(query="шк"), token=admin)
+    assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED")
+    assert answer.violations == [("query", schools_service.QUERY_TOO_SHORT)]
+    assert answer.error == v1.json()["detail"] == schools_service.QUERY_TOO_SHORT
+    assert upstream.asked == []
+
+
+async def test_without_a_key_the_search_is_disabled_in_v1_s_words(
+    v2, v2_tokens, monkeypatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "dadata_token", "")
+    admin = v2_tokens["admin"]
+    v1 = await v2.http.get(V1, params={"q": "гимназия"}, headers=_auth(admin))
+    answer = await v2.both(METHOD, ListSchoolsRequest(query="гимназия"), token=admin)
+    assert (answer.status, answer.code, answer.reason) == (503, "UNAVAILABLE", "DIRECTORY_DISABLED")
+    # The provider's sentence, as v1 and the bot say it: an admin can type the name.
+    assert answer.error == v1.json()["detail"] == dadata.NotConfigured.message
+    assert "вручную" in answer.error
+    assert v1.status_code == 503
+
+
+async def test_a_failing_directory_is_unavailable_in_v1_s_words(v2, v2_tokens, upstream) -> None:
+    admin = v2_tokens["admin"]
+    for failure in (
+        dadata.UpstreamUnavailable(),
+        dadata.QuotaExceeded(),
+        dadata.UnexpectedResponse(),
+    ):
+        upstream.failure = failure
+        v1 = await v2.http.get(V1, params={"q": "гимназия"}, headers=_auth(admin))
+        answer = await v2.both(METHOD, ListSchoolsRequest(query="гимназия"), token=admin)
+        assert (answer.status, answer.code, answer.reason) == (
+            503,
+            "UNAVAILABLE",
+            "DIRECTORY_UNAVAILABLE",
+        ), failure
+        assert answer.metadata == {}
+        assert answer.error == v1.json()["detail"] == failure.message
+
+
+def test_the_directory_s_sentences_are_its_own_never_what_was_sent() -> None:
+    """``ListSchools`` answers a directory that is not configured or fails with
+    the provider's own sentence, as v1 and the bot do: the one refusal of 3b-3
+    whose message is an exception's text (the 3b plan, «Rulings for 3b-3»). It
+    may be, because the client raises each of them with no text or with a
+    literal; this holds that, so that a sentence built from what was sent or
+    what the directory said cannot reach a client unnoticed."""
+    raised = [
+        node
+        for node in ast.walk(ast.parse(CLIENT.read_text(encoding="utf-8")))
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) in DIRECTORY_ERRORS
+    ]
+    # Held here rather than trusted: a walk that found nothing would pass.
+    assert len(raised) >= 5
+    for node in raised:
+        assert node.keywords == [], ast.unparse(node)
+        assert all(
+            isinstance(arg, ast.Constant) and isinstance(arg.value, str) for arg in node.args
+        ), ast.unparse(node)
+
+
+async def test_searching_writes_nothing_but_the_last_seen(
+    v2, v2_tokens, upstream, statement_writes, unexpected_writes, last_seen_rule
+) -> None:
+    upstream.rows = _rows(3)
+    with statement_writes() as seen:
+        answer = await v2.both(
+            METHOD, ListSchoolsRequest(query="гимназия"), token=v2_tokens["admin"]
+        )
+    assert answer.status == 200
+    assert len(answer.message.schools) == 3
+    # The phone's last call, and nothing else: the admins' search spends
+    # nothing of the anonymous share.
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all(last_seen_rule.match(statement) for statement in seen), seen
+```
+In `server/tests/test_rpc_errors.py`:
+1. Replace `from app.rest.errors import STATUS, error_response` with the two lines:
+```python
+from app.providers import dadata
+from app.rest.errors import STATUS, error_response
+```
+2. In `HELD_BY`, replace:
+```python
+    directory_service.DirectoryUnavailable: (
+        "test_v2_school_regions.py",
+        "test_a_failing_directory_is_unavailable_and_what_it_counted_stays",
+    ),
+```
+   with:
+```python
+    directory_service.DirectoryUnavailable: (
+        "test_v2_school_regions.py",
+        "test_a_failing_directory_is_unavailable_and_what_it_counted_stays",
+    ),
+    dadata.NotConfigured: (
+        "test_v2_schools.py",
+        "test_without_a_key_the_search_is_disabled_in_v1_s_words",
+    ),
+    dadata.DirectoryError: (
+        "test_v2_schools.py",
+        "test_a_failing_directory_is_unavailable_in_v1_s_words",
+    ),
+```
+
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_schools.py tests/test_rpc_errors.py
+```
+Expected:
+- `test_v2_schools.py` fails at collection with `ImportError`: `PAGE_SIZE_REFUSED` is not in `app.rpc.directory` yet.
+- In `test_rpc_errors.py`, the `HELD_BY` test fails on two rows `TABLE` lacks.
+
+Keep this output as the evidence.
+
+- [ ] **Step 2: The proto says what the region, the page size and the token do.** In `proto/lessons/v2/directory.proto`, replace:
+```proto
+message ListSchoolsRequest {
+  string query = 1;
+  // Narrows the search to a region's name.
+  optional string region = 2;
+  // 1 to 20; 20 returns everything one search found. Unset means 5, v1's
+  // page size.
+  int32 page_size = 3;
+  string page_token = 4;
+}
+```
+  with:
+```proto
+message ListSchoolsRequest {
+  string query = 1;
+  // A region or a city the search prefers, as people write it («Татарстан»),
+  // at most 120 characters. A hint, not a filter: a school across the road
+  // from the boundary is still that school.
+  optional string region = 2;
+  // 1 to 20; 20 returns everything one search found. Unset means 5, v1's
+  // page size; a larger one reads as 20, as AIP-158 has it, and a negative
+  // one is VALIDATION_FAILED.
+  int32 page_size = 3;
+  // The next_page_token of the call before, sent back unchanged. It names
+  // the first school of the next page, so a page_size changed between two
+  // calls still starts where the last page ended, and one past what the
+  // search finds now is an empty last page. A token this list did not hand
+  // out is VALIDATION_FAILED.
+  string page_token = 4;
+}
+```
+  Then, from the worktree root:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe lint && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe generate && git status --short server/app/contract
+```
+  Expected:
+  - `buf lint` prints nothing.
+  - `buf generate` prints nothing.
+  - `git status` lists only `server/app/contract/lessons/v2/directory_pb.py`, because a field's comment is a docstring there.
+
+  Then write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b3.sh`:
+```bash
+#!/bin/bash
+# buf breaking for 3b-3, from a file: the shell refuses `.git#ref` on a command line.
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract || exit 2
+git fetch origin main || exit 2
+/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe breaking --against ".git#ref=origin/main"
+echo "exit=$?"
+```
+  and run it:
+```bash
+bash C:/Users/lumen/.claude/jobs/c9e2d980/tmp/breaking3b3.sh
+```
+  Expected: `exit=0` and nothing else from `buf`. A comment is not a breaking change.
+
+- [ ] **Step 3: The table's two rows.** In `server/app/rpc/errors.py`:
+  1. Replace:
+```python
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.services import access as access_service
+```
+     with:
+```python
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.providers import dadata
+from app.services import access as access_service
+```
+  2. Replace the end of `_directory_unavailable`:
+```python
+def _directory_unavailable(_error: directory_service.DirectoryUnavailable) -> Refusal:
+    return Refusal(ErrorReason.DIRECTORY_UNAVAILABLE, wording.DIRECTORY_UPSTREAM_DETAIL)
+```
+     with:
+```python
+def _directory_unavailable(_error: directory_service.DirectoryUnavailable) -> Refusal:
+    return Refusal(ErrorReason.DIRECTORY_UNAVAILABLE, wording.DIRECTORY_UPSTREAM_DETAIL)
+
+
+def _school_search_disabled(error: dadata.NotConfigured) -> Refusal:
+    # ListSchools says what v1's /manage/schools and the bot say: the
+    # provider's own sentence, a literal of providers/dadata/client.py, never
+    # what was sent or what the directory answered (test_v2_schools.py reads
+    # the client so). It ends «введите название вручную», an admin's way on.
+    return Refusal(ErrorReason.DIRECTORY_DISABLED, error.message)
+
+
+def _school_search_unavailable(error: dadata.DirectoryError) -> Refusal:
+    return Refusal(ErrorReason.DIRECTORY_UNAVAILABLE, error.message)
+```
+  3. In `TABLE`, replace:
+```python
+    directory_service.DirectoryUnavailable: _directory_unavailable,
+}
+```
+     with:
+```python
+    directory_service.DirectoryUnavailable: _directory_unavailable,
+    dadata.NotConfigured: _school_search_disabled,
+    dadata.DirectoryError: _school_search_unavailable,
+}
+```
+  `TABLE` is matched along an exception's MRO, so `NotConfigured` takes its own row before its base's, and `QuotaExceeded`, a subclass of `UpstreamUnavailable`, takes `DirectoryError`'s. The anonymous door never reaches either: `directory.school_regions` turns every `DirectoryError` into `DirectoryUnavailable`.
+
+- [ ] **Step 4: Replace `server/app/rpc/directory.py` whole**, adding `ListSchools`:
+```python
+"""``DirectoryService``: the school directory, a search over the ЕГРЮЛ company register.
+
+``ListSchoolRegions`` is v1's ``GET /directory/school-regions``, for a phone
+that belongs to no class yet: anonymous, and the same door, in the same order
+(``directory.school_regions``), so a caller has twenty searches and one
+anonymous share of the directory's allowance whichever version it asks
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 11).
+
+``ListSchools`` is v1's ``GET /manage/schools``, for an admin naming the
+class's school: the same ``schools.search``, unmetered, one upstream search a
+call whatever the page, because the directory has no offset. What v2 changes
+is the paging. v1 took a page number; v2 takes AIP-158's ``page_size`` and an
+opaque ``page_token`` naming the first school of the next page, so a
+``page_size`` changed between two calls still starts where the last page
+ended (``docs/specs/2026-10-05-server-v2-3b-plan.md``, «Rulings for 3b-3»).
+Its refusals are the provider's own, in v1's words.
+"""
+
+from __future__ import annotations
+
+import base64
+import binascii
+from typing import TYPE_CHECKING
+
+from app.contract.lessons.v2.directory_pb import (
+    ListSchoolRegionsRequest,
+    ListSchoolRegionsResponse,
+    ListSchoolsRequest,
+    ListSchoolsResponse,
+    School,
+    SchoolRegion,
+)
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.providers import dadata
+from app.rpc.errors import Refusal
+from app.services import directory as directory_service
+from app.services import schools as schools_service
+
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+#: Schools per page when the request names none: v1's page, and the bot's.
+DEFAULT_PAGE_SIZE = schools_service.PAGE_SIZE
+#: The most a page holds: everything one search can find. A larger
+#: ``page_size`` is read as this, as AIP-158 has it.
+MAX_PAGE_SIZE = dadata.MAX_SUGGESTIONS
+
+#: Fixed, and naming no value: a refusal never repeats what was sent.
+PAGE_SIZE_REFUSED = "page_size must not be negative"
+PAGE_TOKEN_REFUSED = "page_token is not one this list handed out"
+REGION_REFUSED = f"region must be at most {schools_service.MAX_REGION} characters"
+
+#: What a token says before its position, so that another list's token can
+#: never pass for one of this.
+_PREFIX = b"schools:"
+#: Longer than any token this list hands out; a longer one is refused unread.
+_TOKEN_MAX = 32
+
+
+def page_token(first: int) -> str:
+    """The token of the page whose first school is ``first``, counted from 0:
+    URL-safe base64, unpadded."""
+    return base64.urlsafe_b64encode(_PREFIX + str(first).encode()).rstrip(b"=").decode()
+
+
+def _bad_token() -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        PAGE_TOKEN_REFUSED,
+        violations=[("page_token", PAGE_TOKEN_REFUSED)],
+    )
+
+
+def _first(token: str) -> int:
+    """The first school of the page ``token`` asks for, or ``VALIDATION_FAILED``
+    on ``page_token`` for a token this list never wrote."""
+    if len(token) > _TOKEN_MAX or not token.isascii():
+        raise _bad_token()
+    try:
+        # Strict: the lenient decoder drops characters outside the alphabet.
+        raw = base64.b64decode(token + "=" * (-len(token) % 4), altchars=b"-_", validate=True)
+    except (binascii.Error, ValueError):
+        raise _bad_token() from None
+    digits = raw.removeprefix(_PREFIX)
+    if digits == raw or not digits.isdigit() or len(digits) > 2:
+        raise _bad_token()
+    first = int(digits)
+    # A next page starts after the first school, and no search finds a
+    # twenty-first; «schools:05» is no token this list writes either.
+    if not 0 < first < MAX_PAGE_SIZE or str(first).encode() != digits:
+        raise _bad_token()
+    return first
+
+
+def _region(group: schools_service.RegionGroup) -> SchoolRegion:
+    return SchoolRegion(
+        region=group.region,
+        code=group.code,
+        label=group.label,
+        schools=group.schools,
+        cities=group.cities,
+        examples=group.examples,
+    )
+
+
+def _school(school: dadata.School) -> School:
+    return School(
+        name=school.name,
+        full_name=school.full_name,
+        ogrn=school.ogrn,
+        inn=school.inn,
+        address=school.address,
+        city=school.city,
+        region=school.region,
+        active=school.active,
+    )
+
+
+async def list_school_regions(
+    call: Call, request: ListSchoolRegionsRequest
+) -> ListSchoolRegionsResponse:
+    """The regions a school called ``query`` may be in, best first, at most ten.
+
+    Counted against the caller in v1's bucket, and refused in v1's order and
+    words: throttled, a query too short (not counted), no directory, today's
+    anonymous share spent, the directory failing. Writes the throttle's row
+    and the allowance's count, and nothing else.
+    """
+    found = await directory_service.school_regions(
+        call.session,
+        request.query,
+        client_key=call.bucket(scope=directory_service.BUCKET_SCOPE),
+    )
+    return ListSchoolRegionsResponse(
+        query=found.query,
+        regions=[_region(group) for group in found.groups],
+        truncated=found.truncated,
+        generic=found.generic,
+    )
+
+
+async def list_schools(call: Call, request: ListSchoolsRequest) -> ListSchoolsResponse:
+    """The schools matching ``query``, a page at a time, from one search a call.
+
+    The request's own fields are checked before anything is asked of the
+    directory: a negative ``page_size``, a token this list did not hand out
+    and a region hint longer than v1 takes are refused on their fields. A
+    token past what the search finds now — the directory answered fewer than
+    it did a page ago — is an empty last page. Writes nothing.
+    """
+    if request.page_size < 0:
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED,
+            PAGE_SIZE_REFUSED,
+            violations=[("page_size", PAGE_SIZE_REFUSED)],
+        )
+    size = min(request.page_size or DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
+    first = _first(request.page_token) if request.page_token else 0
+    region = request.region if request.has_field("region") else None
+    if region is not None and len(region) > schools_service.MAX_REGION:
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED, REGION_REFUSED, violations=[("region", REGION_REFUSED)]
+        )
+    found = await schools_service.search(request.query, region=region or None)
+    after = first + size
+    return ListSchoolsResponse(
+        schools=[_school(school) for school in found.schools[first:after]],
+        next_page_token=page_token(after) if after < len(found.schools) else "",
+        total_size=len(found.schools),
+        truncated=found.truncated,
+    )
+```
+
+- [ ] **Step 5: Serve it.** In `server/app/rpc/handlers.py`'s `HANDLERS`, replace:
+```python
+    "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
+```
+with:
+```python
+    "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
+    "lessons.v2.DirectoryService/ListSchools": directory.list_schools,
+```
+
+- [ ] **Step 6: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_schools.py tests/test_v2_school_regions.py tests/test_rpc_errors.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_contract.py tests/test_contract_json.py tests/test_contract_mirror.py tests/test_rest.py tests/test_api_manage.py tests/test_service_layering.py
+```
+Expected: all pass.
+- `test_v2_schools.py` has 11.
+- The gate test and the no-echo sweep each gain one case. The gate test's admin sends an empty query, refused as too short before the directory is asked. The sweep's secret in `query` is answered `DIRECTORY_DISABLED` under the conftest's empty key, in `NotConfigured`'s sentence; in `pageToken` and in `region` it is refused in the handler's fixed sentences; in `pageSize` by the decoder.
+- `test_contract.py`, `test_contract_json.py` and `test_contract_mirror.py` pass: no field changed, only a comment.
+
+- [ ] **Step 7: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 231 source files`. Then the full suite once. Expected: 2765 passed (2752 + 13).
+
+- [ ] **Step 8: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b3-t6.txt`, with `#369` replaced by the number the controller filed it as:
+```text
+Serve the admins' school search over v2, a page at a time from one search
+
+ListSchools is v1's GET /manage/schools through the same schools.search,
+one upstream search a call whatever the page, because the directory has
+no offset. Its paging is AIP-158's: page_size 5 when unset, a larger one
+than 20 read as 20 where v1 refused it, a negative one refused; and an
+opaque page_token naming the first school of the next page, so a page
+size changed between two calls still starts where the last page ended,
+and a token past what the search finds now is an empty last page rather
+than a refusal. A token this list did not write is VALIDATION_FAILED
+without being repeated, and so is a region hint longer than v1 takes.
+Every field is checked before the directory is asked anything.
+
+The directory not configured or failing is DIRECTORY_DISABLED or
+DIRECTORY_UNAVAILABLE in the provider's own sentence, as v1 and the bot
+answer an admin, which ends «введите название вручную». A test reads
+the client to hold that every such sentence is a literal, never what was
+sent or what the directory said.
+
+directory.proto said the region narrows the search, where the server
+only ranks by it (#369); its comments now say so, and what the
+page size and the token do. Only the generated docstrings changed.
+
+Not covered: DaData itself; every test replaces the search.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add proto/lessons/v2/directory.proto server/app/contract server/app/rpc/directory.py server/app/rpc/errors.py server/app/rpc/handlers.py server/tests/test_v2_schools.py server/tests/test_rpc_errors.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b3-t6.txt
+```
+
+---
+
+### 3b-3 Task 7: The documents, the counts, the HANDOVER close-out, and production after the merge
+
+**Files:**
+- Modify: `docs/api.md`, `docs/README.md`, `docs/architecture.md`, `CLAUDE.md`, `README.md`, `docs/specs/2026-10-05-server-v2-3b-plan.md` (the 3b-5 summary), `CONTRIBUTING.md`, `.claude/skills/gates/SKILL.md`, `.claude/agents/server-tests.md`, `HANDOVER.md`, `docs/history.md`
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b3.py` and `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\plan3b5.py`; `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\counts3b2.py`, 3b-2's, which takes the old and the new numbers as arguments, is used again as it is.
+
+**Interfaces:**
+- Consumes:
+  - Tasks 1 to 6, and the numbers of Step 6's real run;
+  - the documents as #366's merge leaves them: «twenty-eight methods», the counts 2713 and 228, and `HANDOVER.md` with #366's batch as «What the last session added» and #363's as «What the session before it added»;
+  - what followed #366's merge, which the controller hands over at Step 8 for the slot `[AFTER-366]`;
+  - this pull request's number, `#PR`, which exists only once the controller opens it (Step 7), and `#368` and `#369`.
+- Produces: documents that are true at the moment the pull request merges, and the post-merge read.
+
+- [ ] **Step 1: Red: the documents still describe 3b-2.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b3.py`:
+```python
+"""Which documents do not yet say what 3b-3 serves (3b-3, Task 7)."""
+
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
+    "C:/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract"
+)
+SAID = {
+    "docs/api.md": [
+        "thirty-three of its methods so far",
+        "**Served beside v1, thirty-three methods so far.**",
+        "- **`ListSchools` pages one search.**",
+        "### Notices, and the directory's refusals",
+    ],
+    "docs/README.md": ["served beside v1, thirty-three methods so far"],
+    "README.md": ["| v2 over REST and Connect | thirty-three methods served beside v1"],
+    "docs/architecture.md": [
+        "then the answer to an access request and the anonymous directory's",
+        "The first effects are 3b-3's",
+    ],
+    "CLAUDE.md": [
+        "`manage/requests.py`'s `approve`",
+        "the access requests' and the directory's refusals",
+    ],
+}
+STALE_IN = ["docs/api.md", "docs/README.md", "README.md", "docs/architecture.md", "CLAUDE.md"]
+STALE = re.compile(r"twenty-eight (?:of its )?methods")
+
+#: The plan is read in its 3b-5 summary alone: this task list, which the plan
+#: holds too, quotes both the line the summary loses and the one it gains.
+PLAN = "docs/specs/2026-10-05-server-v2-3b-plan.md"
+PLAN_SAID = "3b-3 left the class notice to this stage"
+PLAN_STALE = "**Effects.** Notices, through 3b-3's"
+
+
+def summary_3b5(text: str) -> str:
+    return text.split("\n## 3b-5: ", 1)[1].split("\n## 3b-6: ", 1)[0]
+
+
+problems = []
+for name, phrases in SAID.items():
+    text = (ROOT / name).read_text("utf-8")
+    problems += [f"{name}: missing {phrase!r}" for phrase in phrases if phrase not in text]
+for name in STALE_IN:
+    text = (ROOT / name).read_text("utf-8")
+    problems += [f"{name}: still says {match.group(0)!r}" for match in STALE.finditer(text)]
+section = summary_3b5((ROOT / PLAN).read_text("utf-8"))
+if PLAN_SAID not in section:
+    problems.append(f"{PLAN}, the 3b-5 summary: missing {PLAN_SAID!r}")
+if PLAN_STALE in section:
+    problems.append(f"{PLAN}, the 3b-5 summary: still says {PLAN_STALE!r}")
+print("\n".join(problems) or "the documents say what 3b-3 serves")
+sys.exit(1 if problems else 0)
+```
+and run it:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b3.py
+```
+Expected: exit 1, with eleven `missing` lines and five `still says` lines: `docs/api.md` twice, and `docs/README.md`, `README.md` and the plan's 3b-5 summary once each. Keep this output as the evidence.
+
+- [ ] **Step 2: `docs/api.md`.**
+  1. In the opening, replace `twenty-eight of its methods so far: «v2: the contract», at the end of this page.` with `thirty-three of its methods so far: «v2: the contract», at the end of this page.`
+  2. Under «v2: the contract», replace:
+```markdown
+**Served beside v1, twenty-eight methods so far.** Everything above this section is v1, and v1
+is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository, checked
+by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+[the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
+([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
+Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+`ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1); and the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2). Every other method answers `UNIMPLEMENTED` until its
+stage, before it asks for any credential. No APK calls v2 yet. The proto files are
+```
+     with:
+```markdown
+**Served beside v1, thirty-three methods so far.** Everything above this section is v1, and
+v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
+checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+[the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
+([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
+Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+`ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2); and the three `AccessRequestService` methods and the two
+`DirectoryService` methods (3b-3). Every other method answers `UNIMPLEMENTED` until its
+stage, before it asks for any credential. No APK calls v2 yet. The proto files are
+```
+  3. Under «Paging and updating», replace the end of its first bullet:
+```markdown
+  list did not hand out, another class's or an edited one, is `VALIDATION_FAILED` on
+  `page_token`.
+```
+     with:
+```markdown
+  list did not hand out, another class's or an edited one, is `VALIDATION_FAILED` on
+  `page_token`.
+- **`ListSchools` pages one search.** Every call is one search of the directory, whatever the
+  page, because the directory has no offset: ask once with `page_size` 20 and cut the answer
+  up yourself, as v1's `/manage/schools` advises. It reads 5 schools when `page_size` is
+  unset and a larger one than 20 as 20, where v1 refused it; a negative one is
+  `VALIDATION_FAILED`. Its token names the first school of the next page, so a `page_size`
+  changed between two calls still starts where the last page ended, and a token past what
+  the search finds now (the directory may find fewer than it did a page ago) is an empty
+  last page.
+```
+  4. Directly above `### What the values look like`, after the line `  a phone that speaks only v1 never sends the header.` and its blank line, insert:
+```markdown
+### Notices, and the directory's refusals
+
+- **`ApproveAccessRequest` and `DeclineAccessRequest` tell whoever asked**, in Telegram and in
+  v1's words, once the decision is committed. A refused decision tells nobody, and a notice
+  Telegram will not deliver (the person blocked the bot, or Telegram is down) is logged and
+  dropped: the decision stands. `ApproveAccessRequest`'s `role` is the role the member holds
+  afterwards, which for a member already above the role asked for is their own: an existing
+  member is never lowered. A `role` no value of `Role` names is `VALIDATION_FAILED` when it
+  arrives, which is in the binary encoding: JSON is read with unknown fields ignored, on both
+  transports, and proto3's parser then drops an unknown enum value, so the request reads as
+  naming no role and grants the one asked for, which the ladder still decides.
+- **The directory's refusals are reasons**, where v1 sent `503` with
+  `X-Directory-Unavailable`: `DIRECTORY_DISABLED` without a `DADATA_TOKEN`, `DIRECTORY_SPENT`
+  when today's anonymous share is gone (with `retry_after_seconds` until the next Moscow day,
+  and over REST a `429` with `Retry-After` where v1 sent `503`), and `DIRECTORY_UNAVAILABLE`
+  when the directory fails. `ListSchoolRegions` and v1's `/directory/school-regions` count a
+  caller once: twenty searches in fifteen minutes, whichever version asks.
+
+```
+
+- [ ] **Step 3: `docs/README.md`, `docs/architecture.md`, `README.md` and the 3b-5 summary.**
+  1. In `docs/README.md`'s row for `api.md`, replace `served beside v1, twenty-eight methods so far` with `served beside v1, thirty-three methods so far`.
+  2. In `docs/architecture.md`:
+     - in the tree under «The server», replace the line `├── telegram_send.py  a bot built for one job: the tick's, v1's notices', the owner's alerts` with `├── telegram_send.py  a bot built for one job: the tick's, v1's and v2's notices', the owner's alerts`;
+     - in «v2: one invoke behind two transports», replace:
+```markdown
+journal's page keyed on its last line, then the bells' patch, the timetable's import and
+the class card's patch — and the
+```
+       with:
+```markdown
+journal's page keyed on its last line, then the bells' patch, the timetable's import and
+the class card's patch, then the answer to an access request and the anonymous directory's
+order of checks — and the
+```
+     - and replace:
+```markdown
+version a phone sends beside its `last_seen_at`, which v2's `ClassDevice` and the bot's
+«📱 Устройства» show.
+```
+       with:
+```markdown
+version a phone sends beside its `last_seen_at`, which v2's `ClassDevice` and the bot's
+«📱 Устройства» show. The first effects are 3b-3's: the Telegram notice to whoever asked for
+a role, sent through `app/telegram_send.py` once the answer is committed, and never when it
+is refused.
+```
+  3. In `README.md`'s «Honest status», replace the row that begins `| v2 over REST and Connect |` with:
+```markdown
+| v2 over REST and Connect | thirty-three methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), and the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+```
+  4. In this plan, the 3b-5 summary's «Effects» line says that the class notice is that stage's to build. This task list quotes that line, and the plan holds this task list, so the line is edited by a script that touches the 3b-5 summary alone. Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\plan3b5.py`:
+```python
+"""Say in the 3b-5 summary that the class notice is that stage's to build (3b-3, Task 7).
+
+The 3b-5 summary alone is edited: this task list, which the plan holds too,
+quotes the line it replaces.
+"""
+
+import sys
+from pathlib import Path
+
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
+    "C:/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract"
+)
+PLAN = ROOT / "docs/specs/2026-10-05-server-v2-3b-plan.md"
+OLD = (
+    "**Effects.** Notices, through 3b-3's `telegram_send` and `call.after_commit`, after the"
+    " commit and never on a refusal, with the author excluded:\n"
+)
+NEW = (
+    "**Effects.** Notices to the class, through `telegram_send` and `call.after_commit` as"
+    " 3b-3's notice to a requester goes, after the commit and never on a refusal, with the"
+    " author excluded. 3b-3 left the class notice to this stage, whose handlers are its first"
+    " v2 callers: `tests/test_announcements.py` finds every place that pushes to the class by"
+    " the name `notify_subscribers` within one file, and has to learn about an effect"
+    " registered in `rpc/` in the same change (the 3b-3 task list, «Rulings for 3b-3»).\n"
+)
+
+text = PLAN.read_text("utf-8")
+head, rest = text.split("\n## 3b-5: ", 1)
+section, tail = rest.split("\n## 3b-6: ", 1)
+assert section.count(OLD) == 1, "the 3b-5 summary's «Effects» line is not where it was"
+section = section.replace(OLD, NEW)
+PLAN.write_text(head + "\n## 3b-5: " + section + "\n## 3b-6: " + tail, "utf-8")
+print("the 3b-5 summary says where the class notice is built")
+```
+     and run it:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/plan3b5.py
+```
+     Expected: `the 3b-5 summary says where the class notice is built`.
+
+- [ ] **Step 4: `CLAUDE.md`.**
+  1. In «Server modules», the `services/` bullet, replace:
+```markdown
+  nothing), and `audit.py`'s `older_than` (a page keyed on its last line); the limiters are
+  `security.py`'s, one instance each, and the sentences both versions answer with (the
+  join's four, the diary's «disabled», and the subjects', the devices', the bells', the
+  import's and the zone's refusals) are `app/wording.py`'s.
+```
+     with:
+```markdown
+  nothing), `manage/requests.py`'s `approve` (the role sent or the one asked for, through
+  `access.approve_request`, whose `GrantRefused` says `why`), `directory.py`'s
+  `school_regions` (the anonymous directory's order of checks, one bucket for both
+  versions), and `audit.py`'s `older_than` (a page keyed on its last line); the limiters are
+  `security.py`'s, one instance each, and the sentences both versions answer with (the
+  join's four, the diary's «disabled», and the subjects', the devices', the bells', the
+  import's, the zone's, the access requests' and the directory's refusals) are
+  `app/wording.py`'s.
+```
+  2. In the `rpc/` bullet, replace:
+```markdown
+  `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry
+  and the contract — never `app.bot`
+```
+     with:
+```markdown
+  `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry,
+  `telegram_send` and the contract — never `app.bot`
+```
+  3. In the `telegram_send.py` bullet, replace:
+```markdown
+  `send`), for the code that is not the bot: the tick, v1's notices and the self-check's
+  alerts. aiogram is imported inside its functions and never at the top, so it costs a cold
+```
+     with:
+```markdown
+  `send`), for the code that is not the bot: the tick, v1's notices, v2's (an effect run
+  after the commit) and the self-check's alerts. aiogram is imported inside its functions and
+  never at the top, so it costs a cold
+```
+
+- [ ] **Step 5: Green: the documents, and what the tests read of them.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b3.py
+```
+Expected: `the documents say what 3b-3 serves`, exit 0. Then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_rpc_errors.py tests/test_schema_version.py tests/test_ci_paths.py tests/test_contract.py tests/test_rest.py
+```
+Expected: all pass. `test_rpc_errors.py` reads `docs/api.md`'s status table, and `test_schema_version.py` reads every document that names the schema, this plan included. Then run 3b-1's `scan_heads.py` once more:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/scan_heads.py
+```
+Expected: the last line names `0019` alone, and no line names `docs/specs/`.
+
+- [ ] **Step 6: The gates, and their numbers everywhere.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe -m mypy && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/pytest.exe -q -n auto
+```
+Expected:
+- ruff prints `All checks passed!`;
+- mypy prints `Success: no issues found in 231 source files`;
+- pytest prints `2765 passed` and its time.
+
+If the count is not 2765, find the test file that moved before writing anything. Then read the numbers the documents carry now, which #366's merge leaves at 2713 and 228:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git grep -n "tests in about four minutes" -- CLAUDE.md
+```
+The number in that line is `OLD_TESTS`; mypy's is in the line of `CLAUDE.md` that says `of all … modules`, `OLD_MODULES`. Then run 3b-2's script, which takes the four numbers, the old count first:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/counts3b2.py 2713 2765 228 231
+```
+(with the numbers the commands above printed in place of `2713`, `2765`, `228` and `231`). Expected: `written`. These are the seven places the `handover` skill names. The batch sections' own counts in `HANDOVER.md` are records of their commits, and they stay.
+
+- [ ] **Step 7: Commit the documents, and the controller opens the pull request.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b3-t7.txt`:
+```text
+Describe the thirty-three v2 methods served, and the counts from the run
+
+docs/api.md's «v2: the contract» names what 3b-3 serves. «Paging and
+updating» says how ListSchools pages one search, and a new «Notices, and
+the directory's refusals» says when a requester is told, what an
+approval's role is, what happens to a role no value names, and which
+reasons replace v1's X-Directory-Unavailable. CLAUDE.md and
+docs/architecture.md name the rules that moved into services/, the
+first effects, and telegram_send among what rpc/ may import. The 3b-5
+summary says that the class notice is that stage's to build. The counts
+are the run's own, in the seven places that carry them.
+
+Not covered: HANDOVER.md's close-out, written once the pull request has a
+number.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add docs/api.md docs/README.md docs/architecture.md docs/specs/2026-10-05-server-v2-3b-plan.md CLAUDE.md README.md CONTRIBUTING.md .claude/skills/gates/SKILL.md .claude/agents/server-tests.md HANDOVER.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b3-t7.txt
+```
+The controller pushes and opens the pull request (the `github-pr` skill), from `server-v2/3b-3` to `main`, on milestone 11, with its board item filled as the skill says. Its body says `Closes #369` and `Closes #367`, and `Closes #NN` for any other issue the batch fixes, one per line; it refers to #273 and to #368, which it does not fix, and says that no revision goes with it. Write the number it gets down as `#PR`.
+
+- [ ] **Step 8: The HANDOVER close-out** (the `handover` skill, «What goes stale mechanically»). Write it while the pull request is open. The titles below are `HANDOVER.md`'s as #366's branch left it at `0ca9b46`; read them again before editing, in case a later merge to `main` moved one.
+  1. **The chain of batch sections.**
+     - «## What the session before it added: «📊 Проект» links nothing (#362), and #359 in production», with its four subsections («Gates», «What was deliberately left alone», «What nobody has verified in this batch» and «After #359's merge: the monitoring in production»), moves verbatim to the top of `docs/history.md`: directly under the `---` that closes the file's introduction, above «## What the batch before added: the deployment says when it is broken — monitoring (#349, #120)». It is retitled «## What the batch before added: «📊 Проект» links nothing (#362), and #359 in production», and its subsections keep their titles. A sentence in it that says «section 5» or «above» now names `HANDOVER.md`, as the skill says.
+     - «## What the last session added: three dependency bumps, and the monitoring's first evening» becomes «## What the session before it added: three dependency bumps, and the monitoring's first evening». Its subsection «After #363's merge: the monitoring's first evening» stays with it. Its first sentence, «Open as #366, from `deps/2026-10-06` to `main`, on milestone 7, and on project 6.», becomes «Merged as #366 (`5d2e530`, 6 October 2026), from `deps/2026-10-06`, on milestone 7.»
+  2. **The new section**, above it, with the run's numbers, the real SHAs and the numbers in place of the bracketed words:
+```markdown
+## What the last session added: access requests and the school directory over v2, and the first notices as effects — stage 3b-3 of sub-project 3 (#273)
+
+Open as #PR, from `server-v2/3b-3` to `main`, on milestone 11, and on project 6. It closes
+#369 and #367, and refers to #273 and #368. The branch was cut from `main` at
+`5d2e530`, the merge of #366, and carries [the number of] commits before this close-out, to
+`[short SHA]`. Written on [date], after #366 merged. No revision goes with it: the schema
+stays at `0019`. This is stage 3b-3 of `docs/specs/2026-10-05-server-v2-design.md`, built by
+the task list for it in `docs/specs/2026-10-05-server-v2-3b-plan.md`. v1 answers as before;
+v2 now answers thirty-three methods.
+
+- **The rules v1's routers held moved into `services/` first**, with v1 calling them:
+  - answering yes, `requests.approve`: the role sent or the one asked for, through
+    `access.approve_request`, whose `GrantRefused` now says `why` (`role_too_high` or
+    `member_senior`) and looks each shell's sentence up in `app/wording.py`;
+  - the anonymous directory's door, `directory.school_regions`: its order of checks, one
+    bucket for both versions, and facts (`DirectoryThrottled`, `DirectoryDisabled`,
+    `DirectoryUnavailable`) where v1 refused inline.
+
+  The short query's sentence and the region hint's ceiling are `services/schools.py`'s
+  (`QUERY_TOO_SHORT`, `MAX_REGION`), and the requests' and the directory's sentences are
+  `app/wording.py`'s.
+- **Five methods.**
+  - `ListAccessRequests`.
+  - `ApproveAccessRequest`: the ladder of «👥 Доступ»; `ROLE_GRANT_REFUSED` with `why`; the
+    answer's `role` is the role the member holds.
+  - `DeclineAccessRequest`.
+  - `ListSchoolRegions`: anonymous, on v1's budget of twenty searches and its anonymous share;
+    `THROTTLED`, `DIRECTORY_DISABLED`, `DIRECTORY_SPENT` and `DIRECTORY_UNAVAILABLE` in v1's
+    words.
+  - `ListSchools`: one search a call; AIP-158 paging, by a token that names the first school
+    of the next page; the provider's own sentence when the directory is not configured or
+    fails.
+- **The first effects.** Whoever asked for a role is told in Telegram once the answer is
+  committed (`Call.after_commit`, through `telegram_send.send`), never on a refusal, and a
+  notice Telegram refuses leaves the decision standing. v1's notices keep their own
+  `_build_bot` seams, which have built through `telegram_send` since #359, and no v1 test
+  changed. The class notice is 3b-5's.
+- **The error table gains eight rows**, each read back on both paths by a named test.
+  `ROLE_GRANT_REFUSED`, `DIRECTORY_DISABLED`, `DIRECTORY_SPENT` and `DIRECTORY_UNAVAILABLE`
+  left `LATER`, and 3b-3 left `STAGES`.
+- **`directory.proto`** says, in comments only, that the region is a hint and what a page size
+  and a page token do (#369).
+- **The suite empties `DADATA_TOKEN`**, so a key in the shell sends none of the sweeps'
+  queries to the real directory.
+- **Two defects filed**: #369, fixed here, and #368, which is not.
+- **#367**, fixed at the branch's start (`9c944e4`): the tick's comment, `docs/architecture.md`
+  and `docs/deploy.md` said the self-check runs before the diary keep-alive because the
+  keep-alive goes through the Petersburg diary's proxy, which it never does; they now give the
+  true reason, a regional «Сетевой город» server that hangs.
+
+### Gates
+
+All at `[short SHA of the head]`, the head before this close-out. CI runs on the head the merge
+is made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
+- **mypy**: no issues found in [the number] source files.
+- **The server suite.** `pytest -q -n [auto or 4]`, run alone from `server/`, gave **[the
+  number] passed** in [the time]. The seven places the `handover` skill names say [the number].
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files.
+- **CI on the head** is read before the merge.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
+  before.
+
+### What was deliberately left alone
+
+- **3b-4 to 3b-8**, each summarised in the 3b plan, and **3c**.
+- **v1's behaviour and its notice seams**: `_build_bot` and `_tell` stay in `api/edit.py`,
+  `api/manage/requests.py` and `api/cron.py`.
+- **The class notice** over `notify_subscribers`, which no 3b-3 method sends: 3b-5's, whose
+  handlers are its first v2 callers.
+- **#368**: v1's answer, the bot's card and the notice name the role asked for when a
+  member already above it is approved; v2's answer names the role held.
+- **A `role` no value of `Role` names, sent in JSON**, reads as no role and grants the one
+  asked for: proto3's parser drops it before the handler, on both transports.
+- **The two page tokens**, `ListAuditEntries`' and `ListSchools`', share no helper: their
+  numbers mean different things, and the audit's has tests of its own.
+
+### What nobody has verified in this batch
+
+- **The five methods against Postgres**: every v2 test ran on SQLite, the directory's throttle
+  and its allowance's upsert among them.
+- **A notice through a real bot**: every v2 test hands `telegram_send` a fake. v1's same notice
+  has gone out in production.
+- **`ListSchoolRegions` and `ListSchools` against DaData itself**: every v2 test replaces the
+  search.
+- **The five on Vercel** beyond the post-merge check, which asks each service once without a
+  token, and the anonymous search with a query too short to be counted.
+
+### After #366's merge: [the controller's title for it]
+
+None of this is code in #PR, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of [date].
+
+[AFTER-366: the controller's facts, handed over at this step and written in the shape of
+#366's section's «After #363's merge», one bullet each: whether Vercel built production from
+the merge or the owner had to promote it; what production answered after it; what the
+monitoring said meanwhile, #365 included; and anything the owner did or decided since #366's
+close-out. Nothing here is guessed: what the controller does not hand over is left out, and
+if it hands over nothing, this subsection is left out whole and the report says so.]
+```
+  3. **The opening paragraph**, in the shape #366's close-out left it:
+     - «Last updated:» is the day of writing. The merged list gains #366, and #344, #345 and #346, which GitHub closed as merged with it (read each back with `gh pr view` first); `main` is at `5d2e530`, the merge of #366, at 21:16 UTC on 6 October 2026; read `git log -1 origin/main` first, in case something merged since.
+     - The sentence on the designs stays.
+     - The open pull requests are read from `gh pr list --state open`, not assumed. #PR is one, «the one carrying this paragraph», from `server-v2/3b-3`, on milestone 11, which closes #369 and #367 and refers to #273 and #368: v2 is served beside v1, thirty-three methods of it now.
+     - The schema did not move: still `0019`, on production since 16:28 UTC on 6 October, and `EXPECTED_REVISION` did not move either.
+     - The issues filed since #366 merged are named: #367, closed by #PR; #368, open and not fixed in #PR; and #369, closed by #PR. #352, #354, #355, #357 and #365 stay as #366's close-out left them, unless the `[AFTER-366]` facts say otherwise.
+     - «The section «What the last session added» below is #366's batch, and «What the session before it added» is #363's.» names #PR and #366 instead.
+     - It still ends: «The SHA of its own merge is for the next close-out to write.»
+     - The bold paragraph on the code's revision and production's stays as it is: no revision moved.
+  4. **The milestone table**: milestone 11's row reads «… #342, #350, #356 (merged) and #PR (open); issues … #357, #367, #368, #369 — …»: #367 is on milestone 11. Milestone 7's row stays: it lists no numbers.
+  5. **Section 5**, the bullet «v2 as #342, #350 and #356 serve it has been asked little outside the test client (stages 3a, 3b-1 and 3b-2; …)»:
+     - its head becomes «v2 as #342, #350, #356 and #PR serve it …», and the stages «3a, 3b-1, 3b-2 and 3b-3»;
+     - the sub-item on production keeps its sentences, and its last gains: «the five of 3b-3 are asked after #PR's merge, once, without a token, and `ListSchoolRegions` with a query too short to be counted;»;
+     - «**the twenty-four methods of 3b-1 and 3b-2 against Postgres**: every v2 test ran on SQLite, the journal's keyset, the import's bulk delete and insert, the bells' bulk delete and the class's cascade among them;» becomes «**the twenty-nine methods of 3b-1 to 3b-3 against Postgres**: every v2 test ran on SQLite, the journal's keyset, the import's bulk delete and insert, the bells' bulk delete, the class's cascade and the directory's allowance among them;»;
+     - add two sub-items: «**a notice of `ApproveAccessRequest` or `DeclineAccessRequest` through a real bot**: every v2 test hands `telegram_send` a fake;» and «**`ListSchoolRegions` and `ListSchools` against DaData**: every v2 test replaces the search;».
+  6. **Section 7**: replace the paragraph that begins «**Next for the programme: stage 3b-3 of sub-project 3, from the 3b plan.**», up to and including its sentence «Sub-project 4's pull request A can still run beside it, one heavy job at a time.», with:
+```markdown
+**Next for the programme: stage 3b-4 of sub-project 3, from the 3b plan.** Stages 3a (#342),
+3b-1 (#350), 3b-2 (#356) and 3b-3 (#PR) are merged, and v2 serves thirty-three methods.
+`docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-4 to 3b-8. 3b-4 covers the phone's
+own — unlinking, the link code, the calendar feed, the tasks and the homework ticks — and its
+summary asks the controller first whether the services that commit inside themselves stop
+doing so («The commits inside services»). Sub-project 4's pull request A can still run beside
+it, one heavy job at a time.
+```
+     Read section 7 for anything the owner did since #366's close-out (the `[AFTER-366]` facts say), and move what they did to «## Moved out of section 7 on [date]» in `docs/history.md`, as the skill says.
+  7. The cheat-sheet's counts under «How to continue» were written by Step 6.
+
+  Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b3-handover.txt`:
+```text
+Hand over stage 3b-3: access requests, the school directory and the first notices over v2
+
+HANDOVER.md's close-out is written while the pull request is open, so the
+file is true when it merges. It describes 3b-3: the rules that moved into
+services/, the five methods, the first effects and why the class notice
+waits for 3b-5, the eight rows of the error table, the contract's comment
+fixed (#369) and the defect filed and left (#368), #367's
+fix at the branch's start, what is left alone and unverified, and what
+followed #366's merge. #366's section
+becomes the session before, its merge recorded, and #363's moves to
+docs/history.md. Section 5 asks the same of Postgres for three stages and
+adds a real bot and DaData; section 7 names 3b-4 as next.
+
+Not covered: production after this pull request's merge; the next
+close-out records it.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/spec-one-contract && git add HANDOVER.md docs/history.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b3-handover.txt
+```
+and push.
+
+- [ ] **Step 9: The merge** is the controller's, under the `github-pr` skill's five checks:
+  1. CI is green on the exact head, the «Contract» job included, since `proto/` changed;
+  2. `mergeable_state` is clean;
+  3. the gates ran locally before the push;
+  4. a milestone is attached;
+  5. no review is waiting.
+
+  No revision has to go on first: 3b-3 has none.
+
+- [ ] **Step 10: After the merge, read production.** A merge to `main` has not always deployed production by itself (#349).
+```bash
+curl -s https://lessons-ruddy-zeta.vercel.app/api/v1/warmup; echo
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/class/accessRequests
+curl -s -i "https://lessons-ruddy-zeta.vercel.app/api/v2/schools?query=%D0%B3%D0%B8%D0%BC%D0%BD%D0%B0%D0%B7%D0%B8%D1%8F"
+curl -s -i "https://lessons-ruddy-zeta.vercel.app/api/v2/schoolRegions?query=%D1%88%D0%BA"
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.AccessRequestService/ListAccessRequests
+```
+Expected:
+- `/api/v1/warmup` reports `status` `ok`, `schema` `0019` and `v2` `true`.
+- `/api/v2/class/accessRequests` and `/api/v2/schools` are `HTTP/1.1 401`, with Google's body and the reason `DEVICE_TOKEN_INVALID`.
+- `/api/v2/schoolRegions` with «шк» is `HTTP/1.1 400`, `VALIDATION_FAILED` on `query`, in the sentence «Введите хотя бы 3 символа названия школы». A query that short is handed back uncounted and asks the directory nothing, so the check spends no caller's budget and no unit of the allowance.
+- The Connect call is `401`, with `"code":"unauthenticated"`.
+
+A `501` with `UNIMPLEMENTED` means production still runs the code from before the merge: ask the owner to promote or redeploy the merge, then read again. Write what was seen into the controller's notes for the next close-out.
+
+### Self-review (3b-3)
+
+- **Against the 3b-3 summary.** Every method is served by a task: `ListAccessRequests` (3), `ApproveAccessRequest` and `DeclineAccessRequest` (4), `ListSchoolRegions` (5), `ListSchools` (6). Every move is a task's: approving (1), the directory's order (2), the schools search's one rule, its region ceiling (2), member names (used in 3 and 4). Every row of the summary's error table is a row here, with its reason and metadata: `GrantRefused` with `why` (4); `AllowanceSpent` with `retry_after_seconds` (5); the directory's disabled and upstream facts (5), and the provider's own for `ListSchools` (6); `SearchError` on `query` (5); the throttle (5); an answered or unknown request, `resource: "access_request"` (4). The four reasons leave `LATER` in the tasks that produce them, and `STAGES` loses `"3b-3"` in Task 5. The notices are effects, sent after the commit and never on a refusal, and each notifying method's test holds both (4). Both open questions are decided (Ruling 34). Where this list departs from the summary, «Defects in the summary» says so.
+- **Placeholders.** Every code step is the code, transcribed from the scratch copy that was linted and type-checked. The bracketed words left are the facts that exist only later: `#368`, `#369` and `#PR`, the SHAs, dates and counts of the real run, and `[AFTER-366]`.
+- **Types across tasks.** `requests_service.approve` returns `Approval(member, granted, who)` in Task 1 and is read as such in Task 4. `GrantRefused.why` is one of `access.ROLE_TOO_HIGH` and `access.MEMBER_SENIOR`, which key `wording.GRANT_REFUSED_DETAILS` in Task 4's row. `directory.school_regions` returns `schools.RegionSearch` in Task 2, whose `groups` Task 5's `_region` reads. `DirectoryThrottled.seconds` is `security.Throttled`'s, read by Task 5's row. `_message`, `_region` and `list_school_regions` survive the whole-file replacements of Tasks 4 and 6 unchanged.
+- **Review Focus.** Each of its five lines names tests that exist in the task it names: Task 4's `test_answering_one_request_twice_is_one_decision_and_one_notice`, `test_a_role_at_or_above_the_grantor_s_own_is_refused_and_tells_nobody`, `test_a_member_at_or_above_the_grantor_is_refused_and_tells_nobody`, `test_an_approval_grants_the_role_asked_for_and_tells_the_asker_after_the_commit` and `test_a_notice_telegram_refuses_leaves_the_decision_standing`; Task 1's `test_a_refused_grant_says_why_and_keeps_each_shell_s_words`; Task 5's `test_v1_and_v2_draw_on_one_budget`, `test_a_short_query_is_refused_on_its_field_and_not_counted` and `test_a_failing_directory_is_unavailable_and_what_it_counted_stays`; Task 2's `test_a_caller_over_the_limit_is_refused_before_the_query_is_read`; Task 6's `test_a_token_past_what_the_search_finds_now_is_an_empty_last_page`, `test_the_pages_walk_one_answer_and_each_asks_again` and `test_a_token_this_list_did_not_hand_out_is_refused_without_repeating_it`.
+- **`HELD_BY`.** Its eight new rows name `test_a_role_at_or_above_the_grantor_s_own_is_refused_and_tells_nobody` (Task 4), `test_v1_and_v2_draw_on_one_budget`, `test_a_short_query_is_refused_on_its_field_and_not_counted`, `test_without_a_key_the_search_is_disabled_in_v1_s_words`, `test_a_spent_share_says_until_when` and `test_a_failing_directory_is_unavailable_and_what_it_counted_stays` (Task 5), and `test_without_a_key_the_search_is_disabled_in_v1_s_words` and `test_a_failing_directory_is_unavailable_in_v1_s_words` (Task 6), each a function of the file it names.
+- **The head test's three shapes** appear nowhere in this list: no «head is» or «expects» before a backticked revision, and no line with `/warmup`'s quoted JSON.
+
 ## 3b-4: The phone's own (11 methods)
 
 **Methods.**
@@ -9948,7 +13960,7 @@ No new reason.
 - A date out of bounds, or a window over 62 days → `VALIDATION_FAILED` on the field.
 - An unknown id → `RESOURCE_NOT_FOUND`, with `resource` `"homework"` or `"event"`.
 
-**Effects.** Notices, through 3b-3's `telegram_send` and `call.after_commit`, after the commit and never on a refusal, with the author excluded:
+**Effects.** Notices to the class, through `telegram_send` and `call.after_commit` as 3b-3's notice to a requester goes, after the commit and never on a refusal, with the author excluded. 3b-3 left the class notice to this stage, whose handlers are its first v2 callers: `tests/test_announcements.py` finds every place that pushes to the class by the name `notify_subscribers` within one file, and has to learn about an effect registered in `rpc/` in the same change (the 3b-3 task list, «Rulings for 3b-3»).
 - homework is kind `"homework"`, for v1's create, update and delete;
 - events are kind `"changes"`.
 

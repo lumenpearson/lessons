@@ -7,10 +7,11 @@ request, log it — and it was written twice: once in `api/manage.py` and once i
 two copies of a permission rule are one merge away from disagreeing, and the
 half that drifts is the half nobody is looking at.
 
-The refusals carry both sentences, because the two surfaces say different
-things to different people: the bot shows Russian in an alert to the admin who
-pressed the button, the API answers a 403 whose `detail` is English like every
-other detail it sends.
+A refusal carries why it refused, and the surfaces say it differently to
+different people: the bot shows Russian in an alert to the admin who pressed
+the button, v1 answers a 403 whose `detail` is English like every other detail
+it sends, and v2 answers `ROLE_GRANT_REFUSED` with the same English and the
+fact itself as `why`. The sentences are `app/wording.py`'s.
 
 Nothing here commits, like the rest of `services/`: the caller commits the
 grant together with its audit line, so a role and the record of who handed it
@@ -25,23 +26,33 @@ from html import escape
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.models import AccessRequest, BotUser, Role, SchoolClass
 from app.services import audit
 from app.services.roles import can_grant
 
+#: Why a grant was refused: nobody grants a role at or above their own, and a
+#: member who is the grantor's peer or senior is not theirs to change. v2
+#: sends it as ``ROLE_GRANT_REFUSED``'s ``why`` (``errors.proto``).
+ROLE_TOO_HIGH = "role_too_high"
+MEMBER_SENIOR = "member_senior"
+
 
 class GrantRefused(Exception):
-    """A grant the role ladder does not allow.
+    """A grant the role ladder does not allow, and why: :data:`ROLE_TOO_HIGH`
+    or :data:`MEMBER_SENIOR`.
 
-    ``str(…)`` is the Russian sentence the bot shows in an alert; ``detail`` is
-    the English one the API puts in its 403. One exception rather than two
-    return values, because every refusal here ends the same way: nothing is
-    written and somebody is told why.
+    ``why`` is the fact. ``str(…)`` is the Russian sentence the bot shows in an
+    alert, and ``detail`` the English one v1 puts in its 403 and v2 in its
+    refusal, both looked up by ``why`` in ``app/wording.py``. One exception
+    rather than two return values, because every refusal here ends the same
+    way: nothing is written and somebody is told why.
     """
 
-    def __init__(self, message: str, detail: str) -> None:
-        super().__init__(message)
-        self.detail = detail
+    def __init__(self, why: str) -> None:
+        super().__init__(wording.GRANT_REFUSED_ALERTS[why])
+        self.why = why
+        self.detail = wording.GRANT_REFUSED_DETAILS[why]
 
 
 async def approve_request(
@@ -75,10 +86,7 @@ async def approve_request(
     @return the membership row as it now stands. Nothing is committed.
     """
     if not can_grant(actor_role, role):
-        raise GrantRefused(
-            "Нельзя выдать роль выше вашей",
-            detail="cannot grant a role at or above your own",
-        )
+        raise GrantRefused(ROLE_TOO_HIGH)
 
     member = await session.scalar(
         select(BotUser).where(
@@ -87,10 +95,7 @@ async def approve_request(
         )
     )
     if member is not None and member.role.rank >= actor_role.rank:
-        raise GrantRefused(
-            "Нельзя менять роль этого пользователя",
-            detail="cannot change this member's role",
-        )
+        raise GrantRefused(MEMBER_SENIOR)
 
     if member is None:
         member = BotUser(
