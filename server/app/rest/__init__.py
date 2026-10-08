@@ -93,11 +93,16 @@ NO_STORE_ALSO = frozenset(
 )
 
 #: Writes whose *answer* is a credential: the token a phone will use for good,
-#: and the class card ``UpdateClass`` answers with, join code included. Nobody
-#: asked a cache to keep a POST or a PATCH, but the answer says so anyway, as
-#: defence in depth. 3b-7 adds ``CreateDiarySession`` here.
+#: the class card ``UpdateClass`` answers with, join code included, and the
+#: code that links a phone to whoever sends it to the bot, until it is used.
+#: Nobody asked a cache to keep a POST or a PATCH, but the answer says so
+#: anyway, as defence in depth. 3b-7 adds ``CreateDiarySession`` here.
 NO_STORE_CREDENTIAL = frozenset(
-    {"lessons.v2.DeviceService/CreateDevice", "lessons.v2.ClassService/UpdateClass"}
+    {
+        "lessons.v2.DeviceService/CreateDevice",
+        "lessons.v2.ClassService/UpdateClass",
+        "lessons.v2.MeService/CreateLinkCode",
+    }
 )
 
 #: Connect's own limit on a request message, so the two transports refuse the
