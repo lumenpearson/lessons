@@ -150,7 +150,7 @@ or `fix:`. Something else is the convention, and it is just as consistent:
   suite.
 - A negative test has to provably catch the regression: revert the fix and make sure it
   fails. Otherwise it proves nothing.
-- Twenty of the app's screens, sheets and rows are composed in JVM tests under Robolectric,
+- Thirty-two of the app's screens, sheets and rows are composed in JVM tests under Robolectric,
   a rotation included where one costs something, and the widget's size ladder is walked at
   real sizes. What CI reaches is never a device: the one instrumented source set,
   `core/designsystem/src/androidTest/` (`ToolbarOnDeviceTest`, #110), runs only on an

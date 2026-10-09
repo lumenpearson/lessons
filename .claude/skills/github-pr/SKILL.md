@@ -85,7 +85,7 @@ matched pull request's body in full.
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — **open**, the first whose work needs an emulator or a phone |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | PRs #140, #214, #218, #303; issues #135–#139, #141, #145–#165, #190–#213, #235, #236, #302 — **open** |
 | 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | PRs #274, #277, #294, #296, #297, #300, #301, #305; issues #268–#273, #275, #276, #293, #295, #298, #299, #304 — **open**, the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | issues #120–#122, #127, #142, #144 — **open**, the steps epic #127 names between one class on one phone and a build a second family could use |
+| 12 | `v1.0.0 — A build somebody else can install` | PRs #329, #333, #359, #363, #388; issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387 — **open**, the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for, each saying why it was left |
 
 The eleventh, twelfth and thirteenth were created on 3 October 2026 under the names they

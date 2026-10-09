@@ -28,6 +28,131 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: homework and events over v2, and v2's first notices to the class — stage 3b-5 of sub-project 3 (#273)
+
+Merged as #380 (`801a350`, 9 October 2026), from `server-v2/3b-5`, on milestone 11. It closes
+#381, and refers to #273 and #377, which it does not fix. The branch was cut from `d3e28cc`, the
+head of #379, whose content `main` holds since #379's merge (`e30a71e`), and carries 15
+commits before this close-out, two of them merges of `main` that changed nothing, to `415cbb4`.
+Written on 9 October 2026. No revision goes with it: the schema stays at `0019`. This is stage
+3b-5 of `docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the next.
+v1 answers as before; v2 now answers fifty-four methods.
+
+- **#373 went first**, in a pull request of its own (#379), as the controller ruled: SQLite
+  keeps a savepoint inside its transaction now, as Postgres does. Two tests of this batch need
+  it, and every new test reads the database from a session of its own.
+- **The rules v1's `edit.py` held for homework and events moved into `services/` first**, with
+  v1 calling them:
+  - `homework.put` and `delete`;
+  - a new `services/events.py`, with `create`, `delete` and `event_of`.
+
+  Each writes its line in the journal and words its notice through `app/wording.py`. The
+  window v1's `GET /homework` held moved to `clock.window`, which refuses with a fact,
+  `WindowRefused`, beside `homework.due_between` and `events.between`.
+- **The class notice is an effect.** `telegram_send.notify_class` is registered by each handler
+  module's `_announce` and runs once the write is committed. It never runs on a refusal, never
+  tells the author, and never raises: Task 3's review found that it could, reading an expired
+  row in a log line, and that its no-token test could not fail, and a round of fixes closed
+  both. `tests/test_announcements.py`'s walk now follows a call through what a file imports,
+  finds v2's call sites as it finds v1's, and is held never to find fewer than the old walk.
+- **Ten methods: `HomeworkService` and `EventService` whole.**
+  - `ListHomework` and `GetHomework`, any phone's, each row with its owner's tick.
+  - `CreateHomework` (`201`). It refuses a subject that already has homework that day with
+    `RESOURCE_EXISTS`, where v1 upserted.
+  - `UpdateHomework` (masked), which refuses a move onto such a pair the same way.
+  - `DeleteHomework`, which takes the ticks with it.
+  - `ListEvents`, `GetEvent`, `CreateEvent` (`201`), `UpdateEvent` and `DeleteEvent`, all an
+    editor's. `UpdateEvent` is masked; one time is held against the other, and a move to
+    another day is announced once, on the new day.
+
+  An update that changes nothing writes nothing and tells nobody.
+- **The error table gains two rows**, each read back on both paths by a named test:
+  - `clock.WindowRefused`, `VALIDATION_FAILED` on the edge at fault;
+  - `homework.HomeworkExists`, `RESOURCE_EXISTS`.
+
+  No reason is new, and 3b-5 left `STAGES`.
+- **`homework.proto` and `event.proto`** say, in comments only, what a masked field left unset
+  means, that a move onto a taken pair is refused, and that each write is announced.
+- **Two defects filed:**
+  - #381, fixed here (`0effe86`). The final review found that `homework.update` set the row's
+    fields before its savepoint, whose flush then ran the update outside it, so a racing
+    twin's clash aborted the caller's transaction.
+  - #377, on the backlog and not fixed here: v1's notices to the class can turn a saved write
+    into a 500. Task 3's review added a second way to it, as a comment.
+
+### Gates
+
+The full suite ran once, at `d6280b8`, the head of the eight code tasks. #381's fix (`0effe86`)
+and the documents (`415cbb4`) came after it, and their own files ran again. CI runs on the head
+the merge is made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `415cbb4`.
+- **mypy**: no issues found in 235 source files, at `415cbb4`.
+- **The server suite.**
+  - `pytest -q -n 4`, run alone from `server/` at `d6280b8`, gave **2926 passed** in 1930 s,
+    four workers rather than `-n auto` to spare the machine's faulty RAM.
+  - The plan expected 2917 from a base of 2839. #379 added seven tests before this branch,
+    and Task 3's round of fixes two.
+  - `0effe86` adds one test, run in its file with the four beside it (107 passed). Collection
+    counts **2927**, the number the seven places the `handover` skill names now say.
+- **The contract**, at `d6280b8`: `buf lint` exit 0, `buf breaking --against
+  .git#ref=origin/main` exit 0, and `buf generate` reproduces the committed files, with
+  `homework_connect.py`'s and `event_connect.py`'s docstrings the only change.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand
+  from before.
+- **Reviews.** Each of the eight code tasks was reviewed on its own, Tasks 3 and 5 by the
+  stronger model, which also gave the branch a final review.
+
+### What was deliberately left alone
+
+- **3b-6 to 3b-8**, each summarised in the 3b plan, and **3c**.
+- **v1's behaviour.** `PUT /homework` still upserts, and tells the class «обновлено» when it is
+  sent again unchanged. `PUT /events` still inserts on every retry (#268).
+- **v1's notice seams**, `edit._tell` and `requests._tell`, which build and close their bot
+  outside their guard (#377); v2's `notify_class` does not.
+- **The bot's homework and events flows**, which keep their own lines and their own words for a
+  chat, and call `homework.upsert` and write `DayEvent` as before.
+- **`edit._check_date`**, which v1's substitutions and days still call until 3b-6.
+- **The order of checks of the two masked updates.** `UpdateHomework` validates before it looks
+  the row up, and `UpdateEvent` after, because it holds one stored time against the other. So
+  an unknown id with a bad field is `VALIDATION_FAILED` for homework and `RESOURCE_NOT_FOUND`
+  for an event.
+- **An event's kind changed by an update keeps its own `covers_lesson`** unless that field is
+  masked and left unset (the list's Ruling 79). `HANDOVER.md`'s section 7 asks the owner.
+- **`clock.window` is the homework's.** It defaults to 21 days and words its refusals in the
+  homework's sentences. 3b-6's substitutions can share it as it is; 3b-7's diary windows (14
+  days, their own sentence) need their own.
+
+### What nobody has verified in this batch
+
+- **The ten methods against Postgres.** Every v2 test ran on SQLite, with #373's fix, the
+  homework's unique pair and its two savepoints among them.
+- **A notice through Telegram itself**: the tests hand `telegram_send` a bot that records
+  what it was asked to send.
+- **The ten on Vercel**, beyond the post-merge check, which asks four REST routes and one
+  Connect method once, without a token.
+- **A phone using any of them**: no APK calls v2 yet.
+
+### After #379's merge: the tick's new commit in production
+
+None of this is code in #380, and a close-out never gets a close-out of its own, so it is
+written here. The source is the session's own reads of 9 October 2026.
+
+- **The merge, by the session**, after the five checks. #379 merged as `e30a71e` at 05:52:02
+  UTC on 9 October 2026, pinned to `d3e28cc`. CI was green on that head: Server, What changed
+  and Vercel; Android and Contract were skipped. It closed #373 and #354.
+- **Production built the merge itself.** Vercel reported the production deployment of
+  `e30a71e` successful at 05:52:46 UTC. `/api/v1/warmup` answered `ok`, `0019`, `v2` `true`.
+- **The tick ran on Postgres with its new commit.** At 05:56:19 UTC the self-check recorded all
+  four checks `ok`, the `deploy` check reading «running main's head e30a71e». The commit before
+  the sweep therefore ended its transaction without error on the database production runs,
+  which #379 had only reasoned about.
+- **The diary proxy** had failed once more and recovered at 05:20:27 UTC, before the merge
+  (#365).
+
 ## What the batch before added: on SQLite a savepoint behaves as it does on Postgres (#373, #354)
 
 Merged as #379 (`e30a71e`, 9 October 2026), from `fix/sqlite-savepoint`, on milestone 11. It
