@@ -24608,7 +24608,7 @@ A `501` with `UNIMPLEMENTED` means production still runs the code from before th
 
 `NO_LESSON_ON_DAY`, `NO_BELL_FOR_LESSON` and `LESSON_NOT_ON_TIMETABLE` leave `LATER`.
 
-**Effects.** Notices of kind `"changes"`, after the commit:
+**Effects.** Notices of kind `"changes"`, after the commit, through what 3b-5 built: `telegram_send.notify_class`, registered by the handler module's own `_announce` in a `lambda` passed to `call.after_commit`, which `tests/test_announcements.py`'s walk follows through the module's imports and then asks to find in `ANNOUNCED_HERE`; `conftest.py`'s `notices` and `subscribers` are what its tests read. `ListSubstitutions` reads its window with 3b-5's `rpc/dates.window`, whose refusals the error table already words, and a written date is held by `rpc/dates.bounded`, in `clock.DATE_OUT_OF_BOUNDS`, which `edit._check_date` says too. The notices:
 - `UpdateDay` sends one when a mark is set;
 - clearing one sends one only if a mark existed;
 - `DeleteSubstitution` sends one only when a row existed.
