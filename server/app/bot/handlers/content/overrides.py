@@ -41,6 +41,15 @@ NO_BELL = (
     "увидел. Добавьте звонок в «🔔 Звонки» или выберите другой урок."
 )
 
+#: Said in full, like NO_BELL: the lesson is on the screen because a
+#: substitution put it there, not because the weekly template did, so
+#: «🚫 Отменить урок» finds nothing underneath to cancel — «♻️ Вернуть по
+#: расписанию» on the same card is how it comes off.
+ADDED_BY_SUBSTITUTION = (
+    "Урок №{index} добавлен заменой — в расписании его нет, отменять нечего. "
+    "Чтобы убрать его, нажмите «♻️ Вернуть по расписанию»."
+)
+
 
 # --------------------------------------------------------------------------
 # Substitutions
@@ -173,8 +182,12 @@ async def _save_override(
     The bot asked two of the three until #383. Its picker lists the lessons the
     day draws, so a lesson added by a substitution at a number the template
     leaves empty could be «отменён» here: stored as a cancellation of nothing,
-    announced to every subscriber and drawn nowhere — which v1 refused, and
-    pointed at «♻️ Вернуть по расписанию» instead.
+    announced to every subscriber and drawn nowhere — which v1 refused. The bot
+    now refuses it too, pointing at «♻️ Вернуть по расписанию» when a
+    substitution added the lesson (:data:`ADDED_BY_SUBSTITUTION`); that sentence
+    alone, of everything this function returns, means `override_cancel` must
+    keep the conversation state rather than clear it, since no write happened
+    before the refusal.
     """
     changes: dict[str, object] = {"action": action}
     if action is OverrideAction.REPLACE:
@@ -188,6 +201,10 @@ async def _save_override(
     except substitutions.NoBellForLesson:
         return NO_BELL.format(index=index)
     except substitutions.LessonNotOnTimetable as refused:
+        if refused.cancelling:
+            existing = await substitutions.substitution_on(session, class_id, day, index)
+            if existing is not None:
+                return ADDED_BY_SUBSTITUTION.format(index=index)
         return wording.lesson_not_on_timetable_detail(index, cancelling=refused.cancelling)
     # Staged, not committed: the caller commits it together with its audit
     # line, so a substitution and the record of who made it land as one fact.
@@ -284,7 +301,13 @@ async def override_cancel(
     index = int(data["index"])
     refusal = await _save_override(session, school_class.id, day, index, OverrideAction.CANCEL)
     if refusal is not None:
-        await state.clear()
+        # Every refusal but one clears the state, as it always has. The one
+        # exception is this screen's own sentence (:data:`ADDED_BY_SUBSTITUTION`):
+        # no write happened before it, so #373's rule (commit before touching
+        # state) does not apply, and the state is what «♻️ Вернуть по
+        # расписанию» on the same card still needs.
+        if refusal != ADDED_BY_SUBSTITUTION.format(index=index):
+            await state.clear()
         await callback.answer(refusal, show_alert=True)
         return
     await audit.record(

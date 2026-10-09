@@ -22,7 +22,12 @@ import pytest
 from sqlalchemy import func, select
 
 from app import wording
-from app.bot.handlers.content.overrides import override_cancel, override_subject
+from app.bot.handlers.content.overrides import (
+    ADDED_BY_SUBSTITUTION,
+    override_cancel,
+    override_clear,
+    override_subject,
+)
 from app.db import SessionLocal
 from app.models import (
     AuditEntry,
@@ -102,18 +107,31 @@ async def test_a_substitution_is_written_with_its_line_and_its_notice_as_v1_wrot
         EDITOR,
         MONDAY,
         2,
-        _all(action=REPLACE, subject="химия", room="118", note="учитель <на конференции>"),
+        _all(
+            action=REPLACE,
+            subject="химия",
+            room="118",
+            teacher="Иванова",
+            note="учитель <на конференции>",
+        ),
     )
     row = replaced.substitution
     # The class's spelling, so that the resolver finds the subject's colour.
-    assert (row.action, row.subject_name, row.room) == (REPLACE, "Химия", "118")
+    assert (row.action, row.subject_name, row.room, row.teacher) == (
+        REPLACE,
+        "Химия",
+        "118",
+        "Иванова",
+    )
     assert replaced.notice == (
         f"🔁 Замена {WHEN}: урок №2 — <b>Химия</b>, каб. 118\nучитель &lt;на конференции&gt;"
     )
     cancelled = await substitutions.put(
         session, school_class, EDITOR, MONDAY, 2, _all(action=CANCEL, subject="Химия")
     )
-    # The same row, and a cancellation carries no subject, room or teacher.
+    # The same row, and a cancellation carries no subject, room or teacher —
+    # the teacher set a moment ago included, so this proves the clearing
+    # rather than a field that was always empty.
     assert cancelled.substitution is row
     assert (row.action, row.subject_name, row.room, row.teacher) == (CANCEL, None, None, None)
     assert cancelled.notice == f"🚫 Урок №2 {WHEN} отменён."
@@ -306,7 +324,9 @@ async def test_the_bot_will_not_cancel_a_lesson_the_template_does_not_have(
     empty is in the bot's picker, because the picker lists what the day draws;
     «🚫 Отменить урок» on it stored a cancellation of nothing, announced to
     every subscriber and drawn nowhere, which v1 refused and still does. The
-    bot now asks the same third question, and points the same way out."""
+    bot now asks the same third question, and — since a substitution is what
+    put the lesson there — answers its own sentence pointing at «♻️ Вернуть
+    по расписанию» instead of v1's, which named no way out."""
     added = FakeMessage(text="Астрономия")
     await override_subject(
         added,
@@ -325,13 +345,128 @@ async def test_the_bot_will_not_cancel_a_lesson_the_template_does_not_have(
         school_class,
         Role.EDITOR,
     )
+    assert callback.answers[-1] == (ADDED_BY_SUBSTITUTION.format(index=7), True)
+    row = await session.scalar(select(LessonOverride))
+    assert (row.action, row.subject_name) == (REPLACE, "Астрономия")
+    assert [action for action, _ in await _lines(session)] == ["override.replace"]
+
+
+async def test_the_card_still_works_after_that_refusal(
+    session, school_class, FakeCallback, FakeEditable, FakeMessage, FakeState
+) -> None:
+    """The refusal above answers its own sentence rather than v1's and keeps
+    the conversation state under the card, so «♻️ Вернуть по расписанию» —
+    the other button on the same card — still removes the substitution it
+    points at."""
+    added = FakeMessage(text="Астрономия")
+    await override_subject(
+        added,
+        FakeState(data={"date": MONDAY.isoformat(), "index": "7"}),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": "7"})
+    callback = FakeCallback(message=FakeEditable())
+    await override_cancel(callback, state, session, school_class, Role.EDITOR)
+
+    assert callback.answers[-1] == (ADDED_BY_SUBSTITUTION.format(index=7), True)
+    row = await session.scalar(select(LessonOverride))
+    assert (row.action, row.subject_name) == (REPLACE, "Астрономия")
+    assert [action for action, _ in await _lines(session)] == ["override.replace"]
+    # Nothing clears the state a refused cancel leaves behind.
+    assert (state.cleared, state.data) == (False, {"date": MONDAY.isoformat(), "index": "7"})
+
+    await override_clear(callback, state, session, school_class, Role.EDITOR)
+    assert await substitutions.substitution_on(session, school_class.id, MONDAY, 7) is None
+    assert callback.message.last == "♻️ Урок №7 снова идёт по расписанию."
+    assert [action for action, _ in await _lines(session)] == [
+        "override.replace",
+        "override.clear",
+    ]
+
+
+async def test_cancelling_a_number_with_no_lesson_and_no_substitution_still_clears_the_state(
+    session, school_class, FakeCallback, FakeEditable, FakeState
+) -> None:
+    """Every other refusal stays as it is: with nothing standing at that
+    number — no template lesson and no substitution either — the bot answers
+    v1's own sentence and drops the state, as it always has."""
+    state = FakeState(data={"date": MONDAY.isoformat(), "index": "7"})
+    callback = FakeCallback(message=FakeEditable())
+    await override_cancel(callback, state, session, school_class, Role.EDITOR)
+
     assert callback.answers[-1] == (
         wording.lesson_not_on_timetable_detail(7, cancelling=True),
         True,
     )
+    assert (state.cleared, state.data) == (True, {})
+    assert await session.scalar(select(func.count()).select_from(LessonOverride)) == 0
+
+
+async def test_the_bots_cancellation_clears_a_teacher_set_from_a_phone(
+    session, school_class, FakeCallback, FakeEditable, FakeState
+) -> None:
+    """Ruling 95: a cancellation carries no subject, room or teacher of its
+    own. The bot's «🚫 Отменить урок» now asks that third question too
+    (#383), but the clearing itself is v1's rule, unchanged — a teacher set
+    through v1's ``PUT /overrides`` is cleared here as well, though nothing
+    ever drew it."""
+    await substitutions.put(
+        session,
+        school_class,
+        EDITOR,
+        MONDAY,
+        2,
+        _all(action=REPLACE, subject="Химия", teacher="Иванова"),
+    )
+    await session.commit()
+
+    callback = FakeCallback(message=FakeEditable())
+    await override_cancel(
+        callback,
+        FakeState(data={"date": MONDAY.isoformat(), "index": "2"}),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+
     row = await session.scalar(select(LessonOverride))
-    assert (row.action, row.subject_name) == (REPLACE, "Астрономия")
-    assert [action for action, _ in await _lines(session)] == ["override.replace"]
+    assert (row.action, row.teacher) == (CANCEL, None)
+
+
+async def test_the_bots_replacement_keeps_a_teacher_and_a_note_set_from_a_phone(
+    session, school_class, FakeMessage, FakeState
+) -> None:
+    """Ruling 95: the bot's replacement changes the subject and the room and
+    leaves a teacher or a note set from a phone as it was."""
+    await substitutions.put(
+        session,
+        school_class,
+        EDITOR,
+        MONDAY,
+        2,
+        _all(action=REPLACE, subject="Химия", teacher="Иванова", note="болеет"),
+    )
+    await session.commit()
+
+    message = FakeMessage(text="Физика, 214")
+    await override_subject(
+        message,
+        FakeState(data={"date": MONDAY.isoformat(), "index": "2"}),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+
+    row = await session.scalar(select(LessonOverride))
+    assert (row.subject_name, row.room, row.teacher, row.note) == (
+        "Физика",
+        "214",
+        "Иванова",
+        "болеет",
+    )
 
 
 async def test_nothing_the_services_write_is_committed_until_the_caller_commits(

@@ -4,9 +4,12 @@ v1's ``PUT /days`` held its rules in the router — a schedule the day names is
 this class's and rings something, and a shortened day names one — while the
 bot's «🏖 Особые дни» wrote through ``special_days.mark``, which asked none of
 them. v2's ``UpdateDay`` writes the same marks, so one write,
-``special_days.put_day``, holds the rules a fact at a time, a mark two phones
-write at once (#382), and that nothing the services write is committed by
-them.
+``special_days.put_day``, holds the rules as facts each shell words, and v1, the
+bot and v2 call it (``docs/specs/2026-10-05-server-v2-design.md``, decision 2).
+``test_api_extended.py`` and ``test_bot_manage.py``, untouched, are the proof
+that v1's answers and the bot's screens did not move; these hold the rules a
+fact at a time, a mark two phones write at once (#382), and that nothing the
+services write is committed by them.
 """
 
 from __future__ import annotations
