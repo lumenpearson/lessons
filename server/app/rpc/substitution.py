@@ -18,8 +18,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app import telegram_send
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.contract.lessons.v2.substitution_pb import (
+    CreateSubstitutionRequest,
+    CreateSubstitutionResponse,
     GetSubstitutionRequest,
     GetSubstitutionResponse,
     ListSubstitutionsRequest,
@@ -29,7 +32,8 @@ from app.contract.lessons.v2.substitution_pb import (
 )
 from app.models import LessonOverride, OverrideAction
 from app.rpc import dates, values
-from app.rpc.errors import Refusal
+from app.rpc.errors import Refusal, validate
+from app.schemas import OverrideIn
 from app.services import clock, substitutions
 
 if TYPE_CHECKING:
@@ -46,6 +50,20 @@ _PROTO_ACTIONS = {model: proto for proto, model in _ACTIONS.items()}
 #: No substitution of this class has that id. v2's sentence: v1 named a
 #: substitution by its date and number, and never answered 404.
 UNKNOWN_SUBSTITUTION = "Unknown substitution"
+
+#: What a write reads of a ``Substitution``, as v1's ``OverrideIn`` takes it:
+#: the id is the server's.
+_WRITTEN = ("date", "index", "action", "subject", "room", "teacher", "note")
+
+#: The ``optional`` fields of ``Substitution``: unset reads as ``""``, and
+#: means none.
+_OPTIONAL = frozenset({"subject", "room", "teacher", "note"})
+
+#: An ``action`` left unset, or a number no value of ``SubstitutionAction``
+#: names, which arrives in the binary encoding only. Fixed, naming the field
+#: and never the number. v1 took ``"clear"`` here too, which is
+#: ``DeleteSubstitution`` now.
+ACTION_REFUSED = "action must be replace or cancel"
 
 
 def _message(row: LessonOverride) -> Substitution:
@@ -86,3 +104,75 @@ async def list_substitutions(
 async def get_substitution(call: Call, request: GetSubstitutionRequest) -> GetSubstitutionResponse:
     """One substitution. Writes nothing."""
     return GetSubstitutionResponse(substitution=_message(await _row(call, request.substitution_id)))
+
+
+def _action(value: SubstitutionAction) -> str:
+    """v1's name of the action ``value`` names, or ``VALIDATION_FAILED`` on
+    ``substitution.action``: a substitution replaces a lesson or cancels it,
+    and v1 had no default either."""
+    action = _ACTIONS.get(value)
+    if action is None:
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED,
+            ACTION_REFUSED,
+            violations=[("substitution.action", ACTION_REFUSED)],
+        )
+    return action.value
+
+
+def _sent(substitution: Substitution, field: str) -> object:
+    """What a request says of ``field``, as v1's ``OverrideIn`` takes it:
+    ``None`` for an ``optional`` one it leaves unset, since protobuf-py reads
+    an unset string as ``""``, and the action by v1's name."""
+    if field in _OPTIONAL and not substitution.has_field(field):
+        return None
+    if field == "action":
+        return _action(substitution.action)
+    return getattr(substitution, field)
+
+
+def _announce(call: Call, notice: str) -> None:
+    """Tell the class's subscribers to changes, all but the editor who made
+    it: v1's notice, as an effect (``telegram_send.notify_class``), so that it
+    goes out once the change is committed and never when it is refused."""
+    editor, school_class = call.device_and_class()
+    session, author = call.session, editor.telegram_id
+    call.after_commit(
+        lambda: telegram_send.notify_class(
+            session, school_class, notice, kind="changes", author=author
+        )
+    )
+
+
+async def create_substitution(
+    call: Call, request: CreateSubstitutionRequest
+) -> CreateSubstitutionResponse:
+    """A new substitution, checked by v1's ``OverrideIn``: a date inside the
+    bounds v1 holds a write to, a lesson number from 1 to 20, a replacement
+    with a subject, a room or a teacher, each one line and within v1's
+    lengths, and the subject stored in the class's spelling. A lesson that
+    already has one that day is ``RESOURCE_EXISTS``, where v1's ``PUT``
+    changed it; a day that draws no lessons, a number it rings no bell for,
+    and a cancellation or a bare room or teacher at a number the template
+    leaves empty are refused with their reasons. The id a client sends is
+    ignored. Announced once committed; REST answers 201."""
+    editor, school_class = call.device_and_class()
+    sent = request.substitution if request.substitution is not None else Substitution()
+    form = validate(OverrideIn, {name: _sent(sent, name) for name in _WRITTEN}, at="substitution.")
+    dates.bounded(form.date, "substitution.date")
+    written = await substitutions.create(
+        call.session,
+        school_class,
+        editor.telegram_id,
+        form.date,
+        form.index,
+        {
+            "action": OverrideAction(form.action),
+            "subject": form.subject,
+            "room": form.room,
+            "teacher": form.teacher,
+            "note": form.note,
+        },
+    )
+    _announce(call, written.notice)
+    return CreateSubstitutionResponse(substitution=_message(written.substitution))

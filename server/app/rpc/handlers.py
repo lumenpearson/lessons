@@ -94,6 +94,7 @@ HANDLERS: dict[str, Handler] = {
     "lessons.v2.SubjectService/GetSubject": subject.get_subject,
     "lessons.v2.SubjectService/ListSubjects": subject.list_subjects,
     "lessons.v2.SubjectService/UpdateSubject": subject.update_subject,
+    "lessons.v2.SubstitutionService/CreateSubstitution": substitution.create_substitution,
     "lessons.v2.SubstitutionService/GetSubstitution": substitution.get_substitution,
     "lessons.v2.SubstitutionService/ListSubstitutions": substitution.list_substitutions,
     "lessons.v2.TimetableService/GetTimetable": timetable.get_timetable,

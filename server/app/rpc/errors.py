@@ -38,6 +38,7 @@ from app.services import diary as diary_service
 from app.services import directory as directory_service
 from app.services import homework as homework_service
 from app.services import schools as schools_service
+from app.services import substitutions as substitutions_service
 from app.services import tasks as tasks_service
 from app.services import terms as terms_service
 from app.services.manage import bells as bells_service
@@ -74,6 +75,10 @@ WINDOW_BACKWARDS = "end_date must not precede start_date"
 #: for one subject on one day. v1 has no sentence to share: its ``PUT``
 #: replaced the text instead.
 HOMEWORK_EXISTS = "this subject already has homework that day; change that one instead"
+
+#: ``CreateSubstitution``'s refusal of a second substitution for one lesson on
+#: one day. v1 has no sentence to share: its ``PUT`` changed the one there.
+SUBSTITUTION_EXISTS = "this lesson already has a substitution that day; change that one instead"
 
 #: Each reason's canonical code, as the comment beside it in ``errors.proto``
 #: begins. ``test_rpc_errors.py`` reads the file and holds the two level.
@@ -365,6 +370,32 @@ def _shortened_needs_schedule(_error: special_days_service.ShortenedNeedsSchedul
     )
 
 
+def _no_lesson_on_day(error: substitutions_service.NoLessonOnDay) -> Refusal:
+    # The service's sentence for a person, as TERM_BOUNDS_REFUSED's is: built
+    # from the class's terms and the calendar, never from what was sent.
+    return Refusal(ErrorReason.NO_LESSON_ON_DAY, error.sentence, why=error.why)
+
+
+def _no_bell_for_lesson(error: substitutions_service.NoBellForLesson) -> Refusal:
+    return Refusal(
+        ErrorReason.NO_BELL_FOR_LESSON, wording.no_bell_detail(error.index), index=error.index
+    )
+
+
+def _lesson_not_on_timetable(error: substitutions_service.LessonNotOnTimetable) -> Refusal:
+    return Refusal(
+        ErrorReason.LESSON_NOT_ON_TIMETABLE,
+        wording.lesson_not_on_timetable_detail(error.index, cancelling=error.cancelling),
+        index=error.index,
+    )
+
+
+def _substitution_exists(_error: substitutions_service.SubstitutionExists) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_EXISTS, SUBSTITUTION_EXISTS, resource="substitution", field="index"
+    )
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -401,6 +432,10 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     homework_service.HomeworkExists: _homework_exists,
     special_days_service.ScheduleNotInClass: _schedule_not_in_class,
     special_days_service.ShortenedNeedsSchedule: _shortened_needs_schedule,
+    substitutions_service.NoLessonOnDay: _no_lesson_on_day,
+    substitutions_service.NoBellForLesson: _no_bell_for_lesson,
+    substitutions_service.LessonNotOnTimetable: _lesson_not_on_timetable,
+    substitutions_service.SubstitutionExists: _substitution_exists,
 }
 
 

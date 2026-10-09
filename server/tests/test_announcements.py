@@ -56,6 +56,7 @@ from app.models import BotUser, DeviceToken, Homework, ReminderSettings, Role
 from app.rpc import day as rpc_day
 from app.rpc import event as rpc_event
 from app.rpc import homework as rpc_homework
+from app.rpc import substitution as rpc_substitution
 from app.services import linking, notify
 
 APP_ROOT = Path(__file__).resolve().parent.parent / "app"
@@ -404,6 +405,10 @@ ANNOUNCED_HERE: dict[object, str] = {
     rpc_event.delete_event: "a stored title, `max_length=200`",
     rpc_day._announce: "registers that effect for changes; no text of its own",
     rpc_day.update_day: "`DayIn.note`, `max_length=500`, as v1's",
+    rpc_substitution._announce: "registers that effect for changes; no text of its own",
+    rpc_substitution.create_substitution: (
+        "subject 120, room 32, teacher 120 and `note` 500: `OverrideIn`'s, as v1's"
+    ),
 }
 
 
