@@ -18507,7 +18507,7 @@ A `501` with `UNIMPLEMENTED` means production still runs the code from before th
 **Error-table rows.**
 - `HomeworkExists` → `RESOURCE_EXISTS`, with `{resource: "homework", field: "subject"}`.
 - A date out of bounds, or a window over 62 days → `VALIDATION_FAILED` on the field.
-- An unknown id → `RESOURCE_NOT_FOUND`, with `resource` `"homework"` or `"event"`.
+- An unknown id → `RESOURCE_NOT_FOUND`, with `resource` `"homework"` or `"event"`. 3b-4 added the homework's lookup, `services/homework.homework_of`, for the ticks, and its sentence, `wording.UNKNOWN_HOMEWORK_DETAIL`; `api/edit.py`'s own literal «Unknown homework» moves onto it.
 
 **Effects.** Notices to the class, through `telegram_send` and `call.after_commit` as 3b-3's notice to a requester goes, after the commit and never on a refusal, with the author excluded. 3b-3 left the class notice to this stage, whose handlers are its first v2 callers: `tests/test_announcements.py` finds every place that pushes to the class by the name `notify_subscribers` within one file, and has to learn about an effect registered in `rpc/` in the same change (the 3b-3 task list, «Rulings for 3b-3»).
 - homework is kind `"homework"`, for v1's create, update and delete;
@@ -18516,6 +18516,8 @@ A `501` with `UNIMPLEMENTED` means production still runs the code from before th
 The texts are v1's, moved to `app/wording.py`.
 
 **What v2 does not repeat.** v1's `PUT /homework` upsert by (date, subject): `CreateHomework` is create-only, and `UpdateHomework` changes it, announcing «обновлено» as v1's update branch did. v1's `PUT /events` becomes a `POST`, so that a retried create can be told apart from a second event, as the proto says.
+
+**#373 is fixed in a pull request of its own before 3b-5 starts.** `CreateHomework` writes through `homework.upsert`'s savepoint, and a v2 test that a refusal after it writes nothing would otherwise read SQLite's behaviour rather than the code's: the gate's last-seen touch writes at most every fifteen minutes, so it cannot be relied on to open the transaction first. `services/homework.py` must not import `services/tasks.py`, which has imported it since 3b-4.
 
 **Open questions.**
 - **An `UpdateHomework` that moves `due_date` or `subject` onto an existing pair.** Recommended: `RESOURCE_EXISTS`.
@@ -18637,7 +18639,7 @@ The texts are v1's, moved to `app/wording.py`.
   - The controller's ruling of 5 October asks for non-committing variants of `put_override` and `drop_override`.
   - This plan recommends one step further, as in 3b-4: the functions stop committing, and v1's routers commit after the call. Two variants of one write are two implementations of one rule, which `CLAUDE.md`'s service layer exists to prevent.
   - Either way, `BatchUpdateCorrections`' all-or-none is `invoke`'s one commit.
-  - 3b-8's task list follows whichever the controller confirms.
+  - The controller confirmed the second for 3b-4 on 9 October 2026 (the 3b-4 task list, «Rulings for 3b-4»), and 3b-8 follows it. A retry that relied on a failing commit moves into a savepoint, as 3b-4's link code and tick did, and a test of a write behind one makes a write of its own first, because SQLite commits a savepoint that opens the transaction when it is released (#373).
 - **The routers' rules.** `api/diary.py`'s `put_override`, `reset_override`, `reset_all_overrides` and `list_overrides` move beside the services: the target, the field, and the scope through the 3b-7 row's correction scope.
 
 **Error-table rows.**

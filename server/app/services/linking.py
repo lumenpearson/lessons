@@ -124,11 +124,13 @@ async def link_device(session: AsyncSession, code: str, telegram_id: int) -> Dev
 async def unlink_device(session: AsyncSession, device: DeviceToken) -> None:
     """Back to read-only. A fresh code is issued on the next request.
 
-    Leaves the transaction open, unlike :func:`link_device`, because two of
-    the three callers write an audit line straight afterwards and the line has
-    to land with the unlink or not at all. Committing here made "phone unlinked,
-    nothing in the log" a possible outcome of one failed insert - and the log is
-    the only place an admin can see that somebody else did it.
+    Leaves the transaction open, unlike :func:`link_device`, because one of
+    its two callers, ``services/manage/devices.py``'s ``unlink``, writes an
+    audit line straight afterwards, and the line has to land with the unlink
+    or not at all. Committing here made "phone unlinked, nothing in the log"
+    a possible outcome of one failed insert - and the log is the only place an
+    admin can see that somebody else did it. The other caller,
+    :func:`unlink_self`, writes no audit line: the phone did it to itself.
     """
     device.telegram_id = None
     device.linked_at = None

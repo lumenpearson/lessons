@@ -4,7 +4,7 @@ Version `1`. Base path `/api/v1`. Every change since the first release is
 additive - new endpoints, new optional fields - so the version has not moved
 and a client built against the original `/bundle` keeps working unchanged.
 A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
-thirty-three of its methods so far: «v2: the contract», at the end of this page.
+forty-four of its methods so far: «v2: the contract», at the end of this page.
 
 There is no user account and no password. A device holds a bearer token; a
 device that has been **linked** to a Telegram account through the bot acts
@@ -1596,7 +1596,7 @@ Postgres, which has been checked on SQLite only. Nothing here has been asked of 
 
 ## v2: the contract
 
-**Served beside v1, thirty-three methods so far.** Everything above this section is v1, and
+**Served beside v1, forty-four methods so far.** Everything above this section is v1, and
 v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
 checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
 [the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
@@ -1604,9 +1604,10 @@ checked by Buf, with its Python generated into `server/app/contract/`. Sub-proje
 Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
 `ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
 methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
-eight `ClassService` methods (3b-2); and the three `AccessRequestService` methods and the two
-`DirectoryService` methods (3b-3). Every other method answers `UNIMPLEMENTED` until its
-stage, before it asks for any credential. No APK calls v2 yet. The proto files are
+eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
+`DirectoryService` methods (3b-3); and the other eleven `MeService` methods, a phone's own
+(3b-4). Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
+credential. No APK calls v2 yet. The proto files are
 the reference: every service, method, message and field there carries the comment that says
 what it means and what v1 sent in its place. This section says only what a file cannot.
 
@@ -1672,9 +1673,10 @@ unaffected.
   `etag` sends it as `ETag`. `GetScheduleWindow`'s tag is a strong SHA-256 of the window's
   canonical JSON without `generatedAt`, and its answer carries an `ETag` and no
   `Cache-Control`, as v1's `/bundle` does. `Cache-Control: private, no-store` goes on every
-  diary `GET`, on `GetCalendarFeed` (its answer is a secret URL), on `GetClass` and
-  `UpdateClass` (their answer is the class card, whose join code admits a phone) and on
-  `CreateDevice` (its answer is a device token).
+  diary `GET`, on `GetCalendarFeed` and `CreateCalendarFeed` (their answer is a secret URL),
+  on `GetClass` and `UpdateClass` (their answer is the class card, whose join code admits a
+  phone), on `CreateDevice` (its answer is a device token) and on `CreateLinkCode` (its answer
+  links the phone to whoever sends it to the bot).
 - **No CORS header**, on any answer: v2 answers apps, not pages on other sites.
 - **A failure to write an answer** is Google's `INTERNAL` body like any other refusal, never
   plain text.
@@ -1709,6 +1711,9 @@ unaffected.
   changes every field it carries, so a class card read and sent back whole names the class (its
   name is no longer recomposed from the grade and the letter), writes an audit line for every
   field it carries, and pins a timezone the class never stored to the one the card printed.
+  `UpdateTask` refuses `title` or `priority` masked and left unset, on `task.title` or
+  `task.priority`, because neither can be cleared; and since an unset `bool` reads as
+  false, a task is taken back from done only under a mask that names `done`.
 - **A preview.** `ImportTimetable` with `validate_only` writes nothing, whatever `replace`
   says, and answers what the bot shows before «Применить»: `applied` false, the weekdays, the
   lessons the paste holds, the bells, the conflicts, and the lines the parser could not read.
@@ -1740,6 +1745,29 @@ unaffected.
   and over REST a `429` with `Retry-After` where v1 sent `503`), and `DIRECTORY_UNAVAILABLE`
   when the directory fails. `ListSchoolRegions` and v1's `/directory/school-regions` count a
   caller once: twenty searches in fifteen minutes, whichever version asks.
+
+### A phone's own
+
+- **Minting is a write.** `CreateLinkCode` mints the code a phone shows to be linked, and
+  `CreateCalendarFeed` the class's feed secret; `GetMe` and `GetCalendarFeed` mint nothing,
+  where v1's `GET /me` and `GET /calendar` minted on a read. The code is the one v1's `/me`
+  shows too, the same until the bot uses it, and a phone already linked gets none.
+- **The calendar feed asks for a linked account**, where v1 let any phone of the class, an
+  anonymous one included, mint it. Its address is v1's, on the deployment's
+  `PUBLIC_BASE_URL`, and the feed itself stays at `/api/v1/calendar/{secret}.ics`. A
+  deployment with no `PUBLIC_BASE_URL` offers no feed: both methods answer `UNIMPLEMENTED`
+  with `FEATURE_UNSUPPORTED` (`feature: "calendar_feed"`), and nothing is minted. v1 falls
+  back to the request's own host, which behind Vercel is an internal one.
+- **`UnlinkMe` on a phone that is not linked** succeeds, writes nothing, and leaves the phone
+  its link code.
+- **Tasks and ticks are the linked account's.** Somebody else's task is `RESOURCE_NOT_FOUND`,
+  as one that never existed is, so an id never reveals that a classmate keeps a list. A
+  task's `homework_id` names homework of this class, or the request is `VALIDATION_FAILED`
+  on `task.homework_id`. A `remind_at` sent with an offset is taken as v1 takes it, as an
+  instant, and is stored and answered as the class's wall time. v1's
+  `POST /tasks/{id}/done` is `UpdateTask` with `done`. `CreateHomeworkTick` and
+  `DeleteHomeworkTick` set the tick rather than toggle it, so either asked twice lands on the
+  same answer, and homework of another class is `RESOURCE_NOT_FOUND`.
 
 ### What the values look like
 
