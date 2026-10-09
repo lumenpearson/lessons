@@ -125,7 +125,8 @@ journal's page keyed on its last line, then the bells' patch, the timetable's im
 the class card's patch, then the answer to an access request and the anonymous directory's
 order of checks, then a phone's own: its link code and the code's deep link, unlinking
 itself, the feed's address, a task's checks and its patch, and a tick set rather than
-toggled — and the
+toggled, then the homework's and the events' writes, each with its line in the journal and
+its notice, and the window a list of the class's days covers — and the
 limiters into `security.py`, one instance each, so a caller cannot double its attempts by
 alternating versions. `main.mount_v2` catches a v2 that will not import and answers `503`
 under its two prefixes, so v1 and the webhook never go down with it.
@@ -133,7 +134,10 @@ Every `Update…` reads its mask through `rpc/masks.py` (AIP-134), and the gate 
 version a phone sends beside its `last_seen_at`, which v2's `ClassDevice` and the bot's
 «📱 Устройства» show. The first effects are 3b-3's: the Telegram notice to whoever asked for
 a role, sent through `app/telegram_send.py` once the answer is committed, and never when it
-is refused. Apart from the few writes `rpc/call.py` names, which commit inside themselves on
+is refused. 3b-5's tell the class: a homework or an event written over v2 is announced to the
+class's subscribers through `telegram_send.notify_class`, in v1's words and never to its
+author, and `tests/test_announcements.py` finds those call sites as it finds v1's. Apart from
+the few writes `rpc/call.py` names, which commit inside themselves on
 purpose, a service a v2 handler calls leaves the commit to its caller: 3b-4 stopped the
 tasks', the ticks', the link code's and the feed secret's services committing, so v1's
 routers commit after the call and the bot's handlers before they tell Telegram, and the two
@@ -938,7 +942,7 @@ with the host.
 
 ## Testing
 
-2846 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
+2927 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 161, `:widget` 126, `:app` 608 (#325).
 

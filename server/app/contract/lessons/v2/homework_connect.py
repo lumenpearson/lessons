@@ -50,11 +50,17 @@ class HomeworkService(Protocol):
     async def update_homework(self, request: UpdateHomeworkRequest, ctx: RequestContext[UpdateHomeworkRequest, UpdateHomeworkResponse], /) -> UpdateHomeworkResponse:
         """
         `update_mask` takes due_date, subject, text and attachment_url; a tick is
-        MeService's, not this.
+        MeService's, not this. A path whose field is absent clears it, which only
+        attachment_url can be: due_date, subject and text cannot be cleared.
+        Moving it onto a subject that has homework that day is RESOURCE_EXISTS.
+        Announced to the class's subscribers, unless nothing changed.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     async def delete_homework(self, request: DeleteHomeworkRequest, ctx: RequestContext[DeleteHomeworkRequest, DeleteHomeworkResponse], /) -> DeleteHomeworkResponse:
+        """
+        Every tick on it goes with it. Announced to the class's subscribers.
+        """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     @classmethod
@@ -222,7 +228,10 @@ class HomeworkServiceClient(ConnectClient):
     ) -> UpdateHomeworkResponse:
         """
         `update_mask` takes due_date, subject, text and attachment_url; a tick is
-        MeService's, not this.
+        MeService's, not this. A path whose field is absent clears it, which only
+        attachment_url can be: due_date, subject and text cannot be cleared.
+        Moving it onto a subject that has homework that day is RESOURCE_EXISTS.
+        Announced to the class's subscribers, unless nothing changed.
         """
         return await self.execute_unary(
             request=request,
@@ -244,6 +253,9 @@ class HomeworkServiceClient(ConnectClient):
         headers: Headers | Mapping[str, str] | None = None, 
         timeout_ms: int | None = None,
     ) -> DeleteHomeworkResponse:
+        """
+        Every tick on it goes with it. Announced to the class's subscribers.
+        """
         return await self.execute_unary(
             request=request,
             method=MethodInfo(
@@ -280,11 +292,17 @@ class HomeworkServiceSync(Protocol):
     def update_homework(self, request: UpdateHomeworkRequest, ctx: RequestContext[UpdateHomeworkRequest, UpdateHomeworkResponse], /) -> UpdateHomeworkResponse:
         """
         `update_mask` takes due_date, subject, text and attachment_url; a tick is
-        MeService's, not this.
+        MeService's, not this. A path whose field is absent clears it, which only
+        attachment_url can be: due_date, subject and text cannot be cleared.
+        Moving it onto a subject that has homework that day is RESOURCE_EXISTS.
+        Announced to the class's subscribers, unless nothing changed.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     def delete_homework(self, request: DeleteHomeworkRequest, ctx: RequestContext[DeleteHomeworkRequest, DeleteHomeworkResponse], /) -> DeleteHomeworkResponse:
+        """
+        Every tick on it goes with it. Announced to the class's subscribers.
+        """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     @classmethod
@@ -447,7 +465,10 @@ class HomeworkServiceClientSync(ConnectClientSync):
     ) -> UpdateHomeworkResponse:
         """
         `update_mask` takes due_date, subject, text and attachment_url; a tick is
-        MeService's, not this.
+        MeService's, not this. A path whose field is absent clears it, which only
+        attachment_url can be: due_date, subject and text cannot be cleared.
+        Moving it onto a subject that has homework that day is RESOURCE_EXISTS.
+        Announced to the class's subscribers, unless nothing changed.
         """
         return self.execute_unary(
             request=request,
@@ -468,6 +489,9 @@ class HomeworkServiceClientSync(ConnectClientSync):
         headers: Headers | Mapping[str, str] | None = None, 
         timeout_ms: int | None = None,
     ) -> DeleteHomeworkResponse:
+        """
+        Every tick on it goes with it. Announced to the class's subscribers.
+        """
         return self.execute_unary(
             request=request,
             method=MethodInfo(

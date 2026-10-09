@@ -23,7 +23,7 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
@@ -931,3 +931,87 @@ def unexpected_writes() -> Callable[[list[str]], list[str]]:
 def last_seen_rule() -> re.Pattern[str]:
     """The one write a plain authenticated read makes: the device's last call."""
     return ALLOWED_WRITES[0]
+
+
+# --------------------------------------------------------------------------
+# v2's notices to the class (stage 3b-5)
+#
+# `notices` is the bot `telegram_send.build_bot` hands out, and `subscribers`
+# the class's people who asked to hear about a kind of change. A test that
+# wants to know whether a change was committed before the class was told sets
+# `notices.looks` to a read from a session of its own: it runs as each message
+# is sent, and what it saw is kept beside the message.
+# --------------------------------------------------------------------------
+
+#: Who asked to hear about what, as ``(notify_changes, notify_homework)``: one
+#: classmate both, one homework only, one changes only, one neither — and
+#: ``v2_tokens``' editor, 2002, who asked for both and is never told of a
+#: change of their own.
+SUBSCRIBERS = {
+    7001: (True, True),
+    7002: (False, True),
+    7003: (True, False),
+    7004: (False, False),
+    2002: (True, True),
+}
+
+
+@dataclass
+class _Notices:
+    """What a bot built for a notice was asked to send, what ``looks`` read at
+    each send, and how often the bot was built and closed."""
+
+    sent: list[tuple[int, str]] = field(default_factory=list)
+    saw: list[Any] = field(default_factory=list)
+    built: int = 0
+    closed: int = 0
+    looks: Callable[[], Awaitable[Any]] | None = None
+
+    async def send_message(self, chat_id: int, text: str, **_: Any) -> None:
+        if self.looks is not None:
+            self.saw.append(await self.looks())
+        self.sent.append((chat_id, text))
+
+    @property
+    def session(self) -> _Notices:
+        return self
+
+    async def close(self) -> None:
+        self.closed += 1
+
+
+@pytest.fixture
+def notices(monkeypatch) -> _Notices:
+    """A deployment with a bot, every send of which the test reads."""
+    from app import telegram_send
+    from app.config import get_settings
+
+    bot = _Notices()
+    monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
+
+    def build() -> _Notices:
+        bot.built += 1
+        return bot
+
+    monkeypatch.setattr(telegram_send, "build_bot", build)
+    return bot
+
+
+@pytest.fixture
+async def subscribers(session, school_class) -> dict[int, tuple[bool, bool]]:
+    """``SUBSCRIBERS``, in ``school_class``."""
+    from app.models import ReminderSettings
+
+    for telegram_id, (changes, homework) in SUBSCRIBERS.items():
+        session.add(
+            ReminderSettings(
+                class_id=school_class.id,
+                telegram_id=telegram_id,
+                notify_changes=changes,
+                notify_homework=homework,
+            )
+        )
+    await session.commit()
+    # A copy: a test that adds a recipient to what it was handed must not add
+    # it to every later test in the same worker.
+    return dict(SUBSCRIBERS)

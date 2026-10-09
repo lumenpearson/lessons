@@ -59,7 +59,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2846 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2927 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -67,7 +67,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 231 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 235 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. A CI step since
   27 September 2026, right after ruff, because the owner asked for it through that day's
@@ -201,7 +201,8 @@ Server modules:
   shell keeps its own words — «Предмет … уже есть» in a chat, a `409` on the wire. The rules
   v2 shares with v1 live here too: `join.py` (the join flow, refusing with facts),
   `window.py` (the year's window and its tag), `clock.py` (the class's clock, the date
-  bounds and `wall`, a stored stamp on the class's clock), `manage/classes.py`'s
+  bounds, a list's `window`, and `wall`, a stored stamp on the class's clock),
+  `manage/classes.py`'s
   `member_names` and `update` (the card's patch, the name recomposed), `manage/subjects.py`'s
   `dictionary_of` (the read that adopts nothing) and `update` (the rename-then-details
   patch), `manage/bells.py`'s `update` (the rename, the rows, then the default),
@@ -211,13 +212,16 @@ Server modules:
   `school_regions` (the anonymous directory's order of checks, one bucket for both
   versions), `tasks.py`'s `create_task`, `update_task` and `set_homework_done` (a task's
   homework of this class only, its reminder on the class's clock, a patch with `done`, a
-  tick set rather than toggled), `homework.py`'s `homework_of`, `linking.py`'s
-  `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s `feed_url`, and
-  `audit.py`'s `older_than` (a page keyed on its last line); the limiters are
-  `security.py`'s, one instance each, and the sentences both versions answer with (the
+  tick set rather than toggled), `homework.py`'s `homework_of`, `due_between`, `put`,
+  `create`, `update` and `delete` (one assignment per subject per day, its line and its
+  notice), `events.py` (what an event stands in for when nobody says, its line and its
+  notice), `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
+  `feed_url`, and `audit.py`'s `older_than` (a page keyed on its last line); the limiters
+  are `security.py`'s, one instance each, and the sentences both versions answer with (the
   join's four, the diary's «disabled», and the subjects', the devices', the bells', the
-  import's, the zone's, the access requests', the directory's, the tasks' and the ticks'
-  refusals) are `app/wording.py`'s.
+  import's, the zone's, the access requests', the directory's, the tasks', the ticks', the
+  homework's and the events' refusals, and the notices to the class) are
+  `app/wording.py`'s.
   The tick runs `health.py`'s self-check after the digests and the sweeps and before the
   diary keep-alive: four checks, what each said last in `health_checks`, and the owner's
   alerts on a change; the owner's «📊 Проект» reads `project_stats.py`, which writes nothing.
@@ -264,8 +268,9 @@ Server modules:
   method shares: `methods.py` (each method's facts, read from the descriptors), `gate.py`
   (client version, then the bearer, the link and the role), `call.py` (`invoke`: the gate,
   one dishka scope, the handler, the one commit, then the effects), `errors.py` (the one error
-  table), `masks.py` (one reading of an `update_mask`, AIP-134) and `handlers.py` (which
-  methods are served). A handler never commits and never
+  table), `masks.py` (one reading of an `update_mask`, AIP-134), `dates.py` (a list's window
+  and a written date's bound, read as v1 reads them) and `handlers.py` (which methods are
+  served). A handler never commits and never
   checks a credential; `rpc_app()` mounts the seventeen Connect apps at `/api/rpc`, refusing
   native gRPC over HTTP/1.1 with `415`. May import `services/`, `models`, `schedule`,
   `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry,
@@ -276,8 +281,9 @@ Server modules:
   rule, under `/api/v2`, calling the same `invoke`; `errors.py` writes Google's error body.
   `main.mount_v2` mounts both and answers `503` under their prefixes if v2 will not import
 - `telegram_send.py` — a bot built for one job and closed after it (`build_bot`, `close_bot`,
-  `send`), for the code that is not the bot: the tick, v1's notices, v2's (an effect run
-  after the commit) and the self-check's alerts. aiogram is imported inside its functions and
+  `send`, and `notify_class` for a class's subscribers), for the code that is not the bot:
+  the tick, v1's notices, v2's (an effect run after the commit) and the self-check's alerts.
+  aiogram is imported inside its functions and
   never at the top, so it costs a cold
   start nothing; `app.bot.bot` imports `build_bot` back from it, and
   `tests/test_service_layering.py` holds that it reaches neither the bot nor a shell

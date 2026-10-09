@@ -39,7 +39,10 @@ service HomeworkService {
     option (lessons.v2.min_role) = ROLE_EDITOR;
   }
   // `update_mask` takes due_date, subject, text and attachment_url; a tick is
-  // MeService's, not this.
+  // MeService's, not this. A path whose field is absent clears it, which only
+  // attachment_url can be: due_date, subject and text cannot be cleared.
+  // Moving it onto a subject that has homework that day is RESOURCE_EXISTS.
+  // Announced to the class's subscribers, unless nothing changed.
   rpc UpdateHomework(UpdateHomeworkRequest) returns (UpdateHomeworkResponse) {
     option (google.api.http) = {
       patch: "/v2/class/homework/{homework.id}"
@@ -48,6 +51,7 @@ service HomeworkService {
     option (lessons.v2.auth) = AUTH_KIND_DEVICE;
     option (lessons.v2.min_role) = ROLE_EDITOR;
   }
+  // Every tick on it goes with it. Announced to the class's subscribers.
   rpc DeleteHomework(DeleteHomeworkRequest) returns (DeleteHomeworkResponse) {
     option (google.api.http) = {delete: "/v2/class/homework/{homework_id}"};
     option (lessons.v2.auth) = AUTH_KIND_DEVICE;

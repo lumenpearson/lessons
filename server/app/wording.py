@@ -413,11 +413,52 @@ DIRECTORY_UPSTREAM_DETAIL = "Поиск школ сейчас недоступе
 #: keeps a list.
 UNKNOWN_TASK_DETAIL = "Unknown task"
 
-#: v1's ``POST /homework/{id}/done`` and v2's homework ticks: no homework of
-#: this class has that id.
+#: v1's ``POST /homework/{id}/done`` and ``DELETE /homework/{id}``, and v2's
+#: homework ticks and ``HomeworkService``: no homework of this class has that
+#: id.
 UNKNOWN_HOMEWORK_DETAIL = "Unknown homework"
+
+#: v1's ``DELETE /events/{id}`` and v2's ``EventService``: no event of this
+#: class has that id.
+UNKNOWN_EVENT_DETAIL = "Unknown event"
 
 #: v1's ``POST`` and ``PATCH /tasks`` and v2's ``CreateTask`` and
 #: ``UpdateTask``: a task's ``homework_id`` names homework of another class, or
 #: none. It names the field, never the value.
 HOMEWORK_NOT_IN_CLASS_DETAIL = "homework_id is not in this class"
+
+
+# --------------------------------------------------------------------------
+# What the class is told
+#
+# When homework or an event is written from a phone: v1's ``/homework`` and
+# ``/events``, and v2's ``HomeworkService`` and ``EventService``, through
+# ``services/homework.py`` and ``services/events.py``. Everything typed is
+# escaped here; an assignment's text arrives cut already (``notify.shorten``),
+# because cutting after escaping can leave «&am», a message Telegram refuses
+# whole. The bot's own flows word theirs for a chat.
+# --------------------------------------------------------------------------
+
+
+def homework_saved_notice(verb: str, subject: str, when: str, text: str) -> str:
+    """«📝 Задание добавлено: …» or «… обновлено: …», and the text below it."""
+    return f"📝 Задание {verb}: <b>{escape(subject)}</b> {escape(when)}\n{escape(text)}"
+
+
+def homework_deleted_notice(subject: str, when: str) -> str:
+    return f"🗑 Задание удалено: <b>{escape(subject)}</b> {escape(when)}"
+
+
+def event_notice(
+    title: str, when: str, span: str, location: str | None, *, changed: bool = False
+) -> str:
+    """«📅 Событие: …» for a new event, and «📅 Событие изменено: …» for one
+    changed (v2's ``UpdateEvent``; v1 changed none), with its times and its
+    place when it has one, on the day it is on now."""
+    head = "📅 Событие изменено" if changed else "📅 Событие"
+    place = f", {escape(location)}" if location else ""
+    return f"{head}: <b>{escape(title)}</b> {escape(when)}, {span}{place}"
+
+
+def event_cancelled_notice(title: str, when: str) -> str:
+    return f"🗑 Событие отменено: <b>{escape(title)}</b> {escape(when)}"

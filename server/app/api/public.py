@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date as Date
-from datetime import datetime, timedelta
+from datetime import datetime
 from datetime import time as Time
 
 from dishka.integrations.fastapi import FromDishka
@@ -85,12 +85,6 @@ router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1", tags=["cl
 # the same handful of queries whatever the range, and resolves the rest in
 # Python from the weekly template it has already loaded.
 MAX_BUNDLE_DAYS = 280
-
-# ``GET /homework``: the default window and the widest one allowed. Homework
-# older than a term is not something the app shows, and an unbounded range is
-# an unbounded query.
-HOMEWORK_DEFAULT_DAYS = 21
-MAX_HOMEWORK_DAYS = 62
 
 # The calendar feed's horizon. Calendar apps re-fetch a subscription every few
 # hours, so what matters is the coming weeks, not the whole year.
@@ -423,35 +417,14 @@ def _linked_id(device: DeviceToken) -> int:
     return device.telegram_id
 
 
-def _check_bounds(*days: Date) -> None:
-    """Refuse a date a school timetable cannot plausibly mean.
-
-    Split out of ``_check_range`` because the callers have to reach it
-    *before* they derive the other end of the window: ``end = start +
-    timedelta(...)`` raises OverflowError within three weeks of ``date.max``,
-    and that is a 500 on a query string anybody with a device token can type.
-    """
-    if not clock.in_bounds(*days):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"dates must be between {clock.MIN_DATE.isoformat()} "
-                f"and {clock.MAX_DATE.isoformat()}"
-            ),
-        )
-
-
-def _check_range(start: Date, end: Date, max_days: int) -> None:
-    _check_bounds(start, end)
-    if end < start:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="to must not precede from"
-        )
-    if (end - start).days > max_days:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"the range may span at most {max_days} days",
-        )
+#: v1's sentence for each refusal of ``clock.window``. An end before its start
+#: is said in v1's own query fields, ``from`` and ``to``, which v2 does not
+#: have; the other two are ``clock``'s, which v2 answers with too.
+_WINDOW_REFUSED = {
+    clock.OUT_OF_BOUNDS: clock.DATES_OUT_OF_BOUNDS,
+    clock.BACKWARDS: "to must not precede from",
+    clock.TOO_WIDE: clock.WINDOW_TOO_WIDE,
+}
 
 
 # --------------------------------------------------------------------------
@@ -527,27 +500,17 @@ async def homework_list(
     *,
     session: FromDishka[AsyncSession],
 ) -> list[HomeworkItemOut]:
-    """Homework due in a window, each row with this person's own tick."""
-    start = from_ or clock.today(school_class)
-    # Bounded before the default window is derived from it, not after: `from`
-    # is arbitrary client input and `start + 21 days` overflows within three
-    # weeks of `date.max`, which the app saw as a 500 rather than as the 422
-    # the same date has always got from `/bundle`.
-    _check_bounds(start)
-    end = to or start + timedelta(days=HOMEWORK_DEFAULT_DAYS)
-    _check_range(start, end, MAX_HOMEWORK_DAYS)
+    """Homework due in a window, each row with this person's own tick. The
+    window is ``clock.window`` and the rows ``homework.due_between``, which
+    v2's ``ListHomework`` reads too."""
+    try:
+        start, end = clock.window(from_, to, clock.today(school_class))
+    except clock.WindowRefused as refused:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_WINDOW_REFUSED[refused.why]
+        ) from None
 
-    rows = list(
-        await session.scalars(
-            select(Homework)
-            .where(
-                Homework.class_id == school_class.id,
-                Homework.due_date >= start,
-                Homework.due_date <= end,
-            )
-            .order_by(Homework.due_date, Homework.subject_name, Homework.id)
-        )
-    )
+    rows = await homework_service.due_between(session, school_class.id, start, end)
     ticks: set[int] = set()
     if device.telegram_id is not None:
         ticks = await task_service.homework_ticks(

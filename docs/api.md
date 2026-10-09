@@ -4,7 +4,7 @@ Version `1`. Base path `/api/v1`. Every change since the first release is
 additive - new endpoints, new optional fields - so the version has not moved
 and a client built against the original `/bundle` keeps working unchanged.
 A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
-forty-four of its methods so far: «v2: the contract», at the end of this page.
+fifty-four of its methods so far: «v2: the contract», at the end of this page.
 
 There is no user account and no password. A device holds a bearer token; a
 device that has been **linked** to a Telegram account through the bot acts
@@ -1596,7 +1596,7 @@ Postgres, which has been checked on SQLite only. Nothing here has been asked of 
 
 ## v2: the contract
 
-**Served beside v1, forty-four methods so far.** Everything above this section is v1, and
+**Served beside v1, fifty-four methods so far.** Everything above this section is v1, and
 v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
 checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
 [the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
@@ -1605,8 +1605,9 @@ Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateD
 `ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
 methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
 eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
-`DirectoryService` methods (3b-3); and the other eleven `MeService` methods, a phone's own
-(3b-4). Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
+`DirectoryService` methods (3b-3); the other eleven `MeService` methods, a phone's own
+(3b-4); and the five `HomeworkService` methods and the five `EventService` methods (3b-5).
+Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
 credential. No APK calls v2 yet. The proto files are
 the reference: every service, method, message and field there carries the comment that says
 what it means and what v1 sent in its place. This section says only what a file cannot.
@@ -1714,6 +1715,11 @@ unaffected.
   `UpdateTask` refuses `title` or `priority` masked and left unset, on `task.title` or
   `task.priority`, because neither can be cleared; and since an unset `bool` reads as
   false, a task is taken back from done only under a mask that names `done`.
+  `UpdateHomework` takes `attachment_url` away when it is masked and left unset, and refuses
+  `due_date`, `subject` or `text` so; `UpdateEvent` takes `location` away, puts
+  `covers_lesson` back to what the kind means and makes `kind` an event, and refuses `date`,
+  `starts_at`, `ends_at` or `title`. An update of either that changes nothing writes nothing
+  and tells nobody.
 - **A preview.** `ImportTimetable` with `validate_only` writes nothing, whatever `replace`
   says, and answers what the bot shows before «Применить»: `applied` false, the weekdays, the
   lessons the paste holds, the bells, the conflicts, and the lines the parser could not read.
@@ -1768,6 +1774,32 @@ unaffected.
   `POST /tasks/{id}/done` is `UpdateTask` with `done`. `CreateHomeworkTick` and
   `DeleteHomeworkTick` set the tick rather than toggle it, so either asked twice lands on the
   same answer, and homework of another class is `RESOURCE_NOT_FOUND`.
+
+### Homework and events
+
+- **One assignment per subject per day, and no upsert.** `CreateHomework` refuses a subject
+  that already has homework that day, in the class's spelling of it, with `RESOURCE_EXISTS`
+  (`resource: "homework"`, `field: "subject"`), where v1's `PUT /homework` replaced the text;
+  `UpdateHomework` changes an assignment, and moving it onto a subject that has homework that
+  day is refused the same way. `CreateEvent` always creates: events have no natural key, and
+  two «Обед» on one day are two breaks.
+- **A window of days.** `ListHomework` and `ListEvents` read `start_date` and `end_date` as
+  v1's `/homework` reads `from` and `to`: today and 21 days on when unset, 62 days at most. A
+  window v1 refuses is `VALIDATION_FAILED` on the field at fault, in v1's words, except that
+  an end before its start is «end_date must not precede start_date»: `start_date` for a start
+  out of bounds, or one so near the bound that the end it implies is past it, and `end_date`
+  otherwise. A date a write names is held to the same bounds, in v1's words, on its field.
+- **Who may.** Any phone of the class reads the homework, with its owner's tick on each row
+  and none for a phone no account is behind; the events, the reads included, and every write
+  of both are an editor's, as the contract has them. A `kind` no value of `EventKind` names is
+  `VALIDATION_FAILED` on `event.kind` when it arrives, which is in the binary encoding; in
+  JSON it reads as no kind, an event.
+- **The class is told**, in v1's words and never its author, once the write is committed and
+  never when it is refused: homework to those who asked to hear about homework, events to
+  those who asked to hear about changes. An event moved to another day is announced once, on
+  its new day. A notice Telegram will not deliver is logged and dropped: the write stands.
+  Deleting an assignment takes every tick on it with it, and a task made from it keeps
+  itself without the link.
 
 ### What the values look like
 

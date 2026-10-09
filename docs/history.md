@@ -28,6 +28,158 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: a phone's own over v2 — its link, the calendar feed, its tasks and its homework ticks — stage 3b-4 of sub-project 3 (#273)
+
+Merged as #376 (`8cb3261`, 9 October 2026), from `server-v2/3b-4`, on milestone 11. It closes
+#374, and refers to #273, #373 and #375. The branch was cut from `main` at `128fe15`, the merge
+of #372, and carries 10 commits before this close-out, to `39fcef0`. Written on 9 October 2026,
+after #372 merged. No revision goes with it: the schema stays at `0019`. This is stage 3b-4 of
+`docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the next.
+v1 answers as before; v2 now answers forty-four methods.
+
+- **Six services stopped committing**, by the controller's ruling for 3b-4, which 3b-8
+  reuses: `tasks.add_task`, `set_done`, `delete_task` and `toggle_homework_done`,
+  `calendar.ensure_calendar_token` and `linking.issue_link_code`.
+  - v1's routers commit after the call.
+  - The bot's handlers commit before they tell Telegram. The middleware's own commit comes
+    after the handler, and a reply Telegram refuses would roll the write back. `CLAUDE.md` and
+    the `server-bot` agent now say so.
+  - The two retries that relied on a failing commit, a link code drawn twice and a racing
+    tick, concede inside a savepoint. Four tests of `test_services.py` that read the service's
+    own commit now make the caller's.
+  - Task 1's review found the savepoint untested and a foreign-key violation swallowed. Its
+    round of fixes added three tests showing that a collision keeps what the caller wrote
+    earlier in the transaction. A tick on a homework deleted meanwhile now raises, instead of
+    being reported as done.
+- **The rules v1's `public.py` held moved into `services/` first**, with v1 calling them:
+  - `tasks.create_task` and `update_task`: a task's homework of this class only, its
+    reminder on the class's clock, and a patch with `done` through `set_done`;
+  - `set_homework_done`, a tick set rather than toggled, and `LIST_MAX`;
+  - `homework.homework_of`;
+  - `linking.link_code_for`, `deep_link` and `unlink_self`;
+  - `calendar.feed_url`, which the bot builds with too;
+  - three sentences in `app/wording.py`.
+- **Eleven methods, `MeService` whole:**
+  - `UnlinkMe`, which on a phone that is not linked writes nothing and keeps its code;
+  - `CreateLinkCode`, the code v1's `/me` shows, never cached; `GetMe` still mints nothing;
+  - `GetCalendarFeed` and `CreateCalendarFeed`, for a linked account only. They give v1's
+    address on `PUBLIC_BASE_URL`, `FEATURE_UNSUPPORTED` (`feature` `calendar_feed`) without
+    it, and the minted address is never cached. Production sets `PUBLIC_BASE_URL`; Preview
+    does not;
+  - `ListTasks`, `GetTask`, `CreateTask` (`201`), `UpdateTask` (masked; v1's `POST …/done`
+    is it with `done`) and `DeleteTask`. Somebody else's task is not found, the same as one
+    that never was;
+  - `CreateHomeworkTick` and `DeleteHomeworkTick`, either asked twice landing on one answer.
+- **The error table gains one row**, `tasks.HomeworkNotInClass` as `VALIDATION_FAILED` on
+  `task.homework_id`, read back on both paths by a named test. No reason is new, and 3b-4
+  left `STAGES`.
+- **`me.proto`** says, in a comment only, what the feed methods answer on a deployment with
+  no public address.
+- **Three defects filed:**
+  - #374, fixed here: `CLAUDE.md` said nothing under `services/` commits, and it now says
+    which writes still do, and why;
+  - #373, not fixed here: on SQLite a savepoint that opens the transaction commits when it is
+    released. It gets a pull request of its own before 3b-5;
+  - #375, not fixed here: the bot's feed rotation commits before its journal line.
+
+### Gates
+
+The full suite ran once, at `c809eb7`, the head of the seven code tasks. The documents
+(`39fcef0`) came after it, with one docstring in `services/linking.py`, and their own files
+ran again. CI runs on the head the merge is made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `39fcef0`.
+- **mypy**: no issues found in 231 source files, at `39fcef0`.
+- **The server suite.**
+  - `pytest -q -n 4`, run alone from `server/` at `c809eb7`, gave **2839 passed** in 1509 s,
+    four workers rather than `-n auto` to spare the machine's faulty RAM.
+  - The plan expected 2836. The three more are the tests of Task 1's round of fixes.
+  - At `39fcef0`, `test_services.py` (126) and the document-reading tests (94) ran again.
+  - The seven places the `handover` skill names say 2839.
+- **The contract**, at `d4303f9`: `buf lint` exit 0, `buf breaking --against
+  .git#ref=origin/main` exit 0, and `buf generate` reproduces the committed files, with
+  `me_connect.py`'s four docstrings the only change.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand
+  from before.
+- **Reviews.** Each of the seven code tasks was reviewed on its own, Task 1 by the stronger
+  model, with one round of fixes. A final review of the whole branch found nothing to fix
+  before the merge, and five things this close-out and the documents now say.
+
+### What was deliberately left alone
+
+- **3b-5 to 3b-8**, each summarised in the 3b plan, and **3c**.
+- **v1's behaviour**. `GET /me` and `GET /calendar` still mint on a read. Any phone of the
+  class still mints the feed over v1, and v1 builds its address on the request's own host
+  when `PUBLIC_BASE_URL` is unset.
+- **The services that still commit inside themselves**:
+  - `linking.link_device` and `calendar.rotate_calendar_token`, which only the bot calls;
+  - the diary's corrections, which are 3b-8's;
+  - those `rpc/call.py` names, which commit on purpose.
+- **#373**. Its fix changes how every SQLite transaction begins, and turns the suite's
+  interleaved-session tests into lock waits, so it wants a run of its own.
+- **#375**: v2 has no rotation.
+- **A tick racing the deletion of its homework.** v2 answers `INTERNAL`, logged at error level
+  and so reaching Sentry; v1 answers 500 and the bot shows its error, as before. Mapping
+  `IntegrityError` in the error table would misclassify every other one.
+- **A `remind_at` sent with an offset** is converted, as v1 converts it, though the contract
+  writes a wall time.
+- **The bot's own homework lookup** in its tick handler stays. The bot calls
+  `toggle_homework_done` and commits after it.
+
+### What nobody has verified in this batch
+
+- **The eleven methods against Postgres.** Every v2 test ran on SQLite, the link code's and
+  the tick's savepoints among them, and on SQLite a savepoint that opens the transaction
+  commits when it is released (#373).
+- **Three commits, on SQLite** (#373). v1's `/me`, v1's `POST /homework/{id}/done` and the
+  bot's tick handler commit what a savepoint wrote as the transaction's first write. SQLite
+  commits that on release, so their tests would stay green without the commit. #373 says how
+  to test them once it is fixed.
+- **The bot committing before it answers, through Telegram itself.** The tests hand the
+  handlers a chat that reads the database from a session of its own whenever they speak.
+- **The eleven on Vercel**, beyond the post-merge check, which asks four REST routes and one
+  Connect method once, without a token.
+- **A phone using any of them**: no APK calls v2 yet.
+
+### After #372's merge: stage 3b-3 in production, a second host that could not reach the diary, and the owner's order
+
+None of this is code in #376, and a close-out never gets a close-out of its own, so it is
+written here. The source is the session's own reads of 8 and 9 October 2026 and the owner's
+answers.
+
+- **The merge, by the owner.** #372 merged as `128fe15` at 20:32:43 UTC on 8 October 2026,
+  with CI green on `a2a69a4` (Server, Contract (Buf), What changed, Vercel; Android skipped).
+  It closed #367, #369 and #370.
+- **Production built the merge itself.** Vercel reported the production deployment of
+  `128fe15` successful at 20:33:25 UTC. Read at 20:33:28 UTC:
+  - `/api/v1/warmup` answered `ok`, `0019`, `v2` `true`;
+  - REST `/api/v2/class/accessRequests` and `/api/v2/schools` answered `401`
+    `DEVICE_TOKEN_INVALID`;
+  - `/api/v2/schoolRegions` with «шк» answered `400` `VALIDATION_FAILED` on `query`, «Введите
+    хотя бы 3 символа названия школы», which asks the directory nothing;
+  - Connect `AccessRequestService/ListAccessRequests` answered `401` `unauthenticated`.
+- **A second host for the diary's proxy could not reach the diary (#365).** The owner rented a
+  VDS at Selectel, in St Petersburg, and the session set it up as the RUVDS one is: SSH by key
+  only, and Squid by the same script.
+  - From its address the diary dropped every TCP connection, on 443 and on 80, and so did
+    `petersburgedu.ru`, `gov.spb.ru`, `gu.spb.ru`, `gosuslugi.ru`, `esia.gosuslugi.ru` and
+    `kremlin.ru`. `mos.ru`, `nalog.gov.ru`, `ya.ru` and `vk.com` answered.
+  - Every geolocation database read placed the address in Russia, so the cause is not
+    geolocation. It is Selectel's own rule: access from its infrastructure to the
+    e-government's public subnets is blocked, and «Нельзя разблокировать доступ к подсетям
+    электронного правительства для VDS серверов» (`docs.selectel.ru`, «Заблокированные порты и
+    интернет-ресурсы»). The press of September 2026 describes government portals filtering
+    whole data-centre networks.
+  - The owner deleted the server. Production stays on RUVDS, which still reaches the diary.
+    The findings are on #365.
+- **The owner's order for what follows**, given on 8 October: finish sub-project 3; then have
+  the phone read the diary itself, for both diaries, in sub-project 4 if that breaks nothing in
+  the plan, or else in 5 or 6; and before sub-project 4 starts, check live on the development
+  machine everything the project records as unverified, installing what that needs.
+
 ## What the batch before added: access requests and the school directory over v2, and the first notices as effects — stage 3b-3 of sub-project 3 (#273)
 
 Merged as #372 (`128fe15`, 8 October 2026), from `server-v2/3b-3`, on milestone 11. It closes
@@ -7020,3 +7172,17 @@ without that commit and finds no write. As the item stood until then:
     `POST /homework/{id}/done` and the bot's tick handler commit what a savepoint wrote as
     the transaction's first write, which SQLite commits on release, so their tests would
     stay green without the commit;
+
+## Moved out of section 7 on 9 October 2026, after 3b-5
+
+Stage 3b-5 was built (#380), so `HANDOVER.md`'s section 7 points at 3b-6. As the
+paragraph stood until then:
+
+**Next for the programme: stage 3b-5 of sub-project 3, from the 3b plan.** Stages
+3a (#342), 3b-1 (#350), 3b-2 (#356), 3b-3 (#372) and 3b-4 (#376) are merged, and v2 serves
+forty-four methods. `docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-5 to 3b-8.
+#373 is fixed by #379, as 3b-5's `CreateHomework` needs, since it writes through
+`homework.upsert`'s savepoint. 3b-5's task list is written. 3b-5 covers homework and events, and the first notices
+to the class as effects; the controller decided its two open questions. By the owner's order of 8 October, sub-project 3 is finished first, 3c included, and
+everything recorded as unverified is checked on the development machine before sub-project 4
+starts.

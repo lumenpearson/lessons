@@ -18523,6 +18523,6055 @@ The texts are v1's, moved to `app/wording.py`.
 - **An `UpdateHomework` that moves `due_date` or `subject` onto an existing pair.** Recommended: `RESOURCE_EXISTS`.
 - **An `UpdateEvent` that moves an event to another date.** Recommended: one notice naming the new date.
 
+### 3b-5 task list
+
+**Status:** written on 9 October 2026, against `2f99ef6`, the head of #376 (stage 3b-4), which is what `main` is once #376 merges, in the worktree `continue-previous-session-991230`. Every code step was applied in order to a copy of that tree and checked («What was verified», below), with #373's fix added to the copy's engine each way it may land: SQLAlchemy's documented recipe, which the controller's ruling names, and the narrower `BEGIN` at a savepoint that #373's working tree held on 9 October. Where it differs from the 3b-5 summary above, this list is the one to follow; «Defects in the summary» says where and why.
+
+**Branch:** `server-v2/3b-5`, cut from `origin/main` once #376 and #373's pull request (`fix/sqlite-savepoint`) have both merged, in the same worktree. It is its own pull request, on milestone 11, referring to #273.
+
+**Before Task 1:**
+- **#373 is merged.** Two tests of this list fail without it, on purpose («Rulings for 3b-5», 68), and every new test is written to the transactions it gives SQLite, whichever of the two ways its pull request takes. If its pull request moved a line this list quotes as an anchor (`app/db.py` aside, which no task touches), the implementer reads the line again before replacing it.
+- **The controller files the defect this list found**, as `#377` («Defects found while writing this list»), and writes its number in place of the placeholder. 3b-5 does not fix it.
+
+**Scope.** The ten methods of `HomeworkService` and `EventService`, and what they need first:
+- the rules v1's `api/edit.py` held for homework and events — the row, its line in the journal and its notice — move into `services/` (Task 1), and the window v1's `GET /homework` held into `services/clock.py`, with a list beside each (Task 2);
+- the class notice becomes an effect v2's handlers can register, `telegram_send.notify_class`, and `tests/test_announcements.py`'s walk learns to find it in another file (Task 3);
+- `ListHomework` and `GetHomework` (Task 4), `CreateHomework`, v2's first notice to the class (Task 5), `UpdateHomework` and `DeleteHomework` (Task 6), `ListEvents`, `GetEvent` and `CreateEvent` (Task 7), and `UpdateEvent` and `DeleteEvent` (Task 8).
+
+No revision. Two comment-only changes to the contract, in Tasks 6 and 8.
+
+| Task | Title | Tests added | Suite after | mypy after |
+| --- | --- | --- | --- | --- |
+| 1 | What v1's `edit.py` held for homework and events, in `services/` | 8 | B + 8 | 232 |
+| 2 | The window, in `services/clock.py`, and the lists beside it | 9 | B + 17 | 232 |
+| 3 | The class notice as an effect, and the walk that finds it | 4 | B + 21 | 232 |
+| 4 | `ListHomework` and `GetHomework`, and 3b-5 leaves `STAGES` | 5 + 4 | B + 30 | 234 |
+| 5 | `CreateHomework`, and v2's first notice to the class | 7 + 2 | B + 39 | 234 |
+| 6 | `UpdateHomework` and `DeleteHomework`, and what `homework.proto` says of them | 9 + 4 | B + 52 | 234 |
+| 7 | `ListEvents`, `GetEvent` and `CreateEvent` | 8 + 6 | B + 66 | 235 |
+| 8 | `UpdateEvent` and `DeleteEvent`, what `event.proto` says of them, and the batch's one full run | 8 + 4 | B + 78 | 235 |
+| 9 | The documents, the counts, the HANDOVER close-out, and production after the merge | — | B + 78 | 235 |
+
+**Counts.**
+- Tests: 8 + 9 + 4 + 9 + 9 + 13 + 14 + 12 = **78**. `B` is what `pytest --collect-only` counts at the branch's first commit: **2839** at `2f99ef6`, plus whatever #373's pull request adds, which the controller writes in before Task 1. With `B` 2839 the totals are 2847, 2856, 2860, 2869, 2878, 2891, 2905 and **2917**. Each «+ N» counts the cases the served methods add by themselves: `test_v2_reads.py`'s gate test and `test_v2_no_echo.py`'s sweep are each parametrized over `rpc/handlers.HANDLERS`, so every method served adds one case to each, twenty in all. Task 5's 7 are six of `test_v2_homework_create.py` and one of `test_announcements.py`.
+- mypy: **231 becomes 235**, with `services/events.py` (Task 1), `rpc/dates.py` and `rpc/homework.py` (Task 4) and `rpc/event.py` (Task 7). `mypy` reads `app/` only. If mypy on the branch's first commit prints another number, shift every N by the difference.
+
+**Commands.** As 3b-4's:
+- `WT` is `/c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230`, and its venv is `$WT/server/.venv`, made in that tree, which the #312 guard asks for.
+- `pytest` is `$WT/server/.venv/Scripts/pytest.exe`, run from `$WT/server`, bare, as CI runs it; a task's gate adds `-p no:xdist` and names its files. Before any run, `tasklist | grep -i pytest` must print nothing: one test process at a time on this machine. The full suite runs once, alone, at the end of Task 8, as `pytest -q -n 4`, and the controller runs it.
+- `ruff` and `mypy` are `$WT/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations` and `… -m mypy`, from `$WT/server`.
+- `buf` is `/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe` (1.73.0), run from `$WT`; `buf breaking` runs from `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b5.sh` (written in Task 6), because the shell refuses `.git#ref` on a command line.
+- Commit messages are `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b5-t<N>.txt`, written with the Write tool and committed with `git commit -F`.
+- The shell refuses a compound command that `cd`s to a computed path, so every command below spells its paths out. One heavy job at a time: never two test processes at once, and never the suite beside Gradle.
+
+`#377` and `#PR` are numbers the controller obtains before Task 1 and at Task 9 Step 7. `[AFTER-376]` is the slot in Task 9 Step 8 for what the controller hands over about #376's merge and #373's.
+
+### Rulings for 3b-5
+
+Numbered after the plan's own 1 to 17, 3b-2's 18 to 33, 3b-3's 34 to 51 and 3b-4's 52 to 67, which still hold.
+
+68. **#373 is fixed before 3b-5**, in a pull request of its own: the SQLite engine gets SQLAlchemy's documented recipe (the driver issues no `BEGIN` of its own, and the engine's `begin` event issues one), so a savepoint stays inside its transaction on SQLite as on Postgres. #373's working tree on 9 October does it more narrowly: a `savepoint` listener sends `BEGIN` when nothing has begun a transaction, so that a read keeps no lock, and `api/cron.py` commits the tick's session before the FSM sweep. Either serves 3b-5. Its tests are written to that behaviour, the controller's ruling:
+    - two tests fail without it, on purpose: `test_nothing_the_services_write_is_committed_until_the_caller_commits` (Task 1), whose `put` writes through `upsert`'s savepoint first, and `test_an_assignment_that_fails_after_its_row_is_written_leaves_no_row_and_tells_nobody` (Task 5), whose `CreateHomework` writes its row through a savepoint and then fails;
+    - every new test reads the database from a session of its own, opened for the read and closed after it, and never through the `session` fixture once a v1 or v2 request has been made. Under the recipe a reader keeps its lock until its transaction ends, and a writer in another session then waits; with write-ahead logging a reader sees the snapshot it began with; under the narrower fix a read holds nothing, but a session that has written holds its lock until it ends. A fresh session per read is right in every case, and the scratch run held every new test under all three («What was verified»).
+69. **The commit discipline of 3b-4 holds.** `services/homework.py` and `services/events.py` commit nothing; v1's routers commit after the call and only then tell the class, as they did; v2's `invoke` commits once and then runs the notice. No code that commits moves.
+70. **The class notice is one door, `telegram_send.notify_class`** (Task 3): it builds a bot only when `BOT_TOKEN` is set, calls `notify.notify_subscribers` with the author excluded, logs and drops whatever fails — a bot aiogram will not build, a recipient Telegram refuses, a failure reading them — and closes the bot whatever happened, so it never raises. Each handler module registers it through its own `_announce`, inside a `lambda` passed to `call.after_commit`, so it runs once the change is committed, never on a refusal, and with the call's session still open, which is where `notify_subscribers` reads the recipients. v1's `edit._tell` keeps its own `_build_bot` seam (Ruling 36), so no v1 test changes; the two share `notify_subscribers`, which holds the rule of who hears what. Homework is kind `"homework"`, events kind `"changes"`, as v1's.
+71. **`tests/test_announcements.py`'s walk follows a call through what a file imports** (Task 3), which Ruling 37 left to this stage. It named a call by its bare attribute within one file, so a handler in `rpc/` calling `telegram_send.notify_class` would have been invisible. It now names every call `module:function` — a function of the same file by its name, one of another file through the names the file imports from `app/` — and starts from `app.services.notify:notify_subscribers`. A call inside a `lambda` is its enclosing function's. A bare name never matches across files, so the docstring's worry about two wrappers sharing a name stands answered. The new walk alone finds exactly what the old one found (probed: it passes the old `ANNOUNCED_HERE` unchanged), and a test of its own holds the two things it learned.
+72. **Open question 1: an `UpdateHomework` that moves `due_date` or `subject` onto a pair another assignment holds is `RESOURCE_EXISTS`**, `{resource: "homework", field: "subject"}`, as `CreateHomework`'s refusal is (the controller's ruling). It is checked before anything changes, and a racing twin meets the unique constraint inside a savepoint and is refused the same way. A subject in another case that the dictionary spells as the assignment's own is no move. `homework.proto`'s comment says so (Task 6).
+73. **Open question 2: an `UpdateEvent` that moves an event to another date sends one notice, naming the new date** (the controller's ruling). Its words are new, since v1 changed no event: v1's «📅 Событие: …» with «изменено» after «Событие» (`wording.event_notice(…, changed=True)`).
+74. **An update that changes nothing writes nothing and tells nobody**, for `UpdateHomework` and `UpdateEvent` alike: no line in the journal and no notice, whether the request named no field or named fields that already hold what it sends, cleaned and spelled. The summary does not say; a client's retry of an update would otherwise tell the class twice. `homework.update` and `events.update` answer a notice of `None`, and the handler registers none.
+75. **The moves, where they differ from the summary's:**
+    - **The window goes to `services/clock.window`**, not into `services/homework.py`, because `ListEvents`, and 3b-6's `ListSubstitutions`, answer the same window; `homework.due_between` and `events.between` are the queries.
+    - **The ticks stay with their callers.** `services/homework.py` may not import `services/tasks.py`, which imports it, so v1's `homework_list` and v2's handler each read `tasks.homework_ticks`, as v1's already did.
+    - **The notices' texts move to `app/wording.py`** as functions that escape what was typed, and the services cut an assignment's text first (`notify.shorten`), because `wording` imports nothing but `models` and `schedule`. The lines in the journal stay with the services, as `services/manage/` keeps its own.
+    - **`edit._check_date` stays in v1's router**, which 3b-6's substitutions and days still call; its sentence moves to `clock.DATE_OUT_OF_BOUNDS`, which v2's writes answer with too.
+    - **`HomeworkIn`'s three cleanings become module functions** that the new `HomeworkPatch` shares (Task 6), so a create and an update clean the same words.
+76. **A date a write names is a handler's `Refusal`** (`rpc/dates.bounded`), as `rpc/errors.py`'s docstring has a date out of bounds: `VALIDATION_FAILED` on `homework.due_date` or `event.date`, in `clock.DATE_OUT_OF_BOUNDS`, v1's `_check_date` sentence. A window's refusals are facts, `clock.WindowRefused` with `edge` and `why`, which the table words: `VALIDATION_FAILED` on `start_date` or `end_date`, in v1's words for a date out of bounds and a window over sixty-two days, and in v2's own for an end before its start, «end_date must not precede start_date», because v1's names its fields `to` and `from`. An end derived from a start so near the bound that it falls past it names `start_date`, which is what was sent.
+77. **Validation is v1's schemas', and two new ones beside them.** `CreateHomework` validates with `HomeworkIn`, `CreateEvent` with `EventIn`, and the two lists with `DateWindowIn`, v1's `from` and `to` as v2 names them, parsed as FastAPI parsed v1's. `UpdateHomework` validates with `HomeworkPatch` and `UpdateEvent` with `EventPatch`, new in `schemas/`, each cleaning as its `…In` cleans and refusing `null` where a field cannot be cleared, as `TaskPatch` does. Whenever one time is in an `UpdateEvent`'s mask, the handler sends `EventPatch` both, the stored one filled in, so the time that stays is held against the one that moves, in `EventIn`'s words, on `event`.
+78. **`EventKind` left unset is an event**, on a create as v1's `EventIn` defaulted, and on an update whose mask names `kind`. A number no value of `EventKind` names is `VALIDATION_FAILED` on `event.kind`, and arrives in the binary encoding only (Ruling 41's shape).
+79. **What a masked field left unset means** (Ruling 5): `UpdateHomework` takes `attachment_url` away and refuses `due_date`, `subject` and `text`; `UpdateEvent` takes `location` away, puts `covers_lesson` back to what the kind means, makes `kind` an event, and refuses `date`, `starts_at`, `ends_at` and `title`. `homework.proto` and `event.proto` say so in comments, with the announcements; only `homework_connect.py` and `event_connect.py` are regenerated, in their docstrings.
+80. **`CreateHomework` answers `done` false**: nobody has ticked an assignment that did not exist. `UpdateHomework` and the reads answer the caller's own tick, and none for a phone no account is behind, as v1's list did.
+81. **Deleting an assignment takes every tick on it with it** (`homework_done`'s foreign key cascades) and leaves a task made from it, without the link (`personal_tasks.homework_id` is set null), as v1's `DELETE` did. A test holds both, on SQLite with its foreign keys on.
+82. **Handler modules are named for their proto files** (Ruling 16): `rpc/homework.py` and `rpc/event.py`. What both share, a list's window and a written date's bound, is `rpc/dates.py`, as the mask is `rpc/masks.py`; 3b-6 reads both.
+83. **3b-5 leaves `STAGES` in Task 4**, with the first row it adds: it brings no reason of its own, so nothing in `LATER` waits for it. The table gains two rows, `clock.WindowRefused` (Task 4) and `homework.HomeworkExists` (Task 5), each `HELD_BY` a test that reads the refusal back on both transports. An unknown id is a `Refusal`, `RESOURCE_NOT_FOUND` with `resource` `"homework"` or `"event"`, in v1's words, `wording.UNKNOWN_HOMEWORK_DETAIL` (3b-4's) and `UNKNOWN_EVENT_DETAIL`, onto which `edit.py`'s two literals move.
+84. **`conftest.py` gains `notices` and `subscribers`** (Task 5), which the four write test files share, since a test module may not import another: the bot `telegram_send.build_bot` hands out, recording each send and what `notices.looks` read at that moment from a session of its own; and the class's subscribers, `SUBSCRIBERS` — one classmate who asked for both kinds, one for homework, one for changes, one for neither, and `v2_tokens`' editor, 2002, who asked for both and is never told of their own write.
+85. **No answer of 3b-5 joins `rest.NO_STORE_ALSO` or `NO_STORE_CREDENTIAL`**: none carries a credential. `CreateHomework` and `CreateEvent` are already in `rest.CREATED`.
+86. **Process, as the controller ruled it for 3b-3, 3b-4 and here.** Each task's gate is its named test files with `-p no:xdist`, then ruff and mypy; the full suite runs once, alone, with `-n 4`, at the end of Task 8, the last code task, and the controller runs it. Implementers and task reviewers are sonnet, the final review opus. Commit messages carry no trailer lines (Ruling 51).
+
+### What 3b-1 to 3b-4 left that every task here uses
+
+- **The statement listener** (`statement_writes`, `unexpected_writes`, `last_seen_rule`, from `conftest.py`). A read of 3b-5 writes the phone's last call and nothing else; an update that changes nothing, asked inside the fifteen minutes after the phone's last call, writes nothing at all.
+- **`v2_tokens`**: `viewer` to `owner` are phones linked to members 2001 to 2004, `stranger` a phone linked to 2005, who is no member, and `unlinked` the class code's anonymous phone. Every write here is an editor's, and so are `ListEvents` and `GetEvent`; `ListHomework` and `GetHomework` are any phone's. The writes are made with `editor`, 2002.
+- **The gate test and the no-echo sweep** call each served method with an empty request. `ListHomework` and `ListEvents` answer today's window; `GetHomework`, `GetEvent`, the two `Delete…` and the two `Update…` name the id 0, which is `RESOURCE_NOT_FOUND`; `CreateHomework` and `CreateEvent` are refused on their missing fields. The sweep runs as the owner, one level into `homework` and `event`: no single field makes a valid create, the decoder refuses what does not decode, and every validation names the field and never the value.
+- **`v2.both` calls REST and then Connect**, so a write's success is asked once per transport on fresh data (Ruling 17), and its refusals, and the updates that change nothing, through `both`.
+- **The REST harness builds `{homework.id}` and `{event.id}` from an empty `Update…` request** (3b-1's harness change); `masks.update_paths`, `masks.NOT_CHANGEABLE` and `validate(…, at=)` are 3b-1's.
+- **`Call.after_commit`** is 3a's (`rpc/call.py`): the effects run after the commit, in order, with the call's session open, never on a refusal, and one that fails is logged. 3b-3's handlers registered the first, a notice to one person through `telegram_send.send`.
+- **`tasks.homework_ticks`** and **`homework.homework_of`** are 3b-4's.
+- **No test borrows a 3b-5 method as unserved**: `test_rpc_mount.py`'s `unserved` takes `DiaryService/ListStudents` out of `HANDLERS`, and `test_rpc_call.py` takes `GetClass` out. `test_rpc_gate.py` asks the gate about `CreateHomework` directly, without `HANDLERS`, and is unaffected.
+
+### Review Focus (3b-5)
+
+The five inputs most likely to bite a person using 3b-5 that the generic tests do not reach, each with the test that pins it and the task that owns it.
+
+1. **A notice for a write that did not happen, or before it was saved, or to its own author.** The class is told once the write is committed, never on a refusal, never its author, and a notice that fails leaves the write standing.
+   - `test_a_new_assignment_is_announced_after_the_commit_and_not_to_its_author` and `test_a_refused_assignment_is_refused_on_its_field_and_tells_nobody` (Task 5);
+   - `test_a_new_event_is_announced_after_the_commit_in_v1_s_words` (Task 7);
+   - `test_a_class_notice_that_fails_is_logged_and_never_raised` (Task 3).
+2. **A second assignment for one subject on one day**, by a create or by an update that moves one, in any case of the subject's name. Nothing written, nobody told.
+   - `test_a_subject_that_already_has_homework_that_day_is_refused_as_existing` and `test_a_twin_written_in_the_same_instant_is_refused_as_existing` (Task 5);
+   - `test_moving_an_assignment_onto_a_subject_that_has_homework_that_day_is_refused` and `test_a_twin_moved_onto_in_the_same_instant_is_refused_as_existing` (Task 6).
+3. **All or nothing on SQLite.** A write that fails after its savepoint leaves nothing behind, as on Postgres.
+   - `test_an_assignment_that_fails_after_its_row_is_written_leaves_no_row_and_tells_nobody` (Task 5);
+   - `test_nothing_the_services_write_is_committed_until_the_caller_commits` (Task 1).
+4. **A masked field left out, and one time moved.** The address or the place is taken away; a date, a subject, a text or a title is refused; `covers_lesson` goes back to what the kind means; one time is held against the other.
+   - `test_a_masked_address_left_out_is_taken_away_but_a_date_a_subject_or_a_text_is_refused` (Task 6);
+   - `test_a_masked_field_left_out_clears_the_place_and_gives_the_lessons_back_to_the_kind` and `test_one_time_moved_is_held_against_the_time_that_stays` (Task 8).
+5. **A retried update, a moved event, and a window the two versions might read two ways.**
+   - `test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody` (Tasks 6 and 8, one each);
+   - `test_an_event_moved_to_another_day_is_announced_once_on_its_new_day` (Task 8);
+   - `test_a_window_v1_refuses_is_refused_on_the_field_at_fault` (Task 4).
+
+### Defects in the summary, and how this list resolves them
+
+- **«`_check_date`, which is `services/clock.in_bounds` already»**: the bound was `clock`'s, its sentence was not. The sentence moves to `clock.DATE_OUT_OF_BOUNDS`, and `_check_date` stays in v1's router, which 3b-6's writes still call (Ruling 75).
+- **«`homework_list` (the window …; the ticks from `tasks.homework_ticks`) moves into `services/homework.py`»** and **«`services/homework.py` must not import `services/tasks.py`»** cannot both hold. The window moves to `clock.window`, which `ListEvents` needs too, the query to `homework.due_between`, and the ticks stay with the callers (Ruling 75).
+- **«A date out of bounds, or a window over 62 days → `VALIDATION_FAILED` on the field»**: a written date is a handler's `Refusal`; a window has three refusals, not one, a fact the table words, and an end before its start is said in v2's own field names (Ruling 76).
+- **«The texts are v1's, moved to `app/wording.py`»**: they are, as functions that escape; the services cut the free text, which `wording` cannot import the means to do (Ruling 75); and an event's change has no v1 text to move (Ruling 73).
+- **«Notices to the class, through `telegram_send` and `call.after_commit` as 3b-3's notice to a requester goes»**: 3b-3 added nothing to `telegram_send` for the class; `notify_class` is this stage's (Ruling 70), and the walk's lesson is a change of how it resolves a call (Ruling 71).
+- **«`UpdateHomework` changes it, announcing «обновлено» as v1's update branch did»**: it does, unless nothing changed (Ruling 74).
+- **The summary is silent on** how an update is validated (Ruling 77), the event's kind (Ruling 78), what a masked field left unset means for each method (Ruling 79), what a delete takes with it (Ruling 81), and the two proto comments that state the rulings.
+
+### Defects found while writing this list
+
+The controller files each, with `type:bug`, its `area:` labels, a `status:`, the milestone its fix lands in, and an item on project 6, as the `github-pr` skill says, and writes its number into this list in place of the placeholder.
+
+**`#377`, before Task 1.** Title: «v1's notices to the class can turn a saved write into a 500». Labels `type:bug`, `area:server`, `status:someday`; the backlog, milestone 13, is recommended. Where: `server/app/api/edit.py:109-143` (`_build_bot` and `_tell`) and `server/app/api/manage/requests.py:36-64` (the same two for the notice to whoever asked for a role). The fix lands outside 3b-5, which leaves v1's seams as Ruling 36 left them; v2's `telegram_send.notify_class` (Task 3) does not repeat it. Body, written to `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\issue-3b5-v1-notice.md`:
+```markdown
+`server/app/api/edit.py`, `_build_bot` and `_tell`, which every v1 write that tells the class
+calls after its commit: `PUT /homework`, `DELETE /homework/{id}`, `PUT /overrides`,
+`PUT /events`, `DELETE /events/{id}` and `PUT /days`. `_tell` catches what
+`notify_subscribers` raises, but not what `_build_bot` raises before it, nor what closing the
+bot's session raises in its `finally`. `server/app/api/manage/requests.py`'s `_tell`, the
+notice to whoever asked for a role, has the same two gaps.
+
+**Failure scenario:** the deployment's `BOT_TOKEN` is set but malformed — a stray character
+pasted with it; `get_settings()` refuses only an empty one. A phone saves an event with
+`PUT /api/v1/events`: the event is committed, then aiogram refuses to build the bot
+(`TokenValidationError`), and the request answers 500. The app takes the write for failed and
+sends it again, and `PUT /events` always inserts (#268), so the class has the event twice.
+Probed on 9 October 2026 at `2f99ef6`: the request raised `TokenValidationError`, and one event
+was stored. A session close that raises after the notice ends the same way.
+
+`telegram_send.send` guards both, and its tests say so
+(`test_a_token_aiogram_will_not_build_a_bot_from_is_a_refusal_not_a_raise`,
+`test_a_bot_whose_close_raises_still_returns_the_delivered_flags`); stage 3b-5's
+`telegram_send.notify_class` guards both too. Not fixed in 3b-5, which leaves v1's notice seams
+as they are, so that no v1 test changes. The fix is the same guard around the build and the
+close in both `_tell`s.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && gh issue create --repo lumenpearson/lessons --title "v1's notices to the class can turn a saved write into a 500" --body-file C:/Users/lumen/.claude/jobs/c9e2d980/tmp/issue-3b5-v1-notice.md --label type:bug --label area:server --label status:someday --milestone "Backlog — not scheduled"
+```
+
+**Not filed, and said here so that it is not lost:** `tests/test_announcements.py`'s comment on `ANNOUNCED_HERE` says «Adding a ninth announcement is then a decision»; at `2f99ef6` the list already holds twelve. Task 3 rewrites the comment beside the walk it changes and says «another». The controller may file it before Task 3 if it is to be an issue of its own.
+
+### What was verified while writing this list, and what was not
+
+**Read, at `2f99ef6`'s code:** `api/edit.py` and `api/public.py`; `services/homework.py`, `clock.py`, `tasks.py`, `notify.py`, `audit.py`, `subjects.py` and `window.py`; `app/wording.py`; `telegram_send.py`; `db.py` and `di.py`; `schemas/homework.py`, `edit.py`, `tasks.py` and `__init__.py`; `rpc/` (`call.py`, `errors.py`, `handlers.py`, `masks.py`, `values.py`, `gate.py`, `me.py`, `subject.py`, `school_class.py`, `access_request.py`); `rest/__init__.py`; the bot's homework and events handlers; `proto/lessons/v2/homework.proto`, `event.proto`, `common.proto`, `errors.proto` and `substitution.proto`, and their generated modules; `buf.gen.yaml`; and the tests that read any of them: `conftest.py`, `test_v2_reads.py`, `test_v2_no_echo.py`, `test_rpc_errors.py`, `test_rpc_gate.py`, `test_announcements.py`, `test_telegram_send.py`, `test_homework_upsert.py`, `test_api_extended.py`, `test_contract_mirror.py`, `test_contract.py` and 3b-3's and 3b-4's v2 test files. The documents Task 9 edits were read at the lines it quotes.
+
+**Probed**, with the copy's venv:
+- protobuf-py: an unknown `EventKind` name in JSON reads as `UNSPECIFIED` when unknown fields are ignored, as both transports read, and is refused with the name quoted otherwise; `EventKind(99)` is no member and no key of `_KINDS`; `Homework().has_field("attachment_url")` is false, and `ListHomeworkRequest(start_date="").has_field("start_date")` true.
+- `#377`: with `BOT_TOKEN` set to `not-a-token`, v1's `PUT /api/v1/events` raised `TokenValidationError` after its commit, and one event was stored.
+- SQLAlchemy's SQLite recipe, beside write-ahead logging or not (a probe of the scratch directory's own, `lockprobe.py`): with the recipe alone, a session that has read keeps its lock, and another session's commit waits for it and then fails «database is locked»; with write-ahead logging the commit goes through, and a session that has read sees what it began with. Either way, a read from a fresh session closed after it is right, which is how every new test here reads.
+
+**Applied and run, in a scratch copy** (`git archive` of `2f99ef6` without `android/`; never the worktree):
+- **The venv.** One made by `uv` from `requirements.txt` and `-e ".[dev]"` on Python 3.12, so the #312 guard took it; at a path short enough only once SQLAlchemy's compiled modules were removed, as 3b-4's was, so SQLAlchemy ran its pure-Python twins.
+- **#373's fix, three ways.** Added to the copy's `app/db.py`, each switched by an environment variable for the copy alone: SQLAlchemy's recipe, as two event listeners — no `BEGIN` from the driver, an explicit one on the engine's `begin` event — and the same with write-ahead logging; and #373's working tree as it stood on 9 October (`C:\Users\lumen\StudioProjects\lessons-fix-373`, uncommitted then), a `savepoint` listener that sends `BEGIN` when no transaction is open, with its commit before the tick's FSM sweep in `api/cron.py`. The worktree's `app/db.py` will be #373's pull request's, and no task here touches it.
+- **How the code got in.** Every code step of Tasks 1 to 9 was applied by a script from the one source this list's code blocks are rendered from, so each «replace» anchor was found exactly once, in order, and what ran is what is written here.
+- **Red and green.** Each task's new tests were run before its code and failed as its Red step says: Task 1's file did not collect, on `events`; Task 2's, on `clock.OUT_OF_BOUNDS`; Task 3's gave 3 failed and 5 passed, and `test_announcements.py` did not collect; Task 4's did not collect, on `WINDOW_BACKWARDS`, and `test_rpc_errors.py` gave 1 failed and 14 passed; none of Task 5's three collected, each on the name its Red step gives; Task 6's gave 9 failed and Task 8's 8 failed, each test on a `501` with `UNIMPLEMENTED`, and `test_announcements.py` did not collect beside either; neither of Task 7's collected. After its code, each task's new and changed test files passed under the recipe and under the recipe with write-ahead logging.
+- **After each task**, `ruff check app tests scripts migrations` printed `All checks passed!`, every new or rewritten file is as `ruff format` writes it (`test_announcements.py`, `conftest.py`, `api/edit.py` and `api/public.py` carry differences from before 3b-5 that no task adds to), and `pytest --collect-only` counted 2847, 2856, 2860, 2869, 2878, 2891, 2905 and 2917 after Tasks 1 to 8. `mypy` printed `Success: no issues found in` 232, 232, 232, 234, 234, 234, 235 and 235 `source files`.
+- **The four engines.** The ten new and changed test files of 3b-5, 84 tests, run together after Task 8: under the recipe, under the recipe with write-ahead logging, and under #373's working tree, 84 passed each time; under none of them, exactly the two tests Ruling 68 names failed.
+- **v1, unchanged.** Each task's Green gate, its whole list of files, ran on the engine as `main` runs it before #373, so that v1's files are the proof they are on `main` today: Task 1's 334 tests gave 333 passed, Task 2's 131 gave 130, Task 3's 46 and Task 4's 272 all passed, Task 5's 217 gave 215, Task 6's 601 gave 600, Task 7's 282 all passed, and Task 8's 406 gave 405; every failure was one of the two tests Ruling 68 names, in a file of the gate. After Task 8, a wider batch of 53 files and 1241 tests — every file above, the contract's, the gate's, the mount's, the masks', `test_rpc_call.py`, `test_rest.py`, `test_api.py`, the bot's handlers and editor, `test_services.py`, the self-check's tick and every `test_v2_*.py` — gave 1239 passed on that engine, the two failures Ruling 68's, and 1241 passed under #373's working tree. The gates ran there, and not under the recipe, for a reason of `2f99ef6`'s own: with the recipe alone, `test_api_extended.py` had six tests fail and six more error on «database is locked» before any 3b-5 code, and with the recipe and write-ahead logging eleven tests of `test_api_extended.py`, `test_api_manage.py` and `test_hardening.py` failed, each a read that kept its lock or its snapshot while another connection wrote. That is #373's pull request's to settle before it merges, and its working tree's docstring gives the same reason for its narrower fix.
+- **The contract**: after Tasks 6 and 8, `buf lint` exit 0; `buf generate` changed `homework_connect.py` alone, then `event_connect.py` alone, in their docstrings; `buf breaking` against the copy's own commit of `2f99ef6`'s tree printed nothing, as it does when nothing breaks.
+- **Task 9**, with this list inserted into the copy's plan after the 3b-5 summary, where the controller will put it: Step 1's `docs3b5.py` printed fourteen `missing` lines and four `still says` lines; after Steps 2 to 4 it printed `the documents say what 3b-5 serves`. `plan3b5_t9.py` found its line once in a plan whose lines end in CRLF, as a Windows checkout's do, and wrote them back so. Step 5's six files gave 96 passed, and the head scan named `0019` alone and no line of `docs/specs/`. Step 6's counts script, given `2839 2917 231 235`, printed `written`, and the seven places read 2917 and 235; ruff printed `All checks passed!` and mypy `Success: no issues found in 235 source files`.
+
+**Not run:**
+- the full suite, in the copy or the worktree;
+- #373's pull request as it will merge: the copy carried its working tree as it stood on 9 October, before it was committed, and the recipe the ruling names;
+- anything on Postgres or Vercel, Telegram itself, or a phone;
+- Task 9's HANDOVER edits, which wait for facts that exist only at the merge.
+
+The run at each task's gate is the truth.
+
+### File map (3b-5)
+
+| File | Task | What it holds |
+| --- | --- | --- |
+| `server/app/services/homework.py` | 1, 2, 5, 6 | `Saved`, `put`, `delete`; `due_between`; `HomeworkExists`, `create`; `COLUMNS`, `update` |
+| `server/app/services/events.py` | 1, 2, 8 | new: `COVERS_BY_DEFAULT`, `Written`, `event_of`, `create`, `delete`; `between`; `update` |
+| `server/app/services/clock.py` | 1, 2 | `DATE_OUT_OF_BOUNDS`; `window`, `WindowRefused` and their sentences |
+| `server/app/wording.py` | 1, 8 | `UNKNOWN_EVENT_DETAIL` and the class's notices; `event_notice(…, changed=)` |
+| `server/app/api/edit.py` | 1 | v1's homework and events writes calling the moved code |
+| `server/app/api/public.py` | 2 | v1's `homework_list` on `clock.window` and `homework.due_between` |
+| `server/app/telegram_send.py` | 3 | `notify_class` |
+| `server/app/schemas/homework.py`, `schemas/edit.py`, `schemas/__init__.py` | 4, 6, 8 | `DateWindowIn`; `HomeworkPatch` and the shared cleanings; `EventPatch` |
+| `server/app/rpc/dates.py` | 4, 5 | new: `window`; `bounded` |
+| `server/app/rpc/homework.py` | 4–6 | new: `HomeworkService` |
+| `server/app/rpc/event.py` | 7, 8 | new: `EventService` |
+| `server/app/rpc/errors.py` | 4, 5 | `WINDOW_BACKWARDS`, `HOMEWORK_EXISTS`, and their two rows |
+| `server/app/rpc/handlers.py` | 4–8 | `HANDLERS` |
+| `proto/lessons/v2/homework.proto`, `proto/lessons/v2/event.proto`, `server/app/contract/**` | 6, 8 | the update's and the delete's comments, regenerated |
+| `server/tests/test_services_homework_events.py` | 1 | the writes, in `services/` |
+| `server/tests/test_services_dated_lists.py` | 2 | the window and the lists, in `services/` |
+| `server/tests/test_telegram_send.py`, `server/tests/test_announcements.py` | 3, 5–8 | the class notice; the walk, `ANNOUNCED_HERE` and v2's measurement |
+| `server/tests/conftest.py` | 5 | `SUBSCRIBERS`, `notices`, `subscribers` |
+| `server/tests/test_v2_homework.py`, `test_v2_homework_create.py`, `test_v2_homework_writes.py` | 4, 5, 6 | `HomeworkService` |
+| `server/tests/test_v2_events.py`, `test_v2_event_writes.py` | 7, 8 | `EventService` |
+| `server/tests/test_rpc_errors.py` | 4, 5 | `STAGES` and `HELD_BY` |
+| documents | 9 | `docs/api.md`, `docs/README.md`, `docs/architecture.md`, `CLAUDE.md`, `README.md`, the 3b-6 summary in this plan, the counts in the seven places; `HANDOVER.md` and `docs/history.md` |
+
+---
+
+### 3b-5 Task 1: What v1's `edit.py` held for homework and events, in `services/`
+
+Decision 2; Rulings 68, 69 and 75. v1 keeps its answers and its notices: `test_api_extended.py`, `test_announcements.py`, `test_hardening.py`, `test_api_manage.py` and `test_homework_upsert.py` are the proof and are not edited.
+
+**Files:**
+- Create: `server/app/services/events.py`, `server/tests/test_services_homework_events.py`
+- Modify: `server/app/services/homework.py`, `server/app/services/clock.py`, `server/app/wording.py`, `server/app/api/edit.py`
+
+**Interfaces:**
+- Consumes: `homework.upsert` and `homework_of`; `subjects.spelling`; `audit.record`; `clock.today` and `in_bounds`; `notify.shorten`; `wording.human_date`.
+- Produces:
+  - `homework.Saved(homework: Homework, created: bool, notice: str)`, frozen;
+  - `homework.put(session, school_class, actor, due_date, subject, text, *, attachment_url=None) -> Saved`;
+  - `homework.delete(session, school_class, actor, row) -> str`, the notice;
+  - `events.COVERS_BY_DEFAULT`, `events.Written(event: DayEvent, notice: str)`, frozen;
+  - `events.event_of(session, class_id, event_id) -> DayEvent | None`;
+  - `events.create(session, school_class, actor, *, date, starts_at, ends_at, title, kind, location=None, covers_lesson=None) -> Written`, flushed;
+  - `events.delete(session, school_class, actor, event) -> str`, the notice;
+  - `wording.UNKNOWN_EVENT_DETAIL`, `homework_saved_notice(verb, subject, when, text)`, `homework_deleted_notice(subject, when)`, `event_notice(title, when, span, location)`, `event_cancelled_notice(title, when)`;
+  - `clock.DATE_OUT_OF_BOUNDS`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_services_homework_events.py`:
+```python
+"""What v1's ``edit.py`` held for homework and events, in ``services/``.
+
+v1's ``PUT /homework``, ``DELETE /homework/{id}``, ``PUT /events`` and
+``DELETE /events/{id}`` wrote the row, its line in the journal and the notice
+the class is told, all inside the router. v2's ``HomeworkService`` and
+``EventService`` write the same things, so the rules moved before their
+handlers were written, with v1 calling them
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 2).
+``test_api_extended.py`` and ``test_announcements.py``, untouched, are the
+proof that v1's answers and notices did not move; these hold the rules a fact
+at a time, and that nothing the services write is committed by them.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime, time, timedelta
+from typing import Any
+
+from sqlalchemy import func, select
+
+from app import wording
+from app.db import SessionLocal
+from app.models import AuditEntry, DayEvent, EventKind, Homework, SchoolClass
+from app.services import clock, events
+from app.services import homework as homework_service
+
+MONDAY = date(2026, 9, 7)
+EDITOR = 42
+TODAY = "сегодня, 7 сентября (понедельник)"
+
+
+def _pin_clock(monkeypatch) -> None:
+    """Monday 7 September, 10:00 in the class's zone, so «сегодня» is the 7th."""
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+async def _committed(statement: Any) -> Any:
+    """What a session of its own reads: only what is committed."""
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(statement)
+
+
+async def _lines(session) -> list[tuple[str, str]]:
+    rows = await session.execute(
+        select(AuditEntry.action, AuditEntry.summary).order_by(AuditEntry.id)
+    )
+    return [tuple(row) for row in rows]
+
+
+async def _trip(session, school_class, **fields) -> events.Written:
+    return await events.create(
+        session,
+        school_class,
+        EDITOR,
+        date=fields.pop("date", MONDAY),
+        starts_at=fields.pop("starts_at", time(12, 30)),
+        ends_at=fields.pop("ends_at", time(13, 0)),
+        title=fields.pop("title", "Экскурсия"),
+        kind=fields.pop("kind", EventKind.TRIP),
+        **fields,
+    )
+
+
+async def test_a_put_words_its_line_and_its_notice_as_v1_did(
+    session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    first = await homework_service.put(
+        session, school_class, EDITOR, MONDAY, "Алгебра", "№ 12–15 <b>"
+    )
+    again = await homework_service.put(
+        session,
+        school_class,
+        EDITOR,
+        MONDAY,
+        "Алгебра",
+        "№ 16",
+        attachment_url="https://example.com/p.pdf",
+    )
+    assert (first.created, again.created) == (True, False)
+    assert again.homework is first.homework
+    assert (again.homework.text, again.homework.attachment_url) == (
+        "№ 16",
+        "https://example.com/p.pdf",
+    )
+    assert await _lines(session) == [
+        ("homework.add", f"ДЗ добавлено: Алгебра, {TODAY}"),
+        ("homework.update", f"ДЗ обновлено: Алгебра, {TODAY}"),
+    ]
+    # Escaped here, for an HTML message: «<b>» typed is text, not bold.
+    assert first.notice == f"📝 Задание добавлено: <b>Алгебра</b> {TODAY}\n№ 12–15 &lt;b&gt;"
+    assert again.notice == f"📝 Задание обновлено: <b>Алгебра</b> {TODAY}\n№ 16"
+
+
+async def test_an_assignment_s_notice_cuts_its_text_before_escaping_it(
+    session, school_class
+) -> None:
+    """Cut after escaping, «<» × 300 could end in «&l», a message Telegram
+    refuses whole."""
+    saved = await homework_service.put(session, school_class, EDITOR, MONDAY, "Алгебра", "<" * 300)
+    assert saved.notice.split("\n", 1)[1] == "&lt;" * 199 + "…"
+
+
+async def test_deleting_an_assignment_words_its_line_and_its_notice(
+    session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    row = Homework(
+        class_id=school_class.id,
+        due_date=MONDAY + timedelta(days=1),
+        subject_name="Физика <i>",
+        text="§ 3",
+    )
+    session.add(row)
+    await session.commit()
+    notice = await homework_service.delete(session, school_class, EDITOR, row)
+    tomorrow = "завтра, 8 сентября (вторник)"
+    assert notice == f"🗑 Задание удалено: <b>Физика &lt;i&gt;</b> {tomorrow}"
+    assert await _lines(session) == [("homework.delete", f"ДЗ удалено: Физика <i>, {tomorrow}")]
+    assert await session.scalar(select(func.count()).select_from(Homework)) == 0
+
+
+async def test_an_event_stands_in_for_lessons_as_its_kind_means_unless_told(
+    session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    trip = await _trip(session, school_class, location="Эрмитаж")
+    canteen = await _trip(
+        session,
+        school_class,
+        title="Обед",
+        kind=EventKind.CANTEEN,
+        starts_at=time(11, 10),
+        ends_at=time(11, 25),
+    )
+    told = await _trip(session, school_class, title="Поход", covers_lesson=False)
+    # Flushed, so that the caller can answer the id.
+    assert trip.event.id is not None
+    assert [written.event.covers_lesson for written in (trip, canteen, told)] == [
+        True,
+        False,
+        False,
+    ]
+    assert trip.notice == f"📅 Событие: <b>Экскурсия</b> {TODAY}, 12:30–13:00, Эрмитаж"
+    assert canteen.notice == f"📅 Событие: <b>Обед</b> {TODAY}, 11:10–11:25"
+    assert (await _lines(session))[0] == ("event.add", f"Событие: Экскурсия, {TODAY} 12:30–13:00")
+
+
+async def test_deleting_an_event_words_its_line_and_its_notice(
+    session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    written = await _trip(session, school_class, title="Экскурсия <3")
+    notice = await events.delete(session, school_class, EDITOR, written.event)
+    assert notice == f"🗑 Событие отменено: <b>Экскурсия &lt;3</b> {TODAY}"
+    assert (await _lines(session))[-1] == (
+        "event.delete",
+        f"Событие удалено: Экскурсия <3, {TODAY}",
+    )
+    assert await session.scalar(select(func.count()).select_from(DayEvent)) == 0
+
+
+async def test_an_event_is_found_only_in_its_own_class(session, school_class) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    rows = [
+        DayEvent(
+            class_id=class_id,
+            date=MONDAY,
+            starts_at=time(11, 10),
+            ends_at=time(11, 25),
+            title="Обед",
+            kind=EventKind.CANTEEN,
+        )
+        for class_id in (school_class.id, other.id)
+    ]
+    session.add_all(rows)
+    await session.commit()
+    own, foreign = rows
+    assert await events.event_of(session, school_class.id, own.id) is own
+    assert await events.event_of(session, school_class.id, foreign.id) is None
+    assert await events.event_of(session, school_class.id, 999_999) is None
+
+
+async def test_nothing_the_services_write_is_committed_until_the_caller_commits(
+    session, school_class
+) -> None:
+    """A put goes through ``upsert``'s savepoint, the first write of its
+    transaction: what a rollback leaves is the code's answer, now that SQLite
+    keeps a savepoint inside the transaction as Postgres does (#373)."""
+    await homework_service.put(session, school_class, EDITOR, MONDAY, "Алгебра", "№ 1")
+    await _trip(session, school_class)
+    await session.rollback()
+    for table in (Homework, DayEvent, AuditEntry):
+        assert await _committed(select(func.count()).select_from(table)) == 0, table
+
+
+def test_the_sentences_both_versions_answer_with_are_v1_s() -> None:
+    assert wording.UNKNOWN_HOMEWORK_DETAIL == "Unknown homework"
+    assert wording.UNKNOWN_EVENT_DETAIL == "Unknown event"
+    assert clock.DATE_OUT_OF_BOUNDS == "date must be between 2000-01-01 and 2100-01-01"
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_homework_events.py
+```
+Expected: the file does not collect, with `ImportError: cannot import name 'events' from 'app.services'`. Keep this output as the evidence.
+
+- [ ] **Step 2: Create `server/app/services/events.py`:**
+```python
+"""The class's events — a trip, an exam, a canteen break — written from a phone.
+
+v1's ``PUT /events`` and ``DELETE /events/{id}`` held these rules in their
+router, and v2's ``EventService`` writes the same events, so they live here
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 2): what an event
+stands in for when nobody says, its line in the journal, and the notice the
+class is told, in v1's words (``app/wording.py``). The bot's «📅 Событие»
+flow keeps its own line and its own notice, worded for a chat.
+
+Nothing here commits: the caller commits an event together with its line, and
+only then tells the class.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date as Date
+from datetime import time as Time
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app import wording
+from app.models import DayEvent, EventKind, SchoolClass
+from app.services import audit, clock
+
+#: What stands in for the lessons it overlaps when nobody says: a
+#: «мероприятие» or a trip does, and a canteen break sits in a break. The
+#: bot's flow says the same, and v1's ``covers_lesson`` defaulted so.
+COVERS_BY_DEFAULT = frozenset({EventKind.EVENT, EventKind.TRIP})
+
+
+@dataclass(frozen=True)
+class Written:
+    """An event written, and the notice the class is told of it."""
+
+    event: DayEvent
+    notice: str
+
+
+def _span(event: DayEvent) -> str:
+    return f"{event.starts_at:%H:%M}–{event.ends_at:%H:%M}"
+
+
+async def event_of(session: AsyncSession, class_id: int, event_id: int) -> DayEvent | None:
+    """This class's event ``event_id``, or ``None``: an id of another class's
+    event finds nothing, as every lookup by id here does."""
+    return await session.scalar(
+        select(DayEvent).where(DayEvent.id == event_id, DayEvent.class_id == class_id)
+    )
+
+
+async def create(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    *,
+    date: Date,
+    starts_at: Time,
+    ends_at: Time,
+    title: str,
+    kind: EventKind,
+    location: str | None = None,
+    covers_lesson: bool | None = None,
+) -> Written:
+    """A new event, its line in the journal, and its notice: v1's ``PUT
+    /events``, and v2's ``CreateEvent``.
+
+    Always a new row: events have no natural key, and two «Обед» on one day
+    are two breaks. ``covers_lesson`` ``None`` is what ``kind`` means
+    (:data:`COVERS_BY_DEFAULT`). Flushed, so that the caller can answer the
+    id; not committed.
+    """
+    event = DayEvent(
+        class_id=school_class.id,
+        date=date,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        title=title,
+        kind=kind,
+        location=location,
+        covers_lesson=covers_lesson if covers_lesson is not None else kind in COVERS_BY_DEFAULT,
+    )
+    session.add(event)
+    when = wording.human_date(date, clock.today(school_class))
+    span = _span(event)
+    await audit.record(
+        session, school_class.id, actor, "event.add", f"Событие: {title}, {when} {span}"
+    )
+    await session.flush()
+    return Written(event, wording.event_notice(title, when, span, location))
+
+
+async def delete(
+    session: AsyncSession, school_class: SchoolClass, actor: int | None, event: DayEvent
+) -> str:
+    """Delete an event and stage its line in the journal; answer the notice
+    the class is told. v1's ``DELETE /events/{id}``, and v2's
+    ``DeleteEvent``. Nothing is committed."""
+    when = wording.human_date(event.date, clock.today(school_class))
+    title = event.title
+    await audit.record(
+        session, school_class.id, actor, "event.delete", f"Событие удалено: {title}, {when}"
+    )
+    await session.delete(event)
+    return wording.event_cancelled_notice(title, when)
+```
+
+- [ ] **Step 3: `services/homework.py` gains v1's `PUT` and `DELETE`.**
+  1. Replace the end of the module docstring and the imports:
+```python
+taken. That is deliberate — see `migrations/versions/0013`, which explains why
+the constraint has to land after this code rather than before it.
+"""
+
+from __future__ import annotations
+
+from datetime import date as Date
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Homework
+from app.services import subjects
+```
+     with:
+```python
+taken. That is deliberate — see `migrations/versions/0013`, which explains why
+the constraint has to land after this code rather than before it.
+
+What v1's ``PUT /homework`` and ``DELETE /homework/{id}`` held in their router
+is here too, because v2's ``HomeworkService`` writes the same assignments: the
+line in the journal and the notice the class is told, in v1's words
+(:func:`put`, :func:`delete`). Nothing here commits — the caller commits an
+assignment together with its line, and only then tells the class — and nothing
+here imports ``services/tasks.py``, which imports this module for the
+homework's lookup.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date as Date
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app import wording
+from app.models import Homework, SchoolClass
+from app.services import audit, clock, notify, subjects
+```
+  2. Replace the end of `upsert`, the file's last lines:
+```python
+    existing.text = text
+    existing.created_by = actor
+    if attachment_url is not None:
+        existing.attachment_url = attachment_url
+    return existing, False
+```
+     with:
+```python
+    existing.text = text
+    existing.created_by = actor
+    if attachment_url is not None:
+        existing.attachment_url = attachment_url
+    return existing, False
+
+
+@dataclass(frozen=True)
+class Saved:
+    """An assignment written, whether it is new, and the notice the class is
+    told of it."""
+
+    homework: Homework
+    created: bool
+    notice: str
+
+
+async def _announced(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    row: Homework,
+    *,
+    created: bool,
+) -> Saved:
+    """Stage the assignment's line in the journal and word its notice, as v1's
+    ``PUT`` did: «добавлено» for a new one and «обновлено» for one changed, on
+    the date as people read it from the class's today. The text is cut before
+    it is escaped (``notify.shorten``)."""
+    verb = "добавлено" if created else "обновлено"
+    action = "homework.add" if created else "homework.update"
+    when = wording.human_date(row.due_date, clock.today(school_class))
+    await audit.record(
+        session, school_class.id, actor, action, f"ДЗ {verb}: {row.subject_name}, {when}"
+    )
+    notice = wording.homework_saved_notice(verb, row.subject_name, when, notify.shorten(row.text))
+    return Saved(row, created, notice)
+
+
+async def put(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    due_date: Date,
+    subject: str,
+    text: str,
+    *,
+    attachment_url: str | None = None,
+) -> Saved:
+    """v1's ``PUT /homework``: :func:`upsert` by (date, subject), then its line
+    in the journal and its notice. Nothing is committed: the caller commits
+    the assignment with its line, and only then tells the class."""
+    row, created = await upsert(
+        session, school_class.id, due_date, subject, text, actor, attachment_url=attachment_url
+    )
+    return await _announced(session, school_class, actor, row, created=created)
+
+
+async def delete(
+    session: AsyncSession, school_class: SchoolClass, actor: int | None, row: Homework
+) -> str:
+    """Delete an assignment and stage its line in the journal; answer the
+    notice the class is told. v1's ``DELETE /homework/{id}``, and v2's
+    ``DeleteHomework``. Nothing is committed."""
+    when = wording.human_date(row.due_date, clock.today(school_class))
+    subject = row.subject_name
+    await audit.record(
+        session, school_class.id, actor, "homework.delete", f"ДЗ удалено: {subject}, {when}"
+    )
+    await session.delete(row)
+    return wording.homework_deleted_notice(subject, when)
+```
+
+- [ ] **Step 4: The sentences and the notices, in `app/wording.py` and `services/clock.py`.**
+  1. In `app/wording.py`, replace:
+```python
+#: v1's ``POST /homework/{id}/done`` and v2's homework ticks: no homework of
+#: this class has that id.
+UNKNOWN_HOMEWORK_DETAIL = "Unknown homework"
+```
+     with:
+```python
+#: v1's ``POST /homework/{id}/done`` and ``DELETE /homework/{id}``, and v2's
+#: homework ticks and ``HomeworkService``: no homework of this class has that
+#: id.
+UNKNOWN_HOMEWORK_DETAIL = "Unknown homework"
+
+#: v1's ``DELETE /events/{id}`` and v2's ``EventService``: no event of this
+#: class has that id.
+UNKNOWN_EVENT_DETAIL = "Unknown event"
+```
+  2. Replace the file's last lines:
+```python
+#: none. It names the field, never the value.
+HOMEWORK_NOT_IN_CLASS_DETAIL = "homework_id is not in this class"
+```
+     with:
+```python
+#: none. It names the field, never the value.
+HOMEWORK_NOT_IN_CLASS_DETAIL = "homework_id is not in this class"
+
+
+# --------------------------------------------------------------------------
+# What the class is told
+#
+# When homework or an event is written from a phone: v1's ``/homework`` and
+# ``/events``, and v2's ``HomeworkService`` and ``EventService``, through
+# ``services/homework.py`` and ``services/events.py``. Everything typed is
+# escaped here; an assignment's text arrives cut already (``notify.shorten``),
+# because cutting after escaping can leave «&am», a message Telegram refuses
+# whole. The bot's own flows word theirs for a chat.
+# --------------------------------------------------------------------------
+
+
+def homework_saved_notice(verb: str, subject: str, when: str, text: str) -> str:
+    """«📝 Задание добавлено: …» or «… обновлено: …», and the text below it."""
+    return f"📝 Задание {verb}: <b>{escape(subject)}</b> {escape(when)}\n{escape(text)}"
+
+
+def homework_deleted_notice(subject: str, when: str) -> str:
+    return f"🗑 Задание удалено: <b>{escape(subject)}</b> {escape(when)}"
+
+
+def event_notice(title: str, when: str, span: str, location: str | None) -> str:
+    """«📅 Событие: …», with its times and its place when it has one."""
+    place = f", {escape(location)}" if location else ""
+    return f"📅 Событие: <b>{escape(title)}</b> {escape(when)}, {span}{place}"
+
+
+def event_cancelled_notice(title: str, when: str) -> str:
+    return f"🗑 Событие отменено: <b>{escape(title)}</b> {escape(when)}"
+```
+  3. In `server/app/services/clock.py`, replace:
+```python
+MIN_DATE = Date(2000, 1, 1)
+MAX_DATE = Date(2100, 1, 1)
+```
+     with:
+```python
+MIN_DATE = Date(2000, 1, 1)
+MAX_DATE = Date(2100, 1, 1)
+
+#: What a date a write names is refused with outside those bounds: v1's
+#: ``_check_date`` and v2's writes alike, built from the bounds so that the
+#: sentence cannot disagree with them.
+DATE_OUT_OF_BOUNDS = f"date must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}"
+```
+
+- [ ] **Step 5: v1 calls the moved code.** In `server/app/api/edit.py`:
+  1. Replace the models' import:
+```python
+from app.models import (
+    BellPeriod,
+    BellSchedule,
+    DayEvent,
+    DayKind,
+    DayOverride,
+    DeviceToken,
+    EventKind,
+    Homework,
+    LessonOverride,
+    OverrideAction,
+    Role,
+    SchoolClass,
+)
+```
+     with:
+```python
+from app.models import (
+    BellPeriod,
+    BellSchedule,
+    DayKind,
+    DayOverride,
+    DeviceToken,
+    EventKind,
+    LessonOverride,
+    OverrideAction,
+    Role,
+    SchoolClass,
+)
+```
+  2. Replace:
+```python
+from app.services import audit, clock, linking, notify, subjects, timetable_edit
+from app.services import homework as homework_service
+from app.services import tasks as task_service
+from app.wording import EMPTY_BELL_SCHEDULE_DETAIL, human_date
+```
+     with:
+```python
+from app.services import audit, clock, linking, notify, subjects, timetable_edit
+from app.services import events as events_service
+from app.services import homework as homework_service
+from app.services import tasks as task_service
+from app.wording import (
+    EMPTY_BELL_SCHEDULE_DETAIL,
+    UNKNOWN_EVENT_DETAIL,
+    UNKNOWN_HOMEWORK_DETAIL,
+    human_date,
+)
+```
+  3. Replace `_check_date`:
+```python
+def _check_date(day: Date) -> None:
+    """Same bounds as ``/bundle``: the resolver does arithmetic on top of it."""
+    if not clock.in_bounds(day):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"date must be between {clock.MIN_DATE.isoformat()} "
+                f"and {clock.MAX_DATE.isoformat()}"
+            ),
+        )
+```
+     with:
+```python
+def _check_date(day: Date) -> None:
+    """Same bounds as ``/bundle``: the resolver does arithmetic on top of it.
+    The sentence is ``clock``'s, which v2's writes answer with too."""
+    if not clock.in_bounds(day):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=clock.DATE_OUT_OF_BOUNDS
+        )
+```
+  4. In `homework_put`, replace the docstring and the body:
+```python
+    """Upsert by (date, subject), exactly as the bot does: one assignment per
+    subject per day, and sending it again replaces the text."""
+    _check_date(payload.due_date)
+    actor = device.telegram_id
+    existing, created = await homework_service.upsert(
+        session,
+        school_class.id,
+        payload.due_date,
+        payload.subject,
+        payload.text,
+        actor,
+        attachment_url=payload.attachment_url,
+    )
+    subject_name = existing.subject_name
+    action, verb = ("homework.add", "добавлено") if created else ("homework.update", "обновлено")
+
+    when = human_date(payload.due_date, clock.today(school_class))
+    await audit.record(
+        session, school_class.id, actor, action, f"ДЗ {verb}: {subject_name}, {when}"
+    )
+    await session.commit()
+    await session.refresh(existing)
+
+    await _tell(
+        session,
+        school_class,
+        f"📝 Задание {verb}: <b>{escape(subject_name)}</b> {escape(when)}\n"
+        f"{escape(notify.shorten(payload.text))}",
+        kind="homework",
+        author=actor,
+    )
+    ticks = await task_service.homework_ticks(session, actor, [existing.id])
+    return _homework_out(existing, existing.id in ticks)
+```
+     with:
+```python
+    """Upsert by (date, subject), exactly as the bot does: one assignment per
+    subject per day, and sending it again replaces the text. The line and the
+    notice are ``homework.put``'s, which v2's writes share."""
+    _check_date(payload.due_date)
+    actor = device.telegram_id
+    saved = await homework_service.put(
+        session,
+        school_class,
+        actor,
+        payload.due_date,
+        payload.subject,
+        payload.text,
+        attachment_url=payload.attachment_url,
+    )
+    await session.commit()
+    await session.refresh(saved.homework)
+
+    await _tell(session, school_class, saved.notice, kind="homework", author=actor)
+    ticks = await task_service.homework_ticks(session, actor, [saved.homework.id])
+    return _homework_out(saved.homework, saved.homework.id in ticks)
+```
+  5. In `homework_delete`, replace the body:
+```python
+    item = await session.scalar(
+        select(Homework).where(Homework.id == homework_id, Homework.class_id == school_class.id)
+    )
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown homework")
+
+    when = human_date(item.due_date, clock.today(school_class))
+    subject = item.subject_name
+    await audit.record(
+        session,
+        school_class.id,
+        device.telegram_id,
+        "homework.delete",
+        f"ДЗ удалено: {subject}, {when}",
+    )
+    await session.delete(item)
+    await session.commit()
+
+    await _tell(
+        session,
+        school_class,
+        f"🗑 Задание удалено: <b>{escape(subject)}</b> {escape(when)}",
+        kind="homework",
+        author=device.telegram_id,
+    )
+    return DeletedOut(id=homework_id)
+```
+     with:
+```python
+    item = await homework_service.homework_of(session, school_class.id, homework_id)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=UNKNOWN_HOMEWORK_DETAIL)
+
+    notice = await homework_service.delete(session, school_class, device.telegram_id, item)
+    await session.commit()
+
+    await _tell(session, school_class, notice, kind="homework", author=device.telegram_id)
+    return DeletedOut(id=homework_id)
+```
+  6. In `event_put`, replace the docstring and the body:
+```python
+    """Events have no natural key - two «Обед» rows on one day are two breaks
+    - so this always creates; ``DELETE`` is how one goes away."""
+    _check_date(payload.date)
+    actor = device.telegram_id
+    kind = EventKind(payload.kind)
+    covers = (
+        payload.covers_lesson
+        if payload.covers_lesson is not None
+        else kind in {EventKind.EVENT, EventKind.TRIP}
+    )
+    event = DayEvent(
+        class_id=school_class.id,
+        date=payload.date,
+        starts_at=payload.starts_at,
+        ends_at=payload.ends_at,
+        title=payload.title,
+        kind=kind,
+        location=payload.location,
+        covers_lesson=covers,
+    )
+    session.add(event)
+
+    when = human_date(payload.date, clock.today(school_class))
+    span = f"{payload.starts_at:%H:%M}–{payload.ends_at:%H:%M}"
+    await audit.record(
+        session, school_class.id, actor, "event.add", f"Событие: {payload.title}, {when} {span}"
+    )
+    await session.commit()
+    await session.refresh(event)
+
+    await _tell(
+        session,
+        school_class,
+        f"📅 Событие: <b>{escape(payload.title)}</b> {escape(when)}, {span}"
+        + (f", {escape(payload.location)}" if payload.location else ""),
+        kind="changes",
+        author=actor,
+    )
+    return EventCreatedOut(id=event.id)
+```
+     with:
+```python
+    """Events have no natural key - two «Обед» rows on one day are two breaks
+    - so this always creates; ``DELETE`` is how one goes away. The row, its
+    line and its notice are ``events.create``'s, which v2's ``CreateEvent``
+    calls too."""
+    _check_date(payload.date)
+    actor = device.telegram_id
+    written = await events_service.create(
+        session,
+        school_class,
+        actor,
+        date=payload.date,
+        starts_at=payload.starts_at,
+        ends_at=payload.ends_at,
+        title=payload.title,
+        kind=EventKind(payload.kind),
+        location=payload.location,
+        covers_lesson=payload.covers_lesson,
+    )
+    await session.commit()
+    await session.refresh(written.event)
+
+    await _tell(session, school_class, written.notice, kind="changes", author=actor)
+    return EventCreatedOut(id=written.event.id)
+```
+  7. In `event_delete`, replace the body:
+```python
+    event = await session.scalar(
+        select(DayEvent).where(DayEvent.id == event_id, DayEvent.class_id == school_class.id)
+    )
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown event")
+
+    when = human_date(event.date, clock.today(school_class))
+    title = event.title
+    await audit.record(
+        session,
+        school_class.id,
+        device.telegram_id,
+        "event.delete",
+        f"Событие удалено: {title}, {when}",
+    )
+    await session.delete(event)
+    await session.commit()
+
+    await _tell(
+        session,
+        school_class,
+        f"🗑 Событие отменено: <b>{escape(title)}</b> {escape(when)}",
+        kind="changes",
+        author=device.telegram_id,
+    )
+    return DeletedOut(id=event_id)
+```
+     with:
+```python
+    event = await events_service.event_of(session, school_class.id, event_id)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=UNKNOWN_EVENT_DETAIL)
+
+    notice = await events_service.delete(session, school_class, device.telegram_id, event)
+    await session.commit()
+
+    await _tell(session, school_class, notice, kind="changes", author=device.telegram_id)
+    return DeletedOut(id=event_id)
+```
+
+  `escape`, `select`, `audit`, `notify` and `human_date` stay imported: `override_put`, `day_put` and `_tell` use them.
+
+- [ ] **Step 6: Green, and v1 unchanged.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_homework_events.py tests/test_api_extended.py tests/test_announcements.py tests/test_hardening.py tests/test_api_manage.py tests/test_homework_upsert.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass; `test_services_homework_events.py` has 8. The v1 files pass unedited:
+- `test_api_extended.py` holds `PUT /homework`'s upsert, its two lines and its notices to the subscribers who asked for homework, minus the author, escaped (`test_homework_put_upserts_audits_and_notifies`); the delete and its 404 a second time; `PUT /events`' defaults for `covers_lesson`, its 422 for an end before its start, the delete, the three lines and the three notices (`test_events_add_and_delete`); and every write's 403s;
+- `test_announcements.py` measures what `PUT /homework` pushes, and its walk still finds `edit._tell` and the four endpoints, which announce through it as before;
+- `test_hardening.py` and `test_api_manage.py` send `PUT /homework` with the inputs they always sent.
+
+`test_nothing_the_services_write_is_committed_until_the_caller_commits` is one of the two tests that need #373 (Ruling 68): on the engine before it, the `put`'s savepoint commits the assignment when it is released, and the test reads it back after the rollback.
+
+- [ ] **Step 7: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 232 source files`, one more for `services/events.py`.
+
+- [ ] **Step 8: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b5-t1.txt`:
+```text
+Move what v1's edit.py held for homework and events into services
+
+v1's PUT /homework, DELETE /homework/{id}, PUT /events and
+DELETE /events/{id} wrote the row, its line in the journal and the
+notice the class is told inside the router, and v2's HomeworkService and
+EventService write the same things but may not import a router. They
+move, and v1 calls them: homework.put (the upsert, its «добавлено» or
+«обновлено» line and notice) and homework.delete, and a new
+services/events.py with create (what an event stands in for when nobody
+says, flushed so that the id can be answered), delete and event_of. The
+notices' words are functions of app/wording.py that escape what was
+typed; an assignment's text is cut before it is escaped, as before.
+v1's two «Unknown …» literals and _check_date's sentence move onto
+wording and clock, where v2 will answer with them.
+
+Nothing commits inside the services: v1's routers commit, then tell the
+class, as they did.
+
+Not covered: no v2 method calls any of this yet. One new test needs the
+SQLite fix of #373: before it, a put's savepoint committed itself.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/services/events.py server/app/services/homework.py server/app/services/clock.py server/app/wording.py server/app/api/edit.py server/tests/test_services_homework_events.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b5-t1.txt
+```
+
+---
+
+### 3b-5 Task 2: The window, in `services/clock.py`, and the lists beside it
+
+Decision 2; Rulings 75 and 76. v1 keeps its answers: `test_api_extended.py` is the proof and is not edited.
+
+**Files:**
+- Create: `server/tests/test_services_dated_lists.py`
+- Modify: `server/app/services/clock.py`, `server/app/services/homework.py`, `server/app/services/events.py`, `server/app/api/public.py`
+
+**Interfaces:**
+- Consumes: `clock.in_bounds`; Task 1's `services/events.py`.
+- Produces:
+  - `clock.WINDOW_DAYS = 21`, `clock.WINDOW_MAX_DAYS = 62`;
+  - `clock.OUT_OF_BOUNDS`, `BACKWARDS`, `TOO_WIDE`, the three values of `why`;
+  - `clock.DATES_OUT_OF_BOUNDS`, `clock.WINDOW_TOO_WIDE`;
+  - `clock.WindowRefused(edge: str, why: str)`, a `ValueError`;
+  - `clock.window(start: Date | None, end: Date | None, today: Date) -> tuple[Date, Date]`;
+  - `homework.due_between(session, class_id, start, end) -> list[Homework]`;
+  - `events.between(session, class_id, start, end) -> list[DayEvent]`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_services_dated_lists.py`:
+```python
+"""The window a list of the class's dated things covers, in ``services/``.
+
+v1's ``GET /homework`` held its window in the router: today and three weeks
+on by default, sixty-two days at most, and the start bounded before the end is
+derived from it. v2's ``ListHomework`` and ``ListEvents`` answer the same
+window, so it moved to ``clock.window`` with the query beside each list, and
+v1 calls them (``docs/specs/2026-10-05-server-v2-design.md``, decision 2).
+``test_api_extended.py``, untouched, is the proof that v1's answers did not
+move; these hold the rule a fact at a time, and its refusals as facts each
+shell words for itself.
+"""
+
+from __future__ import annotations
+
+from datetime import date, time, timedelta
+
+import pytest
+
+from app.models import DayEvent, EventKind, Homework, SchoolClass
+from app.services import clock, events
+from app.services import homework as homework_service
+
+MONDAY = date(2026, 9, 7)
+
+
+def test_a_window_is_today_and_three_weeks_on_unless_it_names_its_edges() -> None:
+    assert clock.window(None, None, MONDAY) == (MONDAY, MONDAY + timedelta(days=21))
+    assert clock.window(date(2026, 9, 1), None, MONDAY) == (date(2026, 9, 1), date(2026, 9, 22))
+    assert clock.window(None, date(2026, 9, 10), MONDAY) == (MONDAY, date(2026, 9, 10))
+    # Sixty-two days is the most, and is allowed.
+    widest = MONDAY + timedelta(days=62)
+    assert clock.window(MONDAY, widest, MONDAY) == (MONDAY, widest)
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "edge", "why"),
+    [
+        (date(1999, 12, 31), None, "start", clock.OUT_OF_BOUNDS),
+        # Never an OverflowError: the start is bounded before the end is
+        # derived from it.
+        (date.max, None, "start", clock.OUT_OF_BOUNDS),
+        # An end derived from a start near the bound is the start's fault.
+        (date(2100, 1, 1), None, "start", clock.OUT_OF_BOUNDS),
+        (None, date(2100, 1, 2), "end", clock.OUT_OF_BOUNDS),
+        (date(2026, 9, 10), date(2026, 9, 1), "end", clock.BACKWARDS),
+        (MONDAY, MONDAY + timedelta(days=63), "end", clock.TOO_WIDE),
+    ],
+)
+def test_a_window_no_list_may_be_asked_for_names_the_edge_at_fault(start, end, edge, why) -> None:
+    with pytest.raises(clock.WindowRefused) as refused:
+        clock.window(start, end, MONDAY)
+    assert (refused.value.edge, refused.value.why) == (edge, why)
+
+
+async def test_homework_and_events_in_a_window_come_in_order_and_from_this_class_only(
+    session, school_class
+) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    tuesday = MONDAY + timedelta(days=1)
+    for class_id, due, subject in (
+        (school_class.id, tuesday, "Физика"),
+        (school_class.id, tuesday, "Алгебра"),
+        (school_class.id, MONDAY, "История"),
+        (school_class.id, MONDAY + timedelta(days=30), "Химия"),
+        (other.id, MONDAY, "Чужое"),
+    ):
+        session.add(Homework(class_id=class_id, due_date=due, subject_name=subject, text="№ 1"))
+    for class_id, day, starts, title in (
+        (school_class.id, tuesday, time(9, 0), "Линейка"),
+        (school_class.id, MONDAY, time(12, 30), "Обед"),
+        (school_class.id, MONDAY, time(11, 10), "Завтрак"),
+        (other.id, MONDAY, time(10, 0), "Чужое"),
+    ):
+        session.add(
+            DayEvent(
+                class_id=class_id,
+                date=day,
+                starts_at=starts,
+                ends_at=time(starts.hour, 30),
+                title=title,
+                kind=EventKind.CANTEEN,
+            )
+        )
+    await session.commit()
+
+    due = await homework_service.due_between(session, school_class.id, MONDAY, tuesday)
+    # By date, then subject: v1's order.
+    assert [row.subject_name for row in due] == ["История", "Алгебра", "Физика"]
+    on = await events.between(session, school_class.id, MONDAY, tuesday)
+    # By date, then the time it starts.
+    assert [row.title for row in on] == ["Завтрак", "Обед", "Линейка"]
+
+
+def test_the_window_s_numbers_and_sentences_are_v1_s() -> None:
+    assert (clock.WINDOW_DAYS, clock.WINDOW_MAX_DAYS) == (21, 62)
+    assert clock.DATES_OUT_OF_BOUNDS == "dates must be between 2000-01-01 and 2100-01-01"
+    assert clock.WINDOW_TOO_WIDE == "the range may span at most 62 days"
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_dated_lists.py
+```
+Expected: the file does not collect, with `AttributeError: module 'app.services.clock' has no attribute 'OUT_OF_BOUNDS'`, which the parametrization reads. Keep this output as the evidence.
+
+- [ ] **Step 2: `services/clock.py` gains the window.**
+  1. Replace the end of the module docstring and the imports:
+```python
+importing v1 (``docs/specs/2026-10-05-server-v2-design.md``, decision 2). They
+are one answer for every shell: a bound that two copies hold is a bound that
+one day disagrees with itself.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from datetime import date as Date
+```
+     with:
+```python
+importing v1 (``docs/specs/2026-10-05-server-v2-design.md``, decision 2). They
+are one answer for every shell: a bound that two copies hold is a bound that
+one day disagrees with itself.
+
+The window a list of the class's dated things covers is here for the same
+reason (:func:`window`): v1's ``GET /homework`` held it in its router, and
+v2's ``ListHomework`` and ``ListEvents`` answer the same one.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from datetime import date as Date
+```
+  2. Replace `in_bounds`:
+```python
+def in_bounds(*days: Date) -> bool:
+    """Whether every one of ``days`` is a date a request may name."""
+    return all(MIN_DATE <= day <= MAX_DATE for day in days)
+```
+     with:
+```python
+def in_bounds(*days: Date) -> bool:
+    """Whether every one of ``days`` is a date a request may name."""
+    return all(MIN_DATE <= day <= MAX_DATE for day in days)
+
+
+#: The days a list of the class's dated things covers after its start when no
+#: end is named, and the most it may cover: v1's ``GET /homework``, and v2's
+#: ``ListHomework`` and ``ListEvents``. Homework older than a term is not
+#: something the app shows, and an unbounded range is an unbounded query.
+WINDOW_DAYS = 21
+WINDOW_MAX_DAYS = 62
+
+#: Why :func:`window` refused, as :class:`WindowRefused` carries it.
+OUT_OF_BOUNDS = "out_of_bounds"
+BACKWARDS = "backwards"
+TOO_WIDE = "too_wide"
+
+#: What both versions say of two of those refusals. The third, an end before
+#: its start, each version says in the names of its own fields.
+DATES_OUT_OF_BOUNDS = f"dates must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}"
+WINDOW_TOO_WIDE = f"the range may span at most {WINDOW_MAX_DAYS} days"
+
+
+class WindowRefused(ValueError):
+    """A window no list may be asked for.
+
+    ``edge`` is the end at fault, ``"start"`` or ``"end"``, and ``why`` one of
+    :data:`OUT_OF_BOUNDS`, :data:`BACKWARDS` and :data:`TOO_WIDE`: facts, so
+    that each shell says them in its own words and on its own field.
+    """
+
+    def __init__(self, edge: str, why: str) -> None:
+        super().__init__(f"{edge}: {why}")
+        self.edge = edge
+        self.why = why
+
+
+def window(start: Date | None, end: Date | None, today: Date) -> tuple[Date, Date]:
+    """The first and the last day a list covers, both included.
+
+    ``start`` is ``today`` when absent, and ``end`` :data:`WINDOW_DAYS` after
+    the start; the window spans :data:`WINDOW_MAX_DAYS` at most. The start is
+    bounded before the end is derived from it: ``start + 21 days`` overflows
+    within three weeks of ``date.max``, which v1 once answered with a 500
+    where every other date got a 422. An end that was derived is the start's
+    fault, so it is the start that is named.
+
+    @raises WindowRefused naming the edge at fault, and why.
+    """
+    first = start if start is not None else today
+    if not in_bounds(first):
+        raise WindowRefused("start", OUT_OF_BOUNDS)
+    last = end if end is not None else first + timedelta(days=WINDOW_DAYS)
+    if not in_bounds(last):
+        raise WindowRefused("end" if end is not None else "start", OUT_OF_BOUNDS)
+    if last < first:
+        raise WindowRefused("end", BACKWARDS)
+    if (last - first).days > WINDOW_MAX_DAYS:
+        raise WindowRefused("end", TOO_WIDE)
+    return first, last
+```
+
+- [ ] **Step 3: The queries, beside each lookup by id.**
+  1. In `server/app/services/homework.py`, replace the end of `homework_of`:
+```python
+    return await session.scalar(
+        select(Homework).where(Homework.id == homework_id, Homework.class_id == class_id)
+    )
+```
+     with:
+```python
+    return await session.scalar(
+        select(Homework).where(Homework.id == homework_id, Homework.class_id == class_id)
+    )
+
+
+async def due_between(
+    session: AsyncSession, class_id: int, start: Date, end: Date
+) -> list[Homework]:
+    """The class's homework due from ``start`` to ``end``, both included, by
+    date, then subject, then id: v1's ``GET /homework`` and v2's
+    ``ListHomework``, each windowed by ``clock.window``. Writes nothing."""
+    return list(
+        await session.scalars(
+            select(Homework)
+            .where(
+                Homework.class_id == class_id,
+                Homework.due_date >= start,
+                Homework.due_date <= end,
+            )
+            .order_by(Homework.due_date, Homework.subject_name, Homework.id)
+        )
+    )
+```
+  2. In `server/app/services/events.py`, replace the end of `event_of`:
+```python
+    return await session.scalar(
+        select(DayEvent).where(DayEvent.id == event_id, DayEvent.class_id == class_id)
+    )
+```
+     with:
+```python
+    return await session.scalar(
+        select(DayEvent).where(DayEvent.id == event_id, DayEvent.class_id == class_id)
+    )
+
+
+async def between(session: AsyncSession, class_id: int, start: Date, end: Date) -> list[DayEvent]:
+    """The class's events from ``start`` to ``end``, both included, by date,
+    then the time they start, then id: v2's ``ListEvents``, windowed by
+    ``clock.window`` as ``ListHomework`` is. Writes nothing."""
+    return list(
+        await session.scalars(
+            select(DayEvent)
+            .where(DayEvent.class_id == class_id, DayEvent.date >= start, DayEvent.date <= end)
+            .order_by(DayEvent.date, DayEvent.starts_at, DayEvent.id)
+        )
+    )
+```
+
+- [ ] **Step 4: v1 calls the moved code.** In `server/app/api/public.py`:
+  1. Replace:
+```python
+from datetime import datetime, timedelta
+```
+     with:
+```python
+from datetime import datetime
+```
+  2. Delete these lines, with the blank line after them:
+```python
+# ``GET /homework``: the default window and the widest one allowed. Homework
+# older than a term is not something the app shows, and an unbounded range is
+# an unbounded query.
+HOMEWORK_DEFAULT_DAYS = 21
+MAX_HOMEWORK_DAYS = 62
+```
+  3. Replace `_check_bounds` and `_check_range`, which only `homework_list` called:
+```python
+def _check_bounds(*days: Date) -> None:
+    """Refuse a date a school timetable cannot plausibly mean.
+
+    Split out of ``_check_range`` because the callers have to reach it
+    *before* they derive the other end of the window: ``end = start +
+    timedelta(...)`` raises OverflowError within three weeks of ``date.max``,
+    and that is a 500 on a query string anybody with a device token can type.
+    """
+    if not clock.in_bounds(*days):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"dates must be between {clock.MIN_DATE.isoformat()} "
+                f"and {clock.MAX_DATE.isoformat()}"
+            ),
+        )
+
+
+def _check_range(start: Date, end: Date, max_days: int) -> None:
+    _check_bounds(start, end)
+    if end < start:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="to must not precede from"
+        )
+    if (end - start).days > max_days:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"the range may span at most {max_days} days",
+        )
+```
+     with:
+```python
+#: v1's sentence for each refusal of ``clock.window``. An end before its start
+#: is said in v1's own query fields, ``from`` and ``to``, which v2 does not
+#: have; the other two are ``clock``'s, which v2 answers with too.
+_WINDOW_REFUSED = {
+    clock.OUT_OF_BOUNDS: clock.DATES_OUT_OF_BOUNDS,
+    clock.BACKWARDS: "to must not precede from",
+    clock.TOO_WIDE: clock.WINDOW_TOO_WIDE,
+}
+```
+  4. In `homework_list`, replace:
+```python
+    """Homework due in a window, each row with this person's own tick."""
+    start = from_ or clock.today(school_class)
+    # Bounded before the default window is derived from it, not after: `from`
+    # is arbitrary client input and `start + 21 days` overflows within three
+    # weeks of `date.max`, which the app saw as a 500 rather than as the 422
+    # the same date has always got from `/bundle`.
+    _check_bounds(start)
+    end = to or start + timedelta(days=HOMEWORK_DEFAULT_DAYS)
+    _check_range(start, end, MAX_HOMEWORK_DAYS)
+
+    rows = list(
+        await session.scalars(
+            select(Homework)
+            .where(
+                Homework.class_id == school_class.id,
+                Homework.due_date >= start,
+                Homework.due_date <= end,
+            )
+            .order_by(Homework.due_date, Homework.subject_name, Homework.id)
+        )
+    )
+```
+     with:
+```python
+    """Homework due in a window, each row with this person's own tick. The
+    window is ``clock.window`` and the rows ``homework.due_between``, which
+    v2's ``ListHomework`` reads too."""
+    try:
+        start, end = clock.window(from_, to, clock.today(school_class))
+    except clock.WindowRefused as refused:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_WINDOW_REFUSED[refused.why]
+        ) from None
+
+    rows = await homework_service.due_between(session, school_class.id, start, end)
+```
+
+  `bundle` keeps its own check of `start`, with its own sentence. `Homework` and `select` stay imported: `_homework_out` and other routes use them.
+
+- [ ] **Step 5: Green, and v1 unchanged.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_dated_lists.py tests/test_services_homework_events.py tests/test_api_extended.py tests/test_shared_rules.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass; `test_services_dated_lists.py` has 9. `test_api_extended.py` passes unedited: `test_homework_list_is_windowed_and_ordered` holds the default window, today and three weeks on, and a wide one, in v1's order; `test_homework_list_rejects_a_bad_window` holds the four 422s, a window too wide, an end before its start, a start out of bounds and a date that does not parse. Their sentences are held word for word by this task's `test_the_window_s_numbers_and_sentences_are_v1_s` and by v1's own `_WINDOW_REFUSED`, which keeps «to must not precede from».
+
+- [ ] **Step 6: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 232 source files`.
+
+- [ ] **Step 7: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b5-t2.txt`:
+```text
+Move the window of v1's homework list into services/clock.py
+
+v1's GET /homework held its window in the router: today and three weeks
+on by default, sixty-two days at most, and the start bounded before the
+end is derived from it, since start + 21 days overflows near date.max.
+v2's ListHomework and ListEvents answer the same window, and 3b-6's
+ListSubstitutions will, so it moves to clock.window, which refuses with a
+fact, WindowRefused, naming the edge at fault and why; each shell words
+it. v1 keeps its three sentences, «to must not precede from» among them,
+which names v1's own query fields. The queries move beside each lookup
+by id: homework.due_between, in v1's order, and events.between, by date
+and then the time an event starts.
+
+The ticks stay with the caller: services/homework.py may not import
+services/tasks.py, which imports it.
+
+Not covered: no v2 method calls any of this yet.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/services/clock.py server/app/services/homework.py server/app/services/events.py server/app/api/public.py server/tests/test_services_dated_lists.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b5-t2.txt
+```
+
+---
+
+### 3b-5 Task 3: The class notice as an effect, and the walk that finds it
+
+Decisions 2 and 4; Rulings 37, 70 and 71. No v1 behaviour changes, and no v1 test is edited; `test_announcements.py` is a test of every announcing call site, v1's and v2's, and learns about v2's here.
+
+**Files:**
+- Modify: `server/app/telegram_send.py`, `server/tests/test_telegram_send.py`, `server/tests/test_announcements.py`
+
+**Interfaces:**
+- Consumes: `notify.notify_subscribers(session, bot, school_class, text, *, kind, exclude) -> int`; `telegram_send.build_bot` and `close_bot`.
+- Produces:
+  - `telegram_send.notify_class(session, school_class, text, *, kind, author) -> int`, which never raises;
+  - in `test_announcements.py`: `SENDS`, `_module_name(path)`, `_imported(tree, modules)`, `_calls(tree, module, names)`, and `_announcing_call_sites()` built on them.
+
+- [ ] **Step 1: The walk, alone.** In `server/tests/test_announcements.py`, replace `_announcing_call_sites`:
+```python
+def _announcing_call_sites() -> dict[object, str]:
+    """Every function in `app/` that pushes to the class, directly or through a
+    wrapper in its own file — as the object the module hands out, with a
+    `module:name` label for the failure message.
+
+    One file's worth of indirection, and no more: `api/edit.py` announces
+    through its own ``_tell``, so a walk that only looked for
+    ``notify_subscribers`` would name the wrapper and miss all seven endpoints
+    behind it. Resolving names across files instead would start matching any
+    function that happens to share a name with a wrapper somewhere else.
+    """
+    found: dict[object, str] = {}
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+
+        calls: dict[str, set[str]] = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            named = set()
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Call):
+                    func = inner.func
+                    named.add(
+                        func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+                    )
+            calls[node.name] = named
+
+        announcing = {"notify_subscribers"}
+        while True:
+            grown = {name for name, named in calls.items() if named & announcing}
+            if grown <= announcing:
+                break
+            announcing |= grown
+
+        # Its own definition is not a call site; every caller of it is.
+        callers = (announcing & set(calls)) - {"notify_subscribers"}
+        if not callers:
+            continue
+        parts = path.relative_to(APP_ROOT.parent).with_suffix("").parts
+        module_name = ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+        module = importlib.import_module(module_name)
+        for name in callers:
+            label = f"{module_name}:{name}"
+            # A name the module does not hand out — a function nested in
+            # another — stays a label, so it fails below naming itself.
+            found[getattr(module, name, label)] = label
+    return found
+```
+     with:
+```python
+#: Where every push to the class ends: the one function that sends it.
+SENDS = "app.services.notify:notify_subscribers"
+
+
+def _module_name(path: Path) -> str:
+    parts = path.relative_to(APP_ROOT.parent).with_suffix("").parts
+    return ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+
+
+def _imported(tree: ast.Module, modules: set[str]) -> dict[str, str]:
+    """What one file calls the things of `app/` it imports: a module by its
+    dotted name, ``{"notify": "app.services.notify"}``, and anything else by
+    ``module:name``, ``{"notify_class": "app.telegram_send:notify_class"}``."""
+    names: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            for alias in node.names:
+                dotted = f"{node.module}.{alias.name}"
+                names[alias.asname or alias.name] = (
+                    dotted if dotted in modules else f"{node.module}:{alias.name}"
+                )
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname and alias.name in modules:
+                    names[alias.asname] = alias.name
+    return names
+
+
+def _calls(tree: ast.Module, module: str, names: dict[str, str]) -> dict[str, set[str]]:
+    """Each function of one file, as ``module:name``, and what it calls, named
+    the same way: a function of the same file by its bare name, and one of
+    another file through what the file imports (:func:`_imported`).
+
+    A call inside a ``lambda`` is its enclosing function's, which is how a v2
+    handler registers its notice: ``call.after_commit(lambda: …)``. A call by
+    any other route — a method, a name from outside `app/` — is not followed.
+    """
+    defined = {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    }
+    calls: dict[str, set[str]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        named: set[str] = set()
+        for inner in ast.walk(node):
+            if not isinstance(inner, ast.Call):
+                continue
+            func = inner.func
+            if isinstance(func, ast.Name):
+                if func.id in defined:
+                    named.add(f"{module}:{func.id}")
+                elif ":" in names.get(func.id, ""):
+                    named.add(names[func.id])
+            elif (
+                isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Name)
+                and func.value.id in names
+                and ":" not in names[func.value.id]
+            ):
+                named.add(f"{names[func.value.id]}:{func.attr}")
+        calls[f"{module}:{node.name}"] = named
+    return calls
+
+
+def _announcing_call_sites() -> dict[object, str]:
+    """Every function in `app/` that pushes to the class — calling
+    ``notify_subscribers``, a wrapper in its own file, or a function of
+    another file it imports — as the object the module hands out, with a
+    `module:name` label for the failure message.
+
+    `api/edit.py` announces through its own ``_tell``, so a walk that only
+    looked for ``notify_subscribers`` would name the wrapper and miss all six
+    endpoints behind it; and v2's handlers announce through
+    ``telegram_send.notify_class``, in another file. A call is followed only
+    through a name the file defines or imports from `app/`, never by a bare
+    name alone, which would match any function that happens to share a name
+    with a wrapper somewhere else.
+    """
+    paths = sorted(APP_ROOT.rglob("*.py"))
+    modules = {_module_name(path) for path in paths}
+    graph: dict[str, set[str]] = {}
+    for path in paths:
+        tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+        graph.update(_calls(tree, _module_name(path), _imported(tree, modules)))
+
+    announcing = {SENDS}
+    while True:
+        grown = {name for name, called in graph.items() if called & announcing}
+        if grown <= announcing:
+            break
+        announcing |= grown
+
+    found: dict[object, str] = {}
+    # Its own definition is not a call site; every caller of it is.
+    for label in sorted(announcing - {SENDS}):
+        module_name, name = label.split(":")
+        module = importlib.import_module(module_name)
+        # A name the module does not hand out — a function nested in
+        # another — stays a label, so it fails below naming itself.
+        found[getattr(module, name, label)] = label
+    return found
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_announcements.py
+```
+Expected: 6 passed. The new walk finds exactly what the old one found, `ANNOUNCED_HERE` unchanged: v1's `edit._tell` and the six endpoints behind it, and the bot's five handlers. Keep this output: the review reads it as the evidence that resolving calls through imports lost nothing.
+
+- [ ] **Step 2: Red.**
+  1. In `server/tests/test_telegram_send.py`, replace the imports:
+```python
+from __future__ import annotations
+
+from typing import Any
+
+from app import telegram_send
+from app.config import get_settings
+```
+     with:
+```python
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from app import telegram_send
+from app.config import get_settings
+from app.models import ReminderSettings
+```
+  2. Replace the file's last lines:
+```python
+    is the one place a send could raise before its own guard. The real
+    factory, so that the refusal is aiogram's own."""
+    monkeypatch.setattr(get_settings(), "bot_token", "not-a-token")
+
+    assert await telegram_send.send([(1, "раз")]) == [False]
+```
+     with:
+```python
+    is the one place a send could raise before its own guard. The real
+    factory, so that the refusal is aiogram's own."""
+    monkeypatch.setattr(get_settings(), "bot_token", "not-a-token")
+
+    assert await telegram_send.send([(1, "раз")]) == [False]
+
+
+# ---- the class notice, v2's effect (stage 3b-5) ------------------------------
+
+
+async def test_a_class_notice_reaches_its_subscribers_but_its_author_and_closes_its_bot(
+    session, school_class, monkeypatch
+):
+    for telegram_id, changes, homework in (
+        (7001, True, True),
+        (7002, True, False),
+        (7003, False, True),
+    ):
+        session.add(
+            ReminderSettings(
+                class_id=school_class.id,
+                telegram_id=telegram_id,
+                notify_changes=changes,
+                notify_homework=homework,
+            )
+        )
+    await session.commit()
+    bot = _Bot()
+    monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
+    monkeypatch.setattr(telegram_send, "build_bot", lambda: bot)
+
+    told = await telegram_send.notify_class(
+        session, school_class, "📝 <b>Алгебра</b>", kind="homework", author=7003
+    )
+
+    # Those who asked to hear about homework, all but the one who wrote it.
+    assert told == 1
+    assert bot.sent == [(7001, "📝 <b>Алгебра</b>")]
+    assert bot.closed
+
+
+async def test_a_class_notice_without_a_token_builds_nothing(session, school_class, monkeypatch):
+    def refuse() -> None:
+        raise AssertionError("a bot was built with no token")
+
+    monkeypatch.setattr(get_settings(), "bot_token", "")
+    monkeypatch.setattr(telegram_send, "build_bot", refuse)
+
+    told = await telegram_send.notify_class(session, school_class, "x", kind="changes", author=None)
+    assert told == 0
+
+
+async def test_a_class_notice_that_fails_is_logged_and_never_raised(
+    session, school_class, monkeypatch, caplog
+):
+    """It runs after the commit: the change is saved, so neither a bot that
+    cannot be built nor a notice that fails on the way may reach the caller."""
+    with caplog.at_level(logging.WARNING, logger="app.telegram_send"):
+        monkeypatch.setattr(get_settings(), "bot_token", "not-a-token")
+        unbuilt = await telegram_send.notify_class(
+            session, school_class, "x", kind="changes", author=None
+        )
+
+        bot = _BotWhoseCloseRaises()
+        monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
+        monkeypatch.setattr(telegram_send, "build_bot", lambda: bot)
+        # A kind `notify_subscribers` does not know raises inside it.
+        failed = await telegram_send.notify_class(
+            session, school_class, "x", kind="news", author=None
+        )
+    assert (unbuilt, failed) == (0, 0)
+    said = [record.getMessage() for record in caplog.records]
+    assert any("no bot could be built" in line for line in said)
+    assert any(f"could not notify class {school_class.id}" in line for line in said)
+    assert any("could not close the bot" in line for line in said)
+```
+  3. In `server/tests/test_announcements.py`, replace, in the comment on `ANNOUNCED_HERE`:
+```python
+#: and fails naming anything that is not here. Adding a ninth announcement is
+#: then a decision — measure it, or say in one line what already bounds it.
+```
+     with:
+```python
+#: and fails naming anything that is not here. Adding another announcement is
+#: then a decision — measure it, or say in one line what already bounds it.
+```
+  4. Replace:
+```python
+from app.api import edit
+from app.bot.handlers.content.events import event_title
+```
+     with:
+```python
+from app import telegram_send
+from app.api import edit
+from app.bot.handlers.content.events import event_title
+```
+  5. Replace the end of `ANNOUNCED_HERE`:
+```python
+    override_clear: "pressed below — a lesson number and a date",
+}
+```
+     with:
+```python
+    override_clear: "pressed below — a lesson number and a date",
+    telegram_send.notify_class: "the effect v2's writes announce through; no text of its own",
+}
+```
+  6. Replace the file's last line:
+```python
+    assert not gone, "ANNOUNCED_HERE names call sites that no longer exist: " + ", ".join(gone)
+```
+     with:
+```python
+    assert not gone, "ANNOUNCED_HERE names call sites that no longer exist: " + ", ".join(gone)
+
+
+def test_the_walk_follows_a_call_into_another_file_through_what_it_imports():
+    """Held here rather than trusted: v2's handlers announce through
+    ``telegram_send.notify_class``, another file's, and register it in a
+    ``lambda`` to run after the commit. A walk that stopped at the file's
+    edge, or at the lambda, would find none of them and still pass."""
+    tree = ast.parse(
+        "from app import telegram_send\n"
+        "from app.services.notify import notify_subscribers\n"
+        "def later(call):\n"
+        "    call.after_commit(lambda: telegram_send.notify_class(1))\n"
+        "async def now():\n"
+        "    await notify_subscribers(1)\n"
+        "async def handler(call):\n"
+        "    later(call)\n"
+    )
+    modules = {"app.telegram_send", "app.services.notify"}
+    calls = _calls(tree, "app.rpc.example", _imported(tree, modules))
+    assert calls["app.rpc.example:later"] == {"app.telegram_send:notify_class"}
+    assert calls["app.rpc.example:now"] == {SENDS}
+    assert calls["app.rpc.example:handler"] == {"app.rpc.example:later"}
+```
+Run each file on its own, since a file that does not collect stops the run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_telegram_send.py
+```
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_announcements.py
+```
+Expected: `test_telegram_send.py` gives 3 failed and 5 passed, the three new tests each on `AttributeError: module 'app.telegram_send' has no attribute 'notify_class'`; `test_announcements.py` does not collect, on the same `AttributeError`, which `ANNOUNCED_HERE` reads. Keep this output as the evidence.
+
+- [ ] **Step 3: `telegram_send.notify_class`.** In `server/app/telegram_send.py`:
+  1. Replace the end of the module docstring and the imports:
+```python
+v2's notices are sent from here, as effects ``rpc/call.py`` runs after the
+commit (stage 3b-3). v1's keep their own ``_build_bot`` seams in
+``api/manage/requests.py`` and ``api/edit.py``, which build through
+``build_bot`` here, so that no v1 test had to change.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
+
+from app.config import get_settings
+
+if TYPE_CHECKING:
+    # A name for the annotation, and nothing more: see the module docstring.
+    from aiogram import Bot
+```
+     with:
+```python
+v2's notices are sent from here, as effects ``rpc/call.py`` runs after the
+commit: :func:`send` to one person (stage 3b-3), and :func:`notify_class` to
+a class's subscribers, through ``services/notify.notify_subscribers`` (stage
+3b-5). v1's keep their own ``_build_bot`` seams in ``api/manage/requests.py``
+and ``api/edit.py``, which build through ``build_bot`` here, so that no v1
+test had to change.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
+
+from app.config import get_settings
+from app.services import notify
+
+if TYPE_CHECKING:
+    # Names for the annotations, and nothing more: see the module docstring.
+    from aiogram import Bot
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.models import SchoolClass
+```
+  2. Replace the end of `send`, the file's last lines:
+```python
+            log.warning("could not close the bot: %s", type(error).__name__)
+    return delivered
+```
+     with:
+```python
+            log.warning("could not close the bot: %s", type(error).__name__)
+    return delivered
+
+
+async def notify_class(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    text: str,
+    *,
+    kind: str,
+    author: int | None,
+) -> int:
+    """Tell ``school_class``'s subscribers to ``kind`` — all but ``author`` —
+    through one bot built for this notice, and answer how many were told.
+
+    v2's writes register it as an effect (``Call.after_commit``), so it runs
+    once the change is committed, never on a refusal, and with the call's
+    session still open: ``notify_subscribers`` reads the recipients from it,
+    and switches off whoever blocked the bot. ``text`` is HTML, escaped by
+    whoever worded it. Never raises: a bot that cannot be built, a recipient
+    Telegram refuses or a failure on the way is logged, and answered as fewer
+    told, because the change is saved already. With no ``BOT_TOKEN`` nothing
+    is built. The bot is closed whatever happened.
+    """
+    if not get_settings().bot_token:
+        return 0
+    try:
+        bot = build_bot()
+    except Exception:  # noqa: BLE001 - see the docstring
+        log.warning("class %s was not told: no bot could be built", school_class.id, exc_info=True)
+        return 0
+    try:
+        return await notify.notify_subscribers(
+            session, bot, school_class, text, kind=kind, exclude=author
+        )
+    except Exception:  # noqa: BLE001 - see the docstring
+        log.warning("could not notify class %s", school_class.id, exc_info=True)
+        return 0
+    finally:
+        try:
+            await close_bot(bot)
+        except Exception as error:  # noqa: BLE001 - see the docstring
+            log.warning("could not close the bot: %s", type(error).__name__)
+```
+
+  `app.services.notify` imports `models` and `sqlalchemy` at the top and aiogram only inside `notify_subscribers`, so the cold start is unchanged; `tests/test_service_layering.py` holds that `telegram_send` still reaches neither the bot nor a shell.
+
+- [ ] **Step 4: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_telegram_send.py tests/test_announcements.py tests/test_service_layering.py tests/test_cold_start.py tests/test_health_tick.py tests/test_v2_access_request_writes.py
+```
+Expected: all pass; `test_telegram_send.py` has 8 and `test_announcements.py` 7. The walk now finds `telegram_send.notify_class` as well, which `ANNOUNCED_HERE` names; no handler calls it yet. `test_health_tick.py` and `test_v2_access_request_writes.py` hold the module's other two callers, `send` for the self-check and for the notice to one person, unchanged.
+
+- [ ] **Step 5: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 232 source files`.
+
+- [ ] **Step 6: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b5-t3.txt`:
+```text
+Give v2's writes a notice to the class, and teach the walk to find it
+
+telegram_send.notify_class tells a class's subscribers to a kind of
+change, all but the author, through one bot built for the notice: v2's
+handlers register it as an effect, so it runs once their change is
+committed and never on a refusal, with the call's session still open for
+notify_subscribers to read the recipients from. It never raises: a bot
+aiogram will not build, a recipient Telegram refuses or a failure on the
+way is logged, because the change is saved already, and the bot is
+closed whatever happened. v1's edit._tell keeps its own seam, so no v1
+test changes; the rule of who hears what is notify_subscribers', which
+both call.
+
+test_announcements.py found a push to the class by a bare name within
+one file, so a handler in rpc/ calling telegram_send.notify_class would
+have passed unread. Its walk now names every call module:function,
+following another file's functions only through what the file imports,
+and a call in a lambda counts for the function around it. Alone, the new
+walk finds exactly what the old one found; a test of its own holds the
+two things it learned. The comment that said a ninth announcement would
+be a decision, with twelve listed, now says another.
+
+Not covered: no handler registers the notice yet.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/telegram_send.py server/tests/test_telegram_send.py server/tests/test_announcements.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b5-t3.txt
+```
+
+---
+
+### 3b-5 Task 4: `ListHomework` and `GetHomework`, and 3b-5 leaves `STAGES`
+
+Decisions 2, 5, 10 and 14; Rulings 76, 77, 80, 82 and 83.
+
+**Files:**
+- Create: `server/app/rpc/dates.py`, `server/app/rpc/homework.py`, `server/tests/test_v2_homework.py`
+- Modify: `server/app/schemas/homework.py`, `server/app/schemas/__init__.py`, `server/app/rpc/errors.py`, `server/app/rpc/handlers.py`, `server/tests/test_rpc_errors.py`
+
+**Interfaces:**
+- Consumes: Task 2's `clock.window`, `WindowRefused` and its sentences, and `homework.due_between`; `homework.homework_of`; `tasks.homework_ticks`; `wording.UNKNOWN_HOMEWORK_DETAIL`; `validate`.
+- Produces:
+  - `schemas.DateWindowIn(start_date: Date | None, end_date: Date | None)`;
+  - `dates.window(request, today) -> tuple[Date, Date]`;
+  - `homework.list_homework`, `homework.get_homework`, and `homework._message(row, ticked)`, `_ticked(call, rows)`, `_row(call, homework_id)`, which later tasks keep;
+  - `errors.WINDOW_BACKWARDS`, `errors.TABLE[clock.WindowRefused]`;
+  - `test_rpc_errors.STAGES` without `"3b-5"`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_homework.py`:
+```python
+"""``HomeworkService``'s reads: ``ListHomework`` and ``GetHomework``.
+
+v1's ``GET /homework`` over v2, through the same services: the same rows in
+the same order, each with this phone's owner's tick and none for a phone no
+account is behind, in a window that is today and three weeks on when unset
+and sixty-two days at most (``clock.window``). A window v1 refuses is
+``VALIDATION_FAILED`` on the field at fault, in v1's words wherever v1's
+fields are v2's too. Homework of another class is not found. A read writes
+nothing (``docs/specs/2026-10-05-server-v2-design.md``, decision 10).
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta
+
+from app import wording
+from app.contract.lessons.v2.homework_pb import GetHomeworkRequest, ListHomeworkRequest
+from app.models import Homework, HomeworkDone, SchoolClass
+from app.rpc.errors import WINDOW_BACKWARDS
+from app.services import clock
+
+#: The account behind v2_tokens' viewer phone.
+VIEWER = 2001
+MONDAY = date(2026, 9, 7)
+LIST = "HomeworkService/ListHomework"
+GET = "HomeworkService/GetHomework"
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _pin_clock(monkeypatch) -> None:
+    """Monday 7 September, 10:00 in the class's zone, for v1 and v2 alike."""
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+async def _homework(session, school_class, due: date, subject: str = "Алгебра", **fields):
+    item = Homework(
+        class_id=school_class.id, due_date=due, subject_name=subject, text="№ 12–15", **fields
+    )
+    session.add(item)
+    await session.commit()
+    return item
+
+
+async def test_the_homework_is_v1_s_in_v2_s_shape(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    tuesday = MONDAY + timedelta(days=1)
+    physics = await _homework(
+        session, school_class, tuesday, "Физика", attachment_url="https://example.com/p.pdf"
+    )
+    await _homework(session, school_class, tuesday, "Алгебра")
+    await _homework(session, school_class, MONDAY, "История")
+    await _homework(session, school_class, MONDAY + timedelta(days=40), "Химия")
+    session.add(HomeworkDone(homework_id=physics.id, telegram_id=VIEWER))
+    await session.commit()
+    viewer = v2_tokens["viewer"]
+    v1 = (await v2.http.get("/api/v1/homework", headers=_auth(viewer))).json()
+
+    rows = (await v2.both(LIST, token=viewer)).message.homework
+    # Today and three weeks on, by date and then subject, as v1 lists them.
+    assert [row.id for row in rows] == [row["id"] for row in v1]
+    assert [(row.due_date, row.subject) for row in rows] == [
+        ("2026-09-07", "История"),
+        ("2026-09-08", "Алгебра"),
+        ("2026-09-08", "Физика"),
+    ]
+    assert (rows[2].text, rows[2].attachment_url) == ("№ 12–15", "https://example.com/p.pdf")
+    assert not rows[0].has_field("attachment_url")
+    assert [row.done for row in rows] == [row["done"] for row in v1] == [False, False, True]
+    # The tick is this phone's owner's: the class code's phone has none.
+    unlinked = (await v2.both(LIST, token=v2_tokens["unlinked"])).message.homework
+    assert [row.done for row in unlinked] == [False, False, False]
+
+
+async def test_a_window_named_by_its_edges_is_v1_s_from_and_to(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    for due, subject in (
+        (date(2026, 8, 31), "Вчерашнее"),
+        (MONDAY, "История"),
+        (date(2026, 10, 31), "Химия"),
+    ):
+        await _homework(session, school_class, due, subject)
+    viewer = v2_tokens["viewer"]
+    v1 = await v2.http.get(
+        "/api/v1/homework",
+        params={"from": "2026-09-01", "to": "2026-10-31"},
+        headers=_auth(viewer),
+    )
+    both_edges = await v2.both(
+        LIST, ListHomeworkRequest(start_date="2026-09-01", end_date="2026-10-31"), token=viewer
+    )
+    assert [row.subject for row in both_edges.message.homework] == ["История", "Химия"]
+    assert [row["subject"] for row in v1.json()] == ["История", "Химия"]
+    # Three weeks on from the start named: 21 September, before October's.
+    start_only = await v2.both(LIST, ListHomeworkRequest(start_date="2026-08-31"), token=viewer)
+    assert [row.subject for row in start_only.message.homework] == ["Вчерашнее", "История"]
+
+
+async def test_a_window_v1_refuses_is_refused_on_the_field_at_fault(v2, v2_tokens) -> None:
+    viewer = v2_tokens["viewer"]
+    for sent, field, sentence in (
+        (ListHomeworkRequest(start_date="1999-01-01"), "start_date", clock.DATES_OUT_OF_BOUNDS),
+        (
+            ListHomeworkRequest(start_date="2026-09-10", end_date="2026-09-01"),
+            "end_date",
+            WINDOW_BACKWARDS,
+        ),
+        (
+            ListHomeworkRequest(start_date="2026-09-01", end_date="2026-12-31"),
+            "end_date",
+            clock.WINDOW_TOO_WIDE,
+        ),
+    ):
+        answer = await v2.both(LIST, sent, token=viewer)
+        assert (answer.status, answer.code, answer.reason) == (
+            400,
+            "INVALID_ARGUMENT",
+            "VALIDATION_FAILED",
+        ), field
+        assert (answer.error, answer.violations) == (sentence, [(field, sentence)])
+    # v1 refuses the same windows, in the same words where its fields are v2's.
+    for params, sentence in (
+        ({"from": "1999-01-01"}, clock.DATES_OUT_OF_BOUNDS),
+        ({"from": "2026-09-01", "to": "2026-12-31"}, clock.WINDOW_TOO_WIDE),
+    ):
+        v1 = await v2.http.get("/api/v1/homework", params=params, headers=_auth(viewer))
+        assert (v1.status_code, v1.json()["detail"]) == (422, sentence)
+    # A date that does not parse is refused on its field, as v1 refuses it.
+    unparsed = await v2.both(LIST, ListHomeworkRequest(end_date="2026-13-01"), token=viewer)
+    assert (unparsed.reason, [name for name, _ in unparsed.violations]) == (
+        "VALIDATION_FAILED",
+        ["end_date"],
+    )
+
+
+async def test_one_assignment_is_its_row_and_another_class_s_is_not_found(
+    v2, v2_tokens, session, school_class
+) -> None:
+    own = await _homework(session, school_class, MONDAY)
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = Homework(class_id=other.id, due_date=MONDAY, subject_name="Алгебра", text="№ 1")
+    session.add(foreign)
+    await session.commit()
+    viewer = v2_tokens["viewer"]
+    answer = await v2.both(GET, GetHomeworkRequest(homework_id=own.id), token=viewer)
+    homework = answer.message.homework
+    assert (homework.id, homework.due_date, homework.subject, homework.done) == (
+        own.id,
+        "2026-09-07",
+        "Алгебра",
+        False,
+    )
+    v1 = await v2.http.post(
+        f"/api/v1/homework/{foreign.id}/done", json={"done": True}, headers=_auth(viewer)
+    )
+    for homework_id in (foreign.id, 999_999):
+        refused = await v2.both(GET, GetHomeworkRequest(homework_id=homework_id), token=viewer)
+        assert (refused.status, refused.code, refused.reason, refused.metadata) == (
+            404,
+            "NOT_FOUND",
+            "RESOURCE_NOT_FOUND",
+            {"resource": "homework"},
+        )
+        assert refused.error == v1.json()["detail"] == wording.UNKNOWN_HOMEWORK_DETAIL
+
+
+async def test_reading_homework_writes_nothing_but_the_last_seen(
+    v2, v2_tokens, session, school_class, statement_writes, unexpected_writes, last_seen_rule
+) -> None:
+    own = await _homework(session, school_class, MONDAY)
+    viewer = v2_tokens["viewer"]
+    with statement_writes() as seen:
+        listed = await v2.both(LIST, token=viewer)
+        one = await v2.both(GET, GetHomeworkRequest(homework_id=own.id), token=viewer)
+    assert (listed.status, one.message.homework.id) == (200, own.id)
+    # A write happened, the phone's last call, and nothing else did.
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all(last_seen_rule.match(statement) for statement in seen), seen
+```
+In `server/tests/test_rpc_errors.py`:
+  1. Replace:
+```python
+from app.services import access as access_service
+from app.services import diary as diary_service
+from app.services import directory as directory_service
+from app.services import join, quota, window
+```
+     with:
+```python
+from app.services import access as access_service
+from app.services import clock, join, quota, window
+from app.services import diary as diary_service
+from app.services import directory as directory_service
+```
+  2. Replace:
+```python
+STAGES = {"3b-5", "3b-6", "3b-7", "3b-8"}
+```
+     with:
+```python
+STAGES = {"3b-6", "3b-7", "3b-8"}
+```
+  3. In `HELD_BY`, replace:
+```python
+    tasks_service.HomeworkNotInClass: (
+        "test_v2_tasks.py",
+        "test_a_task_naming_homework_of_another_class_is_refused_on_its_field",
+    ),
+```
+     with:
+```python
+    tasks_service.HomeworkNotInClass: (
+        "test_v2_tasks.py",
+        "test_a_task_naming_homework_of_another_class_is_refused_on_its_field",
+    ),
+    clock.WindowRefused: (
+        "test_v2_homework.py",
+        "test_a_window_v1_refuses_is_refused_on_the_field_at_fault",
+    ),
+```
+Run each file on its own:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_homework.py
+```
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_rpc_errors.py
+```
+Expected: `test_v2_homework.py` does not collect, with `ImportError: cannot import name 'WINDOW_BACKWARDS' from 'app.rpc.errors'`; `test_rpc_errors.py` gives 1 failed and 14 passed, `test_every_row_of_the_table_names_the_test_that_reads_it_back` on `clock.WindowRefused`, a row `HELD_BY` names and `TABLE` lacks. The stage test passes without `"3b-5"`: nothing in `LATER` names it. Keep this output as the evidence.
+
+- [ ] **Step 2: v1's query, as v2 names it.**
+  1. In `server/app/schemas/homework.py`, replace the end of `HomeworkIn`, the file's last lines:
+```python
+    @field_validator("attachment_url")
+    @classmethod
+    def _clean_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = _strip_control_chars(value).strip()
+        return cleaned or None
+```
+     with:
+```python
+    @field_validator("attachment_url")
+    @classmethod
+    def _clean_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = _strip_control_chars(value).strip()
+        return cleaned or None
+
+
+class DateWindowIn(BaseModel):
+    """v1's ``GET /homework`` query, ``from`` and ``to``, as v2's lists name
+    the two: ``ListHomework``, ``ListEvents`` and ``ListSubstitutions``. Parsed
+    as FastAPI parsed v1's, so that both versions take the same dates; the
+    window itself is ``services/clock.window``'s."""
+
+    start_date: Date | None = None
+    end_date: Date | None = None
+```
+  2. In `server/app/schemas/__init__.py`, replace:
+```python
+from app.schemas.homework import (
+    DoneIn,
+    DoneOut,
+    HomeworkIn,
+    HomeworkItemOut,
+)
+```
+     with:
+```python
+from app.schemas.homework import (
+    DateWindowIn,
+    DoneIn,
+    DoneOut,
+    HomeworkIn,
+    HomeworkItemOut,
+)
+```
+     and, in `__all__`, replace:
+```python
+    "ClassPatch",
+    "DayIn",
+```
+     with:
+```python
+    "ClassPatch",
+    "DateWindowIn",
+    "DayIn",
+```
+
+- [ ] **Step 3: The table's row.** In `server/app/rpc/errors.py`:
+  1. Replace:
+```python
+from app.services import access as access_service
+from app.services import diary as diary_service
+from app.services import directory as directory_service
+from app.services import join, quota, window
+```
+     with:
+```python
+from app.services import access as access_service
+from app.services import clock, join, quota, window
+from app.services import diary as diary_service
+from app.services import directory as directory_service
+```
+  2. Replace:
+```python
+CONFIRMATION_MISMATCH = "confirmation does not match the class name"
+```
+     with:
+```python
+CONFIRMATION_MISMATCH = "confirmation does not match the class name"
+
+#: A window that ends before it starts, in v2's lists. v1's sentence names its
+#: own query fields, ``from`` and ``to``, which v2 calls ``start_date`` and
+#: ``end_date``; the window's other two refusals are v1's words (``clock``'s).
+WINDOW_BACKWARDS = "end_date must not precede start_date"
+```
+  3. Replace the end of `_homework_not_in_class`:
+```python
+        violations=[("task.homework_id", wording.HOMEWORK_NOT_IN_CLASS_DETAIL)],
+    )
+```
+     with:
+```python
+        violations=[("task.homework_id", wording.HOMEWORK_NOT_IN_CLASS_DETAIL)],
+    )
+
+
+def _window_refused(error: clock.WindowRefused) -> Refusal:
+    # Every list with a window names its two edges start_date and end_date.
+    sentence = {
+        clock.OUT_OF_BOUNDS: clock.DATES_OUT_OF_BOUNDS,
+        clock.BACKWARDS: WINDOW_BACKWARDS,
+        clock.TOO_WIDE: clock.WINDOW_TOO_WIDE,
+    }[error.why]
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED, sentence, violations=[(f"{error.edge}_date", sentence)]
+    )
+```
+  4. In `TABLE`, replace:
+```python
+    tasks_service.HomeworkNotInClass: _homework_not_in_class,
+}
+```
+     with:
+```python
+    tasks_service.HomeworkNotInClass: _homework_not_in_class,
+    clock.WindowRefused: _window_refused,
+}
+```
+
+- [ ] **Step 4: Create `server/app/rpc/dates.py`:**
+```python
+"""The dates a v2 request names: read as v1 reads them, bounded as ``services/clock`` bounds them.
+
+Lists answer a window of the class's days — ``ListHomework`` and
+``ListEvents``, and from 3b-6 ``ListSubstitutions`` — and writes name a day.
+Written once here, so that no two methods read a date two ways: each is
+parsed by pydantic, as FastAPI parsed v1's, and refused naming its field and
+never its value (``rpc/errors.validate``).
+"""
+
+from __future__ import annotations
+
+from datetime import date as Date
+
+from protobuf import Message
+
+from app.rpc.errors import validate
+from app.schemas import DateWindowIn
+from app.services import clock
+
+
+def window(request: Message, today: Date) -> tuple[Date, Date]:
+    """The first and last day a list request covers, both included.
+
+    Its ``start_date`` and ``end_date`` are ``"YYYY-MM-DD"`` when set, as v1's
+    ``from`` and ``to`` were, and ``clock.window`` decides the rest: today and
+    three weeks on when unset, sixty-two days at most. A date that does not
+    parse is ``VALIDATION_FAILED`` on its field; a window ``clock`` refuses is
+    too, worded by the error table on the edge at fault.
+    """
+    sent = {
+        name: getattr(request, name) if request.has_field(name) else None
+        for name in ("start_date", "end_date")
+    }
+    form = validate(DateWindowIn, sent)
+    return clock.window(form.start_date, form.end_date, today)
+```
+
+- [ ] **Step 5: Create `server/app/rpc/homework.py`**, whose docstring says what the whole service does:
+```python
+"""``HomeworkService``: the class's homework, set by an editor and read by every phone.
+
+v1's ``GET /homework``, ``PUT /homework`` and ``DELETE /homework/{id}`` over
+v2, through the same services (``services/homework.py``). Each row carries
+this phone's owner's tick, and none for a phone no account is behind; the
+window is today and three weeks on when unset, sixty-two days at most
+(``rpc/dates.py``). What v2 does not repeat is v1's upsert by (date,
+subject): ``CreateHomework`` refuses a subject that already has homework that
+day, and ``UpdateHomework`` changes it. Each write is announced to the class's
+subscribers once it is committed, and never when it is refused, in v1's
+words and without its author (``docs/specs/2026-10-05-server-v2-3b-plan.md``,
+3b-5).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from app import wording
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.homework_pb import (
+    GetHomeworkRequest,
+    GetHomeworkResponse,
+    Homework,
+    ListHomeworkRequest,
+    ListHomeworkResponse,
+)
+from app.models import Homework as HomeworkRow
+from app.rpc import dates, values
+from app.rpc.errors import Refusal
+from app.services import clock
+from app.services import homework as homework_service
+from app.services import tasks as tasks_service
+
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+
+def _message(row: HomeworkRow, ticked: set[int]) -> Homework:
+    return Homework(
+        id=row.id,
+        due_date=values.date_string(row.due_date),
+        subject=row.subject_name,
+        text=row.text,
+        attachment_url=row.attachment_url,
+        done=row.id in ticked,
+    )
+
+
+async def _ticked(call: Call, rows: list[HomeworkRow]) -> set[int]:
+    """Which of ``rows`` this phone's owner has ticked off: none for a phone
+    no account is behind, as v1's list answered it."""
+    device, _school_class = call.device_and_class()
+    if device.telegram_id is None:
+        return set()
+    return await tasks_service.homework_ticks(
+        call.session, device.telegram_id, [row.id for row in rows]
+    )
+
+
+async def _row(call: Call, homework_id: int) -> HomeworkRow:
+    """This class's homework ``homework_id``, or ``RESOURCE_NOT_FOUND``: an id
+    of another class's homework finds nothing, as in v1."""
+    _device, school_class = call.device_and_class()
+    row = await homework_service.homework_of(call.session, school_class.id, homework_id)
+    if row is None:
+        raise Refusal(
+            ErrorReason.RESOURCE_NOT_FOUND, wording.UNKNOWN_HOMEWORK_DETAIL, resource="homework"
+        )
+    return row
+
+
+async def list_homework(call: Call, request: ListHomeworkRequest) -> ListHomeworkResponse:
+    """Homework due in a window, by date and then subject: v1's ``GET
+    /homework``. Writes nothing."""
+    _device, school_class = call.device_and_class()
+    start, end = dates.window(request, clock.today(school_class))
+    rows = await homework_service.due_between(call.session, school_class.id, start, end)
+    ticked = await _ticked(call, rows)
+    return ListHomeworkResponse(homework=[_message(row, ticked) for row in rows])
+
+
+async def get_homework(call: Call, request: GetHomeworkRequest) -> GetHomeworkResponse:
+    """One assignment, with this phone's owner's tick. Writes nothing."""
+    row = await _row(call, request.homework_id)
+    return GetHomeworkResponse(homework=_message(row, await _ticked(call, [row])))
+```
+
+- [ ] **Step 6: Serve them.** In `server/app/rpc/handlers.py`:
+  1. In the import of the handler modules, replace:
+```python
+    directory,
+    me,
+```
+     with:
+```python
+    directory,
+    homework,
+    me,
+```
+  2. In `HANDLERS`, replace:
+```python
+    "lessons.v2.DirectoryService/ListSchools": directory.list_schools,
+```
+     with:
+```python
+    "lessons.v2.DirectoryService/ListSchools": directory.list_schools,
+    "lessons.v2.HomeworkService/GetHomework": homework.get_homework,
+    "lessons.v2.HomeworkService/ListHomework": homework.list_homework,
+```
+
+- [ ] **Step 7: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_homework.py tests/test_rpc_errors.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_contract_json.py tests/test_api_extended.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass.
+- `test_v2_homework.py` has 5.
+- The gate test and the no-echo sweep each gain two cases. Both methods are any phone's, so the gate test passes the viewer and the class code's phone through them: an empty `ListHomework` is today's window, and an empty `GetHomework` names the homework 0, `RESOURCE_NOT_FOUND`. The sweep's secret in `startDate` or `endDate` is refused on its field in pydantic's words, which quote nothing; in `homeworkId` or the path, by the decoder.
+- `test_rpc_errors.py` holds the new row by its test, and `STAGES` without `"3b-5"`.
+- `test_service_layering.py` walks `rpc/dates.py` and `rpc/homework.py`, which import no router.
+
+- [ ] **Step 8: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 234 source files`, two more for `rpc/dates.py` and `rpc/homework.py`.
+
+- [ ] **Step 9: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b5-t4.txt`:
+```text
+Serve the class's homework over v2: the list and one assignment
+
+ListHomework is v1's GET /homework over the same services: the same rows
+in the same order, by date and then subject, each with the phone's
+owner's tick and none for a phone no account is behind. Its window is
+read by rpc/dates.py, which parses start_date and end_date as FastAPI
+parsed v1's from and to (schemas.DateWindowIn) and windows them by
+clock.window: today and three weeks on when unset, sixty-two days at
+most. clock.WindowRefused joins the error table as VALIDATION_FAILED on
+start_date or end_date, the edge at fault, in v1's words where v1's
+fields are v2's and in v2's own for an end before its start. GetHomework
+is one assignment; another class's, or none, is RESOURCE_NOT_FOUND in
+v1's words. A read writes nothing but the phone's last call.
+
+3b-5 brings no reason of its own, so it leaves STAGES with its first
+row.
+
+Not covered: the query on Postgres, which orders the subjects by its own
+collation; v1's list ran the same query before it moved.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/schemas/homework.py server/app/schemas/__init__.py server/app/rpc/errors.py server/app/rpc/dates.py server/app/rpc/homework.py server/app/rpc/handlers.py server/tests/test_v2_homework.py server/tests/test_rpc_errors.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b5-t4.txt
+```
+
+---
+
+### 3b-5 Task 5: `CreateHomework`, and v2's first notice to the class
+
+Decisions 2, 4, 5 and 14, and the design's «Risks» on notices; Rulings 17, 68, 70, 72, 76, 77, 80, 83 and 84.
+
+**Files:**
+- Create: `server/tests/test_v2_homework_create.py`
+- Modify: `server/app/services/homework.py`, `server/app/rpc/dates.py`, `server/app/rpc/homework.py`, `server/app/rpc/errors.py`, `server/app/rpc/handlers.py`, `server/tests/conftest.py`, `server/tests/test_rpc_errors.py`, `server/tests/test_announcements.py`
+
+**Interfaces:**
+- Consumes: Task 1's `homework.Saved` and `_announced`; `homework._find` and `subjects.spelling`; Task 3's `telegram_send.notify_class`; Task 4's `_message` and `rpc/dates.py`; `HomeworkIn`; `Call.after_commit`.
+- Produces:
+  - `homework.HomeworkExists(ValueError)`;
+  - `homework.create(session, school_class, actor, due_date, subject, text, *, attachment_url=None) -> Saved`;
+  - `dates.bounded(day, field) -> Date`;
+  - `homework.create_homework`, and `homework._WRITTEN`, `_OPTIONAL`, `_sent(homework, field)`, `_announce(call, notice)`, which Task 6 keeps;
+  - `errors.HOMEWORK_EXISTS`, `errors.TABLE[homework_service.HomeworkExists]`;
+  - in `conftest.py`: `SUBSCRIBERS`, and the fixtures `notices` and `subscribers`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_homework_create.py`:
+```python
+"""``HomeworkService.CreateHomework``: a new assignment, never a second one for a subject on a day.
+
+v1's ``PUT /homework`` over v2, through ``homework.create``: the same cleaning
+by v1's ``HomeworkIn``, the class's spelling of the subject, the same line in
+the journal and the same notice to the class. Where v1 upserted, v2 refuses a
+subject that already has homework that day with ``RESOURCE_EXISTS``. The
+notice is an effect: it goes out once the assignment is committed, never on a
+refusal and never to its author (``docs/specs/2026-10-05-server-v2-design.md``,
+decision 4). A write's success is asked once per transport on fresh data, and
+its refusals through ``both`` (the 3b plan, Ruling 17). The database is read
+from sessions of their own, which see only what is committed.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Any
+
+from sqlalchemy import func, select
+
+from app.contract.lessons.v2.homework_pb import CreateHomeworkRequest, Homework
+from app.db import SessionLocal
+from app.models import AuditEntry, Subject
+from app.models import Homework as HomeworkRow
+from app.rpc.errors import HOMEWORK_EXISTS
+from app.services import audit, clock
+from app.services import homework as homework_service
+
+#: The account behind v2_tokens' editor phone, who writes.
+EDITOR = 2002
+CREATE = "HomeworkService/CreateHomework"
+DUE = "2026-09-14"
+#: 14 September, as people read it on Monday the 7th.
+WHEN = "14 сентября (понедельник)"
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _pin_clock(monkeypatch) -> None:
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+def _create(subject: str, text: str, **fields: Any) -> CreateHomeworkRequest:
+    fields.setdefault("due_date", DUE)
+    return CreateHomeworkRequest(homework=Homework(subject=subject, text=text, **fields))
+
+
+async def _committed(statement: Any) -> Any:
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(statement)
+
+
+async def _rows() -> list[tuple[Any, ...]]:
+    async with SessionLocal() as fresh:
+        rows = await fresh.execute(
+            select(
+                HomeworkRow.due_date,
+                HomeworkRow.subject_name,
+                HomeworkRow.text,
+                HomeworkRow.created_by,
+            ).order_by(HomeworkRow.id)
+        )
+        return [tuple(row) for row in rows]
+
+
+async def _lines() -> list[tuple[str, str]]:
+    async with SessionLocal() as fresh:
+        rows = await fresh.execute(
+            select(AuditEntry.action, AuditEntry.summary).order_by(AuditEntry.id)
+        )
+        return [tuple(row) for row in rows]
+
+
+async def test_a_new_assignment_answers_201_in_the_class_s_spelling_and_is_v1_s_to_read(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    session.add(Subject(class_id=school_class.id, name="Алгебра"))
+    await session.commit()
+    editor = v2_tokens["editor"]
+    rest = await v2.rest(
+        CREATE,
+        _create(
+            "  алгебра ",
+            "№ 12–15\nустно § 4",
+            attachment_url=" https://example.com/p.pdf ",
+            id=777,
+            done=True,
+        ),
+        token=editor,
+    )
+    connect = await v2.connect(CREATE, _create("Физика", "§ 3"), token=editor)
+    assert (rest.status, connect.status) == (201, 200)
+    made = rest.message.homework
+    # The class's spelling, the line breaks kept, the address trimmed; the id
+    # and the tick are the server's.
+    assert (made.due_date, made.subject, made.text, made.attachment_url, made.done) == (
+        DUE,
+        "Алгебра",
+        "№ 12–15\nустно § 4",
+        "https://example.com/p.pdf",
+        False,
+    )
+    assert made.id != 777
+    v1 = await v2.http.get(
+        "/api/v1/homework", params={"from": DUE, "to": DUE}, headers=_auth(editor)
+    )
+    assert [row["id"] for row in v1.json()] == [made.id, connect.message.homework.id]
+    assert await _lines() == [
+        ("homework.add", f"ДЗ добавлено: Алгебра, {WHEN}"),
+        ("homework.add", f"ДЗ добавлено: Физика, {WHEN}"),
+    ]
+
+
+async def test_a_new_assignment_is_announced_after_the_commit_and_not_to_its_author(
+    v2, v2_tokens, notices, subscribers, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    notices.looks = lambda: _committed(select(func.count()).select_from(HomeworkRow))
+    answer = await v2.connect(CREATE, _create("Алгебра", "№ 12–15 <b>"), token=v2_tokens["editor"])
+    assert answer.status == 200
+    notice = f"📝 Задание добавлено: <b>Алгебра</b> {WHEN}\n№ 12–15 &lt;b&gt;"
+    # v1's words, to those who asked for homework but its author, and only
+    # once a session of the bot's own could read the assignment.
+    assert sorted(notices.sent) == [(7001, notice), (7002, notice)]
+    assert notices.saw == [1, 1]
+    assert notices.closed == notices.built == 1
+
+
+async def test_a_subject_that_already_has_homework_that_day_is_refused_as_existing(
+    v2, v2_tokens, session, school_class, notices, subscribers
+) -> None:
+    session.add(Subject(class_id=school_class.id, name="Алгебра"))
+    await session.commit()
+    editor = v2_tokens["editor"]
+    v1 = await v2.http.put(
+        "/api/v1/homework",
+        json={"due_date": DUE, "subject": "Алгебра", "text": "№ 1"},
+        headers=_auth(editor),
+    )
+    assert v1.status_code == 200
+    # v1's own notice, through its own seam, to the two who asked for homework.
+    assert (notices.built, len(notices.sent)) == (1, 2)
+    # In any case: the class's spelling decides sameness, as in v1's upsert.
+    for subject in ("Алгебра", "  АЛГЕБРА "):
+        answer = await v2.both(CREATE, _create(subject, "№ 2"), token=editor)
+        assert (answer.status, answer.code, answer.reason) == (
+            409,
+            "ALREADY_EXISTS",
+            "RESOURCE_EXISTS",
+        ), subject
+        assert (answer.metadata, answer.error) == (
+            {"resource": "homework", "field": "subject"},
+            HOMEWORK_EXISTS,
+        )
+    assert await _rows() == [(date(2026, 9, 14), "Алгебра", "№ 1", EDITOR)]
+    assert [action for action, _ in await _lines()] == ["homework.add"]
+    # The refusals built no bot and told nobody.
+    assert (notices.built, len(notices.sent)) == (1, 2)
+
+
+async def test_a_twin_written_in_the_same_instant_is_refused_as_existing(
+    v2, v2_tokens, session, school_class, notices, subscribers, monkeypatch
+) -> None:
+    """The race, staged as ``test_homework_upsert.py`` stages it: the check
+    answers «nothing here», as it truthfully did a moment earlier, while the
+    twin is already in the table. The insert meets the unique constraint
+    inside its savepoint, and the create is refused as if the check had seen
+    it."""
+    session.add(
+        HomeworkRow(
+            class_id=school_class.id, due_date=date(2026, 9, 14), subject_name="Алгебра", text="№ 1"
+        )
+    )
+    await session.commit()
+    real_find = homework_service._find
+    stale: list[bool] = []
+
+    async def stale_once(*args: Any, **kwargs: Any) -> Any:
+        if not stale:
+            stale.append(True)
+            return None
+        return await real_find(*args, **kwargs)
+
+    monkeypatch.setattr(homework_service, "_find", stale_once)
+    answer = await v2.connect(CREATE, _create("Алгебра", "№ 2"), token=v2_tokens["editor"])
+    assert stale, "the stale read never happened, so nothing was tested"
+    assert (answer.status, answer.reason, answer.error) == (409, "RESOURCE_EXISTS", HOMEWORK_EXISTS)
+    assert await _rows() == [(date(2026, 9, 14), "Алгебра", "№ 1", None)]
+    assert notices.built == 0
+
+
+async def test_a_refused_assignment_is_refused_on_its_field_and_tells_nobody(
+    v2, v2_tokens, notices, subscribers
+) -> None:
+    editor = v2_tokens["editor"]
+    v1 = await v2.http.put(
+        "/api/v1/homework",
+        json={"due_date": "2200-01-01", "subject": "Алгебра", "text": "№ 1"},
+        headers=_auth(editor),
+    )
+    assert (v1.status_code, v1.json()["detail"]) == (422, clock.DATE_OUT_OF_BOUNDS)
+    bounded = await v2.both(CREATE, _create("Алгебра", "№ 1", due_date="2200-01-01"), token=editor)
+    assert (bounded.status, bounded.reason, bounded.error) == (
+        400,
+        "VALIDATION_FAILED",
+        clock.DATE_OUT_OF_BOUNDS,
+    )
+    assert bounded.violations == [("homework.due_date", clock.DATE_OUT_OF_BOUNDS)]
+    for sent, field_name in (
+        (_create("Алгебра", "   "), "homework.text"),
+        (_create("х" * 121, "№ 1"), "homework.subject"),
+        (_create("Алгебра", "№ 1", attachment_url="u" * 501), "homework.attachment_url"),
+        (_create("Алгебра", "№ 1", due_date="14.09.2026"), "homework.due_date"),
+    ):
+        answer = await v2.both(CREATE, sent, token=editor)
+        assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED"), field_name
+        assert [name for name, _ in answer.violations] == [field_name]
+    assert await _committed(select(func.count()).select_from(HomeworkRow)) == 0
+    assert notices.built == 0
+
+
+async def test_an_assignment_that_fails_after_its_row_is_written_leaves_no_row_and_tells_nobody(
+    v2, v2_tokens, notices, subscribers, monkeypatch
+) -> None:
+    """The row goes in through a savepoint, the first write of the call's
+    transaction, and then the journal's line fails. ``invoke``'s one commit
+    makes it all or nothing, and on SQLite that holds now that a savepoint
+    stays inside the transaction as it does on Postgres (#373): before, its
+    release committed the row by itself."""
+
+    async def broken(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("the journal is down")
+
+    monkeypatch.setattr(audit, "record", broken)
+    answer = await v2.connect(CREATE, _create("Алгебра", "№ 1"), token=v2_tokens["editor"])
+    assert (answer.status, answer.code) == (500, "INTERNAL")
+    assert await _committed(select(func.count()).select_from(HomeworkRow)) == 0
+    assert notices.built == 0
+```
+In `server/tests/conftest.py`, which the four write test files of 3b-5 share (Ruling 84):
+  1. Replace:
+```python
+from collections.abc import AsyncIterator, Callable, Iterator
+```
+     with:
+```python
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+```
+  2. Replace the file's last lines:
+```python
+@pytest.fixture
+def last_seen_rule() -> re.Pattern[str]:
+    """The one write a plain authenticated read makes: the device's last call."""
+    return ALLOWED_WRITES[0]
+```
+     with:
+```python
+@pytest.fixture
+def last_seen_rule() -> re.Pattern[str]:
+    """The one write a plain authenticated read makes: the device's last call."""
+    return ALLOWED_WRITES[0]
+
+
+# --------------------------------------------------------------------------
+# v2's notices to the class (stage 3b-5)
+#
+# `notices` is the bot `telegram_send.build_bot` hands out, and `subscribers`
+# the class's people who asked to hear about a kind of change. A test that
+# wants to know whether a change was committed before the class was told sets
+# `notices.looks` to a read from a session of its own: it runs as each message
+# is sent, and what it saw is kept beside the message.
+# --------------------------------------------------------------------------
+
+#: Who asked to hear about what, as ``(notify_changes, notify_homework)``: one
+#: classmate both, one homework only, one changes only, one neither — and
+#: ``v2_tokens``' editor, 2002, who asked for both and is never told of a
+#: change of their own.
+SUBSCRIBERS = {
+    7001: (True, True),
+    7002: (False, True),
+    7003: (True, False),
+    7004: (False, False),
+    2002: (True, True),
+}
+
+
+@dataclass
+class _Notices:
+    """What a bot built for a notice was asked to send, what ``looks`` read at
+    each send, and how often the bot was built and closed."""
+
+    sent: list[tuple[int, str]] = field(default_factory=list)
+    saw: list[Any] = field(default_factory=list)
+    built: int = 0
+    closed: int = 0
+    looks: Callable[[], Awaitable[Any]] | None = None
+
+    async def send_message(self, chat_id: int, text: str, **_: Any) -> None:
+        if self.looks is not None:
+            self.saw.append(await self.looks())
+        self.sent.append((chat_id, text))
+
+    @property
+    def session(self) -> _Notices:
+        return self
+
+    async def close(self) -> None:
+        self.closed += 1
+
+
+@pytest.fixture
+def notices(monkeypatch) -> _Notices:
+    """A deployment with a bot, every send of which the test reads."""
+    from app import telegram_send
+    from app.config import get_settings
+
+    bot = _Notices()
+    monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
+
+    def build() -> _Notices:
+        bot.built += 1
+        return bot
+
+    monkeypatch.setattr(telegram_send, "build_bot", build)
+    return bot
+
+
+@pytest.fixture
+async def subscribers(session, school_class) -> dict[int, tuple[bool, bool]]:
+    """``SUBSCRIBERS``, in ``school_class``."""
+    from app.models import ReminderSettings
+
+    for telegram_id, (changes, homework) in SUBSCRIBERS.items():
+        session.add(
+            ReminderSettings(
+                class_id=school_class.id,
+                telegram_id=telegram_id,
+                notify_changes=changes,
+                notify_homework=homework,
+            )
+        )
+    await session.commit()
+    return SUBSCRIBERS
+```
+In `server/tests/test_rpc_errors.py`:
+  1. Replace:
+```python
+from app.services import directory as directory_service
+from app.services import schools as schools_service
+```
+     with:
+```python
+from app.services import directory as directory_service
+from app.services import homework as homework_service
+from app.services import schools as schools_service
+```
+  2. In `HELD_BY`, replace:
+```python
+    clock.WindowRefused: (
+        "test_v2_homework.py",
+        "test_a_window_v1_refuses_is_refused_on_the_field_at_fault",
+    ),
+```
+     with:
+```python
+    clock.WindowRefused: (
+        "test_v2_homework.py",
+        "test_a_window_v1_refuses_is_refused_on_the_field_at_fault",
+    ),
+    homework_service.HomeworkExists: (
+        "test_v2_homework_create.py",
+        "test_a_subject_that_already_has_homework_that_day_is_refused_as_existing",
+    ),
+```
+In `server/tests/test_announcements.py`:
+  1. Replace:
+```python
+from app.config import get_settings
+from app.main import app
+from app.models import BotUser, DeviceToken, Homework, ReminderSettings, Role
+from app.services import linking, notify
+```
+     with:
+```python
+from app.config import get_settings
+from app.contract.lessons.v2 import homework_pb
+from app.main import app
+from app.models import BotUser, DeviceToken, Homework, ReminderSettings, Role
+from app.rpc import homework as rpc_homework
+from app.services import linking, notify
+```
+  2. Replace the end of `test_what_the_api_pushes_grows_by_no_more_than_the_cap`:
+```python
+    short = await save("я")
+    flooded = await save(FLOOD)
+
+    assert len(flooded) - len(short) <= notify.NOTIFY_TEXT_MAX
+    assert FLOOD not in flooded
+```
+     with:
+```python
+    short = await save("я")
+    flooded = await save(FLOOD)
+
+    assert len(flooded) - len(short) <= notify.NOTIFY_TEXT_MAX
+    assert FLOOD not in flooded
+
+
+async def test_what_v2_pushes_grows_by_no_more_than_the_cap(
+    v2, v2_tokens, session, school_class, subscribed, monkeypatch
+):
+    """The same assignment through v2's ``CreateHomework``, whose notice is
+    v1's (``homework.create``) and goes out as an effect after the commit.
+    Each create is the first for its day, so both notices say «добавлено»."""
+    bot = _Bot()
+    monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
+    monkeypatch.setattr(telegram_send, "build_bot", lambda: bot)
+    due = _tomorrow(school_class).isoformat()
+
+    async def create(text: str) -> str:
+        await session.execute(sa_delete(Homework).where(Homework.class_id == school_class.id))
+        await session.commit()
+        answer = await v2.rest(
+            "HomeworkService/CreateHomework",
+            homework_pb.CreateHomeworkRequest(
+                homework=homework_pb.Homework(due_date=due, subject="Алгебра", text=text)
+            ),
+            token=v2_tokens["editor"],
+        )
+        assert answer.status == 201, answer
+        return await _pushed(bot)
+
+    short = await create("я")
+    flooded = await create(FLOOD)
+
+    assert len(flooded) - len(short) <= notify.NOTIFY_TEXT_MAX
+    assert FLOOD not in flooded
+```
+  3. Replace the end of `ANNOUNCED_HERE`:
+```python
+    telegram_send.notify_class: "the effect v2's writes announce through; no text of its own",
+}
+```
+     with:
+```python
+    telegram_send.notify_class: "the effect v2's writes announce through; no text of its own",
+    rpc_homework._announce: "registers that effect for homework; no text of its own",
+    rpc_homework.create_homework: "measured below — v1's words through `homework.create`",
+}
+```
+Run each file on its own:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_homework_create.py
+```
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_rpc_errors.py
+```
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_announcements.py
+```
+Expected: none of the three collects — `test_v2_homework_create.py` on `ImportError: cannot import name 'HOMEWORK_EXISTS' from 'app.rpc.errors'`, `test_rpc_errors.py` on `AttributeError: module 'app.services.homework' has no attribute 'HomeworkExists'`, which `HELD_BY` reads, and `test_announcements.py` on `AttributeError: module 'app.rpc.homework' has no attribute '_announce'`, which `ANNOUNCED_HERE` reads. Keep this output as the evidence.
+
+- [ ] **Step 2: `services/homework.py` gains a create that never replaces.** Replace the end of `put`:
+```python
+    row, created = await upsert(
+        session, school_class.id, due_date, subject, text, actor, attachment_url=attachment_url
+    )
+    return await _announced(session, school_class, actor, row, created=created)
+```
+with:
+```python
+    row, created = await upsert(
+        session, school_class.id, due_date, subject, text, actor, attachment_url=attachment_url
+    )
+    return await _announced(session, school_class, actor, row, created=created)
+
+
+class HomeworkExists(ValueError):
+    """The subject already has an assignment that day: one per subject per
+    day. v2's ``CreateHomework`` and ``UpdateHomework`` refuse with it where
+    v1's ``PUT`` would have replaced the text."""
+
+
+async def create(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    due_date: Date,
+    subject: str,
+    text: str,
+    *,
+    attachment_url: str | None = None,
+) -> Saved:
+    """v2's ``CreateHomework``: a new assignment, never a second one for a
+    subject on a day, with its line in the journal and its notice.
+
+    The subject goes through the dictionary first, as in :func:`upsert`, so
+    «алгебра» finds the «Алгебра» already set. The same pair written by
+    somebody else between the read and the insert meets the unique constraint
+    inside a savepoint, as in :func:`upsert`, and is refused the same way; the
+    caller's transaction goes on. Nothing is committed.
+
+    @raises HomeworkExists when the subject has an assignment that day.
+    """
+    subject_name = await subjects.spelling(session, school_class.id, subject)
+    if await _find(session, school_class.id, due_date, subject_name) is not None:
+        raise HomeworkExists()
+    fresh = Homework(
+        class_id=school_class.id,
+        due_date=due_date,
+        subject_name=subject_name,
+        text=text,
+        attachment_url=attachment_url,
+        created_by=actor,
+    )
+    try:
+        async with session.begin_nested():
+            session.add(fresh)
+            await session.flush()
+    except IntegrityError:
+        raise HomeworkExists() from None
+    return await _announced(session, school_class, actor, fresh, created=True)
+```
+
+- [ ] **Step 3: A written date's bound.** In `server/app/rpc/dates.py`:
+  1. Replace:
+```python
+from protobuf import Message
+
+from app.rpc.errors import validate
+from app.schemas import DateWindowIn
+from app.services import clock
+```
+     with:
+```python
+from protobuf import Message
+
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.rpc.errors import Refusal, validate
+from app.schemas import DateWindowIn
+from app.services import clock
+```
+  2. Replace the end of `window`, the file's last lines:
+```python
+    form = validate(DateWindowIn, sent)
+    return clock.window(form.start_date, form.end_date, today)
+```
+     with:
+```python
+    form = validate(DateWindowIn, sent)
+    return clock.window(form.start_date, form.end_date, today)
+
+
+def bounded(day: Date, field: str) -> Date:
+    """``day``, a date a write names, or ``VALIDATION_FAILED`` on ``field`` in
+    the words of v1's ``_check_date``: the resolver does arithmetic on top of
+    a stored date, and near ``date.max`` that overflows."""
+    if not clock.in_bounds(day):
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED,
+            clock.DATE_OUT_OF_BOUNDS,
+            violations=[(field, clock.DATE_OUT_OF_BOUNDS)],
+        )
+    return day
+```
+
+- [ ] **Step 4: The table's row.** In `server/app/rpc/errors.py`:
+  1. Replace:
+```python
+from app.services import directory as directory_service
+from app.services import schools as schools_service
+```
+     with:
+```python
+from app.services import directory as directory_service
+from app.services import homework as homework_service
+from app.services import schools as schools_service
+```
+  2. Replace:
+```python
+WINDOW_BACKWARDS = "end_date must not precede start_date"
+```
+     with:
+```python
+WINDOW_BACKWARDS = "end_date must not precede start_date"
+
+#: ``CreateHomework`` and ``UpdateHomework``'s refusal of a second assignment
+#: for one subject on one day. v1 has no sentence to share: its ``PUT``
+#: replaced the text instead.
+HOMEWORK_EXISTS = "this subject already has homework that day; change that one instead"
+```
+  3. Replace the end of `_window_refused`:
+```python
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED, sentence, violations=[(f"{error.edge}_date", sentence)]
+    )
+```
+     with:
+```python
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED, sentence, violations=[(f"{error.edge}_date", sentence)]
+    )
+
+
+def _homework_exists(_error: homework_service.HomeworkExists) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_EXISTS, HOMEWORK_EXISTS, resource="homework", field="subject"
+    )
+```
+  4. In `TABLE`, replace:
+```python
+    clock.WindowRefused: _window_refused,
+}
+```
+     with:
+```python
+    clock.WindowRefused: _window_refused,
+    homework_service.HomeworkExists: _homework_exists,
+}
+```
+
+- [ ] **Step 5: The create, and its notice.** In `server/app/rpc/homework.py`:
+  1. Replace the imports Task 4 wrote:
+```python
+from app import wording
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.homework_pb import (
+    GetHomeworkRequest,
+    GetHomeworkResponse,
+    Homework,
+    ListHomeworkRequest,
+    ListHomeworkResponse,
+)
+from app.models import Homework as HomeworkRow
+from app.rpc import dates, values
+from app.rpc.errors import Refusal
+from app.services import clock
+```
+     with:
+```python
+from app import telegram_send, wording
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.homework_pb import (
+    CreateHomeworkRequest,
+    CreateHomeworkResponse,
+    GetHomeworkRequest,
+    GetHomeworkResponse,
+    Homework,
+    ListHomeworkRequest,
+    ListHomeworkResponse,
+)
+from app.models import Homework as HomeworkRow
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.schemas import HomeworkIn
+from app.services import clock
+```
+  2. Replace:
+```python
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+
+def _message(row: HomeworkRow, ticked: set[int]) -> Homework:
+```
+     with:
+```python
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+#: What a write reads of a ``Homework``, as v1's ``HomeworkIn`` takes it: the
+#: id and ``done`` are the server's.
+_WRITTEN = ("due_date", "subject", "text", "attachment_url")
+
+#: The ``optional`` field of ``Homework``: unset reads as ``""``, and means none.
+_OPTIONAL = frozenset({"attachment_url"})
+
+
+def _message(row: HomeworkRow, ticked: set[int]) -> Homework:
+```
+  3. Replace the end of `_row`:
+```python
+        raise Refusal(
+            ErrorReason.RESOURCE_NOT_FOUND, wording.UNKNOWN_HOMEWORK_DETAIL, resource="homework"
+        )
+    return row
+```
+     with:
+```python
+        raise Refusal(
+            ErrorReason.RESOURCE_NOT_FOUND, wording.UNKNOWN_HOMEWORK_DETAIL, resource="homework"
+        )
+    return row
+
+
+def _sent(homework: Homework, field: str) -> object:
+    """What a request says of ``field``: ``None`` for the ``optional`` one it
+    leaves unset, since protobuf-py reads an unset string as ``""``."""
+    if field in _OPTIONAL and not homework.has_field(field):
+        return None
+    return getattr(homework, field)
+
+
+def _announce(call: Call, notice: str) -> None:
+    """Tell the class's subscribers to homework, all but the editor who wrote
+    it: v1's notice, as an effect (``telegram_send.notify_class``), so that it
+    goes out once the change is committed and never when it is refused. The
+    values are captured here; the effect reads its recipients from the call's
+    session, which ``invoke`` keeps open for it."""
+    editor, school_class = call.device_and_class()
+    session, author = call.session, editor.telegram_id
+    call.after_commit(
+        lambda: telegram_send.notify_class(
+            session, school_class, notice, kind="homework", author=author
+        )
+    )
+```
+  4. Replace the end of `get_homework`, the file's last lines:
+```python
+    row = await _row(call, request.homework_id)
+    return GetHomeworkResponse(homework=_message(row, await _ticked(call, [row])))
+```
+     with:
+```python
+    row = await _row(call, request.homework_id)
+    return GetHomeworkResponse(homework=_message(row, await _ticked(call, [row])))
+
+
+async def create_homework(call: Call, request: CreateHomeworkRequest) -> CreateHomeworkResponse:
+    """A new assignment, cleaned and checked by v1's ``HomeworkIn``: a date
+    inside the bounds v1 holds a write to, a subject of 1 to 120 characters
+    stored in the class's spelling, a text of 1 to 4000 with its line breaks,
+    and an address of up to 500. A subject that already has homework that day
+    is ``RESOURCE_EXISTS``, where v1's ``PUT`` replaced its text;
+    ``UpdateHomework`` changes it. The id and ``done`` a client sends are
+    ignored. Announced once committed; REST answers 201."""
+    editor, school_class = call.device_and_class()
+    sent = request.homework if request.homework is not None else Homework()
+    form = validate(HomeworkIn, {name: _sent(sent, name) for name in _WRITTEN}, at="homework.")
+    dates.bounded(form.due_date, "homework.due_date")
+    saved = await homework_service.create(
+        call.session,
+        school_class,
+        editor.telegram_id,
+        form.due_date,
+        form.subject,
+        form.text,
+        attachment_url=form.attachment_url,
+    )
+    _announce(call, saved.notice)
+    # Nobody has ticked an assignment that did not exist a moment ago.
+    return CreateHomeworkResponse(homework=_message(saved.homework, set()))
+```
+
+  `_announce` passes `call.after_commit` a `lambda`, not a nested `def`: `test_announcements.py`'s walk counts a call in a `lambda` for the function around it, and a nested function would be a name the module does not hand out, which it fails on (Ruling 71).
+
+- [ ] **Step 6: Serve it.** In `server/app/rpc/handlers.py`'s `HANDLERS`, replace:
+```python
+    "lessons.v2.HomeworkService/GetHomework": homework.get_homework,
+```
+with:
+```python
+    "lessons.v2.HomeworkService/CreateHomework": homework.create_homework,
+    "lessons.v2.HomeworkService/GetHomework": homework.get_homework,
+```
+
+- [ ] **Step 7: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_homework_create.py tests/test_v2_homework.py tests/test_rpc_errors.py tests/test_announcements.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_homework_upsert.py tests/test_services_homework_events.py tests/test_v2_access_request_writes.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass.
+- `test_v2_homework_create.py` has 6, and `test_announcements.py` 8: `test_what_v2_pushes_grows_by_no_more_than_the_cap` measures the v2 notice as the v1 one is measured, and the walk finds `_announce` and `create_homework`, which `ANNOUNCED_HERE` names.
+- The gate test and the no-echo sweep each gain one case. The gate test's empty `CreateHomework` is refused on its fields as the editor, `ROLE_REQUIRED` as the viewer; the sweep's secret in any one field of `homework` makes no valid create and is refused naming fields, never the value.
+- `test_an_assignment_that_fails_after_its_row_is_written_leaves_no_row_and_tells_nobody` is the second test that needs #373 (Ruling 68): on the engine before it, the savepoint's release commits the row, and the call's rollback leaves it.
+- `test_v2_access_request_writes.py` keeps its own `telegram` fixture, which shadows nothing of `conftest.py`'s.
+
+- [ ] **Step 8: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 234 source files`.
+
+- [ ] **Step 9: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b5-t5.txt`:
+```text
+Serve a new assignment over v2, and tell the class once it is saved
+
+CreateHomework is v1's PUT /homework without its upsert, through
+homework.create: cleaned and checked by v1's HomeworkIn, the date held
+to v1's bounds in v1's words (rpc/dates.bounded), the subject in the
+class's spelling, and its line in the journal. A subject that already
+has homework that day is HomeworkExists, which joins the error table as
+RESOURCE_EXISTS with resource homework and field subject; a twin written
+in the same instant meets the unique constraint inside a savepoint and
+is refused the same way. REST answers 201.
+
+The class is told in v1's words, all but the editor, through
+telegram_send.notify_class registered with call.after_commit: once the
+assignment is committed, never on a refusal. test_announcements.py
+measures the v2 notice as it measures v1's and names the two new call
+sites; conftest.py gains the notices and subscribers fixtures the four
+write test files share.
+
+Not covered: Postgres, and a real bot. One new test needs #373: on the
+engine before it, a create that failed after its savepoint kept its row.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/services/homework.py server/app/rpc/dates.py server/app/rpc/homework.py server/app/rpc/errors.py server/app/rpc/handlers.py server/tests/conftest.py server/tests/test_v2_homework_create.py server/tests/test_rpc_errors.py server/tests/test_announcements.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b5-t5.txt
+```
+
+---
+
+### 3b-5 Task 6: `UpdateHomework` and `DeleteHomework`, and what `homework.proto` says of them
+
+Decisions 2, 4, 10 and 14; Rulings 5, 17, 72, 74, 75, 77, 79, 80 and 81.
+
+**Files:**
+- Create: `server/tests/test_v2_homework_writes.py`
+- Modify: `proto/lessons/v2/homework.proto` (comments) and `server/app/contract/**` (regenerated); `server/app/schemas/homework.py`, `server/app/schemas/__init__.py`, `server/app/services/homework.py`, `server/app/rpc/homework.py`, `server/app/rpc/handlers.py`, `server/tests/test_announcements.py`
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b5.sh`
+
+**Interfaces:**
+- Consumes: Task 1's `homework.delete` and `_announced`; Task 5's `HomeworkExists`, `_find`'s check and the savepoint's shape, `_sent`, `_announce`, `_WRITTEN` and `dates.bounded`; Task 4's `_row`, `_ticked` and `_message`; `masks.update_paths` and `NOT_CHANGEABLE`.
+- Produces:
+  - `schemas.HomeworkPatch`, and `schemas/homework.py`'s `_subject`, `_text` and `_url`, the cleanings `HomeworkIn` and `HomeworkPatch` share;
+  - `homework.Saved.notice: str | None`, `homework.COLUMNS`, `homework.update(session, school_class, actor, row, changes) -> Saved`;
+  - `homework.update_homework`, `homework.delete_homework`, `homework.CHANGEABLE`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_homework_writes.py`:
+```python
+"""``HomeworkService``'s changes: ``UpdateHomework`` and ``DeleteHomework``.
+
+v1 changed an assignment by sending it again (``PUT /homework``) and deleted
+it with ``DELETE /homework/{id}``; v2 changes it in place, through
+``homework.update``, and deletes it through ``homework.delete``. The mask is
+read once, by ``masks.update_paths`` (AIP-134): no mask changes what the
+request sets; a masked address left unset is taken away, and a masked date,
+subject or text left unset is refused, because none of them can be cleared.
+Moving an assignment onto a subject that has homework that day is
+``RESOURCE_EXISTS`` (the 3b plan, «Rulings for 3b-5»). Each change is
+announced once committed, in v1's words and never to its author; a change
+that changes nothing writes nothing and tells nobody. A write's success is
+asked once per transport on fresh data, and its refusals through ``both``.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Any
+
+from protobuf.wkt import FieldMask
+from sqlalchemy import func, select
+
+from app import wording
+from app.contract.lessons.v2.homework_pb import (
+    DeleteHomeworkRequest,
+    GetHomeworkRequest,
+    Homework,
+    UpdateHomeworkRequest,
+)
+from app.db import SessionLocal
+from app.models import AuditEntry, HomeworkDone, PersonalTask, SchoolClass, Subject
+from app.models import Homework as HomeworkRow
+from app.rpc.errors import HOMEWORK_EXISTS
+from app.rpc.masks import NOT_CHANGEABLE
+from app.services import clock
+from app.services import homework as homework_service
+
+#: The accounts behind v2_tokens' viewer and editor phones.
+VIEWER = 2001
+EDITOR = 2002
+UPDATE = "HomeworkService/UpdateHomework"
+DELETE = "HomeworkService/DeleteHomework"
+MONDAY = date(2026, 9, 14)
+TUESDAY = date(2026, 9, 15)
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _pin_clock(monkeypatch) -> None:
+    """Monday 7 September, so the 14th reads as «14 сентября (понедельник)»."""
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+async def _homework(
+    session, school_class, subject: str = "Алгебра", due: date = MONDAY, **fields: Any
+) -> HomeworkRow:
+    row = HomeworkRow(
+        class_id=school_class.id, due_date=due, subject_name=subject, text="№ 12–15", **fields
+    )
+    session.add(row)
+    await session.commit()
+    return row
+
+
+def _update(homework_id: int, *paths: str, **fields: Any) -> UpdateHomeworkRequest:
+    mask = FieldMask(paths=list(paths)) if paths else None
+    return UpdateHomeworkRequest(homework=Homework(id=homework_id, **fields), update_mask=mask)
+
+
+async def _committed(statement: Any) -> Any:
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(statement)
+
+
+async def _columns(homework_id: int) -> tuple[Any, ...]:
+    async with SessionLocal() as fresh:
+        row = await fresh.execute(
+            select(
+                HomeworkRow.due_date,
+                HomeworkRow.subject_name,
+                HomeworkRow.text,
+                HomeworkRow.attachment_url,
+                HomeworkRow.created_by,
+            ).where(HomeworkRow.id == homework_id)
+        )
+        return tuple(row.one())
+
+
+async def _lines() -> list[tuple[str, str]]:
+    async with SessionLocal() as fresh:
+        rows = await fresh.execute(
+            select(AuditEntry.action, AuditEntry.summary).order_by(AuditEntry.id)
+        )
+        return [tuple(row) for row in rows]
+
+
+async def test_an_update_without_a_mask_changes_only_what_it_sends(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    first = await _homework(session, school_class, attachment_url="https://example.com/p.pdf")
+    second = await _homework(session, school_class, "Физика")
+    editor = v2_tokens["editor"]
+    rest = await v2.rest(UPDATE, _update(first.id, text="№ 16"), token=editor)
+    connect = await v2.connect(UPDATE, _update(second.id, due_date="2026-09-15"), token=editor)
+    assert (rest.status, connect.status) == (200, 200)
+    assert await _columns(first.id) == (
+        MONDAY,
+        "Алгебра",
+        "№ 16",
+        "https://example.com/p.pdf",
+        EDITOR,
+    )
+    moved = connect.message.homework
+    assert (moved.due_date, moved.subject, moved.text) == ("2026-09-15", "Физика", "№ 12–15")
+    v1 = await v2.http.get(
+        "/api/v1/homework", params={"from": "2026-09-14", "to": "2026-09-15"}, headers=_auth(editor)
+    )
+    assert [(row["subject"], row["due_date"], row["text"]) for row in v1.json()] == [
+        ("Алгебра", "2026-09-14", "№ 16"),
+        ("Физика", "2026-09-15", "№ 12–15"),
+    ]
+    assert await _lines() == [
+        ("homework.update", "ДЗ обновлено: Алгебра, 14 сентября (понедельник)"),
+        ("homework.update", "ДЗ обновлено: Физика, 15 сентября (вторник)"),
+    ]
+
+
+async def test_a_masked_address_left_out_is_taken_away_but_a_date_a_subject_or_a_text_is_refused(
+    v2, v2_tokens, session, school_class
+) -> None:
+    row = await _homework(session, school_class, attachment_url="https://example.com/p.pdf")
+    editor = v2_tokens["editor"]
+    cleared = await v2.rest(UPDATE, _update(row.id, "attachment_url"), token=editor)
+    assert cleared.status == 200
+    assert not cleared.message.homework.has_field("attachment_url")
+    assert (await _columns(row.id))[3] is None
+    for path in ("due_date", "subject", "text"):
+        refused = await v2.both(UPDATE, _update(row.id, path), token=editor)
+        assert (refused.status, refused.reason) == (400, "VALIDATION_FAILED"), path
+        assert [name for name, _ in refused.violations] == [f"homework.{path}"]
+    bounded = await v2.both(UPDATE, _update(row.id, due_date="2200-01-01"), token=editor)
+    assert bounded.violations == [("homework.due_date", clock.DATE_OUT_OF_BOUNDS)]
+    assert (await _columns(row.id))[:3] == (MONDAY, "Алгебра", "№ 12–15")
+
+
+async def test_moving_an_assignment_onto_a_subject_that_has_homework_that_day_is_refused(
+    v2, v2_tokens, session, school_class, notices, subscribers
+) -> None:
+    session.add(Subject(class_id=school_class.id, name="Алгебра"))
+    await session.commit()
+    algebra = await _homework(session, school_class)
+    physics = await _homework(session, school_class, "Физика")
+    later = await _homework(session, school_class, due=TUESDAY)
+    editor = v2_tokens["editor"]
+    # Onto Monday's «Алгебра» by its subject, in another case, and by its day.
+    for sent in (
+        _update(physics.id, subject=" алгебра "),
+        _update(later.id, due_date="2026-09-14"),
+    ):
+        refused = await v2.both(UPDATE, sent, token=editor)
+        assert (refused.status, refused.code, refused.reason) == (
+            409,
+            "ALREADY_EXISTS",
+            "RESOURCE_EXISTS",
+        )
+        assert (refused.metadata, refused.error) == (
+            {"resource": "homework", "field": "subject"},
+            HOMEWORK_EXISTS,
+        )
+    assert (await _columns(physics.id))[:2] == (MONDAY, "Физика")
+    assert (await _columns(later.id))[:2] == (TUESDAY, "Алгебра")
+    assert await _lines() == []
+    assert notices.built == 0
+    # Its own subject in another case is no move: the class's spelling is.
+    same = await v2.connect(UPDATE, _update(algebra.id, subject="АЛГЕБРА"), token=editor)
+    assert (same.status, same.message.homework.subject) == (200, "Алгебра")
+
+
+async def test_a_twin_moved_onto_in_the_same_instant_is_refused_as_existing(
+    v2, v2_tokens, session, school_class, notices, subscribers, monkeypatch
+) -> None:
+    """The move's own race: the check answers «nothing there» while the twin
+    is, and the move meets the unique constraint inside its savepoint and is
+    refused as if the check had seen it."""
+    await _homework(session, school_class)
+    physics = await _homework(session, school_class, "Физика")
+    real_find = homework_service._find
+    stale: list[bool] = []
+
+    async def stale_once(*args: Any, **kwargs: Any) -> Any:
+        if not stale:
+            stale.append(True)
+            return None
+        return await real_find(*args, **kwargs)
+
+    monkeypatch.setattr(homework_service, "_find", stale_once)
+    answer = await v2.connect(
+        UPDATE, _update(physics.id, subject="Алгебра"), token=v2_tokens["editor"]
+    )
+    assert stale, "the stale read never happened, so nothing was tested"
+    assert (answer.status, answer.reason, answer.error) == (409, "RESOURCE_EXISTS", HOMEWORK_EXISTS)
+    assert (await _columns(physics.id))[1] == "Физика"
+    assert await _lines() == []
+    assert notices.built == 0
+
+
+async def test_an_update_is_announced_after_the_commit_on_the_day_it_is_on_now(
+    v2, v2_tokens, session, school_class, notices, subscribers, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    row = await _homework(session, school_class)
+    notices.looks = lambda: _committed(select(HomeworkRow.due_date).where(HomeworkRow.id == row.id))
+    answer = await v2.connect(
+        UPDATE,
+        _update(row.id, "due_date", "text", due_date="2026-09-15", text="№ 16 <i>"),
+        token=v2_tokens["editor"],
+    )
+    assert answer.status == 200
+    notice = "📝 Задание обновлено: <b>Алгебра</b> 15 сентября (вторник)\n№ 16 &lt;i&gt;"
+    # v1's update branch, to those who asked for homework but its author, and
+    # only once the bot's own session read the new day.
+    assert sorted(notices.sent) == [(7001, notice), (7002, notice)]
+    assert notices.saw == [TUESDAY, TUESDAY]
+
+
+async def test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody(
+    v2, v2_tokens, session, school_class, notices, subscribers, statement_writes
+) -> None:
+    """A retried update, or one that sends what is there: no line in the
+    journal and no second notice. The call before it touched the phone's last
+    call, so inside the fifteen minutes there is nothing else it may write."""
+    row = await _homework(session, school_class)
+    editor = v2_tokens["editor"]
+    await v2.rest(
+        "HomeworkService/GetHomework", GetHomeworkRequest(homework_id=row.id), token=editor
+    )
+    with statement_writes() as seen:
+        answer = await v2.both(
+            UPDATE, _update(row.id, subject="Алгебра", text=" № 12–15 "), token=editor
+        )
+    assert (answer.status, answer.message.homework.text) == (200, "№ 12–15")
+    assert seen == []
+    assert notices.built == 0
+
+
+async def test_deleting_an_assignment_takes_its_ticks_with_it_and_announces_it(
+    v2, v2_tokens, session, school_class, notices, subscribers, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    first = await _homework(session, school_class)
+    second = await _homework(session, school_class, "Физика <b>")
+    session.add(HomeworkDone(homework_id=first.id, telegram_id=VIEWER))
+    session.add(
+        PersonalTask(
+            class_id=school_class.id, telegram_id=VIEWER, title="Сделать", homework_id=first.id
+        )
+    )
+    await session.commit()
+    editor = v2_tokens["editor"]
+    rest = await v2.rest(DELETE, DeleteHomeworkRequest(homework_id=first.id), token=editor)
+    connect = await v2.connect(DELETE, DeleteHomeworkRequest(homework_id=second.id), token=editor)
+    assert (rest.status, rest.body, connect.status) == (200, b"{}", 200)
+    assert await _committed(select(func.count()).select_from(HomeworkRow)) == 0
+    assert await _committed(select(func.count()).select_from(HomeworkDone)) == 0
+    # A task made from it stays, without the link.
+    assert await _committed(select(PersonalTask.homework_id)) is None
+    when = "14 сентября (понедельник)"
+    assert await _lines() == [
+        ("homework.delete", f"ДЗ удалено: Алгебра, {when}"),
+        ("homework.delete", f"ДЗ удалено: Физика <b>, {when}"),
+    ]
+    assert sorted(text for _, text in notices.sent) == [
+        f"🗑 Задание удалено: <b>Алгебра</b> {when}",
+        f"🗑 Задание удалено: <b>Алгебра</b> {when}",
+        f"🗑 Задание удалено: <b>Физика &lt;b&gt;</b> {when}",
+        f"🗑 Задание удалено: <b>Физика &lt;b&gt;</b> {when}",
+    ]
+    again = await v2.both(DELETE, DeleteHomeworkRequest(homework_id=first.id), token=editor)
+    assert (again.status, again.reason, again.error) == (
+        404,
+        "RESOURCE_NOT_FOUND",
+        wording.UNKNOWN_HOMEWORK_DETAIL,
+    )
+    assert notices.built == 2
+
+
+async def test_homework_of_another_class_can_be_neither_changed_nor_deleted(
+    v2, v2_tokens, session, notices, subscribers
+) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = HomeworkRow(class_id=other.id, due_date=MONDAY, subject_name="Алгебра", text="№ 1")
+    session.add(foreign)
+    await session.commit()
+    for name, request in (
+        (UPDATE, _update(foreign.id, text="Моё")),
+        (DELETE, DeleteHomeworkRequest(homework_id=foreign.id)),
+    ):
+        answer = await v2.both(name, request, token=v2_tokens["editor"])
+        assert (answer.status, answer.reason, answer.metadata) == (
+            404,
+            "RESOURCE_NOT_FOUND",
+            {"resource": "homework"},
+        ), name
+        assert answer.error == wording.UNKNOWN_HOMEWORK_DETAIL
+    assert (await _columns(foreign.id))[2] == "№ 1"
+    assert notices.built == 0
+
+
+async def test_a_mask_naming_a_field_the_method_does_not_change_is_refused_on_it(
+    v2, v2_tokens, session, school_class
+) -> None:
+    row = await _homework(session, school_class)
+    for path in ("id", "done"):
+        answer = await v2.both(UPDATE, _update(row.id, path, text="x"), token=v2_tokens["editor"])
+        assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED"), path
+        assert answer.violations == [("update_mask", NOT_CHANGEABLE)]
+    assert (await _columns(row.id))[2] == "№ 12–15"
+```
+In `server/tests/test_announcements.py`, replace the end of `ANNOUNCED_HERE`:
+```python
+    rpc_homework.create_homework: "measured below — v1's words through `homework.create`",
+}
+```
+with:
+```python
+    rpc_homework.create_homework: "measured below — v1's words through `homework.create`",
+    rpc_homework.update_homework: "the same words, «обновлено», cut as `homework.create`'s are",
+    rpc_homework.delete_homework: "a stored subject, `max_length=120`",
+}
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_homework_writes.py
+```
+Expected: 9 tests, every one failing because both methods answer `UNIMPLEMENTED`, `501` over REST. `test_announcements.py` does not collect, on `AttributeError: module 'app.rpc.homework' has no attribute 'update_homework'`. Keep this output as the evidence.
+
+- [ ] **Step 2: One cleaning for a create and an update.** In `server/app/schemas/homework.py`, replace `HomeworkIn`:
+```python
+class HomeworkIn(BaseModel):
+    due_date: Date
+    subject: str = Field(min_length=1, max_length=120)
+    text: str = Field(min_length=1, max_length=4000)
+    attachment_url: str | None = Field(default=None, max_length=500)
+
+    @field_validator("subject")
+    @classmethod
+    def _clean_subject(cls, value: str) -> str:
+        cleaned = _strip_control_chars(value).strip()
+        if not cleaned:
+            raise ValueError("subject must not be blank")
+        return cleaned
+
+    @field_validator("text")
+    @classmethod
+    def _clean_text(cls, value: str) -> str:
+        # Line breaks stay: «№ 12–15\nустно § 4» is how homework is written.
+        cleaned = _clean_notes(value)
+        if cleaned is None:
+            raise ValueError("text must not be blank")
+        return cleaned
+
+    @field_validator("attachment_url")
+    @classmethod
+    def _clean_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = _strip_control_chars(value).strip()
+        return cleaned or None
+```
+with:
+```python
+def _subject(value: str | None) -> str:
+    cleaned = _strip_control_chars(value).strip() if value is not None else ""
+    if not cleaned:
+        raise ValueError("subject must not be blank")
+    return cleaned
+
+
+def _text(value: str | None) -> str:
+    # Line breaks stay: «№ 12–15\nустно § 4» is how homework is written.
+    cleaned = _clean_notes(value)
+    if cleaned is None:
+        raise ValueError("text must not be blank")
+    return cleaned
+
+
+def _url(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = _strip_control_chars(value).strip()
+    return cleaned or None
+
+
+class HomeworkIn(BaseModel):
+    due_date: Date
+    subject: str = Field(min_length=1, max_length=120)
+    text: str = Field(min_length=1, max_length=4000)
+    attachment_url: str | None = Field(default=None, max_length=500)
+
+    _clean_subject = field_validator("subject")(_subject)
+    _clean_text = field_validator("text")(_text)
+    _clean_url = field_validator("attachment_url")(_url)
+
+
+class HomeworkPatch(BaseModel):
+    """v2's ``UpdateHomework``: every field optional, and only the ones sent
+    change. ``null`` takes ``attachment_url`` away; the date, the subject and
+    the text cannot be cleared. Each is cleaned as ``HomeworkIn`` cleans it,
+    so that a create and an update take the same words."""
+
+    due_date: Date | None = None
+    subject: str | None = Field(default=None, min_length=1, max_length=120)
+    text: str | None = Field(default=None, min_length=1, max_length=4000)
+    attachment_url: str | None = Field(default=None, max_length=500)
+
+    # An absent field is never validated, so these run only on a value the
+    # client sent: an explicit null is refused while «leave it alone» stays
+    # the default, as ``TaskPatch`` does it.
+    _clean_subject = field_validator("subject")(_subject)
+    _clean_text = field_validator("text")(_text)
+    _clean_url = field_validator("attachment_url")(_url)
+
+    @field_validator("due_date")
+    @classmethod
+    def _date_when_present(cls, value: Date | None) -> Date:
+        if value is None:
+            raise ValueError("due_date must not be null")
+        return value
+```
+In `server/app/schemas/__init__.py`, replace:
+```python
+    HomeworkIn,
+    HomeworkItemOut,
+)
+```
+with:
+```python
+    HomeworkIn,
+    HomeworkItemOut,
+    HomeworkPatch,
+)
+```
+and, in `__all__`, replace:
+```python
+    "HomeworkOut",
+```
+with:
+```python
+    "HomeworkOut",
+    "HomeworkPatch",
+```
+
+`HomeworkIn` cleans exactly as it did: the same three functions, moved out of the class so that `HomeworkPatch` calls them too, and the same sentences.
+
+- [ ] **Step 3: `services/homework.py` gains the update.**
+  1. Replace:
+```python
+from dataclasses import dataclass
+from datetime import date as Date
+
+from sqlalchemy import select
+```
+     with:
+```python
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import date as Date
+from typing import Any
+
+from sqlalchemy import select
+```
+  2. Replace `Saved`:
+```python
+@dataclass(frozen=True)
+class Saved:
+    """An assignment written, whether it is new, and the notice the class is
+    told of it."""
+
+    homework: Homework
+    created: bool
+    notice: str
+```
+     with:
+```python
+@dataclass(frozen=True)
+class Saved:
+    """An assignment written, whether it is new, and the notice the class is
+    told of it: ``None`` when an update changed nothing, so that nobody is
+    told anything."""
+
+    homework: Homework
+    created: bool
+    notice: str | None
+```
+  3. Replace the end of `create`:
+```python
+    except IntegrityError:
+        raise HomeworkExists() from None
+    return await _announced(session, school_class, actor, fresh, created=True)
+```
+     with:
+```python
+    except IntegrityError:
+        raise HomeworkExists() from None
+    return await _announced(session, school_class, actor, fresh, created=True)
+
+
+#: The column each field :func:`update` takes is kept in.
+COLUMNS = {
+    "due_date": "due_date",
+    "subject": "subject_name",
+    "text": "text",
+    "attachment_url": "attachment_url",
+}
+
+
+async def update(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    row: Homework,
+    changes: Mapping[str, Any],
+) -> Saved:
+    """v2's ``UpdateHomework``: change what ``changes`` names — ``due_date``,
+    ``subject``, ``text`` and ``attachment_url`` — and nothing else, with a
+    line in the journal and the notice of v1's update branch, «обновлено», on
+    the date the assignment is on afterwards.
+
+    ``subject`` is stored in the class's spelling, and ``attachment_url``
+    ``None`` takes the address away. Moving the assignment onto a day and a
+    subject another one holds is refused before anything changes, and the
+    same move made by somebody else in the same instant meets the unique
+    constraint inside a savepoint and is refused the same way. A change that
+    leaves every field as it was writes nothing, its line included, and its
+    notice is ``None``: a retried update tells nobody twice. Nothing is
+    committed.
+
+    @raises HomeworkExists when the subject has another assignment that day.
+    """
+    wanted = {COLUMNS[name]: value for name, value in changes.items()}
+    if "subject_name" in wanted:
+        wanted["subject_name"] = await subjects.spelling(
+            session, school_class.id, wanted["subject_name"]
+        )
+    changed = {column: value for column, value in wanted.items() if getattr(row, column) != value}
+    if not changed:
+        return Saved(row, False, None)
+    if {"due_date", "subject_name"} & changed.keys():
+        due_date = changed.get("due_date", row.due_date)
+        subject_name = changed.get("subject_name", row.subject_name)
+        if await _find(session, school_class.id, due_date, subject_name) is not None:
+            raise HomeworkExists()
+    for column, value in changed.items():
+        setattr(row, column, value)
+    row.created_by = actor
+    try:
+        async with session.begin_nested():
+            await session.flush()
+    except IntegrityError:
+        raise HomeworkExists() from None
+    return await _announced(session, school_class, actor, row, created=False)
+```
+
+- [ ] **Step 4: The update and the delete.** In `server/app/rpc/homework.py`:
+  1. Replace, in the imports Task 5 wrote:
+```python
+from app.contract.lessons.v2.homework_pb import (
+    CreateHomeworkRequest,
+    CreateHomeworkResponse,
+    GetHomeworkRequest,
+    GetHomeworkResponse,
+    Homework,
+    ListHomeworkRequest,
+    ListHomeworkResponse,
+)
+from app.models import Homework as HomeworkRow
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.schemas import HomeworkIn
+```
+     with:
+```python
+from app.contract.lessons.v2.homework_pb import (
+    CreateHomeworkRequest,
+    CreateHomeworkResponse,
+    DeleteHomeworkRequest,
+    DeleteHomeworkResponse,
+    GetHomeworkRequest,
+    GetHomeworkResponse,
+    Homework,
+    ListHomeworkRequest,
+    ListHomeworkResponse,
+    UpdateHomeworkRequest,
+    UpdateHomeworkResponse,
+)
+from app.models import Homework as HomeworkRow
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.rpc.masks import update_paths
+from app.schemas import HomeworkIn, HomeworkPatch
+```
+  2. Replace:
+```python
+#: The ``optional`` field of ``Homework``: unset reads as ``""``, and means none.
+_OPTIONAL = frozenset({"attachment_url"})
+```
+     with:
+```python
+#: The ``optional`` field of ``Homework``: unset reads as ``""``, and means none.
+_OPTIONAL = frozenset({"attachment_url"})
+
+#: What ``update_mask`` may name, and nothing more: the proto comment's list,
+#: which is what a create reads. ``homework_service.update`` decides the order.
+CHANGEABLE = _WRITTEN
+```
+  3. Replace the end of `create_homework`, the file's last lines:
+```python
+    _announce(call, saved.notice)
+    # Nobody has ticked an assignment that did not exist a moment ago.
+    return CreateHomeworkResponse(homework=_message(saved.homework, set()))
+```
+     with:
+```python
+    _announce(call, saved.notice)
+    # Nobody has ticked an assignment that did not exist a moment ago.
+    return CreateHomeworkResponse(homework=_message(saved.homework, set()))
+
+
+async def update_homework(call: Call, request: UpdateHomeworkRequest) -> UpdateHomeworkResponse:
+    """Change an assignment's date, subject, text or address, cleaned as a
+    create's are (``HomeworkPatch``); v1 changed one by sending it again.
+
+    The mask is read once, by ``masks.update_paths``: without one, what the
+    request sets changes and nothing else. A masked ``attachment_url`` left
+    unset takes the address away; a masked date, subject or text left unset
+    is refused on its field, because none of them can be cleared. Moving the
+    assignment onto a subject that has homework that day is
+    ``RESOURCE_EXISTS``. Announced once committed, «обновлено» as v1 said it;
+    an update that changes nothing writes nothing and tells nobody.
+    """
+    editor, school_class = call.device_and_class()
+    sent = request.homework if request.homework is not None else Homework()
+    paths = update_paths(request.update_mask, request.homework, CHANGEABLE)
+    patch = validate(HomeworkPatch, {name: _sent(sent, name) for name in paths}, at="homework.")
+    changes = patch.model_dump(exclude_unset=True)
+    if "due_date" in changes:
+        dates.bounded(changes["due_date"], "homework.due_date")
+    row = await _row(call, sent.id)
+    saved = await homework_service.update(
+        call.session, school_class, editor.telegram_id, row, changes
+    )
+    if saved.notice is not None:
+        _announce(call, saved.notice)
+    return UpdateHomeworkResponse(homework=_message(row, await _ticked(call, [row])))
+
+
+async def delete_homework(call: Call, request: DeleteHomeworkRequest) -> DeleteHomeworkResponse:
+    """Delete an assignment, and every tick on it with it: v1's ``DELETE
+    /homework/{id}``. Asked again, it is ``RESOURCE_NOT_FOUND``, as v1's 404
+    was. Announced once committed."""
+    editor, school_class = call.device_and_class()
+    row = await _row(call, request.homework_id)
+    notice = await homework_service.delete(call.session, school_class, editor.telegram_id, row)
+    _announce(call, notice)
+    return DeleteHomeworkResponse()
+```
+
+- [ ] **Step 5: Serve them.** In `server/app/rpc/handlers.py`'s `HANDLERS`, replace:
+```python
+    "lessons.v2.HomeworkService/CreateHomework": homework.create_homework,
+    "lessons.v2.HomeworkService/GetHomework": homework.get_homework,
+    "lessons.v2.HomeworkService/ListHomework": homework.list_homework,
+```
+with:
+```python
+    "lessons.v2.HomeworkService/CreateHomework": homework.create_homework,
+    "lessons.v2.HomeworkService/DeleteHomework": homework.delete_homework,
+    "lessons.v2.HomeworkService/GetHomework": homework.get_homework,
+    "lessons.v2.HomeworkService/ListHomework": homework.list_homework,
+    "lessons.v2.HomeworkService/UpdateHomework": homework.update_homework,
+```
+
+- [ ] **Step 6: What `homework.proto` says of them** (Ruling 79). In `proto/lessons/v2/homework.proto`:
+  1. Replace:
+```protobuf
+  // `update_mask` takes due_date, subject, text and attachment_url; a tick is
+  // MeService's, not this.
+  rpc UpdateHomework(UpdateHomeworkRequest) returns (UpdateHomeworkResponse) {
+```
+     with:
+```protobuf
+  // `update_mask` takes due_date, subject, text and attachment_url; a tick is
+  // MeService's, not this. A path whose field is absent clears it, which only
+  // attachment_url can be: due_date, subject and text cannot be cleared.
+  // Moving it onto a subject that has homework that day is RESOURCE_EXISTS.
+  // Announced to the class's subscribers, unless nothing changed.
+  rpc UpdateHomework(UpdateHomeworkRequest) returns (UpdateHomeworkResponse) {
+```
+  2. Replace:
+```protobuf
+  rpc DeleteHomework(DeleteHomeworkRequest) returns (DeleteHomeworkResponse) {
+```
+     with:
+```protobuf
+  // Every tick on it goes with it. Announced to the class's subscribers.
+  rpc DeleteHomework(DeleteHomeworkRequest) returns (DeleteHomeworkResponse) {
+```
+
+  Then, from `$WT`:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe lint && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe generate && git status --short server/app/contract
+```
+  Expected: `buf lint` prints nothing; `buf generate` rewrites `server/app/contract/` whole, and `git status` names one file, `server/app/contract/lessons/v2/homework_connect.py`, whose four docstrings of `update_homework` gain three lines and whose four of `delete_homework` are new. A method's comment lands in its service's `_connect.py` and nowhere else. Then write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b5.sh`:
+```bash
+#!/bin/bash
+# buf breaking for 3b-5, from a file: the shell refuses `.git#ref` on a command line.
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 || exit 2
+git fetch origin main || exit 2
+/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe breaking --against ".git#ref=origin/main"
+echo "exit=$?"
+```
+  and run it:
+```bash
+bash C:/Users/lumen/.claude/jobs/c9e2d980/tmp/breaking3b5.sh
+```
+  Expected: `exit=0`; a comment breaks nothing.
+
+- [ ] **Step 7: Green, and v1 unchanged.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_homework_writes.py tests/test_v2_homework_create.py tests/test_v2_homework.py tests/test_announcements.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_rpc_masks.py tests/test_rpc_errors.py tests/test_contract.py tests/test_contract_mirror.py tests/test_contract_json.py tests/test_api_extended.py tests/test_hardening.py tests/test_api_manage.py
+```
+Expected: all pass.
+- `test_v2_homework_writes.py` has 9; `test_announcements.py` names the two new call sites.
+- The gate test and the no-echo sweep each gain two cases. An empty `UpdateHomework` reaches `/api/v2/class/homework/0`, reads no path, and is `RESOURCE_NOT_FOUND`; an empty `DeleteHomework` is the same. The sweep's secret in `updateMask` is a path the method does not take, refused without being repeated.
+- `test_api_extended.py`, `test_hardening.py` and `test_api_manage.py` hold `HomeworkIn`'s cleaning, moved out of the class, unedited.
+- `test_contract.py` reads the regenerated file's bindings as before.
+
+- [ ] **Step 8: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 234 source files`.
+
+- [ ] **Step 9: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b5-t6.txt`:
+```text
+Serve changing and deleting an assignment over v2
+
+UpdateHomework changes an assignment in place, where v1 changed one by
+sending it again, through homework.update: its mask read once by
+masks.update_paths, its fields checked by the new HomeworkPatch, which
+cleans with the same three functions HomeworkIn now shares. Without a
+mask, what the request sets changes; a masked attachment_url left unset
+is taken away, and a masked date, subject or text is refused on its
+field, since none can be cleared. Moving it onto a subject that has
+homework that day is RESOURCE_EXISTS, before anything changes or, for a
+racing twin, inside a savepoint. The class is told «обновлено» on the
+day it is on afterwards; an update that changes nothing writes no line
+and tells nobody, so a retry is silent.
+
+DeleteHomework is v1's DELETE /homework/{id} through homework.delete:
+every tick goes with it and a task made from it loses the link, the
+class is told in v1's words, and the same id again is
+RESOURCE_NOT_FOUND.
+
+homework.proto says all of this in comments; only homework_connect.py's
+docstrings are regenerated.
+
+Not covered: Postgres; the race to one pair is staged on SQLite, as
+upsert's is, by a check that answers «nothing there» once.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add proto/lessons/v2/homework.proto server/app/contract server/app/schemas/homework.py server/app/schemas/__init__.py server/app/services/homework.py server/app/rpc/homework.py server/app/rpc/handlers.py server/tests/test_v2_homework_writes.py server/tests/test_announcements.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b5-t6.txt
+```
+
+---
+
+### 3b-5 Task 7: `ListEvents`, `GetEvent` and `CreateEvent`
+
+Decisions 2, 4, 10 and 14; Rulings 17, 70, 76, 77, 78, 82 and 84.
+
+**Files:**
+- Create: `server/app/rpc/event.py`, `server/tests/test_v2_events.py`
+- Modify: `server/app/rpc/handlers.py`, `server/tests/test_announcements.py`
+
+**Interfaces:**
+- Consumes: Task 1's `events.create`, `event_of` and `COVERS_BY_DEFAULT`; Task 2's `events.between`; Task 3's `telegram_send.notify_class`; Tasks 4 and 5's `dates.window` and `dates.bounded`; `wording.UNKNOWN_EVENT_DETAIL`; v1's `EventIn`; `values.date_string` and `time_string`.
+- Produces: `event.list_events`, `event.get_event`, `event.create_event`, `event.KIND_REFUSED`, and `event._WRITTEN`, `_OPTIONAL`, `_KINDS`, `_message(row)`, `_kind(value)`, `_sent(event, field)`, `_row(call, event_id)`, `_announce(call, notice)`, which Task 8 keeps.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_events.py`:
+```python
+"""``EventService``'s reads and ``CreateEvent``.
+
+v1 had no list of events, only ``PUT /events``, which always inserted, and
+the days of ``/bundle``; v2 lists them in the window ``ListHomework`` has, and
+creates them through the same ``events.create`` v1's ``PUT`` now calls: the
+same cleaning by v1's ``EventIn``, the same default for what an event stands
+in for, the same line in the journal and the same notice, which goes out once
+the event is committed, never on a refusal and never to its author. Every
+method is an editor's, the reads included. A write's success is asked once
+per transport on fresh data, and its refusals through ``both``; the database
+is read from sessions of their own.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime, time
+from typing import Any
+
+from sqlalchemy import func, select
+
+from app import wording
+from app.contract.lessons.v2.common_pb import EventKind as ProtoKind
+from app.contract.lessons.v2.event_pb import (
+    CreateEventRequest,
+    Event,
+    GetEventRequest,
+    ListEventsRequest,
+)
+from app.db import SessionLocal
+from app.models import AuditEntry, DayEvent, EventKind, SchoolClass
+from app.rpc.event import KIND_REFUSED
+from app.services import clock
+
+CREATE = "EventService/CreateEvent"
+LIST = "EventService/ListEvents"
+GET = "EventService/GetEvent"
+DAY = "2026-09-14"
+#: 14 September, as people read it on Monday the 7th.
+WHEN = "14 сентября (понедельник)"
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _pin_clock(monkeypatch) -> None:
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+def _create(title: str, starts_at: str = "12:30", ends_at: str = "13:00", **fields: Any):
+    fields.setdefault("date", DAY)
+    return CreateEventRequest(
+        event=Event(title=title, starts_at=starts_at, ends_at=ends_at, **fields)
+    )
+
+
+async def _committed(statement: Any) -> Any:
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(statement)
+
+
+async def _stored() -> list[tuple[Any, ...]]:
+    async with SessionLocal() as fresh:
+        rows = await fresh.execute(
+            select(DayEvent.title, DayEvent.kind, DayEvent.covers_lesson).order_by(DayEvent.id)
+        )
+        return [tuple(row) for row in rows]
+
+
+async def test_the_events_are_v1_s_in_v2_s_shape(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    editor = v2_tokens["editor"]
+    made = {}
+    for day, starts, ends, title, kind, place in (
+        (DAY, "12:30", "13:00", "Экскурсия", "trip", "Эрмитаж"),
+        ("2026-09-08", "11:10", "11:25", "Обед", "canteen", None),
+        ("2026-09-08", "09:00", "09:15", "Линейка", "event", None),
+        ("2026-10-20", "10:00", "11:00", "После окна", "exam", None),
+    ):
+        body = {"date": day, "starts_at": starts, "ends_at": ends, "title": title, "kind": kind}
+        if place:
+            body["location"] = place
+        created = await v2.http.put("/api/v1/events", json=body, headers=_auth(editor))
+        assert created.status_code == 201, created.text
+        made[title] = created.json()["id"]
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    session.add(
+        DayEvent(
+            class_id=other.id,
+            date=date(2026, 9, 8),
+            starts_at=time(10, 0),
+            ends_at=time(10, 30),
+            title="Чужое",
+            kind=EventKind.EVENT,
+        )
+    )
+    await session.commit()
+
+    rows = (await v2.both(LIST, token=editor)).message.events
+    # Today and three weeks on, by date and then the time it starts; this
+    # class's alone.
+    assert [row.title for row in rows] == ["Линейка", "Обед", "Экскурсия"]
+    assert [row.id for row in rows] == [made["Линейка"], made["Обед"], made["Экскурсия"]]
+    lunch, trip = rows[1], rows[2]
+    assert (lunch.date, lunch.starts_at, lunch.ends_at, lunch.kind, lunch.covers_lesson) == (
+        "2026-09-08",
+        "11:10",
+        "11:25",
+        ProtoKind.CANTEEN,
+        False,
+    )
+    assert not lunch.has_field("location")
+    assert (trip.kind, trip.covers_lesson, trip.location) == (ProtoKind.TRIP, True, "Эрмитаж")
+    one = await v2.both(GET, GetEventRequest(event_id=made["Экскурсия"]), token=editor)
+    assert one.message.event == trip
+    wide = await v2.both(
+        LIST, ListEventsRequest(start_date="2026-09-01", end_date="2026-10-31"), token=editor
+    )
+    assert [row.title for row in wide.message.events][-1] == "После окна"
+
+
+async def test_a_window_of_events_is_refused_as_the_homework_s_is(v2, v2_tokens) -> None:
+    answer = await v2.both(
+        LIST, ListEventsRequest(start_date="1999-01-01"), token=v2_tokens["editor"]
+    )
+    assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED")
+    assert answer.violations == [("start_date", clock.DATES_OUT_OF_BOUNDS)]
+
+
+async def test_an_event_of_another_class_or_none_is_not_found(v2, v2_tokens, session) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = DayEvent(
+        class_id=other.id,
+        date=date(2026, 9, 14),
+        starts_at=time(10, 0),
+        ends_at=time(10, 30),
+        title="Чужое",
+        kind=EventKind.EVENT,
+    )
+    session.add(foreign)
+    await session.commit()
+    editor = v2_tokens["editor"]
+    v1 = await v2.http.delete(f"/api/v1/events/{foreign.id}", headers=_auth(editor))
+    assert v1.status_code == 404
+    for event_id in (foreign.id, 999_999):
+        answer = await v2.both(GET, GetEventRequest(event_id=event_id), token=editor)
+        assert (answer.status, answer.code, answer.reason, answer.metadata) == (
+            404,
+            "NOT_FOUND",
+            "RESOURCE_NOT_FOUND",
+            {"resource": "event"},
+        )
+        assert answer.error == v1.json()["detail"] == wording.UNKNOWN_EVENT_DETAIL
+
+
+async def test_reading_events_writes_nothing_but_the_last_seen(
+    v2, v2_tokens, session, school_class, statement_writes, unexpected_writes, last_seen_rule
+) -> None:
+    row = DayEvent(
+        class_id=school_class.id,
+        date=date(2026, 9, 14),
+        starts_at=time(10, 0),
+        ends_at=time(10, 30),
+        title="Линейка",
+        kind=EventKind.EVENT,
+    )
+    session.add(row)
+    await session.commit()
+    editor = v2_tokens["editor"]
+    with statement_writes() as seen:
+        listed = await v2.both(LIST, token=editor)
+        one = await v2.both(GET, GetEventRequest(event_id=row.id), token=editor)
+    assert (listed.status, one.message.event.id) == (200, row.id)
+    # A write happened, the phone's last call, and nothing else did.
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all(last_seen_rule.match(statement) for statement in seen), seen
+
+
+async def test_a_new_event_answers_201_and_stands_in_for_lessons_as_its_kind_means(
+    v2, v2_tokens, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    editor = v2_tokens["editor"]
+    trip = await v2.rest(
+        CREATE, _create("  Экскурсия  в  музей ", kind=ProtoKind.TRIP, id=777), token=editor
+    )
+    assert trip.status == 201
+    made = trip.message.event
+    # One line, single-spaced; the id is the server's.
+    assert (made.title, made.kind, made.covers_lesson) == (
+        "Экскурсия в музей",
+        ProtoKind.TRIP,
+        True,
+    )
+    assert made.id != 777
+    for request in (
+        _create("Обед", "11:10", "11:25", kind=ProtoKind.CANTEEN),
+        # Two «Обед» on one day are two breaks.
+        _create("Обед", "11:10", "11:25", kind=ProtoKind.CANTEEN),
+        _create("Поход", kind=ProtoKind.TRIP, covers_lesson=False),
+        # No kind is an event, as v1 defaulted.
+        _create("Концерт"),
+    ):
+        assert (await v2.connect(CREATE, request, token=editor)).status == 200
+    assert await _stored() == [
+        ("Экскурсия в музей", EventKind.TRIP, True),
+        ("Обед", EventKind.CANTEEN, False),
+        ("Обед", EventKind.CANTEEN, False),
+        ("Поход", EventKind.TRIP, False),
+        ("Концерт", EventKind.EVENT, True),
+    ]
+    async with SessionLocal() as fresh:
+        first = await fresh.scalar(select(AuditEntry.summary).order_by(AuditEntry.id))
+    assert first == f"Событие: Экскурсия в музей, {WHEN} 12:30–13:00"
+
+
+async def test_a_new_event_is_announced_after_the_commit_in_v1_s_words(
+    v2, v2_tokens, notices, subscribers, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    editor = v2_tokens["editor"]
+    notices.looks = lambda: _committed(select(func.count()).select_from(DayEvent))
+    answer = await v2.connect(
+        CREATE, _create("Экскурсия", kind=ProtoKind.TRIP, location="<Эрмитаж>"), token=editor
+    )
+    assert answer.status == 200
+    notice = f"📅 Событие: <b>Экскурсия</b> {WHEN}, 12:30–13:00, &lt;Эрмитаж&gt;"
+    # To those who asked to hear about changes but its author, once a session
+    # of the bot's own could read the event.
+    assert sorted(notices.sent) == [(7001, notice), (7003, notice)]
+    assert notices.saw == [1, 1]
+    # v1's PUT of the same event says the same words.
+    v1 = await v2.http.put(
+        "/api/v1/events",
+        json={
+            "date": DAY,
+            "starts_at": "12:30",
+            "ends_at": "13:00",
+            "title": "Экскурсия",
+            "kind": "trip",
+            "location": "<Эрмитаж>",
+        },
+        headers=_auth(editor),
+    )
+    assert v1.status_code == 201
+    assert [text for _, text in notices.sent[2:]] == [notice, notice]
+
+
+async def test_an_event_v1_would_refuse_is_refused_on_its_field_and_tells_nobody(
+    v2, v2_tokens, notices, subscribers
+) -> None:
+    editor = v2_tokens["editor"]
+    v1 = await v2.http.put(
+        "/api/v1/events",
+        json={"date": DAY, "starts_at": "13:00", "ends_at": "12:30", "title": "x"},
+        headers=_auth(editor),
+    )
+    assert v1.status_code == 422
+    for request, field_name in (
+        (_create("x", "13:00", "12:30"), "event"),
+        (_create("x", date="2200-01-01"), "event.date"),
+        (_create("   "), "event.title"),
+        (_create("x", location="м" * 121), "event.location"),
+        (_create("x", "25:00"), "event.starts_at"),
+    ):
+        answer = await v2.both(CREATE, request, token=editor)
+        assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED"), field_name
+        assert [name for name, _ in answer.violations] == [field_name]
+    assert await _committed(select(func.count()).select_from(DayEvent)) == 0
+    assert notices.built == 0
+
+
+async def test_a_kind_no_value_names_is_refused_on_its_field(v2, v2_tokens) -> None:
+    """A number ``EventKind`` does not name reaches the handler in the binary
+    encoding, which keeps it. Read as JSON it never arrives: both transports
+    ignore unknown values, and the request reads as naming no kind."""
+    answer = await v2.connect(
+        CREATE, _create("x", kind=ProtoKind(99)), token=v2_tokens["editor"], binary=True
+    )
+    assert (answer.status, answer.code, answer.reason) == (
+        400,
+        "INVALID_ARGUMENT",
+        "VALIDATION_FAILED",
+    )
+    assert answer.violations == [("event.kind", KIND_REFUSED)]
+    assert await _committed(select(func.count()).select_from(DayEvent)) == 0
+```
+In `server/tests/test_announcements.py`:
+  1. Replace:
+```python
+from app.rpc import homework as rpc_homework
+```
+     with:
+```python
+from app.rpc import event as rpc_event
+from app.rpc import homework as rpc_homework
+```
+  2. Replace the end of `ANNOUNCED_HERE`:
+```python
+    rpc_homework.delete_homework: "a stored subject, `max_length=120`",
+}
+```
+     with:
+```python
+    rpc_homework.delete_homework: "a stored subject, `max_length=120`",
+    rpc_event._announce: "registers that effect for changes; no text of its own",
+    rpc_event.create_event: "`title` 200 and `location` 120, `EventIn`'s as v1's",
+}
+```
+Run each file on its own:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_events.py
+```
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_announcements.py
+```
+Expected: neither collects: `test_v2_events.py` on `ModuleNotFoundError: No module named 'app.rpc.event'`, and `test_announcements.py` on `ImportError: cannot import name 'event' from 'app.rpc'`. Keep this output as the evidence.
+
+- [ ] **Step 2: Create `server/app/rpc/event.py`**, whose docstring says what the whole service does:
+```python
+"""``EventService``: the class's events — a trip, an exam, a canteen break.
+
+v1 had ``PUT /events``, which always inserted, and ``DELETE /events/{id}``;
+v2 serves both over the same services (``services/events.py``) and adds a
+list and an update. ``CreateEvent`` is a ``POST``, so that a retried create
+can be told apart from a second event: events have no natural key, and two
+«Обед» on one day are two breaks. Every method is an editor's, the reads
+included, as the contract has them. A «мероприятие» or a trip stands in for
+the lessons it overlaps unless told otherwise, and each write is announced to
+the class's subscribers once it is committed, and never when it is refused,
+in v1's words and without its author
+(``docs/specs/2026-10-05-server-v2-3b-plan.md``, 3b-5).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from app import telegram_send, wording
+from app.contract.lessons.v2 import common_pb
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.event_pb import (
+    CreateEventRequest,
+    CreateEventResponse,
+    Event,
+    GetEventRequest,
+    GetEventResponse,
+    ListEventsRequest,
+    ListEventsResponse,
+)
+from app.models import DayEvent, EventKind
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.schemas import EventIn
+from app.services import clock
+from app.services import events as events_service
+
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+#: What a write reads of an ``Event``, as v1's ``EventIn`` takes it: the id is
+#: the server's.
+_WRITTEN = ("date", "starts_at", "ends_at", "title", "kind", "location", "covers_lesson")
+
+#: The ``optional`` fields of ``Event``: unset means no place, and for
+#: ``covers_lesson`` what the kind means.
+_OPTIONAL = frozenset({"location", "covers_lesson"})
+
+#: v2's kinds and the model's, matched by member name (``rpc/values.py``).
+_KINDS = {common_pb.EventKind[kind.name]: kind for kind in EventKind}
+
+#: A ``kind`` no value of ``EventKind`` names. It arrives in the binary
+#: encoding only: JSON drops an unknown enum value on both transports, and the
+#: request then reads as naming none (the 3b plan, Ruling 41). Fixed, and
+#: naming the field, never the number.
+KIND_REFUSED = "kind is not one of the event kinds"
+
+
+def _message(row: DayEvent) -> Event:
+    return Event(
+        id=row.id,
+        date=values.date_string(row.date),
+        starts_at=values.time_string(row.starts_at),
+        ends_at=values.time_string(row.ends_at),
+        title=row.title,
+        kind=common_pb.EventKind[row.kind.name],
+        location=row.location,
+        covers_lesson=row.covers_lesson,
+    )
+
+
+def _kind(value: common_pb.EventKind) -> str:
+    """v1's name of the kind ``value`` names; unset is an event, as v1's
+    ``EventIn`` defaulted."""
+    if value == common_pb.EventKind.UNSPECIFIED:
+        return EventKind.EVENT.value
+    kind = _KINDS.get(value)
+    if kind is None:
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED, KIND_REFUSED, violations=[("event.kind", KIND_REFUSED)]
+        )
+    return kind.value
+
+
+def _sent(event: Event, field: str) -> object:
+    """What a request says of ``field``, as v1's schemas take it: ``None`` for
+    an ``optional`` one it leaves unset, since protobuf-py reads an unset
+    string as ``""``, and the kind by v1's name."""
+    if field in _OPTIONAL and not event.has_field(field):
+        return None
+    if field == "kind":
+        return _kind(event.kind)
+    return getattr(event, field)
+
+
+async def _row(call: Call, event_id: int) -> DayEvent:
+    """This class's event ``event_id``, or ``RESOURCE_NOT_FOUND``: an id of
+    another class's event finds nothing, as in v1."""
+    _editor, school_class = call.device_and_class()
+    row = await events_service.event_of(call.session, school_class.id, event_id)
+    if row is None:
+        raise Refusal(
+            ErrorReason.RESOURCE_NOT_FOUND, wording.UNKNOWN_EVENT_DETAIL, resource="event"
+        )
+    return row
+
+
+def _announce(call: Call, notice: str) -> None:
+    """Tell the class's subscribers to changes, all but the editor who made
+    it: v1's notice, as an effect (``telegram_send.notify_class``), so that it
+    goes out once the change is committed and never when it is refused."""
+    editor, school_class = call.device_and_class()
+    session, author = call.session, editor.telegram_id
+    call.after_commit(
+        lambda: telegram_send.notify_class(
+            session, school_class, notice, kind="changes", author=author
+        )
+    )
+
+
+async def list_events(call: Call, request: ListEventsRequest) -> ListEventsResponse:
+    """Events on dates in a window, by date and then the time they start:
+    today and three weeks on when unset, sixty-two days at most, as
+    ``ListHomework``'s. Writes nothing."""
+    _editor, school_class = call.device_and_class()
+    start, end = dates.window(request, clock.today(school_class))
+    rows = await events_service.between(call.session, school_class.id, start, end)
+    return ListEventsResponse(events=[_message(row) for row in rows])
+
+
+async def get_event(call: Call, request: GetEventRequest) -> GetEventResponse:
+    """One event. Writes nothing."""
+    return GetEventResponse(event=_message(await _row(call, request.event_id)))
+
+
+async def create_event(call: Call, request: CreateEventRequest) -> CreateEventResponse:
+    """A new event, always, cleaned and checked by v1's ``EventIn``: a date
+    inside the bounds v1 holds a write to, an end after the start, a title of
+    1 to 200 characters on one line, and a place of up to 120. An unset kind
+    is an event, and an unset ``covers_lesson`` what the kind means. The id a
+    client sends is ignored. Announced once committed; REST answers 201."""
+    editor, school_class = call.device_and_class()
+    sent = request.event if request.event is not None else Event()
+    form = validate(EventIn, {name: _sent(sent, name) for name in _WRITTEN}, at="event.")
+    dates.bounded(form.date, "event.date")
+    written = await events_service.create(
+        call.session,
+        school_class,
+        editor.telegram_id,
+        date=form.date,
+        starts_at=form.starts_at,
+        ends_at=form.ends_at,
+        title=form.title,
+        kind=EventKind(form.kind),
+        location=form.location,
+        covers_lesson=form.covers_lesson,
+    )
+    _announce(call, written.notice)
+    return CreateEventResponse(event=_message(written.event))
+```
+
+- [ ] **Step 3: Serve them.** In `server/app/rpc/handlers.py`:
+  1. In the import of the handler modules, replace:
+```python
+    directory,
+    homework,
+```
+     with:
+```python
+    directory,
+    event,
+    homework,
+```
+  2. In `HANDLERS`, replace:
+```python
+    "lessons.v2.DirectoryService/ListSchools": directory.list_schools,
+```
+     with:
+```python
+    "lessons.v2.DirectoryService/ListSchools": directory.list_schools,
+    "lessons.v2.EventService/CreateEvent": event.create_event,
+    "lessons.v2.EventService/GetEvent": event.get_event,
+    "lessons.v2.EventService/ListEvents": event.list_events,
+```
+
+- [ ] **Step 4: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_events.py tests/test_announcements.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_rpc_errors.py tests/test_api_extended.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass.
+- `test_v2_events.py` has 8; `test_announcements.py` names `event._announce` and `create_event`, whose words are `EventIn`'s caps, as v1's are.
+- The gate test and the no-echo sweep each gain three cases. Every method is an editor's, the reads included, so the gate test passes the editor through and refuses the viewer with `ROLE_REQUIRED`. An empty `ListEvents` is today's window; an empty `GetEvent` names the event 0; an empty `CreateEvent` is refused on its fields. The sweep's secret in `event.kind` is a name no value has, which JSON drops, so the request reads as naming no kind and is refused on its other fields.
+- `test_api_extended.py`'s `PUT /events` and `DELETE /events/{id}` pass unedited, and `test_a_new_event_is_announced_after_the_commit_in_v1_s_words` reads v1's notice and v2's as one sentence.
+
+- [ ] **Step 5: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 235 source files`, one more for `rpc/event.py`.
+
+- [ ] **Step 6: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b5-t7.txt`:
+```text
+Serve the class's events over v2: the list, one event, and a new one
+
+ListEvents answers the window ListHomework answers, read by the same
+rpc/dates.window: today and three weeks on when unset, sixty-two days
+at most, by date and then the time an event starts. v1 had no list; it
+had the days of /bundle. GetEvent is one event, and another class's, or
+none, is RESOURCE_NOT_FOUND in v1's words. Every method is an editor's,
+the reads included, as the contract has them.
+
+CreateEvent is v1's PUT /events as a POST, so that a retry can be told
+apart from a second event, through events.create: cleaned and checked
+by v1's EventIn, the date held to v1's bounds, a kind left unset an
+event, and covers_lesson left unset what the kind means. A kind no value
+of EventKind names is refused on event.kind; it arrives in the binary
+encoding only. REST answers 201. The class is told in v1's words, those
+who asked for changes but the editor, once the event is committed.
+
+Not covered: a phone reading the events beside its bundle; no APK calls
+v2 yet.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/rpc/event.py server/app/rpc/handlers.py server/tests/test_v2_events.py server/tests/test_announcements.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b5-t7.txt
+```
+
+---
+
+### 3b-5 Task 8: `UpdateEvent` and `DeleteEvent`, what `event.proto` says of them, and the batch's one full run
+
+Decisions 2, 4, 10 and 14; Rulings 5, 17, 73, 74, 77, 78, 79 and 86.
+
+**Files:**
+- Create: `server/tests/test_v2_event_writes.py`
+- Modify: `proto/lessons/v2/event.proto` (comments) and `server/app/contract/**` (regenerated); `server/app/wording.py`, `server/app/services/events.py`, `server/app/schemas/edit.py`, `server/app/schemas/__init__.py`, `server/app/rpc/event.py`, `server/app/rpc/handlers.py`, `server/tests/test_announcements.py`
+
+**Interfaces:**
+- Consumes: Task 1's `events.delete`, `Written`, `_span` and `COVERS_BY_DEFAULT`; Task 7's `_row`, `_sent`, `_message`, `_announce` and `_WRITTEN`; `dates.bounded`; `masks.update_paths` and `NOT_CHANGEABLE`.
+- Produces:
+  - `wording.event_notice(title, when, span, location, *, changed=False)`;
+  - `events.Written.notice: str | None`, `events.update(session, school_class, actor, event, changes) -> Written`;
+  - `schemas.EventPatch`;
+  - `event.update_event`, `event.delete_event`, `event.CHANGEABLE`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_event_writes.py`:
+```python
+"""``EventService``'s changes: ``UpdateEvent`` and ``DeleteEvent``.
+
+v1 could not change an event, only delete it (``DELETE /events/{id}``); v2
+changes one in place, through ``events.update``, and deletes it through the
+``events.delete`` v1 now calls. The mask is read once, by
+``masks.update_paths`` (AIP-134): no mask changes what the request sets; a
+masked place left unset is taken away, and a masked ``covers_lesson`` goes
+back to what the kind means; a masked date, time or title left unset is
+refused. One time moved is held against the one that stays. An event moved
+to another day is announced once, on its new day (the 3b plan, «Rulings for
+3b-5»); a change that changes nothing writes nothing and tells nobody. A
+write's success is asked once per transport on fresh data, and its refusals
+through ``both``; the database is read from sessions of their own.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime, time
+from typing import Any
+
+from protobuf.wkt import FieldMask
+from sqlalchemy import func, select
+
+from app import wording
+from app.contract.lessons.v2.event_pb import (
+    DeleteEventRequest,
+    Event,
+    GetEventRequest,
+    UpdateEventRequest,
+)
+from app.db import SessionLocal
+from app.models import AuditEntry, DayEvent, EventKind, SchoolClass
+from app.rpc.masks import NOT_CHANGEABLE
+from app.services import clock
+
+UPDATE = "EventService/UpdateEvent"
+DELETE = "EventService/DeleteEvent"
+MONDAY = date(2026, 9, 14)
+
+
+def _pin_clock(monkeypatch) -> None:
+    """Monday 7 September, so the 14th reads as «14 сентября (понедельник)»."""
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+async def _event(session, school_class, **fields: Any) -> DayEvent:
+    row = DayEvent(
+        class_id=fields.pop("class_id", school_class.id),
+        date=fields.pop("date", MONDAY),
+        starts_at=fields.pop("starts_at", time(12, 30)),
+        ends_at=fields.pop("ends_at", time(13, 0)),
+        title=fields.pop("title", "Экскурсия"),
+        kind=fields.pop("kind", EventKind.TRIP),
+        location=fields.pop("location", "Эрмитаж"),
+        covers_lesson=fields.pop("covers_lesson", True),
+    )
+    session.add(row)
+    await session.commit()
+    return row
+
+
+def _update(event_id: int, *paths: str, **fields: Any) -> UpdateEventRequest:
+    mask = FieldMask(paths=list(paths)) if paths else None
+    return UpdateEventRequest(event=Event(id=event_id, **fields), update_mask=mask)
+
+
+async def _committed(statement: Any) -> Any:
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(statement)
+
+
+async def _columns(event_id: int) -> Any:
+    async with SessionLocal() as fresh:
+        rows = await fresh.execute(
+            select(
+                DayEvent.date,
+                DayEvent.starts_at,
+                DayEvent.ends_at,
+                DayEvent.title,
+                DayEvent.kind,
+                DayEvent.location,
+                DayEvent.covers_lesson,
+            ).where(DayEvent.id == event_id)
+        )
+        return rows.one()
+
+
+async def _lines() -> list[tuple[str, str]]:
+    async with SessionLocal() as fresh:
+        rows = await fresh.execute(
+            select(AuditEntry.action, AuditEntry.summary).order_by(AuditEntry.id)
+        )
+        return [tuple(row) for row in rows]
+
+
+async def test_an_update_without_a_mask_changes_only_what_it_sends(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    first = await _event(session, school_class)
+    second = await _event(session, school_class, title="Обед", kind=EventKind.CANTEEN)
+    editor = v2_tokens["editor"]
+    rest = await v2.rest(UPDATE, _update(first.id, title="  Экскурсия  в музей "), token=editor)
+    connect = await v2.connect(UPDATE, _update(second.id, location="Столовая"), token=editor)
+    assert (rest.status, connect.status) == (200, 200)
+    assert tuple(await _columns(first.id)) == (
+        MONDAY,
+        time(12, 30),
+        time(13, 0),
+        "Экскурсия в музей",
+        EventKind.TRIP,
+        "Эрмитаж",
+        True,
+    )
+    assert (connect.message.event.title, connect.message.event.location) == ("Обед", "Столовая")
+    when = "14 сентября (понедельник)"
+    assert await _lines() == [
+        ("event.update", f"Событие изменено: Экскурсия в музей, {when} 12:30–13:00"),
+        ("event.update", f"Событие изменено: Обед, {when} 12:30–13:00"),
+    ]
+
+
+async def test_an_event_moved_to_another_day_is_announced_once_on_its_new_day(
+    v2, v2_tokens, session, school_class, notices, subscribers, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    row = await _event(session, school_class)
+    notices.looks = lambda: _committed(select(DayEvent.date).where(DayEvent.id == row.id))
+    answer = await v2.connect(UPDATE, _update(row.id, date="2026-09-15"), token=v2_tokens["editor"])
+    assert answer.status == 200
+    notice = "📅 Событие изменено: <b>Экскурсия</b> 15 сентября (вторник), 12:30–13:00, Эрмитаж"
+    # Once to each who asked to hear about changes but its author, naming the
+    # new day, and only once the bot's own session read it.
+    assert sorted(notices.sent) == [(7001, notice), (7003, notice)]
+    assert notices.saw == [date(2026, 9, 15)] * 2
+
+
+async def test_one_time_moved_is_held_against_the_time_that_stays(
+    v2, v2_tokens, session, school_class, notices, subscribers
+) -> None:
+    row = await _event(session, school_class)
+    editor = v2_tokens["editor"]
+    for sent in (_update(row.id, starts_at="13:30"), _update(row.id, ends_at="12:00")):
+        refused = await v2.both(UPDATE, sent, token=editor)
+        assert (refused.status, refused.reason) == (400, "VALIDATION_FAILED")
+        assert [name for name, _ in refused.violations] == ["event"]
+    assert (await _columns(row.id))[1:3] == (time(12, 30), time(13, 0))
+    assert notices.built == 0
+    earlier = await v2.rest(UPDATE, _update(row.id, starts_at="11:00"), token=editor)
+    assert (earlier.message.event.starts_at, earlier.message.event.ends_at) == ("11:00", "13:00")
+
+
+async def test_a_masked_field_left_out_clears_the_place_and_gives_the_lessons_back_to_the_kind(
+    v2, v2_tokens, session, school_class
+) -> None:
+    row = await _event(session, school_class, covers_lesson=False)
+    editor = v2_tokens["editor"]
+    cleared = await v2.rest(UPDATE, _update(row.id, "location", "covers_lesson"), token=editor)
+    assert cleared.status == 200
+    assert not cleared.message.event.has_field("location")
+    # A trip stands in for the lessons it overlaps unless told otherwise.
+    assert cleared.message.event.covers_lesson is True
+    for path in ("date", "starts_at", "ends_at", "title"):
+        refused = await v2.both(UPDATE, _update(row.id, path), token=editor)
+        assert (refused.status, refused.reason) == (400, "VALIDATION_FAILED"), path
+        assert [name for name, _ in refused.violations] == [f"event.{path}"]
+    bounded = await v2.both(UPDATE, _update(row.id, date="2200-01-01"), token=editor)
+    assert bounded.violations == [("event.date", clock.DATE_OUT_OF_BOUNDS)]
+    columns = await _columns(row.id)
+    assert (columns.title, columns.location, columns.covers_lesson) == ("Экскурсия", None, True)
+
+
+async def test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody(
+    v2, v2_tokens, session, school_class, notices, subscribers, statement_writes
+) -> None:
+    """A retried update, or one that sends what is there: no line in the
+    journal and no second notice. The call before it touched the phone's last
+    call, so inside the fifteen minutes there is nothing else it may write."""
+    row = await _event(session, school_class)
+    editor = v2_tokens["editor"]
+    await v2.rest("EventService/GetEvent", GetEventRequest(event_id=row.id), token=editor)
+    with statement_writes() as seen:
+        answer = await v2.both(
+            UPDATE, _update(row.id, title="Экскурсия", location=" Эрмитаж "), token=editor
+        )
+    assert (answer.status, answer.message.event.location) == (200, "Эрмитаж")
+    assert seen == []
+    assert notices.built == 0
+
+
+async def test_deleting_an_event_announces_it_and_again_finds_nothing(
+    v2, v2_tokens, session, school_class, notices, subscribers, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    first = await _event(session, school_class)
+    second = await _event(session, school_class, title="Обед <3", kind=EventKind.CANTEEN)
+    editor = v2_tokens["editor"]
+    rest = await v2.rest(DELETE, DeleteEventRequest(event_id=first.id), token=editor)
+    connect = await v2.connect(DELETE, DeleteEventRequest(event_id=second.id), token=editor)
+    assert (rest.status, rest.body, connect.status) == (200, b"{}", 200)
+    assert await _committed(select(func.count()).select_from(DayEvent)) == 0
+    when = "14 сентября (понедельник)"
+    assert await _lines() == [
+        ("event.delete", f"Событие удалено: Экскурсия, {when}"),
+        ("event.delete", f"Событие удалено: Обед <3, {when}"),
+    ]
+    assert sorted(notices.sent) == [
+        (7001, f"🗑 Событие отменено: <b>Обед &lt;3</b> {when}"),
+        (7001, f"🗑 Событие отменено: <b>Экскурсия</b> {when}"),
+        (7003, f"🗑 Событие отменено: <b>Обед &lt;3</b> {when}"),
+        (7003, f"🗑 Событие отменено: <b>Экскурсия</b> {when}"),
+    ]
+    again = await v2.both(DELETE, DeleteEventRequest(event_id=first.id), token=editor)
+    assert (again.status, again.reason, again.error) == (
+        404,
+        "RESOURCE_NOT_FOUND",
+        wording.UNKNOWN_EVENT_DETAIL,
+    )
+    assert notices.built == 2
+
+
+async def test_an_event_of_another_class_can_be_neither_changed_nor_deleted(
+    v2, v2_tokens, session, school_class, notices, subscribers
+) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = await _event(session, school_class, class_id=other.id)
+    for name, request in (
+        (UPDATE, _update(foreign.id, title="Моё")),
+        (DELETE, DeleteEventRequest(event_id=foreign.id)),
+    ):
+        answer = await v2.both(name, request, token=v2_tokens["editor"])
+        assert (answer.status, answer.reason, answer.metadata) == (
+            404,
+            "RESOURCE_NOT_FOUND",
+            {"resource": "event"},
+        ), name
+        assert answer.error == wording.UNKNOWN_EVENT_DETAIL
+    assert (await _columns(foreign.id)).title == "Экскурсия"
+    assert notices.built == 0
+
+
+async def test_a_mask_naming_a_field_the_method_does_not_change_is_refused_on_it(
+    v2, v2_tokens, session, school_class
+) -> None:
+    row = await _event(session, school_class)
+    answer = await v2.both(UPDATE, _update(row.id, "id", title="x"), token=v2_tokens["editor"])
+    assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED")
+    assert answer.violations == [("update_mask", NOT_CHANGEABLE)]
+    assert (await _columns(row.id)).title == "Экскурсия"
+```
+In `server/tests/test_announcements.py`, replace the end of `ANNOUNCED_HERE`:
+```python
+    rpc_event.create_event: "`title` 200 and `location` 120, `EventIn`'s as v1's",
+}
+```
+with:
+```python
+    rpc_event.create_event: "`title` 200 and `location` 120, `EventIn`'s as v1's",
+    rpc_event.update_event: "`title` 200 and `location` 120, `EventPatch`'s",
+    rpc_event.delete_event: "a stored title, `max_length=200`",
+}
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_event_writes.py
+```
+Expected: 8 tests, every one failing because both methods answer `UNIMPLEMENTED`, `501` over REST. `test_announcements.py` does not collect, on `AttributeError: module 'app.rpc.event' has no attribute 'update_event'`. Keep this output as the evidence.
+
+- [ ] **Step 2: An event's change, in words and in `services/events.py`.**
+  1. In `server/app/wording.py`, replace `event_notice`:
+```python
+def event_notice(title: str, when: str, span: str, location: str | None) -> str:
+    """«📅 Событие: …», with its times and its place when it has one."""
+    place = f", {escape(location)}" if location else ""
+    return f"📅 Событие: <b>{escape(title)}</b> {escape(when)}, {span}{place}"
+```
+     with:
+```python
+def event_notice(
+    title: str, when: str, span: str, location: str | None, *, changed: bool = False
+) -> str:
+    """«📅 Событие: …» for a new event, and «📅 Событие изменено: …» for one
+    changed (v2's ``UpdateEvent``; v1 changed none), with its times and its
+    place when it has one, on the day it is on now."""
+    head = "📅 Событие изменено" if changed else "📅 Событие"
+    place = f", {escape(location)}" if location else ""
+    return f"{head}: <b>{escape(title)}</b> {escape(when)}, {span}{place}"
+```
+  2. In `server/app/services/events.py`, replace:
+```python
+from dataclasses import dataclass
+from datetime import date as Date
+from datetime import time as Time
+
+from sqlalchemy import select
+```
+     with:
+```python
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import date as Date
+from datetime import time as Time
+from typing import Any
+
+from sqlalchemy import select
+```
+  3. Replace `Written`:
+```python
+@dataclass(frozen=True)
+class Written:
+    """An event written, and the notice the class is told of it."""
+
+    event: DayEvent
+    notice: str
+```
+     with:
+```python
+@dataclass(frozen=True)
+class Written:
+    """An event written, and the notice the class is told of it: ``None``
+    when an update changed nothing, so that nobody is told anything."""
+
+    event: DayEvent
+    notice: str | None
+```
+  4. Replace the end of `create`:
+```python
+    await session.flush()
+    return Written(event, wording.event_notice(title, when, span, location))
+```
+     with:
+```python
+    await session.flush()
+    return Written(event, wording.event_notice(title, when, span, location))
+
+
+async def update(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    event: DayEvent,
+    changes: Mapping[str, Any],
+) -> Written:
+    """v2's ``UpdateEvent``: change what ``changes`` names — the date, the
+    two times, the title, the kind, the place and what it stands in for — and
+    nothing else, with a line in the journal and one notice on the day the
+    event is on afterwards: an event moved to another day is announced once,
+    on its new one.
+
+    ``location`` ``None`` takes the place away, and ``covers_lesson`` ``None``
+    puts it back to what the kind means afterwards. The caller has held the
+    two times against each other. A change that leaves every field as it was
+    writes nothing, its line included, and its notice is ``None``. Nothing is
+    committed.
+    """
+    wanted = dict(changes)
+    if "covers_lesson" in wanted and wanted["covers_lesson"] is None:
+        wanted["covers_lesson"] = wanted.get("kind", event.kind) in COVERS_BY_DEFAULT
+    changed = {name: value for name, value in wanted.items() if getattr(event, name) != value}
+    if not changed:
+        return Written(event, None)
+    for name, value in changed.items():
+        setattr(event, name, value)
+    when = wording.human_date(event.date, clock.today(school_class))
+    span = _span(event)
+    await audit.record(
+        session,
+        school_class.id,
+        actor,
+        "event.update",
+        f"Событие изменено: {event.title}, {when} {span}",
+    )
+    notice = wording.event_notice(event.title, when, span, event.location, changed=True)
+    return Written(event, notice)
+```
+
+- [ ] **Step 3: `EventPatch`.** In `server/app/schemas/edit.py`:
+  1. Replace:
+```python
+from typing import Literal
+```
+     with:
+```python
+from typing import Any, Literal
+```
+  2. Replace the end of `EventIn`:
+```python
+    @model_validator(mode="after")
+    def _ends_after_start(self) -> EventIn:
+        if self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be after starts_at")
+        return self
+```
+     with:
+```python
+    @model_validator(mode="after")
+    def _ends_after_start(self) -> EventIn:
+        if self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be after starts_at")
+        return self
+
+
+class EventPatch(BaseModel):
+    """v2's ``UpdateEvent``: every field optional, and only the ones sent
+    change. ``null`` takes ``location`` away, and puts ``covers_lesson`` back
+    to what the kind means; the date, the times, the title and the kind
+    cannot be cleared. Cleaned and held as ``EventIn`` holds a new event: the
+    caller sends both times whenever one of them moves, so that the one that
+    stays is held against the one that moves."""
+
+    date: Date | None = None
+    starts_at: Time | None = None
+    ends_at: Time | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    kind: EventKindName | None = None
+    location: str | None = Field(default=None, max_length=120)
+    covers_lesson: bool | None = None
+
+    # An absent field is never validated, so these run only on a value the
+    # client sent: an explicit null is refused while «leave it alone» stays
+    # the default, as ``TaskPatch`` does it.
+    @field_validator("date", "starts_at", "ends_at", "kind")
+    @classmethod
+    def _when_present(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("must not be null")
+        return value
+
+    @field_validator("title")
+    @classmethod
+    def _clean_title(cls, value: str | None) -> str:
+        cleaned = _clean_optional_text(value)
+        if cleaned is None:
+            raise ValueError("title must not be blank")
+        return cleaned
+
+    _clean_location = field_validator("location")(_clean_optional_text)
+
+    @model_validator(mode="after")
+    def _ends_after_start(self) -> EventPatch:
+        starts, ends = self.starts_at, self.ends_at
+        if starts is not None and ends is not None and ends <= starts:
+            raise ValueError("ends_at must be after starts_at")
+        return self
+```
+  3. In `server/app/schemas/__init__.py`, replace:
+```python
+    EventCreatedOut,
+    EventIn,
+    EventKindName,
+```
+     with:
+```python
+    EventCreatedOut,
+    EventIn,
+    EventKindName,
+    EventPatch,
+```
+     and, in `__all__`, replace:
+```python
+    "EventKindName",
+    "EventOut",
+```
+     with:
+```python
+    "EventKindName",
+    "EventOut",
+    "EventPatch",
+```
+
+- [ ] **Step 4: The update and the delete.** In `server/app/rpc/event.py`:
+  1. Replace, in the imports Task 7 wrote:
+```python
+from app.contract.lessons.v2.event_pb import (
+    CreateEventRequest,
+    CreateEventResponse,
+    Event,
+    GetEventRequest,
+    GetEventResponse,
+    ListEventsRequest,
+    ListEventsResponse,
+)
+from app.models import DayEvent, EventKind
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.schemas import EventIn
+```
+     with:
+```python
+from app.contract.lessons.v2.event_pb import (
+    CreateEventRequest,
+    CreateEventResponse,
+    DeleteEventRequest,
+    DeleteEventResponse,
+    Event,
+    GetEventRequest,
+    GetEventResponse,
+    ListEventsRequest,
+    ListEventsResponse,
+    UpdateEventRequest,
+    UpdateEventResponse,
+)
+from app.models import DayEvent, EventKind
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.rpc.masks import update_paths
+from app.schemas import EventIn, EventPatch
+```
+  2. Replace:
+```python
+#: The ``optional`` fields of ``Event``: unset means no place, and for
+#: ``covers_lesson`` what the kind means.
+_OPTIONAL = frozenset({"location", "covers_lesson"})
+```
+     with:
+```python
+#: The ``optional`` fields of ``Event``: unset means no place, and for
+#: ``covers_lesson`` what the kind means.
+_OPTIONAL = frozenset({"location", "covers_lesson"})
+
+#: What ``update_mask`` may name, and nothing more: the proto comment's list,
+#: which is what a create reads. ``events_service.update`` applies it.
+CHANGEABLE = _WRITTEN
+```
+  3. Replace the end of `create_event`, the file's last lines:
+```python
+    _announce(call, written.notice)
+    return CreateEventResponse(event=_message(written.event))
+```
+     with:
+```python
+    _announce(call, written.notice)
+    return CreateEventResponse(event=_message(written.event))
+
+
+async def update_event(call: Call, request: UpdateEventRequest) -> UpdateEventResponse:
+    """Change an event's date, times, title, kind, place, or whether it stands
+    in for lessons, checked as a create is (``EventPatch``).
+
+    The mask is read once, by ``masks.update_paths``: without one, what the
+    request sets changes and nothing else. A masked ``location`` left unset
+    takes the place away, and a masked ``covers_lesson`` left unset puts it
+    back to what the kind means; a masked date, time or title left unset is
+    refused on its field, and a masked kind left unset is an event, as on a
+    create. One time moved is held against the one that stays. Announced once
+    committed, once, on the day the event is on afterwards; an update that
+    changes nothing writes nothing and tells nobody.
+    """
+    editor, school_class = call.device_and_class()
+    sent = request.event if request.event is not None else Event()
+    paths = update_paths(request.update_mask, request.event, CHANGEABLE)
+    data = {name: _sent(sent, name) for name in paths}
+    row = await _row(call, sent.id)
+    if "starts_at" in data or "ends_at" in data:
+        # Both, so that the time that stays is held against the one that moves.
+        data.setdefault("starts_at", row.starts_at)
+        data.setdefault("ends_at", row.ends_at)
+    patch = validate(EventPatch, data, at="event.")
+    changes = patch.model_dump(exclude_unset=True)
+    if "date" in changes:
+        dates.bounded(changes["date"], "event.date")
+    if "kind" in changes:
+        changes["kind"] = EventKind(changes["kind"])
+    written = await events_service.update(
+        call.session, school_class, editor.telegram_id, row, changes
+    )
+    if written.notice is not None:
+        _announce(call, written.notice)
+    return UpdateEventResponse(event=_message(row))
+
+
+async def delete_event(call: Call, request: DeleteEventRequest) -> DeleteEventResponse:
+    """Delete an event: v1's ``DELETE /events/{id}``. Asked again, it is
+    ``RESOURCE_NOT_FOUND``, as v1's 404 was. Announced once committed, in
+    v1's words."""
+    editor, school_class = call.device_and_class()
+    row = await _row(call, request.event_id)
+    notice = await events_service.delete(call.session, school_class, editor.telegram_id, row)
+    _announce(call, notice)
+    return DeleteEventResponse()
+```
+
+  The lookup comes before the validation here, where `UpdateHomework`'s comes after: the time a request leaves alone is the stored one, and `EventPatch` holds the two against each other only when it has both.
+
+- [ ] **Step 5: Serve them.** In `server/app/rpc/handlers.py`'s `HANDLERS`, replace:
+```python
+    "lessons.v2.EventService/CreateEvent": event.create_event,
+    "lessons.v2.EventService/GetEvent": event.get_event,
+    "lessons.v2.EventService/ListEvents": event.list_events,
+```
+with:
+```python
+    "lessons.v2.EventService/CreateEvent": event.create_event,
+    "lessons.v2.EventService/DeleteEvent": event.delete_event,
+    "lessons.v2.EventService/GetEvent": event.get_event,
+    "lessons.v2.EventService/ListEvents": event.list_events,
+    "lessons.v2.EventService/UpdateEvent": event.update_event,
+```
+
+  `HANDLERS` now holds every method of `HomeworkService` and `EventService`, and v2 answers fifty-four methods, beside `WatchClass`'s refusal.
+
+- [ ] **Step 6: What `event.proto` says of them** (Ruling 79). In `proto/lessons/v2/event.proto`:
+  1. Replace:
+```protobuf
+  // `update_mask` takes date, starts_at, ends_at, title, kind, location and
+  // covers_lesson.
+  rpc UpdateEvent(UpdateEventRequest) returns (UpdateEventResponse) {
+```
+     with:
+```protobuf
+  // `update_mask` takes date, starts_at, ends_at, title, kind, location and
+  // covers_lesson. A path whose field is absent clears it: location goes,
+  // covers_lesson goes back to what the kind means, and kind becomes
+  // EVENT_KIND_EVENT; date, starts_at, ends_at and title cannot be cleared. A
+  // time that moves is held against the one that stays. Announced to the
+  // class's subscribers once, on the date it is on afterwards, unless nothing
+  // changed.
+  rpc UpdateEvent(UpdateEventRequest) returns (UpdateEventResponse) {
+```
+  2. Replace:
+```protobuf
+  rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse) {
+```
+     with:
+```protobuf
+  // Announced to the class's subscribers.
+  rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse) {
+```
+
+  Then, from `$WT`:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe lint && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe generate && git status --short server/app/contract
+```
+  Expected: `buf lint` prints nothing; `git status` names one file, `server/app/contract/lessons/v2/event_connect.py`, whose four docstrings of `update_event` gain five lines and whose four of `delete_event` are new. Then:
+```bash
+bash C:/Users/lumen/.claude/jobs/c9e2d980/tmp/breaking3b5.sh
+```
+  Expected: `exit=0`.
+
+- [ ] **Step 7: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_event_writes.py tests/test_v2_events.py tests/test_services_homework_events.py tests/test_announcements.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_rpc_masks.py tests/test_rpc_errors.py tests/test_contract.py tests/test_contract_mirror.py tests/test_contract_json.py tests/test_api_extended.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass.
+- `test_v2_event_writes.py` has 8; `test_announcements.py` names the two new call sites.
+- The gate test and the no-echo sweep each gain two cases. An empty `UpdateEvent` reaches `/api/v2/class/events/0` and is `RESOURCE_NOT_FOUND` at the lookup; an empty `DeleteEvent` is the same.
+- `test_services_homework_events.py` and `test_api_extended.py` hold v1's create notice, «📅 Событие: …», unchanged by `event_notice`'s new keyword.
+
+- [ ] **Step 8: Gates, and the batch's one full run.** ruff: `All checks passed!`. mypy: `Success: no issues found in 235 source files`. Then the controller runs the full suite once, alone — nothing else running, no Gradle, no second test process:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -n 4
+```
+Expected: `B + 78 passed` — `2917 passed` when `B` is 2839 — and its time, which Task 9 writes down. If the count is not `B + 78`, find the test file that moved before anything else.
+
+- [ ] **Step 9: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b5-t8.txt`:
+```text
+Serve changing and deleting an event over v2
+
+UpdateEvent changes an event in place, which v1 could not, through
+events.update: its mask read once by masks.update_paths, its fields
+checked by the new EventPatch, cleaned and held as EventIn holds a new
+event. Without a mask, what the request sets changes; a masked location
+left unset is taken away, a masked covers_lesson goes back to what the
+kind means and a masked kind is an event, and a masked date, time or
+title is refused on its field. One time moved is held against the one
+that stays, in EventIn's words. An event moved to another day is
+announced once, on its new day, «📅 Событие изменено»; an update that
+changes nothing writes no line and tells nobody.
+
+DeleteEvent is v1's DELETE /events/{id} through events.delete: the class
+is told in v1's words, and the same id again is RESOURCE_NOT_FOUND.
+
+event.proto says all of this in comments; only event_connect.py's
+docstrings are regenerated. With these, HomeworkService and EventService
+are served whole, and v2 answers fifty-four methods.
+
+Not covered: two editors changing one event at once; the last write
+wins, as it does for every row here that carries no version.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add proto/lessons/v2/event.proto server/app/contract server/app/wording.py server/app/services/events.py server/app/schemas/edit.py server/app/schemas/__init__.py server/app/rpc/event.py server/app/rpc/handlers.py server/tests/test_v2_event_writes.py server/tests/test_announcements.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b5-t8.txt
+```
+
+---
+
+### 3b-5 Task 9: The documents, the counts, the HANDOVER close-out, and production after the merge
+
+**Files:**
+- Modify: `docs/api.md`, `docs/README.md`, `docs/architecture.md`, `CLAUDE.md`, `README.md`, `docs/specs/2026-10-05-server-v2-3b-plan.md` (the 3b-6 summary), `CONTRIBUTING.md`, `.claude/skills/gates/SKILL.md`, `.claude/agents/server-tests.md`, `HANDOVER.md`, `docs/history.md`
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b5.py` and `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\plan3b5_t9.py`. 3b-3's `counts3b2_3b3.py` and `scan_heads_3b3.py`, in the same folder, whose root is this worktree already, are used again as they are.
+
+**Interfaces:**
+- Consumes:
+  - Tasks 1 to 8, and the numbers of Task 8's full run;
+  - the documents as #376's merge and #373's leave them: «forty-four methods», the counts `B` and 231, and `HANDOVER.md` with its two batch sections, whichever they are by then;
+  - what followed #376's merge and #373's, which the controller hands over at Step 8 for the slot `[AFTER-376]`;
+  - this pull request's number, `#PR`, which exists only once the controller opens it (Step 7), and `#377`.
+- Produces: documents that are true at the moment the pull request merges, and the post-merge read.
+
+The anchors below are `2f99ef6`'s. #373's pull request may have moved a line of `docs/architecture.md`, `CLAUDE.md` or `HANDOVER.md`; where a replacement does not find its text, read the line as it stands and apply the same change to it.
+
+- [ ] **Step 1: Red: the documents still describe 3b-4.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b5.py`:
+```python
+"""Which documents do not yet say what 3b-5 serves (3b-5, Task 9)."""
+
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
+    "C:/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230"
+)
+SAID = {
+    "docs/api.md": [
+        "fifty-four of its methods so far",
+        "**Served beside v1, fifty-four methods so far.**",
+        "### Homework and events",
+        "`UpdateHomework` takes `attachment_url` away",
+        "«end_date must not precede start_date»",
+    ],
+    "docs/README.md": ["served beside v1, fifty-four methods so far"],
+    "README.md": ["| v2 over REST and Connect | fifty-four methods served beside v1"],
+    "docs/architecture.md": [
+        "the homework's and the events' writes",
+        "through `telegram_send.notify_class`",
+    ],
+    "CLAUDE.md": [
+        "a list's `window`",
+        "`create`, `update` and `delete` (one assignment per subject per day",
+        "`dates.py` (a list's window",
+        "`notify_class` for a class's subscribers",
+    ],
+}
+STALE_IN = ["docs/api.md", "docs/README.md", "README.md", "docs/architecture.md", "CLAUDE.md"]
+STALE = re.compile(r"forty-four (?:of its )?methods")
+
+#: The 3b-6 summary, read alone: this task list, which the plan holds too,
+#: quotes the line it gains.
+PLAN = "docs/specs/2026-10-05-server-v2-3b-plan.md"
+SUMMARY = ("\n## 3b-6: ", "\n## 3b-7: ", "through what 3b-5 built")
+
+problems = []
+for name, phrases in SAID.items():
+    text = (ROOT / name).read_text("utf-8")
+    problems += [f"{name}: missing {phrase!r}" for phrase in phrases if phrase not in text]
+for name in STALE_IN:
+    text = (ROOT / name).read_text("utf-8")
+    problems += [f"{name}: still says {match.group(0)!r}" for match in STALE.finditer(text)]
+start, end, said = SUMMARY
+section = (ROOT / PLAN).read_text("utf-8").split(start, 1)[1].split(end, 1)[0]
+if said not in section:
+    problems.append(f"{PLAN}, {start.strip()}: missing {said!r}")
+print("\n".join(problems) or "the documents say what 3b-5 serves")
+sys.exit(1 if problems else 0)
+```
+and run it:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b5.py
+```
+Expected: exit 1, with fourteen `missing` lines — thirteen phrases of the five documents and the 3b-6 summary's line — and four `still says` lines: `docs/api.md` twice, and `docs/README.md` and `README.md` once each. Keep this output as the evidence.
+
+- [ ] **Step 2: `docs/api.md`.**
+  1. In the opening, replace:
+```markdown
+forty-four of its methods so far: «v2: the contract», at the end of this page.
+```
+     with:
+```markdown
+fifty-four of its methods so far: «v2: the contract», at the end of this page.
+```
+  2. Under «v2: the contract», replace:
+```markdown
+**Served beside v1, forty-four methods so far.** Everything above this section is v1, and
+v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
+checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+[the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
+([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
+Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+`ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
+`DirectoryService` methods (3b-3); and the other eleven `MeService` methods, a phone's own
+(3b-4). Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
+credential. No APK calls v2 yet. The proto files are
+```
+     with:
+```markdown
+**Served beside v1, fifty-four methods so far.** Everything above this section is v1, and
+v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
+checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+[the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
+([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
+Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+`ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
+`DirectoryService` methods (3b-3); the other eleven `MeService` methods, a phone's own
+(3b-4); and the five `HomeworkService` methods and the five `EventService` methods (3b-5).
+Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
+credential. No APK calls v2 yet. The proto files are
+```
+  3. Under «Paging and updating», at the end of «An `Update…`», replace:
+```markdown
+  `UpdateTask` refuses `title` or `priority` masked and left unset, on `task.title` or
+  `task.priority`, because neither can be cleared; and since an unset `bool` reads as
+  false, a task is taken back from done only under a mask that names `done`.
+```
+     with:
+```markdown
+  `UpdateTask` refuses `title` or `priority` masked and left unset, on `task.title` or
+  `task.priority`, because neither can be cleared; and since an unset `bool` reads as
+  false, a task is taken back from done only under a mask that names `done`.
+  `UpdateHomework` takes `attachment_url` away when it is masked and left unset, and refuses
+  `due_date`, `subject` or `text` so; `UpdateEvent` takes `location` away, puts
+  `covers_lesson` back to what the kind means and makes `kind` an event, and refuses `date`,
+  `starts_at`, `ends_at` or `title`. An update of either that changes nothing writes nothing
+  and tells nobody.
+```
+  4. At the end of «A phone's own», replace:
+```markdown
+  `DeleteHomeworkTick` set the tick rather than toggle it, so either asked twice lands on the
+  same answer, and homework of another class is `RESOURCE_NOT_FOUND`.
+
+### What the values look like
+```
+     with:
+```markdown
+  `DeleteHomeworkTick` set the tick rather than toggle it, so either asked twice lands on the
+  same answer, and homework of another class is `RESOURCE_NOT_FOUND`.
+
+### Homework and events
+
+- **One assignment per subject per day, and no upsert.** `CreateHomework` refuses a subject
+  that already has homework that day, in the class's spelling of it, with `RESOURCE_EXISTS`
+  (`resource: "homework"`, `field: "subject"`), where v1's `PUT /homework` replaced the text;
+  `UpdateHomework` changes an assignment, and moving it onto a subject that has homework that
+  day is refused the same way. `CreateEvent` always creates: events have no natural key, and
+  two «Обед» on one day are two breaks.
+- **A window of days.** `ListHomework` and `ListEvents` read `start_date` and `end_date` as
+  v1's `/homework` reads `from` and `to`: today and 21 days on when unset, 62 days at most. A
+  window v1 refuses is `VALIDATION_FAILED` on the field at fault, in v1's words, except that
+  an end before its start is «end_date must not precede start_date»: `start_date` for a start
+  out of bounds, or one so near the bound that the end it implies is past it, and `end_date`
+  otherwise. A date a write names is held to the same bounds, in v1's words, on its field.
+- **Who may.** Any phone of the class reads the homework, with its owner's tick on each row
+  and none for a phone no account is behind; the events, the reads included, and every write
+  of both are an editor's, as the contract has them. A `kind` no value of `EventKind` names is
+  `VALIDATION_FAILED` on `event.kind` when it arrives, which is in the binary encoding; in
+  JSON it reads as no kind, an event.
+- **The class is told**, in v1's words and never its author, once the write is committed and
+  never when it is refused: homework to those who asked to hear about homework, events to
+  those who asked to hear about changes. An event moved to another day is announced once, on
+  its new day. A notice Telegram will not deliver is logged and dropped: the write stands.
+  Deleting an assignment takes every tick on it with it, and a task made from it keeps
+  itself without the link.
+
+### What the values look like
+```
+
+- [ ] **Step 3: `docs/README.md`, `README.md`, `docs/architecture.md`, and the 3b-6 summary.**
+  1. In `docs/README.md`'s row for `api.md`, replace:
+```markdown
+served beside v1, forty-four methods so far
+```
+     with:
+```markdown
+served beside v1, fifty-four methods so far
+```
+  2. In `README.md`'s «Honest status», replace the row:
+```markdown
+| v2 over REST and Connect | forty-four methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), and a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+```
+     with:
+```markdown
+| v2 over REST and Connect | fifty-four methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), and the homework and the events, whose notices to the class go out after the commit (3b-5), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+```
+  3. In `docs/architecture.md`, under «v2: one invoke behind two transports», replace:
+```markdown
+order of checks, then a phone's own: its link code and the code's deep link, unlinking
+itself, the feed's address, a task's checks and its patch, and a tick set rather than
+toggled — and the
+```
+     with:
+```markdown
+order of checks, then a phone's own: its link code and the code's deep link, unlinking
+itself, the feed's address, a task's checks and its patch, and a tick set rather than
+toggled, then the homework's and the events' writes, each with its line in the journal and
+its notice, and the window a list of the class's days covers — and the
+```
+     and replace:
+```markdown
+a role, sent through `app/telegram_send.py` once the answer is committed, and never when it
+is refused. Apart from the few writes `rpc/call.py` names, which commit inside themselves on
+```
+     with:
+```markdown
+a role, sent through `app/telegram_send.py` once the answer is committed, and never when it
+is refused. 3b-5's tell the class: a homework or an event written over v2 is announced to the
+class's subscribers through `telegram_send.notify_class`, in v1's words and never to its
+author, and `tests/test_announcements.py` finds those call sites as it finds v1's. Apart from
+the few writes `rpc/call.py` names, which commit inside themselves on
+```
+  4. In this plan, the 3b-6 summary's «Effects» gains what 3b-5 built for it. This task list quotes the line, and the plan holds this task list, so the summary alone is edited, by a script. Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\plan3b5_t9.py`:
+```python
+"""Say in the 3b-6 summary what 3b-5 built for it (3b-5, Task 9).
+
+The summary alone is edited: this task list, which the plan holds too,
+quotes the line it replaces.
+"""
+
+import sys
+from pathlib import Path
+
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
+    "C:/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230"
+)
+PLAN = ROOT / "docs/specs/2026-10-05-server-v2-3b-plan.md"
+START, END = "\n## 3b-6: ", "\n## 3b-7: "
+OLD = '**Effects.** Notices of kind `"changes"`, after the commit:\n'
+NEW = (
+    '**Effects.** Notices of kind `"changes"`, after the commit, through what 3b-5 built:'
+    " `telegram_send.notify_class`, registered by the handler module's own `_announce` in a"
+    " `lambda` passed to `call.after_commit`, which `tests/test_announcements.py`'s walk"
+    " follows through the module's imports and then asks to find in `ANNOUNCED_HERE`;"
+    " `conftest.py`'s `notices` and `subscribers` are what its tests read. `ListSubstitutions`"
+    " reads its window with 3b-5's `rpc/dates.window`, whose refusals the error table already"
+    " words, and a written date is held by `rpc/dates.bounded`, in `clock.DATE_OUT_OF_BOUNDS`,"
+    " which `edit._check_date` says too. The notices:\n"
+)
+
+# A Windows checkout ends its lines with CRLF (core.autocrlf): the line is
+# found with LF and the file written back with the ends it had.
+raw = PLAN.read_bytes().decode("utf-8")
+crlf = "\r\n" in raw
+text = raw.replace("\r\n", "\n")
+head, rest = text.split(START, 1)
+section, tail = rest.split(END, 1)
+assert section.count(OLD) == 1, "the 3b-6 summary's line is not where it was"
+text = head + START + section.replace(OLD, NEW) + END + tail
+PLAN.write_bytes((text.replace("\n", "\r\n") if crlf else text).encode("utf-8"))
+print("the 3b-6 summary says what 3b-5 built for it")
+```
+     and run it:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/plan3b5_t9.py
+```
+     Expected: `the 3b-6 summary says what 3b-5 built for it`.
+
+- [ ] **Step 4: `CLAUDE.md`.** In «Server modules»:
+  1. In the `services/` bullet, replace:
+```markdown
+  `window.py` (the year's window and its tag), `clock.py` (the class's clock, the date
+  bounds and `wall`, a stored stamp on the class's clock), `manage/classes.py`'s
+```
+     with:
+```markdown
+  `window.py` (the year's window and its tag), `clock.py` (the class's clock, the date
+  bounds, a list's `window`, and `wall`, a stored stamp on the class's clock),
+  `manage/classes.py`'s
+```
+  2. In the same bullet, replace:
+```markdown
+  tick set rather than toggled), `homework.py`'s `homework_of`, `linking.py`'s
+  `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s `feed_url`, and
+  `audit.py`'s `older_than` (a page keyed on its last line); the limiters are
+  `security.py`'s, one instance each, and the sentences both versions answer with (the
+  join's four, the diary's «disabled», and the subjects', the devices', the bells', the
+  import's, the zone's, the access requests', the directory's, the tasks' and the ticks'
+  refusals) are `app/wording.py`'s.
+```
+     with:
+```markdown
+  tick set rather than toggled), `homework.py`'s `homework_of`, `due_between`, `put`,
+  `create`, `update` and `delete` (one assignment per subject per day, its line and its
+  notice), `events.py` (what an event stands in for when nobody says, its line and its
+  notice), `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
+  `feed_url`, and `audit.py`'s `older_than` (a page keyed on its last line); the limiters
+  are `security.py`'s, one instance each, and the sentences both versions answer with (the
+  join's four, the diary's «disabled», and the subjects', the devices', the bells', the
+  import's, the zone's, the access requests', the directory's, the tasks', the ticks', the
+  homework's and the events' refusals, and the notices to the class) are
+  `app/wording.py`'s.
+```
+  3. In the `rpc/` bullet, replace:
+```markdown
+  table), `masks.py` (one reading of an `update_mask`, AIP-134) and `handlers.py` (which
+  methods are served). A handler never commits and never
+```
+     with:
+```markdown
+  table), `masks.py` (one reading of an `update_mask`, AIP-134), `dates.py` (a list's window
+  and a written date's bound, read as v1 reads them) and `handlers.py` (which methods are
+  served). A handler never commits and never
+```
+  4. In the `telegram_send.py` bullet, replace:
+```markdown
+- `telegram_send.py` — a bot built for one job and closed after it (`build_bot`, `close_bot`,
+  `send`), for the code that is not the bot: the tick, v1's notices, v2's (an effect run
+  after the commit) and the self-check's alerts. aiogram is imported inside its functions and
+```
+     with:
+```markdown
+- `telegram_send.py` — a bot built for one job and closed after it (`build_bot`, `close_bot`,
+  `send`, and `notify_class` for a class's subscribers), for the code that is not the bot:
+  the tick, v1's notices, v2's (an effect run after the commit) and the self-check's alerts.
+  aiogram is imported inside its functions and
+```
+
+- [ ] **Step 5: Green: the documents, and what the tests read of them.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b5.py
+```
+Expected: `the documents say what 3b-5 serves`, exit 0. Then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_rpc_errors.py tests/test_schema_version.py tests/test_ci_paths.py tests/test_contract.py tests/test_rest.py tests/test_api_docs.py
+```
+Expected: all pass. `test_rpc_errors.py` reads `docs/api.md`'s status table, and `test_schema_version.py` reads every document that names the schema, this plan included. Then 3b-3's head scan:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/scan_heads_3b3.py
+```
+Expected: the last line names `0019` alone, and no line names `docs/specs/`.
+
+- [ ] **Step 6: The gates, and their numbers everywhere.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe -m mypy
+```
+Expected: `All checks passed!`, and `Success: no issues found in 235 source files`. The suite is not run again: Task 8's run is the batch's one, and nothing but documents has changed since it, whose tests Step 5 ran. Read the numbers the documents carry now, which #373's merge leaves at `B` and 231:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git grep -n "tests in about four minutes" -- CLAUDE.md
+```
+The number in that line is `OLD_TESTS`; mypy's is in the line of `CLAUDE.md` that says `of all … modules`, `OLD_MODULES`. Then 3b-3's script, which takes the four numbers, the old count first:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/counts3b2_3b3.py OLD_TESTS NEW_TESTS 231 235
+```
+(with the documents' count for `OLD_TESTS` and Task 8's for `NEW_TESTS`: `2839 2917` if #373 added no test). Expected: `written`. These are the seven places the `handover` skill names; the batch sections' own counts in `HANDOVER.md` are records of their commits, and they stay.
+
+- [ ] **Step 7: Commit the documents, and the controller opens the pull request.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b5-t9.txt`:
+```text
+Describe the fifty-four v2 methods served, and the counts from the run
+
+docs/api.md's «v2: the contract» names what 3b-5 serves, says what
+UpdateHomework and UpdateEvent do with a masked field left unset, and a
+new «Homework and events» says where v2 parts from v1's upsert, how a
+window is read and refused, who may read and write, and when the class
+is told. CLAUDE.md and docs/architecture.md name the rules that moved
+into services/, the window in clock.py, rpc/dates.py, and
+telegram_send.notify_class, through which v2's writes tell the class.
+The 3b-6 summary says what 3b-5 built for it. The counts are the run's
+own, in the seven places that carry them.
+
+Not covered: HANDOVER.md's close-out, written once the pull request has
+a number.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add docs/api.md docs/README.md docs/architecture.md docs/specs/2026-10-05-server-v2-3b-plan.md CLAUDE.md README.md CONTRIBUTING.md .claude/skills/gates/SKILL.md .claude/agents/server-tests.md HANDOVER.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b5-t9.txt
+```
+The controller pushes and opens the pull request (the `github-pr` skill), from `server-v2/3b-5` to `main`, on milestone 11, with its board item filled as the skill says. Its body refers to #273 and `#377`, which it does not fix, says that no revision goes with it and that `homework.proto` and `event.proto` change in comments only, and names #373 as merged first. Write the number it gets down as `#PR`.
+
+- [ ] **Step 8: The HANDOVER close-out** (the `handover` skill, «What goes stale mechanically»). Write it while the pull request is open. Read `HANDOVER.md`'s batch sections first: after #376's merge and #373's they are those two batches, or #376's and #372's if #373's pull request wrote no section of its own.
+  1. **The chain of batch sections.**
+     - The section titled «## What the session before it added: …», with all its subsections, moves verbatim to the top of `docs/history.md`, directly under the `---` that closes the file's introduction, retitled «## What the batch before added: …»; its subsections keep their titles. A sentence in it that says «section 5» or «above» now names `HANDOVER.md`, as the skill says.
+     - The section titled «## What the last session added: …» becomes «## What the session before it added: …», with its subsections. Its first sentence, «Open as #N, from `<branch>` to `main`, …», becomes «Merged as #N (`<short SHA>`, <date>), from `<branch>`, on milestone 11.», read from `gh pr view N`.
+  2. **The new section**, above it, with the run's numbers, the real SHAs and the numbers in place of the bracketed words and the placeholders:
+```markdown
+## What the last session added: homework and events over v2, and v2's first notices to the class — stage 3b-5 of sub-project 3 (#273)
+
+Open as #PR, from `server-v2/3b-5` to `main`, on milestone 11, and on project 6. It refers to
+#273 and #377, which it does not fix. The branch was cut from `main` at `[short SHA]`, the merge
+of [#373's pull request], and carries [the number of] commits before this close-out, to
+`[short SHA]`. Written on [date]. No revision goes with it: the schema stays at `0019`. This
+is stage 3b-5 of `docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the
+next. v1 answers as before; v2 now answers fifty-four methods.
+
+- **#373 went first**, in a pull request of its own, as the controller ruled: SQLite keeps a
+  savepoint inside its transaction now, as Postgres does. Two tests of this batch need it, and
+  every new test reads the database from a session of its own.
+- **The rules v1's `edit.py` held for homework and events moved into `services/` first**, with
+  v1 calling them: `homework.put` and `delete`, and a new `services/events.py` with `create`,
+  `delete` and `event_of`, each writing its line in the journal and wording its notice through
+  `app/wording.py`. The window v1's `GET /homework` held moved to `clock.window`, which refuses
+  with a fact, `WindowRefused`, beside `homework.due_between` and `events.between`.
+- **The class notice is an effect**: `telegram_send.notify_class`, registered by each handler
+  module's `_announce`, runs once the write is committed, never on a refusal and never to its
+  author, and never raises. `tests/test_announcements.py`'s walk now follows a call through
+  what a file imports, and finds v2's call sites as it finds v1's.
+- **Ten methods, `HomeworkService` and `EventService` whole:**
+  - `ListHomework` and `GetHomework`, any phone's, each row with its owner's tick;
+  - `CreateHomework` (`201`), which refuses a subject that already has homework that day with
+    `RESOURCE_EXISTS`, where v1 upserted; `UpdateHomework` (masked), which refuses a move onto
+    such a pair the same way; `DeleteHomework`, which takes the ticks with it;
+  - `ListEvents`, `GetEvent`, `CreateEvent` (`201`), `UpdateEvent` (masked; one time is held
+    against the other, and a move to another day is announced once, on the new day) and
+    `DeleteEvent`, all an editor's.
+
+  An update that changes nothing writes nothing and tells nobody.
+- **The error table gains two rows**, `clock.WindowRefused` (`VALIDATION_FAILED` on the edge at
+  fault) and `homework.HomeworkExists` (`RESOURCE_EXISTS`), each read back on both paths by a
+  named test. No reason is new, and 3b-5 left `STAGES`.
+- **`homework.proto` and `event.proto`** say, in comments only, what a masked field left unset
+  means, that a move onto a taken pair is refused, and that each write is announced.
+- **One defect filed**: #377 (v1's notices to the class can turn a saved write into a 500), on
+  the backlog, not fixed here.
+
+### Gates
+
+The full suite ran once, at `[short SHA]`, the head of the eight code tasks; the documents
+(`[short SHA]`) came after it, and their own files ran again. CI runs on the head the merge is
+made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `[short SHA]`.
+- **mypy**: no issues found in [the number] source files, at `[short SHA]`.
+- **The server suite.** `pytest -q -n 4`, run alone from `server/` at `[short SHA]`, gave
+  **[the number] passed** in [the time]. The seven places the `handover` skill names say
+  [the number].
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files, `homework_connect.py`'s and
+  `event_connect.py`'s docstrings the only change.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand
+  from before.
+
+### What was deliberately left alone
+
+- **3b-6 to 3b-8**, each summarised in the 3b plan, and **3c**.
+- **v1's behaviour**: `PUT /homework` still upserts and tells the class «обновлено» when it is
+  sent again unchanged, and `PUT /events` still inserts on every retry (#268).
+- **v1's notice seams**, `edit._tell` and `requests._tell`, which build and close their bot
+  outside their guard (#377); v2's `notify_class` does not.
+- **The bot's homework and events flows**, which keep their own lines and their own words for a
+  chat, and call `homework.upsert` and write `DayEvent` as before.
+- **`edit._check_date`**, which v1's substitutions and days still call until 3b-6.
+
+### What nobody has verified in this batch
+
+- **The ten methods against Postgres**: every v2 test ran on SQLite, with #373's fix, the
+  homework's unique pair and its two savepoints among them.
+- **A notice through Telegram itself**: the tests hand `telegram_send` a bot that records
+  what it was asked to send.
+- **The ten on Vercel** beyond the post-merge check, which asks four REST routes and one
+  Connect method once, without a token.
+- **A phone using any of them**: no APK calls v2 yet.
+
+### After #376's merge: [the controller's title for it]
+
+None of this is code in #PR, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of [date].
+
+[AFTER-376: the controller's facts, handed over at this step and written in the shape of the
+last close-out's «After …'s merge», one bullet each: #376's merge and its CI; #373's pull
+request, its merge and what it changed in how the suite runs; whether Vercel built production
+from each merge or the owner had to promote it; what production answered after them, the
+post-merge read of 3b-4's Task 8 Step 10 included; what the monitoring said meanwhile, #365
+included; and anything the owner did or decided since the last close-out. Nothing here is
+guessed: what the controller does not hand over is left out, and if it hands over nothing,
+this subsection is left out whole and the report says so.]
+```
+  3. **The opening paragraph**, in the shape the last close-out left it:
+     - «Last updated:» is the day of writing. The merged list gains #376 and #373's pull request (read each back with `gh pr view` first); `main` is at the merge that is newest, by `git log -1 origin/main`.
+     - The sentence on the designs stays.
+     - The open pull requests are read from `gh pr list --state open`, not assumed. #PR is one, «the one carrying this paragraph», from `server-v2/3b-5`, on milestone 11, which refers to #273 and `#377`: v2 is served beside v1, fifty-four methods of it now.
+     - The schema did not move: still `0019`, on production since 16:28 UTC on 6 October, and `EXPECTED_REVISION` did not move either.
+     - The issues filed since the last close-out are named: #373, closed by its pull request; `#377`, open, on the backlog; and any the `[AFTER-376]` facts add. #352, #354, #355, #357, #365, #368, #371 and #375 stay as the last close-out left them, unless those facts say otherwise.
+     - «The section «What the last session added» below is …» names #PR and the batch before it.
+     - It still ends: «The SHA of its own merge is for the next close-out to write.»
+     - The bold paragraph on the code's revision and production's stays as it is: no revision moved.
+  4. **The milestone table**: milestone 11's row gains #376 and #373's pull request as merged and #PR as open; milestone 13's row gains `#377` if it was filed there. Milestone 7's row stays: it lists no numbers.
+  5. **Section 5**, the bullet «v2 as … serve it has been asked little outside the test client»:
+     - its head gains #PR, and the stages «… and 3b-5»;
+     - the sub-item on production says what the `[AFTER-376]` facts say of the read after #376's merge, and its last gains: «the ten of 3b-5 are asked after #PR's merge, once, without a token;»;
+     - «**the forty methods of 3b-1 to 3b-4 against Postgres**: …» becomes «**the fifty methods of 3b-1 to 3b-5 against Postgres**: …», keeping its list and adding «the homework's unique pair and its savepoints» to it;
+     - add the sub-item: «**v2's notices to the class through Telegram itself**: the tests hand `telegram_send` a bot that records what it was asked to send;».
+  6. **Section 7**: replace the paragraph that begins «**Next for the programme: stage 3b-5 of sub-project 3, from the 3b plan.**», up to and including its last sentence, with:
+```markdown
+**Next for the programme: stage 3b-6 of sub-project 3, from the 3b plan.** Stages 3a (#342),
+3b-1 (#350), 3b-2 (#356), 3b-3 (#372), 3b-4 (#376) and 3b-5 (#PR) are merged, and v2 serves
+fifty-four methods. `docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-6 to 3b-8. 3b-6
+covers days and substitutions, the last of v1's `edit.py`, over what 3b-5 built: the class
+notice as an effect, `rpc/dates.py` and the `notices` fixtures. Its two open questions are the
+controller's before its task list is written. Sub-project 4's pull request A can still run
+beside it, one heavy job at a time.
+```
+     Read section 7 for anything the owner did since the last close-out (the `[AFTER-376]` facts say), and move what they did to «## Moved out of section 7 on [date]» in `docs/history.md`, as the skill says.
+  7. The cheat-sheet's counts under «How to continue» were written by Step 6.
+
+  Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b5-handover.txt`, with the placeholders replaced by their numbers:
+```text
+Hand over stage 3b-5: homework and events over v2, and v2's first notices to the class
+
+HANDOVER.md's close-out is written while the pull request is open, so
+the file is true when it merges. It describes 3b-5: the rules that moved
+out of edit.py and public.py, the window in clock.py, the class notice
+as an effect and the walk that finds it, the ten methods, the error
+table's two rows, the comments in homework.proto and event.proto, the
+defect filed (#377, not fixed here), what is left alone and unverified,
+and what followed #376's merge and #373's. The batch before becomes the
+session before, its merge recorded, and the one before that moves to
+docs/history.md. Section 5 asks the same of Postgres for five stages and
+adds the notices through Telegram; section 7 names 3b-6 as next.
+
+Not covered: production after this pull request's merge; the next
+close-out records it.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add HANDOVER.md docs/history.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b5-handover.txt
+```
+and push.
+
+- [ ] **Step 9: The merge** is the controller's, under the `github-pr` skill's five checks:
+  1. CI is green on the exact head, the «Contract» job included, since `proto/` changed;
+  2. `mergeable_state` is clean;
+  3. the gates ran locally before the push;
+  4. a milestone is attached;
+  5. no review is waiting.
+
+  No revision has to go on first: 3b-5 has none.
+
+- [ ] **Step 10: After the merge, read production.** A merge to `main` has not always deployed production by itself (#349).
+```bash
+curl -s https://lessons-ruddy-zeta.vercel.app/api/v1/warmup; echo
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/class/homework
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/class/events
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/v2/class/homework
+curl -s -i -X DELETE https://lessons-ruddy-zeta.vercel.app/api/v2/class/events/1
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.HomeworkService/ListHomework
+```
+Expected:
+- `/api/v1/warmup` reports `status` `ok`, `schema` `0019` and `v2` `true`.
+- The four REST routes answer `401`, with `WWW-Authenticate: Bearer`, Google's body and the reason `DEVICE_TOKEN_INVALID`. The gate refuses each before any handler runs, so nothing is written and nobody is told.
+- The Connect call answers `401`, with `"code":"unauthenticated"`.
+
+A `501` with `UNIMPLEMENTED` means production still runs the code from before the merge: ask the owner to promote or redeploy the merge, then read again. Write what was seen into the controller's notes for the next close-out.
+
+### Self-review (3b-5)
+
+- **Against the 3b-5 summary.** Every method is served by a task: `ListHomework` and `GetHomework` (4), `CreateHomework` (5), `UpdateHomework` and `DeleteHomework` (6), `ListEvents`, `GetEvent` and `CreateEvent` (7), `UpdateEvent` and `DeleteEvent` (8). Every move is a task's: `homework_put`, `homework_delete`, `event_put` and `event_delete`, their lines and their notices (1), and `homework_list`'s window and query (2), with `_check_date`'s sentence (1); where the summary put them elsewhere, Ruling 75 says why. Every row the summary lists is here: `HomeworkExists` as `RESOURCE_EXISTS` with `{resource: "homework", field: "subject"}` (5, 6); a date out of bounds, a `Refusal` on its field (5, 6, 7, 8), and a window, the `WindowRefused` row (4, 7); an unknown id, `RESOURCE_NOT_FOUND` with `resource` `"homework"` or `"event"` (4 to 8), `edit.py`'s literals moved onto `wording` (1). The effects are notices after the commit, never on a refusal, without the author, homework of kind `"homework"` and events of kind `"changes"`, in v1's words moved to `app/wording.py` (1, 3, 5 to 8), and `test_announcements.py` learns the effect registered in `rpc/` (3, 5 to 8). «What v2 does not repeat» is held: `CreateHomework` refuses where v1 upserted (5), `UpdateHomework` announces «обновлено» (6), `CreateEvent` is a `POST` (7). Both open questions are decided by the controller's rulings (72, 73), and both protos say so.
+- **The controller's rulings.** #373 first, and the tests written to it (68, Tasks 1 and 5); the commit discipline (69); open question 1, `RESOURCE_EXISTS` (72, Task 6); open question 2, one notice naming the new date (73, Task 8); `services/homework.py` imports nothing of `services/tasks.py` (75; the review checks it by grep, since no test holds that import's absence); notices as effects through `call.after_commit` and `telegram_send`, after the commit and never on a refusal, the author excluded, the texts in `app/wording.py`, the two kinds (70); and the process (86).
+- **Placeholders.** Every code step is the code, rendered from the source that was applied to the scratch copy, linted, formatted and type-checked. The bracketed words left are the facts that exist only later: `B`, `#377` and `#PR`, the SHAs, dates, times and counts of the real run, and `[AFTER-376]`.
+- **Types across tasks.** `homework.put`, `create` and `update` answer `Saved` (1, 5, 6), whose `notice` becomes `str | None` in Task 6, when `update` can answer none, and v1's `homework_put` passes `put`'s, which is never `None`, to `_tell`. `events.create` and `update` answer `Written` (1, 8) the same way. `clock.window` answers `(first, last)` (2), which `homework.due_between`, `events.between`, v1's `homework_list` and `rpc/dates.window` read (2, 4, 7). `dates.bounded` answers the date it was given (5), and its callers use the form's. `homework._message(row, ticked)` takes a set of ids (4), `set()` for a new assignment (5). `_announce(call, notice)` takes a `str` in both handler modules (5, 7), and the updates register one only when the service answered one (6, 8). `HomeworkPatch` and `EventPatch` dump with `exclude_unset=True` into the services' `changes` (6, 8), whose keys are the proto's field names, mapped to columns by `homework.COLUMNS` and taken as they are by `events.update`.
+- **Review Focus.** Each of its five lines names tests that exist in the task it names: Task 1's `test_nothing_the_services_write_is_committed_until_the_caller_commits`; Task 3's `test_a_class_notice_that_fails_is_logged_and_never_raised`; Task 4's `test_a_window_v1_refuses_is_refused_on_the_field_at_fault`; Task 5's `test_a_new_assignment_is_announced_after_the_commit_and_not_to_its_author`, `test_a_refused_assignment_is_refused_on_its_field_and_tells_nobody`, `test_a_subject_that_already_has_homework_that_day_is_refused_as_existing`, `test_a_twin_written_in_the_same_instant_is_refused_as_existing` and `test_an_assignment_that_fails_after_its_row_is_written_leaves_no_row_and_tells_nobody`; Task 6's `test_moving_an_assignment_onto_a_subject_that_has_homework_that_day_is_refused`, `test_a_twin_moved_onto_in_the_same_instant_is_refused_as_existing`, `test_a_masked_address_left_out_is_taken_away_but_a_date_a_subject_or_a_text_is_refused` and `test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody`; Task 7's `test_a_new_event_is_announced_after_the_commit_in_v1_s_words`; Task 8's `test_a_masked_field_left_out_clears_the_place_and_gives_the_lessons_back_to_the_kind`, `test_one_time_moved_is_held_against_the_time_that_stays`, `test_an_event_moved_to_another_day_is_announced_once_on_its_new_day` and its own `test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody`.
+- **`HELD_BY`.** Its two new rows name `test_a_window_v1_refuses_is_refused_on_the_field_at_fault`, a function of `test_v2_homework.py` (Task 4), which raises `clock.WindowRefused` through `ListHomework` and reads the refusal back on both paths, and `test_a_subject_that_already_has_homework_that_day_is_refused_as_existing`, a function of `test_v2_homework_create.py` (Task 5), which raises `HomeworkExists` through `CreateHomework` the same way; Task 6's `test_moving_an_assignment_onto_a_subject_that_has_homework_that_day_is_refused` reads the second row through `UpdateHomework`, and Task 7's `test_a_window_of_events_is_refused_as_the_homework_s_is` the first through `ListEvents`.
+- **The head test's three shapes** appear nowhere in this list: no «head is» or «expects» before a backticked revision, and no line with `/warmup`'s quoted JSON.
+
 ## 3b-6: Days and substitutions (7 methods)
 
 **Methods.**
@@ -18559,7 +24608,7 @@ The texts are v1's, moved to `app/wording.py`.
 
 `NO_LESSON_ON_DAY`, `NO_BELL_FOR_LESSON` and `LESSON_NOT_ON_TIMETABLE` leave `LATER`.
 
-**Effects.** Notices of kind `"changes"`, after the commit:
+**Effects.** Notices of kind `"changes"`, after the commit, through what 3b-5 built: `telegram_send.notify_class`, registered by the handler module's own `_announce` in a `lambda` passed to `call.after_commit`, which `tests/test_announcements.py`'s walk follows through the module's imports and then asks to find in `ANNOUNCED_HERE`; `conftest.py`'s `notices` and `subscribers` are what its tests read. `ListSubstitutions` reads its window with 3b-5's `rpc/dates.window`, whose refusals the error table already words, and a written date is held by `rpc/dates.bounded`, in `clock.DATE_OUT_OF_BOUNDS`, which `edit._check_date` says too. The notices:
 - `UpdateDay` sends one when a mark is set;
 - clearing one sends one only if a mark existed;
 - `DeleteSubstitution` sends one only when a row existed.
