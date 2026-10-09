@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.contract.lessons.v2.day_pb import Day, GetDayRequest, UpdateDayRequest
 from app.contract.lessons.v2.me_pb import GetMeRequest, Me
 from app.contract.lessons.v2.options_pb import AuthKind
 from app.contract.lessons.v2.options_pb import Role as ProtoRole
@@ -32,6 +33,12 @@ def _request(key: str):
     request = method.input()
     if key == "lessons.v2.ScheduleService/GetScheduleWindow":
         request.year = 2026
+    # A day is named by its date, in the REST path, and no route matches the
+    # empty segment an empty request leaves there: the gate is asked of a date.
+    if key == "lessons.v2.DayService/GetDay":
+        return GetDayRequest(date="2026-09-14")
+    if key == "lessons.v2.DayService/UpdateDay":
+        return UpdateDayRequest(day=Day(date="2026-09-14"))
     return request
 
 

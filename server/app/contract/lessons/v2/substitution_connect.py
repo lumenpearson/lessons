@@ -54,14 +54,19 @@ class SubstitutionService(Protocol):
     async def update_substitution(self, request: UpdateSubstitutionRequest, ctx: RequestContext[UpdateSubstitutionRequest, UpdateSubstitutionResponse], /) -> UpdateSubstitutionResponse:
         """
         `update_mask` takes action, subject, room, teacher and note; the date and
-        the number are the row. A row at a number that no longer rings stays
-        editable, which is how a class gets out of one.
+        the number are the row. A path whose field is absent clears it, which
+        the action cannot be; a cancellation keeps no subject, room or teacher.
+        A row at a number that no longer rings stays editable, which is how a
+        class gets out of one; NO_LESSON_ON_DAY and LESSON_NOT_ON_TIMETABLE are
+        asked as on a create. Announced to the class's subscribers, unless
+        nothing changed.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     async def delete_substitution(self, request: DeleteSubstitutionRequest, ctx: RequestContext[DeleteSubstitutionRequest, DeleteSubstitutionResponse], /) -> DeleteSubstitutionResponse:
         """
         The lesson goes back to the timetable. v1: PUT /overrides with "clear".
+        Announced to the class's subscribers.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -234,8 +239,12 @@ class SubstitutionServiceClient(ConnectClient):
     ) -> UpdateSubstitutionResponse:
         """
         `update_mask` takes action, subject, room, teacher and note; the date and
-        the number are the row. A row at a number that no longer rings stays
-        editable, which is how a class gets out of one.
+        the number are the row. A path whose field is absent clears it, which
+        the action cannot be; a cancellation keeps no subject, room or teacher.
+        A row at a number that no longer rings stays editable, which is how a
+        class gets out of one; NO_LESSON_ON_DAY and LESSON_NOT_ON_TIMETABLE are
+        asked as on a create. Announced to the class's subscribers, unless
+        nothing changed.
         """
         return await self.execute_unary(
             request=request,
@@ -259,6 +268,7 @@ class SubstitutionServiceClient(ConnectClient):
     ) -> DeleteSubstitutionResponse:
         """
         The lesson goes back to the timetable. v1: PUT /overrides with "clear".
+        Announced to the class's subscribers.
         """
         return await self.execute_unary(
             request=request,
@@ -300,14 +310,19 @@ class SubstitutionServiceSync(Protocol):
     def update_substitution(self, request: UpdateSubstitutionRequest, ctx: RequestContext[UpdateSubstitutionRequest, UpdateSubstitutionResponse], /) -> UpdateSubstitutionResponse:
         """
         `update_mask` takes action, subject, room, teacher and note; the date and
-        the number are the row. A row at a number that no longer rings stays
-        editable, which is how a class gets out of one.
+        the number are the row. A path whose field is absent clears it, which
+        the action cannot be; a cancellation keeps no subject, room or teacher.
+        A row at a number that no longer rings stays editable, which is how a
+        class gets out of one; NO_LESSON_ON_DAY and LESSON_NOT_ON_TIMETABLE are
+        asked as on a create. Announced to the class's subscribers, unless
+        nothing changed.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     def delete_substitution(self, request: DeleteSubstitutionRequest, ctx: RequestContext[DeleteSubstitutionRequest, DeleteSubstitutionResponse], /) -> DeleteSubstitutionResponse:
         """
         The lesson goes back to the timetable. v1: PUT /overrides with "clear".
+        Announced to the class's subscribers.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -475,8 +490,12 @@ class SubstitutionServiceClientSync(ConnectClientSync):
     ) -> UpdateSubstitutionResponse:
         """
         `update_mask` takes action, subject, room, teacher and note; the date and
-        the number are the row. A row at a number that no longer rings stays
-        editable, which is how a class gets out of one.
+        the number are the row. A path whose field is absent clears it, which
+        the action cannot be; a cancellation keeps no subject, room or teacher.
+        A row at a number that no longer rings stays editable, which is how a
+        class gets out of one; NO_LESSON_ON_DAY and LESSON_NOT_ON_TIMETABLE are
+        asked as on a create. Announced to the class's subscribers, unless
+        nothing changed.
         """
         return self.execute_unary(
             request=request,
@@ -499,6 +518,7 @@ class SubstitutionServiceClientSync(ConnectClientSync):
     ) -> DeleteSubstitutionResponse:
         """
         The lesson goes back to the timetable. v1: PUT /overrides with "clear".
+        Announced to the class's subscribers.
         """
         return self.execute_unary(
             request=request,

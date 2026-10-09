@@ -82,8 +82,8 @@ def pickable_months(today: Date) -> tuple[Date, Date]:
     for that June belongs to the year now ending. Two functions of the same
     name meaning different things is how a substitution came to be offered on a
     June day the resolver would never draw — see
-    `timetable_edit.why_no_lesson_can_be_drawn`, which is the check that had to
-    be added because of it.
+    `timetable_edit.no_lessons_on`, which is the check that had to be added
+    because of it.
 
     One school year — 1 September to 31 August — the one ``today`` falls in.
     Anything outside it cannot be planned: in June the timetable for September

@@ -59,7 +59,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2927 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 3000 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -67,7 +67,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 235 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 238 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. A CI step since
   27 September 2026, right after ruff, because the owner asked for it through that day's
@@ -215,12 +215,16 @@ Server modules:
   tick set rather than toggled), `homework.py`'s `homework_of`, `due_between`, `put`,
   `create`, `update` and `delete` (one assignment per subject per day, its line and its
   notice), `events.py` (what an event stands in for when nobody says, its line and its
-  notice), `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
+  notice), `manage/special_days.py`'s `put_day` (the one write of a day's mark, which v1,
+  v2 and the bot make, its line and its notice through `set_day` and `update_day`),
+  `substitutions.py` (the three questions a substitution is asked, as facts, its line and
+  its notice), `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
   `feed_url`, and `audit.py`'s `older_than` (a page keyed on its last line); the limiters
   are `security.py`'s, one instance each, and the sentences both versions answer with (the
   join's four, the diary's «disabled», and the subjects', the devices', the bells', the
   import's, the zone's, the access requests', the directory's, the tasks', the ticks', the
-  homework's and the events' refusals, and the notices to the class) are
+  homework's, the events', the days' and the substitutions' refusals, and the notices to the
+  class) are
   `app/wording.py`'s.
   The tick runs `health.py`'s self-check after the digests and the sweeps and before the
   diary keep-alive: four checks, what each said last in `health_checks`, and the owner's
@@ -268,9 +272,9 @@ Server modules:
   method shares: `methods.py` (each method's facts, read from the descriptors), `gate.py`
   (client version, then the bearer, the link and the role), `call.py` (`invoke`: the gate,
   one dishka scope, the handler, the one commit, then the effects), `errors.py` (the one error
-  table), `masks.py` (one reading of an `update_mask`, AIP-134), `dates.py` (a list's window
-  and a written date's bound, read as v1 reads them) and `handlers.py` (which methods are
-  served). A handler never commits and never
+  table), `masks.py` (one reading of an `update_mask`, AIP-134), `dates.py` (a list's window,
+  a written date's bound, and the date a day is named by, read as v1 reads them) and
+  `handlers.py` (which methods are served). A handler never commits and never
   checks a credential; `rpc_app()` mounts the seventeen Connect apps at `/api/rpc`, refusing
   native gRPC over HTTP/1.1 with `415`. May import `services/`, `models`, `schedule`,
   `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry,
@@ -658,7 +662,8 @@ points Hilt does not inject cleanly.
   number and drops what has none, so a row at a number the day does not ring is
   stored, logged, announced and drawn nowhere. Three ways in had to learn this
   separately: the week import, the button editor, and — later — the substitution
-  (`api/edit.py`, `bot/handlers/content/overrides.py`) and the bot's single-day
+  (`api/edit.py` and `bot/handlers/content/overrides.py` then, and
+  `services/substitutions.py`, which v1, v2 and the bot all ask, now) and the bot's single-day
   paste, which used to write the template itself instead of going through
   `services/structure.apply_timetable`. Check with `timetable_edit.can_ring`,
   and for a dated write use `rung_indexes_on`, because a shortened day points
@@ -667,8 +672,9 @@ points Hilt does not inject cleanly.
   landed on (bells at 1, 2, 4 lost the fourth lesson onto a third slot that
   rings nothing — `remove_lesson` now renumbers only when every moved lesson
   still rings), and a day could be pointed at a bell schedule with **no rows**,
-  which draws nothing at all under a card saying «⏱ Сокращённые уроки» — both
-  `api/edit.day_put` and the bot refuse that now. And when you report what was
+  which draws nothing at all under a card saying «⏱ Сокращённые уроки» —
+  `special_days.put_day`, the one write v1, v2 and the bot mark a day through,
+  refuses that now. And when you report what was
   dropped, count the **rows**, not the numbers: `apply_timetable` hands back
   (weekday, number) pairs, because one number under two weekdays — or under
   «чёт» and «нечёт» in one day — is two lessons nobody will see.

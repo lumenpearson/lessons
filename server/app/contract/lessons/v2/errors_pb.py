@@ -87,8 +87,9 @@ class ErrorReason(Enum):
             ```
         RESOURCE_NOT_FOUND:
             NOT_FOUND. metadata `resource`: "class", "subject", "bell_schedule",
-            "homework", "substitution", "event", "task", "device", "access_request"
-            or "student". An id from another class finds nothing, by design.
+            "homework", "substitution", "event", "task", "device", "access_request",
+            "student", or "day" for a date nobody marked, changed without
+            allow_missing. An id from another class finds nothing, by design.
             v1: every other 404.
 
             ```proto
@@ -272,7 +273,7 @@ class ErrorReason(Enum):
             FAILED_PRECONDITION. metadata `why`: "out_of_year", "between_terms",
             "public_holiday" or "marked_day_off". The day draws no lessons at all, so
             a substitution on it would be announced and drawn nowhere. v1: 422 from
-            PUT /overrides (timetable_edit.why_no_lesson_can_be_drawn).
+            PUT /overrides (timetable_edit.no_lessons_on).
 
             ```proto
             NO_LESSON_ON_DAY = 32

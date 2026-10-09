@@ -15,7 +15,7 @@ from protobuf import Message
 
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.rpc.errors import Refusal, validate
-from app.schemas import DateWindowIn
+from app.schemas import DateIn, DateWindowIn
 from app.services import clock
 
 
@@ -47,3 +47,13 @@ def bounded(day: Date, field: str) -> Date:
             violations=[(field, clock.DATE_OUT_OF_BOUNDS)],
         )
     return day
+
+
+def named(value: str, at: str = "") -> Date:
+    """The date a request names a day by — ``GetDay``'s ``date``, and
+    ``UpdateDay``'s ``day.date`` with ``at`` ``"day."`` — parsed as v1's
+    ``DayIn`` parses one and held to the bounds a written date is held to,
+    or ``VALIDATION_FAILED`` on the field. A read is held to them too: no day
+    out of them can carry a mark."""
+    form = validate(DateIn, {"date": value}, at=at)
+    return bounded(form.date, f"{at}date")

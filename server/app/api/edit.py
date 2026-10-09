@@ -17,12 +17,10 @@ from __future__ import annotations
 
 import logging
 from datetime import date as Date
-from html import escape
 from typing import Any
 
 from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_class, current_device
@@ -30,13 +28,9 @@ from app.api.public import _homework_out
 from app.api.routing import DishkaAnnotatedRoute
 from app.config import get_settings
 from app.models import (
-    BellPeriod,
-    BellSchedule,
     DayKind,
-    DayOverride,
     DeviceToken,
     EventKind,
-    LessonOverride,
     OverrideAction,
     Role,
     SchoolClass,
@@ -52,15 +46,20 @@ from app.schemas import (
     OverrideIn,
     OverrideOut,
 )
-from app.services import audit, clock, linking, notify, subjects, timetable_edit
+from app.services import clock, linking, notify, substitutions
 from app.services import events as events_service
 from app.services import homework as homework_service
 from app.services import tasks as task_service
+from app.services.manage import bells as bells_service
+from app.services.manage import special_days
 from app.wording import (
     EMPTY_BELL_SCHEDULE_DETAIL,
+    SCHEDULE_NOT_IN_CLASS_DETAIL,
+    SHORTENED_NEEDS_SCHEDULE_DETAIL,
     UNKNOWN_EVENT_DETAIL,
     UNKNOWN_HOMEWORK_DETAIL,
-    human_date,
+    lesson_not_on_timetable_detail,
+    no_bell_detail,
 )
 
 log = logging.getLogger(__name__)
@@ -203,21 +202,6 @@ async def homework_delete(
 # --------------------------------------------------------------------------
 
 
-async def _refuse_if_no_lesson_can_be_drawn(
-    session: AsyncSession, school_class: SchoolClass, day: Date
-) -> None:
-    """Refuse a substitution on a day the resolver draws no lessons on at all.
-
-    The rule and its three sentences live in
-    `services/timetable_edit.why_no_lesson_can_be_drawn`, because the bot needs
-    the same refusal and used to have none of it.
-    """
-    refusal = await timetable_edit.why_no_lesson_can_be_drawn(session, school_class.id, day)
-    if refusal is not None:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=refusal)
-
-
-
 @router.put("/overrides", response_model=OverrideOut)
 async def override_put(
     payload: OverrideIn,
@@ -227,148 +211,64 @@ async def override_put(
     session: FromDishka[AsyncSession],
 ) -> OverrideOut:
     """One row per (date, lesson number). ``clear`` removes it, which is how
-    a lesson goes back to the timetable."""
+    a lesson goes back to the timetable. The three questions a substitution
+    is asked, the row, its line and its notice are
+    ``services/substitutions.py``'s, which the bot's «🔄 Замены» and v2's
+    ``SubstitutionService`` ask and write through too."""
     _check_date(payload.date)
     actor = device.telegram_id
-    when = human_date(payload.date, clock.today(school_class))
-    existing = await session.scalar(
-        select(LessonOverride).where(
-            LessonOverride.class_id == school_class.id,
-            LessonOverride.date == payload.date,
-            LessonOverride.index == payload.index,
-        )
-    )
 
     if payload.action == "clear":
+        existing = await substitutions.substitution_on(
+            session, school_class.id, payload.date, payload.index
+        )
         if existing is not None:
-            await session.delete(existing)
-            await audit.record(
-                session,
-                school_class.id,
-                actor,
-                "override.clear",
-                f"Замена снята: урок №{payload.index}, {when}",
-            )
+            notice = await substitutions.delete(session, school_class, actor, existing)
             await session.commit()
-            await _tell(
-                session,
-                school_class,
-                f"♻️ Урок №{payload.index} {escape(when)} снова идёт по расписанию.",
-                kind="changes",
-                author=actor,
-            )
+            await _tell(session, school_class, notice, kind="changes", author=actor)
         return OverrideOut(date=payload.date, index=payload.index, action="clear")
 
-    # Asked before the create/update split, and deliberately not inside it.
-    # The bell check below is create-only on purpose — an existing row at a bad
-    # number must stay editable, which is how a class gets out of one — but
-    # these two are not that shape: a row already sitting on a summer date or a
-    # hand-marked holiday is exactly the one whose re-announcement would say
-    # «🔁 Замена» about a lesson nobody will ever see, and every row written
-    # before this endpoint learned to refuse is such a row.
-    await _refuse_if_no_lesson_can_be_drawn(session, school_class, payload.date)
-
-    if existing is None:
-        # A substitution at a number the day has no bell for is stored, written to
-        # the log, announced to everybody with «🔁 Замена … урок №8» — and
-        # drawn by nothing, because the resolver takes a lesson's times from
-        # the bell row of the same number and drops what has none. The
-        # timetable learned this; this, the other way a lesson changes, had no
-        # check at all. Only on create: an existing row at a bad number must
-        # stay clearable, which is how a class gets out of one.
-        rung = await timetable_edit.rung_indexes_on(session, school_class.id, payload.date)
-        if not timetable_edit.can_ring(rung, payload.index):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"нет звонка для урока №{payload.index} в этот день",
-            )
-
-    # Cancelling needs something to cancel, and so does a replacement that
-    # names no subject. A substitution at an empty number is a legitimate
-    # edit — it is how a lesson is *added* to a day — but only when it
-    # brings a subject of its own: the resolver inherits the subject from
-    # the template row under the override, and with no row and no subject
-    # it has nothing to draw and drops it on the way out. Either way the
-    # write would be stored, logged, and announced to everybody with
-    # «🚫 Урок №7 отменён» or «🔁 Замена … кабинет/учитель» about a lesson
-    # nobody can see. The bot reaches neither: it draws its «🚫» under a
-    # lesson that exists and always asks for a typed subject. This is the
-    # API-only half of an invariant the timetable already holds.
-    #
-    # Unlike the bell check above this one runs on update too, and it asks
-    # `timetable_edit` rather than the resolver — because on update the
-    # resolver would be answering about the row being edited. A substitution
-    # that added «Астрономия» to an empty number makes the day report a
-    # lesson at that number, so a second write carrying only a room passed
-    # the check, cleared `subject_name`, and left a row the resolver drops:
-    # announced to every subscriber, drawn nowhere, and no longer refusable
-    # because the number now looked occupied.
-    if payload.action == "cancel" or not payload.subject:
-        on_template = await timetable_edit.template_indexes_on(
-            session, school_class.id, payload.date
+    try:
+        written = await substitutions.put(
+            session,
+            school_class,
+            actor,
+            payload.date,
+            payload.index,
+            {
+                "action": OverrideAction(payload.action),
+                "subject": payload.subject,
+                "room": payload.room,
+                "teacher": payload.teacher,
+                "note": payload.note,
+            },
         )
-        if payload.index not in on_template:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=(
-                    f"в этот день нет урока №{payload.index}, отменять нечего"
-                    if payload.action == "cancel"
-                    else f"в этот день нет урока №{payload.index}: "
-                    "замене без предмета нечего заменять"
-                ),
-            )
-
-    if existing is None:
-        existing = LessonOverride(
-            class_id=school_class.id,
-            date=payload.date,
-            index=payload.index,
-            action=OverrideAction.REPLACE,
-        )
-        session.add(existing)
-
-    if payload.action == "cancel":
-        existing.action = OverrideAction.CANCEL
-        existing.subject_name = None
-        existing.room = None
-        existing.teacher = None
-        existing.note = payload.note
-        summary = f"Урок №{payload.index} отменён, {when}"
-        text = f"🚫 Урок №{payload.index} {escape(when)} отменён."
-    else:
-        existing.action = OverrideAction.REPLACE
-        # The class's spelling: the resolver looks a substitution's colour up by
-        # exact name, so one sent in the wrong case draws grey among coloured
-        # lessons.
-        existing.subject_name = (
-            await subjects.spelling(session, school_class.id, payload.subject)
-            if payload.subject
-            else payload.subject
-        )
-        existing.room = payload.room
-        existing.teacher = payload.teacher
-        existing.note = payload.note
-        what = existing.subject_name or "кабинет/учитель"
-        summary = f"Замена: урок №{payload.index}, {when} — {what}"
-        text = (
-            f"🔁 Замена {escape(when)}: урок №{payload.index} — <b>{escape(what)}</b>"
-            + (f", каб. {escape(payload.room)}" if payload.room else "")
-        )
-    if payload.note:
-        text += f"\n{escape(payload.note)}"
-
-    await audit.record(session, school_class.id, actor, f"override.{payload.action}", summary)
+    except substitutions.NoLessonOnDay as refused:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=refused.sentence
+        ) from None
+    except substitutions.NoBellForLesson as refused:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=no_bell_detail(refused.index),
+        ) from None
+    except substitutions.LessonNotOnTimetable as refused:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=lesson_not_on_timetable_detail(refused.index, cancelling=refused.cancelling),
+        ) from None
     await session.commit()
-    await _tell(session, school_class, text, kind="changes", author=actor)
+    await _tell(session, school_class, written.notice, kind="changes", author=actor)
 
+    row = written.substitution
     return OverrideOut(
-        date=existing.date,
-        index=existing.index,
+        date=row.date,
+        index=row.index,
         action=payload.action,
-        subject=existing.subject_name,
-        room=existing.room,
-        teacher=existing.teacher,
-        note=existing.note,
+        subject=row.subject_name,
+        room=row.room,
+        teacher=row.teacher,
+        note=row.note,
     )
 
 
@@ -433,12 +333,6 @@ async def event_delete(
 # Whole days
 # --------------------------------------------------------------------------
 
-_DAY_LABELS = {
-    DayKind.HOLIDAY: "выходной",
-    DayKind.SHORTENED: "сокращённые уроки",
-    DayKind.REMOTE: "дистанционное обучение",
-}
-
 
 @router.put("/days", response_model=DayOverrideOut)
 async def day_put(
@@ -449,101 +343,44 @@ async def day_put(
     session: FromDishka[AsyncSession],
 ) -> DayOverrideOut:
     """Mark a date as a holiday / shortened / remote day. ``normal`` deletes
-    the mark, so a day never carries a row that says nothing."""
+    the mark, so a day never carries a row that says nothing. The checks, the
+    mark, its line and its notice are ``special_days.set_day``'s, over the one
+    write the bot's «🏖 Особые дни» and v2's ``UpdateDay`` make too."""
     _check_date(payload.date)
     actor = device.telegram_id
-    when = human_date(payload.date, clock.today(school_class))
-
-    if payload.bell_schedule_id is not None:
-        owned = await session.scalar(
-            select(BellSchedule.id).where(
-                BellSchedule.id == payload.bell_schedule_id,
-                BellSchedule.class_id == school_class.id,
-            )
+    try:
+        written = await special_days.set_day(
+            session,
+            school_class,
+            actor,
+            payload.date,
+            kind=DayKind(payload.kind),
+            note=payload.note,
+            bell_schedule_id=payload.bell_schedule_id,
         )
-        if owned is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="bell_schedule_id is not in this class",
-            )
-        # And that it rings something. A schedule may legitimately be created
-        # empty and filled in later (`BellScheduleIn.periods` defaults to an
-        # empty list and says so), and the resolver takes a lesson's times from
-        # the bell row of the same number - so a day pointed at an empty one
-        # draws no lessons at all while the card above them says «сокращённые
-        # уроки» — shortened lessons. Nothing fails: the phone, the widget, the
-        # calendar feed and
-        # the morning digest all agree there is no school that day, and a
-        # substitution written for it is accepted at any number because
-        # `timetable_edit.rung_indexes_on` falls back to the class default when
-        # the named schedule has no rows. This is the same decision the check
-        # underneath already makes for a shortened day with no schedule at all,
-        # and it is made for the same reason.
-        rings = await session.scalar(
-            select(BellPeriod.id)
-            .where(BellPeriod.schedule_id == payload.bell_schedule_id)
-            .limit(1)
-        )
-        if rings is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=EMPTY_BELL_SCHEDULE_DETAIL,
-            )
-
-    # «Сокращённые уроки» is a claim about the times, and the times come from a
-    # bell schedule. Without one the resolver falls back to the class default,
-    # so the day announces shortened lessons and then draws the normal ones —
-    # which is worse than not marking it at all, because somebody reads the
-    # label and packs for a short day. The bot's flow always asks which
-    # schedule to ring; this is the surface that could skip the question.
-    if payload.kind == "shortened" and payload.bell_schedule_id is None:
+    except special_days.ScheduleNotInClass:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=SCHEDULE_NOT_IN_CLASS_DETAIL
+        ) from None
+    except bells_service.ScheduleEmpty:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=EMPTY_BELL_SCHEDULE_DETAIL
+        ) from None
+    except special_days.ShortenedNeedsSchedule:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="a shortened day needs the bell schedule it rings",
-        )
-
-    existing = await session.scalar(
-        select(DayOverride).where(
-            DayOverride.class_id == school_class.id, DayOverride.date == payload.date
-        )
-    )
-
-    if payload.kind == "normal":
-        if existing is not None:
-            await session.delete(existing)
-            await audit.record(
-                session, school_class.id, actor, "day.clear", f"День снова обычный: {when}"
-            )
-            await session.commit()
-            await _tell(
-                session,
-                school_class,
-                f"📆 {escape(when)} — обычный учебный день.",
-                kind="changes",
-                author=actor,
-            )
-        return DayOverrideOut(date=payload.date, kind="normal")
-
-    kind = DayKind(payload.kind)
-    if existing is None:
-        existing = DayOverride(class_id=school_class.id, date=payload.date, kind=kind)
-        session.add(existing)
-    existing.kind = kind
-    existing.note = payload.note
-    existing.bell_schedule_id = payload.bell_schedule_id
-
-    label = _DAY_LABELS[kind]
-    await audit.record(session, school_class.id, actor, "day.set", f"{when}: {label}")
+            detail=SHORTENED_NEEDS_SCHEDULE_DETAIL,
+        ) from None
     await session.commit()
+    if written.notice is not None:
+        await _tell(session, school_class, written.notice, kind="changes", author=actor)
 
-    text = f"📆 {escape(when)} — {label}."
-    if payload.note:
-        text += f"\n{escape(payload.note)}"
-    await _tell(session, school_class, text, kind="changes", author=actor)
-
+    mark = written.mark
+    if mark is None:
+        return DayOverrideOut(date=payload.date, kind="normal")
     return DayOverrideOut(
-        date=existing.date,
-        kind=existing.kind.value,
-        note=existing.note,
-        bell_schedule_id=existing.bell_schedule_id,
+        date=mark.date,
+        kind=mark.kind.value,
+        note=mark.note,
+        bell_schedule_id=mark.bell_schedule_id,
     )

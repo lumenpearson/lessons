@@ -241,7 +241,8 @@ teacher — optionally followed by a week parity: `[чис]`/`[знам]`, `(ч�
   instead of sliding a lesson onto a third slot that rings nothing. And a
   «⏱ Сокращённый день» cannot be pointed at a bell schedule with no rows in
   it: such a day would draw nothing at all under a card announcing shortened
-  lessons.
+  lessons. A class whose own bells ring nothing is told to fill «🔔 Звонки» in
+  before it marks one, because the day would start on them.
 
 The grammar lives in one place, `services/timetable_io.py`, and the day editor,
 the button editor, the week import and «Экспорт» all speak it. The current day is
@@ -475,7 +476,11 @@ overflowed in Cyrillic.
   keyboard is built from the rows the renderer chose, not from the days again.
 * **🔄 Замены** — pick a day and a lesson, then either send the replacement
   (`Физика, 214`), cancel the lesson, or restore it to the template. The weekly
-  template is never mutated for a one-off change.
+  template is never mutated for a one-off change. A lesson a substitution added
+  at a number the template leaves empty is taken away with «♻️ Вернуть по
+  расписанию», not cancelled: there is nothing under it to strike through, and
+  the bot says so, as the API does — the same three questions
+  (`services/substitutions.py`) stand in front of both.
 * **🎉 События** — lunch, an assembly, a test, an excursion, a meeting, each with
   a time range. An assembly and an excursion default to `covers_lesson = true`;
   lunch does not, so it shows during the break without hiding a lesson.

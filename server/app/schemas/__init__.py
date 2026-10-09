@@ -111,6 +111,7 @@ from app.schemas.directory import (
     SchoolSearchOut,
 )
 from app.schemas.edit import (
+    DateIn,
     DayIn,
     DayKindName,
     DayOverrideOut,
@@ -187,6 +188,7 @@ __all__ = [
     "ClassDeleteIn",
     "ClassOut",
     "ClassPatch",
+    "DateIn",
     "DateWindowIn",
     "DayIn",
     "DayKindName",

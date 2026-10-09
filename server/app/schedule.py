@@ -208,8 +208,8 @@ def off_reason_for(day: Date, terms: Sequence[Term]) -> DayOffReason | None:
 
     Module-level and stateless so that both the read path and the write check
     can ask it: `ScheduleResolver._off_reason` hands it every term it loaded,
-    and `services/timetable_edit.why_no_lesson_can_be_drawn` loads the year's
-    terms to ask the same thing before a substitution is stored. It had a
+    and `services/timetable_edit.no_lessons_on` loads the year's terms to ask
+    the same thing before a substitution is stored. It had a
     looser copy of the rule — `school_year_bounds` and nothing else — so a
     31 May a class had already stopped teaching on, a Monday in the autumn
     holidays and the 8th of March all passed the write check and then resolved

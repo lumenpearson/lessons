@@ -50,8 +50,9 @@ enum ErrorReason {
   // v1: every 429, with Retry-After.
   THROTTLED = 8;
   // NOT_FOUND. metadata `resource`: "class", "subject", "bell_schedule",
-  // "homework", "substitution", "event", "task", "device", "access_request"
-  // or "student". An id from another class finds nothing, by design.
+  // "homework", "substitution", "event", "task", "device", "access_request",
+  // "student", or "day" for a date nobody marked, changed without
+  // allow_missing. An id from another class finds nothing, by design.
   // v1: every other 404.
   RESOURCE_NOT_FOUND = 9;
   // ALREADY_EXISTS. metadata `resource` and `field`: what is taken, and by
@@ -143,7 +144,7 @@ enum ErrorReason {
   // FAILED_PRECONDITION. metadata `why`: "out_of_year", "between_terms",
   // "public_holiday" or "marked_day_off". The day draws no lessons at all, so
   // a substitution on it would be announced and drawn nowhere. v1: 422 from
-  // PUT /overrides (timetable_edit.why_no_lesson_can_be_drawn).
+  // PUT /overrides (timetable_edit.no_lessons_on).
   NO_LESSON_ON_DAY = 32;
   // FAILED_PRECONDITION. metadata `index`: cancelling, or substituting without
   // a subject, a lesson number the day's template does not have.

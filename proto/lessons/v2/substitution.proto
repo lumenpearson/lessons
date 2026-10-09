@@ -44,8 +44,12 @@ service SubstitutionService {
     option (lessons.v2.min_role) = ROLE_EDITOR;
   }
   // `update_mask` takes action, subject, room, teacher and note; the date and
-  // the number are the row. A row at a number that no longer rings stays
-  // editable, which is how a class gets out of one.
+  // the number are the row. A path whose field is absent clears it, which
+  // the action cannot be; a cancellation keeps no subject, room or teacher.
+  // A row at a number that no longer rings stays editable, which is how a
+  // class gets out of one; NO_LESSON_ON_DAY and LESSON_NOT_ON_TIMETABLE are
+  // asked as on a create. Announced to the class's subscribers, unless
+  // nothing changed.
   rpc UpdateSubstitution(UpdateSubstitutionRequest) returns (UpdateSubstitutionResponse) {
     option (google.api.http) = {
       patch: "/v2/class/substitutions/{substitution.id}"
@@ -55,6 +59,7 @@ service SubstitutionService {
     option (lessons.v2.min_role) = ROLE_EDITOR;
   }
   // The lesson goes back to the timetable. v1: PUT /overrides with "clear".
+  // Announced to the class's subscribers.
   rpc DeleteSubstitution(DeleteSubstitutionRequest) returns (DeleteSubstitutionResponse) {
     option (google.api.http) = {delete: "/v2/class/substitutions/{substitution_id}"};
     option (lessons.v2.auth) = AUTH_KIND_DEVICE;

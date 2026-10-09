@@ -23,6 +23,7 @@ audit line lands with it or not at all, the same rule the rest of
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date as Date
 
 from sqlalchemy import delete as sa_delete
@@ -178,9 +179,18 @@ async def template_indexes_on(session: AsyncSession, class_id: int, day: Date) -
     return {int(index) for index in rows}
 
 
-async def why_no_lesson_can_be_drawn(
-    session: AsyncSession, class_id: int, day: Date
-) -> str | None:
+@dataclass(frozen=True)
+class NoLessons:
+    """Why a day draws no lessons at all: ``why`` for a client to act on, the
+    reason ``errors.proto`` names for ``NO_LESSON_ON_DAY`` — "out_of_year",
+    "between_terms", "public_holiday" or "marked_day_off" — and ``sentence``
+    for a person."""
+
+    why: str
+    sentence: str
+
+
+async def no_lessons_on(session: AsyncSession, class_id: int, day: Date) -> NoLessons | None:
     """Why this day draws no lessons at all, or ``None`` if it draws some.
 
     `_resolve_day` has two early returns above the override loop, and a lesson
@@ -206,9 +216,11 @@ async def why_no_lesson_can_be_drawn(
     again. The sentence differs per reason because the way out does: move a
     term's dates, pick another day, or accept that nobody is at school.
 
-    The sentence comes back rather than a flag, because both shells say it to
-    somebody and two spellings of one refusal is how they drift. It is plain
-    text on purpose: the bot shows it in an alert, which takes no parse mode.
+    The sentence comes back beside the reason, because every shell says it to
+    somebody and two spellings of one refusal is how they drift; the reason is
+    for the one that is not a person, v2's ``NO_LESSON_ON_DAY``. The sentence is
+    plain text on purpose: the bot shows it in an alert, which takes no parse
+    mode.
     What is deliberately *not* asked: whether the day has a lesson at this
     number. It need not — a substitution at an empty number is how a lesson is
     added — and `can_ring` is what keeps that honest.
@@ -226,12 +238,16 @@ async def why_no_lesson_can_be_drawn(
     if reason is DayOffReason.PUBLIC_HOLIDAY:
         holiday = holidays.holiday_on(day)
         named = holiday.title if holiday is not None else "нерабочий день"
-        return f"{named} — нерабочий день, уроков на нём нет; поставьте событие"
+        return NoLessons(
+            reason.value,
+            f"{named} — нерабочий день, уроков на нём нет; поставьте событие",
+        )
 
     if reason is DayOffReason.BETWEEN_TERMS:
-        return (
+        return NoLessons(
+            reason.value,
             "по датам периодов это каникулы — уроков на нём нет; "
-            "поправьте даты в «🗓 Четверти» или поставьте событие"
+            "поправьте даты в «🗓 Четверти» или поставьте событие",
         )
 
     if reason is DayOffReason.OUT_OF_YEAR:
@@ -245,9 +261,10 @@ async def why_no_lesson_can_be_drawn(
         if terms:
             closes = max(term.ends_on for term in terms)
             if day > closes:
-                return (
+                return NoLessons(
+                    reason.value,
                     f"учебный год закончился {closes.day}.{closes.month:02d} — "
-                    "замену ставить не на что; поставьте событие"
+                    "замену ставить не на что; поставьте событие",
                 )
             opens = min(term.starts_on for term in terms)
         else:
@@ -258,13 +275,14 @@ async def why_no_lesson_can_be_drawn(
         # is what tells them apart, and one sentence for both would answer
         # «1 сентября» with a complaint about the summer.
         if day.month >= SCHOOL_YEAR_START_MONTH:
-            return (
+            return NoLessons(
+                reason.value,
                 f"учебный год начинается {opens.day}.{opens.month:02d} — "
-                "до него уроков ещё нет; поставьте событие"
+                "до него уроков ещё нет; поставьте событие",
             )
-        return (
-            "эта дата вне учебного года — замену ставить не на что; "
-            "для летних дел есть события"
+        return NoLessons(
+            reason.value,
+            "эта дата вне учебного года — замену ставить не на что; для летних дел есть события",
         )
 
     marked = await session.scalar(
@@ -276,11 +294,22 @@ async def why_no_lesson_can_be_drawn(
     # something different about who is at school and nothing different about
     # whether a substitution can be drawn on it.
     if marked in KINDS_WITHOUT_LESSONS:
-        return (
+        return NoLessons(
+            "marked_day_off",
             "этот день отмечен как выходной — уроков на нём нет; "
-            "снимите отметку или поставьте событие"
+            "снимите отметку или поставьте событие",
         )
     return None
+
+
+async def why_no_lesson_can_be_drawn(session: AsyncSession, class_id: int, day: Date) -> str | None:
+    """The sentence of :func:`no_lessons_on`, or ``None`` if the day draws
+    lessons. Every shell now reads the reason and the sentence together,
+    through ``services/substitutions``; this stays for the tests that hold
+    each sentence and hold the two shells to one of them
+    (``test_timetable_edit.py``, ``test_bot_handlers.py``), unedited."""
+    found = await no_lessons_on(session, class_id, day)
+    return found.sentence if found is not None else None
 
 
 def can_ring(rung: set[int], index: int) -> bool:

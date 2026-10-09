@@ -31,11 +31,13 @@ from app.services import diary as diary_service
 from app.services import directory as directory_service
 from app.services import homework as homework_service
 from app.services import schools as schools_service
+from app.services import substitutions as substitutions_service
 from app.services import tasks as tasks_service
 from app.services import terms as terms_service
 from app.services.manage import bells as bells_service
 from app.services.manage import classes as classes_service
 from app.services.manage import devices as devices_service
+from app.services.manage import special_days as special_days_service
 from app.services.manage import subjects as subjects_service
 from app.services.manage import timetable as timetable_service
 
@@ -48,20 +50,17 @@ RPC = SERVER / "app" / "rpc"
 #: produces the last reason it brings, and a reason still listed under it in
 #: ``LATER`` then fails below
 #: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
-STAGES = {"3b-6", "3b-7", "3b-8"}
+STAGES = {"3b-7", "3b-8"}
 
 #: The reasons no served method produces yet, and the stage that brings each.
 #: A reason leaves this table in the commit whose handler raises it.
 LATER = {
-    "NO_BELL_FOR_LESSON": "3b-6",
     "DIARY_UNAVAILABLE": "3b-7",
     "DIARY_REAUTH": "3b-7",
     "DIARY_CREDENTIALS_REJECTED": "3b-7",
     "DIARY_NO_STUDENTS": "3b-7",
     "DIARY_UPSTREAM_UNREADABLE": "3b-7",
     "CORRECTIONS_UNAVAILABLE": "3b-8",
-    "NO_LESSON_ON_DAY": "3b-6",
-    "LESSON_NOT_ON_TIMETABLE": "3b-6",
 }
 
 
@@ -179,6 +178,30 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     homework_service.HomeworkExists: (
         "test_v2_homework_create.py",
         "test_a_subject_that_already_has_homework_that_day_is_refused_as_existing",
+    ),
+    special_days_service.ScheduleNotInClass: (
+        "test_v2_days.py",
+        "test_a_shortened_day_rings_a_schedule_of_its_own_class_that_rings_something",
+    ),
+    special_days_service.ShortenedNeedsSchedule: (
+        "test_v2_days.py",
+        "test_a_shortened_day_rings_a_schedule_of_its_own_class_that_rings_something",
+    ),
+    substitutions_service.NoLessonOnDay: (
+        "test_v2_substitution_create.py",
+        "test_a_day_that_draws_no_lessons_is_refused_with_why",
+    ),
+    substitutions_service.NoBellForLesson: (
+        "test_v2_substitution_create.py",
+        "test_a_number_the_day_rings_no_bell_for_is_refused",
+    ),
+    substitutions_service.LessonNotOnTimetable: (
+        "test_v2_substitution_create.py",
+        "test_cancelling_or_a_bare_room_where_the_template_has_no_lesson_is_refused",
+    ),
+    substitutions_service.SubstitutionExists: (
+        "test_v2_substitution_create.py",
+        "test_a_lesson_that_already_has_a_substitution_that_day_is_refused_as_existing",
     ),
     # The gate raises it for a diary method, and none is served before 3b-7:
     # test_rpc_gate.py holds the gate raising it until then.

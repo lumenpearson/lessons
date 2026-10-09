@@ -39,13 +39,18 @@ class DayService(Protocol):
         """
         Marks a date, or takes the mark off with DAY_KIND_NORMAL: a day never
         carries a row that says nothing. With `allow_missing`, a date with no
-        mark is created, which makes this an idempotent upsert by date.
-        `update_mask` takes kind, note and bell_schedule_id.
+        mark is created, which makes this an idempotent upsert by date, and
+        DAY_KIND_NORMAL on such a date writes nothing; without it, a date with no
+        mark is RESOURCE_NOT_FOUND. `update_mask` takes kind, note and
+        bell_schedule_id. A path whose field is absent clears it, which the kind
+        cannot be.
 
         As v1's PUT /days did, it takes NORMAL, HOLIDAY, SHORTENED and REMOTE;
-        SELF_STUDY and DAY_OFF are set from the bot and only read here. A
-        shortened day names the bell schedule it rings, and that schedule must
-        ring something (EMPTY_BELL_SCHEDULE).
+        SELF_STUDY and DAY_OFF are set from the bot and only read here, so a mark
+        of either changes here only into one of the four. A shortened day names
+        the bell schedule it rings, one of this class's, and that schedule must
+        ring something (EMPTY_BELL_SCHEDULE). Announced to the class's
+        subscribers, unless nothing changed.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -137,13 +142,18 @@ class DayServiceClient(ConnectClient):
         """
         Marks a date, or takes the mark off with DAY_KIND_NORMAL: a day never
         carries a row that says nothing. With `allow_missing`, a date with no
-        mark is created, which makes this an idempotent upsert by date.
-        `update_mask` takes kind, note and bell_schedule_id.
+        mark is created, which makes this an idempotent upsert by date, and
+        DAY_KIND_NORMAL on such a date writes nothing; without it, a date with no
+        mark is RESOURCE_NOT_FOUND. `update_mask` takes kind, note and
+        bell_schedule_id. A path whose field is absent clears it, which the kind
+        cannot be.
 
         As v1's PUT /days did, it takes NORMAL, HOLIDAY, SHORTENED and REMOTE;
-        SELF_STUDY and DAY_OFF are set from the bot and only read here. A
-        shortened day names the bell schedule it rings, and that schedule must
-        ring something (EMPTY_BELL_SCHEDULE).
+        SELF_STUDY and DAY_OFF are set from the bot and only read here, so a mark
+        of either changes here only into one of the four. A shortened day names
+        the bell schedule it rings, one of this class's, and that schedule must
+        ring something (EMPTY_BELL_SCHEDULE). Announced to the class's
+        subscribers, unless nothing changed.
         """
         return await self.execute_unary(
             request=request,
@@ -170,13 +180,18 @@ class DayServiceSync(Protocol):
         """
         Marks a date, or takes the mark off with DAY_KIND_NORMAL: a day never
         carries a row that says nothing. With `allow_missing`, a date with no
-        mark is created, which makes this an idempotent upsert by date.
-        `update_mask` takes kind, note and bell_schedule_id.
+        mark is created, which makes this an idempotent upsert by date, and
+        DAY_KIND_NORMAL on such a date writes nothing; without it, a date with no
+        mark is RESOURCE_NOT_FOUND. `update_mask` takes kind, note and
+        bell_schedule_id. A path whose field is absent clears it, which the kind
+        cannot be.
 
         As v1's PUT /days did, it takes NORMAL, HOLIDAY, SHORTENED and REMOTE;
-        SELF_STUDY and DAY_OFF are set from the bot and only read here. A
-        shortened day names the bell schedule it rings, and that schedule must
-        ring something (EMPTY_BELL_SCHEDULE).
+        SELF_STUDY and DAY_OFF are set from the bot and only read here, so a mark
+        of either changes here only into one of the four. A shortened day names
+        the bell schedule it rings, one of this class's, and that schedule must
+        ring something (EMPTY_BELL_SCHEDULE). Announced to the class's
+        subscribers, unless nothing changed.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -265,13 +280,18 @@ class DayServiceClientSync(ConnectClientSync):
         """
         Marks a date, or takes the mark off with DAY_KIND_NORMAL: a day never
         carries a row that says nothing. With `allow_missing`, a date with no
-        mark is created, which makes this an idempotent upsert by date.
-        `update_mask` takes kind, note and bell_schedule_id.
+        mark is created, which makes this an idempotent upsert by date, and
+        DAY_KIND_NORMAL on such a date writes nothing; without it, a date with no
+        mark is RESOURCE_NOT_FOUND. `update_mask` takes kind, note and
+        bell_schedule_id. A path whose field is absent clears it, which the kind
+        cannot be.
 
         As v1's PUT /days did, it takes NORMAL, HOLIDAY, SHORTENED and REMOTE;
-        SELF_STUDY and DAY_OFF are set from the bot and only read here. A
-        shortened day names the bell schedule it rings, and that schedule must
-        ring something (EMPTY_BELL_SCHEDULE).
+        SELF_STUDY and DAY_OFF are set from the bot and only read here, so a mark
+        of either changes here only into one of the four. A shortened day names
+        the bell schedule it rings, one of this class's, and that schedule must
+        ring something (EMPTY_BELL_SCHEDULE). Announced to the class's
+        subscribers, unless nothing changed.
         """
         return self.execute_unary(
             request=request,
