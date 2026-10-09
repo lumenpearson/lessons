@@ -30,18 +30,15 @@ import org.robolectric.annotation.Config
  * «Значок приложения», composed and pressed: a tile selects, only «Применить»
  * applies, and a trimmed catalog draws no empty group.
  */
-// marquee clock: it reaches the groups with `performScrollTo`, which holding the
-// clock would stop. The longest row title it composes is «Значок приложения»,
-// seventeen characters across a 411 dp row with nothing beside it.
+// marquee clock: «Значок приложения», the longest row title at seventeen
+// characters, does not overflow a 411 dp row even beside its icon and
+// chevron; this test reaches nodes with `performScrollTo`, which holding
+// the clock would stop.
 @RunWith(RobolectricTestRunner::class)
-// Russian, the source, for the reason `ClassRowsScreenTest` gives. The added
-// height qualifier is this file's own: with `w411dp` alone the root measures
-// 470 dp tall (confirmed by probing the semantics tree directly), so the
-// LazyColumn only ever composes the preview and the first two groups — not
-// because anything is broken, but because `performScrollTo` on a text match
-// requires that node to already exist, and a Lazy list never composes an item
-// it has not been scrolled near. Eight groups and the button need a window
-// tall enough to compose the whole page up front.
+// Russian, the source, for the reason `ClassRowsScreenTest` gives. The
+// height qualifier is this file's own: eight groups, the preview and the
+// button need a window taller than this test's own default, because a
+// `LazyColumn` composes only what its measured viewport already reaches.
 @Config(qualifiers = "ru-rRU-w411dp-h3000dp")
 class AppIconRowsTest {
 
@@ -144,4 +141,31 @@ class AppIconRowsTest {
 
         assertTrue(opened)
     }
+
+    /**
+     * One style trimmed to five palettes draws a full row of four and a short
+     * row of one: the fifth tile is the first of that short row, and
+     * `AppIconTiles`' trailing `Spacer`s are what keeps it under the first
+     * tile of the row above rather than centred in a row of its own.
+     */
+    @Test
+    fun `a short last row of tiles keeps the columns of the full row above it`() {
+        val trimmed = AppIconCatalog.variants.filter { it.style == default.style }.take(TrimmedPaletteCount)
+        val first = trimmed.first()
+        val fifth = trimmed.last()
+        show(variants = trimmed)
+
+        val firstLeft = compose.onNodeWithContentDescription(label(first)).performScrollTo()
+            .fetchSemanticsNode().boundsInRoot.left
+        val fifthLeft = compose.onNodeWithContentDescription(label(fifth)).performScrollTo()
+            .fetchSemanticsNode().boundsInRoot.left
+
+        assertEquals(firstLeft, fifthLeft, BoundsTolerance)
+    }
 }
+
+/** One more palette than a full row, so the trimmed catalog's second row holds exactly one tile. */
+private const val TrimmedPaletteCount = 5
+
+/** Slack for a float pixel bound, not a real difference this test is looking for. */
+private const val BoundsTolerance = 0.5f

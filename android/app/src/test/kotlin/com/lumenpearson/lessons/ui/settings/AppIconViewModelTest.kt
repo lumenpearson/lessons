@@ -53,12 +53,15 @@ class AppIconViewModelTest {
     }
 
     @Test
-    fun `until the launcher has been read the page shows the default`() = runTest {
-        val model = model(FakeLauncherComponents(), io = StandardTestDispatcher(testScheduler))
+    fun `until the launcher has been read the page shows the default, then the icon the launcher shows`() = runTest {
+        val model = model(
+            FakeLauncherComponents(mapOf(other.alias to true, default.alias to false)),
+            io = StandardTestDispatcher(testScheduler),
+        )
 
         assertEquals(default, model.uiState.value.current)
         advanceUntilIdle()
-        assertEquals(default, model.uiState.value.current)
+        assertEquals(other, model.uiState.value.current)
     }
 
     @Test

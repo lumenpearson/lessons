@@ -41,7 +41,14 @@ class AppIconViewModel(private val store: AppIconStore) : ViewModel() {
 
     val uiState: StateFlow<AppIconUiState> = combine(store.current, applying, failed) { current, applying, failed ->
         AppIconUiState(current = current ?: AppIconCatalog.default, applying = applying, failed = failed)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), AppIconUiState())
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+        // Seeded from whatever the store already knows, so a page opened
+        // after the store's own refresh has landed does not flash the
+        // default for the one frame before this flow's first collection.
+        AppIconUiState(current = store.current.value ?: AppIconCatalog.default),
+    )
 
     init {
         // The launcher is the record, and it can have changed since the store
