@@ -23,16 +23,21 @@ from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.contract.lessons.v2.substitution_pb import (
     CreateSubstitutionRequest,
     CreateSubstitutionResponse,
+    DeleteSubstitutionRequest,
+    DeleteSubstitutionResponse,
     GetSubstitutionRequest,
     GetSubstitutionResponse,
     ListSubstitutionsRequest,
     ListSubstitutionsResponse,
     Substitution,
     SubstitutionAction,
+    UpdateSubstitutionRequest,
+    UpdateSubstitutionResponse,
 )
 from app.models import LessonOverride, OverrideAction
 from app.rpc import dates, values
 from app.rpc.errors import Refusal, validate
+from app.rpc.masks import update_paths
 from app.schemas import OverrideIn
 from app.services import clock, substitutions
 
@@ -58,6 +63,10 @@ _WRITTEN = ("date", "index", "action", "subject", "room", "teacher", "note")
 #: The ``optional`` fields of ``Substitution``: unset reads as ``""``, and
 #: means none.
 _OPTIONAL = frozenset({"subject", "room", "teacher", "note"})
+
+#: What ``update_mask`` may name, and nothing more: the proto comment's list.
+#: The date and the number are the row.
+CHANGEABLE = ("action", "subject", "room", "teacher", "note")
 
 #: An ``action`` left unset, or a number no value of ``SubstitutionAction``
 #: names, which arrives in the binary encoding only. Fixed, naming the field
@@ -176,3 +185,64 @@ async def create_substitution(
     )
     _announce(call, written.notice)
     return CreateSubstitutionResponse(substitution=_message(written.substitution))
+
+
+async def update_substitution(
+    call: Call, request: UpdateSubstitutionRequest
+) -> UpdateSubstitutionResponse:
+    """Change a substitution's action, subject, room, teacher or note, checked
+    by v1's ``OverrideIn`` over the row as it would stand: v1 changed one by
+    sending it again.
+
+    The mask is read once, by ``masks.update_paths``: without one, what the
+    request sets changes and nothing else. A masked subject, room, teacher or
+    note left unset is cleared, and a masked action left unset is refused,
+    since a substitution always replaces or cancels; a cancellation keeps no
+    subject, room or teacher. A replacement left with none of the three is
+    refused on ``substitution``. A row at a number the day no longer rings
+    stays editable, which is how a class gets out of one, but a day that
+    draws no lessons and a lesson the template does not have are refused as
+    on a create. Announced once committed, in v1's words; an update that
+    changes nothing writes nothing and tells nobody.
+    """
+    editor, school_class = call.device_and_class()
+    sent = request.substitution if request.substitution is not None else Substitution()
+    paths = update_paths(request.update_mask, request.substitution, CHANGEABLE)
+    row = await _row(call, sent.id)
+    if not paths:
+        return UpdateSubstitutionResponse(substitution=_message(row))
+    stored = {
+        "date": row.date,
+        "index": row.index,
+        "action": row.action.value,
+        "subject": row.subject_name,
+        "room": row.room,
+        "teacher": row.teacher,
+        "note": row.note,
+    }
+    sent_fields = {name: _sent(sent, name) for name in paths}
+    form = validate(OverrideIn, {**stored, **sent_fields}, at="substitution.")
+    changes = {name: getattr(form, name) for name in paths}
+    if "action" in changes:
+        changes["action"] = OverrideAction(changes["action"])
+    written = await substitutions.update(
+        call.session, school_class, editor.telegram_id, row, changes
+    )
+    if written.notice is not None:
+        _announce(call, written.notice)
+    return UpdateSubstitutionResponse(substitution=_message(row))
+
+
+async def delete_substitution(
+    call: Call, request: DeleteSubstitutionRequest
+) -> DeleteSubstitutionResponse:
+    """Delete a substitution, which puts the lesson back on the timetable:
+    v1's ``PUT /overrides`` with ``clear``. Asked again, it is
+    ``RESOURCE_NOT_FOUND``, where v1's ``clear`` answered as the first time
+    did; either way the class is told once. Announced once committed, in
+    v1's words."""
+    editor, school_class = call.device_and_class()
+    row = await _row(call, request.substitution_id)
+    notice = await substitutions.delete(call.session, school_class, editor.telegram_id, row)
+    _announce(call, notice)
+    return DeleteSubstitutionResponse()

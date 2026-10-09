@@ -409,6 +409,8 @@ ANNOUNCED_HERE: dict[object, str] = {
     rpc_substitution.create_substitution: (
         "subject 120, room 32, teacher 120 and `note` 500: `OverrideIn`'s, as v1's"
     ),
+    rpc_substitution.update_substitution: "the same fields, held by `OverrideIn` as on a create",
+    rpc_substitution.delete_substitution: "a lesson number and a date",
 }
 
 
