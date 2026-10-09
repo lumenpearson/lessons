@@ -24,6 +24,8 @@ from app.contract.lessons.v2.me_pb import (
     CreateLinkCodeResponse,
     CreateTaskRequest,
     CreateTaskResponse,
+    DeleteTaskRequest,
+    DeleteTaskResponse,
     GetCalendarFeedRequest,
     GetCalendarFeedResponse,
     GetMeRequest,
@@ -37,11 +39,14 @@ from app.contract.lessons.v2.me_pb import (
     Task,
     UnlinkMeRequest,
     UnlinkMeResponse,
+    UpdateTaskRequest,
+    UpdateTaskResponse,
 )
 from app.models import DeviceToken, PersonalTask
 from app.rpc import values
 from app.rpc.errors import Refusal, validate
-from app.schemas import TaskIn
+from app.rpc.masks import update_paths
+from app.schemas import TaskIn, TaskPatch
 from app.services import calendar as calendar_service
 from app.services import linking
 from app.services import tasks as tasks_service
@@ -73,6 +78,10 @@ _WRITTEN = (
 
 #: The ``optional`` fields of ``Task``: unset reads as ``""`` or 0, and means none.
 _OPTIONAL = frozenset(_WRITTEN) - {"title"}
+
+#: What ``update_mask`` may name, and nothing more: the proto comment's list,
+#: which is v1's ``TaskPatch``. ``tasks.update_task`` decides the order.
+CHANGEABLE = (*_WRITTEN, "done")
 
 
 def _me(device: DeviceToken, access: Access) -> Me:
@@ -258,3 +267,46 @@ async def create_task(call: Call, request: CreateTaskRequest) -> CreateTaskRespo
         remind_at=form.remind_at,
     )
     return CreateTaskResponse(task=_task(row))
+
+
+def _sent(task: Task, field: str) -> object:
+    """What an update says of ``field``: ``None`` for an ``optional`` one it
+    leaves unset, which clears it. A masked ``title`` left unset reads as
+    ``""`` and a masked ``priority`` as ``None``, and ``TaskPatch`` refuses
+    both: the proto says neither can be cleared."""
+    if field in _OPTIONAL and not task.has_field(field):
+        return None
+    return getattr(task, field)
+
+
+async def update_task(call: Call, request: UpdateTaskRequest) -> UpdateTaskResponse:
+    """Change one of the linked account's own tasks: v1's ``PATCH /tasks/{id}``,
+    and with ``done`` its ``POST /tasks/{id}/done``.
+
+    The mask is read once, by ``masks.update_paths``: without one, what the
+    request sets changes and nothing else. An unset ``bool`` reads as false,
+    so ``done`` is taken back only under a mask that names it. The fields are
+    checked by v1's ``TaskPatch`` and applied by ``tasks.update_task``, which
+    refuses a ``homework_id`` of another class before it changes anything.
+    """
+    _device, school_class = call.device_and_class()
+    sent = request.task if request.task is not None else Task()
+    paths = update_paths(request.update_mask, request.task, CHANGEABLE)
+    patch = validate(TaskPatch, {name: _sent(sent, name) for name in paths}, at="task.")
+    row = await _own(call, sent.id)
+    await tasks_service.update_task(
+        call.session, school_class, row, patch.model_dump(exclude_unset=True)
+    )
+    # ``updated_at`` is the database's, set by this very update: flushed and
+    # read back, so that the answer carries it. ``invoke`` commits.
+    await call.session.flush()
+    await call.session.refresh(row)
+    return UpdateTaskResponse(task=_task(row))
+
+
+async def delete_task(call: Call, request: DeleteTaskRequest) -> DeleteTaskResponse:
+    """Delete one of the linked account's own tasks. Asked again, the task is
+    ``RESOURCE_NOT_FOUND``, as v1's ``DELETE`` answered 404."""
+    row = await _own(call, request.task_id)
+    await tasks_service.delete_task(call.session, row)
+    return DeleteTaskResponse()
