@@ -26,10 +26,13 @@ The corrections a family lays over what came down are filed per child, in
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from datetime import date as Date
+from typing import Any
 
 from sqlalchemy import ColumnElement, and_, func, select
 from sqlalchemy import delete as sa_delete
@@ -40,7 +43,13 @@ from app.crypto import diary_enabled, seal, unseal
 from app.db import rows_affected
 from app.models import DiarySession, SchoolClass
 from app.providers.diary.base import AdoptRequest, SignInRequest
-from app.providers.diary.errors import DiaryError, SessionExpired, UpstreamUnavailable
+from app.providers.diary.errors import (
+    BadCredentials,
+    DiaryError,
+    NoStudents,
+    SessionExpired,
+    UpstreamUnavailable,
+)
 from app.providers.diary.models import (
     AcademicPeriod,
     AttendanceEvent,
@@ -51,9 +60,11 @@ from app.providers.diary.models import (
     Subject,
     Teacher,
 )
-from app.providers.diary.registry import PETERSBURG, Binding, provider_for, row_for
+from app.providers.diary.registry import PETERSBURG, Binding, Needs, provider_for, row_for
 from app.providers.diary.registry import binding as class_binding
-from app.security import hash_token, new_token
+from app.security import DiaryAttempt, hash_token, new_token
+from app.services import clock, diary_corrections
+from app.services import diary_overrides as overrides
 from app.services.diary_corrections import UnknownDiaryServer, child_scope
 
 log = logging.getLogger(__name__)
@@ -77,6 +88,97 @@ class DiaryDisabled(RuntimeError):
     it is an operator's, not a user's: nothing the person types will help, and
     the message they get should say so instead of «попробуйте позже».
     """
+
+
+class UnknownProvider(ValueError):
+    """A provider key the table has no row for, named by the caller."""
+
+    def __init__(self, key: str) -> None:
+        super().__init__("unknown diary provider")
+        self.key = key
+
+
+class RegionNotServed(ValueError):
+    """A provider whose binding needs a region, named with one its allow-list
+    does not hold or that takes no password — or with none."""
+
+
+class SchoolRequired(ValueError):
+    """A provider whose binding needs a school, named without one."""
+
+
+class SessionRefused(BadCredentials):
+    """The diary would not take the session a phone opened, from this server.
+
+    What the provider's ``adopt`` raises for it is :class:`SessionExpired` — a
+    401, a 403 or a login page in answer to the validating read — or, from a
+    provider that judged it as credentials, :class:`BadCredentials`. Told apart
+    from the first because a read's :class:`SessionExpired` means «sign in
+    again», and here that would loop: the session was good on the phone seconds
+    ago, and it is this server the diary will not take it from. A
+    :class:`BadCredentials`, because nothing retried with it will help, and so
+    every shell words the two alike.
+    """
+
+
+class UnknownStudent(LookupError):
+    """A pupil id this session's diary does not list: another family's child,
+    or nobody's."""
+
+    def __init__(self, student_id: int) -> None:
+        super().__init__("unknown student")
+        self.student_id = student_id
+
+
+@dataclass(frozen=True)
+class Target:
+    """Where a sign-in or a session goes: a provider, and for one whose binding
+    needs them, an allow-listed region and a school; ``None`` for one that
+    does not."""
+
+    provider: str
+    region: str | None
+    school_id: int | None
+
+
+def target(provider: str | None, region: str | None, school_id: int | None) -> Target:
+    """The provider, region and school to sign in with or adopt into, checked
+    against the provider's row before any upstream call and before anything is
+    counted, so a region this server does not serve never receives a request,
+    whichever door it came through.
+
+    An absent provider is Petersburg, so an older phone that sends only a login
+    and a password is unchanged. A provider whose binding needs nothing takes
+    no region and no school, whatever was sent with it.
+
+    @raises UnknownProvider, RegionNotServed or SchoolRequired, in that order.
+    """
+    row = row_for(provider or PETERSBURG)
+    if row is None:
+        raise UnknownProvider(provider or PETERSBURG)
+    if row.needs is Needs.NOTHING:
+        return Target(row.key, None, None)
+    served = row.served_region(region)
+    if served is None:
+        raise RegionNotServed
+    if school_id is None:
+        raise SchoolRequired
+    return Target(row.key, served, school_id)
+
+
+def sealed_form(provider: str, handed: Mapping[str, Any]) -> str:
+    """What a phone handed over, in its provider's own serialisation: the one
+    field that is the whole session (Petersburg's bare token), or the JSON of
+    everything handed («Сетевой город»'s ``at``, cookies, ``ver`` and
+    ``time_out``), a field it did not hand left out rather than stored as a
+    null. ``handed`` is what v1's credential schema validated, dumped without
+    its nulls, whichever version received it."""
+    row = row_for(provider)
+    if row is None:
+        raise UnknownProvider(provider)
+    if row.bare_field is not None:
+        return str(handed[row.bare_field])
+    return json.dumps(dict(handed), ensure_ascii=False, separators=(",", ":"))
 
 
 def utcnow() -> datetime:
@@ -114,6 +216,11 @@ async def _open_row(
     that «what a session holds» has one answer. Every caller has just had the
     upstream accept the credential, which is what ``upstream_ok_at`` records.
 
+    Leaves the commit to its caller (the 3b plan, Ruling 106): a row whose
+    token never reached a phone is no session to keep, and the keep-alive would
+    ping it for a month. :func:`register`'s and ``/login``'s rows are committed
+    with the attempt's outcome, the sign-in page's with its class.
+
     @return the token to hand the client — shown once, stored only as a hash —
         and the row behind it.
     """
@@ -132,7 +239,7 @@ async def _open_row(
         upstream_ok_at=now,
     )
     session.add(row)
-    await session.commit()
+    await session.flush()
     return token, row
 
 
@@ -178,12 +285,15 @@ async def sign_in(
 @dataclass(frozen=True)
 class Registered:
     """A session the phone opened, now ours: the token to hand back once, the
-    row, and what the validating read already fetched."""
+    row, what the validating read already fetched, the school it was opened
+    with, and the zone its diary cuts its days at."""
 
     token: str
     row: DiarySession
     students: list[Student]
     school_name: str | None
+    school_id: int | None
+    zone: str
 
 
 async def adopt(
@@ -239,8 +349,119 @@ async def adopt(
         session, adopted.credential, login=login, provider=provider, region=region
     )
     return Registered(
-        token=token, row=row, students=list(adopted.students), school_name=adopted.school_name
+        token=token,
+        row=row,
+        students=list(adopted.students),
+        school_name=adopted.school_name,
+        school_id=school_id,
+        zone=impl.zone(region),
     )
+
+
+async def register(
+    session: AsyncSession,
+    *,
+    provider: str,
+    login: str,
+    handed: Mapping[str, Any],
+    region: str | None,
+    school_id: int | None,
+    failures_key: str,
+    opened_key: str,
+) -> Registered:
+    """Keep a session a phone opened itself, counted on both diary limiters,
+    or raise the fact that says why not: v1's ``POST /diary/session`` and v2's
+    ``CreateDiarySession`` alike, on one budget (the server-v2 design,
+    decision 11).
+
+    In that route's order: the target, so a region this server does not serve
+    is :class:`RegionNotServed` before anything is counted or sent; then the
+    attempt, ``security.Throttled`` while the caller has spent either limit;
+    then :func:`adopt`, the diary's own read from this server's address.
+
+    - **Counted as a failure**, the diary having judged what was sent:
+      :class:`SessionRefused` (the session would not open from here),
+      ``NoStudents``, and any other answer of the diary's family nobody can read.
+    - **Counted as a session opened**: a success, twenty to a caller in fifteen
+      minutes across both doors.
+    - **Not counted**, nothing having judged it: :class:`DiaryDisabled`, and
+      ``UpstreamUnavailable`` (``AddressRefused`` and a read out of time
+      included).
+
+    The attempt's outcome commits, on purpose (``security.DiaryAttempt``), and
+    with it the new row, which is never kept apart from the outcome that
+    counts it; anything else is the caller's to commit.
+    """
+    where = target(provider, region, school_id)
+    attempt = await DiaryAttempt.admit(session, failures_key=failures_key, opened_key=opened_key)
+    try:
+        registered = await adopt(
+            session,
+            provider=where.provider,
+            login=login,
+            credential=sealed_form(where.provider, handed),
+            region=where.region,
+            school_id=where.school_id,
+        )
+    except (DiaryDisabled, UpstreamUnavailable):
+        await attempt.not_judged(session)
+        raise
+    except NoStudents:
+        # Before the clause below, which it is a SessionExpired of: the session
+        # opened, and there is nobody behind it to read.
+        await attempt.failed(session)
+        raise
+    except (SessionExpired, BadCredentials) as failure:
+        # Counted: this is also what a replay of a session that was never real
+        # looks like.
+        await attempt.failed(session)
+        raise SessionRefused from failure
+    except DiaryError:
+        await attempt.failed(session)
+        raise
+    await attempt.succeeded(session)
+    return registered
+
+
+#: The days a diary read covers after its start when no end is named, and the
+#: most it may span: v1's ``/diary`` reads and v2's alike. The upstream is asked
+#: for the same span, and a year of lessons in one call is how an undocumented
+#: API starts refusing to answer at all. The most is ``clock``'s own sixty-two,
+#: so that the error table's sentence, built from it, is true of these too.
+WINDOW_DAYS = 14
+WINDOW_MAX_DAYS = clock.WINDOW_MAX_DAYS
+
+
+def window(start: Date | None, end: Date | None, today: Date) -> tuple[Date, Date]:
+    """The first and last day a diary read covers, both included: ``today`` —
+    the diary's own, never the server's — and :data:`WINDOW_DAYS` on when
+    unset, :data:`WINDOW_MAX_DAYS` at most. Moved from v1's ``_range`` (the
+    server-v2 design, decision 2), whose order it keeps: each date named is
+    bounded before anything is derived from it, because ``start + 14 days``
+    near ``date.max`` raises OverflowError.
+
+    @raises clock.WindowRefused naming the edge at fault, and why.
+    """
+    for edge, day in (("start", start), ("end", end)):
+        if day is not None and not clock.in_bounds(day):
+            raise clock.WindowRefused(edge, clock.OUT_OF_BOUNDS)
+    first = start or today
+    last = end or first + timedelta(days=WINDOW_DAYS)
+    if last < first:
+        raise clock.WindowRefused("end", clock.BACKWARDS)
+    if (last - first).days > WINDOW_MAX_DAYS:
+        raise clock.WindowRefused("end", clock.TOO_WIDE)
+    return first, last
+
+
+async def corrections(
+    session: AsyncSession, scope: str | None, student_id: int
+) -> dict[str, dict[str, tuple[str, str | None]]]:
+    """Every correction laid over one child's diary, or none for a child who
+    can have none (``scope`` ``None``, :meth:`DiaryService.scope_of`)."""
+    if scope is None:
+        return {}
+    return await diary_corrections.load_corrections(session, scope, student_id)
 
 
 def reads_binding(bound: Binding) -> ColumnElement[bool]:
@@ -374,10 +595,14 @@ async def _tell_upstream_goodbye(row: DiarySession) -> None:
 
 
 async def sign_out(session: AsyncSession, row: DiarySession) -> None:
-    """Forgets the session, telling the upstream first where it can be told."""
+    """Forgets the session, telling the upstream first where it can be told.
+
+    Leaves the commit to its caller (the 3b plan, Ruling 106): v1's
+    ``/logout`` commits after it, and v2's ``DeleteDiarySession`` in ``invoke``.
+    """
     await _tell_upstream_goodbye(row)
     await session.delete(row)
-    await session.commit()
+    await session.flush()
 
 
 async def sign_out_here(
@@ -528,6 +753,68 @@ class DiaryService:
             await self._expire()
             raise SessionExpired from None
         return None if student.id_space is not None else scope
+
+    # ---- one pupil: the rules v1's routes held, for every shell -------
+
+    async def student(self, student_id: int) -> Student:
+        """The pupil ``student_id``, resolved from this account's own diary on
+        every call rather than trusted. The id is not a secret, and without the
+        lookup one family's id in another family's request would read
+        somebody else's child.
+
+        @raises UnknownStudent for an id this session's diary does not list.
+        """
+        for student in await self.students():
+            if student.id == student_id:
+                return student
+        raise UnknownStudent(student_id)
+
+    async def child(self, student_id: int) -> tuple[Student, str | None]:
+        """The pupil, and the scope their corrections are filed under
+        (:meth:`scope_of`): the one door every correction read and write goes
+        through, so that an unknown id is refused before any row is touched and
+        the scope comes from the session's diary, never from its login (#165)."""
+        student = await self.student(student_id)
+        return student, await self.scope_of(student)
+
+    async def schedule_of(
+        self, student: Student, scope: str | None, start: Date, end: Date
+    ) -> list[overrides.OverlaidLesson]:
+        """The pupil's lessons from ``start`` to ``end``, with the corrections
+        filed under ``scope`` laid over them, in the diary's own order."""
+        lessons = await self.schedule(student.education_id, start, end)
+        found = await corrections(self.session, scope, student.id)
+        return overrides.overlay_lessons(lessons, found)
+
+    async def homework_of(
+        self, student: Student, scope: str | None, start: Date, end: Date
+    ) -> list[overrides.OverlaidHomework]:
+        """The pupil's homework due from ``start`` to ``end``, with the
+        corrections filed under ``scope`` laid over it."""
+        items = await self.homework(student.education_id, start, end)
+        found = await corrections(self.session, scope, student.id)
+        return overrides.overlay_homework(items, found)
+
+    async def periods_of(self, student: Student) -> list[AcademicPeriod]:
+        """The pupil's quarters or terms; none for a pupil the diary files
+        under no class, whose periods there is nothing to ask by."""
+        if student.group_id is None:
+            return []
+        return await self.periods(student.group_id)
+
+    async def subjects_of(self, student: Student, period_id: int | None) -> list[Subject]:
+        """The subjects of ``period_id``, or of the current period when it is
+        ``None``; none for a pupil with no class, or when no period is current."""
+        if student.group_id is None:
+            return []
+        chosen = period_id
+        if chosen is None:
+            found = await self.periods(student.group_id)
+            current = next((period for period in found if period.is_current), None)
+            if current is None:
+                return []
+            chosen = current.id
+        return await self.subjects(student.group_id, chosen)
 
     # ---- plumbing -----------------------------------------------------
 
