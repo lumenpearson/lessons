@@ -18,6 +18,7 @@ does not declare refused before the diary is asked anything. v1's
 from __future__ import annotations
 
 from datetime import date as Date
+from datetime import time as Time
 from typing import TYPE_CHECKING, Any
 
 from protobuf import Message
@@ -30,36 +31,49 @@ from app.contract.lessons.v2.diary_pb import (
     DeleteDiarySessionResponse,
     DiaryAttendance,
     DiaryCapabilities,
+    DiaryEdit,
     DiaryFeature,
+    DiaryHomework,
+    DiaryLesson,
+    DiaryMark,
     DiaryPeriod,
+    DiaryScheduleDay,
     DiarySession,
     DiaryStudent,
     DiarySubject,
     DiaryTeacher,
     GetDiaryCapabilitiesRequest,
     GetDiaryCapabilitiesResponse,
+    ListDiaryHomeworkRequest,
+    ListDiaryHomeworkResponse,
     ListDiarySubjectsRequest,
     ListDiarySubjectsResponse,
+    ListMarksRequest,
+    ListMarksResponse,
     ListPeriodsRequest,
     ListPeriodsResponse,
+    ListScheduleDaysRequest,
+    ListScheduleDaysResponse,
     ListStudentsRequest,
     ListStudentsResponse,
     ListTeachersRequest,
     ListTeachersResponse,
     ListTurnstileEventsRequest,
     ListTurnstileEventsResponse,
+    MarkKind,
     ProviderCapabilities,
     SignInMethod,
 )
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.crypto import diary_enabled
 from app.models import DiarySession as DiarySessionRow
-from app.providers.diary.models import AcademicPeriod, Student
+from app.providers.diary.models import AcademicPeriod, Mark, Student
 from app.providers.diary.registry import PETERSBURG, TABLE, Feature, row_for
-from app.rpc import values
+from app.rpc import dates, values
 from app.rpc.errors import Refusal, validate
 from app.schemas import NetSchoolSessionIn, PetersburgSessionIn
 from app.services import diary as diary_service
+from app.services import diary_overrides as overrides
 
 if TYPE_CHECKING:
     from app.rpc.call import Call
@@ -360,3 +374,122 @@ async def list_turnstile_events(
             for event in found
         ]
     )
+
+
+# ---- the reads of a window, with the family's corrections laid over -------
+
+
+def _window(request: Message, svc: diary_service.DiaryService) -> tuple[Date, Date]:
+    """The days a read covers, from the diary's own today: 14 on when unset,
+    62 at most, as v1's ``from`` and ``to``. Refused on ``start_date`` or
+    ``end_date`` before the diary is asked anything, where v1 asked for the
+    pupil first."""
+    return diary_service.window(*dates.asked(request), svc.today())
+
+
+def _time(moment: Time | None) -> str | None:
+    return values.time_string(moment) if moment is not None else None
+
+
+def _edits(edits: tuple[overrides.Edit, ...]) -> list[DiaryEdit]:
+    return [
+        DiaryEdit(
+            field=edit.field,
+            value=edit.value,
+            original=edit.original,
+            changed_upstream=edit.changed_upstream,
+        )
+        for edit in edits
+    ]
+
+
+def _days(lessons: list[overrides.OverlaidLesson]) -> list[DiaryScheduleDay]:
+    """The lessons day by day: a day without lessons is not listed, the days
+    come in date order, and each day's lessons in the order the diary is read
+    in, which for Petersburg is by number."""
+    by_day: dict[Date, list[DiaryLesson]] = {}
+    for overlaid in lessons:
+        lesson = overlaid.lesson
+        by_day.setdefault(lesson.date, []).append(
+            DiaryLesson(
+                number=lesson.number,
+                subject=lesson.subject,
+                starts_at=_time(lesson.starts_at),
+                ends_at=_time(lesson.ends_at),
+                room=lesson.room,
+                teacher=lesson.teacher,
+                homework=lesson.homework,
+                topic=lesson.topic,
+                target=overlaid.target,
+                edits=_edits(overlaid.edits),
+                ambiguous=overlaid.ambiguous,
+            )
+        )
+    return [
+        DiaryScheduleDay(date=values.date_string(day), lessons=by_day[day])
+        for day in sorted(by_day)
+    ]
+
+
+def _mark(mark: Mark) -> DiaryMark:
+    return DiaryMark(
+        id=mark.id,
+        subject_id=mark.subject_id,
+        subject=mark.subject_name,
+        date=_day(mark.date),
+        value=mark.value,
+        kind=MarkKind[mark.kind.name],
+        reason=mark.reason,
+        comment=mark.comment,
+    )
+
+
+async def list_schedule_days(
+    call: Call, request: ListScheduleDaysRequest
+) -> ListScheduleDaysResponse:
+    """A pupil's lessons day by day, with the family's corrections laid over
+    them, as v1's ``/schedule``."""
+    _feature(call, Feature.SCHEDULE)
+    svc = _service(call)
+    start, end = _window(request, svc)
+    student, scope = await svc.child(request.student_id)
+    lessons = await svc.schedule_of(student, scope, start, end)
+    return ListScheduleDaysResponse(schedule_days=_days(lessons))
+
+
+async def list_diary_homework(
+    call: Call, request: ListDiaryHomeworkRequest
+) -> ListDiaryHomeworkResponse:
+    """A pupil's homework by due date, with the family's corrections laid
+    over it, as v1's ``/homework``."""
+    _feature(call, Feature.HOMEWORK)
+    svc = _service(call)
+    start, end = _window(request, svc)
+    student, scope = await svc.child(request.student_id)
+    found = await svc.homework_of(student, scope, start, end)
+    return ListDiaryHomeworkResponse(
+        homework=[
+            DiaryHomework(
+                id=overlaid.item.id,
+                due_date=values.date_string(overlaid.item.due_date),
+                subject=overlaid.item.subject,
+                text=overlaid.item.text,
+                teacher=overlaid.item.teacher,
+                target=overlaid.target,
+                edits=_edits(overlaid.edits),
+                ambiguous=overlaid.ambiguous,
+            )
+            for overlaid in found
+        ]
+    )
+
+
+async def list_marks(call: Call, request: ListMarksRequest) -> ListMarksResponse:
+    """A pupil's marks, absences and lateness, as v1's ``/grades``: never
+    corrected."""
+    _feature(call, Feature.MARKS)
+    svc = _service(call)
+    start, end = _window(request, svc)
+    student = await svc.student(request.student_id)
+    found = await svc.marks(student.education_id, start, end)
+    return ListMarksResponse(marks=[_mark(mark) for mark in found])
