@@ -37,17 +37,28 @@ class AppIconStore(
     val current: StateFlow<AppIconVariant?> = state.asStateFlow()
 
     suspend fun refresh() {
-        state.value = locked { aliases.current() }
+        locked { state.value = aliases.current() }
     }
 
     suspend fun reconcile() {
-        state.value = locked { aliases.reconcile() }
+        locked { state.value = aliases.reconcile() }
     }
 
-    /** Throws whatever the platform throws, and then [current] is what it was. */
+    /**
+     * Throws whatever the platform throws, and then [current] is what it was.
+     *
+     * The assignment runs inside [locked], after the write, rather than after
+     * this suspend function resumes: a caller cancelled while the write is on
+     * [io] would otherwise resume into a thrown `CancellationException` and
+     * never reach `state.value = target`, leaving [current] naming the old
+     * icon for the rest of the process while the launcher already shows the
+     * new one.
+     */
     suspend fun switchTo(target: AppIconVariant) {
-        locked { aliases.switchTo(target) }
-        state.value = target
+        locked {
+            aliases.switchTo(target)
+            state.value = target
+        }
     }
 
     /**

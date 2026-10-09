@@ -1,7 +1,10 @@
 package com.lumenpearson.lessons.appicon
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -79,5 +82,34 @@ class AppIconStoreTest {
 
         assertTrue(done)
         assertNull(store.current.value)
+    }
+
+    @Test
+    fun `a switch cancelled while the write runs still leaves current naming the new icon`() = runTest {
+        val dispatcher = UnconfinedTestDispatcher(testScheduler)
+        val fake = FakeLauncherComponents()
+        lateinit var job: Job
+        // The write itself cancels the very job that is running switchTo, partway
+        // through the platform call, which is what the fix has to survive: the
+        // assignment has to happen before that cancellation is ever resolved,
+        // not after switchTo resumes.
+        val cancelsMidWrite = object : LauncherComponents {
+            override fun isEnabled(alias: String) = fake.isEnabled(alias)
+            override fun apply(changes: List<AliasChange>) {
+                job.cancel()
+                fake.apply(changes)
+            }
+        }
+        val store = AppIconStore(LauncherAliases(cancelsMidWrite), io = dispatcher, scope = CoroutineScope(dispatcher))
+
+        // LAZY, then started only once `job` itself has been assigned: on this
+        // unconfined dispatcher a plain `launch` would run the body inline before
+        // the assignment completed, and `job` would still be unset when apply()
+        // reaches for it.
+        job = launch(dispatcher, start = CoroutineStart.LAZY) { store.switchTo(other) }
+        job.start()
+
+        assertEquals(other, store.current.value)
+        assertEquals(listOf(other), fake.enabled())
     }
 }
