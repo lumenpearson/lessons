@@ -20,10 +20,14 @@ from app.contract.lessons.v2.me_pb import (
     CalendarFeed,
     CreateCalendarFeedRequest,
     CreateCalendarFeedResponse,
+    CreateHomeworkTickRequest,
+    CreateHomeworkTickResponse,
     CreateLinkCodeRequest,
     CreateLinkCodeResponse,
     CreateTaskRequest,
     CreateTaskResponse,
+    DeleteHomeworkTickRequest,
+    DeleteHomeworkTickResponse,
     DeleteTaskRequest,
     DeleteTaskResponse,
     GetCalendarFeedRequest,
@@ -32,6 +36,7 @@ from app.contract.lessons.v2.me_pb import (
     GetMeResponse,
     GetTaskRequest,
     GetTaskResponse,
+    HomeworkTick,
     LinkCode,
     ListTasksRequest,
     ListTasksResponse,
@@ -42,12 +47,13 @@ from app.contract.lessons.v2.me_pb import (
     UpdateTaskRequest,
     UpdateTaskResponse,
 )
-from app.models import DeviceToken, PersonalTask
+from app.models import DeviceToken, Homework, PersonalTask
 from app.rpc import values
 from app.rpc.errors import Refusal, validate
 from app.rpc.masks import update_paths
 from app.schemas import TaskIn, TaskPatch
 from app.services import calendar as calendar_service
+from app.services import homework as homework_service
 from app.services import linking
 from app.services import tasks as tasks_service
 from app.services.linking import Access
@@ -310,3 +316,37 @@ async def delete_task(call: Call, request: DeleteTaskRequest) -> DeleteTaskRespo
     row = await _own(call, request.task_id)
     await tasks_service.delete_task(call.session, row)
     return DeleteTaskResponse()
+
+
+async def _homework(call: Call, homework_id: int) -> Homework:
+    """This class's homework ``homework_id``, or ``RESOURCE_NOT_FOUND``: an id of
+    another class's homework finds nothing, as in v1."""
+    _device, school_class = call.device_and_class()
+    item = await homework_service.homework_of(call.session, school_class.id, homework_id)
+    if item is None:
+        raise Refusal(
+            ErrorReason.RESOURCE_NOT_FOUND, wording.UNKNOWN_HOMEWORK_DETAIL, resource="homework"
+        )
+    return item
+
+
+async def create_homework_tick(
+    call: Call, request: CreateHomeworkTickRequest
+) -> CreateHomeworkTickResponse:
+    """Tick homework of this class off for the linked account: v1's ``POST
+    /homework/{id}/done`` with ``true``. Ticking it twice is not an error: the
+    state asked for is the state answered (``tasks.set_homework_done``)."""
+    sent = request.homework_tick if request.homework_tick is not None else HomeworkTick()
+    item = await _homework(call, sent.homework_id)
+    await tasks_service.set_homework_done(call.session, item, _owner(call), True)
+    return CreateHomeworkTickResponse(homework_tick=HomeworkTick(homework_id=item.id))
+
+
+async def delete_homework_tick(
+    call: Call, request: DeleteHomeworkTickRequest
+) -> DeleteHomeworkTickResponse:
+    """Take the linked account's tick off: v1's ``POST /homework/{id}/done`` with
+    ``false``. Taking off a tick that is not there is not an error."""
+    item = await _homework(call, request.homework_id)
+    await tasks_service.set_homework_done(call.session, item, _owner(call), False)
+    return DeleteHomeworkTickResponse()
