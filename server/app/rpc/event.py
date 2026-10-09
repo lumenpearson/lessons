@@ -22,16 +22,21 @@ from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.contract.lessons.v2.event_pb import (
     CreateEventRequest,
     CreateEventResponse,
+    DeleteEventRequest,
+    DeleteEventResponse,
     Event,
     GetEventRequest,
     GetEventResponse,
     ListEventsRequest,
     ListEventsResponse,
+    UpdateEventRequest,
+    UpdateEventResponse,
 )
 from app.models import DayEvent, EventKind
 from app.rpc import dates, values
 from app.rpc.errors import Refusal, validate
-from app.schemas import EventIn
+from app.rpc.masks import update_paths
+from app.schemas import EventIn, EventPatch
 from app.services import clock
 from app.services import events as events_service
 
@@ -45,6 +50,10 @@ _WRITTEN = ("date", "starts_at", "ends_at", "title", "kind", "location", "covers
 #: The ``optional`` fields of ``Event``: unset means no place, and for
 #: ``covers_lesson`` what the kind means.
 _OPTIONAL = frozenset({"location", "covers_lesson"})
+
+#: What ``update_mask`` may name, and nothing more: the proto comment's list,
+#: which is what a create reads. ``events_service.update`` applies it.
+CHANGEABLE = _WRITTEN
 
 #: v2's kinds and the model's, matched by member name (``rpc/values.py``).
 _KINDS = {common_pb.EventKind[kind.name]: kind for kind in EventKind}
@@ -157,3 +166,50 @@ async def create_event(call: Call, request: CreateEventRequest) -> CreateEventRe
     )
     _announce(call, written.notice)
     return CreateEventResponse(event=_message(written.event))
+
+
+async def update_event(call: Call, request: UpdateEventRequest) -> UpdateEventResponse:
+    """Change an event's date, times, title, kind, place, or whether it stands
+    in for lessons, checked as a create is (``EventPatch``).
+
+    The mask is read once, by ``masks.update_paths``: without one, what the
+    request sets changes and nothing else. A masked ``location`` left unset
+    takes the place away, and a masked ``covers_lesson`` left unset puts it
+    back to what the kind means; a masked date, time or title left unset is
+    refused on its field, and a masked kind left unset is an event, as on a
+    create. One time moved is held against the one that stays. Announced once
+    committed, once, on the day the event is on afterwards; an update that
+    changes nothing writes nothing and tells nobody.
+    """
+    editor, school_class = call.device_and_class()
+    sent = request.event if request.event is not None else Event()
+    paths = update_paths(request.update_mask, request.event, CHANGEABLE)
+    data = {name: _sent(sent, name) for name in paths}
+    row = await _row(call, sent.id)
+    if "starts_at" in data or "ends_at" in data:
+        # Both, so that the time that stays is held against the one that moves.
+        data.setdefault("starts_at", row.starts_at)
+        data.setdefault("ends_at", row.ends_at)
+    patch = validate(EventPatch, data, at="event.")
+    changes = patch.model_dump(exclude_unset=True)
+    if "date" in changes:
+        dates.bounded(changes["date"], "event.date")
+    if "kind" in changes:
+        changes["kind"] = EventKind(changes["kind"])
+    written = await events_service.update(
+        call.session, school_class, editor.telegram_id, row, changes
+    )
+    if written.notice is not None:
+        _announce(call, written.notice)
+    return UpdateEventResponse(event=_message(row))
+
+
+async def delete_event(call: Call, request: DeleteEventRequest) -> DeleteEventResponse:
+    """Delete an event: v1's ``DELETE /events/{id}``. Asked again, it is
+    ``RESOURCE_NOT_FOUND``, as v1's 404 was. Announced once committed, in
+    v1's words."""
+    editor, school_class = call.device_and_class()
+    row = await _row(call, request.event_id)
+    notice = await events_service.delete(call.session, school_class, editor.telegram_id, row)
+    _announce(call, notice)
+    return DeleteEventResponse()

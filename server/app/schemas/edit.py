@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import date as Date
 from datetime import time as Time
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -77,6 +77,50 @@ class EventIn(BaseModel):
     @model_validator(mode="after")
     def _ends_after_start(self) -> EventIn:
         if self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be after starts_at")
+        return self
+
+
+class EventPatch(BaseModel):
+    """v2's ``UpdateEvent``: every field optional, and only the ones sent
+    change. ``null`` takes ``location`` away, and puts ``covers_lesson`` back
+    to what the kind means; the date, the times, the title and the kind
+    cannot be cleared. Cleaned and held as ``EventIn`` holds a new event: the
+    caller sends both times whenever one of them moves, so that the one that
+    stays is held against the one that moves."""
+
+    date: Date | None = None
+    starts_at: Time | None = None
+    ends_at: Time | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    kind: EventKindName | None = None
+    location: str | None = Field(default=None, max_length=120)
+    covers_lesson: bool | None = None
+
+    # An absent field is never validated, so these run only on a value the
+    # client sent: an explicit null is refused while «leave it alone» stays
+    # the default, as ``TaskPatch`` does it.
+    @field_validator("date", "starts_at", "ends_at", "kind")
+    @classmethod
+    def _when_present(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("must not be null")
+        return value
+
+    @field_validator("title")
+    @classmethod
+    def _clean_title(cls, value: str | None) -> str:
+        cleaned = _clean_optional_text(value)
+        if cleaned is None:
+            raise ValueError("title must not be blank")
+        return cleaned
+
+    _clean_location = field_validator("location")(_clean_optional_text)
+
+    @model_validator(mode="after")
+    def _ends_after_start(self) -> EventPatch:
+        starts, ends = self.starts_at, self.ends_at
+        if starts is not None and ends is not None and ends <= starts:
             raise ValueError("ends_at must be after starts_at")
         return self
 

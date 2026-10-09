@@ -39,7 +39,12 @@ service EventService {
     option (lessons.v2.min_role) = ROLE_EDITOR;
   }
   // `update_mask` takes date, starts_at, ends_at, title, kind, location and
-  // covers_lesson.
+  // covers_lesson. A path whose field is absent clears it: location goes,
+  // covers_lesson goes back to what the kind means, and kind becomes
+  // EVENT_KIND_EVENT; date, starts_at, ends_at and title cannot be cleared. A
+  // time that moves is held against the one that stays. Announced to the
+  // class's subscribers once, on the date it is on afterwards, unless nothing
+  // changed.
   rpc UpdateEvent(UpdateEventRequest) returns (UpdateEventResponse) {
     option (google.api.http) = {
       patch: "/v2/class/events/{event.id}"
@@ -48,6 +53,7 @@ service EventService {
     option (lessons.v2.auth) = AUTH_KIND_DEVICE;
     option (lessons.v2.min_role) = ROLE_EDITOR;
   }
+  // Announced to the class's subscribers.
   rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse) {
     option (google.api.http) = {delete: "/v2/class/events/{event_id}"};
     option (lessons.v2.auth) = AUTH_KIND_DEVICE;

@@ -449,10 +449,15 @@ def homework_deleted_notice(subject: str, when: str) -> str:
     return f"🗑 Задание удалено: <b>{escape(subject)}</b> {escape(when)}"
 
 
-def event_notice(title: str, when: str, span: str, location: str | None) -> str:
-    """«📅 Событие: …», with its times and its place when it has one."""
+def event_notice(
+    title: str, when: str, span: str, location: str | None, *, changed: bool = False
+) -> str:
+    """«📅 Событие: …» for a new event, and «📅 Событие изменено: …» for one
+    changed (v2's ``UpdateEvent``; v1 changed none), with its times and its
+    place when it has one, on the day it is on now."""
+    head = "📅 Событие изменено" if changed else "📅 Событие"
     place = f", {escape(location)}" if location else ""
-    return f"📅 Событие: <b>{escape(title)}</b> {escape(when)}, {span}{place}"
+    return f"{head}: <b>{escape(title)}</b> {escape(when)}, {span}{place}"
 
 
 def event_cancelled_notice(title: str, when: str) -> str:

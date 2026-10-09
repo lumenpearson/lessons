@@ -49,11 +49,19 @@ class EventService(Protocol):
     async def update_event(self, request: UpdateEventRequest, ctx: RequestContext[UpdateEventRequest, UpdateEventResponse], /) -> UpdateEventResponse:
         """
         `update_mask` takes date, starts_at, ends_at, title, kind, location and
-        covers_lesson.
+        covers_lesson. A path whose field is absent clears it: location goes,
+        covers_lesson goes back to what the kind means, and kind becomes
+        EVENT_KIND_EVENT; date, starts_at, ends_at and title cannot be cleared. A
+        time that moves is held against the one that stays. Announced to the
+        class's subscribers once, on the date it is on afterwards, unless nothing
+        changed.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     async def delete_event(self, request: DeleteEventRequest, ctx: RequestContext[DeleteEventRequest, DeleteEventResponse], /) -> DeleteEventResponse:
+        """
+        Announced to the class's subscribers.
+        """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     @classmethod
@@ -220,7 +228,12 @@ class EventServiceClient(ConnectClient):
     ) -> UpdateEventResponse:
         """
         `update_mask` takes date, starts_at, ends_at, title, kind, location and
-        covers_lesson.
+        covers_lesson. A path whose field is absent clears it: location goes,
+        covers_lesson goes back to what the kind means, and kind becomes
+        EVENT_KIND_EVENT; date, starts_at, ends_at and title cannot be cleared. A
+        time that moves is held against the one that stays. Announced to the
+        class's subscribers once, on the date it is on afterwards, unless nothing
+        changed.
         """
         return await self.execute_unary(
             request=request,
@@ -242,6 +255,9 @@ class EventServiceClient(ConnectClient):
         headers: Headers | Mapping[str, str] | None = None, 
         timeout_ms: int | None = None,
     ) -> DeleteEventResponse:
+        """
+        Announced to the class's subscribers.
+        """
         return await self.execute_unary(
             request=request,
             method=MethodInfo(
@@ -277,11 +293,19 @@ class EventServiceSync(Protocol):
     def update_event(self, request: UpdateEventRequest, ctx: RequestContext[UpdateEventRequest, UpdateEventResponse], /) -> UpdateEventResponse:
         """
         `update_mask` takes date, starts_at, ends_at, title, kind, location and
-        covers_lesson.
+        covers_lesson. A path whose field is absent clears it: location goes,
+        covers_lesson goes back to what the kind means, and kind becomes
+        EVENT_KIND_EVENT; date, starts_at, ends_at and title cannot be cleared. A
+        time that moves is held against the one that stays. Announced to the
+        class's subscribers once, on the date it is on afterwards, unless nothing
+        changed.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     def delete_event(self, request: DeleteEventRequest, ctx: RequestContext[DeleteEventRequest, DeleteEventResponse], /) -> DeleteEventResponse:
+        """
+        Announced to the class's subscribers.
+        """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     @classmethod
@@ -443,7 +467,12 @@ class EventServiceClientSync(ConnectClientSync):
     ) -> UpdateEventResponse:
         """
         `update_mask` takes date, starts_at, ends_at, title, kind, location and
-        covers_lesson.
+        covers_lesson. A path whose field is absent clears it: location goes,
+        covers_lesson goes back to what the kind means, and kind becomes
+        EVENT_KIND_EVENT; date, starts_at, ends_at and title cannot be cleared. A
+        time that moves is held against the one that stays. Announced to the
+        class's subscribers once, on the date it is on afterwards, unless nothing
+        changed.
         """
         return self.execute_unary(
             request=request,
@@ -464,6 +493,9 @@ class EventServiceClientSync(ConnectClientSync):
         headers: Headers | Mapping[str, str] | None = None, 
         timeout_ms: int | None = None,
     ) -> DeleteEventResponse:
+        """
+        Announced to the class's subscribers.
+        """
         return self.execute_unary(
             request=request,
             method=MethodInfo(

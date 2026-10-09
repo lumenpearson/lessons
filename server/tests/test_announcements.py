@@ -399,6 +399,8 @@ ANNOUNCED_HERE: dict[object, str] = {
     rpc_homework.delete_homework: "a stored subject, `max_length=120`",
     rpc_event._announce: "registers that effect for changes; no text of its own",
     rpc_event.create_event: "`title` 200 and `location` 120, `EventIn`'s as v1's",
+    rpc_event.update_event: "`title` 200 and `location` 120, `EventPatch`'s",
+    rpc_event.delete_event: "a stored title, `max_length=200`",
 }
 
 

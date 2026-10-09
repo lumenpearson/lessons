@@ -13,9 +13,11 @@ only then tells the class.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date as Date
 from datetime import time as Time
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,10 +34,11 @@ COVERS_BY_DEFAULT = frozenset({EventKind.EVENT, EventKind.TRIP})
 
 @dataclass(frozen=True)
 class Written:
-    """An event written, and the notice the class is told of it."""
+    """An event written, and the notice the class is told of it: ``None``
+    when an update changed nothing, so that nobody is told anything."""
 
     event: DayEvent
-    notice: str
+    notice: str | None
 
 
 def _span(event: DayEvent) -> str:
@@ -102,6 +105,46 @@ async def create(
     )
     await session.flush()
     return Written(event, wording.event_notice(title, when, span, location))
+
+
+async def update(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    event: DayEvent,
+    changes: Mapping[str, Any],
+) -> Written:
+    """v2's ``UpdateEvent``: change what ``changes`` names — the date, the
+    two times, the title, the kind, the place and what it stands in for — and
+    nothing else, with a line in the journal and one notice on the day the
+    event is on afterwards: an event moved to another day is announced once,
+    on its new one.
+
+    ``location`` ``None`` takes the place away, and ``covers_lesson`` ``None``
+    puts it back to what the kind means afterwards. The caller has held the
+    two times against each other. A change that leaves every field as it was
+    writes nothing, its line included, and its notice is ``None``. Nothing is
+    committed.
+    """
+    wanted = dict(changes)
+    if "covers_lesson" in wanted and wanted["covers_lesson"] is None:
+        wanted["covers_lesson"] = wanted.get("kind", event.kind) in COVERS_BY_DEFAULT
+    changed = {name: value for name, value in wanted.items() if getattr(event, name) != value}
+    if not changed:
+        return Written(event, None)
+    for name, value in changed.items():
+        setattr(event, name, value)
+    when = wording.human_date(event.date, clock.today(school_class))
+    span = _span(event)
+    await audit.record(
+        session,
+        school_class.id,
+        actor,
+        "event.update",
+        f"Событие изменено: {event.title}, {when} {span}",
+    )
+    notice = wording.event_notice(event.title, when, span, event.location, changed=True)
+    return Written(event, notice)
 
 
 async def delete(
