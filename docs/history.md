@@ -28,6 +28,93 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: three dependency bumps, and the monitoring's first evening
+
+Merged as #366 (`5d2e530`, 6 October 2026), from `deps/2026-10-06`, on milestone 7. It folds
+#344, #345 and #346. The branch was cut from `main` at `c292c74`, the merge of #363, and
+carries 9 commits before this close-out, to `620afac`. Written on 6 October 2026, after
+#363 merged. No revision goes with it: the schema stays at `0019`.
+
+- **Three bumps, merged from dependabot's own branches**, never retyped: `cryptography`
+  50.0.2, the `sqlalchemy[asyncio]` floor at 2.1.2, and `fastapi` 0.142.2.
+  - The lock's one conflict was `sentry-sdk`, which #359 added, beside `sqlalchemy`'s pin. It
+    was resolved by taking both sides.
+  - The lock was compiled again with the command in its header and came out unchanged, so no
+    pin in it was edited by hand.
+- **`server/pyproject.toml`'s floors match `requirements.in` again**, as
+  `test_requirements_mirror.py` asks; dependabot does not touch that file.
+- **`fastapi` 0.142.2 depends on `opentelemetry-api`**, which the lock already held for
+  `pyqwest`. The cold-start test still passes.
+
+### Gates
+
+All at `620afac`, the head before this close-out, on the bumped versions installed from the
+lock. CI runs on the head the merge is made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
+- **mypy**: no issues found in 228 source files.
+- **The server suite.** `pytest -q -n 4`, run alone from `server/`, gave **2713 passed** in
+  1580 s (26 min 20 s), four workers rather than `-n auto` to spare the machine's faulty RAM. The count
+  did not move, and the seven places the `handover` skill names say 2713.
+- **The contract** was not run: nothing under `proto/`, `buf.*` or `server/app/contract/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
+  before.
+
+### What was deliberately left alone
+
+- **The three changelogs** were not read. The suite on the installed versions is the check.
+
+### What nobody has verified in this batch
+
+- **The bumped versions on Vercel**, until the merge deploys; the read after it is the next
+  close-out's.
+
+### After #363's merge: the monitoring's first evening
+
+None of this is code in #366, and a close-out never gets a close-out of its own, so it is
+written here. The source is the session's own reads of 6 October 2026 and the owner's
+screenshots.
+
+- **The merge, by the owner.** #363 merged as `c292c74` at 17:36:15 UTC on 6 October 2026,
+  with CI green on `561d946` (Server, What changed, Vercel; Android and Contract skipped). It
+  closed #362.
+  - Vercel reported the deployment ready at 17:36:58 UTC.
+  - `/api/v1/warmup` answered `ok`, `0019`, `v2` `true` at 17:39 UTC.
+  - The `deploy` check read «running main's head c292c74» at 17:40:33 UTC.
+- **The first real alerts reached the owner.** The diary proxy failed in the ticks of 17:12
+  and 17:16 UTC, again at about 17:52, and at 18:00, each time with «no answer through the
+  proxy: TimeoutError». The owner's chat got:
+  - «🔴 Прокси дневника не отвечает» at about 17:12 UTC, and «🟢 Прокси дневника снова
+    работает, простой 8 мин» at about 17:20;
+  - the same pair at about 17:52 and 17:55, «простой 4 мин».
+
+  So an alert goes out, its recovery follows with the downtime, and the claim on Postgres is
+  cleared after it, at least in sequence.
+- **Why the proxy failed (#365): two causes.** The alerts went on through the evening, a
+  failure of three to eight minutes every half hour to two hours. `PetersburgClient` has the
+  same five-second connect budget, so a family would have seen the same failures.
+  - **The connection never reached the VPS** (17:12, 17:16, 17:52, 18:00 UTC: no line in
+    Squid's log). It is not only Vercel's path: an SSH connection from the owner's home line
+    timed out the same way at 20:42 UTC. That is the network in front of the VPS, and it is
+    the owner's question for RUVDS.
+  - **The tunnel opened and stalled for five seconds** (18:36 and 20:40 UTC, 5067 and 5065
+    ms). The diary's A record lives an hour, so Squid resolves it again about hourly, and 8.8.8.8
+    lost the A answer twice in 25 when it came paired with an AAAA one. Squid waited five
+    seconds before asking again. At 20:44 UTC the session set Squid's
+    `dns_retransmit_interval` to 1 second and put 9.9.9.9, which lost none, first. The old
+    configuration is kept beside the new one on the VPS.
+  - Filed as #365, with both causes and the options.
+- **Sentry was off in production, and now is not (#364).**
+  - Every cold start since #359's deploy had logged «SENTRY_DSN is set but unusable».
+  - The shape check refuses only what `sentry_sdk` itself refuses, so the value was wrong. The
+    owner pasted it into Vercel again.
+  - The session redeployed production from the same commit. The next cold start, at 18:00:55
+    UTC, logged nothing of the kind.
+  - A transaction, `/api/v1/cron/tick`, reached Sentry at 18:04:13 UTC. #364 closed.
+- **«📊 Проект» after #363 has not been looked at.** Whether Telegram still links
+  `docs/deploy.md` there is unverified.
+
 ## What the batch before added: «📊 Проект» links nothing (#362), and #359 in production
 
 Merged as #363 (`c292c74`, 6 October 2026), from `fix/project-screen-link`, on milestone 12. It
@@ -6761,3 +6848,27 @@ evening the self-check found four failing ticks in an hour, and Squid never saw 
 options are in the issue: watch a day by the alerts, ask RUVDS whether inbound connections
 from AWS Frankfurt are filtered, or move the proxy to another host. A retry in code does not
 span a window of minutes.
+
+## Moved out of section 7 on 9 October 2026
+
+Stage 3b-4 was built (#376), so `HANDOVER.md`'s section 7 points at 3b-5, after #373; and the
+owner rented the second host #365 asked for, a Selectel VDS rather than Timeweb Cloud, which
+could not reach the diary and was deleted, so the paragraph asking for it was replaced by one
+that keeps RUVDS until the phone reads the diary itself. As the two paragraphs stood until
+then:
+
+**Next for the programme: stage 3b-4 of sub-project 3, from the 3b plan.** Stages 3a (#342),
+3b-1 (#350), 3b-2 (#356) and 3b-3 (#372) are merged, and v2 serves thirty-three methods.
+`docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-4 to 3b-8. 3b-4 covers the phone's
+own — unlinking, the link code, the calendar feed, the tasks and the homework ticks — and its
+summary asks the controller first whether the services that commit inside themselves stop
+doing so («The commits inside services»). Sub-project 4's pull request A can still run beside
+it, one heavy job at a time.
+
+**Rent the diary proxy's new host, and send the session its address (#365).** The owner
+decided on 6 October that the proxy moves from RUVDS, whose network drops inbound connections
+for minutes at a time, to Timeweb Cloud in St Petersburg: Ubuntu 24.04, the smallest plan,
+with the proxy's public SSH key. With the address, a session sets the server up as the old
+one was (`docs/history.md`, the section on #334), the owner pastes the new `DIARY_PROXY_URL`
+into Vercel for Production, Preview and Development, the session redeploys and watches the
+self-check, and the RUVDS server is cancelled after a day without a failing tick.

@@ -6,28 +6,28 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **8 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
+Last updated: **9 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
-#313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363 and #366 are
-merged**, and #344's commit went in with #366 although GitHub marks it closed rather than
-merged; `main` is at `5d2e530`, the merge of #366, at 21:16 UTC on 6 October 2026. **The four
-designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered every question
-with its recommendation on 5 October (#301, #306, #307, #308). **One pull request is open:
-#372, the one carrying this paragraph**, from `server-v2/3b-3`, on milestone 11, which closes
-#367, #369 and #370 and refers to #273, #368 and #371: v2 is served beside v1, thirty-three
-methods of it now. **The schema did not move**: the head is still `0019`, on production since
-16:28 UTC on 6 October, and `EXPECTED_REVISION` did not move either. The issues filed since
-#366 merged are #367 (a wrong reason for the tick's order, in a comment and two documents),
-#369 (`directory.proto` said the region narrows the search) and #370 (two answers to one
-access request could both win on Postgres), all three closed by #372; #368 (an approval names
-the role asked for, not the one held), open and not fixed in #372; and #371 (a notice Telegram
-does not answer outliving the function), open, on the backlog. #352, #354, #355 and #357 stay
-open, and so does #365, now decided: the diary proxy moves to another host (section 7). #118,
-what Preview is for, was closed by #350.
+#313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363, #366 and
+#372 are merged**, and #344's commit went in with #366 although GitHub marks it closed rather
+than merged; `main` is at `128fe15`, the merge of #372, at 20:32 UTC on 8 October 2026. **The
+four designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered every
+question with its recommendation on 5 October (#301, #306, #307, #308). **One pull request is
+open: #376, the one carrying this paragraph**, from `server-v2/3b-4`, on milestone 11, which
+closes #374 and refers to #273, #373 and #375: v2 is served beside v1, forty-four methods of
+it now. **The schema did not move**: the head is still `0019`, on production since 16:28 UTC
+on 6 October, and `EXPECTED_REVISION` did not move either. The issues filed since #372 merged
+are #373 (on SQLite a savepoint that opens the transaction commits when it is released), open,
+to be fixed in a pull request of its own before 3b-5; #374 (`CLAUDE.md` said nothing under
+`services/` commits), closed by #376; and #375 (the bot's feed rotation commits before its
+journal line), open, on the backlog. #352, #354, #355, #357, #368 and #371 stay open, and so
+does #365: its second host could not reach the diary, and the diary's reads are to move onto
+the phone instead («After #372's merge», below). #118, what Preview is for, was closed by
+#350.
 
-The section «What the last session added» below is #372's batch, and «What the session before
-it added» is #366's.
+The section «What the last session added» below is #376's batch, and «What the session before
+it added» is #372's.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -162,9 +162,161 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: access requests and the school directory over v2, and the first notices as effects — stage 3b-3 of sub-project 3 (#273)
+## What the last session added: a phone's own over v2 — its link, the calendar feed, its tasks and its homework ticks — stage 3b-4 of sub-project 3 (#273)
 
-Open as #372, from `server-v2/3b-3` to `main`, on milestone 11, and on project 6. It closes
+Open as #376, from `server-v2/3b-4` to `main`, on milestone 11, and on project 6. It closes
+#374, and refers to #273, #373 and #375. The branch was cut from `main` at `128fe15`, the merge
+of #372, and carries 10 commits before this close-out, to `39fcef0`. Written on 9 October 2026,
+after #372 merged. No revision goes with it: the schema stays at `0019`. This is stage 3b-4 of
+`docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the next.
+v1 answers as before; v2 now answers forty-four methods.
+
+- **Six services stopped committing**, by the controller's ruling for 3b-4, which 3b-8
+  reuses: `tasks.add_task`, `set_done`, `delete_task` and `toggle_homework_done`,
+  `calendar.ensure_calendar_token` and `linking.issue_link_code`.
+  - v1's routers commit after the call.
+  - The bot's handlers commit before they tell Telegram. The middleware's own commit comes
+    after the handler, and a reply Telegram refuses would roll the write back. `CLAUDE.md` and
+    the `server-bot` agent now say so.
+  - The two retries that relied on a failing commit, a link code drawn twice and a racing
+    tick, concede inside a savepoint. Four tests of `test_services.py` that read the service's
+    own commit now make the caller's.
+  - Task 1's review found the savepoint untested and a foreign-key violation swallowed. Its
+    round of fixes added three tests showing that a collision keeps what the caller wrote
+    earlier in the transaction. A tick on a homework deleted meanwhile now raises, instead of
+    being reported as done.
+- **The rules v1's `public.py` held moved into `services/` first**, with v1 calling them:
+  - `tasks.create_task` and `update_task`: a task's homework of this class only, its
+    reminder on the class's clock, and a patch with `done` through `set_done`;
+  - `set_homework_done`, a tick set rather than toggled, and `LIST_MAX`;
+  - `homework.homework_of`;
+  - `linking.link_code_for`, `deep_link` and `unlink_self`;
+  - `calendar.feed_url`, which the bot builds with too;
+  - three sentences in `app/wording.py`.
+- **Eleven methods, `MeService` whole:**
+  - `UnlinkMe`, which on a phone that is not linked writes nothing and keeps its code;
+  - `CreateLinkCode`, the code v1's `/me` shows, never cached; `GetMe` still mints nothing;
+  - `GetCalendarFeed` and `CreateCalendarFeed`, for a linked account only. They give v1's
+    address on `PUBLIC_BASE_URL`, `FEATURE_UNSUPPORTED` (`feature` `calendar_feed`) without
+    it, and the minted address is never cached. Production sets `PUBLIC_BASE_URL`; Preview
+    does not;
+  - `ListTasks`, `GetTask`, `CreateTask` (`201`), `UpdateTask` (masked; v1's `POST …/done`
+    is it with `done`) and `DeleteTask`. Somebody else's task is not found, the same as one
+    that never was;
+  - `CreateHomeworkTick` and `DeleteHomeworkTick`, either asked twice landing on one answer.
+- **The error table gains one row**, `tasks.HomeworkNotInClass` as `VALIDATION_FAILED` on
+  `task.homework_id`, read back on both paths by a named test. No reason is new, and 3b-4
+  left `STAGES`.
+- **`me.proto`** says, in a comment only, what the feed methods answer on a deployment with
+  no public address.
+- **Three defects filed:**
+  - #374, fixed here: `CLAUDE.md` said nothing under `services/` commits, and it now says
+    which writes still do, and why;
+  - #373, not fixed here: on SQLite a savepoint that opens the transaction commits when it is
+    released. It gets a pull request of its own before 3b-5;
+  - #375, not fixed here: the bot's feed rotation commits before its journal line.
+
+### Gates
+
+The full suite ran once, at `c809eb7`, the head of the seven code tasks. The documents
+(`39fcef0`) came after it, with one docstring in `services/linking.py`, and their own files
+ran again. CI runs on the head the merge is made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `39fcef0`.
+- **mypy**: no issues found in 231 source files, at `39fcef0`.
+- **The server suite.**
+  - `pytest -q -n 4`, run alone from `server/` at `c809eb7`, gave **2839 passed** in 1509 s,
+    four workers rather than `-n auto` to spare the machine's faulty RAM.
+  - The plan expected 2836. The three more are the tests of Task 1's round of fixes.
+  - At `39fcef0`, `test_services.py` (126) and the document-reading tests (94) ran again.
+  - The seven places the `handover` skill names say 2839.
+- **The contract**, at `d4303f9`: `buf lint` exit 0, `buf breaking --against
+  .git#ref=origin/main` exit 0, and `buf generate` reproduces the committed files, with
+  `me_connect.py`'s four docstrings the only change.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand
+  from before.
+- **Reviews.** Each of the seven code tasks was reviewed on its own, Task 1 by the stronger
+  model, with one round of fixes. A final review of the whole branch found nothing to fix
+  before the merge, and five things this close-out and the documents now say.
+
+### What was deliberately left alone
+
+- **3b-5 to 3b-8**, each summarised in the 3b plan, and **3c**.
+- **v1's behaviour**. `GET /me` and `GET /calendar` still mint on a read. Any phone of the
+  class still mints the feed over v1, and v1 builds its address on the request's own host
+  when `PUBLIC_BASE_URL` is unset.
+- **The services that still commit inside themselves**:
+  - `linking.link_device` and `calendar.rotate_calendar_token`, which only the bot calls;
+  - the diary's corrections, which are 3b-8's;
+  - those `rpc/call.py` names, which commit on purpose.
+- **#373**. Its fix changes how every SQLite transaction begins, and turns the suite's
+  interleaved-session tests into lock waits, so it wants a run of its own.
+- **#375**: v2 has no rotation.
+- **A tick racing the deletion of its homework.** v2 answers `INTERNAL`, logged at error level
+  and so reaching Sentry; v1 answers 500 and the bot shows its error, as before. Mapping
+  `IntegrityError` in the error table would misclassify every other one.
+- **A `remind_at` sent with an offset** is converted, as v1 converts it, though the contract
+  writes a wall time.
+- **The bot's own homework lookup** in its tick handler stays. The bot calls
+  `toggle_homework_done` and commits after it.
+
+### What nobody has verified in this batch
+
+- **The eleven methods against Postgres.** Every v2 test ran on SQLite, the link code's and
+  the tick's savepoints among them, and on SQLite a savepoint that opens the transaction
+  commits when it is released (#373).
+- **Three commits, on SQLite** (#373). v1's `/me`, v1's `POST /homework/{id}/done` and the
+  bot's tick handler commit what a savepoint wrote as the transaction's first write. SQLite
+  commits that on release, so their tests would stay green without the commit. #373 says how
+  to test them once it is fixed.
+- **The bot committing before it answers, through Telegram itself.** The tests hand the
+  handlers a chat that reads the database from a session of its own whenever they speak.
+- **The eleven on Vercel**, beyond the post-merge check, which asks four REST routes and one
+  Connect method once, without a token.
+- **A phone using any of them**: no APK calls v2 yet.
+
+### After #372's merge: stage 3b-3 in production, a second host that could not reach the diary, and the owner's order
+
+None of this is code in #376, and a close-out never gets a close-out of its own, so it is
+written here. The source is the session's own reads of 8 and 9 October 2026 and the owner's
+answers.
+
+- **The merge, by the owner.** #372 merged as `128fe15` at 20:32:43 UTC on 8 October 2026,
+  with CI green on `a2a69a4` (Server, Contract (Buf), What changed, Vercel; Android skipped).
+  It closed #367, #369 and #370.
+- **Production built the merge itself.** Vercel reported the production deployment of
+  `128fe15` successful at 20:33:25 UTC. Read at 20:33:28 UTC:
+  - `/api/v1/warmup` answered `ok`, `0019`, `v2` `true`;
+  - REST `/api/v2/class/accessRequests` and `/api/v2/schools` answered `401`
+    `DEVICE_TOKEN_INVALID`;
+  - `/api/v2/schoolRegions` with «шк» answered `400` `VALIDATION_FAILED` on `query`, «Введите
+    хотя бы 3 символа названия школы», which asks the directory nothing;
+  - Connect `AccessRequestService/ListAccessRequests` answered `401` `unauthenticated`.
+- **A second host for the diary's proxy could not reach the diary (#365).** The owner rented a
+  VDS at Selectel, in St Petersburg, and the session set it up as the RUVDS one is: SSH by key
+  only, and Squid by the same script.
+  - From its address the diary dropped every TCP connection, on 443 and on 80, and so did
+    `petersburgedu.ru`, `gov.spb.ru`, `gu.spb.ru`, `gosuslugi.ru`, `esia.gosuslugi.ru` and
+    `kremlin.ru`. `mos.ru`, `nalog.gov.ru`, `ya.ru` and `vk.com` answered.
+  - Every geolocation database read placed the address in Russia, so the cause is not
+    geolocation. It is Selectel's own rule: access from its infrastructure to the
+    e-government's public subnets is blocked, and «Нельзя разблокировать доступ к подсетям
+    электронного правительства для VDS серверов» (`docs.selectel.ru`, «Заблокированные порты и
+    интернет-ресурсы»). The press of September 2026 describes government portals filtering
+    whole data-centre networks.
+  - The owner deleted the server. Production stays on RUVDS, which still reaches the diary.
+    The findings are on #365.
+- **The owner's order for what follows**, given on 8 October: finish sub-project 3; then have
+  the phone read the diary itself, for both diaries, in sub-project 4 if that breaks nothing in
+  the plan, or else in 5 or 6; and before sub-project 4 starts, check live on the development
+  machine everything the project records as unverified, installing what that needs.
+
+## What the session before it added: access requests and the school directory over v2, and the first notices as effects — stage 3b-3 of sub-project 3 (#273)
+
+Merged as #372 (`128fe15`, 8 October 2026), from `server-v2/3b-3`, on milestone 11. It closes
 #367, #369 and #370, and refers to #273, #368 and #371. The branch was cut from `main` at
 `5d2e530`, the merge of #366, and carries 11 commits before this close-out, to `0c14e9f`.
 Written on 8 October 2026, after #366 merged. No revision goes with it: the schema stays at
@@ -300,93 +452,6 @@ answers.
   yet, and the notes on the languages of Russia. 3b-3's own work had all been pushed, and
   lost nothing.
 
-## What the session before it added: three dependency bumps, and the monitoring's first evening
-
-Merged as #366 (`5d2e530`, 6 October 2026), from `deps/2026-10-06`, on milestone 7. It folds
-#344, #345 and #346. The branch was cut from `main` at `c292c74`, the merge of #363, and
-carries 9 commits before this close-out, to `620afac`. Written on 6 October 2026, after
-#363 merged. No revision goes with it: the schema stays at `0019`.
-
-- **Three bumps, merged from dependabot's own branches**, never retyped: `cryptography`
-  50.0.2, the `sqlalchemy[asyncio]` floor at 2.1.2, and `fastapi` 0.142.2.
-  - The lock's one conflict was `sentry-sdk`, which #359 added, beside `sqlalchemy`'s pin. It
-    was resolved by taking both sides.
-  - The lock was compiled again with the command in its header and came out unchanged, so no
-    pin in it was edited by hand.
-- **`server/pyproject.toml`'s floors match `requirements.in` again**, as
-  `test_requirements_mirror.py` asks; dependabot does not touch that file.
-- **`fastapi` 0.142.2 depends on `opentelemetry-api`**, which the lock already held for
-  `pyqwest`. The cold-start test still passes.
-
-### Gates
-
-All at `620afac`, the head before this close-out, on the bumped versions installed from the
-lock. CI runs on the head the merge is made from, and the merge waits for it to be green.
-
-- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
-- **mypy**: no issues found in 228 source files.
-- **The server suite.** `pytest -q -n 4`, run alone from `server/`, gave **2713 passed** in
-  1580 s (26 min 20 s), four workers rather than `-n auto` to spare the machine's faulty RAM. The count
-  did not move, and the seven places the `handover` skill names say 2713.
-- **The contract** was not run: nothing under `proto/`, `buf.*` or `server/app/contract/`
-  changed.
-- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
-  before.
-
-### What was deliberately left alone
-
-- **The three changelogs** were not read. The suite on the installed versions is the check.
-
-### What nobody has verified in this batch
-
-- **The bumped versions on Vercel**, until the merge deploys; the read after it is the next
-  close-out's.
-
-### After #363's merge: the monitoring's first evening
-
-None of this is code in #366, and a close-out never gets a close-out of its own, so it is
-written here. The source is the session's own reads of 6 October 2026 and the owner's
-screenshots.
-
-- **The merge, by the owner.** #363 merged as `c292c74` at 17:36:15 UTC on 6 October 2026,
-  with CI green on `561d946` (Server, What changed, Vercel; Android and Contract skipped). It
-  closed #362.
-  - Vercel reported the deployment ready at 17:36:58 UTC.
-  - `/api/v1/warmup` answered `ok`, `0019`, `v2` `true` at 17:39 UTC.
-  - The `deploy` check read «running main's head c292c74» at 17:40:33 UTC.
-- **The first real alerts reached the owner.** The diary proxy failed in the ticks of 17:12
-  and 17:16 UTC, again at about 17:52, and at 18:00, each time with «no answer through the
-  proxy: TimeoutError». The owner's chat got:
-  - «🔴 Прокси дневника не отвечает» at about 17:12 UTC, and «🟢 Прокси дневника снова
-    работает, простой 8 мин» at about 17:20;
-  - the same pair at about 17:52 and 17:55, «простой 4 мин».
-
-  So an alert goes out, its recovery follows with the downtime, and the claim on Postgres is
-  cleared after it, at least in sequence.
-- **Why the proxy failed (#365): two causes.** The alerts went on through the evening, a
-  failure of three to eight minutes every half hour to two hours. `PetersburgClient` has the
-  same five-second connect budget, so a family would have seen the same failures.
-  - **The connection never reached the VPS** (17:12, 17:16, 17:52, 18:00 UTC: no line in
-    Squid's log). It is not only Vercel's path: an SSH connection from the owner's home line
-    timed out the same way at 20:42 UTC. That is the network in front of the VPS, and it is
-    the owner's question for RUVDS.
-  - **The tunnel opened and stalled for five seconds** (18:36 and 20:40 UTC, 5067 and 5065
-    ms). The diary's A record lives an hour, so Squid resolves it again about hourly, and 8.8.8.8
-    lost the A answer twice in 25 when it came paired with an AAAA one. Squid waited five
-    seconds before asking again. At 20:44 UTC the session set Squid's
-    `dns_retransmit_interval` to 1 second and put 9.9.9.9, which lost none, first. The old
-    configuration is kept beside the new one on the VPS.
-  - Filed as #365, with both causes and the options.
-- **Sentry was off in production, and now is not (#364).**
-  - Every cold start since #359's deploy had logged «SENTRY_DSN is set but unusable».
-  - The shape check refuses only what `sentry_sdk` itself refuses, so the value was wrong. The
-    owner pasted it into Vercel again.
-  - The session redeployed production from the same commit. The next cold start, at 18:00:55
-    UTC, logged nothing of the kind.
-  - A transaction, `/api/v1/cron/tick`, reached Sentry at 18:04:13 UTC. #364 closed.
-- **«📊 Проект» after #363 has not been looked at.** Whether Telegram still links
-  `docs/deploy.md` there is unverified.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -409,9 +474,9 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356 (merged) and #372 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372 (merged) and #376 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
@@ -465,9 +530,9 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   (#304). The form breakout now treats «  /week» as a command because aiogram's `Command`
   filter does, after `text.split()`; its clients are not known to keep plain spaces there, but
   a no-break space is whitespace to `str.split`, and nobody has sent one.
-- **v2 as #342, #350, #356 and #372 serve it has been asked little outside the test client**
-  (stages 3a, 3b-1, 3b-2 and 3b-3; their sections above, or in `docs/history.md`, have the
-  detail):
+- **v2 as #342, #350, #356, #372 and #376 serve it has been asked little outside the test
+  client** (stages 3a, 3b-1, 3b-2, 3b-3 and 3b-4; their sections above, or in
+  `docs/history.md`, have the detail):
   - **on production, only after #342's promote**: on 5 October `/api/v1/warmup` reported
     `status` `ok`, schema `0017` and `"v2": true`; REST `/api/v2/diary/capabilities` answered
     `200` with `private, no-store`; Connect answered `200` in JSON and in binary; native gRPC
@@ -478,11 +543,24 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     `unauthenticated`. The fifteen of 3b-2 were asked once after #356's merge, without a
     token: REST `/class`, `/class/bellSchedules`, `/class/timetable` and `/class/terms`
     answered `401` `DEVICE_TOKEN_INVALID`, and Connect `BellService/ListBellSchedules`
-    answered `401` `unauthenticated`; the five of 3b-3 are asked after #372's merge, once,
-    without a token, and `ListSchoolRegions` with a query too short to be counted;
-  - **the twenty-nine methods of 3b-1 to 3b-3 against Postgres**: every v2 test ran on
-    SQLite, the journal's keyset, the import's bulk delete and insert, the bells' bulk
-    delete, the class's cascade and the directory's allowance among them;
+    answered `401` `unauthenticated`. The five of 3b-3 were asked once after #372's merge,
+    without a token: REST `/class/accessRequests` and `/schools` answered `401`
+    `DEVICE_TOKEN_INVALID`, `/schoolRegions` with a query too short to be counted `400`
+    `VALIDATION_FAILED`, and Connect `AccessRequestService/ListAccessRequests` `401`
+    `unauthenticated`. The eleven of 3b-4 are asked after #376's merge, once, without a
+    token;
+  - **the forty methods of 3b-1 to 3b-4 against Postgres**: every v2 test ran on SQLite,
+    the journal's keyset, the import's bulk delete and insert, the bells' bulk delete, the
+    class's cascade, the directory's allowance and the link code's and the tick's
+    savepoints among them, and on SQLite a savepoint that opens the transaction commits
+    when it is released (#373);
+  - **three of 3b-4's commits, on SQLite** (#373): v1's `/me`, v1's
+    `POST /homework/{id}/done` and the bot's tick handler commit what a savepoint wrote as
+    the transaction's first write, which SQLite commits on release, so their tests would
+    stay green without the commit;
+  - **the bot committing before it speaks, through Telegram itself**, for a task, a tick and
+    the feed's address: the tests hand the handlers a chat that reads the database as they
+    speak;
   - **a notice of `ApproveAccessRequest` or `DeclineAccessRequest` through a real bot**:
     every v2 test hands `telegram_send` a fake;
   - **`ListSchoolRegions` and `ListSchools` against DaData**: every v2 test replaces the
@@ -1311,13 +1389,15 @@ production» has a **current value** for `deviceToken`; type one there from a ph
 a class, and leave the initial value empty so that it stays on that machine. The collection has
 never been run in Postman, so the first run is also its first test.
 
-**Next for the programme: stage 3b-4 of sub-project 3, from the 3b plan.** Stages 3a (#342),
-3b-1 (#350), 3b-2 (#356) and 3b-3 (#372) are merged, and v2 serves thirty-three methods.
-`docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-4 to 3b-8. 3b-4 covers the phone's
-own — unlinking, the link code, the calendar feed, the tasks and the homework ticks — and its
-summary asks the controller first whether the services that commit inside themselves stop
-doing so («The commits inside services»). Sub-project 4's pull request A can still run beside
-it, one heavy job at a time.
+**Next for the programme: stage 3b-5 of sub-project 3, from the 3b plan, after #373.** Stages
+3a (#342), 3b-1 (#350), 3b-2 (#356), 3b-3 (#372) and 3b-4 (#376) are merged, and v2 serves
+forty-four methods. `docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-5 to 3b-8.
+#373 is fixed first, in a pull request of its own, because 3b-5's `CreateHomework` writes
+through `homework.upsert`'s savepoint. 3b-5 covers homework and events, and the first notices
+to the class as effects; its two open questions are the controller's before its task list is
+written. By the owner's order of 8 October, sub-project 3 is finished first, 3c included, and
+everything recorded as unverified is checked on the development machine before sub-project 4
+starts.
 The questions in section 5 about Vercel's proxy and the second host (below) are 3c's inputs.
 
 **Set `MIN_CLIENT_VERSION` only after sub-project 5's APK is on the family's phones, and never
@@ -1392,13 +1472,13 @@ cron»).
 «the token was refused», make a new read-only token and set it in Vercel
 (`docs/deploy.md`, «Monitoring: what tells the owner something is wrong»).
 
-**Rent the diary proxy's new host, and send the session its address (#365).** The owner
-decided on 6 October that the proxy moves from RUVDS, whose network drops inbound connections
-for minutes at a time, to Timeweb Cloud in St Petersburg: Ubuntu 24.04, the smallest plan,
-with the proxy's public SSH key. With the address, a session sets the server up as the old
-one was (`docs/history.md`, the section on #334), the owner pastes the new `DIARY_PROXY_URL`
-into Vercel for Production, Preview and Development, the session redeploys and watches the
-self-check, and the RUVDS server is cancelled after a day without a failing tick.
+**Keep the RUVDS proxy until the phone reads the diary itself (#365).** A second host, a
+Selectel VDS, could not reach the diary: Selectel blocks the e-government's subnets from its
+VDS servers and will not unblock them, and the owner deleted it on 8 October («After #372's
+merge», in the section on #376). By the owner's order the diary's reads move onto the phone,
+for both diaries, after sub-project 3. Until then production reads the Petersburg diary
+through RUVDS, and the self-check reports its drops. Nothing needs doing now; cancelling
+RUVDS waits for the phone.
 
 **#135 now has an answer in the code to each of its three questions, and closing it is the
 owner's.** `docs/diaries.md` is the map:
