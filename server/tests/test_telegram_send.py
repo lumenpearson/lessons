@@ -16,6 +16,7 @@ from typing import Any
 from app import telegram_send
 from app.config import get_settings
 from app.models import ReminderSettings
+from app.services import notify
 
 
 class _Bot:
@@ -82,7 +83,16 @@ async def test_a_bot_whose_close_raises_still_returns_the_delivered_flags(monkey
 
 
 async def test_without_a_token_nothing_is_built_and_nothing_is_sent(monkeypatch):
+    """``send`` wraps ``build_bot()`` in a ``try`` that reports a refusal as
+    ``False`` (see the next test), so a stub that merely raises on a call
+    proves nothing about whether the call happened at all - the early
+    ``if not bot_token`` return could be deleted and this would still pass.
+    ``calls`` is read instead: it is empty only if ``build_bot`` was never
+    reached."""
+    calls: list[None] = []
+
     def refuse() -> None:
+        calls.append(None)
         raise AssertionError("a bot was built with no token")
 
     monkeypatch.setattr(get_settings(), "bot_token", "")
@@ -90,6 +100,7 @@ async def test_without_a_token_nothing_is_built_and_nothing_is_sent(monkeypatch)
 
     assert await telegram_send.send([(1, "раз"), (2, "два")]) == [False, False]
     assert await telegram_send.send([]) == []
+    assert calls == []
 
 
 async def test_a_token_aiogram_will_not_build_a_bot_from_is_a_refusal_not_a_raise(monkeypatch):
@@ -136,13 +147,50 @@ async def test_a_class_notice_reaches_its_subscribers_but_its_author_and_closes_
 
 
 async def test_a_class_notice_without_a_token_builds_nothing(session, school_class, monkeypatch):
+    """Same reasoning as the `send` test above: ``notify_class`` also catches
+    whatever a refusing ``build_bot`` raises, in its own ``try`` around that
+    call, so the raise alone cannot tell a missing early return from a caught
+    one. ``calls`` is what proves ``build_bot`` was never reached."""
+    calls: list[None] = []
+
     def refuse() -> None:
+        calls.append(None)
         raise AssertionError("a bot was built with no token")
 
     monkeypatch.setattr(get_settings(), "bot_token", "")
     monkeypatch.setattr(telegram_send, "build_bot", refuse)
 
     told = await telegram_send.notify_class(session, school_class, "x", kind="changes", author=None)
+    assert told == 0
+    assert calls == []
+
+
+async def test_a_class_notice_survives_its_recipients_commit_leaving_the_class_expired(
+    session, school_class, monkeypatch
+):
+    """``notify_subscribers`` commits a switch-off of its own when a
+    recipient blocked the bot, and a commit that then fails can leave every
+    row the session holds expired - ``school_class`` included. Reading
+    ``school_class.id`` again afterwards, in a log line, would need a fresh
+    SELECT the synchronous ``except`` block cannot await, and raise out of a
+    function whose contract is «never raises». The stub reproduces only the
+    expiry and a failure, not the real commit; that is enough to make the
+    point - and enough to raise, since an expired attribute read outside an
+    awaited call is exactly what SQLAlchemy's asyncio extension refuses."""
+
+    async def expires_then_fails(*_args, **_kwargs):
+        session.expire(school_class)
+        raise RuntimeError("the switch-off commit failed")
+
+    monkeypatch.setattr(notify, "notify_subscribers", expires_then_fails)
+    bot = _Bot()
+    monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
+    monkeypatch.setattr(telegram_send, "build_bot", lambda: bot)
+
+    told = await telegram_send.notify_class(
+        session, school_class, "x", kind="changes", author=None
+    )
+
     assert told == 0
 
 

@@ -117,25 +117,32 @@ async def notify_class(
     v2's writes register it as an effect (``Call.after_commit``), so it runs
     once the change is committed, never on a refusal, and with the call's
     session still open: ``notify_subscribers`` reads the recipients from it,
-    and switches off whoever blocked the bot. ``text`` is HTML, escaped by
-    whoever worded it. Never raises: a bot that cannot be built, a recipient
-    Telegram refuses or a failure on the way is logged, and answered as fewer
-    told, because the change is saved already. With no ``BOT_TOKEN`` nothing
-    is built. The bot is closed whatever happened.
+    switches off whoever blocked the bot, and commits that switch-off itself -
+    the one write this effect makes after the call's own commit. ``text`` is
+    HTML, escaped by whoever worded it. Never raises: a bot that cannot be
+    built, a recipient Telegram refuses or a failure on the way is logged, and
+    answered as fewer told, because the change is saved already. With no
+    ``BOT_TOKEN`` nothing is built. The bot is closed whatever happened.
     """
+    # Read once, before anything below can fail: a failing switch-off commit
+    # can leave every row the session holds expired, `school_class` included,
+    # and reading its `.id` again in a log line would then need a fresh
+    # SELECT a synchronous `except` block cannot await - raising out of a
+    # function whose contract is "never raises".
+    class_id = school_class.id
     if not get_settings().bot_token:
         return 0
     try:
         bot = build_bot()
     except Exception:  # noqa: BLE001 - see the docstring
-        log.warning("class %s was not told: no bot could be built", school_class.id, exc_info=True)
+        log.warning("class %s was not told: no bot could be built", class_id, exc_info=True)
         return 0
     try:
         return await notify.notify_subscribers(
             session, bot, school_class, text, kind=kind, exclude=author
         )
     except Exception:  # noqa: BLE001 - see the docstring
-        log.warning("could not notify class %s", school_class.id, exc_info=True)
+        log.warning("could not notify class %s", class_id, exc_info=True)
         return 0
     finally:
         try:

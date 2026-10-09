@@ -465,6 +465,70 @@ def _announcing_call_sites() -> dict[object, str]:
     return found
 
 
+def _old_announcing_call_sites() -> dict[object, str]:
+    """The walk this file used before :func:`_announcing_call_sites` learned
+    to follow a call through what a file imports and into a ``lambda`` -
+    matching any call named ``notify_subscribers`` by its bare name, one
+    file's worth of indirection and no more.
+
+    Kept only as a floor: :func:`test_the_new_walk_finds_everything_the_old_bare_name_one_did`
+    below asserts that whatever this cruder method catches, the walk above
+    catches too, so a later rewrite of the real walk can never go narrower
+    than what it replaced.
+    """
+    found: dict[object, str] = {}
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+
+        calls: dict[str, set[str]] = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            named: set[str] = set()
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Call):
+                    func = inner.func
+                    named.add(
+                        func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+                    )
+            calls[node.name] = named
+
+        announcing = {"notify_subscribers"}
+        while True:
+            grown = {name for name, named in calls.items() if named & announcing}
+            if grown <= announcing:
+                break
+            announcing |= grown
+
+        # Its own definition is not a call site; every caller of it is.
+        callers = (announcing & set(calls)) - {"notify_subscribers"}
+        if not callers:
+            continue
+        parts = path.relative_to(APP_ROOT.parent).with_suffix("").parts
+        module_name = ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+        module = importlib.import_module(module_name)
+        for name in callers:
+            label = f"{module_name}:{name}"
+            found[getattr(module, name, label)] = label
+    return found
+
+
+def test_the_new_walk_finds_everything_the_old_bare_name_one_did():
+    """A floor on the rewrite, not a ceiling: the old walk matched any call
+    named ``notify_subscribers`` by its bare name, one file's worth of
+    indirection. The new one resolves names through imports and follows a
+    call inside a ``lambda`` - strictly more than the old one did - so
+    whatever the cruder method found by coincidence, the new one has to find
+    too, or a later rewrite could silently go narrower than what it
+    replaced."""
+    old = _old_announcing_call_sites()
+    new = _announcing_call_sites()
+    missing = sorted(label for found, label in old.items() if found not in new)
+    assert not missing, (
+        "the old bare-name walk found these, and the new one does not: " + ", ".join(missing)
+    )
+
+
 def test_every_place_that_pushes_to_the_class_is_read_in_this_file():
     """The list above, derived rather than trusted.
 
