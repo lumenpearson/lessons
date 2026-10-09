@@ -24621,6 +24621,6176 @@ A `501` with `UNIMPLEMENTED` means production still runs the code from before th
 - **Is `UpdateDay` with `allow_missing` and `DAY_KIND_NORMAL` on an unmarked date a no-op success?** Recommended: yes, with no notice.
 - **A substitution at a number that no longer rings stays editable** (the proto). Recommended: `UpdateSubstitution` skips the bell check, and `CreateSubstitution` keeps it.
 
+### 3b-6 task list
+
+**Status:** written on 9 October 2026, against `801a350`, the merge of #380 (stage 3b-5) into `main`, whose tree is `ad842d1`'s byte for byte, in the worktree `continue-previous-session-991230`. Every code step was applied in order to a copy of that tree and checked («What was verified», below). Where it differs from the 3b-6 summary above, this list is the one to follow; «Defects in the summary» says where and why.
+
+**Branch:** `server-v2/3b-6`, cut from `origin/main` at `801a350`, in the same worktree. It is its own pull request, on milestone 11, referring to #273.
+
+**Filed before Task 1:** the two defects this list found are #382 and #383 («Defects found while writing this list»). 3b-6 fixes both, in Tasks 1 and 2.
+
+**Scope.** The seven methods of `DayService` and `SubstitutionService`, and what they need first:
+- the rules v1's `api/edit.py` held for a day's mark move into `services/manage/special_days.py`, as one write, `put_day`, which v1's `PUT /days` and the bot's «🏖 Особые дни» both make (Task 1);
+- the rules it held for substitutions move into a new `services/substitutions.py`, whose three questions v1's `PUT /overrides` and the bot's «🔄 Замены» both ask (Task 2);
+- `GetDay` and `UpdateDay` (Task 3), `ListSubstitutions` and `GetSubstitution` (Task 4), `CreateSubstitution`, with which 3b-6 leaves `STAGES` (Task 5), and `UpdateSubstitution` and `DeleteSubstitution` (Task 6).
+
+No revision. Comment-only changes to the contract: `day.proto` and `errors.proto` in Task 3, `substitution.proto` in Task 6.
+
+| Task | Title | Tests added | Suite after | mypy after |
+| --- | --- | --- | --- | --- |
+| 1 | A day's mark, one write for three shells, in `services/` | 9 | 2936 | 235 |
+| 2 | Substitutions' three questions, in `services/substitutions.py` | 11 | 2947 | 236 |
+| 3 | `GetDay` and `UpdateDay` | 12 + 4 | 2963 | 237 |
+| 4 | `ListSubstitutions` and `GetSubstitution` | 4 + 4 | 2971 | 238 |
+| 5 | `CreateSubstitution`, and 3b-6 leaves `STAGES` | 9 + 2 | 2982 | 238 |
+| 6 | `UpdateSubstitution` and `DeleteSubstitution`, what `substitution.proto` says of them, and the batch's one full run | 10 + 4 | 2996 | 238 |
+| 7 | The documents, the counts, the HANDOVER close-out, and production after the merge | — | 2996 | 238 |
+
+**Counts.**
+- Tests: 9 + 11 + 16 + 8 + 11 + 14 = **69**, so the suite goes from **2927** at `801a350` to **2996**. Each «+ N» counts the cases the served methods add by themselves: `test_v2_reads.py`'s gate test and `test_v2_no_echo.py`'s sweep are each parametrized over `rpc/handlers.HANDLERS`, so every method served adds one case to each, fourteen in all. Counted with `pytest --collect-only -q` on the copy after each task: 2936, 2947, 2963, 2971, 2982 and 2996.
+- mypy: **235 becomes 238**, with `services/substitutions.py` (Task 2), `rpc/day.py` (Task 3) and `rpc/substitution.py` (Task 4). `mypy` reads `app/` only. If mypy on the branch's first commit prints another number, shift every N by the difference.
+
+**Commands.** As 3b-5's:
+- `WT` is `/c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230`, and its venv is `$WT/server/.venv`, made in that tree, which the #312 guard asks for.
+- `pytest` is `$WT/server/.venv/Scripts/pytest.exe`, run from `$WT/server`, bare, as CI runs it; a task's gate adds `-p no:xdist` and names its files. Before any run, `tasklist | grep -i pytest` must print nothing: one test process at a time on this machine. The full suite runs once, alone, at the end of Task 6, as `pytest -q -n 4`, and the controller runs it.
+- `ruff` and `mypy` are `$WT/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations` and `… -m mypy`, from `$WT/server`.
+- `buf` is `/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe` (1.73.0), run from `$WT`; `buf breaking` runs from `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b6.sh` (written in Task 3), because the shell refuses `.git#ref` on a command line.
+- Commit messages are `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b6-t<N>.txt`, written with the Write tool and committed with `git commit -F`. They carry no trailer lines (Ruling 102).
+- The shell refuses a compound command that `cd`s to a computed path, so every command below spells its paths out. One heavy job at a time: never two test processes at once, and never the suite beside Gradle.
+
+`#382`, `#383` and `#PR` are numbers the controller obtains before Task 1 and at Task 7 Step 7. `[AFTER-380]` is the slot in Task 7 Step 8 for what the controller hands over about #380's merge.
+
+### Rulings for 3b-6
+
+Numbered after the plan's own 1 to 17, 3b-2's 18 to 33, 3b-3's 34 to 51, 3b-4's 52 to 67 and 3b-5's 68 to 86, which still hold.
+
+87. **Open question 1: `UpdateDay` with `allow_missing` and `DAY_KIND_NORMAL` on a date nobody marked is a no-op success** (the controller's ruling): nothing is written, no line goes into the journal and nobody is told, and the answer is the date as an ordinary day.
+88. **Open question 2: a substitution at a number that no longer rings stays editable** (the controller's ruling): `UpdateSubstitution` skips the bell, and `CreateSubstitution` keeps it. The other two questions, whether the day draws lessons and whether a lesson is underneath, are asked of both, as v1 asked them of its update.
+89. **Without `allow_missing`, a date nobody marked is `RESOURCE_NOT_FOUND`**, with `resource: "day"`, whatever the request's kind, `DAY_KIND_NORMAL` included (AIP-134). The summary is silent; the proto says that `allow_missing` is what makes a mark where there is none, which leaves nothing else for a request without it to mean. `GetDay` still answers every date, as the proto says: a date nobody marked is an ordinary day to read and a missing mark to change. `errors.proto`'s comment on `RESOURCE_NOT_FOUND` gains `"day"`, and `day.proto` says all of this (Task 3).
+90. **The harness note** (the controller's ruling): `test_v2_reads._request` gives `GetDayRequest` and `UpdateDayRequest` a valid date, as it gives `GetScheduleWindow` its year, because REST routes no empty path segment.
+91. **The commit discipline of 3b-4 holds** (the controller's ruling). No service commits; v1's routers commit after the call and only then tell the class; a bot handler that writes through a service commits right after the write and before it touches conversation state, which on SQLite a savepoint makes a must (#373). A savepoint holds the writes it protects (#381): a new row is added inside `begin_nested()`, and an existing row is changed outside any savepoint, where no constraint can refuse the change, because its date and number are what the constraint is on.
+92. **Notices are effects** (the controller's ruling), through each handler module's own `_announce`, which registers `telegram_send.notify_class` in a `lambda` passed to `call.after_commit`: kind `"changes"`, after the commit, never on a refusal, the author excluded, v1's texts byte for byte, moved to `app/wording.py` as functions that escape what was typed. `tests/test_announcements.py`'s `ANNOUNCED_HERE` learns every new announcer, and its walk finds them through the module's imports as 3b-5 taught it. An update that changes nothing writes nothing and tells nobody (3b-5's Ruling 74), for `UpdateDay` and `UpdateSubstitution` alike.
+93. **`ListSubstitutions` reads its window with `rpc/dates.window`, and a written date is held by `rpc/dates.bounded`**, as 3b-5 left them (the controller's ruling): 21 days, at most 62, and the homework's sentences.
+94. **A day's mark is one write, `special_days.put_day(session, school_class, day, changes)`** (Task 1), reconciled from v1's `day_put` and the bot's `special_days.mark`:
+    - `changes` names `kind`, `note` and `bell_schedule_id`; a field it leaves out keeps what the mark holds, or none on a new mark. `DayKind.NORMAL` takes the mark off.
+    - A schedule the request names must be this class's (`ScheduleNotInClass`) and ring something (`bells.ScheduleEmpty`), asked before anything is written; a request that changes the kind or the schedule may not leave a shortened day with none (`ShortenedNeedsSchedule`). v1 sends all three fields, so v1 is asked exactly what it asked, in its order.
+    - A schedule is stored on whatever kind it is sent with, as v1 stored it: the resolver rings a day's schedule whatever its kind. The bot's screen sends none with any kind but a shortened one, as `mark` cleared it.
+    - v1's line and notice are `set_day`'s, every time a mark is set, sent twice or not, as v1 told the class, and when one is taken off only if there was one; v2's are `update_day`'s, only on a change.
+    - The bot calls `put_day` for every write of a mark: the kind, with its picker's starting value for a shortened day — the schedule the day had, or the class default — written before the picker is asked, as `mark` wrote it; the schedule picked; the note; the mark taken off; and each day of a period (`mark_period`, over `put_day` now). It keeps its own lines and tells nobody, as it did. `special_days.mark` goes.
+    - **One thing the bot does differently:** a class whose default rings no lesson, or that has no default, can no longer be marked shortened from the bot, where `mark` wrote a day that drew nothing, or drew the ordinary lessons under «⏱ Сокращённые уроки». `put_day` refuses it, and the bot says so in an alert and writes nothing. No v1 or v2 write can empty a default or delete one (`BellPeriodsIn` and `update` refuse both), so only a class whose bells were never filled in reaches it; it is not filed as a defect, and Task 1 holds it with a test.
+95. **A substitution is asked three questions, once, in `services/substitutions.py`** (Task 2):
+    - `NoLessonOnDay(why, sentence)`, from `timetable_edit.no_lessons_on`, which answers the reason `errors.proto` names — `"out_of_year"`, `"between_terms"`, `"public_holiday"` or `"marked_day_off"` — beside the sentence `why_no_lesson_can_be_drawn` always answered; `why_no_lesson_can_be_drawn` stays, its sentence, for the two test files that read it unedited.
+    - `NoBellForLesson(index)` against the day's own bells, of a new row only (Ruling 88).
+    - `LessonNotOnTimetable(index, cancelling)` against the weekly template, for a cancellation and for a replacement with no subject of its own.
+    - `SubstitutionExists` for `create` alone.
+
+    `upsert` is the bot's and v1's write; `put` adds v1's line and notice, every time, as v1 did; `create`, `update` and `delete` are v2's, and `delete` is v1's `clear` too. A cancellation carries no subject, room or teacher, v1's rule: the bot's cancellation now clears a teacher set from a phone as well, which nothing draws. The bot's replacement changes the subject and the room and leaves a teacher or a note set from a phone as it was, as it did. The bot's `_save_override` calls `upsert`, so it asks the third question it never asked (#383), and says the bell in its own words (`NO_BELL`, which names «🔔 Звонки») and the other two in v1's.
+96. **Two writers at once (#382).** `put_day` and `upsert` insert inside a savepoint; the same mark or the same lesson written by somebody else between the read and the insert meets the unique constraint there, and the write becomes the change it would have been a moment later. `create` refuses the same race with `SubstitutionExists`. v1's `PUT /days` and `PUT /overrides` answer `200` where they answered `500`.
+97. **The error table's rows** (Tasks 3 and 5):
+
+    | Exception | Reason | Metadata | Message |
+    | --- | --- | --- | --- |
+    | `special_days.ScheduleNotInClass` | `VALIDATION_FAILED` | a violation on `day.bell_schedule_id` | v1's, `wording.SCHEDULE_NOT_IN_CLASS_DETAIL` |
+    | `special_days.ShortenedNeedsSchedule` | `VALIDATION_FAILED` | a violation on `day.bell_schedule_id` | v1's, `wording.SHORTENED_NEEDS_SCHEDULE_DETAIL` |
+    | `bells.ScheduleEmpty` | `EMPTY_BELL_SCHEDULE` | none | 3b-2's row, unchanged |
+    | `substitutions.NoLessonOnDay` | `NO_LESSON_ON_DAY` | `why` | the service's sentence, built from the class's terms and the calendar |
+    | `substitutions.NoBellForLesson` | `NO_BELL_FOR_LESSON` | `index` | v1's, `wording.no_bell_detail` |
+    | `substitutions.LessonNotOnTimetable` | `LESSON_NOT_ON_TIMETABLE` | `index` | v1's two, `wording.lesson_not_on_timetable_detail` |
+    | `substitutions.SubstitutionExists` | `RESOURCE_EXISTS` | `{resource: "substitution", field: "index"}` | v2's, `errors.SUBSTITUTION_EXISTS` |
+
+    Each is `HELD_BY` a test that reads the refusal back on both transports. An unknown id is a `Refusal`, `RESOURCE_NOT_FOUND` with `resource: "substitution"`, in v2's own sentence, `UNKNOWN_SUBSTITUTION`, since v1 never looked a substitution up by id; an unmarked date without `allow_missing` is `RESOURCE_NOT_FOUND` with `resource: "day"` (Ruling 89).
+98. **Validation is v1's schemas'.** `UpdateDay` validates the mark as it would stand with v1's `DayIn`, the stored fields filled in under the masked ones, so the kinds v2 writes are `DayIn`'s four and a kind is refused on `day.kind` when it is `SELF_STUDY` or `DAY_OFF`, unset where a mark is made or under a mask, a number no `DayKind` names, or the stored kind of a mark the bot set and the request leaves alone: a self-study day is changed here only into a kind v2 writes. A date a day is named by is parsed with a new `schemas.DateIn`, through `rpc/dates.named`, and held to the bounds a written date is held to, for a read too. `CreateSubstitution` validates with `OverrideIn`; `UpdateSubstitution` with `OverrideIn` over the row as it would stand, so a replacement left with no subject, room or teacher is refused on `substitution`, `OverrideIn`'s own sentence. An action unset, or one no `SubstitutionAction` names, is a handler's `Refusal` on `substitution.action`, in a fixed sentence, `ACTION_REFUSED`, as 3b-5's `KIND_REFUSED` is.
+99. **What a masked field left unset means** (Ruling 5): `UpdateDay` clears the note and the schedule — the schedule refused on a shortened day — and refuses the kind; `UpdateSubstitution` clears the subject, the room, the teacher and the note, and refuses the action. `day.proto` and `substitution.proto` say so in comments, with the announcements; only `day_connect.py`, `errors_pb.py` and `substitution_connect.py` are regenerated, in their docstrings.
+100. **3b-6 leaves `STAGES` in Task 5**, in the commit that produces its last reasons: `NO_LESSON_ON_DAY`, `NO_BELL_FOR_LESSON` and `LESSON_NOT_ON_TIMETABLE` leave `LATER` there, all three at once.
+101. **Handler modules are named for their proto files** (Ruling 16): `rpc/day.py` and `rpc/substitution.py`.
+102. **Process, as the controller ruled it.** Each task's gate is its named test files with `-p no:xdist`, then ruff and mypy; the full suite runs once, alone, with `-n 4`, at the end of Task 6, the last code task, and the controller runs it. Implementers and task reviewers are sonnet, the final review opus. Commit messages are English sentences with a body that gives the reasons and ends «Not covered: …», and carry no `Co-Authored-By` or any other trailer line.
+103. **No answer of 3b-6 joins `rest.NO_STORE_ALSO` or `NO_STORE_CREDENTIAL`**: none carries a credential. `CreateSubstitution` is already in `rest.CREATED`.
+
+### What 3b-1 to 3b-5 left that every task here uses
+
+- **The statement listener** (`statement_writes`, `unexpected_writes`, `last_seen_rule`, from `conftest.py`). A read of 3b-6 writes the phone's last call and nothing else; an update that changes nothing, asked inside the fifteen minutes after the phone's last call, writes nothing at all.
+- **`v2_tokens`**: `viewer` to `owner` are phones linked to members 2001 to 2004, `stranger` a phone linked to 2005, who is no member, and `unlinked` the class code's anonymous phone. Every method of 3b-6 is an editor's, the reads included; the writes are made with `editor`, 2002.
+- **`notices` and `subscribers`** (3b-5's, in `conftest.py`): the bot `telegram_send.build_bot` hands out, and `SUBSCRIBERS`, of whom 7001 and 7003 asked to hear about changes and 2002, the editor, is never told of a change of their own.
+- **The gate test and the no-echo sweep** call each served method with an empty request: `ListSubstitutions` answers today's window; `GetSubstitution`, `UpdateSubstitution` and `DeleteSubstitution` name the id 0, `RESOURCE_NOT_FOUND`; `CreateSubstitution` is refused on its action; `GetDay` answers an ordinary day and `UpdateDay` `RESOURCE_NOT_FOUND` for the date the harness gives them (Ruling 90). The sweep runs as the owner, one level into `day` and `substitution`, and fills a path with `2026`, which no date parser takes.
+- **`v2.both` calls REST and then Connect**, so a write's success is asked once per transport on fresh data (Ruling 17), and its refusals, and the updates that change nothing, through `both`.
+- **`masks.update_paths` and `NOT_CHANGEABLE`, `validate(…, at=)`**, `rpc/dates.window` and `bounded`, `Call.after_commit` and `telegram_send.notify_class` are 3b-1's, 3b-5's and 3a's, used as they stand.
+- **No test borrows a 3b-6 method as unserved**: `test_rpc_mount.py`'s `unserved` takes `DiaryService/ListStudents` out of `HANDLERS`, and `test_rpc_call.py` takes `GetClass` out.
+
+### Review Focus (3b-6)
+
+The five inputs most likely to bite a person using 3b-6 that the generic tests do not reach, each with the test that pins it and the task that owns it.
+
+1. **A substitution nobody will ever see**, on a day that draws no lessons, at a number the day does not ring, or cancelling a lesson that is not there — from v2, from v1 and from the bot alike, in one rule's words.
+   - `test_a_day_that_draws_no_lessons_is_refused_with_why`, `test_a_number_the_day_rings_no_bell_for_is_refused` and `test_cancelling_or_a_bare_room_where_the_template_has_no_lesson_is_refused` (Task 5);
+   - `test_an_update_that_would_leave_nothing_to_draw_is_refused` and `test_an_update_on_a_day_that_draws_no_lessons_is_refused` (Task 6);
+   - `test_the_bot_will_not_cancel_a_lesson_the_template_does_not_have` (Task 2, #383).
+2. **A row at a number that no longer rings**, which must stay editable and deletable while a new one there is refused: `test_a_row_at_a_number_that_no_longer_rings_stays_editable` (Task 6) and `test_a_row_at_a_number_that_no_longer_rings_stays_editable_and_a_new_one_does_not` (Task 2).
+3. **`allow_missing`**, a missing mark, and taking off a mark a date does not have: `test_without_allow_missing_a_date_nobody_marked_is_not_found`, `test_taking_off_a_mark_a_date_does_not_have_writes_nothing_and_tells_nobody` and `test_taking_a_mark_off_is_announced_once_and_leaves_an_ordinary_day` (Task 3).
+4. **Two phones writing one date or one lesson at once**, and a write that fails after its row: `test_two_phones_marking_one_date_at_once_both_succeed` (Task 1), `test_two_phones_substituting_one_lesson_at_once_both_succeed` (Task 2), `test_a_twin_written_in_the_same_instant_is_refused_as_existing` and `test_a_substitution_that_fails_after_its_row_is_written_leaves_no_row_and_tells_nobody` (Task 5).
+5. **A notice for a write that did not happen, before it was saved, to its author, or twice**: `test_a_mark_is_announced_after_the_commit_and_not_to_its_author` and `test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody` (Task 3); `test_a_new_substitution_is_announced_after_the_commit_and_not_to_its_author` (Task 5); `test_an_update_is_announced_after_the_commit_in_v1_s_words` and its own `test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody` (Task 6).
+
+### Defects in the summary, and how this list resolves them
+
+- **«The bot's two-step flow keeps offering the class default as the picker's starting value … and it calls `put_day` with the schedule it ends on»**: the bot writes the starting value before its picker is asked, so it calls `put_day` there too, and for every other write of a mark; and the class default can be refused, which the summary did not foresee (Ruling 94).
+- **«`bells.ScheduleEmpty`»** is `services/manage/bells.ScheduleEmpty`; there is no `services/bells.py`.
+- **The error table lists `ShortenedNeedsSchedule` as a fact and gives it no row**; it is `VALIDATION_FAILED` on `day.bell_schedule_id`, in v1's sentence (Ruling 97).
+- **«`SELF_STUDY` or `DAY_OFF` sent → `VALIDATION_FAILED` on `day.kind`»**: so is a mark the bot set that a request changes without naming a kind v2 writes, or a mark made without a kind (Ruling 98).
+- **«`NoLessonOnDay(why)`», over `why_no_lesson_can_be_drawn`**: that function answers a sentence, not a reason; `timetable_edit.no_lessons_on` answers both (Ruling 95).
+- **«`override_put` … moves to a new `services/substitutions.py`»** says nothing of the bot's own half of the rule, which asked two of the three questions; it calls the service now (Ruling 95, #383).
+- **«`DeleteSubstitution` sends one only when a row existed»**: a delete by id always has its row; asked again it is `RESOURCE_NOT_FOUND` and tells nobody, as v1's `clear` of nothing told nobody.
+- **The summary is silent on** `UpdateDay` without `allow_missing` (Ruling 89), what a masked field left unset means (Ruling 99), two writers at once (Ruling 96, #382), and an update that changes nothing (Ruling 92).
+
+### Defects found while writing this list
+
+The controller files each, with `type:bug`, its `area:` labels, a `status:`, milestone 11, where its fix lands, and an item on project 6, as the `github-pr` skill says, and writes its number into this list in place of the placeholder.
+
+**`#382`.** Title: «Two phones writing one date's mark, or one lesson's substitution, at the same moment: the second answers 500». Labels `type:bug`, `area:server`, `status:now`; milestone 11. Where: `server/app/api/edit.py:505-537` (`day_put` reads the mark, then inserts one) and `server/app/api/edit.py:234-361` (`override_put` the same). The fix lands in 3b-6's Tasks 1 and 2, in `special_days.put_day` and `substitutions.upsert`. Body, written to `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\issue-3b6-d1.md`:
+```markdown
+`server/app/api/edit.py`: `day_put` (lines 505–537) reads the date's mark, and when there is
+none adds one and commits; `override_put` (lines 234–361) reads the lesson's substitution, and
+when there is none adds one and commits. Neither guards the insert. `day_overrides` is unique on
+`(class_id, date)` (`uq_day_override`) and `lesson_overrides` on `(class_id, date, index)`
+(`uq_lesson_override`), so the constraint holds, and the request that loses the race is the one
+that pays.
+
+**Failure scenario:** two editors mark the same date at the same moment — or one phone's
+retry of a `PUT /api/v1/days` that timed out races the first attempt. Both read «no mark», both
+insert, and the second meets `uq_day_override`: `IntegrityError` out of the router, a `500`, and
+the app takes the mark for unsaved. The same for two `PUT /api/v1/overrides` of one lesson on one
+date, where the second fails on `uq_lesson_override` after its audit line and before its notice.
+Probed on 9 October 2026 at `801a350`, the race staged by committing the twin from a second
+session between the read and the insert: `PUT /days` and `PUT /overrides` each raised
+`IntegrityError`.
+
+`services/homework.upsert` solved the same shape for homework in #45: the insert goes inside a
+savepoint, and a twin that won the race is updated instead, as the write would have done a
+moment later. Fixed in stage 3b-6 of sub-project 3 (#273), where both writes move into
+`services/` — `special_days.put_day` and `substitutions.upsert` — for v2's `UpdateDay` and
+`SubstitutionService`, which need the same answer to the same race.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && gh issue create --repo lumenpearson/lessons --title "Two phones writing one date's mark, or one lesson's substitution, at the same moment: the second answers 500" --body-file C:/Users/lumen/.claude/jobs/c9e2d980/tmp/issue-3b6-d1.md --label type:bug --label area:server --label status:now --milestone "v0.10.0 — One contract: REST v2, Connect and native gRPC, build console"
+```
+
+**`#383`.** Title: «The bot cancels a lesson the day's template does not have, which the API refuses». Labels `type:bug`, `area:bot`, `status:now`; milestone 11. Where: `server/app/bot/handlers/content/overrides.py:152-208` (`_save_override` asks whether the day draws lessons and whether it rings the number, never whether a lesson is underneath). The fix lands in 3b-6's Task 2, where the bot asks `services/substitutions.py`. Body, written to `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\issue-3b6-d2.md`:
+```markdown
+`server/app/bot/handlers/content/overrides.py`, `_save_override` (lines 152–208), asks two of
+the three questions `api/edit.py:override_put` asks before it writes a substitution: whether
+the day draws lessons at all, and, for a new row, whether the day rings the number. It never
+asks the third, whether a lesson is underneath — `timetable_edit.template_indexes_on`, which v1
+asks of a cancellation and of a replacement with no subject of its own.
+
+**Failure scenario:** an editor adds «Астрономия» as lesson 7 on a Monday whose template stops
+at lesson 3 — a substitution at an empty number, which is how a lesson is added to a day. Later
+they open «🔄 Замены», pick that Monday and lesson 7, which the picker lists because the day
+draws it, and press «🚫 Отменить урок». The bot stores a cancellation at 7, writes «отменён урок
+№7» to the journal, answers «🚫 Урок №7 … отменён.» and tells every subscriber the same. The
+resolver strikes through only a lesson the template has, so lesson 7 is drawn nowhere: it
+vanishes from every phone, widget and calendar feed instead of showing as cancelled, and the row
+left behind is a cancellation of nothing. v1's `PUT /overrides` refuses the same cancellation,
+«в этот день нет урока №7, отменять нечего», and points at «Вернуть по расписанию»
+(`test_a_substitution_cannot_lose_the_subject_that_made_it_visible`). Probed on 9 October 2026
+at `801a350` with the bot's own handlers: the cancellation was stored, two lines were written,
+and the bot answered «🚫 Урок №7 14 сентября (понедельник) отменён.»
+
+Fixed in stage 3b-6 of sub-project 3 (#273), where the bot's `_save_override` asks
+`services/substitutions.py`, the one implementation v1 and v2 ask too.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && gh issue create --repo lumenpearson/lessons --title "The bot cancels a lesson the day's template does not have, which the API refuses" --body-file C:/Users/lumen/.claude/jobs/c9e2d980/tmp/issue-3b6-d2.md --label type:bug --label area:bot --label status:now --milestone "v0.10.0 — One contract: REST v2, Connect and native gRPC, build console"
+```
+
+### What was verified while writing this list, and what was not
+
+**Read, at `801a350`'s code** (whose tree is `ad842d1`'s): `api/edit.py`; `services/manage/special_days.py`, `services/manage/bells.py`, `services/timetable_edit.py`, `services/structure.py`, `services/subjects.py`, `services/homework.py`, `services/events.py` and `services/clock.py`; `app/wording.py`, `app/schedule.py`'s `off_reason_for`, `_bells_for` and the override loop, and `app/models.py`'s `DayOverride`, `LessonOverride`, `Term` and their constraints; `schemas/edit.py` and `schemas/__init__.py`; `rpc/` (`call.py`, `dates.py`, `errors.py`, `handlers.py`, `masks.py`, `values.py`, `homework.py`, `event.py`); the bot's «🏖 Особые дни» (`handlers/manage/holidays.py`) and «🔄 Замены» (`handlers/content/overrides.py`); `proto/lessons/v2/day.proto`, `substitution.proto`, `common.proto` and `errors.proto`, and their generated modules; and the tests that read any of them: `conftest.py` (its v2 harness, `notices`, `subscribers` and the bot's fakes), `test_v2_reads.py`, `test_v2_no_echo.py`, `test_rpc_errors.py`, `test_announcements.py`, `test_api_extended.py`'s tests of `PUT /days` and `PUT /overrides`, `test_bot_manage.py`'s special days, `test_bot_handlers.py`'s substitutions, `test_contract_mirror.py`'s rows for `Day` and `Substitution`, and 3b-5's v2 test files. The documents Task 7 edits were read at the lines it quotes, and `HANDOVER.md` whole where Step 8 changes it.
+
+**Probed**, with the copy's venv:
+- protobuf-py: `common_pb.DayKind`'s members are `UNSPECIFIED`, `NORMAL`, `HOLIDAY`, `SHORTENED`, `REMOTE`, `SELF_STUDY` and `DAY_OFF`, and `SubstitutionAction`'s `UNSPECIFIED`, `REPLACE` and `CANCEL`; `Day(note=None, bell_schedule_id=None)` leaves both unset, and `""` and `0` set them; `DayKind(99)`, read from the binary encoding, is no member, so no key of `rpc/day._KINDS`; `UpdateDayRequest().day` is `None`; `allowMissing` reads from JSON.
+- `#382`: the race staged on `801a350`'s tree by committing the twin from a second session between the read and the insert — through `audit.record` for `PUT /days`, and through `why_no_lesson_can_be_drawn` for `PUT /overrides`, because SQLite's lock makes the first staging hang on the substitution's autoflushed insert — and both requests raised `IntegrityError` out of the router.
+- `#383`: on the same tree, the bot's own `override_subject` added «Астрономия» at lesson 7 of a Monday and its `override_cancel` then stored a cancellation there, wrote `override.replace` and `override.cancel`, and answered «🚫 Урок №7 14 сентября (понедельник) отменён.»
+
+**Applied and run, in a scratch copy** (`git archive` of `ad842d1`, the same tree as `801a350`, without `android/`, made a git repository of its own; never the worktree):
+- **The venv.** One made by `uv` from `requirements.txt` and `-e ".[dev]"` on Python 3.12, installed editable from the copy, so the #312 guard took it; SQLAlchemy's compiled modules were removed, because Windows would not load them at the copy's depth, and SQLAlchemy ran its pure-Python twins. At the base, `pytest --collect-only` counted 2927, mypy 235 source files, and ruff was clean.
+- **How the code got in.** Every code step of Tasks 1 to 7 was applied by a script from the one source this list's code blocks are rendered from, so each «replace» anchor was found exactly once, in order, and what ran is what is written here. After a whitespace fix to one block, every task was applied again from the base in order and the checks below that it could touch were run again.
+- **Red and green.** Each task's new tests were run before its code and failed as its Red step says: Tasks 1 and 2's files did not collect; Task 3's gave a collection error, 1 failed and 14 passed in `test_rpc_errors.py`, and a collection error in `test_announcements.py`; Task 4's did not collect; Task 5's gave a collection error, 2 failed and 13 passed, and a collection error; Task 6's gave 10 failed, each on a `501`, and a collection error. After its code, each task's Green gate, its whole list of files, passed: 308 tests for Task 1, 259 for Task 2, 402 for Task 3, 215 for Task 4, 313 for Task 5 and 431 for Task 6. v1's and the bot's files in those gates ran unedited.
+- **After each task**, `ruff check app tests scripts migrations` printed `All checks passed!`; every new or rewritten file is as `ruff format` writes it, and no modified file gained a difference from `ruff format` it did not have before; `pytest --collect-only` counted 2936, 2947, 2963, 2971, 2982 and 2996 after Tasks 1 to 6; `mypy` printed `Success: no issues found in` 235, 236, 237, 238, 238 and 238 `source files`.
+- **The contract**: after Tasks 3 and 6, `buf lint` printed nothing; `buf generate` changed `day_connect.py` and `errors_pb.py`, then `substitution_connect.py` alone, in their docstrings; `buf breaking` against the copy's own commit of the base printed nothing, as it does when nothing breaks.
+- **Task 7**: `docs3b6.py` printed fifteen `missing` lines and six `still says` lines before Steps 2 to 4, and `the documents say what 3b-6 serves` after them; Step 5's seven files gave 215 passed, and the head scan named `0019` alone and no line of `docs/specs/`; the counts script, given `2927 2996 235 238`, printed `written`; ruff printed `All checks passed!` and mypy `Success: no issues found in 238 source files`.
+
+**Not run:**
+- the full suite, in the copy or the worktree;
+- `buf breaking` against `origin/main`, which the copy has not: it ran against the copy's own commit of the same tree;
+- anything on Postgres or Vercel, Telegram itself, or a phone;
+- Task 7's HANDOVER edits, which wait for facts that exist only at the merge.
+
+The run at each task's gate is the truth.
+
+### File map (3b-6)
+
+| File | Task | What it holds |
+| --- | --- | --- |
+| `server/app/services/manage/special_days.py` | 1 | rewritten: `FIELDS`, `ScheduleNotInClass`, `ShortenedNeedsSchedule`, `DayPut`, `DayWritten`, `put_day`, `set_day`, `update_day`; `mark_period` over `put_day`; `mark` gone |
+| `server/app/services/timetable_edit.py` | 2 | `NoLessons`, `no_lessons_on`; `why_no_lesson_can_be_drawn` its sentence |
+| `server/app/services/substitutions.py` | 2 | new: the four facts, `Written`, `COLUMNS`, the three lookups, `upsert`, `put`, `create`, `update`, `delete` |
+| `server/app/wording.py` | 1, 2 | the day's two sentences, `DAY_SET_LABELS` and its notices; `no_bell_detail`, `lesson_not_on_timetable_detail` and the substitutions' notices |
+| `server/app/api/edit.py` | 1, 2 | v1's `day_put` and `override_put` over the services |
+| `server/app/bot/handlers/manage/holidays.py` | 1 | every mark through `put_day`; `SHORTENED_WITHOUT_BELLS` |
+| `server/app/bot/handlers/content/overrides.py` | 2 | `_save_override` over `substitutions.upsert`; `override_clear`'s lookup |
+| `server/app/schemas/edit.py`, `schemas/__init__.py` | 3 | `DateIn` |
+| `server/app/rpc/dates.py` | 3 | `named` |
+| `server/app/rpc/day.py` | 3 | new: `DayService` |
+| `server/app/rpc/substitution.py` | 4–6 | new: `SubstitutionService` |
+| `server/app/rpc/errors.py` | 3, 5 | the six rows, `SUBSTITUTION_EXISTS` |
+| `server/app/rpc/handlers.py` | 3–6 | `HANDLERS` |
+| `proto/lessons/v2/day.proto`, `errors.proto`, `substitution.proto`, `server/app/contract/**` | 3, 6 | comments, regenerated |
+| `server/tests/test_services_days.py` | 1 | the day's write, in `services/`, and the bot's alert |
+| `server/tests/test_services_substitutions.py` | 2 | the three questions, in `services/`, and #382 and #383 |
+| `server/tests/test_v2_days.py` | 3 | `DayService` |
+| `server/tests/test_v2_substitutions.py`, `test_v2_substitution_create.py`, `test_v2_substitution_writes.py` | 4, 5, 6 | `SubstitutionService` |
+| `server/tests/test_v2_reads.py` | 3 | `_request` names a date for the two day methods |
+| `server/tests/test_rpc_errors.py` | 3, 5 | `HELD_BY`, `LATER` and `STAGES` |
+| `server/tests/test_announcements.py` | 3, 5, 6 | `ANNOUNCED_HERE` |
+| documents | 7 | `docs/api.md`, `docs/README.md`, `docs/architecture.md`, `docs/bot.md`, `CLAUDE.md`, `README.md`, `.claude/agents/server-api.md`, the counts in the seven places; `HANDOVER.md` and `docs/history.md` |
+
+---
+
+### 3b-6 Task 1: A day's mark, one write for three shells, in `services/`
+
+Decision 2; Rulings 91, 94 and 96; #382. v1 keeps its answers and its notices, and the bot its screens: `test_api_extended.py`, `test_bot_manage.py`, `test_announcements.py` and `test_v2_bell_writes.py` are the proof and are not edited.
+
+**Files:**
+- Create: `server/tests/test_services_days.py`
+- Rewrite: `server/app/services/manage/special_days.py`
+- Modify: `server/app/wording.py`, `server/app/api/edit.py`, `server/app/bot/handlers/manage/holidays.py`
+
+**Interfaces:**
+- Consumes: `bells.schedule_of`, `rings_anything` and `ScheduleEmpty` (`services/manage/bells.py`); `audit.record`; `clock.today`; `wording.human_date`.
+- Produces:
+  - `special_days.FIELDS`, `ScheduleNotInClass(ValueError)`, `ShortenedNeedsSchedule(ValueError)`;
+  - `special_days.DayPut(mark: DayOverride | None, had_mark: bool, changed: bool)` and `DayWritten(mark: DayOverride | None, notice: str | None)`, frozen;
+  - `special_days.put_day(session, school_class, day, changes) -> DayPut`;
+  - `special_days.set_day(session, school_class, actor, day, *, kind, note, bell_schedule_id) -> DayWritten`, v1's;
+  - `special_days.update_day(session, school_class, actor, day, changes) -> DayWritten`, v2's;
+  - `special_days.mark_period` over `put_day`; `special_days.mark` is gone;
+  - `wording.SCHEDULE_NOT_IN_CLASS_DETAIL`, `SHORTENED_NEEDS_SCHEDULE_DETAIL`, `DAY_SET_LABELS`, `day_set_notice(when, label, note)`, `day_cleared_notice(when)`;
+  - `holidays.SHORTENED_WITHOUT_BELLS`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_services_days.py`:
+```python
+"""A day's mark, in ``services/``: one write for three shells.
+
+v1's ``PUT /days`` held its rules in the router — a schedule the day names is
+this class's and rings something, and a shortened day names one — while the
+bot's «🏖 Особые дни» wrote through ``special_days.mark``, which asked none of
+them. v2's ``UpdateDay`` writes the same marks, so one write,
+``special_days.put_day``, holds the rules as facts each shell words, and v1, the
+bot and v2 call it (``docs/specs/2026-10-05-server-v2-design.md``, decision 2).
+``test_api_extended.py`` and ``test_bot_manage.py``, untouched, are the proof
+that v1's answers and the bot's screens did not move; these hold the rules a
+fact at a time, a mark two phones write at once (#382), and that nothing the
+services write is committed by them.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from datetime import time as Time
+from types import SimpleNamespace
+from typing import Any
+
+import pytest
+from sqlalchemy import func, select
+
+from app import wording
+from app.bot.handlers.manage.holidays import SHORTENED_WITHOUT_BELLS, holiday_kind
+from app.db import SessionLocal
+from app.models import (
+    AuditEntry,
+    BellPeriod,
+    BellSchedule,
+    DayKind,
+    DayOverride,
+    Role,
+    SchoolClass,
+)
+from app.services import clock
+from app.services.manage import bells, special_days
+
+MONDAY = date(2026, 9, 14)
+TUESDAY = date(2026, 9, 15)
+EDITOR = 42
+#: 14 September, as people read it on Monday the 7th.
+WHEN = "14 сентября (понедельник)"
+
+
+def _pin_clock(monkeypatch) -> None:
+    """Monday 7 September, 10:00 in the class's zone."""
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def _committed(statement: Any) -> Any:
+    """What a session of its own reads: only what is committed."""
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(statement)
+
+
+async def _lines(session) -> list[tuple[str, str]]:
+    rows = await session.execute(
+        select(AuditEntry.action, AuditEntry.summary).order_by(AuditEntry.id)
+    )
+    return [tuple(row) for row in rows]
+
+
+async def _short_bells(session, school_class) -> BellSchedule:
+    short = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    session.add(short)
+    await session.flush()
+    for index in (1, 2, 3):
+        session.add(
+            BellPeriod(
+                schedule_id=short.id,
+                index=index,
+                starts_at=Time(8 + index, 0),
+                ends_at=Time(8 + index, 30),
+            )
+        )
+    await session.commit()
+    return short
+
+
+def _stale_once(monkeypatch) -> list[bool]:
+    """``mark_on`` answers «no mark» once, as it truthfully did a moment
+    before somebody else's mark was committed: the race, staged as
+    ``test_homework_upsert.py`` stages its own."""
+    real = special_days.mark_on
+    stale: list[bool] = []
+
+    async def stale_once(*args: Any, **kwargs: Any) -> Any:
+        if not stale:
+            stale.append(True)
+            return None
+        return await real(*args, **kwargs)
+
+    monkeypatch.setattr(special_days, "mark_on", stale_once)
+    return stale
+
+
+async def test_a_mark_is_written_with_its_line_and_its_notice_as_v1_wrote_them(
+    session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    first = await special_days.set_day(
+        session,
+        school_class,
+        EDITOR,
+        MONDAY,
+        kind=DayKind.HOLIDAY,
+        note="День <учителя>",
+        bell_schedule_id=None,
+    )
+    assert (first.mark.kind, first.mark.note, first.mark.bell_schedule_id) == (
+        DayKind.HOLIDAY,
+        "День <учителя>",
+        None,
+    )
+    # Escaped here, for an HTML message: «<учителя>» typed is text, not a tag.
+    assert first.notice == f"📆 {WHEN} — выходной.\nДень &lt;учителя&gt;"
+    remote = {"kind": DayKind.REMOTE, "note": None, "bell_schedule_id": None}
+    second = await special_days.set_day(session, school_class, EDITOR, MONDAY, **remote)
+    again = await special_days.set_day(session, school_class, EDITOR, MONDAY, **remote)
+    assert second.mark is first.mark
+    # v1 told the class of a mark whenever it was set, sent twice or not.
+    assert second.notice == again.notice == f"📆 {WHEN} — дистанционное обучение."
+    assert await _lines(session) == [
+        ("day.set", f"{WHEN}: выходной"),
+        ("day.set", f"{WHEN}: дистанционное обучение"),
+        ("day.set", f"{WHEN}: дистанционное обучение"),
+    ]
+
+
+async def test_taking_a_mark_off_tells_only_when_there_was_one(
+    session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    normal = {"kind": DayKind.NORMAL, "note": None, "bell_schedule_id": None}
+    nothing = await special_days.set_day(session, school_class, EDITOR, MONDAY, **normal)
+    assert (nothing.mark, nothing.notice) == (None, None)
+    session.add(DayOverride(class_id=school_class.id, date=MONDAY, kind=DayKind.HOLIDAY))
+    await session.commit()
+    cleared = await special_days.set_day(session, school_class, EDITOR, MONDAY, **normal)
+    assert (cleared.mark, cleared.notice) == (None, f"📆 {WHEN} — обычный учебный день.")
+    assert await _lines(session) == [("day.clear", f"День снова обычный: {WHEN}")]
+    assert await session.scalar(select(func.count()).select_from(DayOverride)) == 0
+
+
+async def test_a_day_names_a_schedule_of_its_own_class_that_rings_and_a_short_day_names_one(
+    session, school_class
+) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = BellSchedule(class_id=other.id, name="Чужое")
+    empty = BellSchedule(class_id=school_class.id, name="Пустое")
+    session.add_all([foreign, empty])
+    await session.commit()
+    shortened = DayKind.SHORTENED
+    for changes, refused in (
+        ({"kind": shortened, "bell_schedule_id": foreign.id}, special_days.ScheduleNotInClass),
+        ({"kind": shortened, "bell_schedule_id": 999_999}, special_days.ScheduleNotInClass),
+        ({"kind": shortened, "bell_schedule_id": empty.id}, bells.ScheduleEmpty),
+        ({"kind": shortened, "bell_schedule_id": None}, special_days.ShortenedNeedsSchedule),
+        ({"kind": shortened}, special_days.ShortenedNeedsSchedule),
+        # Asked of a schedule sent with any kind, as v1 asked it.
+        ({"kind": DayKind.NORMAL, "bell_schedule_id": foreign.id}, special_days.ScheduleNotInClass),
+    ):
+        with pytest.raises(refused):
+            await special_days.put_day(session, school_class, MONDAY, changes)
+    assert await session.scalar(select(func.count()).select_from(DayOverride)) == 0
+
+
+async def test_a_change_writes_what_it_names_and_is_told_only_when_something_changed(
+    session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    short = await _short_bells(session, school_class)
+    session.add(
+        DayOverride(
+            class_id=school_class.id,
+            date=MONDAY,
+            kind=DayKind.SHORTENED,
+            bell_schedule_id=short.id,
+            note="старое",
+        )
+    )
+    # Shortened with no schedule, as the bot wrote one before it learned
+    # not to: a change of its note is not a change of its bells.
+    session.add(DayOverride(class_id=school_class.id, date=TUESDAY, kind=DayKind.SHORTENED))
+    await session.commit()
+
+    noted = await special_days.update_day(
+        session, school_class, EDITOR, MONDAY, {"note": "Педсовет"}
+    )
+    assert (noted.mark.kind, noted.mark.bell_schedule_id, noted.mark.note) == (
+        DayKind.SHORTENED,
+        short.id,
+        "Педсовет",
+    )
+    assert noted.notice == f"📆 {WHEN} — сокращённые уроки.\nПедсовет"
+    for unchanged in ({"note": "Педсовет"}, {"kind": DayKind.SHORTENED}):
+        again = await special_days.update_day(session, school_class, EDITOR, MONDAY, unchanged)
+        assert again.notice is None, unchanged
+    legacy = await special_days.update_day(session, school_class, EDITOR, TUESDAY, {"note": "x"})
+    assert (legacy.mark.bell_schedule_id, legacy.mark.note) == (None, "x")
+    with pytest.raises(special_days.ShortenedNeedsSchedule):
+        await special_days.update_day(
+            session, school_class, EDITOR, TUESDAY, {"kind": DayKind.SHORTENED}
+        )
+    assert [action for action, _ in await _lines(session)] == ["day.set", "day.set"]
+
+
+async def test_a_mark_somebody_else_wrote_in_the_same_instant_is_changed_not_doubled(
+    session, school_class, monkeypatch
+) -> None:
+    """#382, at the service. The read answers «no mark» while the twin is
+    already in the table; the insert meets the unique constraint inside its
+    savepoint, and the write becomes the change it would have been a moment
+    later, leaving the twin's note as it was."""
+    session.add(DayOverride(class_id=school_class.id, date=MONDAY, kind=DayKind.REMOTE, note="их"))
+    await session.commit()
+    stale = _stale_once(monkeypatch)
+
+    put = await special_days.put_day(session, school_class, MONDAY, {"kind": DayKind.HOLIDAY})
+    await session.commit()
+
+    assert stale, "the stale read never happened, so nothing was tested"
+    assert (put.mark.kind, put.mark.note, put.had_mark, put.changed) == (
+        DayKind.HOLIDAY,
+        "их",
+        True,
+        True,
+    )
+    assert await _committed(select(func.count()).select_from(DayOverride)) == 1
+
+
+async def test_two_phones_marking_one_date_at_once_both_succeed(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    """#382, through v1: the phone that lost the race met the unique constraint
+    at its commit and answered 500, and the app took the mark for unsaved."""
+    session.add(DayOverride(class_id=school_class.id, date=MONDAY, kind=DayKind.REMOTE))
+    await session.commit()
+    stale = _stale_once(monkeypatch)
+
+    answer = await v2.http.put(
+        "/api/v1/days",
+        json={"date": MONDAY.isoformat(), "kind": "holiday", "note": "Актировка"},
+        headers=_auth(v2_tokens["editor"]),
+    )
+
+    assert stale, "the stale read never happened, so nothing was tested"
+    assert answer.status_code == 200, answer.text
+    assert answer.json() == {
+        "date": MONDAY.isoformat(),
+        "kind": "holiday",
+        "note": "Актировка",
+        "bell_schedule_id": None,
+    }
+    assert await _committed(select(func.count()).select_from(DayOverride)) == 1
+
+
+async def test_nothing_the_day_s_write_stages_is_committed_until_the_caller_commits(
+    session, school_class
+) -> None:
+    """The insert goes through a savepoint, the first write of its transaction:
+    what a rollback leaves is the code's answer on SQLite as on Postgres
+    (#373)."""
+    await special_days.set_day(
+        session,
+        school_class,
+        EDITOR,
+        MONDAY,
+        kind=DayKind.HOLIDAY,
+        note=None,
+        bell_schedule_id=None,
+    )
+    await session.rollback()
+    for table in (DayOverride, AuditEntry):
+        assert await _committed(select(func.count()).select_from(table)) == 0, table
+
+
+async def test_the_bot_will_not_mark_a_shortened_day_its_bells_cannot_ring(
+    session, school_class, FakeCallback, FakeEditable, FakeState
+) -> None:
+    """The bot's starting value is the class default, written before its
+    picker is asked; ``special_days.mark`` wrote it without asking whether it
+    rings anything, or whether there was one. A day so marked draws nothing,
+    or the normal lessons under «⏱ Сокращённые уроки». ``put_day`` asks, and
+    the bot says so in an alert and writes nothing."""
+    empty = BellSchedule(class_id=school_class.id, name="Пустое")
+    session.add(empty)
+    await session.flush()
+    for default in (empty.id, None):
+        school_class.bell_schedule_id = default
+        await session.commit()
+        callback = FakeCallback(message=FakeEditable())
+        await holiday_kind(
+            callback,
+            SimpleNamespace(action="kind", value=f"{MONDAY.isoformat()}:shortened"),
+            FakeState(),
+            session,
+            school_class,
+            Role.EDITOR,
+        )
+        assert callback.answers[-1] == (SHORTENED_WITHOUT_BELLS, True), default
+        assert await session.scalar(select(DayOverride)) is None
+        assert await session.scalar(select(AuditEntry)) is None
+
+
+def test_the_sentences_both_versions_answer_with_are_v1_s() -> None:
+    assert wording.SCHEDULE_NOT_IN_CLASS_DETAIL == "bell_schedule_id is not in this class"
+    assert (
+        wording.SHORTENED_NEEDS_SCHEDULE_DETAIL
+        == "a shortened day needs the bell schedule it rings"
+    )
+    assert wording.DAY_SET_LABELS == {
+        DayKind.HOLIDAY: "выходной",
+        DayKind.SHORTENED: "сокращённые уроки",
+        DayKind.REMOTE: "дистанционное обучение",
+    }
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_days.py
+```
+Expected: the file does not collect, with `ImportError: cannot import name 'SHORTENED_WITHOUT_BELLS' from 'app.bot.handlers.manage.holidays'`. Keep this output as the evidence.
+
+- [ ] **Step 2: Replace `server/app/services/manage/special_days.py` whole with:**
+```python
+"""«🏖 Особые дни»: the dates a class marks as not an ordinary school day.
+
+A :class:`DayOverride` is how the class says "this date is not a normal school
+day". «Обычный день» is the absence of a row, not a kind of row, so choosing it
+deletes the mark instead of storing ``DayKind.NORMAL`` - otherwise the resolver
+would have two ways to spell the same thing.
+
+Three shells mark a day: the bot's «⚙️ Класс», a phone through v1's
+``PUT /api/v1/days``, and v2's ``UpdateDay``. They mark it through one write,
+:func:`put_day`, which holds the rules v1's router held — a schedule the day
+names is this class's and rings something, and a shortened day names one — as
+facts each shell words for itself (``docs/specs/2026-10-05-server-v2-design.md``,
+decision 2). The bot used to write through a near-duplicate that asked none of
+them. What still differs between the shells is a step of a screen, not a rule:
+the bot offers the class default as its picker's starting value and writes its
+own line in the journal; the phone's two versions write v1's line and tell the
+class in v1's words (:func:`set_day`, :func:`update_day`).
+
+Nothing here commits: the caller commits a mark together with its line, and
+only then tells the class.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import date as Date
+from datetime import timedelta
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app import wording
+from app.models import BellSchedule, DayKind, DayOverride, SchoolClass
+from app.services import audit, clock
+from app.services.manage import bells
+
+#: The fields of a mark :func:`put_day` writes.
+FIELDS = ("kind", "note", "bell_schedule_id")
+
+
+class ScheduleNotInClass(ValueError):
+    """``bell_schedule_id`` names no bell schedule of this class: another
+    class's, or one that does not exist. A day pointed at another class's
+    bells would ring times this class never set."""
+
+
+class ShortenedNeedsSchedule(ValueError):
+    """A shortened day that names no bell schedule.
+
+    «Сокращённые уроки» is a claim about the times, and the times come from a
+    bell schedule. Without one the resolver falls back to the class default,
+    so the day announces shortened lessons and then draws the normal ones —
+    which is worse than not marking it at all, because somebody reads the
+    label and packs for a short day.
+    """
+
+
+@dataclass(frozen=True)
+class DayPut:
+    """What :func:`put_day` did: the mark the day carries afterwards, ``None``
+    for an ordinary day; whether one stood before; and whether anything was
+    written."""
+
+    mark: DayOverride | None
+    had_mark: bool
+    changed: bool
+
+
+@dataclass(frozen=True)
+class DayWritten:
+    """A day marked or unmarked, and the notice the class is told of it:
+    ``None`` when there is nothing to tell."""
+
+    mark: DayOverride | None
+    notice: str | None
+
+
+async def upcoming(
+    session: AsyncSession, class_id: int, today: Date, only: DayKind | None = None
+) -> list[DayOverride]:
+    """The marks from ``today`` on, by date; narrowed to one kind if asked."""
+    query = (
+        select(DayOverride)
+        .where(DayOverride.class_id == class_id, DayOverride.date >= today)
+        .order_by(DayOverride.date)
+    )
+    if only is not None:
+        query = query.where(DayOverride.kind == only)
+    return list(await session.scalars(query))
+
+
+async def schedule_names(session: AsyncSession, class_id: int) -> dict[int, str]:
+    """Bell schedule id -> name, for the marks that point at one."""
+    return {
+        schedule.id: schedule.name
+        for schedule in await session.scalars(
+            select(BellSchedule).where(BellSchedule.class_id == class_id)
+        )
+    }
+
+
+async def mark_on(session: AsyncSession, class_id: int, day: Date) -> DayOverride | None:
+    """The class's mark on ``day``, if it has one."""
+    return await session.scalar(
+        select(DayOverride).where(DayOverride.class_id == class_id, DayOverride.date == day)
+    )
+
+
+async def put_day(
+    session: AsyncSession, school_class: SchoolClass, day: Date, changes: Mapping[str, Any]
+) -> DayPut:
+    """Mark ``day``, change its mark, or take it off: the one write of a day's mark.
+
+    ``changes`` maps ``kind``, ``note`` and ``bell_schedule_id`` to what they
+    become; a field it leaves out keeps what the mark holds, or none on a new
+    mark. ``kind`` ``NORMAL`` takes the mark off, and so does a new mark with
+    no kind at all: there is nothing to mark. A schedule it names must be this
+    class's and ring something, and a day whose kind or schedule it changes may
+    not end up shortened with no schedule; all three are asked before anything
+    is written, so a refusal leaves the day as it was. A schedule is stored on
+    whatever kind it is sent with, as v1 stored it: the resolver rings it on
+    any day that names one.
+
+    A mark written by somebody else between the read and the insert meets the
+    unique constraint inside a savepoint, and this write changes that mark
+    instead, as it would have a moment later. Nothing is committed.
+
+    @raises ScheduleNotInClass, bells.ScheduleEmpty, ShortenedNeedsSchedule
+    """
+    schedule_id = changes.get("bell_schedule_id")
+    if schedule_id is not None:
+        schedule = await bells.schedule_of(session, school_class.id, schedule_id)
+        if schedule is None:
+            raise ScheduleNotInClass()
+        # A schedule may be created empty and filled in later, and a day
+        # pointed at an empty one draws no lessons at all under a card that
+        # says «сокращённые уроки»; a substitution for it would then be held
+        # to the class default's bells by `timetable_edit.rung_indexes_on`.
+        if not await bells.rings_anything(session, schedule):
+            raise bells.ScheduleEmpty(schedule.name)
+    current = await mark_on(session, school_class.id, day)
+    kind = changes.get("kind", current.kind if current is not None else None)
+    rings = changes.get(
+        "bell_schedule_id", current.bell_schedule_id if current is not None else None
+    )
+    touches_bells = bool(changes.keys() & {"kind", "bell_schedule_id"})
+    if touches_bells and kind == DayKind.SHORTENED and rings is None:
+        raise ShortenedNeedsSchedule()
+
+    if kind is None or kind == DayKind.NORMAL:
+        if current is None:
+            return DayPut(None, had_mark=False, changed=False)
+        await session.delete(current)
+        return DayPut(None, had_mark=True, changed=True)
+
+    wanted = {name: changes[name] for name in FIELDS if name in changes}
+    if current is None:
+        fresh = DayOverride(class_id=school_class.id, date=day, **wanted)
+        try:
+            async with session.begin_nested():
+                session.add(fresh)
+                await session.flush()
+        except IntegrityError:
+            # Somebody else marked the same date between the read above and
+            # this insert. Their mark is the one that exists, so this write
+            # becomes the change it would have been a moment later.
+            current = await mark_on(session, school_class.id, day)
+            if current is None:  # pragma: no cover - the constraint said it is there
+                raise
+        else:
+            return DayPut(fresh, had_mark=False, changed=True)
+    changed = {name: value for name, value in wanted.items() if getattr(current, name) != value}
+    for name, value in changed.items():
+        setattr(current, name, value)
+    return DayPut(current, had_mark=True, changed=bool(changed))
+
+
+async def mark_period(
+    session: AsyncSession, school_class: SchoolClass, first: Date, days: int, kind: DayKind
+) -> None:
+    """Mark ``days`` consecutive dates from ``first`` as ``kind``, through
+    :func:`put_day`: each keeps its note, and none keeps a bell schedule,
+    which only a shortened day means anything by and a period never is."""
+    for offset in range(days):
+        await put_day(
+            session,
+            school_class,
+            first + timedelta(days=offset),
+            {"kind": kind, "bell_schedule_id": None},
+        )
+
+
+async def _announced(
+    session: AsyncSession, school_class: SchoolClass, actor: int | None, day: Date, put: DayPut
+) -> str | None:
+    """Stage the day's line in the journal and word its notice, as v1's
+    ``PUT /days`` did: «day.set» with the kind for a mark, «day.clear» for one
+    taken off, and nothing for a day that had none to take off."""
+    when = wording.human_date(day, clock.today(school_class))
+    if put.mark is None:
+        if not put.had_mark:
+            return None
+        await audit.record(
+            session, school_class.id, actor, "day.clear", f"День снова обычный: {when}"
+        )
+        return wording.day_cleared_notice(when)
+    label = wording.DAY_SET_LABELS[put.mark.kind]
+    await audit.record(session, school_class.id, actor, "day.set", f"{when}: {label}")
+    return wording.day_set_notice(when, label, put.mark.note)
+
+
+async def set_day(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    day: Date,
+    *,
+    kind: DayKind,
+    note: str | None,
+    bell_schedule_id: int | None,
+) -> DayWritten:
+    """v1's ``PUT /days``: every field as sent, then the line and the notice —
+    whenever a mark is set, sent twice or not, as v1 told the class, and when
+    one is taken off only if there was one. Nothing is committed.
+
+    @raises ScheduleNotInClass, bells.ScheduleEmpty, ShortenedNeedsSchedule
+    """
+    put = await put_day(
+        session,
+        school_class,
+        day,
+        {"kind": kind, "note": note, "bell_schedule_id": bell_schedule_id},
+    )
+    return DayWritten(put.mark, await _announced(session, school_class, actor, day, put))
+
+
+async def update_day(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    day: Date,
+    changes: Mapping[str, Any],
+) -> DayWritten:
+    """v2's ``UpdateDay``: :func:`put_day` with the fields the mask names, then
+    the line and the notice — only when something changed, so that a retried
+    update tells nobody twice. Nothing is committed.
+
+    @raises ScheduleNotInClass, bells.ScheduleEmpty, ShortenedNeedsSchedule
+    """
+    put = await put_day(session, school_class, day, changes)
+    notice = await _announced(session, school_class, actor, day, put) if put.changed else None
+    return DayWritten(put.mark, notice)
+```
+
+  `upcoming`, `schedule_names` and `mark_on` are unchanged; `mark` is gone, and its only caller, the bot's `holiday_kind`, calls `put_day` from Step 5 on.
+
+- [ ] **Step 3: The sentences and the notices, in `app/wording.py`.**
+  1. Replace:
+```python
+#: v1's ``DELETE /events/{id}`` and v2's ``EventService``: no event of this
+#: class has that id.
+UNKNOWN_EVENT_DETAIL = "Unknown event"
+```
+     with:
+```python
+#: v1's ``DELETE /events/{id}`` and v2's ``EventService``: no event of this
+#: class has that id.
+UNKNOWN_EVENT_DETAIL = "Unknown event"
+
+#: v1's ``PUT /days`` and v2's ``UpdateDay``: a ``bell_schedule_id`` that names
+#: no bell schedule of this class, and a shortened day that names none. A
+#: schedule that rings nothing is ``EMPTY_BELL_SCHEDULE_DETAIL``, above.
+SCHEDULE_NOT_IN_CLASS_DETAIL = "bell_schedule_id is not in this class"
+SHORTENED_NEEDS_SCHEDULE_DETAIL = "a shortened day needs the bell schedule it rings"
+```
+  2. In the comment that opens «What the class is told», replace:
+```python
+# When homework or an event is written from a phone: v1's ``/homework`` and
+# ``/events``, and v2's ``HomeworkService`` and ``EventService``, through
+# ``services/homework.py`` and ``services/events.py``. Everything typed is
+# escaped here; an assignment's text arrives cut already (``notify.shorten``),
+```
+     with:
+```python
+# When something of the class's is written from a phone, through the service
+# that writes it: v1's ``/homework``, ``/events`` and ``/days``, and v2's
+# ``HomeworkService``, ``EventService`` and ``DayService``. Everything typed is
+# escaped here; an assignment's text arrives cut already (``notify.shorten``),
+```
+  3. Replace the file's last lines:
+```python
+def event_cancelled_notice(title: str, when: str) -> str:
+    return f"🗑 Событие отменено: <b>{escape(title)}</b> {escape(when)}"
+```
+     with:
+```python
+def event_cancelled_notice(title: str, when: str) -> str:
+    return f"🗑 Событие отменено: <b>{escape(title)}</b> {escape(when)}"
+
+
+#: The kind of a marked day, said in the middle of v1's sentence and of its
+#: line in the journal: the three kinds v1 and v2 mark a day with.
+DAY_SET_LABELS = {
+    DayKind.HOLIDAY: "выходной",
+    DayKind.SHORTENED: "сокращённые уроки",
+    DayKind.REMOTE: "дистанционное обучение",
+}
+
+
+def day_set_notice(when: str, label: str, note: str | None) -> str:
+    """«📆 … — выходной.», with the note below it when the day has one."""
+    text = f"📆 {escape(when)} — {label}."
+    return f"{text}\n{escape(note)}" if note else text
+
+
+def day_cleared_notice(when: str) -> str:
+    return f"📆 {escape(when)} — обычный учебный день."
+```
+
+- [ ] **Step 4: v1 calls the moved code.** In `server/app/api/edit.py`:
+  1. Replace the models' import:
+```python
+from app.models import (
+    BellPeriod,
+    BellSchedule,
+    DayKind,
+    DayOverride,
+    DeviceToken,
+    EventKind,
+    LessonOverride,
+    OverrideAction,
+    Role,
+    SchoolClass,
+)
+```
+     with:
+```python
+from app.models import (
+    DayKind,
+    DeviceToken,
+    EventKind,
+    LessonOverride,
+    OverrideAction,
+    Role,
+    SchoolClass,
+)
+```
+  2. Replace:
+```python
+from app.services import tasks as task_service
+from app.wording import (
+    EMPTY_BELL_SCHEDULE_DETAIL,
+    UNKNOWN_EVENT_DETAIL,
+    UNKNOWN_HOMEWORK_DETAIL,
+    human_date,
+)
+```
+     with:
+```python
+from app.services import tasks as task_service
+from app.services.manage import bells as bells_service
+from app.services.manage import special_days
+from app.wording import (
+    EMPTY_BELL_SCHEDULE_DETAIL,
+    SCHEDULE_NOT_IN_CLASS_DETAIL,
+    SHORTENED_NEEDS_SCHEDULE_DETAIL,
+    UNKNOWN_EVENT_DETAIL,
+    UNKNOWN_HOMEWORK_DETAIL,
+    human_date,
+)
+```
+  3. Replace the section «Whole days», from its heading to the end of the file:
+```python
+# --------------------------------------------------------------------------
+# Whole days
+# --------------------------------------------------------------------------
+
+_DAY_LABELS = {
+    DayKind.HOLIDAY: "выходной",
+    DayKind.SHORTENED: "сокращённые уроки",
+    DayKind.REMOTE: "дистанционное обучение",
+}
+
+
+@router.put("/days", response_model=DayOverrideOut)
+async def day_put(
+    payload: DayIn,
+    device: DeviceToken = Depends(editor_device),
+    school_class: SchoolClass = Depends(current_class),
+    *,
+    session: FromDishka[AsyncSession],
+) -> DayOverrideOut:
+    """Mark a date as a holiday / shortened / remote day. ``normal`` deletes
+    the mark, so a day never carries a row that says nothing."""
+    _check_date(payload.date)
+    actor = device.telegram_id
+    when = human_date(payload.date, clock.today(school_class))
+
+    if payload.bell_schedule_id is not None:
+        owned = await session.scalar(
+            select(BellSchedule.id).where(
+                BellSchedule.id == payload.bell_schedule_id,
+                BellSchedule.class_id == school_class.id,
+            )
+        )
+        if owned is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="bell_schedule_id is not in this class",
+            )
+        # And that it rings something. A schedule may legitimately be created
+        # empty and filled in later (`BellScheduleIn.periods` defaults to an
+        # empty list and says so), and the resolver takes a lesson's times from
+        # the bell row of the same number - so a day pointed at an empty one
+        # draws no lessons at all while the card above them says «сокращённые
+        # уроки» — shortened lessons. Nothing fails: the phone, the widget, the
+        # calendar feed and
+        # the morning digest all agree there is no school that day, and a
+        # substitution written for it is accepted at any number because
+        # `timetable_edit.rung_indexes_on` falls back to the class default when
+        # the named schedule has no rows. This is the same decision the check
+        # underneath already makes for a shortened day with no schedule at all,
+        # and it is made for the same reason.
+        rings = await session.scalar(
+            select(BellPeriod.id)
+            .where(BellPeriod.schedule_id == payload.bell_schedule_id)
+            .limit(1)
+        )
+        if rings is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=EMPTY_BELL_SCHEDULE_DETAIL,
+            )
+
+    # «Сокращённые уроки» is a claim about the times, and the times come from a
+    # bell schedule. Without one the resolver falls back to the class default,
+    # so the day announces shortened lessons and then draws the normal ones —
+    # which is worse than not marking it at all, because somebody reads the
+    # label and packs for a short day. The bot's flow always asks which
+    # schedule to ring; this is the surface that could skip the question.
+    if payload.kind == "shortened" and payload.bell_schedule_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="a shortened day needs the bell schedule it rings",
+        )
+
+    existing = await session.scalar(
+        select(DayOverride).where(
+            DayOverride.class_id == school_class.id, DayOverride.date == payload.date
+        )
+    )
+
+    if payload.kind == "normal":
+        if existing is not None:
+            await session.delete(existing)
+            await audit.record(
+                session, school_class.id, actor, "day.clear", f"День снова обычный: {when}"
+            )
+            await session.commit()
+            await _tell(
+                session,
+                school_class,
+                f"📆 {escape(when)} — обычный учебный день.",
+                kind="changes",
+                author=actor,
+            )
+        return DayOverrideOut(date=payload.date, kind="normal")
+
+    kind = DayKind(payload.kind)
+    if existing is None:
+        existing = DayOverride(class_id=school_class.id, date=payload.date, kind=kind)
+        session.add(existing)
+    existing.kind = kind
+    existing.note = payload.note
+    existing.bell_schedule_id = payload.bell_schedule_id
+
+    label = _DAY_LABELS[kind]
+    await audit.record(session, school_class.id, actor, "day.set", f"{when}: {label}")
+    await session.commit()
+
+    text = f"📆 {escape(when)} — {label}."
+    if payload.note:
+        text += f"\n{escape(payload.note)}"
+    await _tell(session, school_class, text, kind="changes", author=actor)
+
+    return DayOverrideOut(
+        date=existing.date,
+        kind=existing.kind.value,
+        note=existing.note,
+        bell_schedule_id=existing.bell_schedule_id,
+    )
+```
+     with:
+```python
+# --------------------------------------------------------------------------
+# Whole days
+# --------------------------------------------------------------------------
+
+
+@router.put("/days", response_model=DayOverrideOut)
+async def day_put(
+    payload: DayIn,
+    device: DeviceToken = Depends(editor_device),
+    school_class: SchoolClass = Depends(current_class),
+    *,
+    session: FromDishka[AsyncSession],
+) -> DayOverrideOut:
+    """Mark a date as a holiday / shortened / remote day. ``normal`` deletes
+    the mark, so a day never carries a row that says nothing. The checks, the
+    mark, its line and its notice are ``special_days.set_day``'s, over the one
+    write the bot's «🏖 Особые дни» and v2's ``UpdateDay`` make too."""
+    _check_date(payload.date)
+    actor = device.telegram_id
+    try:
+        written = await special_days.set_day(
+            session,
+            school_class,
+            actor,
+            payload.date,
+            kind=DayKind(payload.kind),
+            note=payload.note,
+            bell_schedule_id=payload.bell_schedule_id,
+        )
+    except special_days.ScheduleNotInClass:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=SCHEDULE_NOT_IN_CLASS_DETAIL
+        ) from None
+    except bells_service.ScheduleEmpty:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=EMPTY_BELL_SCHEDULE_DETAIL
+        ) from None
+    except special_days.ShortenedNeedsSchedule:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=SHORTENED_NEEDS_SCHEDULE_DETAIL,
+        ) from None
+    await session.commit()
+    if written.notice is not None:
+        await _tell(session, school_class, written.notice, kind="changes", author=actor)
+
+    mark = written.mark
+    if mark is None:
+        return DayOverrideOut(date=payload.date, kind="normal")
+    return DayOverrideOut(
+        date=mark.date,
+        kind=mark.kind.value,
+        note=mark.note,
+        bell_schedule_id=mark.bell_schedule_id,
+    )
+```
+
+  `select`, `escape`, `audit` and `human_date` stay imported: `override_put` uses them until Task 2. v1 commits whether or not anything was written; committing a transaction that wrote nothing sends nothing.
+
+- [ ] **Step 5: The bot writes through `put_day`.** In `server/app/bot/handlers/manage/holidays.py`:
+  1. Replace:
+```python
+NOTE_MAX = 300
+```
+     with:
+```python
+NOTE_MAX = 300
+
+#: Said when a shortened day has nothing to ring: the picker's starting value
+#: — the day's own schedule, or the class default — rings no lesson, which only
+#: a class whose bells were never filled in can reach.
+SHORTENED_WITHOUT_BELLS = (
+    "Сокращённому дню нужно расписание звонков, а в основном нет ни одного урока — "
+    "заполните «🔔 Звонки» и отметьте день снова."
+)
+```
+  2. In `holiday_kind`, replace:
+```python
+    if tag == "normal":
+        override = await special_days.mark_on(session, school_class.id, day)
+        if override is not None:
+            await session.delete(override)
+            await audit.record(
+                session, school_class.id, callback.from_user.id, "dayoverride.delete",
+                f"{day:%d.%m}: снова обычный день",
+            )
+            await session.commit()
+        await state.clear()
+        text, keyboard = await _holiday_view(session, school_class, role)
+        await callback.message.edit_text(text, reply_markup=keyboard)
+        await callback.answer("Обычный день")
+        return
+
+    kind = _KIND_BY_TAG.get(tag)
+    if kind is None:
+        await callback.answer("Неизвестный тип дня", show_alert=True)
+        return
+
+    await special_days.mark(session, school_class, day, kind)
+```
+     with:
+```python
+    if tag == "normal":
+        put = await special_days.put_day(session, school_class, day, {"kind": DayKind.NORMAL})
+        if put.had_mark:
+            await audit.record(
+                session, school_class.id, callback.from_user.id, "dayoverride.delete",
+                f"{day:%d.%m}: снова обычный день",
+            )
+            await session.commit()
+        await state.clear()
+        text, keyboard = await _holiday_view(session, school_class, role)
+        await callback.message.edit_text(text, reply_markup=keyboard)
+        await callback.answer("Обычный день")
+        return
+
+    kind = _KIND_BY_TAG.get(tag)
+    if kind is None:
+        await callback.answer("Неизвестный тип дня", show_alert=True)
+        return
+
+    # A bell schedule means something on a shortened day only, so any other
+    # kind takes the day's away; a shortened day starts on the one it had, or
+    # the class default. That is the picker's starting value, written before
+    # the picker is asked: the row is committed first, and walking away from
+    # the picker must still leave a day that names what it rings.
+    changes: dict[str, object] = {"kind": kind, "bell_schedule_id": None}
+    if kind is DayKind.SHORTENED:
+        current = await special_days.mark_on(session, school_class.id, day)
+        changes["bell_schedule_id"] = (
+            current.bell_schedule_id
+            if current is not None and current.bell_schedule_id
+            else school_class.bell_schedule_id
+        )
+    try:
+        await special_days.put_day(session, school_class, day, changes)
+    except (special_days.ShortenedNeedsSchedule, bells_service.ScheduleEmpty):
+        await callback.answer(SHORTENED_WITHOUT_BELLS, show_alert=True)
+        return
+```
+  3. In `holiday_bells`, replace:
+```python
+        override.bell_schedule_id = schedule.id
+```
+     with:
+```python
+        await special_days.put_day(session, school_class, day, {"bell_schedule_id": schedule.id})
+```
+  4. In `holiday_note`, replace:
+```python
+    if raw not in {"-", "—", ""}:
+        override.note = raw[:NOTE_MAX]
+```
+     with:
+```python
+    if raw not in {"-", "—", ""}:
+        await special_days.put_day(session, school_class, day, {"note": raw[:NOTE_MAX]})
+```
+  5. In `holiday_delete`, replace:
+```python
+    override = await special_days.mark_on(session, school_class.id, day)
+    if override is not None:
+        await session.delete(override)
+        await audit.record(
+            session, school_class.id, callback.from_user.id, "dayoverride.delete",
+            f"{day:%d.%m}: отметка снята",
+        )
+        await session.commit()
+
+    await state.clear()
+    text, keyboard = await _holiday_view(session, school_class, role)
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer("Снято" if override is not None else "Уже снято")
+```
+     with:
+```python
+    put = await special_days.put_day(session, school_class, day, {"kind": DayKind.NORMAL})
+    if put.had_mark:
+        await audit.record(
+            session, school_class.id, callback.from_user.id, "dayoverride.delete",
+            f"{day:%d.%m}: отметка снята",
+        )
+        await session.commit()
+
+    await state.clear()
+    text, keyboard = await _holiday_view(session, school_class, role)
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer("Снято" if put.had_mark else "Уже снято")
+```
+
+  `holiday_period_apply` is unchanged: `mark_period` keeps its signature. Every handler here still commits after its write and before it touches the conversation's state (Ruling 91), and `holiday_bells` and `holiday_note` still look the mark up first, so a card left open on a day whose mark is gone says «День уже не отмечен» as before.
+
+- [ ] **Step 6: Green, and v1 and the bot unchanged.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_days.py tests/test_api_extended.py tests/test_bot_manage.py tests/test_announcements.py tests/test_v2_bell_writes.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass; `test_services_days.py` has 9. The v1 and bot files pass unedited:
+- `test_api_extended.py` holds `PUT /days`' answers, its 422s in v1's words for another class's schedule, an empty one and a shortened day with none, its lines and its notices (`test_days_set_and_clear`, `test_a_day_cannot_ring_a_bell_schedule_that_has_no_rows`);
+- `test_bot_manage.py` presses «🏖 Особые дни» from the button to the card: a shortened day starts on the class default and carries the schedule picked, an empty schedule is refused in the bot's words, «Обычный день» removes the row, a note lands, and every step refuses a наблюдатель;
+- `test_v2_bell_writes.py` reads `bells.ScheduleEmpty`'s row, which `put_day` raises too.
+
+`test_two_phones_marking_one_date_at_once_both_succeed` is #382's: before Step 4, v1 read the mark itself and `put_day`'s stale read never happened.
+
+- [ ] **Step 7: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 235 source files`.
+
+- [ ] **Step 8: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b6-t1.txt`:
+```text
+Mark a day through one write, for the bot, v1 and v2 alike
+
+v1's PUT /days held its rules in the router: a schedule the day names is
+this class's and rings something, and a shortened day names one. The
+bot's «🏖 Особые дни» wrote through special_days.mark, which asked none
+of them, and v2's UpdateDay writes the same marks. They meet in
+special_days.put_day: the fields a request names change and the rest
+keep what the mark holds, the three checks are facts each shell words
+(ScheduleNotInClass, bells.ScheduleEmpty, ShortenedNeedsSchedule), and
+a mark somebody else wrote in the same instant meets the unique
+constraint inside a savepoint and is changed rather than doubled. v1's
+answer to that race was a 500 (#382). v1's line and notice are set_day's,
+v2's will be update_day's, and their words move to app/wording.py.
+
+The bot writes every mark through put_day: the kind with its picker's
+starting value, the schedule picked, the note, a mark taken off, and a
+period. It keeps its own lines and tells nobody, as before; a class
+whose bells ring nothing can no longer be marked shortened from it,
+which drew an empty day under «⏱ Сокращённые уроки».
+
+Not covered: Postgres; the race is staged on SQLite by a read that
+answers «no mark» once.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/services/manage/special_days.py server/app/wording.py server/app/api/edit.py server/app/bot/handlers/manage/holidays.py server/tests/test_services_days.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b6-t1.txt
+```
+
+---
+
+### 3b-6 Task 2: Substitutions' three questions, in `services/substitutions.py`
+
+Decision 2; Rulings 88, 91, 95 and 96; #382 and #383. v1 keeps its answers and its notices, and the bot its screens and its sentences: `test_api_extended.py`, `test_bot_handlers.py`, `test_timetable_edit.py`, `test_announcements.py` and `test_bot_message_limits.py` are the proof and are not edited.
+
+**Files:**
+- Create: `server/app/services/substitutions.py`, `server/tests/test_services_substitutions.py`
+- Modify: `server/app/services/timetable_edit.py`, `server/app/wording.py`, `server/app/api/edit.py`, `server/app/bot/handlers/content/overrides.py`
+
+**Interfaces:**
+- Consumes: `timetable_edit.rung_indexes_on`, `can_ring` and `template_indexes_on`; `subjects.spelling`; `audit.record`; `clock.today`; `wording.human_date`.
+- Produces:
+  - `timetable_edit.NoLessons(why: str, sentence: str)`, frozen, and `no_lessons_on(session, class_id, day) -> NoLessons | None`; `why_no_lesson_can_be_drawn` answers its sentence;
+  - `substitutions.COLUMNS`, `NoLessonOnDay(why, sentence)`, `NoBellForLesson(index)`, `LessonNotOnTimetable(index, *, cancelling)`, `SubstitutionExists`, all `ValueError`s;
+  - `substitutions.Written(substitution: LessonOverride, notice: str | None)`, frozen;
+  - `substitutions.substitution_on(session, class_id, day, index)`, `substitution_of(session, class_id, substitution_id)`, `between(session, class_id, start, end)`;
+  - `substitutions.upsert(session, class_id, day, index, changes) -> tuple[LessonOverride, bool]`, the bot's and v1's write;
+  - `substitutions.put`, `create` (`school_class`, `actor`, `day`, `index`, `changes`) and `update(session, school_class, actor, row, changes)`, each `-> Written`; `delete(session, school_class, actor, row) -> str`;
+  - `wording.no_bell_detail(index)`, `lesson_not_on_timetable_detail(index, *, cancelling)`, `substitution_replaced_notice(index, when, what, room, note)`, `substitution_cancelled_notice(index, when, note)`, `substitution_cleared_notice(index, when)`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_services_substitutions.py`:
+```python
+"""Substitutions, in ``services/``: three questions, asked once for three shells.
+
+v1's ``PUT /overrides`` asked, in its router, whether the day draws lessons at
+all, whether it rings the number, and whether a lesson is underneath; the
+bot's «🔄 Замены» asked the first two again in its own handler, and v2's
+``SubstitutionService`` writes the same rows. The rules moved to
+``services/substitutions.py``, as facts each shell words, and v1 and the bot
+call them (``docs/specs/2026-10-05-server-v2-design.md``, decision 2).
+``test_api_extended.py``, ``test_bot_handlers.py``, ``test_timetable_edit.py``
+and ``test_announcements.py``, untouched, are the proof that v1's answers and
+the bot's screens did not move; these hold the rules a fact at a time, a
+substitution two phones write at once (#382), the bot's third question (#383),
+and that nothing the services write is committed by them.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Any
+
+import pytest
+from sqlalchemy import func, select
+
+from app import wording
+from app.bot.handlers.content.overrides import override_cancel, override_subject
+from app.db import SessionLocal
+from app.models import (
+    AuditEntry,
+    DayKind,
+    DayOverride,
+    LessonOverride,
+    OverrideAction,
+    Role,
+    SchoolClass,
+    Subject,
+)
+from app.services import clock, substitutions, timetable_edit
+
+#: A Monday of the school year: the class's template has lessons 1 to 3 on a
+#: Monday, and its bells ring 1 to 7.
+MONDAY = date(2026, 9, 14)
+EDITOR = 42
+#: 14 September, as people read it on Monday the 7th.
+WHEN = "14 сентября (понедельник)"
+REPLACE, CANCEL = OverrideAction.REPLACE, OverrideAction.CANCEL
+
+
+def _pin_clock(monkeypatch) -> None:
+    """Monday 7 September, 10:00 in the class's zone."""
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _all(**fields: Any) -> dict[str, Any]:
+    """Every field of a write, as v1 sends them: what is not given is none."""
+    return {name: fields.get(name) for name in ("action", "subject", "room", "teacher", "note")}
+
+
+async def _committed(statement: Any) -> Any:
+    """What a session of its own reads: only what is committed."""
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(statement)
+
+
+async def _lines(session) -> list[tuple[str, str]]:
+    rows = await session.execute(
+        select(AuditEntry.action, AuditEntry.summary).order_by(AuditEntry.id)
+    )
+    return [tuple(row) for row in rows]
+
+
+def _stale_once(monkeypatch) -> list[bool]:
+    """``substitution_on`` answers «none» once, as it truthfully did a moment
+    before somebody else's substitution was committed."""
+    real = substitutions.substitution_on
+    stale: list[bool] = []
+
+    async def stale_once(*args: Any, **kwargs: Any) -> Any:
+        if not stale:
+            stale.append(True)
+            return None
+        return await real(*args, **kwargs)
+
+    monkeypatch.setattr(substitutions, "substitution_on", stale_once)
+    return stale
+
+
+async def test_a_substitution_is_written_with_its_line_and_its_notice_as_v1_wrote_them(
+    session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    session.add(Subject(class_id=school_class.id, name="Химия"))
+    await session.commit()
+    replaced = await substitutions.put(
+        session,
+        school_class,
+        EDITOR,
+        MONDAY,
+        2,
+        _all(action=REPLACE, subject="химия", room="118", note="учитель <на конференции>"),
+    )
+    row = replaced.substitution
+    # The class's spelling, so that the resolver finds the subject's colour.
+    assert (row.action, row.subject_name, row.room) == (REPLACE, "Химия", "118")
+    assert replaced.notice == (
+        f"🔁 Замена {WHEN}: урок №2 — <b>Химия</b>, каб. 118\nучитель &lt;на конференции&gt;"
+    )
+    cancelled = await substitutions.put(
+        session, school_class, EDITOR, MONDAY, 2, _all(action=CANCEL, subject="Химия")
+    )
+    # The same row, and a cancellation carries no subject, room or teacher.
+    assert cancelled.substitution is row
+    assert (row.action, row.subject_name, row.room, row.teacher) == (CANCEL, None, None, None)
+    assert cancelled.notice == f"🚫 Урок №2 {WHEN} отменён."
+    room_only = await substitutions.put(
+        session, school_class, EDITOR, MONDAY, 1, _all(action=REPLACE, room="305")
+    )
+    assert room_only.notice == f"🔁 Замена {WHEN}: урок №1 — <b>кабинет/учитель</b>, каб. 305"
+    assert await _lines(session) == [
+        ("override.replace", f"Замена: урок №2, {WHEN} — Химия"),
+        ("override.cancel", f"Урок №2 отменён, {WHEN}"),
+        ("override.replace", f"Замена: урок №1, {WHEN} — кабинет/учитель"),
+    ]
+
+
+async def test_the_three_questions_are_facts_each_shell_words_for_itself(
+    session, school_class
+) -> None:
+    session.add(DayOverride(class_id=school_class.id, date=MONDAY, kind=DayKind.DAY_OFF))
+    await session.commit()
+    for day, why in (
+        (date(2027, 6, 14), "out_of_year"),
+        (date(2027, 3, 8), "public_holiday"),
+        (MONDAY, "marked_day_off"),
+    ):
+        with pytest.raises(substitutions.NoLessonOnDay) as refused:
+            await substitutions.upsert(
+                session, school_class.id, day, 1, {"action": REPLACE, "subject": "Химия"}
+            )
+        assert refused.value.why == why
+        # The sentence both shells have always shown for that day.
+        assert refused.value.sentence == await timetable_edit.why_no_lesson_can_be_drawn(
+            session, school_class.id, day
+        )
+    tuesday = date(2026, 9, 15)
+    with pytest.raises(substitutions.NoBellForLesson) as no_bell:
+        await substitutions.upsert(
+            session, school_class.id, tuesday, 8, {"action": REPLACE, "subject": "Химия"}
+        )
+    assert no_bell.value.index == 8
+    # Tuesday has no template lessons, and its bells ring 1 to 7.
+    for changes, cancelling in (
+        ({"action": CANCEL}, True),
+        ({"action": REPLACE, "room": "305"}, False),
+    ):
+        with pytest.raises(substitutions.LessonNotOnTimetable) as underneath:
+            await substitutions.upsert(session, school_class.id, tuesday, 7, changes)
+        assert (underneath.value.index, underneath.value.cancelling) == (7, cancelling)
+    assert await session.scalar(select(func.count()).select_from(LessonOverride)) == 0
+
+
+async def test_a_row_at_a_number_that_no_longer_rings_stays_editable_and_a_new_one_does_not(
+    session, school_class
+) -> None:
+    """The bell is asked of a new row only: an existing row at a bad number
+    has to stay editable, which is how a class gets out of one."""
+    stray = LessonOverride(
+        class_id=school_class.id, date=MONDAY, index=9, action=REPLACE, subject_name="Химия"
+    )
+    session.add(stray)
+    await session.commit()
+    changed = await substitutions.update(session, school_class, EDITOR, stray, {"room": "214"})
+    assert (changed.substitution.room, changed.notice is not None) == ("214", True)
+    again, _created = await substitutions.upsert(
+        session, school_class.id, MONDAY, 9, {"action": REPLACE, "subject": "Физика"}
+    )
+    assert (again is stray, stray.subject_name) == (True, "Физика")
+    with pytest.raises(substitutions.NoBellForLesson):
+        await substitutions.create(
+            session, school_class, EDITOR, date(2026, 9, 21), 9, _all(action=REPLACE, subject="x")
+        )
+
+
+async def test_a_lesson_with_a_substitution_is_not_created_a_second_time(
+    session, school_class, monkeypatch
+) -> None:
+    session.add(LessonOverride(class_id=school_class.id, date=MONDAY, index=2, action=CANCEL))
+    await session.commit()
+    with pytest.raises(substitutions.SubstitutionExists):
+        await substitutions.create(
+            session, school_class, EDITOR, MONDAY, 2, _all(action=REPLACE, subject="Химия")
+        )
+    # The race: the read answers «none» while the twin is in the table. The
+    # insert meets the unique constraint inside its savepoint, is refused the
+    # same way, and the caller's transaction goes on.
+    stale = _stale_once(monkeypatch)
+    with pytest.raises(substitutions.SubstitutionExists):
+        await substitutions.create(
+            session, school_class, EDITOR, MONDAY, 2, _all(action=REPLACE, subject="Химия")
+        )
+    assert stale, "the stale read never happened, so nothing was tested"
+    session.add(Subject(class_id=school_class.id, name="Химия"))
+    await session.commit()
+    assert await _committed(select(func.count()).select_from(LessonOverride)) == 1
+    assert await _committed(select(func.count()).select_from(Subject)) == 1
+
+
+async def test_a_substitution_somebody_else_wrote_in_the_same_instant_is_changed_not_doubled(
+    session, school_class, monkeypatch
+) -> None:
+    """#382, at the service: the write that lost the race becomes the change it
+    would have been a moment later, and leaves the twin's note as it was."""
+    session.add(
+        LessonOverride(class_id=school_class.id, date=MONDAY, index=2, action=CANCEL, note="их")
+    )
+    await session.commit()
+    stale = _stale_once(monkeypatch)
+
+    row, created = await substitutions.upsert(
+        session, school_class.id, MONDAY, 2, {"action": REPLACE, "subject": "Химия"}
+    )
+    await session.commit()
+
+    assert stale, "the stale read never happened, so nothing was tested"
+    assert (created, row.action, row.subject_name, row.note) == (False, REPLACE, "Химия", "их")
+    assert await _committed(select(func.count()).select_from(LessonOverride)) == 1
+
+
+async def test_two_phones_substituting_one_lesson_at_once_both_succeed(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    """#382, through v1: the phone that lost the race met the unique constraint
+    and answered 500, after its line and before its notice."""
+    session.add(LessonOverride(class_id=school_class.id, date=MONDAY, index=2, action=CANCEL))
+    await session.commit()
+    stale = _stale_once(monkeypatch)
+
+    answer = await v2.http.put(
+        "/api/v1/overrides",
+        json={"date": MONDAY.isoformat(), "index": 2, "action": "replace", "subject": "Химия"},
+        headers=_auth(v2_tokens["editor"]),
+    )
+
+    assert stale, "the stale read never happened, so nothing was tested"
+    assert answer.status_code == 200, answer.text
+    assert (answer.json()["action"], answer.json()["subject"]) == ("replace", "Химия")
+    assert await _committed(select(func.count()).select_from(LessonOverride)) == 1
+
+
+async def test_a_change_that_changes_nothing_writes_nothing_and_tells_nobody(
+    session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    row = LessonOverride(
+        class_id=school_class.id, date=MONDAY, index=2, action=REPLACE, subject_name="Химия"
+    )
+    session.add(row)
+    await session.commit()
+    for same in ({"subject": "Химия"}, {"action": REPLACE, "room": None}):
+        unchanged = await substitutions.update(session, school_class, EDITOR, row, same)
+        assert unchanged.notice is None, same
+    assert await _lines(session) == []
+    moved = await substitutions.update(session, school_class, EDITOR, row, {"teacher": "Иванов"})
+    assert moved.notice == f"🔁 Замена {WHEN}: урок №2 — <b>Химия</b>"
+    assert [action for action, _ in await _lines(session)] == ["override.replace"]
+
+
+async def test_deleting_words_its_line_and_its_notice_and_a_lookup_stays_in_its_class(
+    session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    later = date(2026, 9, 21)
+    rows = [
+        LessonOverride(class_id=school_class.id, date=later, index=1, action=CANCEL),
+        LessonOverride(class_id=school_class.id, date=MONDAY, index=3, action=CANCEL),
+        LessonOverride(class_id=school_class.id, date=MONDAY, index=1, action=CANCEL),
+        LessonOverride(class_id=other.id, date=MONDAY, index=2, action=CANCEL),
+    ]
+    session.add_all(rows)
+    await session.commit()
+    listed = await substitutions.between(session, school_class.id, MONDAY, later)
+    # By date, then lesson number; another class's is not among them.
+    assert [(row.date, row.index) for row in listed] == [(MONDAY, 1), (MONDAY, 3), (later, 1)]
+    assert await substitutions.substitution_of(session, school_class.id, rows[3].id) is None
+    own = await substitutions.substitution_of(session, school_class.id, rows[1].id)
+    assert own is rows[1]
+
+    notice = await substitutions.delete(session, school_class, EDITOR, own)
+    assert notice == f"♻️ Урок №3 {WHEN} снова идёт по расписанию."
+    assert await _lines(session) == [("override.clear", f"Замена снята: урок №3, {WHEN}")]
+    assert await substitutions.substitution_on(session, school_class.id, MONDAY, 3) is None
+
+
+async def test_the_bot_will_not_cancel_a_lesson_the_template_does_not_have(
+    session, school_class, FakeCallback, FakeEditable, FakeMessage, FakeState
+) -> None:
+    """#383. A lesson added by a substitution at a number the template leaves
+    empty is in the bot's picker, because the picker lists what the day draws;
+    «🚫 Отменить урок» on it stored a cancellation of nothing, announced to
+    every subscriber and drawn nowhere, which v1 refused and still does. The
+    bot now asks the same third question, and points the same way out."""
+    added = FakeMessage(text="Астрономия")
+    await override_subject(
+        added,
+        FakeState(data={"date": MONDAY.isoformat(), "index": "7"}),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+    assert "Астрономия" in added.last
+
+    callback = FakeCallback(message=FakeEditable())
+    await override_cancel(
+        callback,
+        FakeState(data={"date": MONDAY.isoformat(), "index": "7"}),
+        session,
+        school_class,
+        Role.EDITOR,
+    )
+    assert callback.answers[-1] == (
+        wording.lesson_not_on_timetable_detail(7, cancelling=True),
+        True,
+    )
+    row = await session.scalar(select(LessonOverride))
+    assert (row.action, row.subject_name) == (REPLACE, "Астрономия")
+    assert [action for action, _ in await _lines(session)] == ["override.replace"]
+
+
+async def test_nothing_the_services_write_is_committed_until_the_caller_commits(
+    session, school_class
+) -> None:
+    """A new substitution goes in through a savepoint, the first write of its
+    transaction: what a rollback leaves is the code's answer on SQLite as on
+    Postgres (#373)."""
+    await substitutions.put(
+        session, school_class, EDITOR, MONDAY, 2, _all(action=REPLACE, subject="Химия")
+    )
+    await session.rollback()
+    for table in (LessonOverride, AuditEntry):
+        assert await _committed(select(func.count()).select_from(table)) == 0, table
+
+
+def test_the_sentences_both_versions_answer_with_are_v1_s() -> None:
+    assert wording.no_bell_detail(8) == "нет звонка для урока №8 в этот день"
+    assert (
+        wording.lesson_not_on_timetable_detail(7, cancelling=True)
+        == "в этот день нет урока №7, отменять нечего"
+    )
+    assert (
+        wording.lesson_not_on_timetable_detail(7, cancelling=False)
+        == "в этот день нет урока №7: замене без предмета нечего заменять"
+    )
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_substitutions.py
+```
+Expected: the file does not collect, with `ImportError: cannot import name 'substitutions' from 'app.services'`. Keep this output as the evidence.
+
+- [ ] **Step 2: Why a day draws nothing, as a reason and a sentence.** In `server/app/services/timetable_edit.py`:
+  1. Replace:
+```python
+from __future__ import annotations
+
+from datetime import date as Date
+
+from sqlalchemy import delete as sa_delete
+```
+     with:
+```python
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date as Date
+
+from sqlalchemy import delete as sa_delete
+```
+  2. Replace `why_no_lesson_can_be_drawn`, the whole function:
+```python
+async def why_no_lesson_can_be_drawn(
+    session: AsyncSession, class_id: int, day: Date
+) -> str | None:
+    """Why this day draws no lessons at all, or ``None`` if it draws some.
+
+    `_resolve_day` has two early returns above the override loop, and a lesson
+    written for a day that takes either of them is stored, written to the audit
+    log and announced to every subscriber — and drawn on no phone, in no
+    widget, in no calendar feed. The two are: out of season, and a day
+    somebody marked «выходной» or «отгул» by hand.
+
+    This lived in `api/edit.py` alone, and the bot was said to be safe by
+    construction because its own picker offers no lessons on such a day. That
+    is true of the picker and not of the flow: the bot's calendar has a second,
+    differently-meaning `school_year_bounds` of its own (1 September to
+    1 August), so in June it offers June, July and August — and an override at
+    a number the day *does* ring then passes every check the bot had.
+
+    **Out of season is `schedule.off_reason_for`, not a second rule.** This
+    asked `school_year_bounds` and nothing else while the resolver had learned
+    to read the class's own terms and the public holidays, so three kinds of
+    date passed here and resolved to nothing: a 31 May the class had already
+    stopped teaching on, a Monday in the autumn holidays the terms describe,
+    and the 8th of March. That is precisely the drift `services/` exists to
+    prevent, and the fix is to ask the same function rather than to copy it
+    again. The sentence differs per reason because the way out does: move a
+    term's dates, pick another day, or accept that nobody is at school.
+
+    The sentence comes back rather than a flag, because both shells say it to
+    somebody and two spellings of one refusal is how they drift. It is plain
+    text on purpose: the bot shows it in an alert, which takes no parse mode.
+    What is deliberately *not* asked: whether the day has a lesson at this
+    number. It need not — a substitution at an empty number is how a lesson is
+    added — and `can_ring` is what keeps that honest.
+    """
+    year_start, _ = school_year_bounds(day)
+    # Only the year `day` falls in: `off_reason_for` filters by year anyway,
+    # and a check about one date has no use for the neighbouring years.
+    terms = list(
+        await session.scalars(
+            select(Term).where(Term.class_id == class_id, Term.year == year_start.year)
+        )
+    )
+    reason = off_reason_for(day, terms)
+
+    if reason is DayOffReason.PUBLIC_HOLIDAY:
+        holiday = holidays.holiday_on(day)
+        named = holiday.title if holiday is not None else "нерабочий день"
+        return f"{named} — нерабочий день, уроков на нём нет; поставьте событие"
+
+    if reason is DayOffReason.BETWEEN_TERMS:
+        return (
+            "по датам периодов это каникулы — уроков на нём нет; "
+            "поправьте даты в «🗓 Четверти» или поставьте событие"
+        )
+
+    if reason is DayOffReason.OUT_OF_YEAR:
+        # With terms, the year closes when the last of them does, and a date
+        # past that is the one the conventional horizon used to wave through:
+        # 31 May under a half-year that ended on the 25th. Without them
+        # ``day > closes`` cannot happen at all, because `school_year_bounds`
+        # files a date past the end of May under the year that is *about to
+        # open* — which is why the two branches below exist in the first
+        # place.
+        if terms:
+            closes = max(term.ends_on for term in terms)
+            if day > closes:
+                return (
+                    f"учебный год закончился {closes.day}.{closes.month:02d} — "
+                    "замену ставить не на что; поставьте событие"
+                )
+            opens = min(term.starts_on for term in terms)
+        else:
+            opens = year_start
+        # June, July and August arrive already before ``opens`` — and so do
+        # the first days of September in a year whose 1st is a weekend, since
+        # `school_year_start` moves the first teaching day off one. The month
+        # is what tells them apart, and one sentence for both would answer
+        # «1 сентября» with a complaint about the summer.
+        if day.month >= SCHOOL_YEAR_START_MONTH:
+            return (
+                f"учебный год начинается {opens.day}.{opens.month:02d} — "
+                "до него уроков ещё нет; поставьте событие"
+            )
+        return (
+            "эта дата вне учебного года — замену ставить не на что; "
+            "для летних дел есть события"
+        )
+
+    marked = await session.scalar(
+        select(DayOverride.kind).where(
+            DayOverride.class_id == class_id, DayOverride.date == day
+        )
+    )
+    # Both kinds that clear the day, not only «🏖 Каникулы»: «🌿 Отгул» says
+    # something different about who is at school and nothing different about
+    # whether a substitution can be drawn on it.
+    if marked in KINDS_WITHOUT_LESSONS:
+        return (
+            "этот день отмечен как выходной — уроков на нём нет; "
+            "снимите отметку или поставьте событие"
+        )
+    return None
+```
+     with:
+```python
+@dataclass(frozen=True)
+class NoLessons:
+    """Why a day draws no lessons at all: ``why`` for a client to act on, the
+    reason ``errors.proto`` names for ``NO_LESSON_ON_DAY`` — "out_of_year",
+    "between_terms", "public_holiday" or "marked_day_off" — and ``sentence``
+    for a person."""
+
+    why: str
+    sentence: str
+
+
+async def no_lessons_on(session: AsyncSession, class_id: int, day: Date) -> NoLessons | None:
+    """Why this day draws no lessons at all, or ``None`` if it draws some.
+
+    `_resolve_day` has two early returns above the override loop, and a lesson
+    written for a day that takes either of them is stored, written to the audit
+    log and announced to every subscriber — and drawn on no phone, in no
+    widget, in no calendar feed. The two are: out of season, and a day
+    somebody marked «выходной» or «отгул» by hand.
+
+    This lived in `api/edit.py` alone, and the bot was said to be safe by
+    construction because its own picker offers no lessons on such a day. That
+    is true of the picker and not of the flow: the bot's calendar has a second,
+    differently-meaning `school_year_bounds` of its own (1 September to
+    1 August), so in June it offers June, July and August — and an override at
+    a number the day *does* ring then passes every check the bot had.
+
+    **Out of season is `schedule.off_reason_for`, not a second rule.** This
+    asked `school_year_bounds` and nothing else while the resolver had learned
+    to read the class's own terms and the public holidays, so three kinds of
+    date passed here and resolved to nothing: a 31 May the class had already
+    stopped teaching on, a Monday in the autumn holidays the terms describe,
+    and the 8th of March. That is precisely the drift `services/` exists to
+    prevent, and the fix is to ask the same function rather than to copy it
+    again. The sentence differs per reason because the way out does: move a
+    term's dates, pick another day, or accept that nobody is at school.
+
+    The sentence comes back beside the reason, because every shell says it to
+    somebody and two spellings of one refusal is how they drift; the reason is
+    for the one that is not a person, v2's ``NO_LESSON_ON_DAY``. The sentence is
+    plain text on purpose: the bot shows it in an alert, which takes no parse
+    mode.
+    What is deliberately *not* asked: whether the day has a lesson at this
+    number. It need not — a substitution at an empty number is how a lesson is
+    added — and `can_ring` is what keeps that honest.
+    """
+    year_start, _ = school_year_bounds(day)
+    # Only the year `day` falls in: `off_reason_for` filters by year anyway,
+    # and a check about one date has no use for the neighbouring years.
+    terms = list(
+        await session.scalars(
+            select(Term).where(Term.class_id == class_id, Term.year == year_start.year)
+        )
+    )
+    reason = off_reason_for(day, terms)
+
+    if reason is DayOffReason.PUBLIC_HOLIDAY:
+        holiday = holidays.holiday_on(day)
+        named = holiday.title if holiday is not None else "нерабочий день"
+        return NoLessons(
+            reason.value,
+            f"{named} — нерабочий день, уроков на нём нет; поставьте событие",
+        )
+
+    if reason is DayOffReason.BETWEEN_TERMS:
+        return NoLessons(
+            reason.value,
+            "по датам периодов это каникулы — уроков на нём нет; "
+            "поправьте даты в «🗓 Четверти» или поставьте событие",
+        )
+
+    if reason is DayOffReason.OUT_OF_YEAR:
+        # With terms, the year closes when the last of them does, and a date
+        # past that is the one the conventional horizon used to wave through:
+        # 31 May under a half-year that ended on the 25th. Without them
+        # ``day > closes`` cannot happen at all, because `school_year_bounds`
+        # files a date past the end of May under the year that is *about to
+        # open* — which is why the two branches below exist in the first
+        # place.
+        if terms:
+            closes = max(term.ends_on for term in terms)
+            if day > closes:
+                return NoLessons(
+                    reason.value,
+                    f"учебный год закончился {closes.day}.{closes.month:02d} — "
+                    "замену ставить не на что; поставьте событие",
+                )
+            opens = min(term.starts_on for term in terms)
+        else:
+            opens = year_start
+        # June, July and August arrive already before ``opens`` — and so do
+        # the first days of September in a year whose 1st is a weekend, since
+        # `school_year_start` moves the first teaching day off one. The month
+        # is what tells them apart, and one sentence for both would answer
+        # «1 сентября» with a complaint about the summer.
+        if day.month >= SCHOOL_YEAR_START_MONTH:
+            return NoLessons(
+                reason.value,
+                f"учебный год начинается {opens.day}.{opens.month:02d} — "
+                "до него уроков ещё нет; поставьте событие",
+            )
+        return NoLessons(
+            reason.value,
+            "эта дата вне учебного года — замену ставить не на что; для летних дел есть события",
+        )
+
+    marked = await session.scalar(
+        select(DayOverride.kind).where(
+            DayOverride.class_id == class_id, DayOverride.date == day
+        )
+    )
+    # Both kinds that clear the day, not only «🏖 Каникулы»: «🌿 Отгул» says
+    # something different about who is at school and nothing different about
+    # whether a substitution can be drawn on it.
+    if marked in KINDS_WITHOUT_LESSONS:
+        return NoLessons(
+            "marked_day_off",
+            "этот день отмечен как выходной — уроков на нём нет; "
+            "снимите отметку или поставьте событие",
+        )
+    return None
+
+
+async def why_no_lesson_can_be_drawn(session: AsyncSession, class_id: int, day: Date) -> str | None:
+    """The sentence of :func:`no_lessons_on`, or ``None`` if the day draws
+    lessons. Every shell now reads the reason and the sentence together,
+    through ``services/substitutions``; this stays for the tests that hold
+    each sentence and hold the two shells to one of them
+    (``test_timetable_edit.py``, ``test_bot_handlers.py``), unedited."""
+    found = await no_lessons_on(session, class_id, day)
+    return found.sentence if found is not None else None
+```
+
+  Each sentence is the one it was, word for word; `no_lessons_on` answers it beside the reason `errors.proto` names for `NO_LESSON_ON_DAY`, and `why_no_lesson_can_be_drawn` answers the sentence alone, as before.
+
+- [ ] **Step 3: Create `server/app/services/substitutions.py`:**
+```python
+"""Substitutions: one lesson on one date replaced or cancelled.
+
+v1's ``PUT /overrides`` held these rules in its router, and the bot's
+«🔄 Замены» asked two of them again in its own handler. v2's
+``SubstitutionService`` writes the same rows, so the rules live here, and the
+three shells call them (``docs/specs/2026-10-05-server-v2-design.md``,
+decision 2). Three questions stand between a substitution and a lesson nobody
+will ever see, each answered by ``services/timetable_edit`` and refused with a
+fact each shell words for itself:
+
+- **does the day draw lessons at all** (:class:`NoLessonOnDay`): not out of
+  season, not on a public holiday, and not on a day marked «выходной» or
+  «отгул» by hand. Asked of every write but a delete, a change included: a row
+  already sitting on such a date is exactly the one whose change would be
+  announced about a lesson nobody can see;
+- **does the day ring this number** (:class:`NoBellForLesson`), against the
+  day's own bells: asked of a new row only, because a row at a number that no
+  longer rings has to stay editable — that is how a class gets out of one;
+- **is there a lesson underneath** (:class:`LessonNotOnTimetable`), for a
+  cancellation and for a replacement with no subject of its own, asked of the
+  weekly template rather than the resolver, which on a change would answer
+  about the very row being changed.
+
+A cancellation carries no subject, room or teacher of its own. The line in the
+journal and the notice the class is told are v1's (:func:`put`,
+:func:`create`, :func:`update`, :func:`delete`); the bot words its own and
+calls :func:`upsert`. Nothing here commits.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import date as Date
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app import wording
+from app.models import LessonOverride, OverrideAction, SchoolClass
+from app.services import audit, clock, subjects, timetable_edit
+
+#: The column each field of a write is kept in.
+COLUMNS = {
+    "action": "action",
+    "subject": "subject_name",
+    "room": "room",
+    "teacher": "teacher",
+    "note": "note",
+}
+
+
+class NoLessonOnDay(ValueError):
+    """The day draws no lessons at all. ``why`` is the reason for a client to
+    act on (``timetable_edit.NoLessons``), and ``sentence`` the one every shell
+    shows a person: built from the class's terms and the calendar, never from
+    what was sent."""
+
+    def __init__(self, why: str, sentence: str) -> None:
+        super().__init__(why)
+        self.why = why
+        self.sentence = sentence
+
+
+class NoBellForLesson(ValueError):
+    """The day rings no bell for lesson ``index``, so nothing would draw it."""
+
+    def __init__(self, index: int) -> None:
+        super().__init__(index)
+        self.index = index
+
+
+class LessonNotOnTimetable(ValueError):
+    """Lesson ``index`` is not on the day's weekly template, and the write
+    leans on one: a cancellation (``cancelling``), or a replacement with no
+    subject of its own, which would inherit nothing."""
+
+    def __init__(self, index: int, *, cancelling: bool) -> None:
+        super().__init__(index)
+        self.index = index
+        self.cancelling = cancelling
+
+
+class SubstitutionExists(ValueError):
+    """The lesson already has a substitution that day: one per date and
+    number. v2's ``CreateSubstitution`` refuses with it where v1's ``PUT``
+    changed the one there."""
+
+
+@dataclass(frozen=True)
+class Written:
+    """A substitution written, and the notice the class is told of it:
+    ``None`` when a change changed nothing, so that nobody is told anything."""
+
+    substitution: LessonOverride
+    notice: str | None
+
+
+async def substitution_on(
+    session: AsyncSession, class_id: int, day: Date, index: int
+) -> LessonOverride | None:
+    """The class's substitution of lesson ``index`` on ``day``, if it has one."""
+    return await session.scalar(
+        select(LessonOverride).where(
+            LessonOverride.class_id == class_id,
+            LessonOverride.date == day,
+            LessonOverride.index == index,
+        )
+    )
+
+
+async def substitution_of(
+    session: AsyncSession, class_id: int, substitution_id: int
+) -> LessonOverride | None:
+    """This class's substitution ``substitution_id``, or ``None``: an id of
+    another class's substitution finds nothing, as every lookup by id here
+    does."""
+    return await session.scalar(
+        select(LessonOverride).where(
+            LessonOverride.id == substitution_id, LessonOverride.class_id == class_id
+        )
+    )
+
+
+async def between(
+    session: AsyncSession, class_id: int, start: Date, end: Date
+) -> list[LessonOverride]:
+    """The class's substitutions from ``start`` to ``end``, both included, by
+    date, then lesson number: v2's ``ListSubstitutions``, windowed by
+    ``clock.window`` as ``ListHomework`` is. Writes nothing."""
+    return list(
+        await session.scalars(
+            select(LessonOverride)
+            .where(
+                LessonOverride.class_id == class_id,
+                LessonOverride.date >= start,
+                LessonOverride.date <= end,
+            )
+            .order_by(LessonOverride.date, LessonOverride.index, LessonOverride.id)
+        )
+    )
+
+
+async def _checked(
+    session: AsyncSession,
+    class_id: int,
+    day: Date,
+    index: int,
+    row: LessonOverride | None,
+    changes: Mapping[str, Any],
+    *,
+    ring: bool,
+) -> dict[str, Any]:
+    """The columns ``row`` holds once ``changes`` is applied — or a new row's,
+    when ``row`` is ``None`` — after the three questions, the bell's only when
+    ``ring``. A cancellation's subject, room and teacher are cleared, and a
+    subject sent is stored in the class's spelling: the resolver looks a
+    substitution's colour up by exact name, so one sent in the wrong case
+    draws grey among coloured lessons.
+
+    @raises NoLessonOnDay, NoBellForLesson, LessonNotOnTimetable
+    """
+    found = await timetable_edit.no_lessons_on(session, class_id, day)
+    if found is not None:
+        raise NoLessonOnDay(found.why, found.sentence)
+    if ring:
+        rung = await timetable_edit.rung_indexes_on(session, class_id, day)
+        if not timetable_edit.can_ring(rung, index):
+            raise NoBellForLesson(index)
+
+    columns = {
+        column: getattr(row, column) if row is not None else None for column in COLUMNS.values()
+    }
+    columns.update({COLUMNS[name]: value for name, value in changes.items()})
+    cancelling = columns["action"] == OverrideAction.CANCEL
+    if cancelling:
+        columns.update(subject_name=None, room=None, teacher=None)
+    elif "subject" in changes and columns["subject_name"]:
+        columns["subject_name"] = await subjects.spelling(
+            session, class_id, columns["subject_name"]
+        )
+    # Asked of the template, not of the resolver: on a change the resolver
+    # answers about the very row being changed, and a substitution that added
+    # «Астрономия» at an empty number would vouch for itself while a second
+    # write cleared its subject. The resolver drops a replacement with neither
+    # a subject of its own nor one underneath, and strikes through only a
+    # lesson the day has.
+    if cancelling or not columns["subject_name"]:
+        if index not in await timetable_edit.template_indexes_on(session, class_id, day):
+            raise LessonNotOnTimetable(index, cancelling=cancelling)
+    return columns
+
+
+def _apply(row: LessonOverride, columns: Mapping[str, Any]) -> bool:
+    """Set on ``row`` what differs in ``columns``; answer whether anything did."""
+    changed = {column: value for column, value in columns.items() if getattr(row, column) != value}
+    for column, value in changed.items():
+        setattr(row, column, value)
+    return bool(changed)
+
+
+async def upsert(
+    session: AsyncSession, class_id: int, day: Date, index: int, changes: Mapping[str, Any]
+) -> tuple[LessonOverride, bool]:
+    """Write the substitution of lesson ``index`` on ``day``, whether one
+    stands there or not, and say whether it is new: the bot's «🔄 Замены» and
+    v1's ``PUT /overrides``.
+
+    ``changes`` maps ``action``, ``subject``, ``room``, ``teacher`` and
+    ``note`` to what they become; a field it leaves out keeps what the row
+    holds, or none on a new row. A substitution of the same lesson written by
+    somebody else between the read and the insert meets the unique constraint
+    inside a savepoint, and this write changes that one instead, as it would
+    have a moment later. Nothing is committed.
+
+    @raises NoLessonOnDay, NoBellForLesson, LessonNotOnTimetable
+    """
+    row = await substitution_on(session, class_id, day, index)
+    columns = await _checked(session, class_id, day, index, row, changes, ring=row is None)
+    if row is None:
+        fresh = LessonOverride(class_id=class_id, date=day, index=index, **columns)
+        try:
+            async with session.begin_nested():
+                session.add(fresh)
+                await session.flush()
+        except IntegrityError:
+            row = await substitution_on(session, class_id, day, index)
+            if row is None:  # pragma: no cover - the constraint said it is there
+                raise
+            columns = await _checked(session, class_id, day, index, row, changes, ring=False)
+        else:
+            return fresh, True
+    _apply(row, columns)
+    return row, False
+
+
+async def _announced(
+    session: AsyncSession, school_class: SchoolClass, actor: int | None, row: LessonOverride
+) -> str:
+    """Stage the substitution's line in the journal and word its notice, as
+    v1's ``PUT /overrides`` did, on the date as people read it from the
+    class's today."""
+    when = wording.human_date(row.date, clock.today(school_class))
+    if row.action == OverrideAction.CANCEL:
+        await audit.record(
+            session,
+            school_class.id,
+            actor,
+            "override.cancel",
+            f"Урок №{row.index} отменён, {when}",
+        )
+        return wording.substitution_cancelled_notice(row.index, when, row.note)
+    what = row.subject_name or "кабинет/учитель"
+    await audit.record(
+        session,
+        school_class.id,
+        actor,
+        "override.replace",
+        f"Замена: урок №{row.index}, {when} — {what}",
+    )
+    return wording.substitution_replaced_notice(row.index, when, what, row.room, row.note)
+
+
+async def put(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    day: Date,
+    index: int,
+    changes: Mapping[str, Any],
+) -> Written:
+    """v1's ``PUT /overrides`` with ``replace`` or ``cancel``: :func:`upsert`,
+    then the line and the notice, every time, as v1 wrote and told them.
+    Nothing is committed.
+
+    @raises NoLessonOnDay, NoBellForLesson, LessonNotOnTimetable
+    """
+    row, _created = await upsert(session, school_class.id, day, index, changes)
+    return Written(row, await _announced(session, school_class, actor, row))
+
+
+async def create(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    day: Date,
+    index: int,
+    changes: Mapping[str, Any],
+) -> Written:
+    """v2's ``CreateSubstitution``: a new substitution, never a second one for
+    a lesson on a day, after the three questions, with its line and its
+    notice. The same lesson written by somebody else between the read and the
+    insert meets the unique constraint inside a savepoint and is refused the
+    same way; the caller's transaction goes on. Flushed, so that the caller
+    can answer the id; not committed.
+
+    @raises SubstitutionExists, NoLessonOnDay, NoBellForLesson, LessonNotOnTimetable
+    """
+    if await substitution_on(session, school_class.id, day, index) is not None:
+        raise SubstitutionExists()
+    columns = await _checked(session, school_class.id, day, index, None, changes, ring=True)
+    fresh = LessonOverride(class_id=school_class.id, date=day, index=index, **columns)
+    try:
+        async with session.begin_nested():
+            session.add(fresh)
+            await session.flush()
+    except IntegrityError:
+        raise SubstitutionExists() from None
+    return Written(fresh, await _announced(session, school_class, actor, fresh))
+
+
+async def update(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    row: LessonOverride,
+    changes: Mapping[str, Any],
+) -> Written:
+    """v2's ``UpdateSubstitution``: change what ``changes`` names of ``row`` —
+    its date and number are the row — after two of the three questions:
+    whether the day draws lessons and whether a lesson is underneath. Not the
+    bell, so that a row at a number that no longer rings stays editable. A
+    change that leaves the row as it was writes nothing, its line included,
+    and its notice is ``None``. Nothing is committed.
+
+    @raises NoLessonOnDay, LessonNotOnTimetable
+    """
+    columns = await _checked(
+        session, school_class.id, row.date, row.index, row, changes, ring=False
+    )
+    if not _apply(row, columns):
+        return Written(row, None)
+    return Written(row, await _announced(session, school_class, actor, row))
+
+
+async def delete(
+    session: AsyncSession, school_class: SchoolClass, actor: int | None, row: LessonOverride
+) -> str:
+    """Delete a substitution and stage its line in the journal; answer the
+    notice the class is told: the lesson goes back to the timetable. v1's
+    ``PUT /overrides`` with ``clear``, and v2's ``DeleteSubstitution``.
+    Nothing is committed."""
+    when = wording.human_date(row.date, clock.today(school_class))
+    index = row.index
+    await audit.record(
+        session, school_class.id, actor, "override.clear", f"Замена снята: урок №{index}, {when}"
+    )
+    await session.delete(row)
+    return wording.substitution_cleared_notice(index, when)
+```
+
+- [ ] **Step 4: The sentences and the notices, in `app/wording.py`.**
+  1. Replace:
+```python
+SCHEDULE_NOT_IN_CLASS_DETAIL = "bell_schedule_id is not in this class"
+SHORTENED_NEEDS_SCHEDULE_DETAIL = "a shortened day needs the bell schedule it rings"
+
+#: v1's ``POST`` and ``PATCH /tasks`` and v2's ``CreateTask`` and
+```
+     with:
+```python
+SCHEDULE_NOT_IN_CLASS_DETAIL = "bell_schedule_id is not in this class"
+SHORTENED_NEEDS_SCHEDULE_DETAIL = "a shortened day needs the bell schedule it rings"
+
+
+def no_bell_detail(index: int) -> str:
+    """v1's ``PUT /overrides`` and v2's ``CreateSubstitution``: a lesson number
+    the day rings no bell for. The bot says it in a sentence of its own, which
+    names «🔔 Звонки»."""
+    return f"нет звонка для урока №{index} в этот день"
+
+
+def lesson_not_on_timetable_detail(index: int, *, cancelling: bool) -> str:
+    """v1's ``PUT /overrides``, v2's substitutions and the bot's «🔄 Замены»:
+    cancelling, or replacing without a subject, a lesson the day's template
+    does not have."""
+    if cancelling:
+        return f"в этот день нет урока №{index}, отменять нечего"
+    return f"в этот день нет урока №{index}: замене без предмета нечего заменять"
+
+
+#: v1's ``POST`` and ``PATCH /tasks`` and v2's ``CreateTask`` and
+```
+  2. In the comment that opens «What the class is told», replace:
+```python
+# When something of the class's is written from a phone, through the service
+# that writes it: v1's ``/homework``, ``/events`` and ``/days``, and v2's
+# ``HomeworkService``, ``EventService`` and ``DayService``. Everything typed is
+# escaped here; an assignment's text arrives cut already (``notify.shorten``),
+# because cutting after escaping can leave «&am», a message Telegram refuses
+# whole. The bot's own flows word theirs for a chat.
+```
+     with:
+```python
+# When something of the class's is written from a phone, through the service
+# that writes it: v1's ``/homework``, ``/overrides``, ``/events`` and ``/days``,
+# and v2's ``HomeworkService``, ``SubstitutionService``, ``EventService`` and
+# ``DayService``. Everything typed is escaped here; an assignment's text
+# arrives cut already (``notify.shorten``), because cutting after escaping can
+# leave «&am», a message Telegram refuses whole. The bot's own flows word
+# theirs for a chat.
+```
+  3. Replace the file's last lines:
+```python
+def day_cleared_notice(when: str) -> str:
+    return f"📆 {escape(when)} — обычный учебный день."
+```
+     with:
+```python
+def day_cleared_notice(when: str) -> str:
+    return f"📆 {escape(when)} — обычный учебный день."
+
+
+def substitution_replaced_notice(
+    index: int, when: str, what: str, room: str | None, note: str | None
+) -> str:
+    """«🔁 Замена …: урок №N — …», with the room and, below, the note when
+    there are any. ``what`` is the subject, or «кабинет/учитель» for a change
+    of room or teacher alone."""
+    text = f"🔁 Замена {escape(when)}: урок №{index} — <b>{escape(what)}</b>"
+    if room:
+        text += f", каб. {escape(room)}"
+    return f"{text}\n{escape(note)}" if note else text
+
+
+def substitution_cancelled_notice(index: int, when: str, note: str | None) -> str:
+    text = f"🚫 Урок №{index} {escape(when)} отменён."
+    return f"{text}\n{escape(note)}" if note else text
+
+
+def substitution_cleared_notice(index: int, when: str) -> str:
+    return f"♻️ Урок №{index} {escape(when)} снова идёт по расписанию."
+```
+
+- [ ] **Step 5: v1 calls the moved code.** In `server/app/api/edit.py`:
+  1. Replace:
+```python
+import logging
+from datetime import date as Date
+from html import escape
+from typing import Any
+
+from dishka.integrations.fastapi import FromDishka, inject
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+```
+     with:
+```python
+import logging
+from datetime import date as Date
+from typing import Any
+
+from dishka.integrations.fastapi import FromDishka, inject
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+```
+  2. In the models' import, replace:
+```python
+    EventKind,
+    LessonOverride,
+    OverrideAction,
+```
+     with:
+```python
+    EventKind,
+    OverrideAction,
+```
+  3. Replace:
+```python
+from app.services import audit, clock, linking, notify, subjects, timetable_edit
+```
+     with:
+```python
+from app.services import clock, linking, notify, substitutions
+```
+  4. Replace:
+```python
+    UNKNOWN_EVENT_DETAIL,
+    UNKNOWN_HOMEWORK_DETAIL,
+    human_date,
+)
+```
+     with:
+```python
+    UNKNOWN_EVENT_DETAIL,
+    UNKNOWN_HOMEWORK_DETAIL,
+    lesson_not_on_timetable_detail,
+    no_bell_detail,
+)
+```
+  5. Replace `_refuse_if_no_lesson_can_be_drawn` and `override_put`, from the first's `async def` to the end of the second:
+```python
+async def _refuse_if_no_lesson_can_be_drawn(
+    session: AsyncSession, school_class: SchoolClass, day: Date
+) -> None:
+    """Refuse a substitution on a day the resolver draws no lessons on at all.
+
+    The rule and its three sentences live in
+    `services/timetable_edit.why_no_lesson_can_be_drawn`, because the bot needs
+    the same refusal and used to have none of it.
+    """
+    refusal = await timetable_edit.why_no_lesson_can_be_drawn(session, school_class.id, day)
+    if refusal is not None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=refusal)
+
+
+
+@router.put("/overrides", response_model=OverrideOut)
+async def override_put(
+    payload: OverrideIn,
+    device: DeviceToken = Depends(editor_device),
+    school_class: SchoolClass = Depends(current_class),
+    *,
+    session: FromDishka[AsyncSession],
+) -> OverrideOut:
+    """One row per (date, lesson number). ``clear`` removes it, which is how
+    a lesson goes back to the timetable."""
+    _check_date(payload.date)
+    actor = device.telegram_id
+    when = human_date(payload.date, clock.today(school_class))
+    existing = await session.scalar(
+        select(LessonOverride).where(
+            LessonOverride.class_id == school_class.id,
+            LessonOverride.date == payload.date,
+            LessonOverride.index == payload.index,
+        )
+    )
+
+    if payload.action == "clear":
+        if existing is not None:
+            await session.delete(existing)
+            await audit.record(
+                session,
+                school_class.id,
+                actor,
+                "override.clear",
+                f"Замена снята: урок №{payload.index}, {when}",
+            )
+            await session.commit()
+            await _tell(
+                session,
+                school_class,
+                f"♻️ Урок №{payload.index} {escape(when)} снова идёт по расписанию.",
+                kind="changes",
+                author=actor,
+            )
+        return OverrideOut(date=payload.date, index=payload.index, action="clear")
+
+    # Asked before the create/update split, and deliberately not inside it.
+    # The bell check below is create-only on purpose — an existing row at a bad
+    # number must stay editable, which is how a class gets out of one — but
+    # these two are not that shape: a row already sitting on a summer date or a
+    # hand-marked holiday is exactly the one whose re-announcement would say
+    # «🔁 Замена» about a lesson nobody will ever see, and every row written
+    # before this endpoint learned to refuse is such a row.
+    await _refuse_if_no_lesson_can_be_drawn(session, school_class, payload.date)
+
+    if existing is None:
+        # A substitution at a number the day has no bell for is stored, written to
+        # the log, announced to everybody with «🔁 Замена … урок №8» — and
+        # drawn by nothing, because the resolver takes a lesson's times from
+        # the bell row of the same number and drops what has none. The
+        # timetable learned this; this, the other way a lesson changes, had no
+        # check at all. Only on create: an existing row at a bad number must
+        # stay clearable, which is how a class gets out of one.
+        rung = await timetable_edit.rung_indexes_on(session, school_class.id, payload.date)
+        if not timetable_edit.can_ring(rung, payload.index):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"нет звонка для урока №{payload.index} в этот день",
+            )
+
+    # Cancelling needs something to cancel, and so does a replacement that
+    # names no subject. A substitution at an empty number is a legitimate
+    # edit — it is how a lesson is *added* to a day — but only when it
+    # brings a subject of its own: the resolver inherits the subject from
+    # the template row under the override, and with no row and no subject
+    # it has nothing to draw and drops it on the way out. Either way the
+    # write would be stored, logged, and announced to everybody with
+    # «🚫 Урок №7 отменён» or «🔁 Замена … кабинет/учитель» about a lesson
+    # nobody can see. The bot reaches neither: it draws its «🚫» under a
+    # lesson that exists and always asks for a typed subject. This is the
+    # API-only half of an invariant the timetable already holds.
+    #
+    # Unlike the bell check above this one runs on update too, and it asks
+    # `timetable_edit` rather than the resolver — because on update the
+    # resolver would be answering about the row being edited. A substitution
+    # that added «Астрономия» to an empty number makes the day report a
+    # lesson at that number, so a second write carrying only a room passed
+    # the check, cleared `subject_name`, and left a row the resolver drops:
+    # announced to every subscriber, drawn nowhere, and no longer refusable
+    # because the number now looked occupied.
+    if payload.action == "cancel" or not payload.subject:
+        on_template = await timetable_edit.template_indexes_on(
+            session, school_class.id, payload.date
+        )
+        if payload.index not in on_template:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"в этот день нет урока №{payload.index}, отменять нечего"
+                    if payload.action == "cancel"
+                    else f"в этот день нет урока №{payload.index}: "
+                    "замене без предмета нечего заменять"
+                ),
+            )
+
+    if existing is None:
+        existing = LessonOverride(
+            class_id=school_class.id,
+            date=payload.date,
+            index=payload.index,
+            action=OverrideAction.REPLACE,
+        )
+        session.add(existing)
+
+    if payload.action == "cancel":
+        existing.action = OverrideAction.CANCEL
+        existing.subject_name = None
+        existing.room = None
+        existing.teacher = None
+        existing.note = payload.note
+        summary = f"Урок №{payload.index} отменён, {when}"
+        text = f"🚫 Урок №{payload.index} {escape(when)} отменён."
+    else:
+        existing.action = OverrideAction.REPLACE
+        # The class's spelling: the resolver looks a substitution's colour up by
+        # exact name, so one sent in the wrong case draws grey among coloured
+        # lessons.
+        existing.subject_name = (
+            await subjects.spelling(session, school_class.id, payload.subject)
+            if payload.subject
+            else payload.subject
+        )
+        existing.room = payload.room
+        existing.teacher = payload.teacher
+        existing.note = payload.note
+        what = existing.subject_name or "кабинет/учитель"
+        summary = f"Замена: урок №{payload.index}, {when} — {what}"
+        text = (
+            f"🔁 Замена {escape(when)}: урок №{payload.index} — <b>{escape(what)}</b>"
+            + (f", каб. {escape(payload.room)}" if payload.room else "")
+        )
+    if payload.note:
+        text += f"\n{escape(payload.note)}"
+
+    await audit.record(session, school_class.id, actor, f"override.{payload.action}", summary)
+    await session.commit()
+    await _tell(session, school_class, text, kind="changes", author=actor)
+
+    return OverrideOut(
+        date=existing.date,
+        index=existing.index,
+        action=payload.action,
+        subject=existing.subject_name,
+        room=existing.room,
+        teacher=existing.teacher,
+        note=existing.note,
+    )
+```
+     with:
+```python
+@router.put("/overrides", response_model=OverrideOut)
+async def override_put(
+    payload: OverrideIn,
+    device: DeviceToken = Depends(editor_device),
+    school_class: SchoolClass = Depends(current_class),
+    *,
+    session: FromDishka[AsyncSession],
+) -> OverrideOut:
+    """One row per (date, lesson number). ``clear`` removes it, which is how
+    a lesson goes back to the timetable. The three questions a substitution
+    is asked, the row, its line and its notice are
+    ``services/substitutions.py``'s, which the bot's «🔄 Замены» and v2's
+    ``SubstitutionService`` ask and write through too."""
+    _check_date(payload.date)
+    actor = device.telegram_id
+
+    if payload.action == "clear":
+        existing = await substitutions.substitution_on(
+            session, school_class.id, payload.date, payload.index
+        )
+        if existing is not None:
+            notice = await substitutions.delete(session, school_class, actor, existing)
+            await session.commit()
+            await _tell(session, school_class, notice, kind="changes", author=actor)
+        return OverrideOut(date=payload.date, index=payload.index, action="clear")
+
+    try:
+        written = await substitutions.put(
+            session,
+            school_class,
+            actor,
+            payload.date,
+            payload.index,
+            {
+                "action": OverrideAction(payload.action),
+                "subject": payload.subject,
+                "room": payload.room,
+                "teacher": payload.teacher,
+                "note": payload.note,
+            },
+        )
+    except substitutions.NoLessonOnDay as refused:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=refused.sentence
+        ) from None
+    except substitutions.NoBellForLesson as refused:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=no_bell_detail(refused.index),
+        ) from None
+    except substitutions.LessonNotOnTimetable as refused:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=lesson_not_on_timetable_detail(refused.index, cancelling=refused.cancelling),
+        ) from None
+    await session.commit()
+    await _tell(session, school_class, written.notice, kind="changes", author=actor)
+
+    row = written.substitution
+    return OverrideOut(
+        date=row.date,
+        index=row.index,
+        action=payload.action,
+        subject=row.subject_name,
+        room=row.room,
+        teacher=row.teacher,
+        note=row.note,
+    )
+```
+
+  The long comments the old router carried — why each question is asked, and why the bell of a new row only — are the service's docstrings now. `escape`, `select`, `audit`, `subjects`, `timetable_edit`, `LessonOverride` and `human_date` leave the imports, which ruff holds.
+
+- [ ] **Step 6: The bot asks the same three questions.** In `server/app/bot/handlers/content/overrides.py`:
+  1. Replace:
+```python
+from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.bot.button_style import DANGER
+```
+     with:
+```python
+from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app import wording
+from app.bot.button_style import DANGER
+```
+  2. Replace:
+```python
+from app.models import LessonOverride, OverrideAction, Role, SchoolClass
+from app.schedule import ScheduleResolver
+from app.services import audit, notify, subjects, timetable_edit
+```
+     with:
+```python
+from app.models import OverrideAction, Role, SchoolClass
+from app.schedule import ScheduleResolver
+from app.services import audit, notify, substitutions
+```
+  3. Replace `_save_override`'s docstring and body:
+```python
+    """Write the substitution, or answer with why this day cannot carry it.
+
+    ``None`` means written. A sentence means refused, and it is the sentence to
+    show — the API says the same ones, because both come from
+    `services/timetable_edit`.
+
+    Two questions, and they are not the same. **Does the day draw lessons at
+    all** — it does not out of the school year or when somebody marked it
+    «выходной», and a row written then is stored, logged and announced to every
+    subscriber while being drawn on no phone. This check had no twin here at
+    all: the bot was thought safe because its lesson picker offers nothing on
+    such a day, which is true of the picker and not of the flow, since the
+    bot's calendar bounds the year differently (1 September to 1 August) and so
+    offers June, July and August. **And does the day ring this number** — the
+    resolver takes a lesson's times from the bell row of the same number, so a
+    row at a number that does not ring is drawn by nothing either. The second
+    is checked on create only, because an existing row at a bad number has to
+    stay clearable, and against *this day's* bells, because a shortened day
+    rings a shorter schedule than the class's usual.
+    """
+    out_of_season = await timetable_edit.why_no_lesson_can_be_drawn(session, class_id, day)
+    if out_of_season is not None:
+        return out_of_season
+
+    existing = await session.scalar(
+        select(LessonOverride).where(
+            LessonOverride.class_id == class_id,
+            LessonOverride.date == day,
+            LessonOverride.index == index,
+        )
+    )
+    if existing is None:
+        rung = await timetable_edit.rung_indexes_on(session, class_id, day)
+        if not timetable_edit.can_ring(rung, index):
+            return NO_BELL.format(index=index)
+        existing = LessonOverride(class_id=class_id, date=day, index=index, action=action)
+        session.add(existing)
+    existing.action = action
+    # The class's spelling: `app/schedule.py` looks a substitution's colour up by
+    # exact name, so one typed in the wrong case draws grey among coloured
+    # lessons on every phone.
+    existing.subject_name = (
+        await subjects.spelling(session, class_id, subject) if subject else subject
+    )
+    existing.room = room
+    # Staged, not committed: the caller commits it together with its audit
+    # line, so a substitution and the record of who made it land as one fact.
+    return None
+```
+     with:
+```python
+    """Write the substitution, or answer with why this day cannot carry it.
+
+    ``None`` means written. A sentence means refused, and it is the sentence to
+    show. The three questions — does the day draw lessons at all, does it ring
+    this number, is there a lesson underneath — are
+    ``services/substitutions``', which v1 and v2 ask too: the first and the
+    third are said in the API's words, and the bell in this screen's own,
+    which names «🔔 Звонки». The bell is asked of a new row only, because an
+    existing row at a bad number has to stay clearable, and against *this
+    day's* bells, because a shortened day rings a shorter schedule than the
+    class's usual.
+
+    The bot asked two of the three until #383. Its picker lists the lessons the
+    day draws, so a lesson added by a substitution at a number the template
+    leaves empty could be «отменён» here: stored as a cancellation of nothing,
+    announced to every subscriber and drawn nowhere — which v1 refused, and
+    pointed at «♻️ Вернуть по расписанию» instead.
+    """
+    changes: dict[str, object] = {"action": action}
+    if action is OverrideAction.REPLACE:
+        # The screen asks for a subject and a room; a teacher or a note set
+        # from a phone stays as it was.
+        changes.update(subject=subject, room=room)
+    try:
+        await substitutions.upsert(session, class_id, day, index, changes)
+    except substitutions.NoLessonOnDay as refused:
+        return refused.sentence
+    except substitutions.NoBellForLesson:
+        return NO_BELL.format(index=index)
+    except substitutions.LessonNotOnTimetable as refused:
+        return wording.lesson_not_on_timetable_detail(index, cancelling=refused.cancelling)
+    # Staged, not committed: the caller commits it together with its audit
+    # line, so a substitution and the record of who made it land as one fact.
+    return None
+```
+  4. In `override_clear`, replace the lookup:
+```python
+    existing = await session.scalar(
+        select(LessonOverride).where(
+            LessonOverride.class_id == school_class.id,
+            LessonOverride.date == day,
+            LessonOverride.index == index,
+        )
+    )
+```
+     with:
+```python
+    existing = await substitutions.substitution_on(session, school_class.id, day, index)
+```
+
+  `_save_override` keeps its signature and its answer, a sentence or `None`, which `test_bot_handlers.py` calls directly; `override_subject` and `override_cancel` commit right after it and before they clear the conversation's state, as they did (Ruling 91).
+
+- [ ] **Step 7: Green, and v1 and the bot unchanged.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_substitutions.py tests/test_services_days.py tests/test_api_extended.py tests/test_bot_handlers.py tests/test_timetable_edit.py tests/test_announcements.py tests/test_bot_message_limits.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass; `test_services_substitutions.py` has 11. The v1 and bot files pass unedited:
+- `test_api_extended.py` holds `PUT /overrides`' answers and v1's 422s in its words — the summer, the first of September, the 8th of March and a hand-marked holiday, a cancellation and a bare teacher at a number the template leaves empty, and the update that would have cleared the subject that made a lesson visible. No v1 test asks the bell; Task 5's `test_a_number_the_day_rings_no_bell_for_is_refused` asks it of v1 and v2 together;
+- `test_bot_handlers.py` holds the bot's refusals, the day marked off and the summer in the API's words (`test_both_shells_refuse_such_a_day_in_the_same_words`), the bell in its own, a shortened day measured by its own bells, and its replace, cancel and clear;
+- `test_timetable_edit.py` holds each of `why_no_lesson_can_be_drawn`'s sentences, unchanged;
+- `test_announcements.py` and `test_bot_message_limits.py` press the bot's three substitution handlers and measure what they push and reply.
+
+`test_two_phones_substituting_one_lesson_at_once_both_succeed` is #382's, and `test_the_bot_will_not_cancel_a_lesson_the_template_does_not_have` #383's.
+
+- [ ] **Step 8: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 236 source files`, one more for `services/substitutions.py`.
+
+- [ ] **Step 9: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b6-t2.txt`:
+```text
+Ask a substitution's three questions once, for the bot, v1 and v2
+
+v1's PUT /overrides asked, in its router, whether the day draws lessons
+at all, whether it rings the number, and whether a lesson is underneath;
+the bot's «🔄 Замены» asked the first two again, and v2's
+SubstitutionService writes the same rows. The rules move to
+services/substitutions.py, as facts each shell words: NoLessonOnDay with
+the reason timetable_edit.no_lessons_on now answers beside its sentence,
+NoBellForLesson asked of a new row only, LessonNotOnTimetable asked of
+the weekly template, and SubstitutionExists for v2's create. A
+cancellation carries no subject, room or teacher. upsert is the bot's
+and v1's write, put adds v1's line and notice, whose words move to
+app/wording.py, and create, update and delete are ready for v2.
+
+A substitution somebody else wrote in the same instant meets the unique
+constraint inside a savepoint and is changed rather than doubled; v1
+answered that race with a 500 (#382). The bot now asks the third
+question, so it no longer cancels a lesson the template does not have,
+which it stored, announced and drew nowhere while v1 refused it (#383).
+
+Not covered: Postgres; the race is staged on SQLite by a read that
+answers «none» once.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/services/substitutions.py server/app/services/timetable_edit.py server/app/wording.py server/app/api/edit.py server/app/bot/handlers/content/overrides.py server/tests/test_services_substitutions.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b6-t2.txt
+```
+
+---
+
+### 3b-6 Task 3: `GetDay` and `UpdateDay`
+
+Decisions 2, 4, 5, 10 and 14; Rulings 87, 89, 90, 92, 94, 97, 98, 99 and 101.
+
+**Files:**
+- Create: `server/app/rpc/day.py`, `server/tests/test_v2_days.py`
+- Modify: `proto/lessons/v2/day.proto` and `proto/lessons/v2/errors.proto` (comments) and `server/app/contract/**` (regenerated); `server/app/schemas/edit.py`, `server/app/schemas/__init__.py`, `server/app/rpc/dates.py`, `server/app/rpc/errors.py`, `server/app/rpc/handlers.py`, `server/tests/test_v2_reads.py`, `server/tests/test_rpc_errors.py`, `server/tests/test_announcements.py`
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b6.sh`
+
+**Interfaces:**
+- Consumes: Task 1's `special_days.mark_on`, `update_day`, `ScheduleNotInClass` and `ShortenedNeedsSchedule`; v1's `DayIn`; `rpc/dates.bounded`; `masks.update_paths`; `telegram_send.notify_class`; `values.date_string`.
+- Produces:
+  - `schemas.DateIn(date: Date)`;
+  - `dates.named(value, at="") -> Date`;
+  - `day.get_day`, `day.update_day`, `day.CHANGEABLE`, `day.DAY_NOT_MARKED`, and `day._message(day, mark)`, `_sent(day, field)`, `_announce(call, notice)`;
+  - `errors.TABLE[special_days.ScheduleNotInClass]` and `[special_days.ShortenedNeedsSchedule]`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_days.py`:
+```python
+"""``DayService``: ``GetDay`` and ``UpdateDay``.
+
+v1's ``PUT /days`` over v2, through ``special_days.put_day``: the same kinds,
+the same checks in v1's words, the same line in the journal and the same
+notice to the class. A date nobody marked is an ordinary day. ``UpdateDay``
+changes a mark, and with ``allow_missing`` makes one (AIP-134), where taking
+off a mark the date does not have writes nothing and tells nobody (the 3b
+plan, «Rulings for 3b-6»). v2 writes only the four kinds v1 wrote. A write's
+success is asked once per transport on fresh data, and its refusals through
+``both``; the database is read from sessions of their own, which see only
+what is committed.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from datetime import time as Time
+from typing import Any
+
+from protobuf.wkt import FieldMask
+from sqlalchemy import select
+
+from app import wording
+from app.contract.lessons.v2.common_pb import DayKind as ProtoKind
+from app.contract.lessons.v2.day_pb import Day, GetDayRequest, UpdateDayRequest
+from app.db import SessionLocal
+from app.models import AuditEntry, BellPeriod, BellSchedule, DayKind, DayOverride, SchoolClass
+from app.rpc.day import DAY_NOT_MARKED
+from app.rpc.masks import NOT_CHANGEABLE
+from app.services import clock
+
+GET = "DayService/GetDay"
+UPDATE = "DayService/UpdateDay"
+MONDAY = date(2026, 9, 14)
+TUESDAY = date(2026, 9, 15)
+#: 14 September, as people read it on Monday the 7th.
+WHEN = "14 сентября (понедельник)"
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _pin_clock(monkeypatch) -> None:
+    """Monday 7 September, 10:00 in the class's zone, for v1 and v2 alike."""
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+def _update(day: date, *paths: str, allow_missing: bool = False, **fields: Any):
+    mask = FieldMask(paths=list(paths)) if paths else None
+    return UpdateDayRequest(
+        day=Day(date=day.isoformat(), **fields), update_mask=mask, allow_missing=allow_missing
+    )
+
+
+async def _committed(statement: Any) -> Any:
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(statement)
+
+
+async def _marks() -> list[tuple[Any, ...]]:
+    async with SessionLocal() as fresh:
+        rows = await fresh.execute(
+            select(
+                DayOverride.date, DayOverride.kind, DayOverride.note, DayOverride.bell_schedule_id
+            ).order_by(DayOverride.date)
+        )
+        return [tuple(row) for row in rows]
+
+
+async def _lines() -> list[tuple[str, str]]:
+    async with SessionLocal() as fresh:
+        rows = await fresh.execute(
+            select(AuditEntry.action, AuditEntry.summary).order_by(AuditEntry.id)
+        )
+        return [tuple(row) for row in rows]
+
+
+async def _short_bells(session, school_class, name: str = "Сокращённое") -> BellSchedule:
+    short = BellSchedule(class_id=school_class.id, name=name)
+    session.add(short)
+    await session.flush()
+    for index in (1, 2, 3):
+        session.add(
+            BellPeriod(
+                schedule_id=short.id,
+                index=index,
+                starts_at=Time(8 + index, 0),
+                ends_at=Time(8 + index, 30),
+            )
+        )
+    await session.commit()
+    return short
+
+
+async def test_a_date_nobody_marked_is_an_ordinary_day_and_a_marked_one_is_its_mark(
+    v2, v2_tokens, session, school_class
+) -> None:
+    session.add_all(
+        [
+            DayOverride(
+                class_id=school_class.id, date=MONDAY, kind=DayKind.HOLIDAY, note="Каникулы"
+            ),
+            DayOverride(class_id=school_class.id, date=TUESDAY, kind=DayKind.SELF_STUDY),
+        ]
+    )
+    await session.commit()
+    editor = v2_tokens["editor"]
+
+    marked = (await v2.both(GET, GetDayRequest(date="2026-09-14"), token=editor)).message.day
+    assert (marked.date, marked.kind, marked.note) == ("2026-09-14", ProtoKind.HOLIDAY, "Каникулы")
+    assert not marked.has_field("bell_schedule_id")
+    # The bot's kinds are read here, as the bundle reads them.
+    studying = (await v2.both(GET, GetDayRequest(date="2026-09-15"), token=editor)).message.day
+    assert studying.kind == ProtoKind.SELF_STUDY
+    ordinary = (await v2.both(GET, GetDayRequest(date="2026-09-16"), token=editor)).message.day
+    assert (ordinary.kind, ordinary.has_field("note")) == (ProtoKind.NORMAL, False)
+    v1 = await v2.http.get(
+        "/api/v1/bundle", params={"start": "2026-09-14", "days": 3}, headers=_auth(editor)
+    )
+    assert [day["kind"] for day in v1.json()["days"]] == ["holiday", "self_study", "normal"]
+
+
+async def test_a_date_that_does_not_parse_or_is_out_of_bounds_is_refused_on_its_field(
+    v2, v2_tokens
+) -> None:
+    editor = v2_tokens["editor"]
+    unparsed = await v2.both(GET, GetDayRequest(date="14.09.2026"), token=editor)
+    assert (unparsed.status, unparsed.reason) == (400, "VALIDATION_FAILED")
+    assert [name for name, _ in unparsed.violations] == ["date"]
+    for name, request, field_name in (
+        (GET, GetDayRequest(date="2200-01-01"), "date"),
+        (UPDATE, _update(date(2200, 1, 1), allow_missing=True, kind=ProtoKind.HOLIDAY), "day.date"),
+    ):
+        answer = await v2.both(name, request, token=editor)
+        assert (answer.status, answer.reason, answer.error) == (
+            400,
+            "VALIDATION_FAILED",
+            clock.DATE_OUT_OF_BOUNDS,
+        ), name
+        assert answer.violations == [(field_name, clock.DATE_OUT_OF_BOUNDS)]
+
+
+async def test_marking_a_day_answers_its_mark_and_is_v1_s_to_read(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    short = await _short_bells(session, school_class)
+    editor = v2_tokens["editor"]
+    rest = await v2.rest(
+        UPDATE,
+        _update(MONDAY, allow_missing=True, kind=ProtoKind.HOLIDAY, note="  День  учителя "),
+        token=editor,
+    )
+    connect = await v2.connect(
+        UPDATE,
+        _update(TUESDAY, allow_missing=True, kind=ProtoKind.SHORTENED, bell_schedule_id=short.id),
+        token=editor,
+    )
+    assert (rest.status, connect.status) == (200, 200)
+    # Cleaned as v1's DayIn cleans a note: one line, single-spaced.
+    assert (rest.message.day.kind, rest.message.day.note) == (ProtoKind.HOLIDAY, "День учителя")
+    assert connect.message.day.bell_schedule_id == short.id
+    assert await _marks() == [
+        (MONDAY, DayKind.HOLIDAY, "День учителя", None),
+        (TUESDAY, DayKind.SHORTENED, None, short.id),
+    ]
+    v1 = await v2.http.get(
+        "/api/v1/bundle", params={"start": "2026-09-14", "days": 2}, headers=_auth(editor)
+    )
+    assert [(day["kind"], day["note"]) for day in v1.json()["days"]] == [
+        ("holiday", "День учителя"),
+        ("shortened", None),
+    ]
+    assert await _lines() == [
+        ("day.set", f"{WHEN}: выходной"),
+        ("day.set", "15 сентября (вторник): сокращённые уроки"),
+    ]
+
+
+async def test_a_mark_is_announced_after_the_commit_and_not_to_its_author(
+    v2, v2_tokens, notices, subscribers, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    notices.looks = lambda: _committed(select(DayOverride.kind).where(DayOverride.date == MONDAY))
+    answer = await v2.connect(
+        UPDATE,
+        _update(MONDAY, allow_missing=True, kind=ProtoKind.HOLIDAY, note="День <учителя>"),
+        token=v2_tokens["editor"],
+    )
+    assert answer.status == 200
+    notice = f"📆 {WHEN} — выходной.\nДень &lt;учителя&gt;"
+    # v1's words, to those who asked to hear about changes but its author,
+    # and only once a session of the bot's own could read the mark.
+    assert sorted(notices.sent) == [(7001, notice), (7003, notice)]
+    assert notices.saw == [DayKind.HOLIDAY, DayKind.HOLIDAY]
+    assert notices.closed == notices.built == 1
+
+
+async def test_without_allow_missing_a_date_nobody_marked_is_not_found(
+    v2, v2_tokens, notices, subscribers
+) -> None:
+    for kind in (ProtoKind.HOLIDAY, ProtoKind.NORMAL):
+        answer = await v2.both(UPDATE, _update(MONDAY, kind=kind), token=v2_tokens["editor"])
+        assert (answer.status, answer.code, answer.reason, answer.metadata) == (
+            404,
+            "NOT_FOUND",
+            "RESOURCE_NOT_FOUND",
+            {"resource": "day"},
+        ), kind
+        assert answer.error == DAY_NOT_MARKED
+    assert await _marks() == []
+    assert notices.built == 0
+
+
+async def test_taking_off_a_mark_a_date_does_not_have_writes_nothing_and_tells_nobody(
+    v2, v2_tokens, notices, subscribers, statement_writes
+) -> None:
+    """``allow_missing`` and ``DAY_KIND_NORMAL`` on a date nobody marked: a
+    success that writes nothing, its line and its notice included. The call
+    before it touched the phone's last call, so inside the fifteen minutes
+    there is nothing else it may write."""
+    editor = v2_tokens["editor"]
+    await v2.rest(GET, GetDayRequest(date="2026-09-14"), token=editor)
+    with statement_writes() as seen:
+        answer = await v2.both(
+            UPDATE, _update(MONDAY, allow_missing=True, kind=ProtoKind.NORMAL), token=editor
+        )
+    assert (answer.status, answer.message.day.kind) == (200, ProtoKind.NORMAL)
+    assert seen == []
+    assert notices.built == 0
+
+
+async def test_taking_a_mark_off_is_announced_once_and_leaves_an_ordinary_day(
+    v2, v2_tokens, session, school_class, notices, subscribers, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    session.add(DayOverride(class_id=school_class.id, date=MONDAY, kind=DayKind.REMOTE))
+    await session.commit()
+    editor = v2_tokens["editor"]
+    taken = await v2.rest(UPDATE, _update(MONDAY, kind=ProtoKind.NORMAL), token=editor)
+    assert (taken.status, taken.message.day.kind) == (200, ProtoKind.NORMAL)
+    assert await _marks() == []
+    assert await _lines() == [("day.clear", f"День снова обычный: {WHEN}")]
+    notice = f"📆 {WHEN} — обычный учебный день."
+    assert sorted(notices.sent) == [(7001, notice), (7003, notice)]
+    # Asked again without allow_missing, there is no mark left to change.
+    again = await v2.connect(UPDATE, _update(MONDAY, kind=ProtoKind.NORMAL), token=editor)
+    assert (again.status, again.reason) == (404, "RESOURCE_NOT_FOUND")
+    assert notices.built == 1
+
+
+async def test_a_kind_v2_does_not_write_is_refused_on_its_field(
+    v2, v2_tokens, session, school_class, notices, subscribers
+) -> None:
+    session.add(DayOverride(class_id=school_class.id, date=TUESDAY, kind=DayKind.SELF_STUDY))
+    await session.commit()
+    editor = v2_tokens["editor"]
+    for request in (
+        _update(MONDAY, allow_missing=True, kind=ProtoKind.SELF_STUDY),
+        _update(MONDAY, allow_missing=True, kind=ProtoKind.DAY_OFF),
+        # A new mark needs its kind, and a masked kind left unset is none.
+        _update(MONDAY, allow_missing=True, note="Педсовет"),
+        _update(MONDAY, "kind", allow_missing=True),
+        # The bot's self-study day is changed here only into a kind v2 writes.
+        _update(TUESDAY, note="Педсовет"),
+    ):
+        answer = await v2.both(UPDATE, request, token=editor)
+        assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED"), request
+        assert [name for name, _ in answer.violations] == ["day.kind"]
+    # A number DayKind does not name arrives in the binary encoding only.
+    unknown = await v2.connect(
+        UPDATE,
+        _update(MONDAY, allow_missing=True, kind=ProtoKind(99)),
+        token=editor,
+        binary=True,
+    )
+    assert (unknown.reason, [name for name, _ in unknown.violations]) == (
+        "VALIDATION_FAILED",
+        ["day.kind"],
+    )
+    assert await _marks() == [(TUESDAY, DayKind.SELF_STUDY, None, None)]
+    assert notices.built == 0
+
+
+async def test_a_shortened_day_rings_a_schedule_of_its_own_class_that_rings_something(
+    v2, v2_tokens, session, school_class, notices, subscribers
+) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = BellSchedule(class_id=other.id, name="Чужое")
+    empty = BellSchedule(class_id=school_class.id, name="Пустое")
+    session.add_all([foreign, empty])
+    await session.commit()
+    editor = v2_tokens["editor"]
+    for schedule_id, sentence in (
+        (foreign.id, wording.SCHEDULE_NOT_IN_CLASS_DETAIL),
+        (empty.id, wording.EMPTY_BELL_SCHEDULE_DETAIL),
+        (None, wording.SHORTENED_NEEDS_SCHEDULE_DETAIL),
+    ):
+        fields: dict[str, Any] = {"kind": ProtoKind.SHORTENED}
+        if schedule_id is not None:
+            fields["bell_schedule_id"] = schedule_id
+        answer = await v2.both(UPDATE, _update(MONDAY, allow_missing=True, **fields), token=editor)
+        assert answer.status == 400 and answer.error == sentence, sentence
+        if schedule_id == empty.id:
+            assert (answer.code, answer.reason) == ("FAILED_PRECONDITION", "EMPTY_BELL_SCHEDULE")
+        else:
+            assert (answer.reason, answer.violations) == (
+                "VALIDATION_FAILED",
+                [("day.bell_schedule_id", sentence)],
+            )
+        # v1 refuses the same day in the same words.
+        v1 = await v2.http.put(
+            "/api/v1/days",
+            json={"date": "2026-09-14", "kind": "shortened", "bell_schedule_id": schedule_id},
+            headers=_auth(editor),
+        )
+        assert (v1.status_code, v1.json()["detail"]) == (422, sentence)
+    assert await _marks() == []
+    assert notices.built == 0
+
+
+async def test_an_update_changes_only_what_it_names(v2, v2_tokens, session, school_class) -> None:
+    short = await _short_bells(session, school_class)
+    session.add(
+        DayOverride(
+            class_id=school_class.id,
+            date=MONDAY,
+            kind=DayKind.SHORTENED,
+            bell_schedule_id=short.id,
+            note="старое",
+        )
+    )
+    await session.commit()
+    editor = v2_tokens["editor"]
+    unmasked = await v2.rest(UPDATE, _update(MONDAY, note="Педсовет"), token=editor)
+    assert unmasked.status == 200
+    assert await _marks() == [(MONDAY, DayKind.SHORTENED, "Педсовет", short.id)]
+    cleared = await v2.connect(UPDATE, _update(MONDAY, "note"), token=editor)
+    assert (cleared.status, cleared.message.day.has_field("note")) == (200, False)
+    assert await _marks() == [(MONDAY, DayKind.SHORTENED, None, short.id)]
+    # A shortened day's schedule cannot be cleared: it would ring the default.
+    unrung = await v2.both(UPDATE, _update(MONDAY, "bell_schedule_id"), token=editor)
+    assert unrung.violations == [("day.bell_schedule_id", wording.SHORTENED_NEEDS_SCHEDULE_DETAIL)]
+    renamed = await v2.both(UPDATE, _update(MONDAY, "date"), token=editor)
+    assert renamed.violations == [("update_mask", NOT_CHANGEABLE)]
+    assert await _marks() == [(MONDAY, DayKind.SHORTENED, None, short.id)]
+
+
+async def test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody(
+    v2, v2_tokens, session, school_class, notices, subscribers, statement_writes
+) -> None:
+    """A retried update, or one that sends what is there: no line in the
+    journal and no second notice."""
+    session.add(
+        DayOverride(class_id=school_class.id, date=MONDAY, kind=DayKind.HOLIDAY, note="Каникулы")
+    )
+    await session.commit()
+    editor = v2_tokens["editor"]
+    await v2.rest(GET, GetDayRequest(date="2026-09-14"), token=editor)
+    with statement_writes() as seen:
+        same = await v2.both(
+            UPDATE, _update(MONDAY, kind=ProtoKind.HOLIDAY, note=" Каникулы "), token=editor
+        )
+        nothing = await v2.both(UPDATE, _update(MONDAY), token=editor)
+    assert (same.status, same.message.day.note) == (200, "Каникулы")
+    assert nothing.message.day.kind == ProtoKind.HOLIDAY
+    assert seen == []
+    assert notices.built == 0
+
+
+async def test_reading_a_day_writes_nothing_but_the_last_seen(
+    v2, v2_tokens, session, school_class, statement_writes, unexpected_writes, last_seen_rule
+) -> None:
+    session.add(DayOverride(class_id=school_class.id, date=MONDAY, kind=DayKind.HOLIDAY))
+    await session.commit()
+    with statement_writes() as seen:
+        marked = await v2.both(GET, GetDayRequest(date="2026-09-14"), token=v2_tokens["editor"])
+        ordinary = await v2.both(GET, GetDayRequest(date="2026-09-16"), token=v2_tokens["admin"])
+    assert (marked.message.day.kind, ordinary.message.day.kind) == (
+        ProtoKind.HOLIDAY,
+        ProtoKind.NORMAL,
+    )
+    # A write happened, each phone's last call, and nothing else did.
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all(last_seen_rule.match(statement) for statement in seen), seen
+```
+In `server/tests/test_v2_reads.py` (the harness note, Ruling 90):
+  1. Replace:
+```python
+from app.contract.lessons.v2.me_pb import GetMeRequest, Me
+```
+     with:
+```python
+from app.contract.lessons.v2.day_pb import Day, GetDayRequest, UpdateDayRequest
+from app.contract.lessons.v2.me_pb import GetMeRequest, Me
+```
+  2. Replace `_request`:
+```python
+def _request(key: str):
+    method = METHODS[key]
+    request = method.input()
+    if key == "lessons.v2.ScheduleService/GetScheduleWindow":
+        request.year = 2026
+    return request
+```
+     with:
+```python
+def _request(key: str):
+    method = METHODS[key]
+    request = method.input()
+    if key == "lessons.v2.ScheduleService/GetScheduleWindow":
+        request.year = 2026
+    # A day is named by its date, in the REST path, and no route matches the
+    # empty segment an empty request leaves there: the gate is asked of a date.
+    if key == "lessons.v2.DayService/GetDay":
+        return GetDayRequest(date="2026-09-14")
+    if key == "lessons.v2.DayService/UpdateDay":
+        return UpdateDayRequest(day=Day(date="2026-09-14"))
+    return request
+```
+In `server/tests/test_rpc_errors.py`:
+  1. Replace:
+```python
+from app.services.manage import devices as devices_service
+from app.services.manage import subjects as subjects_service
+```
+     with:
+```python
+from app.services.manage import devices as devices_service
+from app.services.manage import special_days as special_days_service
+from app.services.manage import subjects as subjects_service
+```
+  2. In `HELD_BY`, replace:
+```python
+    homework_service.HomeworkExists: (
+        "test_v2_homework_create.py",
+        "test_a_subject_that_already_has_homework_that_day_is_refused_as_existing",
+    ),
+```
+     with:
+```python
+    homework_service.HomeworkExists: (
+        "test_v2_homework_create.py",
+        "test_a_subject_that_already_has_homework_that_day_is_refused_as_existing",
+    ),
+    special_days_service.ScheduleNotInClass: (
+        "test_v2_days.py",
+        "test_a_shortened_day_rings_a_schedule_of_its_own_class_that_rings_something",
+    ),
+    special_days_service.ShortenedNeedsSchedule: (
+        "test_v2_days.py",
+        "test_a_shortened_day_rings_a_schedule_of_its_own_class_that_rings_something",
+    ),
+```
+In `server/tests/test_announcements.py`:
+  1. Replace:
+```python
+from app.rpc import event as rpc_event
+```
+     with:
+```python
+from app.rpc import day as rpc_day
+from app.rpc import event as rpc_event
+```
+  2. Replace the end of `ANNOUNCED_HERE`:
+```python
+    rpc_event.delete_event: "a stored title, `max_length=200`",
+}
+```
+     with:
+```python
+    rpc_event.delete_event: "a stored title, `max_length=200`",
+    rpc_day._announce: "registers that effect for changes; no text of its own",
+    rpc_day.update_day: "`DayIn.note`, `max_length=500`, as v1's",
+}
+```
+Run each file on its own, since a file that does not collect stops the run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_days.py
+```
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_rpc_errors.py
+```
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_announcements.py
+```
+Expected: `test_v2_days.py` does not collect, with `ModuleNotFoundError: No module named 'app.rpc.day'`; `test_rpc_errors.py` gives 1 failed and 14 passed, `test_every_row_of_the_table_names_the_test_that_reads_it_back` on `special_days.ScheduleNotInClass` and `ShortenedNeedsSchedule`, rows `HELD_BY` names and `TABLE` lacks; and `test_announcements.py` does not collect, with `ImportError: cannot import name 'day' from 'app.rpc'`. `test_v2_reads.py` is unaffected until the methods are served. Keep this output as the evidence.
+
+- [ ] **Step 2: A date a day is named by, as v1 parses one.**
+  1. In `server/app/schemas/edit.py`, replace:
+```python
+DayKindName = Literal["normal", "holiday", "shortened", "remote"]
+
+
+class DayIn(BaseModel):
+```
+     with:
+```python
+DayKindName = Literal["normal", "holiday", "shortened", "remote"]
+
+
+class DateIn(BaseModel):
+    """A date a v2 request names on its own — ``GetDay``'s ``date`` and
+    ``UpdateDay``'s ``day.date`` — parsed as ``DayIn`` parses v1's ``date``."""
+
+    date: Date
+
+
+class DayIn(BaseModel):
+```
+  2. In `server/app/schemas/__init__.py`, replace:
+```python
+from app.schemas.edit import (
+    DayIn,
+```
+     with:
+```python
+from app.schemas.edit import (
+    DateIn,
+    DayIn,
+```
+     and, in `__all__`, replace:
+```python
+    "ClassPatch",
+    "DateWindowIn",
+```
+     with:
+```python
+    "ClassPatch",
+    "DateIn",
+    "DateWindowIn",
+```
+  3. In `server/app/rpc/dates.py`, replace:
+```python
+from app.schemas import DateWindowIn
+```
+     with:
+```python
+from app.schemas import DateIn, DateWindowIn
+```
+     and replace the end of `bounded`, the file's last lines:
+```python
+    if not clock.in_bounds(day):
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED,
+            clock.DATE_OUT_OF_BOUNDS,
+            violations=[(field, clock.DATE_OUT_OF_BOUNDS)],
+        )
+    return day
+```
+     with:
+```python
+    if not clock.in_bounds(day):
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED,
+            clock.DATE_OUT_OF_BOUNDS,
+            violations=[(field, clock.DATE_OUT_OF_BOUNDS)],
+        )
+    return day
+
+
+def named(value: str, at: str = "") -> Date:
+    """The date a request names a day by — ``GetDay``'s ``date``, and
+    ``UpdateDay``'s ``day.date`` with ``at`` ``"day."`` — parsed as v1's
+    ``DayIn`` parses one and held to the bounds a written date is held to,
+    or ``VALIDATION_FAILED`` on the field. A read is held to them too: no day
+    out of them can carry a mark."""
+    form = validate(DateIn, {"date": value}, at=at)
+    return bounded(form.date, f"{at}date")
+```
+
+- [ ] **Step 3: The table's rows.** In `server/app/rpc/errors.py`:
+  1. Replace:
+```python
+from app.services.manage import devices as devices_service
+from app.services.manage import subjects as subjects_service
+```
+     with:
+```python
+from app.services.manage import devices as devices_service
+from app.services.manage import special_days as special_days_service
+from app.services.manage import subjects as subjects_service
+```
+  2. Replace `_homework_exists`:
+```python
+def _homework_exists(_error: homework_service.HomeworkExists) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_EXISTS, HOMEWORK_EXISTS, resource="homework", field="subject"
+    )
+```
+     with:
+```python
+def _homework_exists(_error: homework_service.HomeworkExists) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_EXISTS, HOMEWORK_EXISTS, resource="homework", field="subject"
+    )
+
+
+def _schedule_not_in_class(_error: special_days_service.ScheduleNotInClass) -> Refusal:
+    # UpdateDay is the one method that names a day's schedule, as day.bell_schedule_id.
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.SCHEDULE_NOT_IN_CLASS_DETAIL,
+        violations=[("day.bell_schedule_id", wording.SCHEDULE_NOT_IN_CLASS_DETAIL)],
+    )
+
+
+def _shortened_needs_schedule(_error: special_days_service.ShortenedNeedsSchedule) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.SHORTENED_NEEDS_SCHEDULE_DETAIL,
+        violations=[("day.bell_schedule_id", wording.SHORTENED_NEEDS_SCHEDULE_DETAIL)],
+    )
+```
+  3. In `TABLE`, replace:
+```python
+    homework_service.HomeworkExists: _homework_exists,
+}
+```
+     with:
+```python
+    homework_service.HomeworkExists: _homework_exists,
+    special_days_service.ScheduleNotInClass: _schedule_not_in_class,
+    special_days_service.ShortenedNeedsSchedule: _shortened_needs_schedule,
+}
+```
+
+- [ ] **Step 4: Create `server/app/rpc/day.py`**, whose docstring says what the whole service does:
+```python
+"""``DayService``: how a whole date departs from the weekly rhythm.
+
+v1's ``PUT /days`` over v2, through the same write
+(``special_days.put_day``), and a read v1 did not have. A date nobody marked
+is ``DAY_KIND_NORMAL``, never ``NOT_FOUND``: every date has a kind.
+``UpdateDay`` changes a mark, and with ``allow_missing`` makes one, which is an
+upsert by date; ``DAY_KIND_NORMAL`` takes a mark off, and on a date with none
+writes nothing. v2 writes the four kinds v1 wrote: a self-study day or a day
+off is the bot's to set, read here, and changed here only into one of the
+four. Both methods are an editor's, as the contract has them. Each change is
+announced to the class's subscribers to changes once it is committed, never
+when it is refused and never when it changed nothing, in v1's words and
+without its author (``docs/specs/2026-10-05-server-v2-3b-plan.md``, 3b-6).
+"""
+
+from __future__ import annotations
+
+from datetime import date as Date
+from typing import TYPE_CHECKING
+
+from app import telegram_send
+from app.contract.lessons.v2 import common_pb
+from app.contract.lessons.v2.day_pb import (
+    Day,
+    GetDayRequest,
+    GetDayResponse,
+    UpdateDayRequest,
+    UpdateDayResponse,
+)
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.models import DayKind, DayOverride
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.rpc.masks import update_paths
+from app.schemas import DayIn
+from app.services.manage import special_days
+
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+#: What ``update_mask`` may name, and nothing more: the proto comment's list.
+CHANGEABLE = ("kind", "note", "bell_schedule_id")
+
+#: The ``optional`` fields of ``Day``: unset reads as ``""`` or ``0``, and
+#: means none.
+_OPTIONAL = frozenset({"note", "bell_schedule_id"})
+
+#: v2's kinds and the model's, matched by member name (``rpc/values.py``).
+_KINDS = {common_pb.DayKind[kind.name]: kind for kind in DayKind}
+
+#: ``UpdateDay`` without ``allow_missing`` on a date nobody marked: there is
+#: no mark to change (AIP-134). v2's sentence: v1's ``PUT`` always upserted.
+DAY_NOT_MARKED = "this date has no mark; set allow_missing to mark it"
+
+
+def _message(day: Date, mark: DayOverride | None) -> Day:
+    if mark is None:
+        return Day(date=values.date_string(day), kind=common_pb.DayKind.NORMAL)
+    return Day(
+        date=values.date_string(day),
+        kind=common_pb.DayKind[mark.kind.name],
+        note=mark.note,
+        bell_schedule_id=mark.bell_schedule_id,
+    )
+
+
+def _sent(day: Day, field: str) -> object:
+    """What a request says of ``field``, as v1's ``DayIn`` takes it: ``None``
+    for an ``optional`` one it leaves unset, and the kind by v1's name —
+    ``None`` for one unset or one no ``DayKind`` names, which ``DayIn``
+    refuses on the field."""
+    if field in _OPTIONAL and not day.has_field(field):
+        return None
+    if field == "kind":
+        kind = _KINDS.get(day.kind)
+        return kind.value if kind is not None else None
+    return getattr(day, field)
+
+
+def _announce(call: Call, notice: str) -> None:
+    """Tell the class's subscribers to changes, all but the editor who made
+    it: v1's notice, as an effect (``telegram_send.notify_class``), so that it
+    goes out once the change is committed and never when it is refused."""
+    editor, school_class = call.device_and_class()
+    session, author = call.session, editor.telegram_id
+    call.after_commit(
+        lambda: telegram_send.notify_class(
+            session, school_class, notice, kind="changes", author=author
+        )
+    )
+
+
+async def get_day(call: Call, request: GetDayRequest) -> GetDayResponse:
+    """The kind of one date, its note and the bell schedule it rings: a date
+    nobody marked is an ordinary day. Writes nothing."""
+    _editor, school_class = call.device_and_class()
+    day = dates.named(request.date)
+    mark = await special_days.mark_on(call.session, school_class.id, day)
+    return GetDayResponse(day=_message(day, mark))
+
+
+async def update_day(call: Call, request: UpdateDayRequest) -> UpdateDayResponse:
+    """Mark a date, change its mark, or take it off, checked as v1's ``DayIn``
+    checks a mark: one of the four kinds v1 wrote, a note of up to 500.
+
+    Without ``allow_missing``, a date nobody marked is ``RESOURCE_NOT_FOUND``;
+    with it, a mark is made, and ``DAY_KIND_NORMAL`` makes none and writes
+    nothing. The mask is read once, by ``masks.update_paths``: without one,
+    what the request sets changes and nothing else. A masked ``note`` or
+    ``bell_schedule_id`` left unset is cleared, and a masked ``kind`` left
+    unset is refused, since a day always has one. The fields the mask leaves
+    alone are checked as they stand, so a self-study day changes only into a
+    kind v2 writes. A schedule must be this class's and ring something, and a
+    shortened day must name one. Announced once committed; an update that
+    changes nothing writes nothing and tells nobody.
+    """
+    editor, school_class = call.device_and_class()
+    sent = request.day if request.day is not None else Day()
+    day = dates.named(sent.date, "day.")
+    paths = update_paths(request.update_mask, request.day, CHANGEABLE)
+    mark = await special_days.mark_on(call.session, school_class.id, day)
+    if mark is None and not request.allow_missing:
+        raise Refusal(ErrorReason.RESOURCE_NOT_FOUND, DAY_NOT_MARKED, resource="day")
+    if mark is not None and not paths:
+        return UpdateDayResponse(day=_message(day, mark))
+
+    stored = {
+        "kind": mark.kind.value if mark is not None else None,
+        "note": mark.note if mark is not None else None,
+        "bell_schedule_id": mark.bell_schedule_id if mark is not None else None,
+    }
+    sent_fields = {name: _sent(sent, name) for name in paths}
+    form = validate(DayIn, {**stored, **sent_fields, "date": day}, at="day.")
+    changes = {name: getattr(form, name) for name in paths}
+    if "kind" in changes:
+        changes["kind"] = DayKind(changes["kind"])
+    written = await special_days.update_day(
+        call.session, school_class, editor.telegram_id, day, changes
+    )
+    if written.notice is not None:
+        _announce(call, written.notice)
+    return UpdateDayResponse(day=_message(day, written.mark))
+```
+
+  `_announce` passes `call.after_commit` a `lambda`, not a nested `def`: `test_announcements.py`'s walk counts a call in a `lambda` for the function around it (3b-5's Ruling 71).
+
+- [ ] **Step 5: Serve them.** In `server/app/rpc/handlers.py`:
+  1. In the import of the handler modules, replace:
+```python
+    class_device,
+    device,
+```
+     with:
+```python
+    class_device,
+    day,
+    device,
+```
+  2. In `HANDLERS`, replace:
+```python
+    "lessons.v2.DeviceService/CreateDevice": device.create_device,
+```
+     with:
+```python
+    "lessons.v2.DayService/GetDay": day.get_day,
+    "lessons.v2.DayService/UpdateDay": day.update_day,
+    "lessons.v2.DeviceService/CreateDevice": device.create_device,
+```
+
+- [ ] **Step 6: What `day.proto` and `errors.proto` say of it** (Rulings 89 and 99).
+  1. In `proto/lessons/v2/day.proto`, replace the comment on `UpdateDay`:
+```protobuf
+  // Marks a date, or takes the mark off with DAY_KIND_NORMAL: a day never
+  // carries a row that says nothing. With `allow_missing`, a date with no
+  // mark is created, which makes this an idempotent upsert by date.
+  // `update_mask` takes kind, note and bell_schedule_id.
+  //
+  // As v1's PUT /days did, it takes NORMAL, HOLIDAY, SHORTENED and REMOTE;
+  // SELF_STUDY and DAY_OFF are set from the bot and only read here. A
+  // shortened day names the bell schedule it rings, and that schedule must
+  // ring something (EMPTY_BELL_SCHEDULE).
+```
+     with:
+```protobuf
+  // Marks a date, or takes the mark off with DAY_KIND_NORMAL: a day never
+  // carries a row that says nothing. With `allow_missing`, a date with no
+  // mark is created, which makes this an idempotent upsert by date, and
+  // DAY_KIND_NORMAL on such a date writes nothing; without it, a date with no
+  // mark is RESOURCE_NOT_FOUND. `update_mask` takes kind, note and
+  // bell_schedule_id. A path whose field is absent clears it, which the kind
+  // cannot be.
+  //
+  // As v1's PUT /days did, it takes NORMAL, HOLIDAY, SHORTENED and REMOTE;
+  // SELF_STUDY and DAY_OFF are set from the bot and only read here, so a mark
+  // of either changes here only into one of the four. A shortened day names
+  // the bell schedule it rings, one of this class's, and that schedule must
+  // ring something (EMPTY_BELL_SCHEDULE). Announced to the class's
+  // subscribers, unless nothing changed.
+```
+  2. In `proto/lessons/v2/errors.proto`, replace the comment on `RESOURCE_NOT_FOUND`:
+```protobuf
+  // NOT_FOUND. metadata `resource`: "class", "subject", "bell_schedule",
+  // "homework", "substitution", "event", "task", "device", "access_request"
+  // or "student". An id from another class finds nothing, by design.
+```
+     with:
+```protobuf
+  // NOT_FOUND. metadata `resource`: "class", "subject", "bell_schedule",
+  // "homework", "substitution", "event", "task", "device", "access_request",
+  // "student", or "day" for a date nobody marked, changed without
+  // allow_missing. An id from another class finds nothing, by design.
+```
+
+  Then, from `$WT`:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe lint && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe generate && git status --short server/app/contract
+```
+  Expected: `buf lint` prints nothing; `buf generate` rewrites `server/app/contract/` whole, and `git status` names two files: `server/app/contract/lessons/v2/day_connect.py`, whose four docstrings of `update_day` change, and `server/app/contract/lessons/v2/errors_pb.py`, whose docstring of `RESOURCE_NOT_FOUND` gains «"day"». Then write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b6.sh`:
+```bash
+#!/bin/bash
+# buf breaking for 3b-6, from a file: the shell refuses `.git#ref` on a command line.
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 || exit 2
+git fetch origin main || exit 2
+/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe breaking --against ".git#ref=origin/main"
+echo "exit=$?"
+```
+  and run it:
+```bash
+bash C:/Users/lumen/.claude/jobs/c9e2d980/tmp/breaking3b6.sh
+```
+  Expected: `exit=0`; a comment breaks nothing.
+
+- [ ] **Step 7: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_days.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rpc_errors.py tests/test_announcements.py tests/test_rest.py tests/test_contract.py tests/test_contract_json.py tests/test_contract_mirror.py tests/test_services_days.py tests/test_api_extended.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass.
+- `test_v2_days.py` has 12; `test_announcements.py` names the two new call sites, `rpc_day._announce` and `rpc_day.update_day`.
+- The gate test and the no-echo sweep each gain two cases. The gate test asks both of the date `_request` gives them: an editor's `GetDay` answers an ordinary day, and an editor's `UpdateDay` `RESOURCE_NOT_FOUND`, which is no gate reason; the viewer is `ROLE_REQUIRED` and the class code's phone `DEVICE_NOT_LINKED`. The sweep's secret in a date, a path or `update_mask` is refused naming the field, never the value; in `allowMissing` or `bellScheduleId`, by the decoder.
+- `test_rpc_errors.py` holds the two new rows by their test; `test_contract_mirror.py` holds `Day` level with `DayIn` and `DayOverrideOut`, unchanged.
+- `test_contract.py` reads the regenerated files' bindings as before.
+
+- [ ] **Step 8: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 237 source files`, one more for `rpc/day.py`.
+
+- [ ] **Step 9: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b6-t3.txt`:
+```text
+Serve a day's mark over v2: reading one, and setting it
+
+GetDay answers every date's kind, its note and the bell schedule it
+rings; a date nobody marked is an ordinary day. UpdateDay changes a
+mark through special_days.update_day, over the write v1 and the bot
+share, and with allow_missing makes one, an upsert by date; without it,
+a date nobody marked is RESOURCE_NOT_FOUND with resource day, and taking
+off a mark a date does not have writes nothing and tells nobody. The
+mask is read once; a masked note or schedule left unset is cleared, a
+masked kind refused, and the mark as it would stand is checked by v1's
+DayIn, so v2 writes v1's four kinds and changes a self-study day only
+into one of them. ScheduleNotInClass and ShortenedNeedsSchedule join the
+error table as VALIDATION_FAILED on day.bell_schedule_id, in v1's
+words. A change is announced to the class once committed, in v1's words
+and never to its author; one that changes nothing tells nobody.
+
+A day is named by its date in the REST path, and no route matches an
+empty segment, so the gate test asks both methods of a date. day.proto
+and errors.proto say all of this in comments; only day_connect.py's and
+errors_pb.py's docstrings are regenerated.
+
+Not covered: Postgres, and a real bot.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add proto/lessons/v2/day.proto proto/lessons/v2/errors.proto server/app/contract server/app/schemas/edit.py server/app/schemas/__init__.py server/app/rpc/dates.py server/app/rpc/errors.py server/app/rpc/day.py server/app/rpc/handlers.py server/tests/test_v2_days.py server/tests/test_v2_reads.py server/tests/test_rpc_errors.py server/tests/test_announcements.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b6-t3.txt
+```
+
+---
+
+### 3b-6 Task 4: `ListSubstitutions` and `GetSubstitution`
+
+Decisions 2, 5, 10 and 14; Rulings 93, 97 and 101.
+
+**Files:**
+- Create: `server/app/rpc/substitution.py`, `server/tests/test_v2_substitutions.py`
+- Modify: `server/app/rpc/handlers.py`
+
+**Interfaces:**
+- Consumes: Task 2's `substitutions.between` and `substitution_of`; 3b-5's `rpc/dates.window` and `errors.WINDOW_BACKWARDS`; `clock.today`; `values.date_string`.
+- Produces: `substitution.list_substitutions`, `substitution.get_substitution`, `substitution.UNKNOWN_SUBSTITUTION`, and `substitution._ACTIONS`, `_PROTO_ACTIONS`, `_message(row)`, `_row(call, substitution_id)`, which Tasks 5 and 6 keep.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_substitutions.py`:
+```python
+"""``SubstitutionService``'s reads: ``ListSubstitutions`` and ``GetSubstitution``.
+
+v1 had no list of substitutions: a phone read them inside ``/bundle``'s days.
+v2 lists the rows themselves, through ``services/substitutions.py``, in a
+window read as ``ListHomework`` reads one — today and three weeks on when
+unset, sixty-two days at most (``rpc/dates.py``) — and refused in the same
+words. Both reads are an editor's, as the contract has them; a substitution of
+another class is not found, and a read writes nothing
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 10).
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+
+from app.contract.lessons.v2.substitution_pb import (
+    GetSubstitutionRequest,
+    ListSubstitutionsRequest,
+    SubstitutionAction,
+)
+from app.models import LessonOverride, OverrideAction, SchoolClass
+from app.rpc.errors import WINDOW_BACKWARDS
+from app.rpc.substitution import UNKNOWN_SUBSTITUTION
+from app.services import clock
+
+LIST = "SubstitutionService/ListSubstitutions"
+GET = "SubstitutionService/GetSubstitution"
+MONDAY = date(2026, 9, 14)
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _pin_clock(monkeypatch) -> None:
+    """Monday 7 September, 10:00 in the class's zone, for v1 and v2 alike."""
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+async def _substitution(session, class_id: int, day: date, index: int, **fields):
+    row = LessonOverride(
+        class_id=class_id,
+        date=day,
+        index=index,
+        action=fields.pop("action", OverrideAction.REPLACE),
+        **fields,
+    )
+    session.add(row)
+    await session.commit()
+    return row
+
+
+async def test_the_substitutions_in_a_window_come_by_date_and_number_from_this_class_only(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    replaced = await _substitution(
+        session, school_class.id, MONDAY, 3, subject_name="Химия", room="118", teacher="Иванов"
+    )
+    await _substitution(
+        session, school_class.id, MONDAY, 1, action=OverrideAction.CANCEL, note="болеет"
+    )
+    await _substitution(session, school_class.id, date(2026, 9, 7), 2, room="305")
+    await _substitution(session, school_class.id, date(2026, 10, 31), 1, subject_name="Химия")
+    await _substitution(session, other.id, MONDAY, 2, subject_name="Чужое")
+    editor = v2_tokens["editor"]
+
+    rows = (await v2.both(LIST, token=editor)).message.substitutions
+    # Today and three weeks on, by date and then lesson number.
+    assert [(row.date, row.index, row.action) for row in rows] == [
+        ("2026-09-07", 2, SubstitutionAction.REPLACE),
+        ("2026-09-14", 1, SubstitutionAction.CANCEL),
+        ("2026-09-14", 3, SubstitutionAction.REPLACE),
+    ]
+    assert (rows[2].id, rows[2].subject, rows[2].room, rows[2].teacher) == (
+        replaced.id,
+        "Химия",
+        "118",
+        "Иванов",
+    )
+    assert (rows[1].note, rows[1].has_field("subject")) == ("болеет", False)
+    # The same rows v1's bundle draws on that Monday.
+    v1 = await v2.http.get(
+        "/api/v1/bundle", params={"start": "2026-09-14", "days": 1}, headers=_auth(editor)
+    )
+    lessons = v1.json()["days"][0]["lessons"]
+    assert [(lesson["index"], lesson["is_cancelled"]) for lesson in lessons][0] == (1, True)
+    assert (lessons[2]["subject"], lessons[2]["is_replaced"]) == ("Химия", True)
+    later = await v2.both(
+        LIST,
+        ListSubstitutionsRequest(start_date="2026-10-01", end_date="2026-10-31"),
+        token=editor,
+    )
+    assert [row.date for row in later.message.substitutions] == ["2026-10-31"]
+
+
+async def test_a_window_is_refused_as_the_homework_s_is(v2, v2_tokens) -> None:
+    editor = v2_tokens["editor"]
+    for sent, field, sentence in (
+        (
+            ListSubstitutionsRequest(start_date="1999-01-01"),
+            "start_date",
+            clock.DATES_OUT_OF_BOUNDS,
+        ),
+        (
+            ListSubstitutionsRequest(start_date="2026-09-10", end_date="2026-09-01"),
+            "end_date",
+            WINDOW_BACKWARDS,
+        ),
+        (
+            ListSubstitutionsRequest(start_date="2026-09-01", end_date="2026-12-31"),
+            "end_date",
+            clock.WINDOW_TOO_WIDE,
+        ),
+    ):
+        answer = await v2.both(LIST, sent, token=editor)
+        assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED"), field
+        assert (answer.error, answer.violations) == (sentence, [(field, sentence)])
+    unparsed = await v2.both(LIST, ListSubstitutionsRequest(end_date="2026-13-01"), token=editor)
+    assert [name for name, _ in unparsed.violations] == ["end_date"]
+
+
+async def test_one_substitution_is_its_row_and_another_class_s_is_not_found(
+    v2, v2_tokens, session, school_class
+) -> None:
+    own = await _substitution(session, school_class.id, MONDAY, 2, subject_name="Химия")
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = await _substitution(session, other.id, MONDAY, 2, subject_name="Чужое")
+    editor = v2_tokens["editor"]
+    found = await v2.both(GET, GetSubstitutionRequest(substitution_id=own.id), token=editor)
+    substitution = found.message.substitution
+    assert (substitution.id, substitution.date, substitution.index, substitution.subject) == (
+        own.id,
+        "2026-09-14",
+        2,
+        "Химия",
+    )
+    for substitution_id in (foreign.id, 999_999):
+        refused = await v2.both(
+            GET, GetSubstitutionRequest(substitution_id=substitution_id), token=editor
+        )
+        assert (refused.status, refused.code, refused.reason, refused.metadata) == (
+            404,
+            "NOT_FOUND",
+            "RESOURCE_NOT_FOUND",
+            {"resource": "substitution"},
+        )
+        assert refused.error == UNKNOWN_SUBSTITUTION
+
+
+async def test_reading_substitutions_writes_nothing_but_the_last_seen(
+    v2, v2_tokens, session, school_class, statement_writes, unexpected_writes, last_seen_rule
+) -> None:
+    own = await _substitution(session, school_class.id, MONDAY, 2, subject_name="Химия")
+    editor = v2_tokens["editor"]
+    with statement_writes() as seen:
+        listed = await v2.both(LIST, token=editor)
+        one = await v2.both(GET, GetSubstitutionRequest(substitution_id=own.id), token=editor)
+    assert (listed.status, one.message.substitution.id) == (200, own.id)
+    # A write happened, the phone's last call, and nothing else did.
+    assert seen
+    assert unexpected_writes(seen) == []
+    assert all(last_seen_rule.match(statement) for statement in seen), seen
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_substitutions.py
+```
+Expected: the file does not collect, with `ModuleNotFoundError: No module named 'app.rpc.substitution'`. Keep this output as the evidence.
+
+- [ ] **Step 2: Create `server/app/rpc/substitution.py`**, whose docstring says what the whole service does:
+```python
+"""``SubstitutionService``: one lesson on one date replaced or cancelled.
+
+v1's ``PUT /overrides`` over v2, through the same service
+(``services/substitutions.py``), and the reads v1 did not have. v1 upserted
+by date and lesson number, with ``"clear"`` as an action; v2 creates a
+substitution, refusing a second one on the same lesson with
+``RESOURCE_EXISTS``, changes it under a mask, and deletes it, which puts the
+lesson back on the timetable. A substitution nobody would ever see is refused
+with a reason a client can act on: ``NO_LESSON_ON_DAY``,
+``NO_BELL_FOR_LESSON`` (on a create only) or ``LESSON_NOT_ON_TIMETABLE``.
+Every method is an editor's, the reads included, as the contract has them.
+Each write is announced to the class's subscribers to changes once it is
+committed, and never when it is refused, in v1's words and without its
+author (``docs/specs/2026-10-05-server-v2-3b-plan.md``, 3b-6).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.substitution_pb import (
+    GetSubstitutionRequest,
+    GetSubstitutionResponse,
+    ListSubstitutionsRequest,
+    ListSubstitutionsResponse,
+    Substitution,
+    SubstitutionAction,
+)
+from app.models import LessonOverride, OverrideAction
+from app.rpc import dates, values
+from app.rpc.errors import Refusal
+from app.services import clock, substitutions
+
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+#: v2's actions and the model's. The model's ADD is not in the contract,
+#: because nothing writes it: a row of it would read as no action.
+_ACTIONS = {
+    SubstitutionAction.REPLACE: OverrideAction.REPLACE,
+    SubstitutionAction.CANCEL: OverrideAction.CANCEL,
+}
+_PROTO_ACTIONS = {model: proto for proto, model in _ACTIONS.items()}
+
+#: No substitution of this class has that id. v2's sentence: v1 named a
+#: substitution by its date and number, and never answered 404.
+UNKNOWN_SUBSTITUTION = "Unknown substitution"
+
+
+def _message(row: LessonOverride) -> Substitution:
+    return Substitution(
+        id=row.id,
+        date=values.date_string(row.date),
+        index=row.index,
+        action=_PROTO_ACTIONS.get(row.action, SubstitutionAction.UNSPECIFIED),
+        subject=row.subject_name,
+        room=row.room,
+        teacher=row.teacher,
+        note=row.note,
+    )
+
+
+async def _row(call: Call, substitution_id: int) -> LessonOverride:
+    """This class's substitution ``substitution_id``, or ``RESOURCE_NOT_FOUND``:
+    an id of another class's substitution finds nothing."""
+    _editor, school_class = call.device_and_class()
+    row = await substitutions.substitution_of(call.session, school_class.id, substitution_id)
+    if row is None:
+        raise Refusal(ErrorReason.RESOURCE_NOT_FOUND, UNKNOWN_SUBSTITUTION, resource="substitution")
+    return row
+
+
+async def list_substitutions(
+    call: Call, request: ListSubstitutionsRequest
+) -> ListSubstitutionsResponse:
+    """Substitutions on dates in a window, by date and then lesson number:
+    today and three weeks on when unset, sixty-two days at most, as
+    ``ListHomework``'s. Writes nothing."""
+    _editor, school_class = call.device_and_class()
+    start, end = dates.window(request, clock.today(school_class))
+    rows = await substitutions.between(call.session, school_class.id, start, end)
+    return ListSubstitutionsResponse(substitutions=[_message(row) for row in rows])
+
+
+async def get_substitution(call: Call, request: GetSubstitutionRequest) -> GetSubstitutionResponse:
+    """One substitution. Writes nothing."""
+    return GetSubstitutionResponse(substitution=_message(await _row(call, request.substitution_id)))
+```
+
+- [ ] **Step 3: Serve them.** In `server/app/rpc/handlers.py`:
+  1. In the import of the handler modules, replace:
+```python
+    subject,
+    timetable,
+```
+     with:
+```python
+    subject,
+    substitution,
+    timetable,
+```
+  2. In `HANDLERS`, replace:
+```python
+    "lessons.v2.SubjectService/UpdateSubject": subject.update_subject,
+```
+     with:
+```python
+    "lessons.v2.SubjectService/UpdateSubject": subject.update_subject,
+    "lessons.v2.SubstitutionService/GetSubstitution": substitution.get_substitution,
+    "lessons.v2.SubstitutionService/ListSubstitutions": substitution.list_substitutions,
+```
+
+- [ ] **Step 4: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_substitutions.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rpc_errors.py tests/test_rest.py tests/test_contract_json.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass.
+- `test_v2_substitutions.py` has 4.
+- The gate test and the no-echo sweep each gain two cases. Both methods are an editor's, so the viewer is `ROLE_REQUIRED` and the class code's phone `DEVICE_NOT_LINKED`; an editor's empty `ListSubstitutions` is today's window, and an empty `GetSubstitution` names the substitution 0, `RESOURCE_NOT_FOUND`. The sweep's secret in `startDate` or `endDate` is refused on its field in pydantic's words, which quote nothing; in `substitutionId` or the path, by the decoder.
+- `test_service_layering.py` walks `rpc/substitution.py`, which imports no router.
+
+- [ ] **Step 5: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`, one more for `rpc/substitution.py`.
+
+- [ ] **Step 6: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b6-t4.txt`:
+```text
+Serve the class's substitutions over v2: the list and one substitution
+
+v1 had no list of substitutions; a phone read them inside /bundle's
+days. ListSubstitutions lists the rows through substitutions.between,
+by date and then lesson number, in a window read by rpc/dates.window as
+ListHomework's is: today and three weeks on when unset, sixty-two days
+at most, refused in the same words. GetSubstitution is one row; another
+class's, or none, is RESOURCE_NOT_FOUND with resource substitution, in
+a sentence of v2's own, since v1 never looked one up by id. Both are an
+editor's, as the contract has them, and a read writes nothing but the
+phone's last call.
+
+Not covered: the model's ADD, which nothing writes, reads as no action.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/rpc/substitution.py server/app/rpc/handlers.py server/tests/test_v2_substitutions.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b6-t4.txt
+```
+
+---
+
+### 3b-6 Task 5: `CreateSubstitution`, and 3b-6 leaves `STAGES`
+
+Decisions 2, 4, 5 and 14, and the design's «Risks» on notices; Rulings 17, 88, 91, 92, 95, 96, 97, 98 and 100.
+
+**Files:**
+- Create: `server/tests/test_v2_substitution_create.py`
+- Modify: `server/app/rpc/substitution.py`, `server/app/rpc/errors.py`, `server/app/rpc/handlers.py`, `server/tests/test_rpc_errors.py`, `server/tests/test_announcements.py`
+
+**Interfaces:**
+- Consumes: Task 2's `substitutions.create` and its four facts, `wording.no_bell_detail` and `lesson_not_on_timetable_detail`; Task 4's `_message` and `_ACTIONS`; `rpc/dates.bounded`; v1's `OverrideIn`; `telegram_send.notify_class`.
+- Produces:
+  - `substitution.create_substitution`, `substitution.ACTION_REFUSED`, and `substitution._WRITTEN`, `_OPTIONAL`, `_action(value)`, `_sent(substitution, field)`, `_announce(call, notice)`, which Task 6 keeps;
+  - `errors.SUBSTITUTION_EXISTS`, and `errors.TABLE` rows for `substitutions.NoLessonOnDay`, `NoBellForLesson`, `LessonNotOnTimetable` and `SubstitutionExists`;
+  - `test_rpc_errors.STAGES` without `"3b-6"`, and `LATER` without `NO_LESSON_ON_DAY`, `NO_BELL_FOR_LESSON` and `LESSON_NOT_ON_TIMETABLE`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_substitution_create.py`:
+```python
+"""``SubstitutionService.CreateSubstitution``: a new substitution, never a second one for a lesson.
+
+v1's ``PUT /overrides`` over v2, through ``substitutions.create``: the same
+cleaning by v1's ``OverrideIn``, the class's spelling of the subject, the same
+three questions in v1's words, the same line in the journal and the same
+notice to the class. Where v1 changed the row there, v2 refuses a lesson that
+already has a substitution that day with ``RESOURCE_EXISTS``. A substitution
+nobody would see is refused with its reason — ``NO_LESSON_ON_DAY`` and its
+``why``, ``NO_BELL_FOR_LESSON`` and ``LESSON_NOT_ON_TIMETABLE`` with the
+``index`` — which leave ``LATER`` here. The notice is an effect: it goes out
+once the row is committed, never on a refusal and never to its author. A
+write's success is asked once per transport on fresh data, and its refusals
+through ``both``; the database is read from sessions of their own.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from datetime import time as Time
+from typing import Any
+
+from sqlalchemy import func, select
+
+from app import wording
+from app.contract.lessons.v2.substitution_pb import (
+    CreateSubstitutionRequest,
+    Substitution,
+    SubstitutionAction,
+)
+from app.db import SessionLocal
+from app.models import (
+    AuditEntry,
+    BellPeriod,
+    BellSchedule,
+    DayKind,
+    DayOverride,
+    LessonOverride,
+    OverrideAction,
+    Subject,
+    Term,
+)
+from app.rpc.errors import SUBSTITUTION_EXISTS
+from app.rpc.substitution import ACTION_REFUSED
+from app.services import audit, clock, substitutions
+
+CREATE = "SubstitutionService/CreateSubstitution"
+REPLACE, CANCEL = SubstitutionAction.REPLACE, SubstitutionAction.CANCEL
+#: A Monday of the school year: the template has lessons 1 to 3 on a Monday,
+#: and the class's bells ring 1 to 7.
+MONDAY = date(2026, 9, 14)
+#: 14 September, as people read it on Monday the 7th.
+WHEN = "14 сентября (понедельник)"
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _pin_clock(monkeypatch) -> None:
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+def _create(day: date, index: int, **fields: Any) -> CreateSubstitutionRequest:
+    return CreateSubstitutionRequest(
+        substitution=Substitution(date=day.isoformat(), index=index, **fields)
+    )
+
+
+def _v1(day: date, index: int, action: str, **fields: Any) -> dict[str, Any]:
+    """The same substitution as v1's ``PUT /overrides`` takes it."""
+    return {"date": day.isoformat(), "index": index, "action": action, **fields}
+
+
+async def _committed(statement: Any) -> Any:
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(statement)
+
+
+async def _rows() -> list[tuple[Any, ...]]:
+    async with SessionLocal() as fresh:
+        rows = await fresh.execute(
+            select(
+                LessonOverride.date,
+                LessonOverride.index,
+                LessonOverride.action,
+                LessonOverride.subject_name,
+                LessonOverride.room,
+            ).order_by(LessonOverride.date, LessonOverride.index)
+        )
+        return [tuple(row) for row in rows]
+
+
+async def _lines() -> list[tuple[str, str]]:
+    async with SessionLocal() as fresh:
+        rows = await fresh.execute(
+            select(AuditEntry.action, AuditEntry.summary).order_by(AuditEntry.id)
+        )
+        return [tuple(row) for row in rows]
+
+
+async def test_a_new_substitution_answers_201_in_the_class_s_spelling_and_is_v1_s_to_read(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    session.add(Subject(class_id=school_class.id, name="Химия"))
+    await session.commit()
+    editor = v2_tokens["editor"]
+    rest = await v2.rest(
+        CREATE,
+        _create(MONDAY, 2, action=REPLACE, subject="  химия ", room=" 118 ", id=777),
+        token=editor,
+    )
+    connect = await v2.connect(
+        CREATE, _create(MONDAY, 1, action=CANCEL, note="учитель болеет"), token=editor
+    )
+    assert (rest.status, connect.status) == (201, 200)
+    made = rest.message.substitution
+    # The class's spelling, the room trimmed; the id is the server's.
+    assert (made.date, made.index, made.action, made.subject, made.room) == (
+        "2026-09-14",
+        2,
+        REPLACE,
+        "Химия",
+        "118",
+    )
+    assert made.id != 777
+    assert connect.message.substitution.note == "учитель болеет"
+    v1 = await v2.http.get(
+        "/api/v1/bundle", params={"start": "2026-09-14", "days": 1}, headers=_auth(editor)
+    )
+    lessons = v1.json()["days"][0]["lessons"]
+    assert (lessons[0]["is_cancelled"], lessons[0]["note"]) == (True, "учитель болеет")
+    assert (lessons[1]["subject"], lessons[1]["room"], lessons[1]["is_replaced"]) == (
+        "Химия",
+        "118",
+        True,
+    )
+    assert await _lines() == [
+        ("override.replace", f"Замена: урок №2, {WHEN} — Химия"),
+        ("override.cancel", f"Урок №1 отменён, {WHEN}"),
+    ]
+
+
+async def test_a_new_substitution_is_announced_after_the_commit_and_not_to_its_author(
+    v2, v2_tokens, notices, subscribers, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    notices.looks = lambda: _committed(select(func.count()).select_from(LessonOverride))
+    answer = await v2.connect(
+        CREATE,
+        _create(MONDAY, 2, action=REPLACE, subject="Химия <b>", room="118", note="зал <2>"),
+        token=v2_tokens["editor"],
+    )
+    assert answer.status == 200
+    notice = f"🔁 Замена {WHEN}: урок №2 — <b>Химия &lt;b&gt;</b>, каб. 118\nзал &lt;2&gt;"
+    # v1's words, to those who asked to hear about changes but its author,
+    # and only once a session of the bot's own could read the row.
+    assert sorted(notices.sent) == [(7001, notice), (7003, notice)]
+    assert notices.saw == [1, 1]
+    assert notices.closed == notices.built == 1
+
+
+async def test_a_lesson_that_already_has_a_substitution_that_day_is_refused_as_existing(
+    v2, v2_tokens, notices, subscribers
+) -> None:
+    editor = v2_tokens["editor"]
+    v1 = await v2.http.put(
+        "/api/v1/overrides", json=_v1(MONDAY, 2, "replace", subject="Химия"), headers=_auth(editor)
+    )
+    assert v1.status_code == 200
+    # v1's own notice, through its own seam, to the two who asked for changes.
+    assert (notices.built, len(notices.sent)) == (1, 2)
+    for action in (CANCEL, REPLACE):
+        answer = await v2.both(
+            CREATE, _create(MONDAY, 2, action=action, subject="Физика"), token=editor
+        )
+        assert (answer.status, answer.code, answer.reason) == (
+            409,
+            "ALREADY_EXISTS",
+            "RESOURCE_EXISTS",
+        ), action
+        assert (answer.metadata, answer.error) == (
+            {"resource": "substitution", "field": "index"},
+            SUBSTITUTION_EXISTS,
+        )
+    assert await _rows() == [(MONDAY, 2, OverrideAction.REPLACE, "Химия", None)]
+    assert [action for action, _ in await _lines()] == ["override.replace"]
+    # The refusals built no bot and told nobody.
+    assert (notices.built, len(notices.sent)) == (1, 2)
+
+
+async def test_a_twin_written_in_the_same_instant_is_refused_as_existing(
+    v2, v2_tokens, session, school_class, notices, subscribers, monkeypatch
+) -> None:
+    """The race: the check answers «none», as it truthfully did a moment
+    earlier, while the twin is already in the table. The insert meets the
+    unique constraint inside its savepoint, and the create is refused as if
+    the check had seen it."""
+    session.add(
+        LessonOverride(class_id=school_class.id, date=MONDAY, index=2, action=OverrideAction.CANCEL)
+    )
+    await session.commit()
+    real_on = substitutions.substitution_on
+    stale: list[bool] = []
+
+    async def stale_once(*args: Any, **kwargs: Any) -> Any:
+        if not stale:
+            stale.append(True)
+            return None
+        return await real_on(*args, **kwargs)
+
+    monkeypatch.setattr(substitutions, "substitution_on", stale_once)
+    answer = await v2.connect(
+        CREATE, _create(MONDAY, 2, action=REPLACE, subject="Химия"), token=v2_tokens["editor"]
+    )
+    assert stale, "the stale read never happened, so nothing was tested"
+    assert (answer.status, answer.reason, answer.error) == (
+        409,
+        "RESOURCE_EXISTS",
+        SUBSTITUTION_EXISTS,
+    )
+    assert await _rows() == [(MONDAY, 2, OverrideAction.CANCEL, None, None)]
+    assert notices.built == 0
+
+
+async def test_a_day_that_draws_no_lessons_is_refused_with_why(
+    v2, v2_tokens, session, school_class, notices, subscribers
+) -> None:
+    """The four reasons a day draws nothing, each in v1's sentence and with
+    the reason a client acts on. The class keeps quarters with a gap in the
+    autumn, so that a term's own dates decide two of them."""
+    for index, (starts, ends) in enumerate(
+        (
+            (date(2026, 9, 1), date(2026, 10, 24)),
+            (date(2026, 11, 5), date(2026, 12, 28)),
+            (date(2027, 1, 9), date(2027, 3, 20)),
+            (date(2027, 4, 1), date(2027, 5, 31)),
+        ),
+        start=1,
+    ):
+        session.add(
+            Term(class_id=school_class.id, year=2026, index=index, starts_on=starts, ends_on=ends)
+        )
+    marked = date(2026, 9, 21)
+    session.add(DayOverride(class_id=school_class.id, date=marked, kind=DayKind.DAY_OFF))
+    await session.commit()
+    editor = v2_tokens["editor"]
+    for day, why in (
+        (date(2027, 6, 14), "out_of_year"),
+        (date(2026, 11, 2), "between_terms"),
+        (date(2027, 3, 8), "public_holiday"),
+        (marked, "marked_day_off"),
+    ):
+        answer = await v2.both(
+            CREATE, _create(day, 1, action=REPLACE, subject="Химия"), token=editor
+        )
+        assert (answer.status, answer.code, answer.reason, answer.metadata) == (
+            400,
+            "FAILED_PRECONDITION",
+            "NO_LESSON_ON_DAY",
+            {"why": why},
+        ), why
+        v1 = await v2.http.put(
+            "/api/v1/overrides", json=_v1(day, 1, "replace", subject="Химия"), headers=_auth(editor)
+        )
+        assert (v1.status_code, v1.json()["detail"]) == (422, answer.error), why
+    assert await _rows() == []
+    assert notices.built == 0
+
+
+async def test_a_number_the_day_rings_no_bell_for_is_refused(
+    v2, v2_tokens, session, school_class, notices, subscribers
+) -> None:
+    """Against the day's own bells: a shortened day rings a shorter schedule
+    than the class's usual, and a lesson past it would be drawn nowhere."""
+    short = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    session.add(short)
+    await session.flush()
+    for index in (1, 2, 3):
+        session.add(
+            BellPeriod(
+                schedule_id=short.id,
+                index=index,
+                starts_at=Time(8 + index, 0),
+                ends_at=Time(8 + index, 30),
+            )
+        )
+    session.add(
+        DayOverride(
+            class_id=school_class.id, date=MONDAY, kind=DayKind.SHORTENED, bell_schedule_id=short.id
+        )
+    )
+    await session.commit()
+    editor = v2_tokens["editor"]
+    for day, index in ((MONDAY, 4), (date(2026, 9, 21), 8)):
+        answer = await v2.both(
+            CREATE, _create(day, index, action=REPLACE, subject="Химия"), token=editor
+        )
+        assert (answer.status, answer.code, answer.reason, answer.metadata) == (
+            400,
+            "FAILED_PRECONDITION",
+            "NO_BELL_FOR_LESSON",
+            {"index": str(index)},
+        ), index
+        assert answer.error == wording.no_bell_detail(index)
+        v1 = await v2.http.put(
+            "/api/v1/overrides",
+            json=_v1(day, index, "replace", subject="Химия"),
+            headers=_auth(editor),
+        )
+        assert (v1.status_code, v1.json()["detail"]) == (422, answer.error)
+    assert await _rows() == []
+    assert notices.built == 0
+
+
+async def test_cancelling_or_a_bare_room_where_the_template_has_no_lesson_is_refused(
+    v2, v2_tokens, notices, subscribers
+) -> None:
+    """Lesson 7 rings on a Monday and the template leaves it empty: a
+    cancellation would strike through nothing, and a room alone would inherit
+    no subject. A replacement that brings its own subject is how a lesson is
+    added, and is created."""
+    editor = v2_tokens["editor"]
+    for fields, v1_fields, cancelling in (
+        ({"action": CANCEL}, {"action": "cancel"}, True),
+        ({"action": REPLACE, "room": "305"}, {"action": "replace", "room": "305"}, False),
+    ):
+        answer = await v2.both(CREATE, _create(MONDAY, 7, **fields), token=editor)
+        assert (answer.status, answer.code, answer.reason, answer.metadata) == (
+            400,
+            "FAILED_PRECONDITION",
+            "LESSON_NOT_ON_TIMETABLE",
+            {"index": "7"},
+        ), cancelling
+        assert answer.error == wording.lesson_not_on_timetable_detail(7, cancelling=cancelling)
+        v1 = await v2.http.put(
+            "/api/v1/overrides",
+            json={"date": MONDAY.isoformat(), "index": 7, **v1_fields},
+            headers=_auth(editor),
+        )
+        assert (v1.status_code, v1.json()["detail"]) == (422, answer.error)
+    assert notices.built == 0
+    added = await v2.rest(
+        CREATE, _create(MONDAY, 7, action=REPLACE, subject="Астрономия"), token=editor
+    )
+    assert (added.status, added.message.substitution.subject) == (201, "Астрономия")
+
+
+async def test_a_refused_substitution_is_refused_on_its_field_and_tells_nobody(
+    v2, v2_tokens, notices, subscribers
+) -> None:
+    editor = v2_tokens["editor"]
+    bounded = await v2.both(CREATE, _create(date(2200, 1, 1), 1, action=CANCEL), token=editor)
+    assert bounded.violations == [("substitution.date", clock.DATE_OUT_OF_BOUNDS)]
+    for request, field_name in (
+        (_create(MONDAY, 0, action=CANCEL), "substitution.index"),
+        (_create(MONDAY, 21, action=CANCEL), "substitution.index"),
+        (_create(MONDAY, 1), "substitution.action"),
+        (_create(MONDAY, 1, action=REPLACE, note="только заметка"), "substitution"),
+        (_create(MONDAY, 1, action=REPLACE, subject="х" * 121), "substitution.subject"),
+        (_create(MONDAY, 1, action=REPLACE, room="1" * 33), "substitution.room"),
+        (
+            CreateSubstitutionRequest(
+                substitution=Substitution(date="14.09.2026", index=1, action=CANCEL)
+            ),
+            "substitution.date",
+        ),
+    ):
+        answer = await v2.both(CREATE, request, token=editor)
+        assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED"), field_name
+        assert [name for name, _ in answer.violations] == [field_name]
+    # A number SubstitutionAction does not name arrives in the binary encoding only.
+    unknown = await v2.connect(
+        CREATE,
+        _create(MONDAY, 1, action=SubstitutionAction(99)),
+        token=editor,
+        binary=True,
+    )
+    assert (unknown.reason, unknown.violations) == (
+        "VALIDATION_FAILED",
+        [("substitution.action", ACTION_REFUSED)],
+    )
+    assert await _rows() == []
+    assert notices.built == 0
+
+
+async def test_a_substitution_that_fails_after_its_row_is_written_leaves_no_row_and_tells_nobody(
+    v2, v2_tokens, notices, subscribers, monkeypatch
+) -> None:
+    """The row goes in through a savepoint, the first write of the call's
+    transaction, and then the journal's line fails: ``invoke``'s one commit
+    makes it all or nothing, on SQLite as on Postgres (#373)."""
+
+    async def broken(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("the journal is down")
+
+    monkeypatch.setattr(audit, "record", broken)
+    answer = await v2.connect(
+        CREATE, _create(MONDAY, 2, action=REPLACE, subject="Химия"), token=v2_tokens["editor"]
+    )
+    assert (answer.status, answer.code) == (500, "INTERNAL")
+    assert await _committed(select(func.count()).select_from(LessonOverride)) == 0
+    assert notices.built == 0
+```
+In `server/tests/test_rpc_errors.py`:
+  1. Replace:
+```python
+from app.services import schools as schools_service
+```
+     with:
+```python
+from app.services import schools as schools_service
+from app.services import substitutions as substitutions_service
+```
+  2. Replace `STAGES` and `LATER`:
+```python
+STAGES = {"3b-6", "3b-7", "3b-8"}
+
+#: The reasons no served method produces yet, and the stage that brings each.
+#: A reason leaves this table in the commit whose handler raises it.
+LATER = {
+    "NO_BELL_FOR_LESSON": "3b-6",
+    "DIARY_UNAVAILABLE": "3b-7",
+    "DIARY_REAUTH": "3b-7",
+    "DIARY_CREDENTIALS_REJECTED": "3b-7",
+    "DIARY_NO_STUDENTS": "3b-7",
+    "DIARY_UPSTREAM_UNREADABLE": "3b-7",
+    "CORRECTIONS_UNAVAILABLE": "3b-8",
+    "NO_LESSON_ON_DAY": "3b-6",
+    "LESSON_NOT_ON_TIMETABLE": "3b-6",
+}
+```
+     with:
+```python
+STAGES = {"3b-7", "3b-8"}
+
+#: The reasons no served method produces yet, and the stage that brings each.
+#: A reason leaves this table in the commit whose handler raises it.
+LATER = {
+    "DIARY_UNAVAILABLE": "3b-7",
+    "DIARY_REAUTH": "3b-7",
+    "DIARY_CREDENTIALS_REJECTED": "3b-7",
+    "DIARY_NO_STUDENTS": "3b-7",
+    "DIARY_UPSTREAM_UNREADABLE": "3b-7",
+    "CORRECTIONS_UNAVAILABLE": "3b-8",
+}
+```
+  3. In `HELD_BY`, replace:
+```python
+    special_days_service.ShortenedNeedsSchedule: (
+        "test_v2_days.py",
+        "test_a_shortened_day_rings_a_schedule_of_its_own_class_that_rings_something",
+    ),
+```
+     with:
+```python
+    special_days_service.ShortenedNeedsSchedule: (
+        "test_v2_days.py",
+        "test_a_shortened_day_rings_a_schedule_of_its_own_class_that_rings_something",
+    ),
+    substitutions_service.NoLessonOnDay: (
+        "test_v2_substitution_create.py",
+        "test_a_day_that_draws_no_lessons_is_refused_with_why",
+    ),
+    substitutions_service.NoBellForLesson: (
+        "test_v2_substitution_create.py",
+        "test_a_number_the_day_rings_no_bell_for_is_refused",
+    ),
+    substitutions_service.LessonNotOnTimetable: (
+        "test_v2_substitution_create.py",
+        "test_cancelling_or_a_bare_room_where_the_template_has_no_lesson_is_refused",
+    ),
+    substitutions_service.SubstitutionExists: (
+        "test_v2_substitution_create.py",
+        "test_a_lesson_that_already_has_a_substitution_that_day_is_refused_as_existing",
+    ),
+```
+In `server/tests/test_announcements.py`:
+  1. Replace:
+```python
+from app.rpc import homework as rpc_homework
+```
+     with:
+```python
+from app.rpc import homework as rpc_homework
+from app.rpc import substitution as rpc_substitution
+```
+  2. Replace the end of `ANNOUNCED_HERE`:
+```python
+    rpc_day.update_day: "`DayIn.note`, `max_length=500`, as v1's",
+}
+```
+     with:
+```python
+    rpc_day.update_day: "`DayIn.note`, `max_length=500`, as v1's",
+    rpc_substitution._announce: "registers that effect for changes; no text of its own",
+    rpc_substitution.create_substitution: (
+        "subject 120, room 32, teacher 120 and `note` 500: `OverrideIn`'s, as v1's"
+    ),
+}
+```
+Run each file on its own:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_substitution_create.py
+```
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_rpc_errors.py
+```
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_announcements.py
+```
+Expected: `test_v2_substitution_create.py` does not collect, with `ImportError: cannot import name 'SUBSTITUTION_EXISTS' from 'app.rpc.errors'`; `test_rpc_errors.py` gives 2 failed and 13 passed — `test_every_reason_is_produced_or_waits_for_a_later_stage`, since the three reasons have left `LATER` and nothing produces them yet, and `test_every_row_of_the_table_names_the_test_that_reads_it_back`, on the four rows `HELD_BY` names and `TABLE` lacks; and `test_announcements.py` does not collect, with `AttributeError: module 'app.rpc.substitution' has no attribute '_announce'`, which `ANNOUNCED_HERE` reads. Keep this output as the evidence.
+
+- [ ] **Step 2: The table's rows.** In `server/app/rpc/errors.py`:
+  1. Replace:
+```python
+from app.services import schools as schools_service
+```
+     with:
+```python
+from app.services import schools as schools_service
+from app.services import substitutions as substitutions_service
+```
+  2. Replace:
+```python
+HOMEWORK_EXISTS = "this subject already has homework that day; change that one instead"
+```
+     with:
+```python
+HOMEWORK_EXISTS = "this subject already has homework that day; change that one instead"
+
+#: ``CreateSubstitution``'s refusal of a second substitution for one lesson on
+#: one day. v1 has no sentence to share: its ``PUT`` changed the one there.
+SUBSTITUTION_EXISTS = "this lesson already has a substitution that day; change that one instead"
+```
+  3. Replace `_shortened_needs_schedule`:
+```python
+def _shortened_needs_schedule(_error: special_days_service.ShortenedNeedsSchedule) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.SHORTENED_NEEDS_SCHEDULE_DETAIL,
+        violations=[("day.bell_schedule_id", wording.SHORTENED_NEEDS_SCHEDULE_DETAIL)],
+    )
+```
+     with:
+```python
+def _shortened_needs_schedule(_error: special_days_service.ShortenedNeedsSchedule) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.SHORTENED_NEEDS_SCHEDULE_DETAIL,
+        violations=[("day.bell_schedule_id", wording.SHORTENED_NEEDS_SCHEDULE_DETAIL)],
+    )
+
+
+def _no_lesson_on_day(error: substitutions_service.NoLessonOnDay) -> Refusal:
+    # The service's sentence for a person, as TERM_BOUNDS_REFUSED's is: built
+    # from the class's terms and the calendar, never from what was sent.
+    return Refusal(ErrorReason.NO_LESSON_ON_DAY, error.sentence, why=error.why)
+
+
+def _no_bell_for_lesson(error: substitutions_service.NoBellForLesson) -> Refusal:
+    return Refusal(
+        ErrorReason.NO_BELL_FOR_LESSON, wording.no_bell_detail(error.index), index=error.index
+    )
+
+
+def _lesson_not_on_timetable(error: substitutions_service.LessonNotOnTimetable) -> Refusal:
+    return Refusal(
+        ErrorReason.LESSON_NOT_ON_TIMETABLE,
+        wording.lesson_not_on_timetable_detail(error.index, cancelling=error.cancelling),
+        index=error.index,
+    )
+
+
+def _substitution_exists(_error: substitutions_service.SubstitutionExists) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_EXISTS, SUBSTITUTION_EXISTS, resource="substitution", field="index"
+    )
+```
+  4. In `TABLE`, replace:
+```python
+    special_days_service.ShortenedNeedsSchedule: _shortened_needs_schedule,
+}
+```
+     with:
+```python
+    special_days_service.ShortenedNeedsSchedule: _shortened_needs_schedule,
+    substitutions_service.NoLessonOnDay: _no_lesson_on_day,
+    substitutions_service.NoBellForLesson: _no_bell_for_lesson,
+    substitutions_service.LessonNotOnTimetable: _lesson_not_on_timetable,
+    substitutions_service.SubstitutionExists: _substitution_exists,
+}
+```
+
+  These are the first `Refusal`s of `NO_LESSON_ON_DAY`, `NO_BELL_FOR_LESSON` and `LESSON_NOT_ON_TIMETABLE` under `app/rpc`, which is what `test_every_reason_is_produced_or_waits_for_a_later_stage` reads: the three leave `LATER`, and with them the last reasons 3b-6 brings, so `"3b-6"` leaves `STAGES` in this commit (Ruling 100).
+
+- [ ] **Step 3: The create, and its notice.** In `server/app/rpc/substitution.py`:
+  1. Replace the imports Task 4 wrote:
+```python
+from typing import TYPE_CHECKING
+
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.substitution_pb import (
+    GetSubstitutionRequest,
+    GetSubstitutionResponse,
+    ListSubstitutionsRequest,
+    ListSubstitutionsResponse,
+    Substitution,
+    SubstitutionAction,
+)
+from app.models import LessonOverride, OverrideAction
+from app.rpc import dates, values
+from app.rpc.errors import Refusal
+from app.services import clock, substitutions
+```
+     with:
+```python
+from typing import TYPE_CHECKING
+
+from app import telegram_send
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.contract.lessons.v2.substitution_pb import (
+    CreateSubstitutionRequest,
+    CreateSubstitutionResponse,
+    GetSubstitutionRequest,
+    GetSubstitutionResponse,
+    ListSubstitutionsRequest,
+    ListSubstitutionsResponse,
+    Substitution,
+    SubstitutionAction,
+)
+from app.models import LessonOverride, OverrideAction
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.schemas import OverrideIn
+from app.services import clock, substitutions
+```
+  2. Replace:
+```python
+UNKNOWN_SUBSTITUTION = "Unknown substitution"
+```
+     with:
+```python
+UNKNOWN_SUBSTITUTION = "Unknown substitution"
+
+#: What a write reads of a ``Substitution``, as v1's ``OverrideIn`` takes it:
+#: the id is the server's.
+_WRITTEN = ("date", "index", "action", "subject", "room", "teacher", "note")
+
+#: The ``optional`` fields of ``Substitution``: unset reads as ``""``, and
+#: means none.
+_OPTIONAL = frozenset({"subject", "room", "teacher", "note"})
+
+#: An ``action`` left unset, or a number no value of ``SubstitutionAction``
+#: names, which arrives in the binary encoding only. Fixed, naming the field
+#: and never the number. v1 took ``"clear"`` here too, which is
+#: ``DeleteSubstitution`` now.
+ACTION_REFUSED = "action must be replace or cancel"
+```
+  3. Replace `get_substitution`, the file's last lines:
+```python
+async def get_substitution(call: Call, request: GetSubstitutionRequest) -> GetSubstitutionResponse:
+    """One substitution. Writes nothing."""
+    return GetSubstitutionResponse(substitution=_message(await _row(call, request.substitution_id)))
+```
+     with:
+```python
+async def get_substitution(call: Call, request: GetSubstitutionRequest) -> GetSubstitutionResponse:
+    """One substitution. Writes nothing."""
+    return GetSubstitutionResponse(substitution=_message(await _row(call, request.substitution_id)))
+
+
+def _action(value: SubstitutionAction) -> str:
+    """v1's name of the action ``value`` names, or ``VALIDATION_FAILED`` on
+    ``substitution.action``: a substitution replaces a lesson or cancels it,
+    and v1 had no default either."""
+    action = _ACTIONS.get(value)
+    if action is None:
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED,
+            ACTION_REFUSED,
+            violations=[("substitution.action", ACTION_REFUSED)],
+        )
+    return action.value
+
+
+def _sent(substitution: Substitution, field: str) -> object:
+    """What a request says of ``field``, as v1's ``OverrideIn`` takes it:
+    ``None`` for an ``optional`` one it leaves unset, since protobuf-py reads
+    an unset string as ``""``, and the action by v1's name."""
+    if field in _OPTIONAL and not substitution.has_field(field):
+        return None
+    if field == "action":
+        return _action(substitution.action)
+    return getattr(substitution, field)
+
+
+def _announce(call: Call, notice: str) -> None:
+    """Tell the class's subscribers to changes, all but the editor who made
+    it: v1's notice, as an effect (``telegram_send.notify_class``), so that it
+    goes out once the change is committed and never when it is refused."""
+    editor, school_class = call.device_and_class()
+    session, author = call.session, editor.telegram_id
+    call.after_commit(
+        lambda: telegram_send.notify_class(
+            session, school_class, notice, kind="changes", author=author
+        )
+    )
+
+
+async def create_substitution(
+    call: Call, request: CreateSubstitutionRequest
+) -> CreateSubstitutionResponse:
+    """A new substitution, checked by v1's ``OverrideIn``: a date inside the
+    bounds v1 holds a write to, a lesson number from 1 to 20, a replacement
+    with a subject, a room or a teacher, each one line and within v1's
+    lengths, and the subject stored in the class's spelling. A lesson that
+    already has one that day is ``RESOURCE_EXISTS``, where v1's ``PUT``
+    changed it; a day that draws no lessons, a number it rings no bell for,
+    and a cancellation or a bare room or teacher at a number the template
+    leaves empty are refused with their reasons. The id a client sends is
+    ignored. Announced once committed; REST answers 201."""
+    editor, school_class = call.device_and_class()
+    sent = request.substitution if request.substitution is not None else Substitution()
+    form = validate(OverrideIn, {name: _sent(sent, name) for name in _WRITTEN}, at="substitution.")
+    dates.bounded(form.date, "substitution.date")
+    written = await substitutions.create(
+        call.session,
+        school_class,
+        editor.telegram_id,
+        form.date,
+        form.index,
+        {
+            "action": OverrideAction(form.action),
+            "subject": form.subject,
+            "room": form.room,
+            "teacher": form.teacher,
+            "note": form.note,
+        },
+    )
+    _announce(call, written.notice)
+    return CreateSubstitutionResponse(substitution=_message(written.substitution))
+```
+
+  `_announce` passes `call.after_commit` a `lambda`, as Task 3's does.
+
+- [ ] **Step 4: Serve it.** In `server/app/rpc/handlers.py`'s `HANDLERS`, replace:
+```python
+    "lessons.v2.SubstitutionService/GetSubstitution": substitution.get_substitution,
+```
+with:
+```python
+    "lessons.v2.SubstitutionService/CreateSubstitution": substitution.create_substitution,
+    "lessons.v2.SubstitutionService/GetSubstitution": substitution.get_substitution,
+```
+
+- [ ] **Step 5: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_substitution_create.py tests/test_v2_substitutions.py tests/test_rpc_errors.py tests/test_announcements.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_services_substitutions.py tests/test_api_extended.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass.
+- `test_v2_substitution_create.py` has 9; `test_announcements.py` names the two new call sites.
+- `test_rpc_errors.py` holds the four new rows by their tests, `LATER` with no reason of 3b-6's, and `STAGES` without `"3b-6"`; every value left in `LATER` names `"3b-7"` or `"3b-8"`.
+- The gate test and the no-echo sweep each gain one case. The gate test's empty `CreateSubstitution` is refused on its action as the editor, `ROLE_REQUIRED` as the viewer; the sweep's secret in any one field of `substitution` makes no valid create and is refused naming a field, never the value.
+- `test_api_extended.py` and `test_services_substitutions.py` hold v1's `PUT /overrides` over the same service, unchanged.
+
+- [ ] **Step 6: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`.
+
+- [ ] **Step 7: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b6-t5.txt`:
+```text
+Serve a new substitution over v2, and tell the class once it is saved
+
+CreateSubstitution is v1's PUT /overrides without its upsert, through
+substitutions.create: cleaned and checked by v1's OverrideIn, the date
+held to v1's bounds in v1's words, the subject in the class's spelling,
+and its line in the journal. A lesson that already has a substitution
+that day is SubstitutionExists, RESOURCE_EXISTS with resource
+substitution and field index; a twin written in the same instant meets
+the unique constraint inside a savepoint and is refused the same way.
+The three questions join the error table as their own reasons:
+NO_LESSON_ON_DAY with why, the service's sentence; NO_BELL_FOR_LESSON
+and LESSON_NOT_ON_TIMETABLE with the index, in v1's words. An action
+unset, or one no SubstitutionAction names, is refused on its field. REST
+answers 201.
+
+The class is told in v1's words, all but the editor, once the row is
+committed and never on a refusal. The three reasons leave LATER, the
+last 3b-6 brings, so 3b-6 leaves STAGES.
+
+Not covered: Postgres, and a real bot.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/rpc/substitution.py server/app/rpc/errors.py server/app/rpc/handlers.py server/tests/test_v2_substitution_create.py server/tests/test_rpc_errors.py server/tests/test_announcements.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b6-t5.txt
+```
+
+---
+
+### 3b-6 Task 6: `UpdateSubstitution` and `DeleteSubstitution`, what `substitution.proto` says of them, and the batch's one full run
+
+Decisions 2, 4, 10 and 14; Rulings 5, 17, 88, 92, 95, 98 and 99.
+
+**Files:**
+- Create: `server/tests/test_v2_substitution_writes.py`
+- Modify: `proto/lessons/v2/substitution.proto` (comments) and `server/app/contract/**` (regenerated); `server/app/rpc/substitution.py`, `server/app/rpc/handlers.py`, `server/tests/test_announcements.py`
+
+**Interfaces:**
+- Consumes: Task 2's `substitutions.update` and `delete`; Task 4's `_row` and `_message`; Task 5's `_sent`, `_announce` and `ACTION_REFUSED`; v1's `OverrideIn`; `masks.update_paths` and `NOT_CHANGEABLE`.
+- Produces: `substitution.update_substitution`, `substitution.delete_substitution`, `substitution.CHANGEABLE`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_substitution_writes.py`:
+```python
+"""``SubstitutionService``'s changes: ``UpdateSubstitution`` and ``DeleteSubstitution``.
+
+v1 changed a substitution by sending it again (``PUT /overrides``) and took it
+away with ``"clear"``; v2 changes it in place, through
+``substitutions.update``, and deletes it through ``substitutions.delete``. The
+mask is read once, by ``masks.update_paths`` (AIP-134): no mask changes what
+the request sets; a masked subject, room, teacher or note left unset is
+cleared, and a masked action is refused, since a substitution always replaces
+or cancels. A row at a number the day no longer rings stays editable (the 3b
+plan, «Rulings for 3b-6»), but a day that draws no lessons and a lesson the
+template does not have are refused as on a create. Each change is announced
+once committed, in v1's words and never to its author; a change that changes
+nothing writes nothing and tells nobody. A write's success is asked once per
+transport on fresh data, and its refusals through ``both``.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Any
+
+from protobuf.wkt import FieldMask
+from sqlalchemy import select
+
+from app import wording
+from app.contract.lessons.v2.substitution_pb import (
+    CreateSubstitutionRequest,
+    DeleteSubstitutionRequest,
+    GetSubstitutionRequest,
+    Substitution,
+    SubstitutionAction,
+    UpdateSubstitutionRequest,
+)
+from app.db import SessionLocal
+from app.models import AuditEntry, LessonOverride, OverrideAction, SchoolClass
+from app.rpc.masks import NOT_CHANGEABLE
+from app.rpc.substitution import ACTION_REFUSED, UNKNOWN_SUBSTITUTION
+from app.services import clock
+
+UPDATE = "SubstitutionService/UpdateSubstitution"
+DELETE = "SubstitutionService/DeleteSubstitution"
+REPLACE, CANCEL = OverrideAction.REPLACE, OverrideAction.CANCEL
+#: A Monday of the school year: the template has lessons 1 to 3 on a Monday,
+#: and the class's bells ring 1 to 7.
+MONDAY = date(2026, 9, 14)
+#: 14 September, as people read it on Monday the 7th.
+WHEN = "14 сентября (понедельник)"
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _pin_clock(monkeypatch) -> None:
+    monkeypatch.setattr(
+        clock, "now", lambda school_class: datetime(2026, 9, 7, 10, 0, tzinfo=school_class.tz)
+    )
+
+
+async def _substitution(
+    session, school_class, index: int, day: date = MONDAY, **fields: Any
+) -> LessonOverride:
+    row = LessonOverride(
+        class_id=school_class.id,
+        date=day,
+        index=index,
+        action=fields.pop("action", REPLACE),
+        **fields,
+    )
+    session.add(row)
+    await session.commit()
+    return row
+
+
+def _update(substitution_id: int, *paths: str, **fields: Any) -> UpdateSubstitutionRequest:
+    mask = FieldMask(paths=list(paths)) if paths else None
+    return UpdateSubstitutionRequest(
+        substitution=Substitution(id=substitution_id, **fields), update_mask=mask
+    )
+
+
+async def _columns(substitution_id: int) -> tuple[Any, ...]:
+    async with SessionLocal() as fresh:
+        row = await fresh.execute(
+            select(
+                LessonOverride.action,
+                LessonOverride.subject_name,
+                LessonOverride.room,
+                LessonOverride.teacher,
+                LessonOverride.note,
+            ).where(LessonOverride.id == substitution_id)
+        )
+        found = row.one_or_none()
+        return tuple(found) if found is not None else ()
+
+
+async def _lines() -> list[tuple[str, str]]:
+    async with SessionLocal() as fresh:
+        rows = await fresh.execute(
+            select(AuditEntry.action, AuditEntry.summary).order_by(AuditEntry.id)
+        )
+        return [tuple(row) for row in rows]
+
+
+async def test_an_update_without_a_mask_changes_only_what_it_sends(
+    v2, v2_tokens, session, school_class, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    chemistry = await _substitution(
+        session, school_class, 2, subject_name="Химия", room="118", teacher="Иванов", note="x"
+    )
+    physics = await _substitution(session, school_class, 3, subject_name="Физика")
+    editor = v2_tokens["editor"]
+    rest = await v2.rest(UPDATE, _update(chemistry.id, room=" 214 "), token=editor)
+    connect = await v2.connect(UPDATE, _update(physics.id, teacher="Петров"), token=editor)
+    assert (rest.status, connect.status) == (200, 200)
+    assert await _columns(chemistry.id) == (REPLACE, "Химия", "214", "Иванов", "x")
+    assert await _columns(physics.id) == (REPLACE, "Физика", None, "Петров", None)
+    assert connect.message.substitution.teacher == "Петров"
+    v1 = await v2.http.get(
+        "/api/v1/bundle", params={"start": "2026-09-14", "days": 1}, headers=_auth(editor)
+    )
+    lessons = v1.json()["days"][0]["lessons"]
+    assert [(lesson["room"], lesson["teacher"]) for lesson in lessons[1:]] == [
+        ("214", "Иванов"),
+        (None, "Петров"),
+    ]
+    assert await _lines() == [
+        ("override.replace", f"Замена: урок №2, {WHEN} — Химия"),
+        ("override.replace", f"Замена: урок №3, {WHEN} — Физика"),
+    ]
+
+
+async def test_a_masked_field_left_out_is_cleared_but_the_action_is_refused(
+    v2, v2_tokens, session, school_class
+) -> None:
+    row = await _substitution(session, school_class, 2, subject_name="Химия", room="118", note="x")
+    bare = await _substitution(session, school_class, 3, subject_name="Физика")
+    editor = v2_tokens["editor"]
+    cleared = await v2.rest(UPDATE, _update(row.id, "room", "note"), token=editor)
+    assert cleared.status == 200
+    assert await _columns(row.id) == (REPLACE, "Химия", None, None, None)
+    refused = await v2.both(UPDATE, _update(row.id, "action"), token=editor)
+    assert (refused.status, refused.violations) == (
+        400,
+        [("substitution.action", ACTION_REFUSED)],
+    )
+    # A replacement left with no subject, room or teacher draws nothing.
+    emptied = await v2.both(UPDATE, _update(bare.id, "subject"), token=editor)
+    assert (emptied.reason, [name for name, _ in emptied.violations]) == (
+        "VALIDATION_FAILED",
+        ["substitution"],
+    )
+    assert await _columns(bare.id) == (REPLACE, "Физика", None, None, None)
+
+
+async def test_a_row_at_a_number_that_no_longer_rings_stays_editable(
+    v2, v2_tokens, session, school_class
+) -> None:
+    """``UpdateSubstitution`` skips the bell, and ``CreateSubstitution`` keeps
+    it: a row a class can no longer see must stay changeable, which is how it
+    gets out of one (the proto, and the 3b plan, «Rulings for 3b-6»)."""
+    stray = await _substitution(session, school_class, 9, subject_name="Химия")
+    editor = v2_tokens["editor"]
+    changed = await v2.connect(UPDATE, _update(stray.id, room="214"), token=editor)
+    assert (changed.status, changed.message.substitution.room) == (200, "214")
+    created = await v2.both(
+        "SubstitutionService/CreateSubstitution",
+        CreateSubstitutionRequest(
+            substitution=Substitution(
+                date="2026-09-21", index=9, action=SubstitutionAction.REPLACE, subject="Химия"
+            )
+        ),
+        token=editor,
+    )
+    assert (created.reason, created.metadata) == ("NO_BELL_FOR_LESSON", {"index": "9"})
+
+
+async def test_an_update_that_would_leave_nothing_to_draw_is_refused(
+    v2, v2_tokens, session, school_class
+) -> None:
+    """Lesson 7 was added by a substitution at a number the template leaves
+    empty. Cancelling it would strike through nothing, and taking its subject
+    away would leave a teacher over nothing; deleting it is the way out."""
+    added = await _substitution(
+        session, school_class, 7, subject_name="Астрономия", teacher="Иванов"
+    )
+    editor = v2_tokens["editor"]
+    for request, cancelling in (
+        (_update(added.id, action=SubstitutionAction.CANCEL), True),
+        (_update(added.id, "subject"), False),
+    ):
+        refused = await v2.both(UPDATE, request, token=editor)
+        assert (refused.status, refused.reason, refused.metadata) == (
+            400,
+            "LESSON_NOT_ON_TIMETABLE",
+            {"index": "7"},
+        ), cancelling
+        assert refused.error == wording.lesson_not_on_timetable_detail(7, cancelling=cancelling)
+    assert await _columns(added.id) == (REPLACE, "Астрономия", None, "Иванов", None)
+    gone = await v2.rest(DELETE, DeleteSubstitutionRequest(substitution_id=added.id), token=editor)
+    assert (gone.status, await _columns(added.id)) == (200, ())
+
+
+async def test_an_update_on_a_day_that_draws_no_lessons_is_refused(
+    v2, v2_tokens, session, school_class
+) -> None:
+    """A row written before the checks existed, on a summer date: its change
+    would be announced about a lesson nobody can see. Deleting it still
+    works."""
+    summer = await _substitution(
+        session, school_class, 1, day=date(2027, 6, 7), subject_name="Старое"
+    )
+    editor = v2_tokens["editor"]
+    refused = await v2.both(UPDATE, _update(summer.id, subject="Новое"), token=editor)
+    assert (refused.status, refused.reason, refused.metadata) == (
+        400,
+        "NO_LESSON_ON_DAY",
+        {"why": "out_of_year"},
+    )
+    assert await _columns(summer.id) == (REPLACE, "Старое", None, None, None)
+    gone = await v2.connect(
+        DELETE, DeleteSubstitutionRequest(substitution_id=summer.id), token=editor
+    )
+    assert gone.status == 200
+
+
+async def test_an_update_is_announced_after_the_commit_in_v1_s_words(
+    v2, v2_tokens, session, school_class, notices, subscribers, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    row = await _substitution(session, school_class, 2, subject_name="Химия", room="118")
+
+    async def looks() -> Any:
+        async with SessionLocal() as fresh:
+            return await fresh.scalar(
+                select(LessonOverride.action).where(LessonOverride.id == row.id)
+            )
+
+    notices.looks = looks
+    answer = await v2.connect(
+        UPDATE,
+        _update(row.id, "action", "note", action=SubstitutionAction.CANCEL, note="болеет <2>"),
+        token=v2_tokens["editor"],
+    )
+    assert answer.status == 200
+    # A cancellation keeps no subject, room or teacher of its own.
+    assert await _columns(row.id) == (CANCEL, None, None, None, "болеет <2>")
+    notice = f"🚫 Урок №2 {WHEN} отменён.\nболеет &lt;2&gt;"
+    # v1's words, to those who asked to hear about changes but its author,
+    # and only once a session of the bot's own could read the change.
+    assert sorted(notices.sent) == [(7001, notice), (7003, notice)]
+    assert notices.saw == [CANCEL, CANCEL]
+    assert await _lines() == [("override.cancel", f"Урок №2 отменён, {WHEN}")]
+
+
+async def test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody(
+    v2, v2_tokens, session, school_class, notices, subscribers, statement_writes
+) -> None:
+    """A retried update, or one that sends what is there: no line in the
+    journal and no second notice. The call before it touched the phone's last
+    call, so inside the fifteen minutes there is nothing else it may write."""
+    row = await _substitution(session, school_class, 2, subject_name="Химия", room="118")
+    editor = v2_tokens["editor"]
+    await v2.rest(
+        "SubstitutionService/GetSubstitution",
+        GetSubstitutionRequest(substitution_id=row.id),
+        token=editor,
+    )
+    with statement_writes() as seen:
+        same = await v2.both(UPDATE, _update(row.id, subject="Химия", room=" 118 "), token=editor)
+        nothing = await v2.both(UPDATE, _update(row.id), token=editor)
+    assert (same.status, same.message.substitution.room) == (200, "118")
+    assert nothing.message.substitution.subject == "Химия"
+    assert seen == []
+    assert notices.built == 0
+
+
+async def test_deleting_a_substitution_puts_the_lesson_back_and_announces_it(
+    v2, v2_tokens, session, school_class, notices, subscribers, monkeypatch
+) -> None:
+    _pin_clock(monkeypatch)
+    first = await _substitution(session, school_class, 2, action=CANCEL)
+    second = await _substitution(session, school_class, 3, action=CANCEL)
+    editor = v2_tokens["editor"]
+    rest = await v2.rest(DELETE, DeleteSubstitutionRequest(substitution_id=first.id), token=editor)
+    connect = await v2.connect(
+        DELETE, DeleteSubstitutionRequest(substitution_id=second.id), token=editor
+    )
+    assert (rest.status, rest.body, connect.status) == (200, b"{}", 200)
+    v1 = await v2.http.get(
+        "/api/v1/bundle", params={"start": "2026-09-14", "days": 1}, headers=_auth(editor)
+    )
+    assert [lesson["is_cancelled"] for lesson in v1.json()["days"][0]["lessons"]] == [
+        False,
+        False,
+        False,
+    ]
+    assert await _lines() == [
+        ("override.clear", f"Замена снята: урок №2, {WHEN}"),
+        ("override.clear", f"Замена снята: урок №3, {WHEN}"),
+    ]
+    assert sorted(text for _, text in notices.sent) == [
+        f"♻️ Урок №2 {WHEN} снова идёт по расписанию.",
+        f"♻️ Урок №2 {WHEN} снова идёт по расписанию.",
+        f"♻️ Урок №3 {WHEN} снова идёт по расписанию.",
+        f"♻️ Урок №3 {WHEN} снова идёт по расписанию.",
+    ]
+    again = await v2.both(DELETE, DeleteSubstitutionRequest(substitution_id=first.id), token=editor)
+    assert (again.status, again.reason, again.error) == (
+        404,
+        "RESOURCE_NOT_FOUND",
+        UNKNOWN_SUBSTITUTION,
+    )
+    assert notices.built == 2
+
+
+async def test_a_substitution_of_another_class_can_be_neither_changed_nor_deleted(
+    v2, v2_tokens, session, notices, subscribers
+) -> None:
+    other = SchoolClass(name="10Б", join_code="OTHER1")
+    session.add(other)
+    await session.flush()
+    foreign = LessonOverride(
+        class_id=other.id, date=MONDAY, index=2, action=REPLACE, subject_name="Химия"
+    )
+    session.add(foreign)
+    await session.commit()
+    for name, request in (
+        (UPDATE, _update(foreign.id, room="214")),
+        (DELETE, DeleteSubstitutionRequest(substitution_id=foreign.id)),
+    ):
+        answer = await v2.both(name, request, token=v2_tokens["editor"])
+        assert (answer.status, answer.reason, answer.metadata) == (
+            404,
+            "RESOURCE_NOT_FOUND",
+            {"resource": "substitution"},
+        ), name
+        assert answer.error == UNKNOWN_SUBSTITUTION
+    assert await _columns(foreign.id) == (REPLACE, "Химия", None, None, None)
+    assert notices.built == 0
+
+
+async def test_a_mask_naming_a_field_the_method_does_not_change_is_refused_on_it(
+    v2, v2_tokens, session, school_class
+) -> None:
+    row = await _substitution(session, school_class, 2, subject_name="Химия")
+    for path in ("date", "index", "id"):
+        answer = await v2.both(UPDATE, _update(row.id, path, room="214"), token=v2_tokens["editor"])
+        assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED"), path
+        assert answer.violations == [("update_mask", NOT_CHANGEABLE)]
+    assert await _columns(row.id) == (REPLACE, "Химия", None, None, None)
+```
+In `server/tests/test_announcements.py`, replace the end of `ANNOUNCED_HERE`:
+```python
+    rpc_substitution.create_substitution: (
+        "subject 120, room 32, teacher 120 and `note` 500: `OverrideIn`'s, as v1's"
+    ),
+}
+```
+with:
+```python
+    rpc_substitution.create_substitution: (
+        "subject 120, room 32, teacher 120 and `note` 500: `OverrideIn`'s, as v1's"
+    ),
+    rpc_substitution.update_substitution: "the same fields, held by `OverrideIn` as on a create",
+    rpc_substitution.delete_substitution: "a lesson number and a date",
+}
+```
+Run each file on its own:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_substitution_writes.py
+```
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_announcements.py
+```
+Expected: `test_v2_substitution_writes.py` gives 10 failed, every one because both methods answer `UNIMPLEMENTED`, `501` over REST; `test_announcements.py` does not collect, with `AttributeError: module 'app.rpc.substitution' has no attribute 'update_substitution'`. Keep this output as the evidence.
+
+- [ ] **Step 2: The update and the delete.** In `server/app/rpc/substitution.py`:
+  1. Replace, in the imports Task 5 wrote:
+```python
+from app.contract.lessons.v2.substitution_pb import (
+    CreateSubstitutionRequest,
+    CreateSubstitutionResponse,
+    GetSubstitutionRequest,
+    GetSubstitutionResponse,
+    ListSubstitutionsRequest,
+    ListSubstitutionsResponse,
+    Substitution,
+    SubstitutionAction,
+)
+from app.models import LessonOverride, OverrideAction
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.schemas import OverrideIn
+```
+     with:
+```python
+from app.contract.lessons.v2.substitution_pb import (
+    CreateSubstitutionRequest,
+    CreateSubstitutionResponse,
+    DeleteSubstitutionRequest,
+    DeleteSubstitutionResponse,
+    GetSubstitutionRequest,
+    GetSubstitutionResponse,
+    ListSubstitutionsRequest,
+    ListSubstitutionsResponse,
+    Substitution,
+    SubstitutionAction,
+    UpdateSubstitutionRequest,
+    UpdateSubstitutionResponse,
+)
+from app.models import LessonOverride, OverrideAction
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.rpc.masks import update_paths
+from app.schemas import OverrideIn
+```
+  2. Replace:
+```python
+#: The ``optional`` fields of ``Substitution``: unset reads as ``""``, and
+#: means none.
+_OPTIONAL = frozenset({"subject", "room", "teacher", "note"})
+```
+     with:
+```python
+#: The ``optional`` fields of ``Substitution``: unset reads as ``""``, and
+#: means none.
+_OPTIONAL = frozenset({"subject", "room", "teacher", "note"})
+
+#: What ``update_mask`` may name, and nothing more: the proto comment's list.
+#: The date and the number are the row.
+CHANGEABLE = ("action", "subject", "room", "teacher", "note")
+```
+  3. Replace the end of `create_substitution`, the file's last lines:
+```python
+    _announce(call, written.notice)
+    return CreateSubstitutionResponse(substitution=_message(written.substitution))
+```
+     with:
+```python
+    _announce(call, written.notice)
+    return CreateSubstitutionResponse(substitution=_message(written.substitution))
+
+
+async def update_substitution(
+    call: Call, request: UpdateSubstitutionRequest
+) -> UpdateSubstitutionResponse:
+    """Change a substitution's action, subject, room, teacher or note, checked
+    by v1's ``OverrideIn`` over the row as it would stand: v1 changed one by
+    sending it again.
+
+    The mask is read once, by ``masks.update_paths``: without one, what the
+    request sets changes and nothing else. A masked subject, room, teacher or
+    note left unset is cleared, and a masked action left unset is refused,
+    since a substitution always replaces or cancels; a cancellation keeps no
+    subject, room or teacher. A replacement left with none of the three is
+    refused on ``substitution``. A row at a number the day no longer rings
+    stays editable, which is how a class gets out of one, but a day that
+    draws no lessons and a lesson the template does not have are refused as
+    on a create. Announced once committed, in v1's words; an update that
+    changes nothing writes nothing and tells nobody.
+    """
+    editor, school_class = call.device_and_class()
+    sent = request.substitution if request.substitution is not None else Substitution()
+    paths = update_paths(request.update_mask, request.substitution, CHANGEABLE)
+    row = await _row(call, sent.id)
+    if not paths:
+        return UpdateSubstitutionResponse(substitution=_message(row))
+    stored = {
+        "date": row.date,
+        "index": row.index,
+        "action": row.action.value,
+        "subject": row.subject_name,
+        "room": row.room,
+        "teacher": row.teacher,
+        "note": row.note,
+    }
+    sent_fields = {name: _sent(sent, name) for name in paths}
+    form = validate(OverrideIn, {**stored, **sent_fields}, at="substitution.")
+    changes = {name: getattr(form, name) for name in paths}
+    if "action" in changes:
+        changes["action"] = OverrideAction(changes["action"])
+    written = await substitutions.update(
+        call.session, school_class, editor.telegram_id, row, changes
+    )
+    if written.notice is not None:
+        _announce(call, written.notice)
+    return UpdateSubstitutionResponse(substitution=_message(row))
+
+
+async def delete_substitution(
+    call: Call, request: DeleteSubstitutionRequest
+) -> DeleteSubstitutionResponse:
+    """Delete a substitution, which puts the lesson back on the timetable:
+    v1's ``PUT /overrides`` with ``clear``. Asked again, it is
+    ``RESOURCE_NOT_FOUND``, where v1's ``clear`` answered as the first time
+    did; either way the class is told once. Announced once committed, in
+    v1's words."""
+    editor, school_class = call.device_and_class()
+    row = await _row(call, request.substitution_id)
+    notice = await substitutions.delete(call.session, school_class, editor.telegram_id, row)
+    _announce(call, notice)
+    return DeleteSubstitutionResponse()
+```
+
+- [ ] **Step 3: Serve them.** In `server/app/rpc/handlers.py`'s `HANDLERS`, replace:
+```python
+    "lessons.v2.SubstitutionService/CreateSubstitution": substitution.create_substitution,
+    "lessons.v2.SubstitutionService/GetSubstitution": substitution.get_substitution,
+    "lessons.v2.SubstitutionService/ListSubstitutions": substitution.list_substitutions,
+```
+with:
+```python
+    "lessons.v2.SubstitutionService/CreateSubstitution": substitution.create_substitution,
+    "lessons.v2.SubstitutionService/DeleteSubstitution": substitution.delete_substitution,
+    "lessons.v2.SubstitutionService/GetSubstitution": substitution.get_substitution,
+    "lessons.v2.SubstitutionService/ListSubstitutions": substitution.list_substitutions,
+    "lessons.v2.SubstitutionService/UpdateSubstitution": substitution.update_substitution,
+```
+
+- [ ] **Step 4: What `substitution.proto` says of them** (Rulings 88 and 99). In `proto/lessons/v2/substitution.proto`:
+  1. Replace the comment on `UpdateSubstitution`:
+```protobuf
+  // `update_mask` takes action, subject, room, teacher and note; the date and
+  // the number are the row. A row at a number that no longer rings stays
+  // editable, which is how a class gets out of one.
+```
+     with:
+```protobuf
+  // `update_mask` takes action, subject, room, teacher and note; the date and
+  // the number are the row. A path whose field is absent clears it, which
+  // the action cannot be; a cancellation keeps no subject, room or teacher.
+  // A row at a number that no longer rings stays editable, which is how a
+  // class gets out of one; NO_LESSON_ON_DAY and LESSON_NOT_ON_TIMETABLE are
+  // asked as on a create. Announced to the class's subscribers, unless
+  // nothing changed.
+```
+  2. Replace the comment on `DeleteSubstitution`:
+```protobuf
+  // The lesson goes back to the timetable. v1: PUT /overrides with "clear".
+```
+     with:
+```protobuf
+  // The lesson goes back to the timetable. v1: PUT /overrides with "clear".
+  // Announced to the class's subscribers.
+```
+
+  Then, from `$WT`:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe lint && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe generate && git status --short server/app/contract
+```
+  Expected: `buf lint` prints nothing; `git status` names one file, `server/app/contract/lessons/v2/substitution_connect.py`, whose four docstrings of `update_substitution` and four of `delete_substitution` change. Then:
+```bash
+bash C:/Users/lumen/.claude/jobs/c9e2d980/tmp/breaking3b6.sh
+```
+  Expected: `exit=0`.
+
+- [ ] **Step 5: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_substitution_writes.py tests/test_v2_substitution_create.py tests/test_v2_substitutions.py tests/test_services_substitutions.py tests/test_announcements.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_rpc_masks.py tests/test_rpc_errors.py tests/test_contract.py tests/test_contract_mirror.py tests/test_contract_json.py tests/test_api_extended.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass.
+- `test_v2_substitution_writes.py` has 10; `test_announcements.py` names the two new call sites.
+- The gate test and the no-echo sweep each gain two cases. An empty `UpdateSubstitution` reaches `/api/v2/class/substitutions/0`, reads no path, and is `RESOURCE_NOT_FOUND` at the lookup; an empty `DeleteSubstitution` is the same. The sweep's secret in `updateMask` is a path the method does not take, refused without being repeated.
+- `test_contract_mirror.py` holds `Substitution` level with `OverrideIn` and `OverrideOut`, unchanged, and `test_contract.py` reads the regenerated file's bindings as before.
+
+`HANDLERS` now holds every method of `DayService` and `SubstitutionService`, and v2 answers sixty-one methods, beside `WatchClass`'s refusal.
+
+- [ ] **Step 6: Gates, and the batch's one full run.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`. Then the controller runs the full suite once, alone — nothing else running, no Gradle, no second test process:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -n 4
+```
+Expected: `2996 passed`, and its time, which Task 7 writes down. If the count is not 2996, find the test file that moved before anything else.
+
+- [ ] **Step 7: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b6-t6.txt`:
+```text
+Serve changing and deleting a substitution over v2
+
+UpdateSubstitution changes a substitution in place, where v1 changed
+one by sending it again, through substitutions.update: its mask read
+once by masks.update_paths, the row as it would stand checked by v1's
+OverrideIn. Without a mask, what the request sets changes; a masked
+subject, room, teacher or note left unset is cleared, a masked action
+refused, and a replacement left with no subject, room or teacher is
+refused on substitution. A row at a number the day no longer rings
+stays editable, which is how a class gets out of one, while a day that
+draws no lessons and a lesson the template does not have are refused as
+on a create. A change is announced in v1's words; one that changes
+nothing writes no line and tells nobody.
+
+DeleteSubstitution is v1's clear through substitutions.delete: the
+lesson goes back on the timetable, the class is told in v1's words, and
+the same id again is RESOURCE_NOT_FOUND.
+
+substitution.proto says all of this in comments; only
+substitution_connect.py's docstrings are regenerated. With these,
+DayService and SubstitutionService are served whole, and v2 answers
+sixty-one methods.
+
+Not covered: two editors changing one substitution at once; the last
+write wins, as it does for every row here that carries no version.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add proto/lessons/v2/substitution.proto server/app/contract server/app/rpc/substitution.py server/app/rpc/handlers.py server/tests/test_v2_substitution_writes.py server/tests/test_announcements.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b6-t6.txt
+```
+
+---
+
+### 3b-6 Task 7: The documents, the counts, the HANDOVER close-out, and production after the merge
+
+**Files:**
+- Modify: `docs/api.md`, `docs/README.md`, `docs/architecture.md`, `docs/bot.md`, `CLAUDE.md`, `README.md`, `.claude/agents/server-api.md`, `CONTRIBUTING.md`, `.claude/skills/gates/SKILL.md`, `.claude/agents/server-tests.md`, `HANDOVER.md`, `docs/history.md`
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b6.py`. 3b-3's `counts3b2_3b3.py` and `scan_heads_3b3.py`, in the same folder, whose root is this worktree already, are used again as they are.
+
+**Interfaces:**
+- Consumes:
+  - Tasks 1 to 6, and the numbers of Task 6's full run;
+  - the documents as #380's merge leaves them: «fifty-four methods», the counts 2927 and 235, and `HANDOVER.md` with its two batch sections, #380's and #379's;
+  - what followed #380's merge, which the controller hands over at Step 8 for the slot `[AFTER-380]`;
+  - this pull request's number, `#PR`, which exists only once the controller opens it (Step 7), and `#382` and `#383`.
+- Produces: documents that are true at the moment the pull request merges, and the post-merge read.
+
+The anchors below are `801a350`'s. If a line has moved, read it as it stands and apply the same change to it.
+
+- [ ] **Step 1: Red: the documents still describe 3b-5.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b6.py`:
+```python
+"""Which documents do not yet say what 3b-6 serves (3b-6, Task 7)."""
+
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
+    "C:/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230"
+)
+SAID = {
+    "docs/api.md": [
+        "sixty-one of its methods so far",
+        "**Served beside v1, sixty-one methods so far.**",
+        "### Days and substitutions",
+        "`UpdateDay` clears `note` and `bell_schedule_id`",
+        "`resource: \"day\"`",
+    ],
+    "docs/README.md": ["served beside v1, sixty-one methods so far"],
+    "README.md": ["| v2 over REST and Connect | sixty-one methods served beside v1"],
+    "docs/architecture.md": [
+        "a day's mark and a\nsubstitution's three questions",
+        "3b-5's and 3b-6's tell the class",
+    ],
+    "docs/bot.md": ["(`services/substitutions.py`) stand in front of both"],
+    "CLAUDE.md": [
+        "`manage/special_days.py`'s `put_day`",
+        "`substitutions.py` (the three questions",
+        "and the date a day is named by",
+        "`special_days.put_day`, the one write v1, v2 and the bot mark a day through",
+    ],
+    ".claude/agents/server-api.md": ["`services/substitutions.py`, which"],
+}
+STALE_IN = ["docs/api.md", "docs/README.md", "README.md", "docs/architecture.md", "CLAUDE.md"]
+STALE = re.compile(r"fifty-four (?:of its )?methods|api/edit\.day_put|`edit\.day_put` and")
+
+problems = []
+for name, phrases in SAID.items():
+    text = (ROOT / name).read_bytes().decode("utf-8").replace("\r\n", "\n")
+    problems += [f"{name}: missing {phrase!r}" for phrase in phrases if phrase not in text]
+for name in STALE_IN + [".claude/agents/server-api.md"]:
+    text = (ROOT / name).read_bytes().decode("utf-8").replace("\r\n", "\n")
+    problems += [f"{name}: still says {match.group(0)!r}" for match in STALE.finditer(text)]
+print("\n".join(problems) or "the documents say what 3b-6 serves")
+sys.exit(1 if problems else 0)
+```
+and run it:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b6.py
+```
+Expected: exit 1, with fifteen `missing` lines — the phrases of the seven documents — and six `still says` lines: `docs/api.md` twice, `docs/README.md`, `README.md`, `CLAUDE.md` (`api/edit.day_put`) and `.claude/agents/server-api.md` (`` `edit.day_put` and``) once each. Keep this output as the evidence.
+
+- [ ] **Step 2: `docs/api.md`.**
+  1. In the opening, replace:
+```markdown
+fifty-four of its methods so far: «v2: the contract», at the end of this page.
+```
+     with:
+```markdown
+sixty-one of its methods so far: «v2: the contract», at the end of this page.
+```
+  2. Under «v2: the contract», replace:
+```markdown
+**Served beside v1, fifty-four methods so far.** Everything above this section is v1, and
+v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
+checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+[the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
+([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
+Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+`ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
+`DirectoryService` methods (3b-3); the other eleven `MeService` methods, a phone's own
+(3b-4); and the five `HomeworkService` methods and the five `EventService` methods (3b-5).
+Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
+```
+     with:
+```markdown
+**Served beside v1, sixty-one methods so far.** Everything above this section is v1, and
+v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
+checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+[the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
+([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
+Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+`ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
+`DirectoryService` methods (3b-3); the other eleven `MeService` methods, a phone's own
+(3b-4); the five `HomeworkService` methods and the five `EventService` methods (3b-5); and
+the two `DayService` methods and the five `SubstitutionService` methods (3b-6).
+Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
+```
+  3. Under «Paging and updating», at the end of «An `Update…`», replace:
+```markdown
+  `starts_at`, `ends_at` or `title`. An update of either that changes nothing writes nothing
+  and tells nobody.
+```
+     with:
+```markdown
+  `starts_at`, `ends_at` or `title`. An update of either that changes nothing writes nothing
+  and tells nobody.
+  `UpdateDay` clears `note` and `bell_schedule_id` when they are masked and left unset — the
+  schedule refused on a shortened day, which would ring the default — and refuses `kind` so;
+  `UpdateSubstitution` clears `subject`, `room`, `teacher` and `note`, and refuses `action`.
+  Each checks the resource as it would stand, so a field the mask leaves alone is held too:
+  a substitution left with no subject, room or teacher is refused on `substitution`, and a
+  self-study day changes from v2 only into a kind v2 writes. As for the homework and the
+  events, an update that changes nothing writes nothing and tells nobody.
+```
+  4. At the end of «Homework and events», replace:
+```markdown
+  Deleting an assignment takes every tick on it with it, and a task made from it keeps
+  itself without the link.
+```
+     with:
+```markdown
+  Deleting an assignment takes every tick on it with it, and a task made from it keeps
+  itself without the link.
+
+### Days and substitutions
+
+- **Every date has a kind.** `GetDay` answers a date nobody marked as `DAY_KIND_NORMAL`, never
+  `NOT_FOUND`, and a date the bot marked «самоподготовка» or «отгул» as `DAY_KIND_SELF_STUDY` or
+  `DAY_KIND_DAY_OFF`. `UpdateDay` changes a mark, and with `allow_missing` makes one, which is
+  an upsert by date; without it, a date nobody marked is `RESOURCE_NOT_FOUND` with
+  `resource: "day"`. `DAY_KIND_NORMAL` takes a mark off, and on a date with none, with
+  `allow_missing`, writes nothing and tells nobody. v2 writes the kinds v1 wrote — normal,
+  holiday, shortened and remote — and refuses the other two on `day.kind`: they are the bot's.
+- **A shortened day rings a schedule of its own class that rings something.** Another class's
+  schedule, or none on a shortened day, is `VALIDATION_FAILED` on `day.bell_schedule_id`, and a
+  schedule with no rows is `EMPTY_BELL_SCHEDULE`, each in v1's words.
+- **One substitution per lesson per day, and no upsert.** `CreateSubstitution` refuses a lesson
+  that already has one that day with `RESOURCE_EXISTS` (`resource: "substitution"`,
+  `field: "index"`), where v1's `PUT /overrides` changed it; `UpdateSubstitution` changes one;
+  `DeleteSubstitution` puts the lesson back on the timetable, v1's `"clear"`.
+- **A substitution nobody would see is refused with its reason**, in v1's words:
+  `NO_LESSON_ON_DAY` on a day that draws no lessons, with `why` — `"out_of_year"`,
+  `"between_terms"`, `"public_holiday"` or `"marked_day_off"`; `NO_BELL_FOR_LESSON` at a number
+  the day rings no bell for, with `index`, asked of a new substitution only, so that one at a
+  number that no longer rings stays editable and deletable; and `LESSON_NOT_ON_TIMETABLE`, with
+  `index`, for cancelling a lesson the day's template does not have, or replacing one without a
+  subject of its own. The bot asks the same three questions, through the same service.
+- **Who may.** Every method of both services is an editor's, the reads included, as the
+  contract has them. `ListSubstitutions` reads its window as `ListHomework` does.
+- **The class is told**, those who asked to hear about changes and never the author, in v1's
+  words, once the change is committed and never when it is refused.
+```
+
+- [ ] **Step 3: `docs/README.md`, `README.md`, `docs/architecture.md` and `docs/bot.md`.**
+  1. In `docs/README.md`'s row for `api.md`, replace:
+```markdown
+served beside v1, fifty-four methods so far
+```
+     with:
+```markdown
+served beside v1, sixty-one methods so far
+```
+  2. In `README.md`'s «Honest status», replace the row:
+```markdown
+| v2 over REST and Connect | fifty-four methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), and the homework and the events, whose notices to the class go out after the commit (3b-5), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+```
+     with:
+```markdown
+| v2 over REST and Connect | sixty-one methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), the homework and the events, whose notices to the class go out after the commit (3b-5), and the days and the substitutions, told to the class the same way (3b-6), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+```
+  3. In `docs/architecture.md`, under «v2: one invoke behind two transports», replace:
+```markdown
+toggled, then the homework's and the events' writes, each with its line in the journal and
+its notice, and the window a list of the class's days covers — and the
+```
+     with:
+```markdown
+toggled, then the homework's and the events' writes, each with its line in the journal and
+its notice, and the window a list of the class's days covers, then a day's mark and a
+substitution's three questions, each one write the bot makes through too — and the
+```
+     and replace:
+```markdown
+is refused. 3b-5's tell the class: a homework or an event written over v2 is announced to the
+class's subscribers through `telegram_send.notify_class`, in v1's words and never to its
+```
+     with:
+```markdown
+is refused. 3b-5's and 3b-6's tell the class: a homework, an event, a day's mark or a
+substitution written over v2 is announced to the class's subscribers through
+`telegram_send.notify_class`, in v1's words and never to its
+```
+  4. In `docs/bot.md`, where the paste grammar's guards end, replace:
+```markdown
+  «⏱ Сокращённый день» cannot be pointed at a bell schedule with no rows in
+  it: such a day would draw nothing at all under a card announcing shortened
+  lessons.
+```
+     with:
+```markdown
+  «⏱ Сокращённый день» cannot be pointed at a bell schedule with no rows in
+  it: such a day would draw nothing at all under a card announcing shortened
+  lessons. A class whose own bells ring nothing is told to fill «🔔 Звонки» in
+  before it marks one, because the day would start on them.
+```
+     and, in the editor's flows, replace:
+```markdown
+* **🔄 Замены** — pick a day and a lesson, then either send the replacement
+  (`Физика, 214`), cancel the lesson, or restore it to the template. The weekly
+  template is never mutated for a one-off change.
+```
+     with:
+```markdown
+* **🔄 Замены** — pick a day and a lesson, then either send the replacement
+  (`Физика, 214`), cancel the lesson, or restore it to the template. The weekly
+  template is never mutated for a one-off change. A lesson a substitution added
+  at a number the template leaves empty is taken away with «♻️ Вернуть по
+  расписанию», not cancelled: there is nothing under it to strike through, and
+  the bot says so, as the API does — the same three questions
+  (`services/substitutions.py`) stand in front of both.
+```
+
+- [ ] **Step 4: `CLAUDE.md` and the `server-api` agent.**
+  1. In `CLAUDE.md`'s `services/` bullet, replace:
+```markdown
+  `create`, `update` and `delete` (one assignment per subject per day, its line and its
+  notice), `events.py` (what an event stands in for when nobody says, its line and its
+  notice), `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
+```
+     with:
+```markdown
+  `create`, `update` and `delete` (one assignment per subject per day, its line and its
+  notice), `events.py` (what an event stands in for when nobody says, its line and its
+  notice), `manage/special_days.py`'s `put_day` (the one write of a day's mark, which v1,
+  v2 and the bot make, its line and its notice through `set_day` and `update_day`),
+  `substitutions.py` (the three questions a substitution is asked, as facts, its line and
+  its notice), `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
+```
+  2. In the same bullet, replace:
+```markdown
+  import's, the zone's, the access requests', the directory's, the tasks', the ticks', the
+  homework's and the events' refusals, and the notices to the class) are
+```
+     with:
+```markdown
+  import's, the zone's, the access requests', the directory's, the tasks', the ticks', the
+  homework's, the events', the days' and the substitutions' refusals, and the notices to the
+  class) are
+```
+  3. In the `rpc/` bullet, replace:
+```markdown
+  table), `masks.py` (one reading of an `update_mask`, AIP-134), `dates.py` (a list's window
+  and a written date's bound, read as v1 reads them) and `handlers.py` (which methods are
+  served). A handler never commits and never
+```
+     with:
+```markdown
+  table), `masks.py` (one reading of an `update_mask`, AIP-134), `dates.py` (a list's window,
+  a written date's bound, and the date a day is named by, read as v1 reads them) and
+  `handlers.py` (which methods are served). A handler never commits and never
+```
+  4. In «A lesson number needs a bell of its own number, everywhere a lesson is written», replace:
+```markdown
+  separately: the week import, the button editor, and — later — the substitution
+  (`api/edit.py`, `bot/handlers/content/overrides.py`) and the bot's single-day
+```
+     with:
+```markdown
+  separately: the week import, the button editor, and — later — the substitution
+  (`api/edit.py` and `bot/handlers/content/overrides.py` then, and
+  `services/substitutions.py`, which v1, v2 and the bot all ask, now) and the bot's single-day
+```
+     and replace:
+```markdown
+  which draws nothing at all under a card saying «⏱ Сокращённые уроки» — both
+  `api/edit.day_put` and the bot refuse that now. And when you report what was
+```
+     with:
+```markdown
+  which draws nothing at all under a card saying «⏱ Сокращённые уроки» —
+  `special_days.put_day`, the one write v1, v2 and the bot mark a day through,
+  refuses that now. And when you report what was
+```
+  5. In `.claude/agents/server-api.md`, replace:
+```markdown
+- **A lesson number needs a bell of its own number.** `edit.day_put` and the substitution path
+  must check `timetable_edit.can_ring`, and a dated write must use `rung_indexes_on`,
+  because a shortened day points at a shorter schedule. A row at a number the day does
+  not ring is stored and drawn nowhere. `day_put` also refuses a bell schedule with no rows.
+```
+     with:
+```markdown
+- **A lesson number needs a bell of its own number.** `services/substitutions.py`, which
+  `edit.override_put`, v2's `SubstitutionService` and the bot all ask, checks
+  `timetable_edit.can_ring` against `rung_indexes_on` for a new row, because a shortened day
+  points at a shorter schedule. A row at a number the day does not ring is stored and drawn
+  nowhere. `special_days.put_day`, behind `edit.day_put`, also refuses a bell schedule with
+  no rows.
+```
+
+- [ ] **Step 5: Green: the documents, and what the tests read of them.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b6.py
+```
+Expected: `the documents say what 3b-6 serves`, exit 0. Then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_rpc_errors.py tests/test_schema_version.py tests/test_ci_paths.py tests/test_contract.py tests/test_rest.py tests/test_api_docs.py tests/test_bot_commands.py
+```
+Expected: all pass. `test_rpc_errors.py` reads `docs/api.md`'s status table, `test_schema_version.py` every document that names the schema, this plan included, and `test_bot_commands.py` `docs/bot.md`'s commands. Then 3b-3's head scan:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/scan_heads_3b3.py
+```
+Expected: the last line names `0019` alone, and no line names `docs/specs/`.
+
+- [ ] **Step 6: The gates, and their numbers everywhere.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe -m mypy
+```
+Expected: `All checks passed!`, and `Success: no issues found in 238 source files`. The suite is not run again: Task 6's run is the batch's one, and nothing but documents has changed since it, whose tests Step 5 ran. Then 3b-3's script, which takes the four numbers, the old count first:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/counts3b2_3b3.py 2927 NEW_TESTS 235 238
+```
+(with Task 6's count for `NEW_TESTS`: `2996` if nothing else moved). Expected: `written`. These are the seven places the `handover` skill names; the batch sections' own counts in `HANDOVER.md` are records of their commits, and they stay.
+
+- [ ] **Step 7: Commit the documents, and the controller opens the pull request.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b6-t7.txt`:
+```text
+Describe the sixty-one v2 methods served, and the counts from the run
+
+docs/api.md's «v2: the contract» names what 3b-6 serves, says what
+UpdateDay and UpdateSubstitution do with a masked field left unset, and
+a new «Days and substitutions» says that every date has a kind, what
+allow_missing means, which kinds v2 writes, where v2 parts from v1's
+upsert, the three reasons a substitution nobody would see is refused
+with, who may, and when the class is told. CLAUDE.md,
+docs/architecture.md and the server-api agent name the write a day's
+mark goes through and the service a substitution's three questions live
+in, which v1, v2 and the bot share; docs/bot.md says what the bot now
+refuses. The counts are the run's own, in the seven places that carry
+them.
+
+Not covered: HANDOVER.md's close-out, written once the pull request has
+a number.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add docs/api.md docs/README.md docs/architecture.md docs/bot.md CLAUDE.md README.md .claude/agents/server-api.md CONTRIBUTING.md .claude/skills/gates/SKILL.md .claude/agents/server-tests.md HANDOVER.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b6-t7.txt
+```
+The controller pushes and opens the pull request (the `github-pr` skill), from `server-v2/3b-6` to `main`, on milestone 11, with its board item filled as the skill says. Its body says `Closes #382` and `Closes #383`, each on its own line, refers to #273, and says that no revision goes with it and that `day.proto`, `errors.proto` and `substitution.proto` change in comments only. Write the number it gets down as `#PR`.
+
+- [ ] **Step 8: The HANDOVER close-out** (the `handover` skill, «What goes stale mechanically»). Write it while the pull request is open. Read `HANDOVER.md`'s batch sections first: after #380's merge they are #380's and #379's.
+  1. **The chain of batch sections.**
+     - The section titled «## What the session before it added: on SQLite a savepoint behaves as it does on Postgres (#373, #354)», with all its subsections, moves verbatim to the top of `docs/history.md`, directly under the `---` that closes the file's introduction, retitled «## What the batch before added: …»; its subsections keep their titles. A sentence in it that says «section 5» or «above» now names `HANDOVER.md`, as the skill says.
+     - The section titled «## What the last session added: homework and events over v2, …» becomes «## What the session before it added: …», with its subsections. Its first sentence, «Open as #380, from `server-v2/3b-5` to `main`, …», becomes «Merged as #380 (`801a350`, <date>), from `server-v2/3b-5`, on milestone 11.», with the date read from `gh pr view 380`.
+  2. **The new section**, above it, with the run's numbers, the real SHAs and the numbers in place of the bracketed words and the placeholders:
+```markdown
+## What the last session added: days and substitutions over v2, one rule for the bot, v1 and v2 — stage 3b-6 of sub-project 3 (#273)
+
+Open as #PR, from `server-v2/3b-6` to `main`, on milestone 11, and on project 6. It closes
+#382 and #383, and refers to #273. The branch was cut from `main` at `801a350`, the merge of
+#380, and carries [the number of] commits before this close-out, to `[short SHA]`. Written on
+[date]. No revision goes with it: the schema stays at `0019`. This is stage 3b-6 of
+`docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the
+next. v1 answers as before, but for the race it answered with a 500; v2 now answers sixty-one
+methods.
+
+- **A day's mark is one write.** `special_days.put_day` holds the checks v1's `PUT /days` held
+  in its router — a schedule the day names is this class's and rings something, and a
+  shortened day names one — as facts each shell words. v1 calls it through `set_day`, v2
+  through `update_day`, and the bot's «🏖 Особые дни» for every mark it writes, where
+  `special_days.mark` asked none of the three. A class whose bells ring nothing can no longer
+  be marked shortened from the bot.
+- **A substitution's three questions are asked once**, in `services/substitutions.py`: whether
+  the day draws lessons, with the reason `timetable_edit.no_lessons_on` now answers beside its
+  sentence; whether it rings the number, of a new row only; and whether a lesson is underneath.
+  v1's `PUT /overrides` and the bot's «🔄 Замены» both ask them; the bot never asked the third.
+- **Two defects filed and fixed here:**
+  - #382: two phones writing one date's mark, or one lesson's substitution, at the same moment
+    — the second answered 500. Both writes insert inside a savepoint now, and the loser becomes
+    the change it would have been a moment later.
+  - #383: the bot cancelled a lesson the day's template does not have, which v1 refused; it
+    was stored, announced to every subscriber and drawn nowhere.
+- **Seven methods, `DayService` and `SubstitutionService` whole, all an editor's:**
+  - `GetDay`, every date's kind, a date nobody marked an ordinary day;
+  - `UpdateDay` (masked, with `allow_missing`): without it a date nobody marked is
+    `RESOURCE_NOT_FOUND`, and with it `DAY_KIND_NORMAL` on such a date writes nothing; v2
+    writes the four kinds v1 wrote;
+  - `ListSubstitutions` and `GetSubstitution`;
+  - `CreateSubstitution` (`201`), which refuses a lesson that already has one with
+    `RESOURCE_EXISTS`, where v1 upserted;
+  - `UpdateSubstitution` (masked), which skips the bell, so a row at a number that no longer
+    rings stays editable, and `DeleteSubstitution`, v1's `"clear"`.
+
+  Each write is announced to the class once committed, in v1's words and never to its author;
+  an update that changes nothing writes nothing and tells nobody.
+- **The error table gains six rows**, each read back on both paths by a named test:
+  `ScheduleNotInClass` and `ShortenedNeedsSchedule`, `VALIDATION_FAILED` on
+  `day.bell_schedule_id`; `NoLessonOnDay`, `NoBellForLesson` and `LessonNotOnTimetable`, their
+  own reasons, which leave `LATER`; and `SubstitutionExists`, `RESOURCE_EXISTS`. 3b-6 left
+  `STAGES` with them.
+- **`day.proto`, `errors.proto` and `substitution.proto`** say, in comments only, what
+  `allow_missing` and a masked field left unset mean, that a row at a number that no longer
+  rings stays editable, and that each write is announced; `errors.proto`'s `RESOURCE_NOT_FOUND`
+  names `"day"`.
+
+### Gates
+
+The full suite ran once, at `[short SHA]`, the head of the six code tasks; the documents
+(`[short SHA]`) came after it, and their own files ran again. CI runs on the head the merge is
+made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `[short SHA]`.
+- **mypy**: no issues found in [the number] source files, at `[short SHA]`.
+- **The server suite.** `pytest -q -n 4`, run alone from `server/` at `[short SHA]`, gave
+  **[the number] passed** in [the time]. The seven places the `handover` skill names say
+  [the number].
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files, `day_connect.py`'s, `errors_pb.py`'s and
+  `substitution_connect.py`'s docstrings the only change.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand
+  from before.
+
+### What was deliberately left alone
+
+- **3b-7 and 3b-8**, each summarised in the 3b plan, and **3c**.
+- **v1's behaviour**, but for the race of #382: `PUT /days` still tells the class of a mark
+  every time it is set, sent twice or not, and `PUT /overrides` still upserts and tells the
+  class every time.
+- **v1's notice seams**, `edit._tell` and `requests._tell`, which build and close their bot
+  outside their guard (#377); v2's `notify_class` does not.
+- **The bot's own words and lines.** The bot keeps its journal lines and its notices for a
+  chat, and its own sentence for the bell; the other two refusals it says in v1's.
+- **A schedule on a day that is not shortened**, which v1 and v2 store as sent and the
+  resolver rings, and which the bot's screen never sends.
+- **`clock.window`** is still the homework's; 3b-7's diary windows need their own.
+
+### What nobody has verified in this batch
+
+- **The seven methods against Postgres**: every v2 test ran on SQLite, the two new savepoints
+  among them, and the races of #382 were staged by a read that answers «none» once.
+- **A notice through Telegram itself**: the tests hand `telegram_send` a bot that records
+  what it was asked to send.
+- **The seven on Vercel** beyond the post-merge check, which asks five REST routes and one
+  Connect method once, without a token.
+- **The bot's new refusals through Telegram itself**: a cancellation of an added lesson and a
+  shortened day on bells that ring nothing were pressed by the tests' fakes only.
+- **A phone using any of them**: no APK calls v2 yet.
+
+### After #380's merge: [the controller's title for it]
+
+None of this is code in #PR, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of [date].
+
+[AFTER-380: the controller's facts, handed over at this step and written in the shape of the
+last close-out's «After …'s merge», one bullet each: #380's merge (`801a350`) and its CI;
+whether Vercel built production from it or the owner had to promote it; what production
+answered after it, the post-merge read of 3b-5's Task 9 Step 10 included; what the monitoring
+said meanwhile, #365 included; and anything the owner did or decided since the last
+close-out. Nothing here is guessed: what the controller does not hand over is left out, and
+if it hands over nothing, this subsection is left out whole and the report says so.]
+```
+  3. **The opening paragraph**, in the shape the last close-out left it:
+     - «Last updated:» is the day of writing. The merged list gains #380 (read it back with `gh pr view 380` first); `main` is at `801a350`, the merge of #380, or at whatever `git log -1 origin/main` says is newer.
+     - The sentence on the designs stays.
+     - The open pull requests are read from `gh pr list --state open`, not assumed. #PR is one, «the one carrying this paragraph», from `server-v2/3b-6`, on milestone 11, which closes `#382` and `#383` and refers to #273: v2 is served beside v1, sixty-one methods of it now.
+     - The schema did not move: still `0019`, on production since 16:28 UTC on 6 October, and `EXPECTED_REVISION` did not move either.
+     - The issues filed since #380 merged are named: `#382` and `#383`, closed by #PR, and any the `[AFTER-380]` facts add. #352, #355, #357, #365, #368, #371, #375, #377 and #378 stay as the last close-out left them, unless those facts say otherwise; #381 is closed.
+     - «The section «What the last session added» below is …» names #PR and the batch before it, #380.
+     - It still ends: «The SHA of its own merge is for the next close-out to write.»
+     - The bold paragraph on the code's revision and production's stays as it is: no revision moved.
+  4. **The milestone table**: milestone 11's row gains #380 as merged and #PR as open, and `#382` and `#383` among its issues. Milestone 13's row stays.
+  5. **Section 5**, the bullet «v2 as … serve it has been asked little outside the test client»:
+     - its head gains #PR, and the stages «… and 3b-6»;
+     - the sub-item on production says what the `[AFTER-380]` facts say of the read after #380's merge, and its last gains: «the seven of 3b-6 are asked after #PR's merge, once, without a token;»;
+     - «**the fifty methods of 3b-1 to 3b-5 against Postgres**: …» becomes «**the fifty-seven methods of 3b-1 to 3b-6 against Postgres**: …», keeping its list and adding «the day's mark's and the substitutions' savepoints» to it;
+     - add the sub-item: «**the bot's new refusals through Telegram itself**: a cancellation of a lesson the template does not have, and a shortened day on bells that ring nothing, were pressed by the tests' fakes only;».
+  6. **Section 7**: replace the paragraph that begins «**Next for the programme: stage 3b-6 of sub-project 3, from the 3b plan.**», up to and including its last sentence, with:
+```markdown
+**Next for the programme: stage 3b-7 of sub-project 3, from the 3b plan.** Stages 3a (#342),
+3b-1 (#350), 3b-2 (#356), 3b-3 (#372), 3b-4 (#376), 3b-5 (#380) and 3b-6 (#PR) are merged,
+and v2 serves sixty-one methods. `docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-7
+and 3b-8. 3b-7 is the diary's registry as a table, its sessions and its reads, ten methods;
+its two open questions are the controller's before its task list is written, and its windows
+need their own, since `clock.window` is the homework's. By the owner's order of 8 October,
+sub-project 3 is finished first, 3c included, and everything recorded as unverified is checked
+on the development machine before sub-project 4 starts.
+```
+     Read section 7 for anything the owner did since the last close-out (the `[AFTER-380]` facts say), and move what they did to «## Moved out of section 7 on [date]» in `docs/history.md`, as the skill says.
+  7. The cheat-sheet's counts under «How to continue» were written by Step 6.
+
+  Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b6-handover.txt`, with the placeholders replaced by their numbers:
+```text
+Hand over stage 3b-6: days and substitutions over v2, one rule for every shell
+
+HANDOVER.md's close-out is written while the pull request is open, so
+the file is true when it merges. It describes 3b-6: a day's mark as one
+write and a substitution's three questions as one service, which v1,
+v2 and the bot share, the two defects filed and fixed (#382, #383), the
+seven methods, the error table's six rows, the comments in day.proto,
+errors.proto and substitution.proto, what is left alone and
+unverified, and what followed #380's merge. The batch before becomes the
+session before, its merge recorded, and the one before that moves to
+docs/history.md. Section 5 asks the same of Postgres for six stages and
+adds the bot's new refusals; section 7 names 3b-7 as next.
+
+Not covered: production after this pull request's merge; the next
+close-out records it.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add HANDOVER.md docs/history.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b6-handover.txt
+```
+and push.
+
+- [ ] **Step 9: The merge** is the controller's, under the `github-pr` skill's five checks:
+  1. CI is green on the exact head, the «Contract» job included, since `proto/` changed;
+  2. `mergeable_state` is clean;
+  3. the gates ran locally before the push;
+  4. a milestone is attached;
+  5. no review is waiting.
+
+  No revision has to go on first: 3b-6 has none.
+
+- [ ] **Step 10: After the merge, read production.** A merge to `main` has not always deployed production by itself (#349).
+```bash
+curl -s https://lessons-ruddy-zeta.vercel.app/api/v1/warmup; echo
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/class/days/2026-09-14
+curl -s -i -X PATCH -H "Content-Type: application/json" --data "{}" "https://lessons-ruddy-zeta.vercel.app/api/v2/class/days/2026-09-14?allowMissing=true"
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/class/substitutions
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/v2/class/substitutions
+curl -s -i -X DELETE https://lessons-ruddy-zeta.vercel.app/api/v2/class/substitutions/1
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.SubstitutionService/ListSubstitutions
+```
+Expected:
+- `/api/v1/warmup` reports `status` `ok`, `schema` `0019` and `v2` `true`.
+- The five REST routes answer `401`, with `WWW-Authenticate: Bearer`, Google's body and the reason `DEVICE_TOKEN_INVALID`. The gate refuses each before any handler runs, so nothing is written and nobody is told.
+- The Connect call answers `401`, with `"code":"unauthenticated"`.
+
+A `501` with `UNIMPLEMENTED` means production still runs the code from before the merge: ask the owner to promote or redeploy the merge, then read again. Write what was seen into the controller's notes for the next close-out.
+
+### Self-review (3b-6)
+
+- **Against the 3b-6 summary.** Every method is served by a task: `GetDay` and `UpdateDay` (3), `ListSubstitutions` and `GetSubstitution` (4), `CreateSubstitution` (5), `UpdateSubstitution` and `DeleteSubstitution` (6). Both moves are tasks' own: `day_put` reconciled with `special_days.mark` into `put_day`, which v1 and the bot call (1), and `override_put` into `services/substitutions.py`, which v1 and the bot call (2); where the summary put the bot's half otherwise, Rulings 94 and 95 say why. Every row the summary lists is here, and the one it lacked (Ruling 97): `NoLessonOnDay` with `why`, `NoBellForLesson` and `LessonNotOnTimetable` with `index`, and `SubstitutionExists` as `RESOURCE_EXISTS` with `{resource: "substitution", field: "index"}` (5); `bells.ScheduleEmpty` on 3b-2's row, a foreign schedule and a shortened day with none on `day.bell_schedule_id`, and `SELF_STUDY` or `DAY_OFF` on `day.kind` (3). The three reasons leave `LATER` in Task 5, with `"3b-6"` out of `STAGES`. The effects are notices of kind `"changes"` after the commit through `telegram_send.notify_class` and each module's `_announce` (3, 5, 6): a mark set, a mark taken off only when one existed, a substitution deleted only when its row existed, and none for an update that changes nothing. `ListSubstitutions` reads its window with `rpc/dates.window` (4), and every written date is held by `rpc/dates.bounded` or `dates.named` in `clock.DATE_OUT_OF_BOUNDS` (3, 5). «What v2 does not repeat» is held: `CreateSubstitution` is create-only (5), `UpdateSubstitution` masked (6), `DeleteSubstitution` is v1's `"clear"` (6). The harness note is Task 3's change to `_request`. Both open questions are decided by the controller's rulings (87, 88), and the protos say so.
+- **The controller's rulings.** Open question 1, a no-op success (87, Task 3's `test_taking_off_a_mark_a_date_does_not_have_writes_nothing_and_tells_nobody`); open question 2, the bell skipped on an update and kept on a create (88, Tasks 2 and 6); the harness note (90, Task 3); the commit discipline, with the bot committing before it touches the conversation's state and a savepoint holding the inserts it protects (91, Tasks 1 and 2); notices as effects, v1's words in `app/wording.py`, `ANNOUNCED_HERE` growing in Tasks 3, 5 and 6, and an update that changes nothing telling nobody (92); `ListSubstitutions` on 3b-5's window and bound (93); and the process (102).
+- **Placeholders.** Every code step is the code, rendered from the source that was applied to the scratch copy, linted, formatted and type-checked. The bracketed words left are the facts that exist only later: `#382`, `#383` and `#PR`, the SHAs, dates, times and counts of the real run, and `[AFTER-380]`.
+- **Types across tasks.** `special_days.put_day` answers `DayPut` (1), which `set_day` and `update_day` turn into `DayWritten` (1), whose `mark` `rpc/day._message` reads, `None` for an ordinary day (3); v1's `day_put` passes `set_day`'s notice to `_tell` only when it is one. `substitutions.upsert` answers `(row, created)` (2), which the bot ignores and `put` wraps; `put`, `create` and `update` answer `Written` (2), whose `notice` is `None` only from `update`, and the update handler registers one only then (6). The facts carry what the shells word: `NoLessonOnDay.why` and `.sentence`, `NoBellForLesson.index`, `LessonNotOnTimetable.index` and `.cancelling` (2), read by v1's router (2), the bot (2) and the error table (5). `dates.named(value, at)` answers a bounded `Date` (3). `changes` is keyed by the proto's field names in both services, and `substitutions.COLUMNS` maps them to columns; `kind` is a `DayKind` and `action` an `OverrideAction` by the time either service sees it (3, 5, 6).
+- **Review Focus.** Each of its five lines names tests that exist in the task it names: Task 1's `test_two_phones_marking_one_date_at_once_both_succeed`; Task 2's `test_two_phones_substituting_one_lesson_at_once_both_succeed`, `test_the_bot_will_not_cancel_a_lesson_the_template_does_not_have` and `test_a_row_at_a_number_that_no_longer_rings_stays_editable_and_a_new_one_does_not`; Task 3's `test_without_allow_missing_a_date_nobody_marked_is_not_found`, `test_taking_off_a_mark_a_date_does_not_have_writes_nothing_and_tells_nobody`, `test_taking_a_mark_off_is_announced_once_and_leaves_an_ordinary_day`, `test_a_mark_is_announced_after_the_commit_and_not_to_its_author` and `test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody`; Task 5's `test_a_day_that_draws_no_lessons_is_refused_with_why`, `test_a_number_the_day_rings_no_bell_for_is_refused`, `test_cancelling_or_a_bare_room_where_the_template_has_no_lesson_is_refused`, `test_a_twin_written_in_the_same_instant_is_refused_as_existing`, `test_a_substitution_that_fails_after_its_row_is_written_leaves_no_row_and_tells_nobody` and `test_a_new_substitution_is_announced_after_the_commit_and_not_to_its_author`; Task 6's `test_a_row_at_a_number_that_no_longer_rings_stays_editable`, `test_an_update_that_would_leave_nothing_to_draw_is_refused`, `test_an_update_on_a_day_that_draws_no_lessons_is_refused`, `test_an_update_is_announced_after_the_commit_in_v1_s_words` and its own `test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody`.
+- **`HELD_BY`.** Its six new rows name functions defined at the top level of their files, letter for letter: `special_days_service.ScheduleNotInClass` and `special_days_service.ShortenedNeedsSchedule` → `test_v2_days.py`, `test_a_shortened_day_rings_a_schedule_of_its_own_class_that_rings_something` (Task 3), which raises both through `UpdateDay` and reads each back on both transports and against v1's own 422; `substitutions_service.NoLessonOnDay` → `test_v2_substitution_create.py`, `test_a_day_that_draws_no_lessons_is_refused_with_why`; `substitutions_service.NoBellForLesson` → `test_a_number_the_day_rings_no_bell_for_is_refused`; `substitutions_service.LessonNotOnTimetable` → `test_cancelling_or_a_bare_room_where_the_template_has_no_lesson_is_refused`; `substitutions_service.SubstitutionExists` → `test_a_lesson_that_already_has_a_substitution_that_day_is_refused_as_existing` (all four in Task 5, each through `CreateSubstitution` on both transports). Task 6's `test_an_update_that_would_leave_nothing_to_draw_is_refused` and `test_an_update_on_a_day_that_draws_no_lessons_is_refused` read two of them through `UpdateSubstitution`, and Task 3's test reads `bells.ScheduleEmpty`'s 3b-2 row through `UpdateDay`.
+- **The head test's three shapes** appear nowhere in this list: no «head is» or «expects» before a backticked revision, and no line with `/warmup`'s quoted JSON.
+
 ## 3b-7: The diary's registry, sessions and reads (10 methods)
 
 **Methods.**
