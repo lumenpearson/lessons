@@ -98,7 +98,9 @@ is enabled.
 
 - **The splash screen.** `values-v31/themes.xml` pins `windowSplashScreenAnimatedIcon` to the old
   foreground, so every start drew the book whatever the launcher showed. The item goes, and Android 12
-  and later then draws the icon of the component that was started, which is the alias.
+  and later then draws the icon of the component that was started. A start from the launcher draws
+  the icon of the alias that was started; a start from the widget or an alert draws the application
+  icon, the default.
 - **«О приложении» and the onboarding** drew `ic_launcher_foreground` on `ic_launcher_background`.
   They draw the current icon, the whole adaptive drawable, through the same reader the page uses.
 - **The old book goes:** `ic_launcher_foreground.xml`, the `ic_launcher_background` colour and the

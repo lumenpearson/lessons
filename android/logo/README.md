@@ -26,10 +26,11 @@ layers as they are.
 The script writes all sixty-four. Once variants have been taken out of the app (the spec, «Taking
 variants out»), delete their files again after a run. Then
 
-    ./gradlew :app:testDebugUnitTest --tests '*AppIconCatalogTest*'
+    ./gradlew :app:testDebugUnitTest
 
-from `android/` says whether the resources, the manifest's aliases and `AppIconCatalog` still agree,
-and names whatever is left over.
+from `android/` runs all of `:app`'s tests, which is what a trim has to pass. Among them
+`AppIconCatalogTest` says whether the resources, the manifest's aliases and `AppIconCatalog` still
+agree, and names whatever is left over.
 
 `build_pack.py` and `build_styles.py` also run on their own. They write the whole kit (SVG, PNG and
 previews) into `android/pack/`, which git ignores. Their PNGs need the logo-design skill's

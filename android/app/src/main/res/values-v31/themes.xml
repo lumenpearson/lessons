@@ -4,9 +4,12 @@
     <!--
       The window background is what the system paints between the tap and the
       first frame. The icon on it is left to the system, which draws the icon of
-      the component that was started: the launcher alias the reader chose
-      (docs/specs/2026-10-09-app-icons-design.md). Pinning
-      windowSplashScreenAnimatedIcon here drew one drawable whatever the
+      the component that was started. A start from the launcher starts the alias
+      the reader chose, so it draws that icon
+      (docs/specs/2026-10-09-app-icons-design.md). A start from the widget or an
+      alert starts .MainActivity, which has no icon of its own, so a cold start
+      that way draws the application icon, the default «Классика · Мята».
+      Pinning windowSplashScreenAnimatedIcon here drew one drawable whatever the
       launcher showed. The attribute arrived in API 31, so this overrides the
       empty declaration in values/themes.xml rather than appearing beside it.
     -->

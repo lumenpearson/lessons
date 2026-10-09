@@ -32,7 +32,10 @@ fun AppIconImage(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val icon = remember(context, variant) { context.getDrawable(variant.icon) as? AdaptiveIconDrawable }
+    val icon = remember(context, variant) {
+        // getDrawable's instances share a vector's render cache, and the chosen icon draws at two sizes at once.
+        (context.getDrawable(variant.icon) as? AdaptiveIconDrawable)?.apply { mutate() }
+    }
     Canvas(modifier.clip(shape)) {
         val layers = icon ?: return@Canvas
         val bleed = (size.minDimension * BleedFraction).roundToInt()

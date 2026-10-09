@@ -49,7 +49,11 @@ class LauncherAliases(
      * None enabled is an update that took the chosen alias away, and it gets
      * the default. Several is a switch that died between its two calls below
      * Android 13. It keeps the first that is not the default, because the
-     * default is what such a switch was leaving.
+     * default is what such a switch was leaving. A switch from another icon
+     * back to the default that dies the same way is the one case this gets
+     * wrong: it keeps the icon being left, so the reader's last choice is
+     * undone, but the launcher still ends with exactly one entry, and the
+     * window for it is the milliseconds between two calls.
      */
     fun reconcile(): AppIconVariant {
         val enabled = enabled()
