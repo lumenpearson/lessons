@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app import wording
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.contract.lessons.v2.me_pb import (
     CalendarFeed,
@@ -21,20 +22,29 @@ from app.contract.lessons.v2.me_pb import (
     CreateCalendarFeedResponse,
     CreateLinkCodeRequest,
     CreateLinkCodeResponse,
+    CreateTaskRequest,
+    CreateTaskResponse,
     GetCalendarFeedRequest,
     GetCalendarFeedResponse,
     GetMeRequest,
     GetMeResponse,
+    GetTaskRequest,
+    GetTaskResponse,
     LinkCode,
+    ListTasksRequest,
+    ListTasksResponse,
     Me,
+    Task,
     UnlinkMeRequest,
     UnlinkMeResponse,
 )
-from app.models import DeviceToken
+from app.models import DeviceToken, PersonalTask
 from app.rpc import values
-from app.rpc.errors import Refusal
+from app.rpc.errors import Refusal, validate
+from app.schemas import TaskIn
 from app.services import calendar as calendar_service
 from app.services import linking
+from app.services import tasks as tasks_service
 from app.services.linking import Access
 
 if TYPE_CHECKING:
@@ -47,6 +57,22 @@ CALENDAR_FEED = "calendar_feed"
 
 #: New in v2, so English like v1's own generic answers.
 NO_FEED_ADDRESS = "This server has no public address to give a calendar feed"
+
+#: What ``CreateTask`` reads of a ``Task``, as v1's ``TaskIn`` takes it: the
+#: id, ``done`` and the stamps are the server's.
+_WRITTEN = (
+    "title",
+    "notes",
+    "subject_name",
+    "due_date",
+    "due_time",
+    "priority",
+    "homework_id",
+    "remind_at",
+)
+
+#: The ``optional`` fields of ``Task``: unset reads as ``""`` or 0, and means none.
+_OPTIONAL = frozenset(_WRITTEN) - {"title"}
 
 
 def _me(device: DeviceToken, access: Access) -> Me:
@@ -135,3 +161,100 @@ async def create_calendar_feed(
     return CreateCalendarFeedResponse(
         calendar_feed=CalendarFeed(url=calendar_service.feed_url(origin, secret))
     )
+
+
+def _owner(call: Call) -> int:
+    """The account behind the phone, which the gate let through for every
+    ``AUTH_KIND_DEVICE_LINKED`` method: whose tasks and ticks these are."""
+    device, _school_class = call.device_and_class()
+    if device.telegram_id is None:
+        raise RuntimeError(f"{call.method.key} reached its handler with no account behind it")
+    return device.telegram_id
+
+
+def _task(row: PersonalTask) -> Task:
+    return Task(
+        id=row.id,
+        title=row.title,
+        notes=row.notes,
+        subject_name=row.subject_name,
+        due_date=values.date_string(row.due_date) if row.due_date is not None else None,
+        due_time=values.time_string(row.due_time) if row.due_time is not None else None,
+        priority=row.priority,
+        done=row.done,
+        done_at=values.maybe_instant(row.done_at),
+        homework_id=row.homework_id,
+        # The class's wall time, as the column holds it; the three stamps
+        # around it are instants.
+        remind_at=values.wall_moment(row.remind_at) if row.remind_at is not None else None,
+        created_at=values.maybe_instant(row.created_at),
+        updated_at=values.maybe_instant(row.updated_at),
+    )
+
+
+async def _own(call: Call, task_id: int) -> PersonalTask:
+    """The linked account's own task ``task_id`` in this class, or
+    ``RESOURCE_NOT_FOUND``, the same for somebody else's task as for one that
+    never existed, so an id never reveals that a classmate keeps a list."""
+    _device, school_class = call.device_and_class()
+    row = await tasks_service.get_task(call.session, task_id, school_class.id, _owner(call))
+    if row is None:
+        raise Refusal(ErrorReason.RESOURCE_NOT_FOUND, wording.UNKNOWN_TASK_DETAIL, resource="task")
+    return row
+
+
+def _given(task: Task, fields: tuple[str, ...]) -> dict[str, object]:
+    """The fields of ``task`` a create reads, as v1's ``TaskIn`` takes them: an
+    ``optional`` one only when it is set, so that one left out takes
+    ``TaskIn``'s default, a priority of 1 among them."""
+    return {
+        name: getattr(task, name)
+        for name in fields
+        if name not in _OPTIONAL or task.has_field(name)
+    }
+
+
+async def list_tasks(call: Call, request: ListTasksRequest) -> ListTasksResponse:
+    """The linked account's tasks in this class, at most 200: undone first, then
+    by deadline with undated ones last, urgent first. Done ones only when asked
+    for. Writes nothing."""
+    _device, school_class = call.device_and_class()
+    rows = await tasks_service.list_tasks(
+        call.session,
+        school_class.id,
+        _owner(call),
+        include_done=request.include_done,
+        limit=tasks_service.LIST_MAX,
+    )
+    return ListTasksResponse(tasks=[_task(row) for row in rows])
+
+
+async def get_task(call: Call, request: GetTaskRequest) -> GetTaskResponse:
+    """One of the linked account's own tasks. Writes nothing."""
+    return GetTaskResponse(task=_task(await _own(call, request.task_id)))
+
+
+async def create_task(call: Call, request: CreateTaskRequest) -> CreateTaskResponse:
+    """A new task, cleaned and checked by v1's ``TaskIn``: a title of 1 to 200
+    characters on one line, priority 1 when none is sent, a ``homework_id`` of
+    this class's homework (``VALIDATION_FAILED`` on ``task.homework_id``
+    otherwise), and a reminder kept as the class's wall time. The id, ``done``
+    and the stamps a client sends are ignored, as ``TaskIn`` has none of them;
+    REST answers 201."""
+    _device, school_class = call.device_and_class()
+    sent = request.task if request.task is not None else Task()
+    form = validate(TaskIn, _given(sent, _WRITTEN), at="task.")
+    row = await tasks_service.create_task(
+        call.session,
+        school_class,
+        _owner(call),
+        form.title,
+        notes=form.notes,
+        subject_name=form.subject_name,
+        due_date=form.due_date,
+        due_time=form.due_time,
+        priority=form.priority,
+        homework_id=form.homework_id,
+        remind_at=form.remind_at,
+    )
+    return CreateTaskResponse(task=_task(row))
