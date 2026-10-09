@@ -51,7 +51,7 @@ from app.providers.diary.models import (
     Subject,
     Teacher,
 )
-from app.providers.diary.registry import PETERSBURG, Binding, provider_for
+from app.providers.diary.registry import PETERSBURG, Binding, provider_for, row_for
 from app.providers.diary.registry import binding as class_binding
 from app.security import hash_token, new_token
 from app.services.diary_corrections import UnknownDiaryServer, child_scope
@@ -313,11 +313,20 @@ async def find_session(session: AsyncSession, token: str) -> DiarySession | None
     A row whose credential will not open is expired here rather than handed on.
     Letting it through would spend an upstream round trip to be told the same
     thing, from an address the upstream rate-limits.
+
+    A row of a provider this deployment does not know is refused and left as
+    it is (#389). A provider is a value, not a migration, so a deployment rolled
+    back past the release that added one still holds that provider's sessions;
+    read here, they would go to whichever diary the reader fell back to, with
+    another diary's credential. Not expired: the release that knows the
+    provider reads them again.
     """
     row = await session.scalar(
         select(DiarySession).where(DiarySession.token_hash == hash_token(token))
     )
     if row is None or not row.is_live:
+        return None
+    if row_for(row.provider or PETERSBURG) is None:
         return None
     if await unusable(session, row):
         return None
@@ -449,11 +458,13 @@ class DiaryService:
         # would reach a few days later anyway.
         self._credential = upstream_of(row) or ""
         provider = provider_for(row.provider or PETERSBURG)
-        # An unknown provider is treated like an unreadable seal: `find_session`
-        # and the bot's `_session_for` expire such a row before building this,
-        # so this fallback is only ever reached in a test that skips them.
-        provider = provider or provider_for(PETERSBURG)
-        self.connection = provider.open(self._credential)  # type: ignore[union-attr]
+        if provider is None:
+            # Every door refuses such a row before building this: `find_session`
+            # by the table, the bot's `_session_for` by the class's binding.
+            # Reading it with another provider would send its credential to a
+            # diary it was never opened with (#389).
+            raise ValueError(f"no provider answers diary session {row.id}")
+        self.connection = provider.open(self._credential)
 
     async def students(self) -> list[Student]:
         return await self._call(self.connection.students())

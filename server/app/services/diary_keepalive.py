@@ -45,7 +45,7 @@ from app.crypto import diary_enabled, seal, unseal
 from app.db import rows_affected
 from app.models import DiarySession
 from app.providers.diary.errors import AddressRefused, SessionExpired
-from app.providers.diary.registry import NETSCHOOL, provider_for
+from app.providers.diary.registry import kept_alive, provider_for
 
 log = logging.getLogger(__name__)
 
@@ -129,7 +129,8 @@ async def _claim(session: AsyncSession) -> list[_Claim]:
     stmt = (
         select(DiarySession)
         .where(
-            DiarySession.provider == NETSCHOOL,
+            # The providers whose sessions idle out upstream, as the table says.
+            DiarySession.provider.in_(kept_alive()),
             DiarySession.expired_at.is_(None),
             (DiarySession.keepalive_attempted_at.is_(None))
             | (DiarySession.keepalive_attempted_at < cutoff),
