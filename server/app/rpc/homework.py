@@ -21,16 +21,21 @@ from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.contract.lessons.v2.homework_pb import (
     CreateHomeworkRequest,
     CreateHomeworkResponse,
+    DeleteHomeworkRequest,
+    DeleteHomeworkResponse,
     GetHomeworkRequest,
     GetHomeworkResponse,
     Homework,
     ListHomeworkRequest,
     ListHomeworkResponse,
+    UpdateHomeworkRequest,
+    UpdateHomeworkResponse,
 )
 from app.models import Homework as HomeworkRow
 from app.rpc import dates, values
 from app.rpc.errors import Refusal, validate
-from app.schemas import HomeworkIn
+from app.rpc.masks import update_paths
+from app.schemas import HomeworkIn, HomeworkPatch
 from app.services import clock
 from app.services import homework as homework_service
 from app.services import tasks as tasks_service
@@ -44,6 +49,10 @@ _WRITTEN = ("due_date", "subject", "text", "attachment_url")
 
 #: The ``optional`` field of ``Homework``: unset reads as ``""``, and means none.
 _OPTIONAL = frozenset({"attachment_url"})
+
+#: What ``update_mask`` may name, and nothing more: the proto comment's list,
+#: which is what a create reads. ``homework_service.update`` decides the order.
+CHANGEABLE = _WRITTEN
 
 
 def _message(row: HomeworkRow, ticked: set[int]) -> Homework:
@@ -143,3 +152,42 @@ async def create_homework(call: Call, request: CreateHomeworkRequest) -> CreateH
     _announce(call, saved.notice)
     # Nobody has ticked an assignment that did not exist a moment ago.
     return CreateHomeworkResponse(homework=_message(saved.homework, set()))
+
+
+async def update_homework(call: Call, request: UpdateHomeworkRequest) -> UpdateHomeworkResponse:
+    """Change an assignment's date, subject, text or address, cleaned as a
+    create's are (``HomeworkPatch``); v1 changed one by sending it again.
+
+    The mask is read once, by ``masks.update_paths``: without one, what the
+    request sets changes and nothing else. A masked ``attachment_url`` left
+    unset takes the address away; a masked date, subject or text left unset
+    is refused on its field, because none of them can be cleared. Moving the
+    assignment onto a subject that has homework that day is
+    ``RESOURCE_EXISTS``. Announced once committed, «обновлено» as v1 said it;
+    an update that changes nothing writes nothing and tells nobody.
+    """
+    editor, school_class = call.device_and_class()
+    sent = request.homework if request.homework is not None else Homework()
+    paths = update_paths(request.update_mask, request.homework, CHANGEABLE)
+    patch = validate(HomeworkPatch, {name: _sent(sent, name) for name in paths}, at="homework.")
+    changes = patch.model_dump(exclude_unset=True)
+    if "due_date" in changes:
+        dates.bounded(changes["due_date"], "homework.due_date")
+    row = await _row(call, sent.id)
+    saved = await homework_service.update(
+        call.session, school_class, editor.telegram_id, row, changes
+    )
+    if saved.notice is not None:
+        _announce(call, saved.notice)
+    return UpdateHomeworkResponse(homework=_message(row, await _ticked(call, [row])))
+
+
+async def delete_homework(call: Call, request: DeleteHomeworkRequest) -> DeleteHomeworkResponse:
+    """Delete an assignment, and every tick on it with it: v1's ``DELETE
+    /homework/{id}``. Asked again, it is ``RESOURCE_NOT_FOUND``, as v1's 404
+    was. Announced once committed."""
+    editor, school_class = call.device_and_class()
+    row = await _row(call, request.homework_id)
+    notice = await homework_service.delete(call.session, school_class, editor.telegram_id, row)
+    _announce(call, notice)
+    return DeleteHomeworkResponse()

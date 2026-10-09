@@ -33,36 +33,63 @@ class DoneOut(BaseModel):
     done: bool
 
 
+def _subject(value: str | None) -> str:
+    cleaned = _strip_control_chars(value).strip() if value is not None else ""
+    if not cleaned:
+        raise ValueError("subject must not be blank")
+    return cleaned
+
+
+def _text(value: str | None) -> str:
+    # Line breaks stay: «№ 12–15\nустно § 4» is how homework is written.
+    cleaned = _clean_notes(value)
+    if cleaned is None:
+        raise ValueError("text must not be blank")
+    return cleaned
+
+
+def _url(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = _strip_control_chars(value).strip()
+    return cleaned or None
+
+
 class HomeworkIn(BaseModel):
     due_date: Date
     subject: str = Field(min_length=1, max_length=120)
     text: str = Field(min_length=1, max_length=4000)
     attachment_url: str | None = Field(default=None, max_length=500)
 
-    @field_validator("subject")
-    @classmethod
-    def _clean_subject(cls, value: str) -> str:
-        cleaned = _strip_control_chars(value).strip()
-        if not cleaned:
-            raise ValueError("subject must not be blank")
-        return cleaned
+    _clean_subject = field_validator("subject")(_subject)
+    _clean_text = field_validator("text")(_text)
+    _clean_url = field_validator("attachment_url")(_url)
 
-    @field_validator("text")
-    @classmethod
-    def _clean_text(cls, value: str) -> str:
-        # Line breaks stay: «№ 12–15\nустно § 4» is how homework is written.
-        cleaned = _clean_notes(value)
-        if cleaned is None:
-            raise ValueError("text must not be blank")
-        return cleaned
 
-    @field_validator("attachment_url")
+class HomeworkPatch(BaseModel):
+    """v2's ``UpdateHomework``: every field optional, and only the ones sent
+    change. ``null`` takes ``attachment_url`` away; the date, the subject and
+    the text cannot be cleared. Each is cleaned as ``HomeworkIn`` cleans it,
+    so that a create and an update take the same words."""
+
+    due_date: Date | None = None
+    subject: str | None = Field(default=None, min_length=1, max_length=120)
+    text: str | None = Field(default=None, min_length=1, max_length=4000)
+    attachment_url: str | None = Field(default=None, max_length=500)
+
+    # An absent field is never validated, so these run only on a value the
+    # client sent: an explicit null is refused while «leave it alone» stays
+    # the default, as ``TaskPatch`` does it.
+    _clean_subject = field_validator("subject")(_subject)
+    _clean_text = field_validator("text")(_text)
+    _clean_url = field_validator("attachment_url")(_url)
+
+    @field_validator("due_date")
     @classmethod
-    def _clean_url(cls, value: str | None) -> str | None:
+    def _date_when_present(cls, value: Date | None) -> Date:
         if value is None:
-            return None
-        cleaned = _strip_control_chars(value).strip()
-        return cleaned or None
+            raise ValueError("due_date must not be null")
+        return value
 
 
 class DateWindowIn(BaseModel):

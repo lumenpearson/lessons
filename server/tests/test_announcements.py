@@ -394,6 +394,8 @@ ANNOUNCED_HERE: dict[object, str] = {
     telegram_send.notify_class: "the effect v2's writes announce through; no text of its own",
     rpc_homework._announce: "registers that effect for homework; no text of its own",
     rpc_homework.create_homework: "measured below — v1's words through `homework.create`",
+    rpc_homework.update_homework: "the same words, «обновлено», cut as `homework.create`'s are",
+    rpc_homework.delete_homework: "a stored subject, `max_length=120`",
 }
 
 

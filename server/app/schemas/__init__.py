@@ -128,6 +128,7 @@ from app.schemas.homework import (
     DoneOut,
     HomeworkIn,
     HomeworkItemOut,
+    HomeworkPatch,
 )
 from app.schemas.join import (
     DiaryBindingOut,
@@ -221,6 +222,7 @@ __all__ = [
     "HomeworkIn",
     "HomeworkItemOut",
     "HomeworkOut",
+    "HomeworkPatch",
     "ImportConflictOut",
     "JoinRequest",
     "JoinResponse",

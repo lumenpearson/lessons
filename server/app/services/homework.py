@@ -28,8 +28,10 @@ homework's lookup.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date as Date
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -137,11 +139,12 @@ async def upsert(
 @dataclass(frozen=True)
 class Saved:
     """An assignment written, whether it is new, and the notice the class is
-    told of it."""
+    told of it: ``None`` when an update changed nothing, so that nobody is
+    told anything."""
 
     homework: Homework
     created: bool
-    notice: str
+    notice: str | None
 
 
 async def _announced(
@@ -230,6 +233,62 @@ async def create(
     except IntegrityError:
         raise HomeworkExists() from None
     return await _announced(session, school_class, actor, fresh, created=True)
+
+
+#: The column each field :func:`update` takes is kept in.
+COLUMNS = {
+    "due_date": "due_date",
+    "subject": "subject_name",
+    "text": "text",
+    "attachment_url": "attachment_url",
+}
+
+
+async def update(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    row: Homework,
+    changes: Mapping[str, Any],
+) -> Saved:
+    """v2's ``UpdateHomework``: change what ``changes`` names — ``due_date``,
+    ``subject``, ``text`` and ``attachment_url`` — and nothing else, with a
+    line in the journal and the notice of v1's update branch, «обновлено», on
+    the date the assignment is on afterwards.
+
+    ``subject`` is stored in the class's spelling, and ``attachment_url``
+    ``None`` takes the address away. Moving the assignment onto a day and a
+    subject another one holds is refused before anything changes, and the
+    same move made by somebody else in the same instant meets the unique
+    constraint inside a savepoint and is refused the same way. A change that
+    leaves every field as it was writes nothing, its line included, and its
+    notice is ``None``: a retried update tells nobody twice. Nothing is
+    committed.
+
+    @raises HomeworkExists when the subject has another assignment that day.
+    """
+    wanted = {COLUMNS[name]: value for name, value in changes.items()}
+    if "subject_name" in wanted:
+        wanted["subject_name"] = await subjects.spelling(
+            session, school_class.id, wanted["subject_name"]
+        )
+    changed = {column: value for column, value in wanted.items() if getattr(row, column) != value}
+    if not changed:
+        return Saved(row, False, None)
+    if {"due_date", "subject_name"} & changed.keys():
+        due_date = changed.get("due_date", row.due_date)
+        subject_name = changed.get("subject_name", row.subject_name)
+        if await _find(session, school_class.id, due_date, subject_name) is not None:
+            raise HomeworkExists()
+    for column, value in changed.items():
+        setattr(row, column, value)
+    row.created_by = actor
+    try:
+        async with session.begin_nested():
+            await session.flush()
+    except IntegrityError:
+        raise HomeworkExists() from None
+    return await _announced(session, school_class, actor, row, created=False)
 
 
 async def delete(
