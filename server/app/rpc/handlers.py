@@ -61,6 +61,7 @@ HANDLERS: dict[str, Handler] = {
     "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
     "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
     "lessons.v2.DirectoryService/ListSchools": directory.list_schools,
+    "lessons.v2.HomeworkService/CreateHomework": homework.create_homework,
     "lessons.v2.HomeworkService/GetHomework": homework.get_homework,
     "lessons.v2.HomeworkService/ListHomework": homework.list_homework,
     "lessons.v2.MeService/CreateCalendarFeed": me.create_calendar_feed,

@@ -29,6 +29,7 @@ from app.services import access as access_service
 from app.services import clock, join, quota, window
 from app.services import diary as diary_service
 from app.services import directory as directory_service
+from app.services import homework as homework_service
 from app.services import schools as schools_service
 from app.services import tasks as tasks_service
 from app.services import terms as terms_service
@@ -174,6 +175,10 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     clock.WindowRefused: (
         "test_v2_homework.py",
         "test_a_window_v1_refuses_is_refused_on_the_field_at_fault",
+    ),
+    homework_service.HomeworkExists: (
+        "test_v2_homework_create.py",
+        "test_a_subject_that_already_has_homework_that_day_is_refused_as_existing",
     ),
     # The gate raises it for a diary method, and none is served before 3b-7:
     # test_rpc_gate.py holds the gate raising it until then.

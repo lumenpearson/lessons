@@ -185,6 +185,53 @@ async def put(
     return await _announced(session, school_class, actor, row, created=created)
 
 
+class HomeworkExists(ValueError):
+    """The subject already has an assignment that day: one per subject per
+    day. v2's ``CreateHomework`` and ``UpdateHomework`` refuse with it where
+    v1's ``PUT`` would have replaced the text."""
+
+
+async def create(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    due_date: Date,
+    subject: str,
+    text: str,
+    *,
+    attachment_url: str | None = None,
+) -> Saved:
+    """v2's ``CreateHomework``: a new assignment, never a second one for a
+    subject on a day, with its line in the journal and its notice.
+
+    The subject goes through the dictionary first, as in :func:`upsert`, so
+    «алгебра» finds the «Алгебра» already set. The same pair written by
+    somebody else between the read and the insert meets the unique constraint
+    inside a savepoint, as in :func:`upsert`, and is refused the same way; the
+    caller's transaction goes on. Nothing is committed.
+
+    @raises HomeworkExists when the subject has an assignment that day.
+    """
+    subject_name = await subjects.spelling(session, school_class.id, subject)
+    if await _find(session, school_class.id, due_date, subject_name) is not None:
+        raise HomeworkExists()
+    fresh = Homework(
+        class_id=school_class.id,
+        due_date=due_date,
+        subject_name=subject_name,
+        text=text,
+        attachment_url=attachment_url,
+        created_by=actor,
+    )
+    try:
+        async with session.begin_nested():
+            session.add(fresh)
+            await session.flush()
+    except IntegrityError:
+        raise HomeworkExists() from None
+    return await _announced(session, school_class, actor, fresh, created=True)
+
+
 async def delete(
     session: AsyncSession, school_class: SchoolClass, actor: int | None, row: Homework
 ) -> str:

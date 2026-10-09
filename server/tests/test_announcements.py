@@ -50,8 +50,10 @@ from app.bot.handlers.content.events import event_title
 from app.bot.handlers.content.homework import homework_text
 from app.bot.handlers.content.overrides import override_cancel, override_clear, override_subject
 from app.config import get_settings
+from app.contract.lessons.v2 import homework_pb
 from app.main import app
 from app.models import BotUser, DeviceToken, Homework, ReminderSettings, Role
+from app.rpc import homework as rpc_homework
 from app.services import linking, notify
 
 APP_ROOT = Path(__file__).resolve().parent.parent / "app"
@@ -329,6 +331,37 @@ async def test_what_the_api_pushes_grows_by_no_more_than_the_cap(
     assert FLOOD not in flooded
 
 
+async def test_what_v2_pushes_grows_by_no_more_than_the_cap(
+    v2, v2_tokens, session, school_class, subscribed, monkeypatch
+):
+    """The same assignment through v2's ``CreateHomework``, whose notice is
+    v1's (``homework.create``) and goes out as an effect after the commit.
+    Each create is the first for its day, so both notices say «добавлено»."""
+    bot = _Bot()
+    monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
+    monkeypatch.setattr(telegram_send, "build_bot", lambda: bot)
+    due = _tomorrow(school_class).isoformat()
+
+    async def create(text: str) -> str:
+        await session.execute(sa_delete(Homework).where(Homework.class_id == school_class.id))
+        await session.commit()
+        answer = await v2.rest(
+            "HomeworkService/CreateHomework",
+            homework_pb.CreateHomeworkRequest(
+                homework=homework_pb.Homework(due_date=due, subject="Алгебра", text=text)
+            ),
+            token=v2_tokens["editor"],
+        )
+        assert answer.status == 201, answer
+        return await _pushed(bot)
+
+    short = await create("я")
+    flooded = await create(FLOOD)
+
+    assert len(flooded) - len(short) <= notify.NOTIFY_TEXT_MAX
+    assert FLOOD not in flooded
+
+
 # --------------------------------------------------------------------------
 # And nothing announces without being read here
 # --------------------------------------------------------------------------
@@ -356,6 +389,8 @@ ANNOUNCED_HERE: dict[object, str] = {
     override_cancel: "pressed below — a lesson number and a date",
     override_clear: "pressed below — a lesson number and a date",
     telegram_send.notify_class: "the effect v2's writes announce through; no text of its own",
+    rpc_homework._announce: "registers that effect for homework; no text of its own",
+    rpc_homework.create_homework: "measured below — v1's words through `homework.create`",
 }
 
 

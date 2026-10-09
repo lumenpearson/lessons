@@ -13,7 +13,8 @@ from datetime import date as Date
 
 from protobuf import Message
 
-from app.rpc.errors import validate
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.rpc.errors import Refusal, validate
 from app.schemas import DateWindowIn
 from app.services import clock
 
@@ -33,3 +34,16 @@ def window(request: Message, today: Date) -> tuple[Date, Date]:
     }
     form = validate(DateWindowIn, sent)
     return clock.window(form.start_date, form.end_date, today)
+
+
+def bounded(day: Date, field: str) -> Date:
+    """``day``, a date a write names, or ``VALIDATION_FAILED`` on ``field`` in
+    the words of v1's ``_check_date``: the resolver does arithmetic on top of
+    a stored date, and near ``date.max`` that overflows."""
+    if not clock.in_bounds(day):
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED,
+            clock.DATE_OUT_OF_BOUNDS,
+            violations=[(field, clock.DATE_OUT_OF_BOUNDS)],
+        )
+    return day

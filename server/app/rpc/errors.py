@@ -36,6 +36,7 @@ from app.services import access as access_service
 from app.services import clock, join, quota, window
 from app.services import diary as diary_service
 from app.services import directory as directory_service
+from app.services import homework as homework_service
 from app.services import schools as schools_service
 from app.services import tasks as tasks_service
 from app.services import terms as terms_service
@@ -67,6 +68,11 @@ CONFIRMATION_MISMATCH = "confirmation does not match the class name"
 #: own query fields, ``from`` and ``to``, which v2 calls ``start_date`` and
 #: ``end_date``; the window's other two refusals are v1's words (``clock``'s).
 WINDOW_BACKWARDS = "end_date must not precede start_date"
+
+#: ``CreateHomework`` and ``UpdateHomework``'s refusal of a second assignment
+#: for one subject on one day. v1 has no sentence to share: its ``PUT``
+#: replaced the text instead.
+HOMEWORK_EXISTS = "this subject already has homework that day; change that one instead"
 
 #: Each reason's canonical code, as the comment beside it in ``errors.proto``
 #: begins. ``test_rpc_errors.py`` reads the file and holds the two level.
@@ -335,6 +341,12 @@ def _window_refused(error: clock.WindowRefused) -> Refusal:
     )
 
 
+def _homework_exists(_error: homework_service.HomeworkExists) -> Refusal:
+    return Refusal(
+        ErrorReason.RESOURCE_EXISTS, HOMEWORK_EXISTS, resource="homework", field="subject"
+    )
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -368,6 +380,7 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     dadata.DirectoryError: _school_search_unavailable,
     tasks_service.HomeworkNotInClass: _homework_not_in_class,
     clock.WindowRefused: _window_refused,
+    homework_service.HomeworkExists: _homework_exists,
 }
 
 
