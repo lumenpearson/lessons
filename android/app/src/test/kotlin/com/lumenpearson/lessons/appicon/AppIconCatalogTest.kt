@@ -94,10 +94,19 @@ class AppIconCatalogTest {
 
     @Test
     fun `no launcher resource is left that no catalog entry uses`() {
-        val used = AppIconCatalog.variants.flatMap { variant ->
+        val own = AppIconCatalog.variants.flatMap { variant ->
             val name = variant.resourceName
             listOf(name, "${name}_round", "${name}_background", "${name}_foreground")
-        }.toSet() + MonochromeLayers
+        }
+        // The shared layers count only while an icon still points at one. Keep
+        // «Классика» alone and every icon on the edge-to-edge layer has gone, and
+        // a fixed list of the two would leave it in every APK unremarked.
+        val monochrome = AppIconCatalog.variants
+            .flatMap { listOf("${it.resourceName}.xml", "${it.resourceName}_round.xml") }
+            .map { File(res, "mipmap-anydpi-v26/$it") }
+            .filter { it.isFile }
+            .flatMap { file -> MonochromeReference.findAll(file.readText()).map { it.groupValues[1] }.toList() }
+        val used = (own + monochrome).toSet()
         val present = res.listFiles().orEmpty()
             .filter { it.isDirectory }
             .flatMap { it.listFiles().orEmpty().toList() }
@@ -118,6 +127,9 @@ class AppIconCatalogTest {
     private companion object {
         /** The two monochrome layers every icon shares: the classic dial, and the dial edge to edge. */
         val MonochromeLayers = listOf("ic_launcher_monochrome_classic", "ic_launcher_monochrome_edge")
+
+        /** A mipmap's pointer at a shared monochrome layer, whichever of them. */
+        val MonochromeReference = Regex("""@drawable/(ic_launcher_monochrome_\w+)""")
 
         fun Element.descendants(tag: String): List<Element> =
             getElementsByTagName(tag).let { nodes -> (0 until nodes.length).map { nodes.item(it) as Element } }
