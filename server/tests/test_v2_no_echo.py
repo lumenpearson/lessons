@@ -65,7 +65,7 @@ def _leaks(response: httpx.Response) -> bool:
 
 @pytest.mark.parametrize("key", SERVED)
 async def test_no_refusal_repeats_what_was_sent(
-    v2, v2_tokens, monkeypatch, served_settings, key
+    v2, v2_tokens, monkeypatch, served_settings, diary_offline, key
 ) -> None:
     monkeypatch.setattr(served_settings, "min_client_version", 40)
     method = METHODS[key]

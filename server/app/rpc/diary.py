@@ -1,37 +1,62 @@
 """``DiaryService``: one family's account with an electronic diary.
 
-3a serves ``GetDiaryCapabilities``. 3b-7 serves the sessions: a session the
-phone opened with the diary itself is kept by ``CreateDiarySession``, through
-``services/diary.register`` — v1's ``POST /diary/session``'s rules, order and
-counting, on the same budget — and signed out by ``DeleteDiarySession``, v1's
-``/logout``. v1's ``POST /diary/login``, a password through this server, has
-no twin here (``docs/api.md``, «Not in v2, on purpose»). The corrections are
-3b-8's (``docs/specs/2026-10-05-server-v2-3b-plan.md``).
+3a serves ``GetDiaryCapabilities``, which 3b-7 fills from the registry's
+table: each provider's ways in and the data it has (decision 12). 3b-7 serves
+the sessions: a session the phone opened with the diary itself is kept by
+``CreateDiarySession``, through ``services/diary.register`` — v1's
+``POST /diary/session``'s rules, order and counting, on the same budget — and
+signed out by ``DeleteDiarySession``, v1's ``/logout``. And the reads of one
+pupil, each through ``services/diary``'s ``DiaryService`` as v1's routes read:
+the pupil resolved from the session's own diary on every call, so an id of
+another family's child reaches nothing, and a feature the session's provider
+does not declare refused before the diary is asked anything. v1's
+``POST /diary/login``, a password through this server, has no twin here
+(``docs/api.md``, «Not in v2, on purpose»). The corrections are 3b-8's
+(``docs/specs/2026-10-05-server-v2-3b-plan.md``).
 """
 
 from __future__ import annotations
 
+from datetime import date as Date
 from typing import TYPE_CHECKING, Any
 
 from protobuf import Message
 
 from app.contract.lessons.v2.diary_pb import (
+    AttendanceDirection,
     CreateDiarySessionRequest,
     CreateDiarySessionResponse,
     DeleteDiarySessionRequest,
     DeleteDiarySessionResponse,
+    DiaryAttendance,
     DiaryCapabilities,
+    DiaryFeature,
+    DiaryPeriod,
     DiarySession,
     DiaryStudent,
+    DiarySubject,
+    DiaryTeacher,
     GetDiaryCapabilitiesRequest,
     GetDiaryCapabilitiesResponse,
+    ListDiarySubjectsRequest,
+    ListDiarySubjectsResponse,
+    ListPeriodsRequest,
+    ListPeriodsResponse,
+    ListStudentsRequest,
+    ListStudentsResponse,
+    ListTeachersRequest,
+    ListTeachersResponse,
+    ListTurnstileEventsRequest,
+    ListTurnstileEventsResponse,
     ProviderCapabilities,
+    SignInMethod,
 )
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.crypto import diary_enabled
 from app.models import DiarySession as DiarySessionRow
-from app.providers.diary.models import Student
-from app.providers.diary.registry import KEYS, NETSCHOOL
+from app.providers.diary.models import AcademicPeriod, Student
+from app.providers.diary.registry import PETERSBURG, TABLE, Feature, row_for
+from app.rpc import values
 from app.rpc.errors import Refusal, validate
 from app.schemas import NetSchoolSessionIn, PetersburgSessionIn
 from app.services import diary as diary_service
@@ -55,29 +80,53 @@ _V2_NAMES = {v1: v2 for v2, v1 in _V1_NAMES.items()}
 NO_CREDENTIAL = "credential must be petersburg or netschool"
 
 
+#: A method whose feature the session's diary does not have. v2's own
+#: sentence, English like the gate's: v1 answered such a read with an empty
+#: list, which a client could not tell from an empty diary.
+NOT_IN_THIS_DIARY = "this diary does not offer this"
+
+#: A turnstile's direction, as the provider's model spells it. A word the
+#: model does not know cannot arrive (the mapper reads it as «unknown»), and is
+#: never drawn as the child leaving the building.
+_DIRECTIONS = {
+    "in": AttendanceDirection.IN,
+    "out": AttendanceDirection.OUT,
+    "unknown": AttendanceDirection.UNKNOWN,
+}
+
+
 async def get_diary_capabilities(
     call: Call, request: GetDiaryCapabilitiesRequest
 ) -> GetDiaryCapabilitiesResponse:
     """What this server's diary can do, before the phone takes a password.
 
-    The same answer v1's ``/diary/capabilities`` gives, in v2's shape
-    (decision 12): whether the diary runs here at all, every provider the
-    registry knows, and for «Сетевой город» the allow-list's regions that take
-    a password. ``sign_in_methods`` and ``features`` stay empty, because v1's
-    answer has neither and what each provider declares is 3b's registry table
-    to say, from what its connection really implements. Anonymous and
-    database-free, as v1's: the gate opens a scope, and nothing asks it for a
-    query.
+    v1's ``/diary/capabilities`` in v2's shape, and what v1 did not say: for
+    every provider of the registry's table, the allow-list's regions that take
+    a password, the ways in a phone may draw a form for, and the data the
+    provider has, each read from its row (decision 12). With the diary off a
+    provider offers no way in and no data, though its regions are listed as
+    v1 lists them (the 3b plan, Ruling 105). Anonymous and database-free, as
+    v1's: the gate opens a scope, and nothing asks it for a query.
     """
-    from app.providers.netschool import regions
-
-    listed = [region.key for region in regions.listed()]
+    enabled = diary_enabled()
     return GetDiaryCapabilitiesResponse(
         capabilities=DiaryCapabilities(
-            enabled=diary_enabled(),
+            enabled=enabled,
             providers=[
-                ProviderCapabilities(provider=key, regions=listed if key == NETSCHOOL else [])
-                for key in KEYS
+                ProviderCapabilities(
+                    provider=row.key,
+                    regions=row.listed_regions(),
+                    sign_in_methods=[SignInMethod[way.name] for way in row.sign_in]
+                    if enabled
+                    else [],
+                    features=sorted(
+                        (DiaryFeature[feature.name] for feature in row.features),
+                        key=lambda feature: feature.value,
+                    )
+                    if enabled
+                    else [],
+                )
+                for row in TABLE
             ],
         )
     )
@@ -206,3 +255,108 @@ async def delete_diary_session(
     commits."""
     await diary_service.sign_out(call.session, _row(call))
     return DeleteDiarySessionResponse()
+
+
+# ---- the reads -----------------------------------------------------------
+
+
+def _service(call: Call) -> diary_service.DiaryService:
+    return diary_service.DiaryService(call.session, _row(call))
+
+
+def _feature(call: Call, feature: Feature) -> None:
+    """``FEATURE_UNSUPPORTED``, naming the ``DiaryFeature``, when the session's
+    provider does not declare ``feature``: asked before the diary is asked
+    anything, so a provider that never had it is not asked for it."""
+    row = row_for(_row(call).provider or PETERSBURG)
+    if row is None or feature not in row.features:
+        raise Refusal(
+            ErrorReason.FEATURE_UNSUPPORTED,
+            NOT_IN_THIS_DIARY,
+            feature=values.proto_name(DiaryFeature[feature.name]),
+        )
+
+
+def _day(day: Date | None) -> str | None:
+    return values.date_string(day) if day is not None else None
+
+
+def _period(period: AcademicPeriod) -> DiaryPeriod:
+    return DiaryPeriod(
+        id=period.id,
+        name=period.name,
+        starts_on=_day(period.starts_on),
+        ends_on=_day(period.ends_on),
+        is_current=period.is_current,
+    )
+
+
+async def list_students(call: Call, request: ListStudentsRequest) -> ListStudentsResponse:
+    """Every pupil this account may see, as v1's ``/students``. Writes nothing
+    but a credential the diary rotated, and when the session was last used."""
+    found = await _service(call).students()
+    return ListStudentsResponse(students=[_student(student) for student in found])
+
+
+async def list_periods(call: Call, request: ListPeriodsRequest) -> ListPeriodsResponse:
+    """A pupil's quarters or terms, as v1's ``/periods``: none for a pupil the
+    diary files under no class."""
+    _feature(call, Feature.PERIODS)
+    svc = _service(call)
+    student = await svc.student(request.student_id)
+    found = await svc.periods_of(student)
+    return ListPeriodsResponse(periods=[_period(period) for period in found])
+
+
+async def list_diary_subjects(
+    call: Call, request: ListDiarySubjectsRequest
+) -> ListDiarySubjectsResponse:
+    """The subjects of a period, the current one when none is named, as v1's
+    ``/subjects``: none when the pupil has no class or no period is current."""
+    _feature(call, Feature.SUBJECTS)
+    svc = _service(call)
+    student = await svc.student(request.student_id)
+    period = request.period_id if request.has_field("period_id") else None
+    found = await svc.subjects_of(student, period)
+    return ListDiarySubjectsResponse(
+        subjects=[DiarySubject(id=subject.id, name=subject.name) for subject in found]
+    )
+
+
+async def list_teachers(call: Call, request: ListTeachersRequest) -> ListTeachersResponse:
+    """A pupil's teachers, as v1's ``/teachers``."""
+    _feature(call, Feature.TEACHERS)
+    svc = _service(call)
+    student = await svc.student(request.student_id)
+    found = await svc.teachers(student.education_id)
+    return ListTeachersResponse(
+        teachers=[
+            DiaryTeacher(
+                id=teacher.id,
+                name=teacher.name,
+                position=teacher.position,
+                subjects=list(teacher.subjects),
+            )
+            for teacher in found
+        ]
+    )
+
+
+async def list_turnstile_events(
+    call: Call, request: ListTurnstileEventsRequest
+) -> ListTurnstileEventsResponse:
+    """A pupil's turnstile entries and exits, newest first, as v1's
+    ``/attendance``: each at the diary's own wall time, to the minute."""
+    _feature(call, Feature.TURNSTILE)
+    svc = _service(call)
+    student = await svc.student(request.student_id)
+    found = await svc.attendance(student.education_id)
+    return ListTurnstileEventsResponse(
+        turnstile_events=[
+            DiaryAttendance(
+                at=values.wall_moment(event.at),
+                direction=_DIRECTIONS.get(event.direction, AttendanceDirection.UNKNOWN),
+            )
+            for event in found
+        ]
+    )

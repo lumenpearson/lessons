@@ -37,6 +37,7 @@ from app.providers.diary.errors import (
     BadCredentials,
     DiaryError,
     NoStudents,
+    SessionExpired,
     UnexpectedResponse,
     UpstreamUnavailable,
 )
@@ -437,6 +438,12 @@ def _diary_no_students(_error: NoStudents) -> Refusal:
     return Refusal(ErrorReason.DIARY_NO_STUDENTS, NoStudents.message)
 
 
+def _diary_reauth(_error: SessionExpired) -> Refusal:
+    # The diary ended the session: sign in to it again. The row is expired
+    # already, and stays so whatever the call does (services/diary._expire).
+    return Refusal(ErrorReason.DIARY_REAUTH, SessionExpired.message)
+
+
 def _diary_unavailable(error: UpstreamUnavailable) -> Refusal:
     upstream = "address-refused" if isinstance(error, AddressRefused) else "upstream"
     return Refusal(ErrorReason.DIARY_UNAVAILABLE, type(error).message, upstream=upstream)
@@ -444,6 +451,13 @@ def _diary_unavailable(error: UpstreamUnavailable) -> Refusal:
 
 def _diary_unreadable(error: DiaryError) -> Refusal:
     return Refusal(ErrorReason.DIARY_UPSTREAM_UNREADABLE, type(error).message)
+
+
+def _unknown_student(_error: diary_service.UnknownStudent) -> Refusal:
+    # An id of another family's child is no different from nobody's.
+    return Refusal(
+        ErrorReason.RESOURCE_NOT_FOUND, wording.UNKNOWN_STUDENT_DETAIL, resource="student"
+    )
 
 
 #: Every service and provider exception a v2 method can meet, and its refusal.
@@ -490,9 +504,11 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     diary_service.RegionNotServed: _diary_region_not_served,
     BadCredentials: _diary_credentials_rejected,
     NoStudents: _diary_no_students,
+    SessionExpired: _diary_reauth,
     UpstreamUnavailable: _diary_unavailable,
     UnexpectedResponse: _diary_unreadable,
     DiaryError: _diary_unreadable,
+    diary_service.UnknownStudent: _unknown_student,
 }
 
 

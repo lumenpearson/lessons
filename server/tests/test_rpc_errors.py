@@ -25,6 +25,7 @@ from app.providers.diary.errors import (
     BadCredentials,
     DiaryError,
     NoStudents,
+    SessionExpired,
     UnexpectedResponse,
     UpstreamUnavailable,
 )
@@ -58,12 +59,11 @@ RPC = SERVER / "app" / "rpc"
 #: produces the last reason it brings, and a reason still listed under it in
 #: ``LATER`` then fails below
 #: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
-STAGES = {"3b-7", "3b-8"}
+STAGES = {"3b-8"}
 
 #: The reasons no served method produces yet, and the stage that brings each.
 #: A reason leaves this table in the commit whose handler raises it.
 LATER = {
-    "DIARY_REAUTH": "3b-7",
     "CORRECTIONS_UNAVAILABLE": "3b-8",
 }
 
@@ -235,6 +235,14 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     DiaryError: (
         "test_v2_diary_sessions.py",
         "test_a_failure_no_row_names_is_unreadable_and_counted",
+    ),
+    SessionExpired: (
+        "test_v2_diary_reads.py",
+        "test_a_session_the_diary_ended_is_reauth_and_stays_ended",
+    ),
+    diary_service.UnknownStudent: (
+        "test_v2_diary_reads.py",
+        "test_an_id_this_diary_does_not_list_reaches_nothing",
     ),
 }
 
