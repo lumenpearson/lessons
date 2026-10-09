@@ -212,7 +212,7 @@ Read this before planning a release.
 | buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
 | v2 over REST and Connect | sixty-one methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), the homework and the events, whose notices to the class go out after the commit (3b-5), and the days and the substitutions, told to the class the same way (3b-6), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
 | Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter; none of it has run in production yet |
-| `./gradlew test` | 1635 tests, green, all five modules |
+| `./gradlew test` | 1684 tests, green, all five modules |
 | `./gradlew detekt` | no finding beyond each module's baseline, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |

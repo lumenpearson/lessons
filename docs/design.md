@@ -164,10 +164,13 @@ stopping on a single row. An action that happens immediately rather than saving 
 "refresh now" — sits as the last row of a group, as a filled full-width button
 (`GroupActionItem`), the way "Check for updates" does in Essentials.
 
-Not carried over: choosing the app icon (Essentials switches it through an `activity-alias`,
-and we have no alternative icons), the "ripple animation" (the effect is drawn over the
-window by an overlay of Essentials' own) and the "online help media" (we have no help). The
-language picker, on the contrary, was carried over — see below.
+The app icon is carried over, and changed: «Значок приложения» under «Оформление» offers the
+sixty-four «Пятёрка» variants (`docs/specs/2026-10-09-app-icons-design.md`). It switches through an
+`activity-alias` as Essentials does, but `MainActivity` is never disabled, the enabled component is
+the only record of the choice, a tap selects and «Применить» applies, and a reconcile after every
+update and process start puts back exactly one launcher entry. Not carried over: the "ripple
+animation" (the effect is drawn over the window by an overlay of Essentials' own) and the "online
+help media" (we have no help). The language picker, on the contrary, was carried over — see below.
 
 ## There are no top bars
 
@@ -637,10 +640,10 @@ school years in the cache, the school's clock rather than the phone's, two typef
 one has no Cyrillic, and twelve widget sizes because the launcher picks the nearest rung. It is the one place in the interface where this
 documentation is quoted back at the user, so it moves when the decision does.
 
-The mark is drawn the way a launcher draws it: an adaptive icon is a 108 dp canvas of which
-only the central 72 dp is visible, so drawing the mipmap directly would give a small mark
-inside a field of its own background. The foreground layer is drawn at the inverse ratio and
-clipped by a box — the same crop the home screen makes.
+The mark is the launcher icon in use, drawn the way a launcher draws it (`AppIconImage`). An adaptive
+icon is a 108 dp canvas of which only the central 72 dp is visible, so both layers are laid over the
+whole canvas and the box shows the middle — the same crop the home screen makes. Both layers, not the
+foreground on a colour: five of the eight styles have a ground of their own.
 
 The main thing not carried over from the original: nine link buttons there are nine copies of
 the same fifteen lines differing in icon, caption and address — so `ActivityNotFoundException`

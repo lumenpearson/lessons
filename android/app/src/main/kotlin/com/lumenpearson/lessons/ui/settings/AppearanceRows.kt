@@ -11,6 +11,7 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.TextFields
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.appicon.rememberCurrentAppIcon
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.designsystem.component.GroupSegmentedItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
@@ -35,6 +36,7 @@ import com.lumenpearson.lessons.core.model.ThemeMode
 internal fun LazyListScope.appearanceRows(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
+    onOpenSection: (SettingsSection) -> Unit,
 ) {
     item(key = "appearance") {
         // Every row in this group repaints the whole app, so every row opens the
@@ -77,6 +79,17 @@ internal fun LazyListScope.appearanceRows(
                     onCheckedChange = { on -> reveal { viewModel.setPitchBlack(on) } },
                 )
             }
+        }
+    }
+
+    // A group of its own rather than a row of the theme's: the theme repaints
+    // the app at a tap, and this changes the home screen, on a page of its own.
+    item(key = "app-icon") {
+        SettingsGroup(title = correctedString(R.string.settings_app_icon_group)) {
+            AppIconLinkRow(
+                current = rememberCurrentAppIcon(),
+                onOpen = { onOpenSection(SettingsSection.APP_ICON) },
+            )
         }
     }
 

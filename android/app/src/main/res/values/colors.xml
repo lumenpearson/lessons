@@ -5,5 +5,4 @@
       the handover is invisible; the real palette lives in :core:designsystem.
     -->
     <color name="window_background">#FBF8FF</color>
-    <color name="ic_launcher_background">#3B3E85</color>
 </resources>

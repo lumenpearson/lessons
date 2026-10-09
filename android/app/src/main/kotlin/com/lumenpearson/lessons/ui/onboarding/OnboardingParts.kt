@@ -2,8 +2,6 @@ package com.lumenpearson.lessons.ui.onboarding
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -31,19 +30,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.appicon.AppIconImage
+import com.lumenpearson.lessons.appicon.rememberCurrentAppIcon
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
@@ -242,10 +240,9 @@ internal fun OnboardingTitle(
  * the point — it is the first thing a user touches, it answers instantly, and it
  * says the app is going to feel like this.
  *
- * The plate is the launcher icon's own background colour rather than a theme
- * colour, because this *is* the icon they just tapped and the recognition is the
- * whole job of the screen. The foreground drawable is drawn untinted for the
- * same reason: tinting it would flatten three colours into one silhouette.
+ * It is the launcher icon in use, whole, ground and mark, because this *is*
+ * the icon they just tapped, and the recognition is the whole job of the
+ * screen. On a first run that is «Классика · Мята», the default.
  */
 @Composable
 internal fun SpinnableAppMark(
@@ -327,30 +324,19 @@ internal fun SpinnableAppMark(
                     },
                 )
             }
-            .graphicsLayer { rotationZ = rotation.value }
-            .clip(MaterialTheme.shapes.extraLarge)
-            .background(colorResource(R.color.ic_launcher_background)),
+            .graphicsLayer { rotationZ = rotation.value },
         contentAlignment = Alignment.Center,
     ) {
-        Image(
-            painter = painterResource(R.drawable.ic_launcher_foreground),
-            contentDescription = null,
-            modifier = Modifier.size(size * ForegroundScale),
+        AppIconImage(
+            variant = rememberCurrentAppIcon(),
+            shape = MaterialTheme.shapes.extraLarge,
+            modifier = Modifier.fillMaxSize(),
         )
     }
 }
 
 /** How wide the mark is on the welcome step. */
 private val MarkSize: Dp = 180.dp
-
-/**
- * The foreground is drawn inside the 72 dp safe zone of a 108 dp adaptive
- * canvas, and the diary itself uses about three quarters of that, so the
- * drawable at plate size would sit in the middle of a lot of nothing. Scaled up
- * a quarter it covers roughly the two thirds of its plate that a launcher icon
- * covers of its own.
- */
-private const val ForegroundScale = 1.25f
 
 /** A fine notch under the finger while the mark is being dragged. */
 private const val MinorNotchDegrees = 2f

@@ -51,3 +51,10 @@ android/.kotlin/
 # Shared agent config is committed (.claude/settings.json, agents/, skills/,
 # commands/); personal overrides are not.
 .claude/settings.local.json
+
+# ---- Logo ----
+# build_pack.py and build_styles.py, run on their own, write the whole logo kit
+# (SVG, PNG, previews) into android/pack, beside android/logo. Only
+# export_android.py's output, under android/app/src/main/res, belongs in the
+# repository.
+android/pack/

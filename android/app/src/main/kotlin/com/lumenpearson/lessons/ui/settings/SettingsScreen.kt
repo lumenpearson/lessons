@@ -144,11 +144,20 @@ fun SettingsSectionScreen(
     onOpenDocs: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
 ) {
-    // The developer mode is a page of its own too, with a view model of its
-    // own: records that grow while it is open, and nothing that is a
-    // preference (#237).
-    if (section == SettingsSection.DEVELOPER) {
-        DeveloperScreen(modifier = modifier)
+    // The developer mode and the icon page are each a whole screen of their
+    // own, with a view model of their own rather than over preferences: the
+    // developer mode's records grow while it is open (#237), and the icon
+    // page holds a selection of its own until «Применить». One shared return
+    // for both keeps this function's `return` count under detekt's limit of
+    // two — a third would be the DIARY branch below, and a fourth whole
+    // screen will need the same `when` rather than its own `if`.
+    val wholeScreen: @Composable (() -> Unit)? = when (section) {
+        SettingsSection.DEVELOPER -> { { DeveloperScreen(modifier = modifier) } }
+        SettingsSection.APP_ICON -> { { AppIconScreen(modifier = modifier) } }
+        else -> null
+    }
+    if (wholeScreen != null) {
+        wholeScreen()
         return
     }
 
@@ -263,7 +272,7 @@ fun SettingsSectionScreen(
         }
 
         when (section) {
-            SettingsSection.APPEARANCE -> appearanceRows(state, viewModel)
+            SettingsSection.APPEARANCE -> appearanceRows(state, viewModel, onOpenSection)
             SettingsSection.FEEL -> feelRows(state, viewModel, tabs = mode != ShellMode.DIARY)
             SettingsSection.CONTENT -> contentRows(state, viewModel)
             SettingsSection.ALERTS -> notificationRows(state, viewModel, onOpenSection)
@@ -322,7 +331,7 @@ fun SettingsSectionScreen(
             )
             SettingsSection.PERMISSIONS -> permissionRows()
             // Handled above, before this page's scaffold exists.
-            SettingsSection.DIARY, SettingsSection.DEVELOPER -> Unit
+            SettingsSection.DIARY, SettingsSection.DEVELOPER, SettingsSection.APP_ICON -> Unit
         }
     }
 }
@@ -337,7 +346,7 @@ fun SettingsSectionScreen(
  * around it would stop the list short of the very bar it scrolls behind.
  */
 @Composable
-private fun SettingsPage(
+internal fun SettingsPage(
     modifier: Modifier = Modifier,
     message: String? = null,
     messageKey: Any? = null,

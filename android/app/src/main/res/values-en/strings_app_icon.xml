@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_icon_style_classic">Classic</string>
+    <string name="app_icon_style_edge">Edge to edge</string>
+    <string name="app_icon_style_glow">Glow</string>
+    <string name="app_icon_style_dark">Dark</string>
+    <string name="app_icon_style_glass">Frosted glass</string>
+    <string name="app_icon_style_matte">Matte</string>
+    <string name="app_icon_style_oneui">Blur</string>
+    <string name="app_icon_style_amoled">AMOLED</string>
+
+    <string name="app_icon_palette_rassvet">Dawn</string>
+    <string name="app_icon_palette_indigo">Indigo</string>
+    <string name="app_icon_palette_myata">Mint</string>
+    <string name="app_icon_palette_lavanda">Lavender</string>
+    <string name="app_icon_palette_rassvet_light">Dawn, light</string>
+    <string name="app_icon_palette_indigo_light">Indigo, light</string>
+    <string name="app_icon_palette_myata_light">Mint, light</string>
+    <string name="app_icon_palette_lavanda_light">Lavender, light</string>
+
+    <string name="app_icon_variant">%1$s · %2$s</string>
+
+    <string name="settings_app_icon">App icon</string>
+    <string name="settings_app_icon_summary">The style and colour of the home-screen icon</string>
+    <string name="settings_app_icon_group">Icon</string>
+    <string name="app_icon_mask_circle">Circle</string>
+    <string name="app_icon_mask_rounded">Rounded square</string>
+    <string name="app_icon_apply">Apply</string>
+    <string name="app_icon_apply_hint">Your launcher may move the icon on the home screen or ask you to add it again.</string>
+    <string name="app_icon_failed">Couldn\'t change the icon</string>
+</resources>

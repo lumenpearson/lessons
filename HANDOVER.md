@@ -10,21 +10,22 @@ Last updated: **9 October 2026**. **PRs #63 through #85, #128, #129, #133, #134,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
 #313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363, #366, #372,
-#376, #379 and #380 are merged**, and #344's commit went in with #366 although GitHub marks it
-closed rather than merged; `main` is at `801a350`, the merge of #380, at 11:57 UTC on 9 October
-2026. **The four designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered
-every question with its recommendation on 5 October (#301, #306, #307, #308). **One pull
-request is open: #385, the one carrying this paragraph**, from `server-v2/3b-6`, on milestone
-11, which closes #382 and #383 and refers to #273: v2 is served beside v1, sixty-one methods of
-it now. **The schema did not move**: the head is still `0019`, on production since 16:28 UTC on
-6 October, and `EXPECTED_REVISION` did not move either. The issues filed since #380 merged are
-named: #382 and #383, closed by #385, and #384, open on milestone 11 and not fixed by #385.
+#376, #379, #380 and #385 are merged**, and #344's commit went in with #366 although GitHub
+marks it closed rather than merged; `main` is at `e88e1c8`, the merge of #385, at 15:46 UTC on 9
+October 2026. **The four designs of sub-projects 3 to 6 are approved and on `main`**: the owner
+answered every question with its recommendation on 5 October (#301, #306, #307, #308). **One
+pull request is open: #388, the one carrying this paragraph**, a draft from `android/app-icons`,
+on milestone 12, which closes #386 and #387: the reader chooses the launcher icon among the
+sixty-four «Пятёрка» variants. v2 is served beside v1, sixty-one methods of it, as #385 left it.
+**The schema did not move**: the head is still `0019`, on production since 16:28 UTC on 6
+October, and `EXPECTED_REVISION` did not move either. The issues filed since #385 merged are
+#386 and #387, both found inside #388's branch and closed by it. #384 stays open on milestone 11;
 #352, #355, #357, #365, #368, #371, #375, #377 and #378 stay as the last close-out left them;
-#381 is closed. #365's diary reads are to move onto the phone after sub-project 3. #118, what
-Preview is for, was closed by #350.
+#382 and #383 are closed. #365's diary reads are to move onto the phone after sub-project 3.
+#118, what Preview is for, was closed by #350.
 
-The section «What the last session added» below is #385's batch, and «What the session before
-it added» is #380's.
+The section «What the last session added» below is #388's batch, and «What the session before
+it added» is #385's.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -159,9 +160,171 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: days and substitutions over v2, one rule for the bot, v1 and v2 — stage 3b-6 of sub-project 3 (#273)
+## What the last session added: the launcher icon chosen in the app, sixty-four «Пятёрка» variants behind activity-aliases (#388)
 
-Open as #385, from `server-v2/3b-6` to `main`, on milestone 11, and on project 6. It closes
+Open as #388, a draft, from `android/app-icons` to `main`, on milestone 12, and on project 6. It
+closes #386 and #387. The branch was cut from `main` at `e88e1c8`, the merge of #385, and carries
+19 commits before this close-out, to `7fc97d6`. Written on 9 October 2026. Nothing under
+`server/` changed and no revision goes with it: the schema stays at `0019`, and
+`EXPECTED_REVISION` did not move. The design is `docs/specs/2026-10-09-app-icons-design.md`,
+agreed with the owner before any of it was built, and the plan beside it,
+`docs/specs/2026-10-09-app-icons-plan.md`, has seven tasks, each implemented and reviewed before
+the next; then came a review of the whole branch, one wave of fixes, a scoped re-review and one
+commit that changed only the wording of comments.
+
+- **A new mark, «Пятёрка», in sixty-four variants**: eight styles by eight palettes.
+  «Значок приложения», a page reached from a row on «Оформление», chooses which one the launcher
+  shows. It has a preview under a circle and a rounded square, one group per style, tiles that
+  only select, and «Применить», which applies once.
+- **Each icon is an `<activity-alias>` of `MainActivity`, and exactly one is enabled.** Only
+  «Классика · Мята», the default, is enabled in the manifest. `MainActivity` is no longer a
+  launcher entry and is never disabled, because the widget and the alerts start it by class
+  name.
+- **The component state is the only record of the choice**, with no preference beside it.
+- **A switch is one ordered write of only the components that change.** `LauncherAliases`, pure
+  Kotlin, decides it. `PackageManagerComponents` writes it as one batch from Android 13, and
+  below 13 as enable-then-disable, with `DONT_KILL_APP`. `AppIconStore` runs every read and
+  write off the main thread behind one lock, and publishes the icon in use.
+- **A reconcile brings the launcher back to exactly one entry.** It runs on
+  `MY_PACKAGE_REPLACED` (`PackageReplacedReceiver`) and at every process start
+  (`LessonsApplication`, the fourth reason in its class KDoc): the default when none is on, and
+  the first non-default in catalog order when several are.
+- **Every place that shows the icon draws the one in use.** «О приложении», the first-run mark
+  and the row on «Оформление» draw it with `AppIconImage`, which draws both layers of the
+  adaptive icon. The splash screen no longer pins a drawable. The old book icon is gone, and the
+  application icon is the default.
+- **The logo's generators are in `android/logo/`**, moved from the owner's OneDrive design
+  folder, under `android/` rather than in a top-level folder, as the owner asked.
+  `export_android.py` rewrites the 256 icon resources: vectors for six styles, and 432 px WebP
+  for «Матовое стекло» and «Размытие». `android/pack/`, where the kit generators write their own
+  output, is git-ignored.
+- **Taking a variant out is three deletions**: the catalog line, the alias and the four
+  resources. `AppIconCatalogTest` names any piece left behind, a shared monochrome layer
+  included, and the other icon tests run on a synthetic catalog. With the real catalog cut to
+  the default alone, the icon tests gave 38 passed, 3 skipped by `assumeTrue`, and 0 failed.
+- **Two defects filed and fixed here**, both found inside the branch and never on `main`. Both
+  are `type:bug`, `area:android`, on milestone 12, sub-issues of #127, and on the board.
+  - #386: corrections to the app-icon page's strings never reached the export, because
+    `strings_app_icon.xml` was missing from `AppStringFiles`. `TranslationXmlTest` found it on
+    task 6's full gate; fixed in `8a7a176`.
+  - #387: a launcher-icon switch whose caller is cancelled left the app naming the old icon.
+    Task 4's review found it; fixed in `d082a2e`.
+
+### Gates
+
+- **Android.**
+  - `./gradlew test`: **1684** tests, 0 failed, at `b8a5a30`. It was 1635; only `:app` gained
+    tests, and it has 657. `7fc97d6` changed comments only, and `MarqueeClockTest` and
+    `AppIconScreenTest` were run again, green, there. The places the `handover` skill names that
+    carry an Android count — this file's cheat-sheet, the README, `docs/architecture.md` and the
+    `gates` skill — now say 1684.
+  - `./gradlew detekt`: no finding, no baseline change.
+  - `./gradlew assembleDebug assembleRelease`: BUILD SUCCESSFUL at `b8a5a30`.
+- **The server** was not run, because nothing under `server/` changed; its 3000 tests and mypy
+  over 238 modules stand from #385.
+- **CI on `b8a5a30`**, read while this was written: What changed, Server (API + bot), Android
+  and Vercel passed, and Contract (Buf) was skipped. `7fc97d6` and this close-out were not yet
+  on the remote branch; CI on the head the merge is made from is read before the merge.
+- **`CONTRIBUTING.md`'s count of the app's screens composed under Robolectric** says thirty-two
+  now, counted as it was first counted, by the files under `:app`'s tests that name a compose
+  rule. It said twenty, which was already ten short before `AppIconRowsTest` and
+  `AppIconScreenTest` made it thirty-two.
+
+### What was deliberately left alone
+
+- **Which variants to keep.** That is the owner's choice and the next thing; then they are
+  taken out, three deletions each.
+- **A «сейчас» mark on the tile of the icon in use.** The final review suggested it and it was
+  not built, because the design is silent and it would be new UI with new strings. It is in the
+  pull request as a suggestion.
+- **The splash after a start from the widget or an alert shows the application icon**
+  («Классика · Мята»), whatever was chosen. Only a start from the launcher follows the choice;
+  making the others follow would need a splash theme per variant.
+- **A switch that fails halfway below Android 13.** The page says «Не удалось сменить значок»
+  while the store names the icon the launcher shows, the one the next reconcile keeps. After a
+  failed switch away from the default, «Применить» therefore rests, and the duplicate entry
+  stays until the next process start.
+- **A switch back to the default, or between two non-default icons, that dies between its two
+  calls** is undone by the reconcile, which keeps the icon being left. The launcher still has
+  exactly one entry, and the window is milliseconds.
+- **Minors the reviews deferred, none blocking:**
+  - nothing ties `AliasPackage` to the Gradle namespace (a drift fails safely, as a refused
+    switch);
+  - a failed background reconcile leaves no log line;
+  - `PackageManagerComponentsTest` compares end states only;
+  - the receiver tests never reach `goAsync`/`finish()`;
+  - the `{ { DeveloperScreen } }` construct in `SettingsSectionScreen`, a ReturnCount
+    workaround;
+  - each `rememberCurrentAppIcon` call site refreshes on its own;
+  - `runCatching` in `AppIconViewModel` also swallows `CancellationException`, which is harmless
+    on a cleared ViewModel.
+- **3b-6's deferred minors still stand:** the `HTTP_422_UNPROCESSABLE_ENTITY` deprecation
+  warnings in `api/edit.py`; `put_day` deleting a mark on an explicit `kind=None`; two pragma
+  comments that overstate (`special_days.py`, `substitutions.py`); the
+  `SHORTENED_WITHOUT_BELLS` alert blaming the default for an old empty day schedule; `create()`
+  mapping any `IntegrityError` to `SubstitutionExists`; `Written.notice` typed `str | None`; and
+  the mask-before-lookup order in `UpdateSubstitution` and `UpdateDay`.
+
+### What nobody has verified in this batch
+
+Nothing in it ran on a device or an emulator. These need one, and section 5 carries them:
+
+- **any real launcher**: how Pixel Launcher, One UI and MIUI place, re-index and clip the icon
+  when the alias changes;
+- **themed (monochrome) icons** on Android 13 and later;
+- **the edge-to-edge styles** under a launcher mask smaller than the standard circle;
+- **whether the app stays open, and stays in Recents, after «Применить»** disables the alias it
+  was started through;
+- **whether «Значок приложения» stutters when it opens** on a low-end phone, since 64 tiles
+  inflate vector drawables on the main thread;
+- **whether the 112 dp preview is sharp** now that each drawn icon has its own drawable state;
+- **the lost home-screen shortcut** on an update from a build where `MainActivity` was the
+  launcher entry. This is expected; nothing has been released, so only development installs
+  meet it.
+
+### What only the owner can do
+
+Both are in section 7 too.
+
+- **Choose which of the sixty-four variants to keep.** Then a session takes the rest out.
+- **One pass on a device or an emulator** for the list above. An API 31 and an API 34 emulator
+  are enough: switch twice, press Home, open Recents, then tap the widget from a cold start.
+
+### After #385's merge: the merge, the read of production, and the development machine
+
+None of this is code in #388, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 9 October 2026.
+
+- **The merge, by the session.** #385 merged as `e88e1c8` at 15:46:16 UTC on 9 October 2026.
+  Before it, Contract, Server, What changed and Vercel had passed on `2534c13`, with Android
+  skipped, and `mergeable_state` was clean. It closed #382 and #383. #384 stays open, on
+  milestone 11.
+- **The read of production.** Vercel's status on the merge commit turned success at about
+  15:46:27 UTC. A read at 15:45:56 still saw `501 UNIMPLEMENTED`, which was the old code. The
+  read at 15:46:34 saw the new code:
+  - `/api/v1/warmup` answered `ok`, schema `0019`, `v2` `true`;
+  - REST `GET` and `PATCH ?allowMissing=true` on `/api/v2/class/days/2026-09-14`, `GET` and
+    `POST /api/v2/class/substitutions`, and `DELETE /api/v2/class/substitutions/1` each
+    answered `401` with `WWW-Authenticate: Bearer`, Google's body and the reason
+    `DEVICE_TOKEN_INVALID`;
+  - Connect `SubstitutionService/ListSubstitutions` answered `401` `unauthenticated`.
+- **The development machine.** After the moves the last close-out recorded, the owner cleared
+  temporary files, old VS Code and Discord versions and crash dumps; C: then had 32.1 GB free,
+  against 8.3 GB before the moves. A script that points Android Studio's system folder at F:
+  through `idea.properties` was handed to the owner, and whether they ran it is not confirmed.
+  A Gradle build from a Claude session still needs three things:
+  - `ANDROID_HOME` on F:;
+  - a worktree `android/local.properties` with `sdk.dir` on F:, which this batch wrote in its
+    own worktree and which is git-ignored;
+  - `JAVA_HOME` at JDK 21, because the user-level `JAVA_HOME` is JDK 17.
+- **The owner's standing order of this evening.** Once #388 has merged, finish sub-project 3:
+  3b-7, 3b-8 and 3c. Then its live tests, the gate before sub-project 4 that the owner set on
+  8 October. Then sub-project 4 and onwards, autonomously until 11:00 Moscow on 10 October
+  2026.
+
+## What the session before it added: days and substitutions over v2, one rule for the bot, v1 and v2 — stage 3b-6 of sub-project 3 (#273)
+
+Merged as #385 (`e88e1c8`, 9 October 2026), from `server-v2/3b-6`, on milestone 11. It closes
 #382 and #383, and refers to #273. The branch was cut from `main` at `801a350`, the merge of
 #380, and carries 9 commits before this close-out, to `93f9525`. Written on 9 October 2026.
 No revision goes with it: the schema stays at `0019`. This is stage 3b-6 of
@@ -298,131 +461,6 @@ written here. The source is the controller's notes of 9 October 2026.
   check before sub-project 4. Junctions under the profile root, such as `~\.gradle\caches`,
   resolve inside Claude too.
 
-## What the session before it added: homework and events over v2, and v2's first notices to the class — stage 3b-5 of sub-project 3 (#273)
-
-Merged as #380 (`801a350`, 9 October 2026), from `server-v2/3b-5`, on milestone 11. It closes
-#381, and refers to #273 and #377, which it does not fix. The branch was cut from `d3e28cc`, the
-head of #379, whose content `main` holds since #379's merge (`e30a71e`), and carries 15
-commits before this close-out, two of them merges of `main` that changed nothing, to `415cbb4`.
-Written on 9 October 2026. No revision goes with it: the schema stays at `0019`. This is stage
-3b-5 of `docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
-`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the next.
-v1 answers as before; v2 now answers fifty-four methods.
-
-- **#373 went first**, in a pull request of its own (#379), as the controller ruled: SQLite
-  keeps a savepoint inside its transaction now, as Postgres does. Two tests of this batch need
-  it, and every new test reads the database from a session of its own.
-- **The rules v1's `edit.py` held for homework and events moved into `services/` first**, with
-  v1 calling them:
-  - `homework.put` and `delete`;
-  - a new `services/events.py`, with `create`, `delete` and `event_of`.
-
-  Each writes its line in the journal and words its notice through `app/wording.py`. The
-  window v1's `GET /homework` held moved to `clock.window`, which refuses with a fact,
-  `WindowRefused`, beside `homework.due_between` and `events.between`.
-- **The class notice is an effect.** `telegram_send.notify_class` is registered by each handler
-  module's `_announce` and runs once the write is committed. It never runs on a refusal, never
-  tells the author, and never raises: Task 3's review found that it could, reading an expired
-  row in a log line, and that its no-token test could not fail, and a round of fixes closed
-  both. `tests/test_announcements.py`'s walk now follows a call through what a file imports,
-  finds v2's call sites as it finds v1's, and is held never to find fewer than the old walk.
-- **Ten methods: `HomeworkService` and `EventService` whole.**
-  - `ListHomework` and `GetHomework`, any phone's, each row with its owner's tick.
-  - `CreateHomework` (`201`). It refuses a subject that already has homework that day with
-    `RESOURCE_EXISTS`, where v1 upserted.
-  - `UpdateHomework` (masked), which refuses a move onto such a pair the same way.
-  - `DeleteHomework`, which takes the ticks with it.
-  - `ListEvents`, `GetEvent`, `CreateEvent` (`201`), `UpdateEvent` and `DeleteEvent`, all an
-    editor's. `UpdateEvent` is masked; one time is held against the other, and a move to
-    another day is announced once, on the new day.
-
-  An update that changes nothing writes nothing and tells nobody.
-- **The error table gains two rows**, each read back on both paths by a named test:
-  - `clock.WindowRefused`, `VALIDATION_FAILED` on the edge at fault;
-  - `homework.HomeworkExists`, `RESOURCE_EXISTS`.
-
-  No reason is new, and 3b-5 left `STAGES`.
-- **`homework.proto` and `event.proto`** say, in comments only, what a masked field left unset
-  means, that a move onto a taken pair is refused, and that each write is announced.
-- **Two defects filed:**
-  - #381, fixed here (`0effe86`). The final review found that `homework.update` set the row's
-    fields before its savepoint, whose flush then ran the update outside it, so a racing
-    twin's clash aborted the caller's transaction.
-  - #377, on the backlog and not fixed here: v1's notices to the class can turn a saved write
-    into a 500. Task 3's review added a second way to it, as a comment.
-
-### Gates
-
-The full suite ran once, at `d6280b8`, the head of the eight code tasks. #381's fix (`0effe86`)
-and the documents (`415cbb4`) came after it, and their own files ran again. CI runs on the head
-the merge is made from, and the merge waits for it to be green.
-
-- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `415cbb4`.
-- **mypy**: no issues found in 235 source files, at `415cbb4`.
-- **The server suite.**
-  - `pytest -q -n 4`, run alone from `server/` at `d6280b8`, gave **2926 passed** in 1930 s,
-    four workers rather than `-n auto` to spare the machine's faulty RAM.
-  - The plan expected 2917 from a base of 2839. #379 added seven tests before this branch,
-    and Task 3's round of fixes two.
-  - `0effe86` adds one test, run in its file with the four beside it (107 passed). Collection
-    counts **2927**, the number the seven places the `handover` skill names now say.
-- **The contract**, at `d6280b8`: `buf lint` exit 0, `buf breaking --against
-  .git#ref=origin/main` exit 0, and `buf generate` reproduces the committed files, with
-  `homework_connect.py`'s and `event_connect.py`'s docstrings the only change.
-- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
-  changed.
-- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand
-  from before.
-- **Reviews.** Each of the eight code tasks was reviewed on its own, Tasks 3 and 5 by the
-  stronger model, which also gave the branch a final review.
-
-### What was deliberately left alone
-
-- **3b-6 to 3b-8**, each summarised in the 3b plan, and **3c**.
-- **v1's behaviour.** `PUT /homework` still upserts, and tells the class «обновлено» when it is
-  sent again unchanged. `PUT /events` still inserts on every retry (#268).
-- **v1's notice seams**, `edit._tell` and `requests._tell`, which build and close their bot
-  outside their guard (#377); v2's `notify_class` does not.
-- **The bot's homework and events flows**, which keep their own lines and their own words for a
-  chat, and call `homework.upsert` and write `DayEvent` as before.
-- **`edit._check_date`**, which v1's substitutions and days still call until 3b-6.
-- **The order of checks of the two masked updates.** `UpdateHomework` validates before it looks
-  the row up, and `UpdateEvent` after, because it holds one stored time against the other. So
-  an unknown id with a bad field is `VALIDATION_FAILED` for homework and `RESOURCE_NOT_FOUND`
-  for an event.
-- **An event's kind changed by an update keeps its own `covers_lesson`** unless that field is
-  masked and left unset (the list's Ruling 79). Section 7 asks the owner.
-- **`clock.window` is the homework's.** It defaults to 21 days and words its refusals in the
-  homework's sentences. 3b-6's substitutions can share it as it is; 3b-7's diary windows (14
-  days, their own sentence) need their own.
-
-### What nobody has verified in this batch
-
-- **The ten methods against Postgres.** Every v2 test ran on SQLite, with #373's fix, the
-  homework's unique pair and its two savepoints among them.
-- **A notice through Telegram itself**: the tests hand `telegram_send` a bot that records
-  what it was asked to send.
-- **The ten on Vercel**, beyond the post-merge check, which asks four REST routes and one
-  Connect method once, without a token.
-- **A phone using any of them**: no APK calls v2 yet.
-
-### After #379's merge: the tick's new commit in production
-
-None of this is code in #380, and a close-out never gets a close-out of its own, so it is
-written here. The source is the session's own reads of 9 October 2026.
-
-- **The merge, by the session**, after the five checks. #379 merged as `e30a71e` at 05:52:02
-  UTC on 9 October 2026, pinned to `d3e28cc`. CI was green on that head: Server, What changed
-  and Vercel; Android and Contract were skipped. It closed #373 and #354.
-- **Production built the merge itself.** Vercel reported the production deployment of
-  `e30a71e` successful at 05:52:46 UTC. `/api/v1/warmup` answered `ok`, `0019`, `v2` `true`.
-- **The tick ran on Postgres with its new commit.** At 05:56:19 UTC the self-check recorded all
-  four checks `ok`, the `deploy` check reading «running main's head e30a71e». The commit before
-  the sweep therefore ended its transaction without error on the database production runs,
-  which #379 had only reasoned about.
-- **The diary proxy** had failed once more and recovered at 05:20:27 UTC, before the merge
-  (#365).
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -445,8 +483,8 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379 and #380 (merged) and #385 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380 and #385 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363 (merged) and #388 (open); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
@@ -487,6 +525,22 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
+- **The launcher icon of #388 has run on no device and no emulator.** Every claim about it is a
+  JVM test's, and the launcher that draws it is another app. Unseen:
+  - any real launcher: how Pixel Launcher, One UI and MIUI place, re-index and clip the icon
+    when the alias changes;
+  - themed (monochrome) icons on Android 13 and later;
+  - the edge-to-edge styles under a launcher mask smaller than the standard circle;
+  - whether the app stays open, and stays in Recents, after «Применить» disables the alias it
+    was started through;
+  - whether «Значок приложения» stutters when it opens on a low-end phone, since its 64 tiles
+    inflate vector drawables on the main thread;
+  - whether the 112 dp preview is sharp, now that each drawn icon has its own drawable state;
+  - the home-screen shortcut lost on an update from a build where `MainActivity` was the
+    launcher entry. That one is expected, and only development installs meet it, because
+    nothing has been released.
+
+  Section 7 has the owner's pass on two emulators that starts on it.
 - **The app's handling of a `503 disabled` on a diary read with a token has not been checked on
   a device** (#302). The app parses `X-Diary-Unavailable` for every diary call, but a read that
   carries a token and is still answered «disabled» is a new case for it; only the server's
@@ -525,7 +579,11 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     #380's merge, without a token: REST `/class/homework` (`GET`), `/class/events` (`GET`),
     `POST /class/homework` and `DELETE /class/events/1` answered `401` `DEVICE_TOKEN_INVALID`,
     and Connect `HomeworkService/ListHomework` and `EventService/ListEvents` answered `401`
-    `unauthenticated`. The seven of 3b-6 are asked after #385's merge, once, without a token;
+    `unauthenticated`. The seven of 3b-6 were asked once after #385's merge, without a token:
+    REST `GET` and `PATCH ?allowMissing=true` on `/class/days/2026-09-14`, `GET` and `POST
+    /class/substitutions`, and `DELETE /class/substitutions/1` answered `401`
+    `DEVICE_TOKEN_INVALID`, and Connect `SubstitutionService/ListSubstitutions` `401`
+    `unauthenticated`;
   - **the fifty-seven methods of 3b-1 to 3b-6 against Postgres**: every v2 test ran on SQLite,
     the journal's keyset, the import's bulk delete and insert, the bells' bulk delete, the
     class's cascade, the directory's allowance, the link code's and the tick's savepoints,
@@ -1357,6 +1415,16 @@ production» has a **current value** for `deviceToken`; type one there from a ph
 a class, and leave the initial value empty so that it stays on that machine. The collection has
 never been run in Postman, so the first run is also its first test.
 
+**Choose which of the sixty-four launcher icons to keep (#388).** «Значок приложения» offers
+every «Пятёрка» variant, eight styles by eight palettes, because the owner asked to pick later.
+Once the keepers are named, a session takes the rest out: three deletions per variant — the
+catalog line, the alias and the four resources — and `AppIconCatalogTest` names any piece left
+behind.
+
+**Walk the launcher icon once on a device or an emulator.** An API 31 and an API 34 emulator
+are enough: switch the icon twice, press Home, open Recents, then tap the widget from a cold
+start. Section 5 has the list it starts on.
+
 **Next for the programme: stage 3b-7 of sub-project 3, from the 3b plan.** Stages 3a (#342),
 3b-1 (#350), 3b-2 (#356), 3b-3 (#372), 3b-4 (#376), 3b-5 (#380) and 3b-6 (#385) are merged,
 and v2 serves sixty-one methods. `docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-7
@@ -1364,7 +1432,9 @@ and 3b-8. 3b-7 is the diary's registry as a table, its sessions and its reads, t
 its two open questions are the controller's before its task list is written, and its windows
 need their own, since `clock.window` is the homework's. By the owner's order of 8 October,
 sub-project 3 is finished first, 3c included, and everything recorded as unverified is checked
-on the development machine before sub-project 4 starts.
+on the development machine before sub-project 4 starts. By the owner's order of 9 October,
+3b-7 starts once #388 has merged, and the work goes on autonomously until 11:00 Moscow on 10
+October 2026.
 
 **Decide whether changing an event's kind should recompute whether it covers the lesson.**
 Today an `UpdateEvent` that turns a trip into a canteen break keeps the trip's «covers the
@@ -1622,7 +1692,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 3000 tests, ~12 min alone on Windows
 cd server  && python -m mypy                             # clean, 238 modules
-cd android && ./gradlew test                             # 1635 tests across the five modules
+cd android && ./gradlew test                             # 1684 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
