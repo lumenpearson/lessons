@@ -393,13 +393,17 @@ async def register(
     counts it; anything else is the caller's to commit.
     """
     where = target(provider, region, school_id)
+    # Sealed before the attempt is counted: a bad shape (a missing bare field)
+    # is this caller's error, not the diary's, and nothing judged it, so it
+    # must not count as a try against the throttle either.
+    credential = sealed_form(where.provider, handed)
     attempt = await DiaryAttempt.admit(session, failures_key=failures_key, opened_key=opened_key)
     try:
         registered = await adopt(
             session,
             provider=where.provider,
             login=login,
-            credential=sealed_form(where.provider, handed),
+            credential=credential,
             region=where.region,
             school_id=where.school_id,
         )

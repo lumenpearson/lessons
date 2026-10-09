@@ -86,23 +86,12 @@ router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1/diary", tag
 MAX_RANGE_DAYS = service.WINDOW_MAX_DAYS
 DEFAULT_RANGE_DAYS = service.WINDOW_DAYS
 
-#: The widest dates a request may name — literally `/bundle`'s own pair,
-#: `services/clock.py`'s, imported rather than repeated, because a second copy
-#: of a bound that must agree with the first is a bound that eventually does
-#: not.
-#:
-#: They are needed here for the same reason: `from` is arbitrary client input
-#: and the default window is `start + 14 days` on top of it, which within a
-#: fortnight of `date.max` raises OverflowError — a 500 out of a query string,
-#: where every other bad date on this surface is a 422 saying what was wrong.
-MIN_DATE = clock.MIN_DATE
-MAX_DATE = clock.MAX_DATE
-
-
 #: v1's words for each refusal of `services/diary.window`, in its own field
-#: names, `from` and `to`.
+#: names, `from` and `to`. The out-of-bounds sentence is `clock`'s own, so it
+#: lives once rather than being re-spelled here from `clock.MIN_DATE` and
+#: `clock.MAX_DATE`.
 _RANGE_REFUSED = {
-    clock.OUT_OF_BOUNDS: f"dates must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}",
+    clock.OUT_OF_BOUNDS: clock.DATES_OUT_OF_BOUNDS,
     clock.BACKWARDS: "`to` is before `from`",
     clock.TOO_WIDE: f"the range must be at most {MAX_RANGE_DAYS} days",
 }
@@ -278,21 +267,6 @@ def _throttled(retry_after: float) -> HTTPException:
         detail=_THROTTLED_DETAIL,
         headers={"Retry-After": str(int(retry_after) + 1)},
     )
-
-
-def _served_region(key: str | None) -> str:
-    """An allow-listed «Сетевой город» region that still takes a password, or
-    a 422 — asked before any upstream call, so a region we do not serve never
-    receives a request, whichever door it came through."""
-    from app.providers.netschool import regions
-
-    region = regions.get(key)
-    if region is None or not region.password:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Unknown or unsupported region for «Сетевой город»",
-        )
-    return region.key
 
 
 def _resolve_login_target(payload: DiaryLoginIn) -> service.Target:
