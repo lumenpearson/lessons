@@ -1012,4 +1012,6 @@ async def subscribers(session, school_class) -> dict[int, tuple[bool, bool]]:
             )
         )
     await session.commit()
-    return SUBSCRIBERS
+    # A copy: a test that adds a recipient to what it was handed must not add
+    # it to every later test in the same worker.
+    return dict(SUBSCRIBERS)

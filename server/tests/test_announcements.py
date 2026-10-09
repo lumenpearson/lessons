@@ -358,6 +358,9 @@ async def test_what_v2_pushes_grows_by_no_more_than_the_cap(
     short = await create("я")
     flooded = await create(FLOOD)
 
+    # Two notices, or a second create that told nobody would compare the
+    # first notice with itself and pass.
+    assert len(bot.sent) == 2
     assert len(flooded) - len(short) <= notify.NOTIFY_TEXT_MAX
     assert FLOOD not in flooded
 
