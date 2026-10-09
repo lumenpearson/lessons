@@ -32,7 +32,7 @@ import org.robolectric.annotation.Config
  *
  * The rows are handed [TestCatalog] rather than the real catalog: these tests
  * need a second style and a style with five palettes, and the owner may keep
- * neither.
+ * neither. `AppIconScreenTest` draws the real one, through the page itself.
  */
 // marquee clock: «Значок приложения», the longest row title at seventeen
 // characters, does not overflow a 411 dp row even beside its icon and
