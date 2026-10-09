@@ -30,10 +30,7 @@ from app.api.public import _homework_out
 from app.api.routing import DishkaAnnotatedRoute
 from app.config import get_settings
 from app.models import (
-    BellPeriod,
-    BellSchedule,
     DayKind,
-    DayOverride,
     DeviceToken,
     EventKind,
     LessonOverride,
@@ -56,8 +53,12 @@ from app.services import audit, clock, linking, notify, subjects, timetable_edit
 from app.services import events as events_service
 from app.services import homework as homework_service
 from app.services import tasks as task_service
+from app.services.manage import bells as bells_service
+from app.services.manage import special_days
 from app.wording import (
     EMPTY_BELL_SCHEDULE_DETAIL,
+    SCHEDULE_NOT_IN_CLASS_DETAIL,
+    SHORTENED_NEEDS_SCHEDULE_DETAIL,
     UNKNOWN_EVENT_DETAIL,
     UNKNOWN_HOMEWORK_DETAIL,
     human_date,
@@ -433,12 +434,6 @@ async def event_delete(
 # Whole days
 # --------------------------------------------------------------------------
 
-_DAY_LABELS = {
-    DayKind.HOLIDAY: "выходной",
-    DayKind.SHORTENED: "сокращённые уроки",
-    DayKind.REMOTE: "дистанционное обучение",
-}
-
 
 @router.put("/days", response_model=DayOverrideOut)
 async def day_put(
@@ -449,101 +444,44 @@ async def day_put(
     session: FromDishka[AsyncSession],
 ) -> DayOverrideOut:
     """Mark a date as a holiday / shortened / remote day. ``normal`` deletes
-    the mark, so a day never carries a row that says nothing."""
+    the mark, so a day never carries a row that says nothing. The checks, the
+    mark, its line and its notice are ``special_days.set_day``'s, over the one
+    write the bot's «🏖 Особые дни» and v2's ``UpdateDay`` make too."""
     _check_date(payload.date)
     actor = device.telegram_id
-    when = human_date(payload.date, clock.today(school_class))
-
-    if payload.bell_schedule_id is not None:
-        owned = await session.scalar(
-            select(BellSchedule.id).where(
-                BellSchedule.id == payload.bell_schedule_id,
-                BellSchedule.class_id == school_class.id,
-            )
+    try:
+        written = await special_days.set_day(
+            session,
+            school_class,
+            actor,
+            payload.date,
+            kind=DayKind(payload.kind),
+            note=payload.note,
+            bell_schedule_id=payload.bell_schedule_id,
         )
-        if owned is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="bell_schedule_id is not in this class",
-            )
-        # And that it rings something. A schedule may legitimately be created
-        # empty and filled in later (`BellScheduleIn.periods` defaults to an
-        # empty list and says so), and the resolver takes a lesson's times from
-        # the bell row of the same number - so a day pointed at an empty one
-        # draws no lessons at all while the card above them says «сокращённые
-        # уроки» — shortened lessons. Nothing fails: the phone, the widget, the
-        # calendar feed and
-        # the morning digest all agree there is no school that day, and a
-        # substitution written for it is accepted at any number because
-        # `timetable_edit.rung_indexes_on` falls back to the class default when
-        # the named schedule has no rows. This is the same decision the check
-        # underneath already makes for a shortened day with no schedule at all,
-        # and it is made for the same reason.
-        rings = await session.scalar(
-            select(BellPeriod.id)
-            .where(BellPeriod.schedule_id == payload.bell_schedule_id)
-            .limit(1)
-        )
-        if rings is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=EMPTY_BELL_SCHEDULE_DETAIL,
-            )
-
-    # «Сокращённые уроки» is a claim about the times, and the times come from a
-    # bell schedule. Without one the resolver falls back to the class default,
-    # so the day announces shortened lessons and then draws the normal ones —
-    # which is worse than not marking it at all, because somebody reads the
-    # label and packs for a short day. The bot's flow always asks which
-    # schedule to ring; this is the surface that could skip the question.
-    if payload.kind == "shortened" and payload.bell_schedule_id is None:
+    except special_days.ScheduleNotInClass:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=SCHEDULE_NOT_IN_CLASS_DETAIL
+        ) from None
+    except bells_service.ScheduleEmpty:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=EMPTY_BELL_SCHEDULE_DETAIL
+        ) from None
+    except special_days.ShortenedNeedsSchedule:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="a shortened day needs the bell schedule it rings",
-        )
-
-    existing = await session.scalar(
-        select(DayOverride).where(
-            DayOverride.class_id == school_class.id, DayOverride.date == payload.date
-        )
-    )
-
-    if payload.kind == "normal":
-        if existing is not None:
-            await session.delete(existing)
-            await audit.record(
-                session, school_class.id, actor, "day.clear", f"День снова обычный: {when}"
-            )
-            await session.commit()
-            await _tell(
-                session,
-                school_class,
-                f"📆 {escape(when)} — обычный учебный день.",
-                kind="changes",
-                author=actor,
-            )
-        return DayOverrideOut(date=payload.date, kind="normal")
-
-    kind = DayKind(payload.kind)
-    if existing is None:
-        existing = DayOverride(class_id=school_class.id, date=payload.date, kind=kind)
-        session.add(existing)
-    existing.kind = kind
-    existing.note = payload.note
-    existing.bell_schedule_id = payload.bell_schedule_id
-
-    label = _DAY_LABELS[kind]
-    await audit.record(session, school_class.id, actor, "day.set", f"{when}: {label}")
+            detail=SHORTENED_NEEDS_SCHEDULE_DETAIL,
+        ) from None
     await session.commit()
+    if written.notice is not None:
+        await _tell(session, school_class, written.notice, kind="changes", author=actor)
 
-    text = f"📆 {escape(when)} — {label}."
-    if payload.note:
-        text += f"\n{escape(payload.note)}"
-    await _tell(session, school_class, text, kind="changes", author=actor)
-
+    mark = written.mark
+    if mark is None:
+        return DayOverrideOut(date=payload.date, kind="normal")
     return DayOverrideOut(
-        date=existing.date,
-        kind=existing.kind.value,
-        note=existing.note,
-        bell_schedule_id=existing.bell_schedule_id,
+        date=mark.date,
+        kind=mark.kind.value,
+        note=mark.note,
+        bell_schedule_id=mark.bell_schedule_id,
     )

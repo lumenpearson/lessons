@@ -49,6 +49,14 @@ PERIOD_MAX_DAYS = 120
 
 NOTE_MAX = 300
 
+#: Said when a shortened day has nothing to ring: the picker's starting value
+#: — the day's own schedule, or the class default — rings no lesson, which only
+#: a class whose bells were never filled in can reach.
+SHORTENED_WITHOUT_BELLS = (
+    "Сокращённому дню нужно расписание звонков, а в основном нет ни одного урока — "
+    "заполните «🔔 Звонки» и отметьте день снова."
+)
+
 
 # --------------------------------------------------------------------------
 # 🏖 Special days
@@ -227,9 +235,8 @@ async def holiday_kind(
         return
 
     if tag == "normal":
-        override = await special_days.mark_on(session, school_class.id, day)
-        if override is not None:
-            await session.delete(override)
+        put = await special_days.put_day(session, school_class, day, {"kind": DayKind.NORMAL})
+        if put.had_mark:
             await audit.record(
                 session, school_class.id, callback.from_user.id, "dayoverride.delete",
                 f"{day:%d.%m}: снова обычный день",
@@ -246,7 +253,24 @@ async def holiday_kind(
         await callback.answer("Неизвестный тип дня", show_alert=True)
         return
 
-    await special_days.mark(session, school_class, day, kind)
+    # A bell schedule means something on a shortened day only, so any other
+    # kind takes the day's away; a shortened day starts on the one it had, or
+    # the class default. That is the picker's starting value, written before
+    # the picker is asked: the row is committed first, and walking away from
+    # the picker must still leave a day that names what it rings.
+    changes: dict[str, object] = {"kind": kind, "bell_schedule_id": None}
+    if kind is DayKind.SHORTENED:
+        current = await special_days.mark_on(session, school_class.id, day)
+        changes["bell_schedule_id"] = (
+            current.bell_schedule_id
+            if current is not None and current.bell_schedule_id
+            else school_class.bell_schedule_id
+        )
+    try:
+        await special_days.put_day(session, school_class, day, changes)
+    except (special_days.ShortenedNeedsSchedule, bells_service.ScheduleEmpty):
+        await callback.answer(SHORTENED_WITHOUT_BELLS, show_alert=True)
+        return
     await audit.record(
         session, school_class.id, callback.from_user.id, "dayoverride.set",
         f"{day:%d.%m}: {_KIND_SUMMARY[kind]}",
@@ -319,7 +343,7 @@ async def holiday_bells(
                 show_alert=True,
             )
             return
-        override.bell_schedule_id = schedule.id
+        await special_days.put_day(session, school_class, day, {"bell_schedule_id": schedule.id})
         summary = f"{day:%d.%m}: звонки «{schedule.name}»"
     else:
         # The keyboard no longer draws this button; a card left open from
@@ -363,7 +387,7 @@ async def holiday_note(
 
     raw = " ".join((message.text or "").split())
     if raw not in {"-", "—", ""}:
-        override.note = raw[:NOTE_MAX]
+        await special_days.put_day(session, school_class, day, {"note": raw[:NOTE_MAX]})
         await audit.record(
             session, school_class.id, message.from_user.id, "dayoverride.note",
             f"{day:%d.%m}: заметка «{override.note}»",
@@ -390,9 +414,8 @@ async def holiday_delete(
         await callback.answer("Непонятная дата", show_alert=True)
         return
 
-    override = await special_days.mark_on(session, school_class.id, day)
-    if override is not None:
-        await session.delete(override)
+    put = await special_days.put_day(session, school_class, day, {"kind": DayKind.NORMAL})
+    if put.had_mark:
         await audit.record(
             session, school_class.id, callback.from_user.id, "dayoverride.delete",
             f"{day:%d.%m}: отметка снята",
@@ -402,7 +425,7 @@ async def holiday_delete(
     await state.clear()
     text, keyboard = await _holiday_view(session, school_class, role)
     await callback.message.edit_text(text, reply_markup=keyboard)
-    await callback.answer("Снято" if override is not None else "Уже снято")
+    await callback.answer("Снято" if put.had_mark else "Уже снято")
 
 
 @router.callback_query(DayKindAction.filter(F.action == "period"))

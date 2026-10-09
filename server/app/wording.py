@@ -422,6 +422,12 @@ UNKNOWN_HOMEWORK_DETAIL = "Unknown homework"
 #: class has that id.
 UNKNOWN_EVENT_DETAIL = "Unknown event"
 
+#: v1's ``PUT /days`` and v2's ``UpdateDay``: a ``bell_schedule_id`` that names
+#: no bell schedule of this class, and a shortened day that names none. A
+#: schedule that rings nothing is ``EMPTY_BELL_SCHEDULE_DETAIL``, above.
+SCHEDULE_NOT_IN_CLASS_DETAIL = "bell_schedule_id is not in this class"
+SHORTENED_NEEDS_SCHEDULE_DETAIL = "a shortened day needs the bell schedule it rings"
+
 #: v1's ``POST`` and ``PATCH /tasks`` and v2's ``CreateTask`` and
 #: ``UpdateTask``: a task's ``homework_id`` names homework of another class, or
 #: none. It names the field, never the value.
@@ -431,9 +437,9 @@ HOMEWORK_NOT_IN_CLASS_DETAIL = "homework_id is not in this class"
 # --------------------------------------------------------------------------
 # What the class is told
 #
-# When homework or an event is written from a phone: v1's ``/homework`` and
-# ``/events``, and v2's ``HomeworkService`` and ``EventService``, through
-# ``services/homework.py`` and ``services/events.py``. Everything typed is
+# When something of the class's is written from a phone, through the service
+# that writes it: v1's ``/homework``, ``/events`` and ``/days``, and v2's
+# ``HomeworkService``, ``EventService`` and ``DayService``. Everything typed is
 # escaped here; an assignment's text arrives cut already (``notify.shorten``),
 # because cutting after escaping can leave «&am», a message Telegram refuses
 # whole. The bot's own flows word theirs for a chat.
@@ -462,3 +468,22 @@ def event_notice(
 
 def event_cancelled_notice(title: str, when: str) -> str:
     return f"🗑 Событие отменено: <b>{escape(title)}</b> {escape(when)}"
+
+
+#: The kind of a marked day, said in the middle of v1's sentence and of its
+#: line in the journal: the three kinds v1 and v2 mark a day with.
+DAY_SET_LABELS = {
+    DayKind.HOLIDAY: "выходной",
+    DayKind.SHORTENED: "сокращённые уроки",
+    DayKind.REMOTE: "дистанционное обучение",
+}
+
+
+def day_set_notice(when: str, label: str, note: str | None) -> str:
+    """«📆 … — выходной.», with the note below it when the day has one."""
+    text = f"📆 {escape(when)} — {label}."
+    return f"{text}\n{escape(note)}" if note else text
+
+
+def day_cleared_notice(when: str) -> str:
+    return f"📆 {escape(when)} — обычный учебный день."
