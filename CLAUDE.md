@@ -59,7 +59,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2767 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2839 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -175,14 +175,25 @@ Server modules:
   on every observer and so opened two *sibling* scopes per message, either of which could
   hand out a second session nothing commits — and it reads `container()` per update rather
   than capturing one, because `api/telegram.py` caches the dispatcher for the life of the
-  process. It still commits there, because for a handler that is the finish line. It is
+  process. It still commits there, because for a handler that is the finish line — but
+  only for one whose reply cannot lose its write. A handler that writes through a service
+  and then replies commits right after the write instead: the middleware's own commit runs
+  only once the handler returns, and rolls back when it raises, and a reply Telegram
+  refuses — an edit that changes nothing, a message already deleted — raises. It is
   built with
   `STRICT_VALIDATION`, so a second provider for a type is an error rather than a silent
   shadowing. Do **not** import `dishka.integrations.aiogram` from it — that pulls aiogram
   onto the cold-start path of every request, which is the thing `main.py` and
   `api/telegram.py` already go out of their way to defer
-- `services/` — the rules, as async functions over a session. Nothing there commits (the
-  caller commits the change together with its audit line), and nothing may import `app.bot`.
+- `services/` — the rules, as async functions over a session, and nothing may import
+  `app.bot`. A write leaves the commit to its caller, which commits it together with its
+  audit line, and a v2 handler cannot commit at all (`invoke` does). What still commits
+  inside itself does so either because its write has to stand whatever the caller does next
+  — a counted attempt, a spent unit, a phone's last call, a dead diary credential, a tick's
+  claim; `rpc/call.py` names those a v2 call meets — or because only the bot or the tick
+  calls it, as `linking.link_device` and `calendar.rotate_calendar_token`; v2 calls none of
+  those until its commit moves out, as 3b-4 moved the tasks', the ticks', the link code's and
+  the feed secret's, and as 3b-8 moves the diary corrections'.
   `services/manage/` is running a class, one module per screen named like the shells'
   (`subjects`, `bells`, `devices`, `classes`, `requests`, `journal`, `terms`, `timetable`,
   `special_days`, `search`): each does the check, the write and the audit line with its
@@ -198,11 +209,15 @@ Server modules:
   nothing), `manage/requests.py`'s `approve` (the role sent or the one asked for, through
   `access.approve_request`, whose `GrantRefused` says `why`), `directory.py`'s
   `school_regions` (the anonymous directory's order of checks, one bucket for both
-  versions), and `audit.py`'s `older_than` (a page keyed on its last line); the limiters are
+  versions), `tasks.py`'s `create_task`, `update_task` and `set_homework_done` (a task's
+  homework of this class only, its reminder on the class's clock, a patch with `done`, a
+  tick set rather than toggled), `homework.py`'s `homework_of`, `linking.py`'s
+  `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s `feed_url`, and
+  `audit.py`'s `older_than` (a page keyed on its last line); the limiters are
   `security.py`'s, one instance each, and the sentences both versions answer with (the
   join's four, the diary's «disabled», and the subjects', the devices', the bells', the
-  import's, the zone's, the access requests' and the directory's refusals) are
-  `app/wording.py`'s.
+  import's, the zone's, the access requests', the directory's, the tasks' and the ticks'
+  refusals) are `app/wording.py`'s.
   The tick runs `health.py`'s self-check after the digests and the sweeps and before the
   diary keep-alive: four checks, what each said last in `health_checks`, and the owner's
   alerts on a change; the owner's «📊 Проект» reads `project_stats.py`, which writes nothing.

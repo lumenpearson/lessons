@@ -152,6 +152,9 @@ async def task_toggle_done(
         return
 
     await task_service.set_done(session, task, not task.done)
+    # Committed before Telegram is told: the middleware commits after the
+    # handler, and an edit Telegram refuses would roll the tick back with it.
+    await session.commit()
     text, keyboard = await task_view(
         session, school_class, callback.from_user.id, bool(callback_data.show_done)
     )
@@ -202,6 +205,9 @@ async def _save_from_text(
         due_time=due_time,
         priority=priority,
     )
+    # Committed before the confirmation, whose buttons carry the task's id: a
+    # reply Telegram refuses must not take the task down with it.
+    await session.commit()
 
     text = render_task_saved(task, today)
     if task.due_date is not None:
@@ -409,6 +415,8 @@ async def task_delete(
     )
     if task is not None:
         await task_service.delete_task(session, task)
+        # Before the list is redrawn, for the same reason as the tick above.
+        await session.commit()
     text, keyboard = await task_view(
         session, school_class, callback.from_user.id, bool(callback_data.show_done)
     )

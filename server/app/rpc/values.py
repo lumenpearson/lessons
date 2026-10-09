@@ -2,8 +2,9 @@
 
 One place for the conventions ``common.proto`` states, so that two handlers
 cannot write a date, a time or a role two ways: a date is ``"YYYY-MM-DD"``, a
-time of day ``"HH:MM"`` (v1 wrote seconds; v2 does not), an instant a
-``Timestamp``, and an enum is matched to the model's by its member name —
+time of day ``"HH:MM"`` (v1 wrote seconds; v2 does not), a moment on the
+class's wall clock ``"YYYY-MM-DDTHH:MM"``, an instant a ``Timestamp``, and an
+enum is matched to the model's by its member name —
 ``DayKind.SELF_STUDY`` is ``DAY_KIND_SELF_STUDY`` — so a value added to one
 and not the other is a ``KeyError`` in a test rather than a silent default.
 """
@@ -36,6 +37,12 @@ def date_string(day: Date) -> str:
 
 def time_string(clock: Time) -> str:
     return clock.strftime("%H:%M")
+
+
+def wall_moment(moment: datetime) -> str:
+    """A moment on the class's wall clock, ``"YYYY-MM-DDTHH:MM"``: a task's
+    reminder, which a naive column holds in the class's zone."""
+    return moment.strftime("%Y-%m-%dT%H:%M")
 
 
 def instant(moment: datetime) -> Timestamp:

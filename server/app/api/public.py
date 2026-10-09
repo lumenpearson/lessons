@@ -63,6 +63,7 @@ from app.security import MAX_DEVICES_PER_CLASS as MAX_DEVICES_PER_CLASS
 from app.security import join_limiter as join_limiter
 from app.services import calendar as calendar_service
 from app.services import clock, linking, window
+from app.services import homework as homework_service
 from app.services import join as join_service
 from app.services import subjects as subjects_service
 from app.services import tasks as task_service
@@ -472,13 +473,11 @@ async def me(
     unlink for the same reason.
     """
     access = await linking.access_of(session, device)
-    link_code: str | None = None
-    deep_link: str | None = None
-    if not device.is_linked:
-        link_code = await linking.issue_link_code(session, device)
-        username = get_settings().bot_username.lstrip("@")
-        if username:
-            deep_link = f"https://t.me/{username}?start=link_{link_code}"
+    link_code = await linking.link_code_for(session, device)
+    await session.commit()
+    deep_link = (
+        linking.deep_link(get_settings().bot_username, link_code) if link_code is not None else None
+    )
     return MeOut(
         device_name=device.device_name,
         linked=access.linked,
@@ -496,10 +495,10 @@ async def unlink(
     *,
     session: FromDishka[AsyncSession],
 ) -> UnlinkOut:
-    """Back to read-only. Idempotent: unlinking an unlinked device is fine."""
-    if device.is_linked:
-        await linking.unlink_device(session, device)
-        await session.commit()
+    """Back to read-only. Idempotent: unlinking an unlinked device is fine, and
+    changes nothing (``linking.unlink_self``, which v2's ``UnlinkMe`` calls)."""
+    await linking.unlink_self(session, device)
+    await session.commit()
     return UnlinkOut(linked=False)
 
 
@@ -557,17 +556,6 @@ async def homework_list(
     return [_homework_out(row, row.id in ticks) for row in rows]
 
 
-async def _homework_in_class(
-    session: AsyncSession, homework_id: int, school_class: SchoolClass
-) -> Homework:
-    item = await session.scalar(
-        select(Homework).where(Homework.id == homework_id, Homework.class_id == school_class.id)
-    )
-    if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown homework")
-    return item
-
-
 @router.post("/homework/{homework_id}/done", response_model=DoneOut)
 async def homework_done(
     homework_id: int,
@@ -578,13 +566,17 @@ async def homework_done(
     session: FromDishka[AsyncSession],
 ) -> DoneOut:
     """Set (not toggle) this person's tick: the app sends the state it shows,
-    so a retried request lands on the same answer."""
+    so a retried request lands on the same answer (``tasks.set_homework_done``,
+    which v2's homework ticks call too)."""
     telegram_id = _linked_id(device)
-    item = await _homework_in_class(session, homework_id, school_class)
-    current = item.id in await task_service.homework_ticks(session, telegram_id, [item.id])
-    if current != payload.done:
-        current = await task_service.toggle_homework_done(session, item, telegram_id)
-    return DoneOut(id=item.id, done=current)
+    item = await homework_service.homework_of(session, school_class.id, homework_id)
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_HOMEWORK_DETAIL
+        )
+    done = await task_service.set_homework_done(session, item, telegram_id, payload.done)
+    await session.commit()
+    return DoneOut(id=item.id, done=done)
 
 
 # --------------------------------------------------------------------------
@@ -710,27 +702,13 @@ def _task_out(task: PersonalTask) -> TaskOut:
     )
 
 
-def _wall_time(value: datetime | None, school_class: SchoolClass) -> datetime | None:
-    """Class wall time for the naive column. A naive value is taken as already
-    being wall time; an aware one is an instant and is converted."""
-    if value is None or value.tzinfo is None:
-        return value
-    return value.astimezone(school_class.tz).replace(tzinfo=None)
-
-
-async def _check_homework_id(
-    session: AsyncSession, homework_id: int | None, school_class: SchoolClass
-) -> None:
-    if homework_id is None:
-        return
-    found = await session.scalar(
-        select(Homework.id).where(Homework.id == homework_id, Homework.class_id == school_class.id)
+def _homework_not_in_class() -> HTTPException:
+    """A task's ``homework_id`` of another class's homework, or none, which
+    ``tasks.create_task`` and ``update_task`` refuse with a fact."""
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=wording.HOMEWORK_NOT_IN_CLASS_DETAIL,
     )
-    if found is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="homework_id is not in this class",
-        )
 
 
 async def _own_task(
@@ -740,7 +718,9 @@ async def _own_task(
     if task is None:
         # Somebody else's task and a task that never existed are the same
         # answer: an id must not reveal that a classmate has a list.
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown task")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_TASK_DETAIL
+        )
     return task
 
 
@@ -754,7 +734,11 @@ async def tasks_list(
 ) -> list[TaskOut]:
     telegram_id = _linked_id(device)
     rows = await task_service.list_tasks(
-        session, school_class.id, telegram_id, include_done=include_done, limit=200
+        session,
+        school_class.id,
+        telegram_id,
+        include_done=include_done,
+        limit=task_service.LIST_MAX,
     )
     return [_task_out(row) for row in rows]
 
@@ -768,20 +752,23 @@ async def tasks_create(
     session: FromDishka[AsyncSession],
 ) -> TaskOut:
     telegram_id = _linked_id(device)
-    await _check_homework_id(session, payload.homework_id, school_class)
-    task = await task_service.add_task(
-        session,
-        school_class.id,
-        telegram_id,
-        payload.title,
-        due_date=payload.due_date,
-        due_time=payload.due_time,
-        priority=payload.priority,
-        subject_name=payload.subject_name,
-        notes=payload.notes,
-        homework_id=payload.homework_id,
-        remind_at=_wall_time(payload.remind_at, school_class),
-    )
+    try:
+        task = await task_service.create_task(
+            session,
+            school_class,
+            telegram_id,
+            payload.title,
+            due_date=payload.due_date,
+            due_time=payload.due_time,
+            priority=payload.priority,
+            subject_name=payload.subject_name,
+            notes=payload.notes,
+            homework_id=payload.homework_id,
+            remind_at=payload.remind_at,
+        )
+    except task_service.HomeworkNotInClass:
+        raise _homework_not_in_class() from None
+    await session.commit()
     return _task_out(task)
 
 
@@ -796,19 +783,13 @@ async def tasks_update(
 ) -> TaskOut:
     telegram_id = _linked_id(device)
     task = await _own_task(session, task_id, school_class, telegram_id)
-
-    changes = payload.model_dump(exclude_unset=True)
-    if "homework_id" in changes:
-        await _check_homework_id(session, changes["homework_id"], school_class)
-    if "remind_at" in changes:
-        changes["remind_at"] = _wall_time(changes["remind_at"], school_class)
-    done = changes.pop("done", None)
-    for name, value in changes.items():
-        setattr(task, name, value)
-    if done is not None and done != task.done:
-        await task_service.set_done(session, task, done)
-    else:
-        await session.commit()
+    try:
+        await task_service.update_task(
+            session, school_class, task, payload.model_dump(exclude_unset=True)
+        )
+    except task_service.HomeworkNotInClass:
+        raise _homework_not_in_class() from None
+    await session.commit()
     await session.refresh(task)
     return _task_out(task)
 
@@ -824,6 +805,7 @@ async def tasks_delete(
     telegram_id = _linked_id(device)
     task = await _own_task(session, task_id, school_class, telegram_id)
     await task_service.delete_task(session, task)
+    await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -840,6 +822,7 @@ async def tasks_done(
     task = await _own_task(session, task_id, school_class, telegram_id)
     if task.done != payload.done:
         await task_service.set_done(session, task, payload.done)
+        await session.commit()
         # ``updated_at`` is set by the database on update and expired by the
         # commit; reading it back lazily is not possible on an async session.
         await session.refresh(task)
@@ -860,8 +843,9 @@ async def calendar_url(
 ) -> CalendarOut:
     """The subscription URL for this class, minting the feed secret on first ask."""
     token = await calendar_service.ensure_calendar_token(session, school_class)
+    await session.commit()
     base = get_settings().public_base_url.rstrip("/") or str(request.base_url).rstrip("/")
-    return CalendarOut(url=f"{base}/api/v1/calendar/{token}.ics")
+    return CalendarOut(url=calendar_service.feed_url(base, token))
 
 
 @router.get("/calendar/{calendar_token}.ics")

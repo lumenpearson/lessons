@@ -55,8 +55,13 @@ async def ensure_calendar_token(session: AsyncSession, school_class: SchoolClass
     first had already been handed a URL the database no longer holds. A
     calendar subscription is set up once and never looked at again, so that
     caller's feed simply answers 404 for ever, with nothing to say why. The
-    loser of the `WHERE calendar_token IS NULL` now writes nothing and takes
-    the winner's token, which is the same answer.
+    loser of the `WHERE calendar_token IS NULL` waits for the winner's commit,
+    then writes nothing and takes the winner's token, which is the same answer.
+
+    Nothing is committed here. The caller commits before it hands the address
+    out — v1's router, the bot's handler before it answers, v2's ``invoke``
+    before the response leaves — for the same reason: an address for a secret
+    the database never kept is a feed that answers 404 for ever.
     """
     if school_class.calendar_token:
         return school_class.calendar_token
@@ -66,9 +71,8 @@ async def ensure_calendar_token(session: AsyncSession, school_class: SchoolClass
         .where(SchoolClass.id == school_class.id, SchoolClass.calendar_token.is_(None))
         .values(calendar_token=secrets.token_urlsafe(24))
     )
-    await session.commit()
     await session.refresh(school_class, ["calendar_token"])
-    # Not reachable: after that commit the column holds somebody's token, ours
+    # Not reachable: after that update the column holds somebody's token, ours
     # or the winner's, and a class deleted in between raises out of `refresh`
     # rather than arriving here. It is written for the type, which is Optional
     # because a class that has never published a feed has no secret.
@@ -80,6 +84,14 @@ async def rotate_calendar_token(session: AsyncSession, school_class: SchoolClass
     school_class.calendar_token = secrets.token_urlsafe(24)
     await session.commit()
     return school_class.calendar_token
+
+
+def feed_url(base: str, token: str) -> str:
+    """The subscription address of the feed whose secret is ``token``, on the
+    origin ``base``. The feed itself stays plain HTTP at its v1 path,
+    whichever version or screen handed the address out (``me.proto``,
+    ``CalendarFeed.url``)."""
+    return f"{base.rstrip('/')}/api/v1/calendar/{token}.ics"
 
 
 # --------------------------------------------------------------------------

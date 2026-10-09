@@ -5,6 +5,12 @@ Everything here is scoped to one Telegram account. A task is looked up by
 in callback data, and a crafted callback must not be able to tick or delete a
 classmate's list.
 
+Nothing here commits: every caller does, after the call — v1's routers, the
+bot's handlers before they tell Telegram, and v2's ``invoke``, since a v2
+handler never commits (``docs/specs/2026-10-05-server-v2-design.md``,
+decision 4). The one write that can meet a racing twin, a tick, concedes
+inside a savepoint rather than by failing a commit.
+
 :func:`parse_task_text` is the one-message grammar - «Купить тетрадь до 15.09
 в 18:00 !» - because typing a date into a picker on a phone is slower than
 writing it, and the class chat already speaks this dialect.
@@ -13,15 +19,18 @@ writing it, and the class chat already speaks this dialect.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from datetime import date as Date
 from datetime import time as Time
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Homework, HomeworkDone, PersonalTask, TaskPriority
+from app.models import Homework, HomeworkDone, PersonalTask, SchoolClass, TaskPriority
+from app.services import homework as homework_service
 
 TITLE_MAX = 200
 SUBJECT_MAX = 120
@@ -189,6 +198,11 @@ def _utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+#: The most tasks one list answers: v1's ``GET /tasks`` and v2's ``ListTasks``.
+#: The bot's own list shows fewer, and pages nothing.
+LIST_MAX = 200
+
+
 def _clamp_priority(priority: int) -> int:
     return max(int(TaskPriority.LOW), min(int(TaskPriority.HIGH), int(priority)))
 
@@ -246,22 +260,23 @@ async def add_task(
         remind_at=remind_at,
     )
     session.add(task)
-    await session.commit()
-    # Server defaults (``created_at``) are not fetched by the insert; the
-    # caller renders the row it gets back, so load them now.
+    # Flushed, not committed: the caller commits it. Server defaults
+    # (``created_at``) are not fetched by the insert, and the caller renders
+    # the row it gets back, so the id and the stamps are loaded now.
+    await session.flush()
     await session.refresh(task)
     return task
 
 
 async def set_done(session: AsyncSession, task: PersonalTask, done: bool) -> None:
+    """Tick ``task`` off, or back on, and stamp when. The caller commits."""
     task.done = done
     task.done_at = _utcnow() if done else None
-    await session.commit()
 
 
 async def delete_task(session: AsyncSession, task: PersonalTask) -> None:
+    """Delete ``task``. The caller commits."""
     await session.delete(task)
-    await session.commit()
 
 
 async def get_task(
@@ -275,6 +290,108 @@ async def get_task(
             PersonalTask.telegram_id == telegram_id,
         )
     )
+
+
+# --------------------------------------------------------------------------
+# Tasks from the API
+#
+# What v1's ``/tasks`` held in its router and v2's ``MeService`` needs too:
+# a task's link to homework checked against the class, a reminder stored as
+# the class's wall time, and a patch applied field by field with ``done``
+# through ``set_done``. The bot types neither a homework id nor an instant,
+# so it calls ``add_task`` and ``set_done`` directly.
+# --------------------------------------------------------------------------
+
+
+class HomeworkNotInClass(ValueError):
+    """A task's ``homework_id`` names homework this class does not have:
+    another class's, or none."""
+
+
+def wall_time(value: datetime | None, school_class: SchoolClass) -> datetime | None:
+    """Class wall time for the naive ``remind_at`` column. A naive value is taken
+    as wall time already; an aware one is an instant, and is converted to the
+    class's zone, which is the clock the reminder tick reads."""
+    if value is None or value.tzinfo is None:
+        return value
+    return value.astimezone(school_class.tz).replace(tzinfo=None)
+
+
+async def check_homework_id(session: AsyncSession, class_id: int, homework_id: int | None) -> None:
+    """Refuse a link from a task to homework the class does not have.
+
+    @raises HomeworkNotInClass for another class's homework, or none.
+    """
+    if homework_id is None:
+        return
+    if await homework_service.homework_of(session, class_id, homework_id) is None:
+        raise HomeworkNotInClass()
+
+
+async def create_task(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    telegram_id: int,
+    title: str,
+    *,
+    notes: str | None = None,
+    subject_name: str | None = None,
+    due_date: Date | None = None,
+    due_time: Time | None = None,
+    priority: int = int(TaskPriority.NORMAL),
+    homework_id: int | None = None,
+    remind_at: datetime | None = None,
+) -> PersonalTask:
+    """A task from v1's ``POST /tasks`` or v2's ``CreateTask``: :func:`add_task`,
+    after the two things the API asks and the bot has no need of. A
+    ``homework_id`` must be this class's, and a ``remind_at`` with an offset is
+    stored as the class's wall time. Nothing is committed.
+
+    @raises HomeworkNotInClass for another class's homework, or none.
+    """
+    await check_homework_id(session, school_class.id, homework_id)
+    return await add_task(
+        session,
+        school_class.id,
+        telegram_id,
+        title,
+        due_date=due_date,
+        due_time=due_time,
+        priority=priority,
+        subject_name=subject_name,
+        notes=notes,
+        homework_id=homework_id,
+        remind_at=wall_time(remind_at, school_class),
+    )
+
+
+async def update_task(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    task: PersonalTask,
+    changes: Mapping[str, Any],
+) -> None:
+    """Change the fields ``changes`` names, and no other: v1's ``PATCH
+    /tasks/{id}``, and v2's ``UpdateTask``, which with ``done`` is v1's
+    ``POST /tasks/{id}/done`` too.
+
+    ``None`` clears a nullable field. A ``homework_id`` must be this class's,
+    and is checked before anything changes; a ``remind_at`` with an offset is
+    stored as the class's wall time; ``done`` goes through :func:`set_done`,
+    which stamps when, and only when it changes. Nothing is committed.
+
+    @raises HomeworkNotInClass for another class's homework, or none.
+    """
+    fields = dict(changes)
+    if "homework_id" in fields:
+        await check_homework_id(session, school_class.id, fields["homework_id"])
+    if "remind_at" in fields:
+        fields["remind_at"] = wall_time(fields["remind_at"], school_class)
+    done = fields.pop("done", None)
+    for name, value in fields.items():
+        setattr(task, name, value)
+    if done is not None and done != task.done:
+        await set_done(session, task, done)
 
 
 # --------------------------------------------------------------------------
@@ -300,7 +417,8 @@ async def homework_ticks(
 async def toggle_homework_done(
     session: AsyncSession, homework: Homework, telegram_id: int
 ) -> bool:
-    """Flip this person's tick on ``homework``; returns the new state."""
+    """Flip this person's tick on ``homework``; returns the new state. The
+    caller commits."""
     homework_id = homework.id
     existing = await session.scalar(
         select(HomeworkDone).where(
@@ -309,18 +427,46 @@ async def toggle_homework_done(
     )
     if existing is not None:
         await session.delete(existing)
-        await session.commit()
         return False
 
-    session.add(HomeworkDone(homework_id=homework_id, telegram_id=telegram_id, done_at=_utcnow()))
     try:
-        await session.commit()
+        async with session.begin_nested():
+            session.add(
+                HomeworkDone(homework_id=homework_id, telegram_id=telegram_id, done_at=_utcnow())
+            )
+            await session.flush()
     except IntegrityError:
         # Two taps in flight at once - the app and the bot, or a double tap on
-        # a slow connection. The other one won and the tick is there, which is
-        # the state this tap wanted too.
-        await session.rollback()
-        # The rollback expired every loaded row; in an async session the
-        # caller cannot lazily reload ``homework`` when it renders the reply.
-        await session.refresh(homework)
+        # a slow connection - raise this same error: a duplicate of the unique
+        # (homework_id, telegram_id) pair. So does the homework being deleted
+        # out from under this tick, a foreign-key violation on the same
+        # insert, and the exception alone cannot tell the two apart. What the
+        # row is now can: a duplicate tap leaves the other tap's tick there, a
+        # deleted homework leaves no tick at all. Reporting ``True`` for the
+        # second case said a tick was stored when nothing was. Only the
+        # savepoint is rolled back, so the caller's transaction, and
+        # ``homework`` in it, go on as they were either way.
+        if (
+            await session.scalar(
+                select(HomeworkDone).where(
+                    HomeworkDone.homework_id == homework_id,
+                    HomeworkDone.telegram_id == telegram_id,
+                )
+            )
+            is None
+        ):
+            raise
     return True
+
+
+async def set_homework_done(
+    session: AsyncSession, homework: Homework, telegram_id: int, done: bool
+) -> bool:
+    """Set, not toggle, this person's tick on ``homework``, and answer the state
+    it is in now: the app sends the state it shows, so a retried request lands
+    on the same answer. v1's ``POST /homework/{id}/done``, and v2's
+    ``CreateHomeworkTick`` and ``DeleteHomeworkTick``. Nothing is committed."""
+    ticked = homework.id in await homework_ticks(session, telegram_id, [homework.id])
+    if ticked == done:
+        return ticked
+    return await toggle_homework_done(session, homework, telegram_id)

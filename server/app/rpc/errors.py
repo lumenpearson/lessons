@@ -37,6 +37,7 @@ from app.services import diary as diary_service
 from app.services import directory as directory_service
 from app.services import join, quota, window
 from app.services import schools as schools_service
+from app.services import tasks as tasks_service
 from app.services import terms as terms_service
 from app.services.manage import bells as bells_service
 from app.services.manage import classes as classes_service
@@ -308,6 +309,15 @@ def _school_search_unavailable(error: dadata.DirectoryError) -> Refusal:
     return Refusal(ErrorReason.DIRECTORY_UNAVAILABLE, error.message)
 
 
+def _homework_not_in_class(_error: tasks_service.HomeworkNotInClass) -> Refusal:
+    # CreateTask and UpdateTask both carry the field as task.homework_id.
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.HOMEWORK_NOT_IN_CLASS_DETAIL,
+        violations=[("task.homework_id", wording.HOMEWORK_NOT_IN_CLASS_DETAIL)],
+    )
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -339,6 +349,7 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     directory_service.DirectoryUnavailable: _directory_unavailable,
     dadata.NotConfigured: _school_search_disabled,
     dadata.DirectoryError: _school_search_unavailable,
+    tasks_service.HomeworkNotInClass: _homework_not_in_class,
 }
 
 

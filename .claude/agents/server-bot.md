@@ -21,7 +21,7 @@ not exist in this product, so a missing card is a missing feature, not a missing
 - FSM state lives in the database (`app/fsm_storage.py`) because each update may hit a fresh
   process. `build_dispatcher()` is shared between long polling and the webhook.
 
-## The four ways a bot change breaks production
+## The five ways a bot change breaks production
 
 1. **A message Telegram will not deliver is a screen that says nothing.** 4096 characters
    after entity parsing, and the whole message is refused rather than clipped. Every
@@ -40,6 +40,12 @@ not exist in this product, so a missing card is a missing feature, not a missing
 4. **Two screens can match one press.** Split a shared callback payload on a field, never on
    registration order — both role pickers send a `RolePick` and only `target` tells them
    apart.
+5. **A handler that writes through a service commits before it replies, not after.**
+   `ContextMiddleware`'s own commit runs after the handler returns, and rolls back when the
+   handler raises — and a reply Telegram refuses (an edit that changes nothing, a deleted
+   message) raises. So the middleware's commit is the finish line only for a handler whose
+   reply cannot lose the write it just made; every other handler commits the write itself,
+   right before it speaks.
 
 Two smaller ones in the same family: `plural(n, …)` already contains the number, so
 `f"{n} {plural(n, …)}"` prints «10 10 минут»; and `answerCallbackQuery` takes no parse mode,

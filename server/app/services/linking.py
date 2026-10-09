@@ -42,7 +42,9 @@ async def issue_link_code(session: AsyncSession, device: DeviceToken) -> str:
     """The code the app shows. Stable until used: asking twice returns the same one.
 
     The app polls its own status while the link screen is open, and a code
-    that changed on every poll would be unreadable.
+    that changed on every poll would be unreadable. Nothing is committed: the
+    caller commits before it shows the code, because a code the database
+    never kept links nothing.
     """
     if device.link_code:
         return device.link_code
@@ -52,17 +54,38 @@ async def issue_link_code(session: AsyncSession, device: DeviceToken) -> str:
         taken = await session.scalar(select(DeviceToken.id).where(DeviceToken.link_code == code))
         if taken is not None:
             continue
-        device.link_code = code
         try:
-            await session.commit()
+            async with session.begin_nested():
+                device.link_code = code
+                await session.flush()
         except IntegrityError:
             # Two invocations drew the same code between the check and the
-            # commit; the unique index caught it. Draw again.
-            await session.rollback()
+            # write; the unique index caught it. Only the savepoint is rolled
+            # back, so the caller's transaction goes on; the row is read
+            # again, because the rollback expired what this write changed.
+            # Draw again.
             await session.refresh(device)
             continue
         return code
     raise RuntimeError("could not find a free link code")
+
+
+async def link_code_for(session: AsyncSession, device: DeviceToken) -> str | None:
+    """The code this phone shows to be linked, or ``None`` for a phone that is
+    linked already: a code left on a linked row could be typed by somebody
+    else and re-home the phone. v1's ``GET /me`` and v2's ``CreateLinkCode``.
+    Nothing is committed."""
+    if device.is_linked:
+        return None
+    return await issue_link_code(session, device)
+
+
+def deep_link(bot_username: str, code: str) -> str | None:
+    """``https://t.me/<bot>?start=link_<code>``: the bot opened with the code
+    already in it, which its ``/start link_<code>`` reads. ``None`` when the
+    deployment names no bot (``BOT_USERNAME``), written with its «@» or not."""
+    username = bot_username.lstrip("@")
+    return f"https://t.me/{username}?start=link_{code}" if username else None
 
 
 async def link_device(session: AsyncSession, code: str, telegram_id: int) -> DeviceToken | None:
@@ -101,15 +124,30 @@ async def link_device(session: AsyncSession, code: str, telegram_id: int) -> Dev
 async def unlink_device(session: AsyncSession, device: DeviceToken) -> None:
     """Back to read-only. A fresh code is issued on the next request.
 
-    Leaves the transaction open, unlike the functions above it, because two of
-    the three callers write an audit line straight afterwards and the line has
-    to land with the unlink or not at all. Committing here made "phone unlinked,
-    nothing in the log" a possible outcome of one failed insert - and the log is
-    the only place an admin can see that somebody else did it.
+    Leaves the transaction open, unlike :func:`link_device`, because one of
+    its two callers, ``services/manage/devices.py``'s ``unlink``, writes an
+    audit line straight afterwards, and the line has to land with the unlink
+    or not at all. Committing here made "phone unlinked, nothing in the log"
+    a possible outcome of one failed insert - and the log is the only place an
+    admin can see that somebody else did it. The other caller,
+    :func:`unlink_self`, writes no audit line: the phone did it to itself.
     """
     device.telegram_id = None
     device.linked_at = None
     device.link_code = None
+
+
+async def unlink_self(session: AsyncSession, device: DeviceToken) -> None:
+    """Back to read-only, at the phone's own asking: v1's ``POST /me/unlink``
+    and v2's ``UnlinkMe``.
+
+    A phone no account is behind changes nothing, its link code included,
+    which :func:`unlink_device` would clear; so asking twice is not an error,
+    and the second time writes nothing. No audit line: the phone did it to
+    itself, and v1 wrote none. Nothing is committed.
+    """
+    if device.is_linked:
+        await unlink_device(session, device)
 
 
 async def devices_of(

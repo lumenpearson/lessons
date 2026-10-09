@@ -123,7 +123,9 @@ transports cannot disagree about a rule. The rules v1's routers held and v2 need
 member names, the class's wall clock, the dictionary read, the subject patch and the
 journal's page keyed on its last line, then the bells' patch, the timetable's import and
 the class card's patch, then the answer to an access request and the anonymous directory's
-order of checks — and the
+order of checks, then a phone's own: its link code and the code's deep link, unlinking
+itself, the feed's address, a task's checks and its patch, and a tick set rather than
+toggled — and the
 limiters into `security.py`, one instance each, so a caller cannot double its attempts by
 alternating versions. `main.mount_v2` catches a v2 that will not import and answers `503`
 under its two prefixes, so v1 and the webhook never go down with it.
@@ -131,7 +133,12 @@ Every `Update…` reads its mask through `rpc/masks.py` (AIP-134), and the gate 
 version a phone sends beside its `last_seen_at`, which v2's `ClassDevice` and the bot's
 «📱 Устройства» show. The first effects are 3b-3's: the Telegram notice to whoever asked for
 a role, sent through `app/telegram_send.py` once the answer is committed, and never when it
-is refused.
+is refused. Apart from the few writes `rpc/call.py` names, which commit inside themselves on
+purpose, a service a v2 handler calls leaves the commit to its caller: 3b-4 stopped the
+tasks', the ticks', the link code's and the feed secret's services committing, so v1's
+routers commit after the call and the bot's handlers before they tell Telegram, and the two
+retries that leaned on a failing commit, a link code drawn twice and a racing tick, concede
+inside a savepoint.
 
 ### The tick checks the deployment, and tells its owner
 
@@ -931,7 +938,7 @@ with the host.
 
 ## Testing
 
-2767 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
+2839 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 161, `:widget` 126, `:app` 608 (#325).
 
