@@ -64,7 +64,9 @@ class MeService(Protocol):
         new secret would cut off every calendar subscribed to the old one.
         Both feed methods are AUTH_KIND_DEVICE_LINKED with no min_role, on
         purpose: v1 let any device, an anonymous one included, mint the feed, and
-        v2 asks for a linked account.
+        v2 asks for a linked account. A deployment with no public address
+        (PUBLIC_BASE_URL) offers no feed: both answer FEATURE_UNSUPPORTED, with
+        `feature` "calendar_feed", and nothing is minted.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -381,7 +383,9 @@ class MeServiceClient(ConnectClient):
         new secret would cut off every calendar subscribed to the old one.
         Both feed methods are AUTH_KIND_DEVICE_LINKED with no min_role, on
         purpose: v1 let any device, an anonymous one included, mint the feed, and
-        v2 asks for a linked account.
+        v2 asks for a linked account. A deployment with no public address
+        (PUBLIC_BASE_URL) offers no feed: both answer FEATURE_UNSUPPORTED, with
+        `feature` "calendar_feed", and nothing is minted.
         """
         return await self.execute_unary(
             request=request,
@@ -603,7 +607,9 @@ class MeServiceSync(Protocol):
         new secret would cut off every calendar subscribed to the old one.
         Both feed methods are AUTH_KIND_DEVICE_LINKED with no min_role, on
         purpose: v1 let any device, an anonymous one included, mint the feed, and
-        v2 asks for a linked account.
+        v2 asks for a linked account. A deployment with no public address
+        (PUBLIC_BASE_URL) offers no feed: both answer FEATURE_UNSUPPORTED, with
+        `feature` "calendar_feed", and nothing is minted.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -914,7 +920,9 @@ class MeServiceClientSync(ConnectClientSync):
         new secret would cut off every calendar subscribed to the old one.
         Both feed methods are AUTH_KIND_DEVICE_LINKED with no min_role, on
         purpose: v1 let any device, an anonymous one included, mint the feed, and
-        v2 asks for a linked account.
+        v2 asks for a linked account. A deployment with no public address
+        (PUBLIC_BASE_URL) offers no feed: both answer FEATURE_UNSUPPORTED, with
+        `feature` "calendar_feed", and nothing is minted.
         """
         return self.execute_unary(
             request=request,
