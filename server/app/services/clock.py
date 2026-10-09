@@ -23,6 +23,11 @@ from app.models import SchoolClass
 MIN_DATE = Date(2000, 1, 1)
 MAX_DATE = Date(2100, 1, 1)
 
+#: What a date a write names is refused with outside those bounds: v1's
+#: ``_check_date`` and v2's writes alike, built from the bounds so that the
+#: sentence cannot disagree with them.
+DATE_OUT_OF_BOUNDS = f"date must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}"
+
 
 def in_bounds(*days: Date) -> bool:
     """Whether every one of ``days`` is a date a request may name."""

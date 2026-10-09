@@ -32,12 +32,10 @@ from app.config import get_settings
 from app.models import (
     BellPeriod,
     BellSchedule,
-    DayEvent,
     DayKind,
     DayOverride,
     DeviceToken,
     EventKind,
-    Homework,
     LessonOverride,
     OverrideAction,
     Role,
@@ -55,9 +53,15 @@ from app.schemas import (
     OverrideOut,
 )
 from app.services import audit, clock, linking, notify, subjects, timetable_edit
+from app.services import events as events_service
 from app.services import homework as homework_service
 from app.services import tasks as task_service
-from app.wording import EMPTY_BELL_SCHEDULE_DETAIL, human_date
+from app.wording import (
+    EMPTY_BELL_SCHEDULE_DETAIL,
+    UNKNOWN_EVENT_DETAIL,
+    UNKNOWN_HOMEWORK_DETAIL,
+    human_date,
+)
 
 log = logging.getLogger(__name__)
 
@@ -90,14 +94,11 @@ async def editor_device(
 
 
 def _check_date(day: Date) -> None:
-    """Same bounds as ``/bundle``: the resolver does arithmetic on top of it."""
+    """Same bounds as ``/bundle``: the resolver does arithmetic on top of it.
+    The sentence is ``clock``'s, which v2's writes answer with too."""
     if not clock.in_bounds(day):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"date must be between {clock.MIN_DATE.isoformat()} "
-                f"and {clock.MAX_DATE.isoformat()}"
-            ),
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=clock.DATE_OUT_OF_BOUNDS
         )
 
 
@@ -157,38 +158,25 @@ async def homework_put(
     session: FromDishka[AsyncSession],
 ) -> HomeworkItemOut:
     """Upsert by (date, subject), exactly as the bot does: one assignment per
-    subject per day, and sending it again replaces the text."""
+    subject per day, and sending it again replaces the text. The line and the
+    notice are ``homework.put``'s, which v2's writes share."""
     _check_date(payload.due_date)
     actor = device.telegram_id
-    existing, created = await homework_service.upsert(
+    saved = await homework_service.put(
         session,
-        school_class.id,
+        school_class,
+        actor,
         payload.due_date,
         payload.subject,
         payload.text,
-        actor,
         attachment_url=payload.attachment_url,
     )
-    subject_name = existing.subject_name
-    action, verb = ("homework.add", "добавлено") if created else ("homework.update", "обновлено")
-
-    when = human_date(payload.due_date, clock.today(school_class))
-    await audit.record(
-        session, school_class.id, actor, action, f"ДЗ {verb}: {subject_name}, {when}"
-    )
     await session.commit()
-    await session.refresh(existing)
+    await session.refresh(saved.homework)
 
-    await _tell(
-        session,
-        school_class,
-        f"📝 Задание {verb}: <b>{escape(subject_name)}</b> {escape(when)}\n"
-        f"{escape(notify.shorten(payload.text))}",
-        kind="homework",
-        author=actor,
-    )
-    ticks = await task_service.homework_ticks(session, actor, [existing.id])
-    return _homework_out(existing, existing.id in ticks)
+    await _tell(session, school_class, saved.notice, kind="homework", author=actor)
+    ticks = await task_service.homework_ticks(session, actor, [saved.homework.id])
+    return _homework_out(saved.homework, saved.homework.id in ticks)
 
 
 @router.delete("/homework/{homework_id}", response_model=DeletedOut)
@@ -199,31 +187,14 @@ async def homework_delete(
     *,
     session: FromDishka[AsyncSession],
 ) -> DeletedOut:
-    item = await session.scalar(
-        select(Homework).where(Homework.id == homework_id, Homework.class_id == school_class.id)
-    )
+    item = await homework_service.homework_of(session, school_class.id, homework_id)
     if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown homework")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=UNKNOWN_HOMEWORK_DETAIL)
 
-    when = human_date(item.due_date, clock.today(school_class))
-    subject = item.subject_name
-    await audit.record(
-        session,
-        school_class.id,
-        device.telegram_id,
-        "homework.delete",
-        f"ДЗ удалено: {subject}, {when}",
-    )
-    await session.delete(item)
+    notice = await homework_service.delete(session, school_class, device.telegram_id, item)
     await session.commit()
 
-    await _tell(
-        session,
-        school_class,
-        f"🗑 Задание удалено: <b>{escape(subject)}</b> {escape(when)}",
-        kind="homework",
-        author=device.telegram_id,
-    )
+    await _tell(session, school_class, notice, kind="homework", author=device.telegram_id)
     return DeletedOut(id=homework_id)
 
 
@@ -415,44 +386,28 @@ async def event_put(
     session: FromDishka[AsyncSession],
 ) -> EventCreatedOut:
     """Events have no natural key - two «Обед» rows on one day are two breaks
-    - so this always creates; ``DELETE`` is how one goes away."""
+    - so this always creates; ``DELETE`` is how one goes away. The row, its
+    line and its notice are ``events.create``'s, which v2's ``CreateEvent``
+    calls too."""
     _check_date(payload.date)
     actor = device.telegram_id
-    kind = EventKind(payload.kind)
-    covers = (
-        payload.covers_lesson
-        if payload.covers_lesson is not None
-        else kind in {EventKind.EVENT, EventKind.TRIP}
-    )
-    event = DayEvent(
-        class_id=school_class.id,
+    written = await events_service.create(
+        session,
+        school_class,
+        actor,
         date=payload.date,
         starts_at=payload.starts_at,
         ends_at=payload.ends_at,
         title=payload.title,
-        kind=kind,
+        kind=EventKind(payload.kind),
         location=payload.location,
-        covers_lesson=covers,
-    )
-    session.add(event)
-
-    when = human_date(payload.date, clock.today(school_class))
-    span = f"{payload.starts_at:%H:%M}–{payload.ends_at:%H:%M}"
-    await audit.record(
-        session, school_class.id, actor, "event.add", f"Событие: {payload.title}, {when} {span}"
+        covers_lesson=payload.covers_lesson,
     )
     await session.commit()
-    await session.refresh(event)
+    await session.refresh(written.event)
 
-    await _tell(
-        session,
-        school_class,
-        f"📅 Событие: <b>{escape(payload.title)}</b> {escape(when)}, {span}"
-        + (f", {escape(payload.location)}" if payload.location else ""),
-        kind="changes",
-        author=actor,
-    )
-    return EventCreatedOut(id=event.id)
+    await _tell(session, school_class, written.notice, kind="changes", author=actor)
+    return EventCreatedOut(id=written.event.id)
 
 
 @router.delete("/events/{event_id}", response_model=DeletedOut)
@@ -463,31 +418,14 @@ async def event_delete(
     *,
     session: FromDishka[AsyncSession],
 ) -> DeletedOut:
-    event = await session.scalar(
-        select(DayEvent).where(DayEvent.id == event_id, DayEvent.class_id == school_class.id)
-    )
+    event = await events_service.event_of(session, school_class.id, event_id)
     if event is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown event")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=UNKNOWN_EVENT_DETAIL)
 
-    when = human_date(event.date, clock.today(school_class))
-    title = event.title
-    await audit.record(
-        session,
-        school_class.id,
-        device.telegram_id,
-        "event.delete",
-        f"Событие удалено: {title}, {when}",
-    )
-    await session.delete(event)
+    notice = await events_service.delete(session, school_class, device.telegram_id, event)
     await session.commit()
 
-    await _tell(
-        session,
-        school_class,
-        f"🗑 Событие отменено: <b>{escape(title)}</b> {escape(when)}",
-        kind="changes",
-        author=device.telegram_id,
-    )
+    await _tell(session, school_class, notice, kind="changes", author=device.telegram_id)
     return DeletedOut(id=event_id)
 
 

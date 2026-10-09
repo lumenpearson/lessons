@@ -16,18 +16,28 @@ reason. It also means this code is correct **before and after** the unique
 constraint exists: without it the `IntegrityError` branch is simply never
 taken. That is deliberate — see `migrations/versions/0013`, which explains why
 the constraint has to land after this code rather than before it.
+
+What v1's ``PUT /homework`` and ``DELETE /homework/{id}`` held in their router
+is here too, because v2's ``HomeworkService`` writes the same assignments: the
+line in the journal and the notice the class is told, in v1's words
+(:func:`put`, :func:`delete`). Nothing here commits — the caller commits an
+assignment together with its line, and only then tells the class — and nothing
+here imports ``services/tasks.py``, which imports this module for the
+homework's lookup.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date as Date
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Homework
-from app.services import subjects
+from app import wording
+from app.models import Homework, SchoolClass
+from app.services import audit, clock, notify, subjects
 
 
 async def _find(
@@ -103,3 +113,69 @@ async def upsert(
     if attachment_url is not None:
         existing.attachment_url = attachment_url
     return existing, False
+
+
+@dataclass(frozen=True)
+class Saved:
+    """An assignment written, whether it is new, and the notice the class is
+    told of it."""
+
+    homework: Homework
+    created: bool
+    notice: str
+
+
+async def _announced(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    row: Homework,
+    *,
+    created: bool,
+) -> Saved:
+    """Stage the assignment's line in the journal and word its notice, as v1's
+    ``PUT`` did: «добавлено» for a new one and «обновлено» for one changed, on
+    the date as people read it from the class's today. The text is cut before
+    it is escaped (``notify.shorten``)."""
+    verb = "добавлено" if created else "обновлено"
+    action = "homework.add" if created else "homework.update"
+    when = wording.human_date(row.due_date, clock.today(school_class))
+    await audit.record(
+        session, school_class.id, actor, action, f"ДЗ {verb}: {row.subject_name}, {when}"
+    )
+    notice = wording.homework_saved_notice(verb, row.subject_name, when, notify.shorten(row.text))
+    return Saved(row, created, notice)
+
+
+async def put(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor: int | None,
+    due_date: Date,
+    subject: str,
+    text: str,
+    *,
+    attachment_url: str | None = None,
+) -> Saved:
+    """v1's ``PUT /homework``: :func:`upsert` by (date, subject), then its line
+    in the journal and its notice. Nothing is committed: the caller commits
+    the assignment with its line, and only then tells the class."""
+    row, created = await upsert(
+        session, school_class.id, due_date, subject, text, actor, attachment_url=attachment_url
+    )
+    return await _announced(session, school_class, actor, row, created=created)
+
+
+async def delete(
+    session: AsyncSession, school_class: SchoolClass, actor: int | None, row: Homework
+) -> str:
+    """Delete an assignment and stage its line in the journal; answer the
+    notice the class is told. v1's ``DELETE /homework/{id}``, and v2's
+    ``DeleteHomework``. Nothing is committed."""
+    when = wording.human_date(row.due_date, clock.today(school_class))
+    subject = row.subject_name
+    await audit.record(
+        session, school_class.id, actor, "homework.delete", f"ДЗ удалено: {subject}, {when}"
+    )
+    await session.delete(row)
+    return wording.homework_deleted_notice(subject, when)
