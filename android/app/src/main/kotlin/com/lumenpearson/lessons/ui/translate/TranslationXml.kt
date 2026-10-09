@@ -163,7 +163,7 @@ internal object TranslationXml {
     private const val DefaultStringFile = "strings.xml"
 
     /**
-     * `:app`'s eleven, in the order they are searched.
+     * `:app`'s twelve, in the order they are searched.
      *
      * `strings.xml` first because it holds the most and is the only one every
      * other module has; the rest in any order, since a key is in exactly one
@@ -174,6 +174,7 @@ internal object TranslationXml {
     private val AppStringFiles = listOf(
         "strings.xml",
         "strings_admin.xml",
+        "strings_app_icon.xml",
         "strings_developer.xml",
         "strings_diary.xml",
         "strings_docs.xml",
