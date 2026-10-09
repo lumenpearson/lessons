@@ -25,7 +25,6 @@ from app.models import AuditEntry
 from app.models import Term as TermRow
 from app.models import TermKind as SchemeRow
 from app.rpc.school_class import TERM_KIND_REFUSED
-from app.schedule import default_term_bounds
 from app.services.manage.terms import current_year
 
 
@@ -213,13 +212,12 @@ async def test_a_term_the_year_cannot_hold_is_refused_in_the_service_s_words(
         assert answer.error == v1.json()["detail"]
         assert words in answer.error
         assert v1.status_code == 422
-    # No term was moved and no line was logged. What may stay is the year's
-    # conventional set, which `terms.ensure` seeds in a savepoint before the
-    # move is refused: on Postgres the refusal rolls the savepoint back with
-    # the rest, while on SQLite, where every test runs, releasing a savepoint
-    # that opened the transaction commits it (v1's refusal keeps it the same way).
-    stored = [(row.starts_on, row.ends_on) for row in await _terms(session, school_class)]
-    assert stored in ([], default_term_bounds(year, SchemeRow.QUARTER))
+    # No term was moved, no line was logged, and not even the year's
+    # conventional set stayed, which `terms.ensure` seeds in a savepoint before
+    # the move is refused: the refusal rolls the savepoint back with the rest,
+    # in both shells. Until #373 (and #354) was fixed, SQLite committed that
+    # savepoint when it was released, and this test let the set stay.
+    assert await _terms(session, school_class) == []
     assert await _actions(session) == []
 
 
