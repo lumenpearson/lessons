@@ -132,6 +132,13 @@ class EventCreatedOut(BaseModel):
 DayKindName = Literal["normal", "holiday", "shortened", "remote"]
 
 
+class DateIn(BaseModel):
+    """A date a v2 request names on its own — ``GetDay``'s ``date`` and
+    ``UpdateDay``'s ``day.date`` — parsed as ``DayIn`` parses v1's ``date``."""
+
+    date: Date
+
+
 class DayIn(BaseModel):
     date: Date
     kind: DayKindName

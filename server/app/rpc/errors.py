@@ -43,6 +43,7 @@ from app.services import terms as terms_service
 from app.services.manage import bells as bells_service
 from app.services.manage import classes as classes_service
 from app.services.manage import devices as devices_service
+from app.services.manage import special_days as special_days_service
 from app.services.manage import subjects as subjects_service
 from app.services.manage import timetable as timetable_service
 
@@ -347,6 +348,23 @@ def _homework_exists(_error: homework_service.HomeworkExists) -> Refusal:
     )
 
 
+def _schedule_not_in_class(_error: special_days_service.ScheduleNotInClass) -> Refusal:
+    # UpdateDay is the one method that names a day's schedule, as day.bell_schedule_id.
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.SCHEDULE_NOT_IN_CLASS_DETAIL,
+        violations=[("day.bell_schedule_id", wording.SCHEDULE_NOT_IN_CLASS_DETAIL)],
+    )
+
+
+def _shortened_needs_schedule(_error: special_days_service.ShortenedNeedsSchedule) -> Refusal:
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.SHORTENED_NEEDS_SCHEDULE_DETAIL,
+        violations=[("day.bell_schedule_id", wording.SHORTENED_NEEDS_SCHEDULE_DETAIL)],
+    )
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -381,6 +399,8 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     tasks_service.HomeworkNotInClass: _homework_not_in_class,
     clock.WindowRefused: _window_refused,
     homework_service.HomeworkExists: _homework_exists,
+    special_days_service.ScheduleNotInClass: _schedule_not_in_class,
+    special_days_service.ShortenedNeedsSchedule: _shortened_needs_schedule,
 }
 
 

@@ -36,6 +36,7 @@ from app.services import terms as terms_service
 from app.services.manage import bells as bells_service
 from app.services.manage import classes as classes_service
 from app.services.manage import devices as devices_service
+from app.services.manage import special_days as special_days_service
 from app.services.manage import subjects as subjects_service
 from app.services.manage import timetable as timetable_service
 
@@ -179,6 +180,14 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     homework_service.HomeworkExists: (
         "test_v2_homework_create.py",
         "test_a_subject_that_already_has_homework_that_day_is_refused_as_existing",
+    ),
+    special_days_service.ScheduleNotInClass: (
+        "test_v2_days.py",
+        "test_a_shortened_day_rings_a_schedule_of_its_own_class_that_rings_something",
+    ),
+    special_days_service.ShortenedNeedsSchedule: (
+        "test_v2_days.py",
+        "test_a_shortened_day_rings_a_schedule_of_its_own_class_that_rings_something",
     ),
     # The gate raises it for a diary method, and none is served before 3b-7:
     # test_rpc_gate.py holds the gate raising it until then.
