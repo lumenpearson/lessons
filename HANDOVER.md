@@ -9,25 +9,23 @@ newest first.
 Last updated: **9 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
-#313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363, #366 and
-#372 are merged**, and #344's commit went in with #366 although GitHub marks it closed rather
-than merged; `main` is at `128fe15`, the merge of #372, at 20:32 UTC on 8 October 2026. **The
-four designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered every
-question with its recommendation on 5 October (#301, #306, #307, #308). **One pull request is
-open: #376, the one carrying this paragraph**, from `server-v2/3b-4`, on milestone 11, which
-closes #374 and refers to #273, #373 and #375: v2 is served beside v1, forty-four methods of
-it now. **The schema did not move**: the head is still `0019`, on production since 16:28 UTC
-on 6 October, and `EXPECTED_REVISION` did not move either. The issues filed since #372 merged
-are #373 (on SQLite a savepoint that opens the transaction commits when it is released), open,
-to be fixed in a pull request of its own before 3b-5; #374 (`CLAUDE.md` said nothing under
-`services/` commits), closed by #376; and #375 (the bot's feed rotation commits before its
-journal line), open, on the backlog. #352, #354, #355, #357, #368 and #371 stay open, and so
-does #365: its second host could not reach the diary, and the diary's reads are to move onto
-the phone instead («After #372's merge», below). #118, what Preview is for, was closed by
-#350.
+#313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363, #366, #372
+and #376 are merged**, and #344's commit went in with #366 although GitHub marks it closed
+rather than merged; `main` is at `8cb3261`, the merge of #376, at 04:01 UTC on 9 October 2026.
+**The four designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered
+every question with its recommendation on 5 October (#301, #306, #307, #308). **One pull
+request is open: #379, the one carrying this paragraph**, from `fix/sqlite-savepoint`, on
+milestone 11, which closes #373 and #354 and refers to #378: on SQLite a savepoint now behaves
+as it does on Postgres. v2 is served beside v1, forty-four methods of it. **The schema did not
+move**: the head is still `0019`, on production since 16:28 UTC on 6 October, and
+`EXPECTED_REVISION` did not move either. The issues filed since #376 merged are #377 (v1's
+notices to the class can turn a saved write into a 500) and #378 (on SQLite a commit refused as
+«database is locked» goes back to the pool unfinished), both open, on the backlog. #352, #355,
+#357, #365, #368, #371 and #375 stay open; #365's diary reads are to move onto the phone after
+sub-project 3. #118, what Preview is for, was closed by #350.
 
-The section «What the last session added» below is #376's batch, and «What the session before
-it added» is #372's.
+The section «What the last session added» below is #379's batch, and «What the session before
+it added» is #376's.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -162,9 +160,107 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: a phone's own over v2 — its link, the calendar feed, its tasks and its homework ticks — stage 3b-4 of sub-project 3 (#273)
+## What the last session added: on SQLite a savepoint behaves as it does on Postgres (#373, #354)
 
-Open as #376, from `server-v2/3b-4` to `main`, on milestone 11, and on project 6. It closes
+Open as #379, from `fix/sqlite-savepoint` to `main`, on milestone 11, and on project 6. It
+closes #373 and #354, and refers to #378. The branch was cut from `2f99ef6`, the head of #376,
+whose content `main` holds since #376's merge, and carries 2 commits before this
+close-out, to `bb9fce5`. Written on 9 October 2026, after #376 merged. No revision goes with it:
+the schema stays at `0019`. It is the fix the 3b plan asks for before stage 3b-5, whose
+`CreateHomework` writes through `homework.upsert`'s savepoint.
+
+- **The defect.** pysqlite, and aiosqlite over it, sends no `BEGIN` before a `SELECT`. So on a
+  session that had only read, `session.begin_nested()`'s `SAVEPOINT` opened the transaction
+  itself, and its `RELEASE` committed it; a later rollback undid nothing. Every savepoint in
+  `services/` met it, and on the test suite's and a developer's SQLite a refused write could
+  keep a row that Postgres, which production runs, rolls back. #354 was the same defect, seen
+  through a refused `UpdateTerm`.
+- **The fix**, in `server/app/db.py`, for SQLite only: a `savepoint` listener sends `BEGIN`
+  first when the driver has no transaction open, so a savepoint nests inside a transaction
+  as it does on Postgres. Reads stay as the driver handles them.
+- **Why not SQLAlchemy's documented recipe** (no implicit `BEGIN` from the driver, an explicit
+  one on every transaction). Under it every transaction holds SQLite's lock from its first
+  `SELECT`. The bot's middleware reads on every update, and the FSM storage then commits on a
+  connection of its own: it waited out the busy timeout and failed «database is locked» on
+  every step after a read. With write-ahead logging, 24 of 771 interleaving tests read
+  snapshots older than the request they had just made, which Postgres would not.
+- **One production change, in the tick** (`server/app/api/cron.py`): it commits before its sweep
+  of stale conversations. A transaction this fix begins keeps its lock until it ends. The
+  reminders' digest opens one at its savepoint, and the sweep commits on another connection,
+  so on SQLite the tick waited thirty seconds and failed. Every claim of the tick has
+  committed by then, so on Postgres the new commit ends an empty transaction.
+- **Seven new tests.**
+  - The issue's own probe: a savepoint that opens the transaction, then a rollback, leaves
+    nothing.
+  - A guard on the bot's busiest path: the middleware reads, the FSM storage commits, then
+    the handler writes. It fails under either form of the recipe.
+  - A tick that sends a digest and still sweeps a stale conversation.
+  - The three commits #373's comment asked for: v1's `/me`, v1's
+    `POST /homework/{id}/done`, and the bot's tick handler. Each test closes the session
+    without that commit and finds no write.
+  - The bot's tick put on is committed before its redraw.
+
+  `test_v2_terms.py`'s refused term now asserts that no row is left, as #354 asked.
+- **One defect filed**, #378: on SQLite a commit refused as «database is locked» goes back to
+  the pool unfinished, and the next session commits it. It is the driver's handling, with or
+  without this fix.
+
+### Gates
+
+All at `bb9fce5`, the head before this close-out. CI runs on the head the merge is made from,
+and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
+- **mypy**: no issues found in 231 source files.
+- **The server suite.** `pytest -q -n 4`, run alone from `server/` at `57e281b`, gave **2846
+  passed** in 1422 s, four workers rather than `-n auto` to spare the machine's faulty RAM.
+  The seven places the `handover` skill names say 2846.
+- **A mutation check.** With the three commits removed from v1's `me` and `homework_done` and
+  from the bot's tick, sixteen tests fail on this engine, `test_me_issues_a_link_code_once_and_repeats_it`
+  among them. On the old engine they passed.
+- **A smoke check.** `uvicorn` on a fresh SQLite file answered `/api/v1/health` `ok`, and
+  `/api/v1/warmup` `degraded` with schema `unknown`, the documented state of a database made by
+  `create_all`. `scripts.init_db` then `scripts.seed_demo` made the demo class.
+- **Review.** A review of the fix by the stronger model, the tick's change included, before
+  the pull request.
+- **The contract and Android** were not run: nothing under `proto/` or `android/` changed.
+
+### What was deliberately left alone
+
+- **#378**: it is not this defect, and neither causes nor cures it.
+- **SQLAlchemy's recipe and write-ahead logging**, for the reasons above.
+- **v1's notice seams** (#377).
+
+### What nobody has verified in this batch
+
+- **Postgres.** The listener does nothing there. The tick's new commit was reasoned about,
+  not run, on Postgres: production runs it from the merge on.
+- **The bot's long polling against a real token** on a local SQLite file: the smoke check ran
+  with no token.
+
+### After #376's merge: stage 3b-4 in production
+
+None of this is code in #379, and a close-out never gets a close-out of its own, so it is
+written here. The source is the session's own reads of 9 October 2026.
+
+- **The merge, by the session**, after the five checks. #376 merged as `8cb3261` at 04:01:23
+  UTC on 9 October 2026, pinned to `2f99ef6`. CI was green on that head: Server, Contract
+  (Buf), What changed and Vercel; Android was skipped. It closed #374.
+- **Production built the merge itself.** Vercel reported the production deployment of
+  `8cb3261` successful at 04:02:32 UTC. A read a minute earlier still answered `501`
+  `UNIMPLEMENTED` from the code before the merge. Read again at 04:02:21 UTC, after the
+  deployment:
+  - `/api/v1/warmup` answered `ok`, `0019`, `v2` `true`;
+  - REST `GET /api/v2/me/tasks`, `GET /api/v2/me/calendarFeed`, `POST /api/v2/me/linkCodes`
+    and `DELETE /api/v2/me/homeworkTicks/1` answered `401` `DEVICE_TOKEN_INVALID` with
+    `WWW-Authenticate: Bearer`;
+  - Connect `MeService/ListTasks` answered `401` `unauthenticated`.
+- **#377 was filed** while writing 3b-5's task list: v1's notices to the class can turn a saved
+  write into a 500. It is on the backlog.
+
+## What the session before it added: a phone's own over v2 — its link, the calendar feed, its tasks and its homework ticks — stage 3b-4 of sub-project 3 (#273)
+
+Merged as #376 (`8cb3261`, 9 October 2026), from `server-v2/3b-4`, on milestone 11. It closes
 #374, and refers to #273, #373 and #375. The branch was cut from `main` at `128fe15`, the merge
 of #372, and carries 10 commits before this close-out, to `39fcef0`. Written on 9 October 2026,
 after #372 merged. No revision goes with it: the schema stays at `0019`. This is stage 3b-4 of
@@ -314,144 +410,6 @@ answers.
   the plan, or else in 5 or 6; and before sub-project 4 starts, check live on the development
   machine everything the project records as unverified, installing what that needs.
 
-## What the session before it added: access requests and the school directory over v2, and the first notices as effects — stage 3b-3 of sub-project 3 (#273)
-
-Merged as #372 (`128fe15`, 8 October 2026), from `server-v2/3b-3`, on milestone 11. It closes
-#367, #369 and #370, and refers to #273, #368 and #371. The branch was cut from `main` at
-`5d2e530`, the merge of #366, and carries 11 commits before this close-out, to `0c14e9f`.
-Written on 8 October 2026, after #366 merged. No revision goes with it: the schema stays at
-`0019`. This is stage 3b-3 of `docs/specs/2026-10-05-server-v2-design.md`, built by the task
-list for it in `docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed
-before the next. v1 answers as before; v2 now answers thirty-three methods.
-
-- **The rules v1's routers held moved into `services/` first**, with v1 calling them:
-  - answering yes, `requests.approve`: the role sent or the one asked for, through
-    `access.approve_request`, whose `GrantRefused` now says `why` (`role_too_high` or
-    `member_senior`) and looks each shell's sentence up in `app/wording.py`;
-  - the anonymous directory's door, `directory.school_regions`: its order of checks, one
-    bucket for both versions, and facts (`DirectoryThrottled`, `DirectoryDisabled`,
-    `DirectoryUnavailable`) where v1 refused inline.
-
-  The short query's sentence and the region hint's ceiling are `services/schools.py`'s
-  (`QUERY_TOO_SHORT`, `MAX_REGION`), and the requests' and the directory's sentences are
-  `app/wording.py`'s.
-- **Five methods.**
-  - `ListAccessRequests`.
-  - `ApproveAccessRequest`: the ladder of «👥 Доступ»; `ROLE_GRANT_REFUSED` with `why`; the
-    answer's `role` is the role the member holds.
-  - `DeclineAccessRequest`.
-  - `ListSchoolRegions`: anonymous, on v1's budget of twenty searches and its anonymous share;
-    `THROTTLED`, `DIRECTORY_DISABLED`, `DIRECTORY_SPENT` and `DIRECTORY_UNAVAILABLE` in v1's
-    words.
-  - `ListSchools`: one search a call; AIP-158 paging, by a token that names the first school
-    of the next page; the provider's own sentence when the directory is not configured or
-    fails.
-- **The first effects.** Whoever asked for a role is told in Telegram once the answer is
-  committed (`Call.after_commit`, through `telegram_send.send`), never on a refusal, and a
-  notice Telegram refuses leaves the decision standing. v1's notices keep their own
-  `_build_bot` seams, which have built through `telegram_send` since #359, and no v1 test
-  changed. The class notice is 3b-5's.
-- **Two answers to one request at the same moment cannot both win (#370).** `pending_one`
-  reads the request `FOR UPDATE`, for v1, the bot and v2 alike, so on PostgreSQL the second
-  answer waits for the first one's commit and then finds nothing pending. Task 4's review found
-  the race on `main`. The final review found that the bot still held the new lock across a
-  call to Telegram when it refused a grant, and the handler now rolls back before the alert
-  (`0e57004`).
-- **The error table gains eight rows**, each read back on both paths by a named test.
-  `ROLE_GRANT_REFUSED`, `DIRECTORY_DISABLED`, `DIRECTORY_SPENT` and `DIRECTORY_UNAVAILABLE`
-  left `LATER`, and 3b-3 left `STAGES`.
-- **`directory.proto`** says, in comments only, that the region is a hint and what a page size
-  and a page token do (#369).
-- **The suite empties `DADATA_TOKEN`**, so a key in the shell sends none of the sweeps'
-  queries to the real directory.
-- **The layering test's v1 routers include `app.api.directory`**, which v2 now serves the twin
-  of, and `CLAUDE.md` names the directory's provider among what `rpc/` may import.
-- **Defects filed**: #369 and #370, fixed here; #368, which is not; and #371, older than this
-  branch, which is not either.
-- **#367**, fixed at the branch's start (`9c944e4`): the tick's comment, `docs/architecture.md`
-  and `docs/deploy.md` said the self-check runs before the diary keep-alive because the
-  keep-alive goes through the Petersburg diary's proxy, which it never does; they now give the
-  true reason, a regional «Сетевой город» server that hangs.
-
-### Gates
-
-The full suite ran once, at `5a10e5c`, the head of the six tasks; the final review's fix
-(`0e57004`) and the documents (`0c14e9f`) came after it, and their own files ran again. CI runs
-on the head the merge is made from, and the merge waits for it to be green.
-
-- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `0c14e9f`.
-- **mypy**: no issues found in 231 source files, at `0c14e9f`.
-- **The server suite.** `pytest -q -n 4`, run alone from `server/` at `5a10e5c`, gave **2766
-  passed** in 1702 s, four workers rather than `-n auto` to spare the machine's faulty RAM. The
-  plan expected 2765; the one more is #370's test, which the plan predated. `0e57004` adds one
-  test, run in its file with the five files around it (218 passed), and collection counts
-  **2767**, the number the seven places the `handover` skill names now say.
-- **The contract**, at `5a10e5c`: `buf lint` exit 0; `buf breaking --against
-  .git#ref=origin/main` exit 0; `buf generate` reproduces the committed files.
-- **CI on the head** is read before the merge.
-- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
-  before.
-
-### What was deliberately left alone
-
-- **3b-4 to 3b-8**, each summarised in the 3b plan, and **3c**.
-- **v1's behaviour and its notice seams**: `_build_bot` and `_tell` stay in `api/edit.py`,
-  `api/manage/requests.py` and `api/cron.py`.
-- **The class notice** over `notify_subscribers`, which no 3b-3 method sends: 3b-5's, whose
-  handlers are its first v2 callers.
-- **#368**: v1's answer, the bot's card and the notice name the role asked for when a
-  member already above it is approved; v2's answer names the role held.
-- **#371**: every notice, v1's and v2's, waits up to aiogram's 60 seconds for Telegram, past
-  the function's 30, so a committed decision can reach the phone as a `504`. It is older than
-  this branch, and the fix is one timeout in `build_bot` for every sender at once.
-- **A `role` no value of `Role` names, sent in JSON**, reads as no role and grants the one
-  asked for: proto3's parser drops it before the handler, on both transports.
-- **The two page tokens**, `ListAuditEntries`' and `ListSchools`', share no helper: their
-  numbers mean different things, and the audit's has tests of its own.
-
-### What nobody has verified in this batch
-
-- **The five methods against Postgres**: every v2 test ran on SQLite, the directory's throttle
-  and its allowance's upsert among them.
-- **#370's lock on Postgres**: the test compiles the statement for PostgreSQL and finds
-  `FOR UPDATE` in it, and the bot's test watches the transaction end before the alert; two
-  transactions racing for one row were never run.
-- **A notice through a real bot**: every v2 test hands `telegram_send` a fake. v1's same notice
-  has gone out in production.
-- **`ListSchoolRegions` and `ListSchools` against DaData itself**: every v2 test replaces the
-  search.
-- **The five on Vercel** beyond the post-merge check, which asks each service once without a
-  token, and the anonymous search with a query too short to be counted.
-
-### After #366's merge: production on the bumps, the proxy's next host, and a lost worktree
-
-None of this is code in #372, and a close-out never gets a close-out of its own, so it is
-written here. The source is the session's own reads of 6 to 8 October 2026 and the owner's
-answers.
-
-- **The merge, by the session**, after the five checks. #366 merged as `5d2e530` at 21:16:06
-  UTC on 6 October 2026, with CI green on `0ca9b46` (Server, What changed, Vercel; Android and
-  Contract skipped).
-  - #345 and #346 closed as merged.
-  - #344 closed a second after the merge without being marked merged, although its commit,
-    `a0243d8`, is in `main`; a comment on it names #366.
-- **Production built the merge itself.** Vercel reported the deployment ready at 21:16:22
-  UTC, and `/api/v1/warmup` answered `ok`, `0019`, `v2` `true`. The `deploy` check still read
-  «running main's head 5d2e530» at 19:20 UTC on 8 October.
-- **The diary proxy still fails at times (#365).** The self-check's last recovery of it was at
-  16:20:31 UTC on 8 October. The owner decided that the proxy moves to another host, Timeweb
-  Cloud in St Petersburg, which waits for the new server's address. After it, a design for the
-  phone reading the diary itself is to be written for the owner's approval.
-- **#367 was filed** while mapping the diary's flow for that design, and fixed at this branch's
-  start.
-- **A worktree was deleted under the session** on 8 October at about 19:04 UTC, from outside
-  it. Every branch survived, because refs live in the main repository. Two drafts kept only in
-  git-ignored files were rebuilt from a session transcript and committed to the branch
-  `pending/recovered-designs`, under `docs/specs/pending/`: the design for signing in to the
-  diary on the provider's side, which the owner asked for on 5 October and has not reviewed
-  yet, and the notes on the languages of Russia. 3b-3's own work had all been pushed, and
-  lost nothing.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -474,9 +432,9 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372 (merged) and #376 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376 (merged) and #379 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
@@ -547,17 +505,14 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     without a token: REST `/class/accessRequests` and `/schools` answered `401`
     `DEVICE_TOKEN_INVALID`, `/schoolRegions` with a query too short to be counted `400`
     `VALIDATION_FAILED`, and Connect `AccessRequestService/ListAccessRequests` `401`
-    `unauthenticated`. The eleven of 3b-4 are asked after #376's merge, once, without a
-    token;
+    `unauthenticated`. The eleven of 3b-4 were asked once after #376's merge, without a
+    token: REST `/me/tasks`, `/me/calendarFeed`, `/me/linkCodes` and
+    `/me/homeworkTicks/1` answered `401` `DEVICE_TOKEN_INVALID`, and Connect
+    `MeService/ListTasks` `401` `unauthenticated`;
   - **the forty methods of 3b-1 to 3b-4 against Postgres**: every v2 test ran on SQLite,
     the journal's keyset, the import's bulk delete and insert, the bells' bulk delete, the
     class's cascade, the directory's allowance and the link code's and the tick's
-    savepoints among them, and on SQLite a savepoint that opens the transaction commits
-    when it is released (#373);
-  - **three of 3b-4's commits, on SQLite** (#373): v1's `/me`, v1's
-    `POST /homework/{id}/done` and the bot's tick handler commit what a savepoint wrote as
-    the transaction's first write, which SQLite commits on release, so their tests would
-    stay green without the commit;
+    savepoints among them;
   - **the bot committing before it speaks, through Telegram itself**, for a task, a tick and
     the feed's address: the tests hand the handlers a chat that reads the database as they
     speak;
@@ -1389,13 +1344,12 @@ production» has a **current value** for `deviceToken`; type one there from a ph
 a class, and leave the initial value empty so that it stays on that machine. The collection has
 never been run in Postman, so the first run is also its first test.
 
-**Next for the programme: stage 3b-5 of sub-project 3, from the 3b plan, after #373.** Stages
+**Next for the programme: stage 3b-5 of sub-project 3, from the 3b plan.** Stages
 3a (#342), 3b-1 (#350), 3b-2 (#356), 3b-3 (#372) and 3b-4 (#376) are merged, and v2 serves
 forty-four methods. `docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-5 to 3b-8.
-#373 is fixed first, in a pull request of its own, because 3b-5's `CreateHomework` writes
-through `homework.upsert`'s savepoint. 3b-5 covers homework and events, and the first notices
-to the class as effects; its two open questions are the controller's before its task list is
-written. By the owner's order of 8 October, sub-project 3 is finished first, 3c included, and
+#373 is fixed by #379, as 3b-5's `CreateHomework` needs, since it writes through
+`homework.upsert`'s savepoint. 3b-5's task list is written. 3b-5 covers homework and events, and the first notices
+to the class as effects; the controller decided its two open questions. By the owner's order of 8 October, sub-project 3 is finished first, 3c included, and
 everything recorded as unverified is checked on the development machine before sub-project 4
 starts.
 The questions in section 5 about Vercel's proxy and the second host (below) are 3c's inputs.
@@ -1646,7 +1600,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 2839 tests, ~12 min alone on Windows
+cd server  && pytest -q -n auto                          # 2846 tests, ~12 min alone on Windows
 cd server  && python -m mypy                             # clean, 231 modules
 cd android && ./gradlew test                             # 1635 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

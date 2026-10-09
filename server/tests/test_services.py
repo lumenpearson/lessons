@@ -433,11 +433,7 @@ async def test_a_racing_tick_s_savepoint_keeps_the_caller_s_earlier_write(
     proves it: a whole-session rollback cannot tell the caller's write from
     the savepoint's. Forcing the collision against a tick already committed,
     by making the existence check miss it once, needs no second session
-    racing this one for SQLite's single write lock.
-
-    As there, the caller's write has to be the session's first, or the
-    savepoint commits it anyway on SQLite (#373) and the test would not tell
-    the two fixes apart."""
+    racing this one for SQLite's single write lock."""
     homework = await _homework(session, school_class, MONDAY)
     session.add(HomeworkDone(homework_id=homework.id, telegram_id=42))
     await session.commit()

@@ -162,6 +162,13 @@ async def tick(
     finally:
         await telegram_send.close_bot(bot)
 
+    # Ended before the FSM sweep, the one step here on a connection of its
+    # own. Every claim has committed already, so on Postgres this ends
+    # nothing; on SQLite the digests are built inside a savepoint, which
+    # begins a transaction there (#373), and a transaction that has read keeps
+    # SQLite's read lock until it ends: the sweep's commit waited on it for
+    # the whole busy timeout and failed the tick «database is locked».
+    await session.commit()
     fsm_purged = await _purge_fsm()
     join_purged = await _purge_join_attempts(session)
     diary_purged = await _purge_diary_sessions(session)

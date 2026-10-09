@@ -10,20 +10,24 @@ the middleware commits only after the handler and rolls back when a reply
 fails. The two retries that relied on a failing commit, a link code drawn
 twice and a racing tick, concede inside a savepoint instead.
 
-On SQLite, which these tests run on, a savepoint that opens the transaction
-commits when it is released (#373). A test of a write behind a savepoint makes
-a write of its own first, as a caller does, so that what it reads is the
-function and not the driver.
+Until #373 was fixed in ``app/db.py``, SQLite, which these tests run on,
+committed a savepoint that opened the transaction when it was released, so a
+test of a write behind a savepoint made a write of its own first, as a caller
+does, to read the function and not the driver; those tests still do. The last
+three take the caller's commit away from a write that opens the transaction
+with its savepoint, which before the fix could not be told from a commit.
 """
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from types import SimpleNamespace
 from typing import Any
 
+import httpx
+import pytest
 from sqlalchemy import func, select, update
 
 from app.bot.handlers.content.homework import homework_toggle
@@ -31,6 +35,7 @@ from app.bot.handlers.manage.calendar_feed import cmd_calendar
 from app.bot.handlers.tasks import cmd_task, task_delete, task_toggle_done
 from app.config import get_settings
 from app.db import SessionLocal
+from app.main import app
 from app.models import (
     AuditEntry,
     DeviceToken,
@@ -53,8 +58,8 @@ async def _committed(statement: Any) -> Any:
 
 
 async def _a_write_of_the_caller_s_own(session, school_class) -> None:
-    """Open the transaction with a write, as a caller's own would: SQLite
-    commits a savepoint that opens the transaction when it is released (#373)."""
+    """Open the transaction with a write, as a caller's own would, so that the
+    rollback after it is seen to take the caller's write as well."""
     await audit.record(session, school_class.id, 42, "test.earlier", "раньше в той же транзакции")
     await session.flush()
 
@@ -196,13 +201,7 @@ async def test_a_link_code_collision_keeps_the_caller_s_earlier_write(
     write from the savepoint's. Forcing the collision against a code already
     committed, by making the existence check miss it once, needs no second
     session: a second one here would just wait on this session's own write
-    lock, on SQLite, until the test's own timeout.
-
-    The caller's write has to be the session's first. On SQLite a savepoint
-    that opens the transaction commits on release regardless of what the
-    caller does afterwards (#373), so without that ordering this test would
-    pass on the wrong fix too, for the driver's reason rather than the
-    function's."""
+    lock, on SQLite, until the test's own timeout."""
     taken = DeviceToken(
         token_hash=hash_token("taken"), class_id=school_class.id, link_code="AAAAAA"
     )
@@ -300,12 +299,26 @@ async def test_a_task_deleted_in_the_bot_is_committed_before_the_list_is_redrawn
     assert press.saw == [0, 0]
 
 
+async def test_a_tick_put_on_in_the_bot_is_committed_before_the_list_is_redrawn(
+    session, school_class
+) -> None:
+    """Through a savepoint that opens the transaction, which until #373 was
+    fixed SQLite committed on release, whoever else did."""
+    homework = await _homework(session, school_class)
+    press = _Witness(lambda: _committed(select(func.count()).select_from(HomeworkDone)))
+    await homework_toggle(
+        press,
+        SimpleNamespace(action="toggle", value=str(homework.id)),
+        session,
+        school_class,
+        Role.VIEWER,
+    )
+    assert press.saw == [1, 1]
+
+
 async def test_a_tick_taken_off_in_the_bot_is_committed_before_the_list_is_redrawn(
     session, school_class
 ) -> None:
-    """The tick taken off, not put on: putting it on goes through a savepoint
-    that opens the transaction, which SQLite commits on release whoever else
-    does (#373), so only taking it off can show the handler's own commit."""
     homework = await _homework(session, school_class)
     session.add(HomeworkDone(homework_id=homework.id, telegram_id=42))
     await session.commit()
@@ -329,3 +342,118 @@ async def test_the_feed_secret_the_bot_shows_is_committed_before_it_is_shown(
     await cmd_calendar(chat, FakeState(), session, school_class, Role.VIEWER)
     assert chat.saw == [school_class.calendar_token]
     assert chat.saw[0]
+
+
+# ---- the caller's commit is what keeps a savepoint's write (#373) -----------
+#
+# Each of these takes one commit away, the caller's, and closes the session
+# without it. A write behind a savepoint that opens the transaction is then
+# gone, as it is on Postgres: before #373 was fixed, SQLite committed it when
+# the savepoint was released, so a route or a handler that dropped its commit
+# passed every test.
+
+
+async def _nothing() -> None:
+    """A commit that commits nothing."""
+
+
+@pytest.fixture
+async def client() -> AsyncIterator[httpx.AsyncClient]:
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
+        yield http
+
+
+async def test_me_s_link_code_is_kept_by_the_route_s_commit(
+    client, session, school_class, monkeypatch
+) -> None:
+    """v1's ``GET /me`` through the real app, with the route's commit taken
+    away and nothing else: the service is wrapped so that, once it has minted
+    the code, the session's commit does nothing. It cannot be ``commit``
+    patched for the whole request, because ``touch_last_seen`` commits the
+    device's first call before the route runs, and that commit is what leaves
+    the savepoint to open the transaction. Then the same call with the commit
+    in place stores the code, so the first half is about the commit and not
+    about a code that was never written."""
+    session.add(DeviceToken(token_hash=hash_token("me-no-commit"), class_id=school_class.id))
+    await session.commit()
+    headers = {"Authorization": "Bearer me-no-commit"}
+    stored = select(DeviceToken.link_code).where(
+        DeviceToken.token_hash == hash_token("me-no-commit")
+    )
+    issue = linking.link_code_for
+
+    with monkeypatch.context() as patched:
+
+        async def and_then_no_commit(db, device):
+            code = await issue(db, device)
+            patched.setattr(db, "commit", _nothing)
+            return code
+
+        patched.setattr(linking, "link_code_for", and_then_no_commit)
+        uncommitted = await client.get("/api/v1/me", headers=headers)
+    assert uncommitted.status_code == 200, uncommitted.text
+    assert len(uncommitted.json()["link_code"]) == linking.LINK_CODE_LENGTH
+    assert await _committed(stored) is None
+
+    committed = await client.get("/api/v1/me", headers=headers)
+    assert await _committed(stored) == committed.json()["link_code"]
+
+
+async def test_a_tick_set_over_v1_is_kept_by_the_route_s_commit(
+    client, session, school_class, monkeypatch
+) -> None:
+    """v1's ``POST /homework/{id}/done``, the same way: the route's commit
+    taken away once the service has set the tick, then given back."""
+    homework = await _homework(session, school_class)
+    session.add(
+        DeviceToken(
+            token_hash=hash_token("tick-no-commit"),
+            class_id=school_class.id,
+            telegram_id=42,
+            linked_at=datetime(2026, 9, 1),
+        )
+    )
+    await session.commit()
+    headers = {"Authorization": "Bearer tick-no-commit"}
+    url = f"/api/v1/homework/{homework.id}/done"
+    ticks = select(func.count()).select_from(HomeworkDone)
+    set_done = tasks.set_homework_done
+
+    with monkeypatch.context() as patched:
+
+        async def and_then_no_commit(db, *args):
+            done = await set_done(db, *args)
+            patched.setattr(db, "commit", _nothing)
+            return done
+
+        patched.setattr(tasks, "set_homework_done", and_then_no_commit)
+        uncommitted = await client.post(url, json={"done": True}, headers=headers)
+    assert uncommitted.status_code == 200, uncommitted.text
+    assert uncommitted.json()["done"] is True
+    assert await _committed(ticks) == 0
+
+    committed = await client.post(url, json={"done": True}, headers=headers)
+    assert committed.json()["done"] is True
+    assert await _committed(ticks) == 1
+
+
+async def test_a_tick_set_in_the_bot_is_kept_by_the_handler_s_commit(
+    session, school_class, monkeypatch, CardCallback
+) -> None:
+    """The bot's tick handler, called as the dispatcher calls it, with the
+    session's commit doing nothing for the length of the handler: its one
+    commit is the one taken away. The session is then closed, as the
+    middleware's scope closes it, and the tick it set is not there."""
+    homework = await _homework(session, school_class)
+    with monkeypatch.context() as patched:
+        patched.setattr(session, "commit", _nothing)
+        await homework_toggle(
+            CardCallback(),
+            SimpleNamespace(action="toggle", value=str(homework.id)),
+            session,
+            school_class,
+            Role.VIEWER,
+        )
+    await session.close()
+    assert await _committed(select(func.count()).select_from(HomeworkDone)) == 0

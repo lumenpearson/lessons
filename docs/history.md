@@ -28,6 +28,144 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: access requests and the school directory over v2, and the first notices as effects — stage 3b-3 of sub-project 3 (#273)
+
+Merged as #372 (`128fe15`, 8 October 2026), from `server-v2/3b-3`, on milestone 11. It closes
+#367, #369 and #370, and refers to #273, #368 and #371. The branch was cut from `main` at
+`5d2e530`, the merge of #366, and carries 11 commits before this close-out, to `0c14e9f`.
+Written on 8 October 2026, after #366 merged. No revision goes with it: the schema stays at
+`0019`. This is stage 3b-3 of `docs/specs/2026-10-05-server-v2-design.md`, built by the task
+list for it in `docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed
+before the next. v1 answers as before; v2 now answers thirty-three methods.
+
+- **The rules v1's routers held moved into `services/` first**, with v1 calling them:
+  - answering yes, `requests.approve`: the role sent or the one asked for, through
+    `access.approve_request`, whose `GrantRefused` now says `why` (`role_too_high` or
+    `member_senior`) and looks each shell's sentence up in `app/wording.py`;
+  - the anonymous directory's door, `directory.school_regions`: its order of checks, one
+    bucket for both versions, and facts (`DirectoryThrottled`, `DirectoryDisabled`,
+    `DirectoryUnavailable`) where v1 refused inline.
+
+  The short query's sentence and the region hint's ceiling are `services/schools.py`'s
+  (`QUERY_TOO_SHORT`, `MAX_REGION`), and the requests' and the directory's sentences are
+  `app/wording.py`'s.
+- **Five methods.**
+  - `ListAccessRequests`.
+  - `ApproveAccessRequest`: the ladder of «👥 Доступ»; `ROLE_GRANT_REFUSED` with `why`; the
+    answer's `role` is the role the member holds.
+  - `DeclineAccessRequest`.
+  - `ListSchoolRegions`: anonymous, on v1's budget of twenty searches and its anonymous share;
+    `THROTTLED`, `DIRECTORY_DISABLED`, `DIRECTORY_SPENT` and `DIRECTORY_UNAVAILABLE` in v1's
+    words.
+  - `ListSchools`: one search a call; AIP-158 paging, by a token that names the first school
+    of the next page; the provider's own sentence when the directory is not configured or
+    fails.
+- **The first effects.** Whoever asked for a role is told in Telegram once the answer is
+  committed (`Call.after_commit`, through `telegram_send.send`), never on a refusal, and a
+  notice Telegram refuses leaves the decision standing. v1's notices keep their own
+  `_build_bot` seams, which have built through `telegram_send` since #359, and no v1 test
+  changed. The class notice is 3b-5's.
+- **Two answers to one request at the same moment cannot both win (#370).** `pending_one`
+  reads the request `FOR UPDATE`, for v1, the bot and v2 alike, so on PostgreSQL the second
+  answer waits for the first one's commit and then finds nothing pending. Task 4's review found
+  the race on `main`. The final review found that the bot still held the new lock across a
+  call to Telegram when it refused a grant, and the handler now rolls back before the alert
+  (`0e57004`).
+- **The error table gains eight rows**, each read back on both paths by a named test.
+  `ROLE_GRANT_REFUSED`, `DIRECTORY_DISABLED`, `DIRECTORY_SPENT` and `DIRECTORY_UNAVAILABLE`
+  left `LATER`, and 3b-3 left `STAGES`.
+- **`directory.proto`** says, in comments only, that the region is a hint and what a page size
+  and a page token do (#369).
+- **The suite empties `DADATA_TOKEN`**, so a key in the shell sends none of the sweeps'
+  queries to the real directory.
+- **The layering test's v1 routers include `app.api.directory`**, which v2 now serves the twin
+  of, and `CLAUDE.md` names the directory's provider among what `rpc/` may import.
+- **Defects filed**: #369 and #370, fixed here; #368, which is not; and #371, older than this
+  branch, which is not either.
+- **#367**, fixed at the branch's start (`9c944e4`): the tick's comment, `docs/architecture.md`
+  and `docs/deploy.md` said the self-check runs before the diary keep-alive because the
+  keep-alive goes through the Petersburg diary's proxy, which it never does; they now give the
+  true reason, a regional «Сетевой город» server that hangs.
+
+### Gates
+
+The full suite ran once, at `5a10e5c`, the head of the six tasks; the final review's fix
+(`0e57004`) and the documents (`0c14e9f`) came after it, and their own files ran again. CI runs
+on the head the merge is made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `0c14e9f`.
+- **mypy**: no issues found in 231 source files, at `0c14e9f`.
+- **The server suite.** `pytest -q -n 4`, run alone from `server/` at `5a10e5c`, gave **2766
+  passed** in 1702 s, four workers rather than `-n auto` to spare the machine's faulty RAM. The
+  plan expected 2765; the one more is #370's test, which the plan predated. `0e57004` adds one
+  test, run in its file with the five files around it (218 passed), and collection counts
+  **2767**, the number the seven places the `handover` skill names now say.
+- **The contract**, at `5a10e5c`: `buf lint` exit 0; `buf breaking --against
+  .git#ref=origin/main` exit 0; `buf generate` reproduces the committed files.
+- **CI on the head** is read before the merge.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand from
+  before.
+
+### What was deliberately left alone
+
+- **3b-4 to 3b-8**, each summarised in the 3b plan, and **3c**.
+- **v1's behaviour and its notice seams**: `_build_bot` and `_tell` stay in `api/edit.py`,
+  `api/manage/requests.py` and `api/cron.py`.
+- **The class notice** over `notify_subscribers`, which no 3b-3 method sends: 3b-5's, whose
+  handlers are its first v2 callers.
+- **#368**: v1's answer, the bot's card and the notice name the role asked for when a
+  member already above it is approved; v2's answer names the role held.
+- **#371**: every notice, v1's and v2's, waits up to aiogram's 60 seconds for Telegram, past
+  the function's 30, so a committed decision can reach the phone as a `504`. It is older than
+  this branch, and the fix is one timeout in `build_bot` for every sender at once.
+- **A `role` no value of `Role` names, sent in JSON**, reads as no role and grants the one
+  asked for: proto3's parser drops it before the handler, on both transports.
+- **The two page tokens**, `ListAuditEntries`' and `ListSchools`', share no helper: their
+  numbers mean different things, and the audit's has tests of its own.
+
+### What nobody has verified in this batch
+
+- **The five methods against Postgres**: every v2 test ran on SQLite, the directory's throttle
+  and its allowance's upsert among them.
+- **#370's lock on Postgres**: the test compiles the statement for PostgreSQL and finds
+  `FOR UPDATE` in it, and the bot's test watches the transaction end before the alert; two
+  transactions racing for one row were never run.
+- **A notice through a real bot**: every v2 test hands `telegram_send` a fake. v1's same notice
+  has gone out in production.
+- **`ListSchoolRegions` and `ListSchools` against DaData itself**: every v2 test replaces the
+  search.
+- **The five on Vercel** beyond the post-merge check, which asks each service once without a
+  token, and the anonymous search with a query too short to be counted.
+
+### After #366's merge: production on the bumps, the proxy's next host, and a lost worktree
+
+None of this is code in #372, and a close-out never gets a close-out of its own, so it is
+written here. The source is the session's own reads of 6 to 8 October 2026 and the owner's
+answers.
+
+- **The merge, by the session**, after the five checks. #366 merged as `5d2e530` at 21:16:06
+  UTC on 6 October 2026, with CI green on `0ca9b46` (Server, What changed, Vercel; Android and
+  Contract skipped).
+  - #345 and #346 closed as merged.
+  - #344 closed a second after the merge without being marked merged, although its commit,
+    `a0243d8`, is in `main`; a comment on it names #366.
+- **Production built the merge itself.** Vercel reported the deployment ready at 21:16:22
+  UTC, and `/api/v1/warmup` answered `ok`, `0019`, `v2` `true`. The `deploy` check still read
+  «running main's head 5d2e530» at 19:20 UTC on 8 October.
+- **The diary proxy still fails at times (#365).** The self-check's last recovery of it was at
+  16:20:31 UTC on 8 October. The owner decided that the proxy moves to another host, Timeweb
+  Cloud in St Petersburg, which waits for the new server's address. After it, a design for the
+  phone reading the diary itself is to be written for the owner's approval.
+- **#367 was filed** while mapping the diary's flow for that design, and fixed at this branch's
+  start.
+- **A worktree was deleted under the session** on 8 October at about 19:04 UTC, from outside
+  it. Every branch survived, because refs live in the main repository. Two drafts kept only in
+  git-ignored files were rebuilt from a session transcript and committed to the branch
+  `pending/recovered-designs`, under `docs/specs/pending/`: the design for signing in to the
+  diary on the provider's side, which the owner asked for on 5 October and has not reviewed
+  yet, and the notes on the languages of Russia. 3b-3's own work had all been pushed, and
+  lost nothing.
+
 ## What the batch before added: three dependency bumps, and the monitoring's first evening
 
 Merged as #366 (`5d2e530`, 6 October 2026), from `deps/2026-10-06`, on milestone 7. It folds
@@ -6872,3 +7010,13 @@ with the proxy's public SSH key. With the address, a session sets the server up 
 one was (`docs/history.md`, the section on #334), the owner pastes the new `DIARY_PROXY_URL`
 into Vercel for Production, Preview and Development, the session redeploys and watches the
 self-check, and the RUVDS server is cancelled after a day without a failing tick.
+
+## Moved out of section 5 on 9 October 2026
+
+#379 fixed #373, and tests now prove the three commits below: each closes the session
+without that commit and finds no write. As the item stood until then:
+
+  - **three of 3b-4's commits, on SQLite** (#373): v1's `/me`, v1's
+    `POST /homework/{id}/done` and the bot's tick handler commit what a savepoint wrote as
+    the transaction's first write, which SQLite commits on release, so their tests would
+    stay green without the commit;

@@ -78,6 +78,47 @@ if engine.dialect.name == "sqlite":
         dbapi_connection.create_function("lower", 1, _unicode_lower)
         dbapi_connection.create_function("upper", 1, _unicode_upper)
 
+    @event.listens_for(engine.sync_engine, "savepoint")
+    def _sqlite_savepoint_inside_a_transaction(conn, name) -> None:
+        """Begin the transaction a savepoint assumes, when nothing has yet (#373).
+
+        pysqlite, and aiosqlite over it, sends ``BEGIN`` before an INSERT, an
+        UPDATE or a DELETE and before nothing else. A ``begin_nested()`` that
+        was the session's first write therefore sent its ``SAVEPOINT`` with no
+        transaction open, SQLite made the savepoint the transaction, and its
+        ``RELEASE`` committed it: the write outlived the ``rollback()`` after
+        it, and a route or a handler that dropped its own commit kept its
+        write anyway, so no test could catch one that did. ``homework.upsert``,
+        ``subjects._adopt``, ``terms.ensure``, ``reminders``,
+        ``linking.issue_link_code`` and ``tasks.toggle_homework_done`` all
+        write that way. On Postgres the release has never been a commit.
+
+        Here, at the savepoint, and not at the session's first statement as
+        SQLAlchemy's recipe for the driver begins it. Under that recipe a read
+        keeps its lock until its transaction ends, and the bot reads in its
+        middleware before every handler, whose FSM storage then commits the
+        conversation on a connection of its own: with the rollback journal
+        that commit waits on the read for the whole busy timeout and fails
+        «database is locked», and with WAL it goes through and the handler's
+        own write after it fails at once, its snapshot older than the commit.
+        A test session that has read sees no later request's write either.
+        Postgres at READ COMMITTED does none of that, and the driver's own
+        reads, which hold nothing once answered, are the half of its handling
+        that already agreed with it. ``tests/test_sqlite_transactions.py``
+        holds both halves.
+
+        A transaction begun here keeps its locks until it ends, even when the
+        savepoint only read, which is new: before, a read held nothing once
+        answered. The reminders tick builds its digests inside a savepoint
+        that writes nothing, so it commits before the sweep it runs on a
+        connection of its own (``api/cron.py``); and while a digest is being
+        sent, a write from another connection to the same file can be refused
+        «database is locked» at once, which on a developer's SQLite fails that
+        tick and the next one catches up. Postgres takes no such lock.
+        """
+        if not conn.connection.driver_connection.in_transaction:
+            conn.exec_driver_sql("BEGIN")
+
 
 def _unicode_lower(value):
     """``None`` in, ``None`` out - SQL semantics, not Python's."""
