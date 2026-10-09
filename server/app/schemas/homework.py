@@ -63,3 +63,13 @@ class HomeworkIn(BaseModel):
             return None
         cleaned = _strip_control_chars(value).strip()
         return cleaned or None
+
+
+class DateWindowIn(BaseModel):
+    """v1's ``GET /homework`` query, ``from`` and ``to``, as v2's lists name
+    the two: ``ListHomework``, ``ListEvents`` and ``ListSubstitutions``. Parsed
+    as FastAPI parsed v1's, so that both versions take the same dates; the
+    window itself is ``services/clock.window``'s."""
+
+    start_date: Date | None = None
+    end_date: Date | None = None

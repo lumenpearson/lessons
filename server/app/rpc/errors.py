@@ -33,9 +33,9 @@ from app.contract.google.rpc.error_details_pb import BadRequest, ErrorInfo, Retr
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.providers import dadata
 from app.services import access as access_service
+from app.services import clock, join, quota, window
 from app.services import diary as diary_service
 from app.services import directory as directory_service
-from app.services import join, quota, window
 from app.services import schools as schools_service
 from app.services import tasks as tasks_service
 from app.services import terms as terms_service
@@ -62,6 +62,11 @@ UNDECODABLE_MESSAGE = "The request could not be decoded"
 #: names its own field, ``confirm_name``, which v2 does not have, so this is
 #: v2's sentence: it names the field and never what was typed.
 CONFIRMATION_MISMATCH = "confirmation does not match the class name"
+
+#: A window that ends before it starts, in v2's lists. v1's sentence names its
+#: own query fields, ``from`` and ``to``, which v2 calls ``start_date`` and
+#: ``end_date``; the window's other two refusals are v1's words (``clock``'s).
+WINDOW_BACKWARDS = "end_date must not precede start_date"
 
 #: Each reason's canonical code, as the comment beside it in ``errors.proto``
 #: begins. ``test_rpc_errors.py`` reads the file and holds the two level.
@@ -318,6 +323,18 @@ def _homework_not_in_class(_error: tasks_service.HomeworkNotInClass) -> Refusal:
     )
 
 
+def _window_refused(error: clock.WindowRefused) -> Refusal:
+    # Every list with a window names its two edges start_date and end_date.
+    sentence = {
+        clock.OUT_OF_BOUNDS: clock.DATES_OUT_OF_BOUNDS,
+        clock.BACKWARDS: WINDOW_BACKWARDS,
+        clock.TOO_WIDE: clock.WINDOW_TOO_WIDE,
+    }[error.why]
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED, sentence, violations=[(f"{error.edge}_date", sentence)]
+    )
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -350,6 +367,7 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     dadata.NotConfigured: _school_search_disabled,
     dadata.DirectoryError: _school_search_unavailable,
     tasks_service.HomeworkNotInClass: _homework_not_in_class,
+    clock.WindowRefused: _window_refused,
 }
 
 

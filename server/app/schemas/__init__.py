@@ -123,6 +123,7 @@ from app.schemas.edit import (
     OverrideOut,
 )
 from app.schemas.homework import (
+    DateWindowIn,
     DoneIn,
     DoneOut,
     HomeworkIn,
@@ -184,6 +185,7 @@ __all__ = [
     "ClassDeleteIn",
     "ClassOut",
     "ClassPatch",
+    "DateWindowIn",
     "DayIn",
     "DayKindName",
     "DayOut",

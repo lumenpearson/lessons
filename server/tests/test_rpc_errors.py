@@ -26,9 +26,9 @@ from app.rpc import errors
 from app.rpc.errors import CODES, Refusal, connect_error, validate
 from app.schemas import BellScheduleIn, JoinRequest, SubjectIn
 from app.services import access as access_service
+from app.services import clock, join, quota, window
 from app.services import diary as diary_service
 from app.services import directory as directory_service
-from app.services import join, quota, window
 from app.services import schools as schools_service
 from app.services import tasks as tasks_service
 from app.services import terms as terms_service
@@ -47,7 +47,7 @@ RPC = SERVER / "app" / "rpc"
 #: produces the last reason it brings, and a reason still listed under it in
 #: ``LATER`` then fails below
 #: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
-STAGES = {"3b-5", "3b-6", "3b-7", "3b-8"}
+STAGES = {"3b-6", "3b-7", "3b-8"}
 
 #: The reasons no served method produces yet, and the stage that brings each.
 #: A reason leaves this table in the commit whose handler raises it.
@@ -170,6 +170,10 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     tasks_service.HomeworkNotInClass: (
         "test_v2_tasks.py",
         "test_a_task_naming_homework_of_another_class_is_refused_on_its_field",
+    ),
+    clock.WindowRefused: (
+        "test_v2_homework.py",
+        "test_a_window_v1_refuses_is_refused_on_the_field_at_fault",
     ),
     # The gate raises it for a diary method, and none is served before 3b-7:
     # test_rpc_gate.py holds the gate raising it until then.
