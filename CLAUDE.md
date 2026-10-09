@@ -59,7 +59,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 2839 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 2846 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -733,6 +733,14 @@ points Hilt does not inject cleanly.
   (`app/main.py` lifespan) locally, webhook on serverless, `build_dispatcher()` shared. FSM
   state lives in the database (`app/fsm_storage.py`), not in memory, because each update may
   hit a fresh process. `RUN_BOT=false` starts the API alone — that is what the tests use.
+
+- **On SQLite, a savepoint opens a transaction that keeps its lock until it ends** (#373).
+  `app/db.py` begins the transaction a `begin_nested()` assumes, so a refused write is rolled
+  back on the test suite's and a developer's SQLite as it is on Postgres. The price is a lock:
+  a bot handler that writes through a savepoint commits before it touches conversation state,
+  because the FSM storage commits on a connection of its own and would wait out the busy
+  timeout behind it. That is thirty seconds of a hung local bot, which no test sees, since the
+  handler tests hand the handlers a fake state. Production is Postgres and takes no such lock.
 
 ## Notes
 

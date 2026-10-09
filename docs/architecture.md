@@ -938,7 +938,7 @@ with the host.
 
 ## Testing
 
-2839 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
+2846 tests on the server, 1635 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 161, `:widget` 126, `:app` 608 (#325).
 
@@ -958,7 +958,7 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `server/tests/test_timezones.py` | all eleven Russian zones, ordering, bad-input fallback | pytest |
 | `server/tests/test_bot_message_limits.py` | that no renderer builds a message Telegram refuses at 4096 characters | pytest |
 | `server/tests/test_schema_version.py` | `EXPECTED_REVISION` equals the real Alembic head, and there is exactly one head | pytest |
-| `server/tests/test_sqlite_transactions.py` | the two things SQLite's transactions must do as Postgres's do: a rollback takes back a savepoint that opened the transaction (#373), and a read holds no lock that a commit on a second connection — the bot's FSM storage, the tick's sweep — would wait on | pytest + httpx ASGI |
+| `server/tests/test_sqlite_transactions.py` | the two things SQLite's transactions must do as Postgres's do: a rollback takes back a savepoint that opened the transaction (#373), and a read outside a savepoint holds no lock that a commit on a second connection — the bot's FSM storage, the tick's sweep — would wait on | pytest + httpx ASGI |
 | `server/tests/test_diary_session.py` | registering a session a client opened: both body shapes, a `password` key refused, no refused value echoed, every status and which of them the shared limiter counts | pytest + a fake upstream |
 | `server/tests/test_diary_protocol_vectors.py` | both diaries' sign-in protocols against the known-answer vectors in `tests/vectors/diary_protocol.json`, the bytes the phone's port is tested against too | pytest + `httpx.MockTransport` |
 | `server/tests/test_region_catalog.py` | that the committed catalog is what the generator writes, and that only Петербург and the sixteen password «Сетевой город» regions are a sign-in | pytest |

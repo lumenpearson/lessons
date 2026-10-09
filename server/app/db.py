@@ -107,10 +107,14 @@ if engine.dialect.name == "sqlite":
         that already agreed with it. ``tests/test_sqlite_transactions.py``
         holds both halves.
 
-        A transaction begun here keeps its locks until the commit, as one a
-        write begins always has. The reminders tick builds its digests inside
-        a savepoint that writes nothing, so it commits before the sweep it
-        runs on a connection of its own (``api/cron.py``).
+        A transaction begun here keeps its locks until it ends, even when the
+        savepoint only read, which is new: before, a read held nothing once
+        answered. The reminders tick builds its digests inside a savepoint
+        that writes nothing, so it commits before the sweep it runs on a
+        connection of its own (``api/cron.py``); and while a digest is being
+        sent, a write from another connection to the same file can be refused
+        «database is locked» at once, which on a developer's SQLite fails that
+        tick and the next one catches up. Postgres takes no such lock.
         """
         if not conn.connection.driver_connection.in_transaction:
             conn.exec_driver_sql("BEGIN")
