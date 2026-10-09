@@ -1,9 +1,8 @@
 package com.lumenpearson.lessons.ui.settings
 
-import com.lumenpearson.lessons.appicon.AppIconCatalog
 import com.lumenpearson.lessons.appicon.AppIconStore
 import com.lumenpearson.lessons.appicon.FakeLauncherComponents
-import com.lumenpearson.lessons.appicon.LauncherAliases
+import com.lumenpearson.lessons.appicon.TestCatalog
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,12 +21,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/** The page's one button, against a launcher that agrees, refuses, or is slow. */
+/**
+ * The page's one button, against a launcher that agrees, refuses, or is slow;
+ * over [TestCatalog], for the reason `LauncherAliasesTest` gives.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppIconViewModelTest {
 
-    private val default = AppIconCatalog.default
-    private val other = AppIconCatalog.variants.first { it != default }
+    private val default = TestCatalog.default
+    private val other = TestCatalog.other
 
     @Before
     fun main() = Dispatchers.setMain(UnconfinedTestDispatcher())
@@ -39,7 +41,7 @@ class AppIconViewModelTest {
         components: FakeLauncherComponents,
         io: CoroutineDispatcher = UnconfinedTestDispatcher(testScheduler),
     ): AppIconViewModel {
-        val model = AppIconViewModel(AppIconStore(LauncherAliases(components), io = io))
+        val model = AppIconViewModel(AppIconStore(TestCatalog.aliases(components), io = io))
         // uiState is shared while subscribed, as it is while the page is on screen.
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.uiState.collect {} }
         return model
@@ -47,7 +49,7 @@ class AppIconViewModelTest {
 
     @Test
     fun `the page opens on the icon the launcher shows`() = runTest {
-        val model = model(FakeLauncherComponents(mapOf(other.alias to true, default.alias to false)))
+        val model = model(TestCatalog.launcher(mapOf(other.alias to true, default.alias to false)))
 
         assertEquals(other, model.uiState.value.current)
     }
@@ -55,7 +57,7 @@ class AppIconViewModelTest {
     @Test
     fun `until the launcher has been read the page shows the default, then the icon the launcher shows`() = runTest {
         val model = model(
-            FakeLauncherComponents(mapOf(other.alias to true, default.alias to false)),
+            TestCatalog.launcher(mapOf(other.alias to true, default.alias to false)),
             io = StandardTestDispatcher(testScheduler),
         )
 
@@ -66,7 +68,7 @@ class AppIconViewModelTest {
 
     @Test
     fun `apply switches the icon and the page follows`() = runTest {
-        val components = FakeLauncherComponents()
+        val components = TestCatalog.launcher()
         val model = model(components)
 
         model.apply(other)
@@ -78,7 +80,7 @@ class AppIconViewModelTest {
 
     @Test
     fun `a refused switch is reported once and changes nothing`() = runTest {
-        val model = model(FakeLauncherComponents(failure = SecurityException("refused")))
+        val model = model(TestCatalog.launcher(failure = SecurityException("refused")))
 
         model.apply(other)
 
@@ -91,11 +93,11 @@ class AppIconViewModelTest {
 
     @Test
     fun `a second press while the first is still switching does nothing`() = runTest {
-        val components = FakeLauncherComponents()
+        val components = TestCatalog.launcher()
         val model = model(components, io = StandardTestDispatcher(testScheduler))
 
         model.apply(other)
-        model.apply(AppIconCatalog.variants.last())
+        model.apply(TestCatalog.another)
         assertTrue(model.uiState.value.applying)
         advanceUntilIdle()
 
@@ -105,7 +107,7 @@ class AppIconViewModelTest {
 
     @Test
     fun `pressing apply on the icon in use writes nothing`() = runTest {
-        val components = FakeLauncherComponents()
+        val components = TestCatalog.launcher()
         val model = model(components)
 
         model.apply(default)

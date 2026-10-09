@@ -12,9 +12,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.lumenpearson.lessons.R
-import com.lumenpearson.lessons.appicon.AppIconCatalog
 import com.lumenpearson.lessons.appicon.AppIconStyle
 import com.lumenpearson.lessons.appicon.AppIconVariant
+import com.lumenpearson.lessons.appicon.TestCatalog
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -29,6 +29,10 @@ import org.robolectric.annotation.Config
 /**
  * «Значок приложения», composed and pressed: a tile selects, only «Применить»
  * applies, and a trimmed catalog draws no empty group.
+ *
+ * The rows are handed [TestCatalog] rather than the real catalog: these tests
+ * need a second style and a style with five palettes, and the owner may keep
+ * neither.
  */
 // marquee clock: «Значок приложения», the longest row title at seventeen
 // characters, does not overflow a 411 dp row even beside its icon and
@@ -45,8 +49,8 @@ class AppIconRowsTest {
     @get:Rule val compose = createComposeRule()
 
     private val context = RuntimeEnvironment.getApplication()
-    private val default = AppIconCatalog.default
-    private val other = AppIconCatalog.variants.first { it.style != default.style }
+    private val default = TestCatalog.default
+    private val other = TestCatalog.other
 
     private fun label(variant: AppIconVariant): String = context.getString(
         R.string.app_icon_variant,
@@ -59,7 +63,7 @@ class AppIconRowsTest {
         selected: AppIconVariant = state.current,
         onSelect: (AppIconVariant) -> Unit = {},
         onApply: () -> Unit = {},
-        variants: List<AppIconVariant> = AppIconCatalog.variants,
+        variants: List<AppIconVariant> = TestCatalog.variants,
     ) = compose.setContent {
         LessonsTheme {
             LazyColumn {
@@ -72,7 +76,7 @@ class AppIconRowsTest {
     fun `every style in the catalog is a group of its own`() {
         show()
 
-        for (style in AppIconCatalog.variants.map { it.style }.distinct()) {
+        for (style in TestCatalog.variants.map { it.style }.distinct()) {
             compose.onNodeWithText(context.getString(style.labelRes)).performScrollTo().assertIsDisplayed()
         }
     }
@@ -150,7 +154,9 @@ class AppIconRowsTest {
      */
     @Test
     fun `a short last row of tiles keeps the columns of the full row above it`() {
-        val trimmed = AppIconCatalog.variants.filter { it.style == default.style }.take(TrimmedPaletteCount)
+        val trimmed = TestCatalog.variants.filter { it.style == default.style }.take(TrimmedPaletteCount)
+        // Fewer would put the first and the last tile in one row, or make them one tile.
+        check(trimmed.size == TrimmedPaletteCount) { "the test catalog has ${trimmed.size} palettes in one style" }
         val first = trimmed.first()
         val fifth = trimmed.last()
         show(variants = trimmed)

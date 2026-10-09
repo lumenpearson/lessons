@@ -12,19 +12,22 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 
-/** The update broadcast reconciles, and reaches the receiver at all. */
+/**
+ * The update broadcast reconciles, and reaches the receiver at all; over
+ * [TestCatalog], for the reason `LauncherAliasesTest` gives.
+ */
 @RunWith(RobolectricTestRunner::class)
 class PackageReplacedReceiverTest {
 
     private val context = RuntimeEnvironment.getApplication()
-    private val default = AppIconCatalog.default
+    private val default = TestCatalog.default
 
     @After
     fun forgetTheStore() = AppIcons.override(null)
 
     private fun install(components: FakeLauncherComponents) = AppIcons.override(
         AppIconStore(
-            LauncherAliases(components),
+            TestCatalog.aliases(components),
             io = Dispatchers.Unconfined,
             scope = CoroutineScope(Dispatchers.Unconfined),
         ),
@@ -32,7 +35,7 @@ class PackageReplacedReceiverTest {
 
     @Test
     fun `an update reconciles the launcher icons`() {
-        val components = FakeLauncherComponents(mapOf(default.alias to false))
+        val components = TestCatalog.launcher(mapOf(default.alias to false))
         install(components)
 
         PackageReplacedReceiver().onReceive(context, Intent(Intent.ACTION_MY_PACKAGE_REPLACED))
@@ -42,7 +45,7 @@ class PackageReplacedReceiverTest {
 
     @Test
     fun `any other broadcast is left alone`() {
-        val components = FakeLauncherComponents(mapOf(default.alias to false))
+        val components = TestCatalog.launcher(mapOf(default.alias to false))
         install(components)
 
         PackageReplacedReceiver().onReceive(context, Intent(Intent.ACTION_BOOT_COMPLETED))

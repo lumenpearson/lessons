@@ -13,21 +13,24 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** What the rest of the app is told about the icon, and when. */
+/**
+ * What the rest of the app is told about the icon, and when; over
+ * [TestCatalog], for the reason `LauncherAliasesTest` gives.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppIconStoreTest {
 
-    private val default = AppIconCatalog.default
-    private val other = AppIconCatalog.variants.first { it != default }
+    private val default = TestCatalog.default
+    private val other = TestCatalog.other
 
-    private fun TestScope.store(components: FakeLauncherComponents): AppIconStore {
+    private fun TestScope.store(components: LauncherComponents): AppIconStore {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
-        return AppIconStore(LauncherAliases(components), io = dispatcher, scope = CoroutineScope(dispatcher))
+        return AppIconStore(TestCatalog.aliases(components), io = dispatcher, scope = CoroutineScope(dispatcher))
     }
 
     @Test
     fun `nothing is claimed until the launcher has been read`() = runTest {
-        val store = store(FakeLauncherComponents(mapOf(other.alias to true, default.alias to false)))
+        val store = store(TestCatalog.launcher(mapOf(other.alias to true, default.alias to false)))
 
         assertNull(store.current.value)
         store.refresh()
@@ -36,7 +39,7 @@ class AppIconStoreTest {
 
     @Test
     fun `a switch is what the store says once it returns`() = runTest {
-        val components = FakeLauncherComponents()
+        val components = TestCatalog.launcher()
         val store = store(components)
 
         store.switchTo(other)
@@ -47,7 +50,7 @@ class AppIconStoreTest {
 
     @Test
     fun `a switch the platform refuses changes nothing the store says`() = runTest {
-        val store = store(FakeLauncherComponents(failure = SecurityException("refused")))
+        val store = store(TestCatalog.launcher(failure = SecurityException("refused")))
         store.refresh()
 
         val result = runCatching { store.switchTo(other) }
@@ -58,7 +61,7 @@ class AppIconStoreTest {
 
     @Test
     fun `the background reconcile settles the launcher and says it is done`() = runTest {
-        val components = FakeLauncherComponents(mapOf(default.alias to false))
+        val components = TestCatalog.launcher(mapOf(default.alias to false))
         val store = store(components)
         var done = false
 
@@ -74,7 +77,7 @@ class AppIconStoreTest {
         // The receiver finishes its broadcast from onDone; a reconcile that threw
         // and never called it would hold the process until the system killed it.
         val store = store(
-            FakeLauncherComponents(mapOf(default.alias to false), failure = IllegalArgumentException("gone")),
+            TestCatalog.launcher(mapOf(default.alias to false), failure = IllegalArgumentException("gone")),
         )
         var done = false
 
@@ -87,7 +90,7 @@ class AppIconStoreTest {
     @Test
     fun `a switch cancelled while the write runs still leaves current naming the new icon`() = runTest {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
-        val fake = FakeLauncherComponents()
+        val fake = TestCatalog.launcher()
         lateinit var job: Job
         // The write itself cancels the very job that is running switchTo, partway
         // through the platform call, which is what the fix has to survive: the
@@ -100,7 +103,11 @@ class AppIconStoreTest {
                 fake.apply(changes)
             }
         }
-        val store = AppIconStore(LauncherAliases(cancelsMidWrite), io = dispatcher, scope = CoroutineScope(dispatcher))
+        val store = AppIconStore(
+            TestCatalog.aliases(cancelsMidWrite),
+            io = dispatcher,
+            scope = CoroutineScope(dispatcher),
+        )
 
         // LAZY, then started only once `job` itself has been assigned: on this
         // unconfined dispatcher a plain `launch` would run the body inline before
