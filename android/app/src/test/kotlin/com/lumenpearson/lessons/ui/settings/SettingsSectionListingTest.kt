@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.ui.settings
 
 import com.lumenpearson.lessons.core.data.repository.ShellMode
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -90,6 +91,16 @@ class SettingsSectionListingTest {
                 assertTrue(SettingsSection.DEVELOPER !in hidden)
                 assertEquals(hidden + SettingsSection.DEVELOPER, found)
             }
+        }
+    }
+
+    @Test
+    fun `the app icon page is reached from appearance, never from the root`() {
+        for (mode in ShellMode.entries) {
+            assertFalse(
+                "APP_ICON listed on the $mode home",
+                SettingsSection.APP_ICON.listedOn(mode, manager = true, developer = true),
+            )
         }
     }
 }

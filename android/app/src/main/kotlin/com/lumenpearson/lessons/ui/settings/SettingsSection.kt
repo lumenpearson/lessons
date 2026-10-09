@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.AdminPanelSettings
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.DeveloperMode
 import androidx.compose.material.icons.rounded.Info
@@ -143,6 +144,19 @@ enum class SettingsSection(
     ),
 
     /**
+     * Reached from «Оформление», never from the root list, as [PERMISSIONS] is
+     * reached from the notifications page. Which icon the launcher shows is a
+     * question about how the app looks, and one row on that page names the
+     * icon in use and opens this.
+     */
+    APP_ICON(
+        R.string.settings_app_icon,
+        R.string.settings_app_icon_summary,
+        Icons.Rounded.Apps,
+        tone = 3,
+    ),
+
+    /**
      * The developer mode (#237), listed once seven taps on the version have
      * found it. Last, under everything a reader came for, and a page of its own
      * like [DIARY]: its tools are lists that grow while it is open, and none of
@@ -175,7 +189,7 @@ enum class SettingsSection(
      * the phone, so it is listed on every home alike.
      */
     fun listedOn(mode: ShellMode, manager: Boolean, developer: Boolean = false): Boolean = when (this) {
-        PERMISSIONS -> false
+        PERMISSIONS, APP_ICON -> false
         ADMIN -> mode == ShellMode.CLASS && manager
         CONTENT, ALERTS, ACCOUNT -> mode != ShellMode.DIARY
         APPEARANCE, FEEL, SYNC, DIARY, UPDATES, ABOUT -> true

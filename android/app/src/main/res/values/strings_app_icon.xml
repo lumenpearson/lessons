@@ -25,4 +25,14 @@
 
     <!-- A style and a palette: «Свечение · Мята». -->
     <string name="app_icon_variant">%1$s · %2$s</string>
+
+    <!-- The page under «Оформление», and its row there. -->
+    <string name="settings_app_icon">Значок приложения</string>
+    <string name="settings_app_icon_summary">Стиль и цвет значка на главном экране</string>
+    <string name="settings_app_icon_group">Значок</string>
+    <string name="app_icon_mask_circle">Круг</string>
+    <string name="app_icon_mask_rounded">Скруглённый квадрат</string>
+    <string name="app_icon_apply">Применить</string>
+    <string name="app_icon_apply_hint">Лаунчер может переставить значок на главном экране или попросить добавить его заново.</string>
+    <string name="app_icon_failed">Не удалось сменить значок</string>
 </resources>
