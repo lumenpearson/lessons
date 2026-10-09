@@ -280,11 +280,11 @@ async def update(
         subject_name = changed.get("subject_name", row.subject_name)
         if await _find(session, school_class.id, due_date, subject_name) is not None:
             raise HomeworkExists()
-    for column, value in changed.items():
-        setattr(row, column, value)
-    row.created_by = actor
     try:
         async with session.begin_nested():
+            for column, value in changed.items():
+                setattr(row, column, value)
+            row.created_by = actor
             await session.flush()
     except IntegrityError:
         raise HomeworkExists() from None

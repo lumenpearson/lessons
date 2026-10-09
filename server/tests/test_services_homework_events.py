@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
+import pytest
 from sqlalchemy import func, select
 
 from app import wording
@@ -196,6 +197,48 @@ async def test_nothing_the_services_write_is_committed_until_the_caller_commits(
     await session.rollback()
     for table in (Homework, DayEvent, AuditEntry):
         assert await _committed(select(func.count()).select_from(table)) == 0, table
+
+
+async def test_update_s_racing_twin_stays_inside_its_savepoint(
+    session, school_class, monkeypatch
+) -> None:
+    """``update``'s own race (#381): the check answers «nothing there» while
+    the twin already exists, so the move meets the unique constraint while
+    flushing. That flush has to happen *inside* ``begin_nested()``'s
+    savepoint — only the savepoint may be rolled back, never the caller's
+    whole transaction, because this is called with a session the caller goes
+    on using once ``HomeworkExists`` is caught."""
+    algebra = Homework(
+        class_id=school_class.id, due_date=MONDAY, subject_name="Алгебра", text="№ 1"
+    )
+    physics = Homework(
+        class_id=school_class.id, due_date=MONDAY, subject_name="Физика", text="№ 2"
+    )
+    session.add_all([algebra, physics])
+    await session.commit()
+
+    real_find = homework_service._find
+    stale: list[bool] = []
+
+    async def stale_once(*args: Any, **kwargs: Any) -> Any:
+        if not stale:
+            stale.append(True)
+            return None
+        return await real_find(*args, **kwargs)
+
+    monkeypatch.setattr(homework_service, "_find", stale_once)
+    with pytest.raises(homework_service.HomeworkExists):
+        await homework_service.update(
+            session, school_class, EDITOR, physics, {"subject": "Алгебра"}
+        )
+    assert stale, "the stale read never happened, so nothing was tested"
+    # The savepoint must have isolated the clash: the session goes on being
+    # usable, and the two original rows are exactly as they were. The failed
+    # flush expired ``physics`` (the row the savepoint rolled back), so it is
+    # read again rather than read off the stale Python attribute.
+    assert await session.scalar(select(func.count()).select_from(Homework)) == 2
+    await session.refresh(physics)
+    assert (algebra.subject_name, physics.subject_name) == ("Алгебра", "Физика")
 
 
 def test_the_sentences_both_versions_answer_with_are_v1_s() -> None:
