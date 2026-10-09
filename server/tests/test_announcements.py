@@ -53,6 +53,7 @@ from app.config import get_settings
 from app.contract.lessons.v2 import homework_pb
 from app.main import app
 from app.models import BotUser, DeviceToken, Homework, ReminderSettings, Role
+from app.rpc import event as rpc_event
 from app.rpc import homework as rpc_homework
 from app.services import linking, notify
 
@@ -396,6 +397,8 @@ ANNOUNCED_HERE: dict[object, str] = {
     rpc_homework.create_homework: "measured below — v1's words through `homework.create`",
     rpc_homework.update_homework: "the same words, «обновлено», cut as `homework.create`'s are",
     rpc_homework.delete_homework: "a stored subject, `max_length=120`",
+    rpc_event._announce: "registers that effect for changes; no text of its own",
+    rpc_event.create_event: "`title` 200 and `location` 120, `EventIn`'s as v1's",
 }
 
 
