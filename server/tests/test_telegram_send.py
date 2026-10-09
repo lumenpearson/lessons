@@ -10,10 +10,12 @@ and it closes what it built.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app import telegram_send
 from app.config import get_settings
+from app.models import ReminderSettings
 
 
 class _Bot:
@@ -97,3 +99,73 @@ async def test_a_token_aiogram_will_not_build_a_bot_from_is_a_refusal_not_a_rais
     monkeypatch.setattr(get_settings(), "bot_token", "not-a-token")
 
     assert await telegram_send.send([(1, "раз")]) == [False]
+
+
+# ---- the class notice, v2's effect (stage 3b-5) ------------------------------
+
+
+async def test_a_class_notice_reaches_its_subscribers_but_its_author_and_closes_its_bot(
+    session, school_class, monkeypatch
+):
+    for telegram_id, changes, homework in (
+        (7001, True, True),
+        (7002, True, False),
+        (7003, False, True),
+    ):
+        session.add(
+            ReminderSettings(
+                class_id=school_class.id,
+                telegram_id=telegram_id,
+                notify_changes=changes,
+                notify_homework=homework,
+            )
+        )
+    await session.commit()
+    bot = _Bot()
+    monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
+    monkeypatch.setattr(telegram_send, "build_bot", lambda: bot)
+
+    told = await telegram_send.notify_class(
+        session, school_class, "📝 <b>Алгебра</b>", kind="homework", author=7003
+    )
+
+    # Those who asked to hear about homework, all but the one who wrote it.
+    assert told == 1
+    assert bot.sent == [(7001, "📝 <b>Алгебра</b>")]
+    assert bot.closed
+
+
+async def test_a_class_notice_without_a_token_builds_nothing(session, school_class, monkeypatch):
+    def refuse() -> None:
+        raise AssertionError("a bot was built with no token")
+
+    monkeypatch.setattr(get_settings(), "bot_token", "")
+    monkeypatch.setattr(telegram_send, "build_bot", refuse)
+
+    told = await telegram_send.notify_class(session, school_class, "x", kind="changes", author=None)
+    assert told == 0
+
+
+async def test_a_class_notice_that_fails_is_logged_and_never_raised(
+    session, school_class, monkeypatch, caplog
+):
+    """It runs after the commit: the change is saved, so neither a bot that
+    cannot be built nor a notice that fails on the way may reach the caller."""
+    with caplog.at_level(logging.WARNING, logger="app.telegram_send"):
+        monkeypatch.setattr(get_settings(), "bot_token", "not-a-token")
+        unbuilt = await telegram_send.notify_class(
+            session, school_class, "x", kind="changes", author=None
+        )
+
+        bot = _BotWhoseCloseRaises()
+        monkeypatch.setattr(get_settings(), "bot_token", "123456:TEST")
+        monkeypatch.setattr(telegram_send, "build_bot", lambda: bot)
+        # A kind `notify_subscribers` does not know raises inside it.
+        failed = await telegram_send.notify_class(
+            session, school_class, "x", kind="news", author=None
+        )
+    assert (unbuilt, failed) == (0, 0)
+    said = [record.getMessage() for record in caplog.records]
+    assert any("no bot could be built" in line for line in said)
+    assert any(f"could not notify class {school_class.id}" in line for line in said)
+    assert any("could not close the bot" in line for line in said)

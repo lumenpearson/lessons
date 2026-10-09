@@ -44,6 +44,7 @@ import pytest
 from httpx import ASGITransport
 from sqlalchemy import delete as sa_delete
 
+from app import telegram_send
 from app.api import edit
 from app.bot.handlers.content.events import event_title
 from app.bot.handlers.content.homework import homework_text
@@ -337,7 +338,7 @@ async def test_what_the_api_pushes_grows_by_no_more_than_the_cap(
 #:
 #: Written down with a reason each, because the reason is what a reviewer has
 #: to agree with; the list itself is derived from the source by the test below
-#: and fails naming anything that is not here. Adding a ninth announcement is
+#: and fails naming anything that is not here. Adding another announcement is
 #: then a decision — measure it, or say in one line what already bounds it.
 #: Keyed by the function rather than by its file, so that moving one to
 #: another module changes the import above and nothing here.
@@ -354,56 +355,113 @@ ANNOUNCED_HERE: dict[object, str] = {
     event_title: "measured below — a title cut to 200 on the way in",
     override_cancel: "pressed below — a lesson number and a date",
     override_clear: "pressed below — a lesson number and a date",
+    telegram_send.notify_class: "the effect v2's writes announce through; no text of its own",
 }
 
 
+#: Where every push to the class ends: the one function that sends it.
+SENDS = "app.services.notify:notify_subscribers"
+
+
+def _module_name(path: Path) -> str:
+    parts = path.relative_to(APP_ROOT.parent).with_suffix("").parts
+    return ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+
+
+def _imported(tree: ast.Module, modules: set[str]) -> dict[str, str]:
+    """What one file calls the things of `app/` it imports: a module by its
+    dotted name, ``{"notify": "app.services.notify"}``, and anything else by
+    ``module:name``, ``{"notify_class": "app.telegram_send:notify_class"}``."""
+    names: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            for alias in node.names:
+                dotted = f"{node.module}.{alias.name}"
+                names[alias.asname or alias.name] = (
+                    dotted if dotted in modules else f"{node.module}:{alias.name}"
+                )
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.asname and alias.name in modules:
+                    names[alias.asname] = alias.name
+    return names
+
+
+def _calls(tree: ast.Module, module: str, names: dict[str, str]) -> dict[str, set[str]]:
+    """Each function of one file, as ``module:name``, and what it calls, named
+    the same way: a function of the same file by its bare name, and one of
+    another file through what the file imports (:func:`_imported`).
+
+    A call inside a ``lambda`` is its enclosing function's, which is how a v2
+    handler registers its notice: ``call.after_commit(lambda: …)``. A call by
+    any other route — a method, a name from outside `app/` — is not followed.
+    """
+    defined = {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    }
+    calls: dict[str, set[str]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        named: set[str] = set()
+        for inner in ast.walk(node):
+            if not isinstance(inner, ast.Call):
+                continue
+            func = inner.func
+            if isinstance(func, ast.Name):
+                if func.id in defined:
+                    named.add(f"{module}:{func.id}")
+                elif ":" in names.get(func.id, ""):
+                    named.add(names[func.id])
+            elif (
+                isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Name)
+                and func.value.id in names
+                and ":" not in names[func.value.id]
+            ):
+                named.add(f"{names[func.value.id]}:{func.attr}")
+        calls[f"{module}:{node.name}"] = named
+    return calls
+
+
 def _announcing_call_sites() -> dict[object, str]:
-    """Every function in `app/` that pushes to the class, directly or through a
-    wrapper in its own file — as the object the module hands out, with a
+    """Every function in `app/` that pushes to the class — calling
+    ``notify_subscribers``, a wrapper in its own file, or a function of
+    another file it imports — as the object the module hands out, with a
     `module:name` label for the failure message.
 
-    One file's worth of indirection, and no more: `api/edit.py` announces
-    through its own ``_tell``, so a walk that only looked for
-    ``notify_subscribers`` would name the wrapper and miss all seven endpoints
-    behind it. Resolving names across files instead would start matching any
-    function that happens to share a name with a wrapper somewhere else.
+    `api/edit.py` announces through its own ``_tell``, so a walk that only
+    looked for ``notify_subscribers`` would name the wrapper and miss all six
+    endpoints behind it; and v2's handlers announce through
+    ``telegram_send.notify_class``, in another file. A call is followed only
+    through a name the file defines or imports from `app/`, never by a bare
+    name alone, which would match any function that happens to share a name
+    with a wrapper somewhere else.
     """
-    found: dict[object, str] = {}
-    for path in sorted(APP_ROOT.rglob("*.py")):
+    paths = sorted(APP_ROOT.rglob("*.py"))
+    modules = {_module_name(path) for path in paths}
+    graph: dict[str, set[str]] = {}
+    for path in paths:
         tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+        graph.update(_calls(tree, _module_name(path), _imported(tree, modules)))
 
-        calls: dict[str, set[str]] = {}
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                continue
-            named = set()
-            for inner in ast.walk(node):
-                if isinstance(inner, ast.Call):
-                    func = inner.func
-                    named.add(
-                        func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
-                    )
-            calls[node.name] = named
+    announcing = {SENDS}
+    while True:
+        grown = {name for name, called in graph.items() if called & announcing}
+        if grown <= announcing:
+            break
+        announcing |= grown
 
-        announcing = {"notify_subscribers"}
-        while True:
-            grown = {name for name, named in calls.items() if named & announcing}
-            if grown <= announcing:
-                break
-            announcing |= grown
-
-        # Its own definition is not a call site; every caller of it is.
-        callers = (announcing & set(calls)) - {"notify_subscribers"}
-        if not callers:
-            continue
-        parts = path.relative_to(APP_ROOT.parent).with_suffix("").parts
-        module_name = ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+    found: dict[object, str] = {}
+    # Its own definition is not a call site; every caller of it is.
+    for label in sorted(announcing - {SENDS}):
+        module_name, name = label.split(":")
         module = importlib.import_module(module_name)
-        for name in callers:
-            label = f"{module_name}:{name}"
-            # A name the module does not hand out — a function nested in
-            # another — stays a label, so it fails below naming itself.
-            found[getattr(module, name, label)] = label
+        # A name the module does not hand out — a function nested in
+        # another — stays a label, so it fails below naming itself.
+        found[getattr(module, name, label)] = label
     return found
 
 
@@ -429,3 +487,25 @@ def test_every_place_that_pushes_to_the_class_is_read_in_this_file():
         if function not in real
     )
     assert not gone, "ANNOUNCED_HERE names call sites that no longer exist: " + ", ".join(gone)
+
+
+def test_the_walk_follows_a_call_into_another_file_through_what_it_imports():
+    """Held here rather than trusted: v2's handlers announce through
+    ``telegram_send.notify_class``, another file's, and register it in a
+    ``lambda`` to run after the commit. A walk that stopped at the file's
+    edge, or at the lambda, would find none of them and still pass."""
+    tree = ast.parse(
+        "from app import telegram_send\n"
+        "from app.services.notify import notify_subscribers\n"
+        "def later(call):\n"
+        "    call.after_commit(lambda: telegram_send.notify_class(1))\n"
+        "async def now():\n"
+        "    await notify_subscribers(1)\n"
+        "async def handler(call):\n"
+        "    later(call)\n"
+    )
+    modules = {"app.telegram_send", "app.services.notify"}
+    calls = _calls(tree, "app.rpc.example", _imported(tree, modules))
+    assert calls["app.rpc.example:later"] == {"app.telegram_send:notify_class"}
+    assert calls["app.rpc.example:now"] == {SENDS}
+    assert calls["app.rpc.example:handler"] == {"app.rpc.example:later"}

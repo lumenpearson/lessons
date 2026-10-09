@@ -12,9 +12,11 @@ so importing this module costs a cold start nothing, and ``app.bot.bot``
 imports ``build_bot`` back from here.
 
 v2's notices are sent from here, as effects ``rpc/call.py`` runs after the
-commit (stage 3b-3). v1's keep their own ``_build_bot`` seams in
-``api/manage/requests.py`` and ``api/edit.py``, which build through
-``build_bot`` here, so that no v1 test had to change.
+commit: :func:`send` to one person (stage 3b-3), and :func:`notify_class` to
+a class's subscribers, through ``services/notify.notify_subscribers`` (stage
+3b-5). v1's keep their own ``_build_bot`` seams in ``api/manage/requests.py``
+and ``api/edit.py``, which build through ``build_bot`` here, so that no v1
+test had to change.
 """
 
 from __future__ import annotations
@@ -24,10 +26,14 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from app.config import get_settings
+from app.services import notify
 
 if TYPE_CHECKING:
-    # A name for the annotation, and nothing more: see the module docstring.
+    # Names for the annotations, and nothing more: see the module docstring.
     from aiogram import Bot
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.models import SchoolClass
 
 log = logging.getLogger(__name__)
 
@@ -95,3 +101,44 @@ async def send(messages: Sequence[tuple[int, str]]) -> list[bool]:
             # so the next tick would send what the owner already has.
             log.warning("could not close the bot: %s", type(error).__name__)
     return delivered
+
+
+async def notify_class(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    text: str,
+    *,
+    kind: str,
+    author: int | None,
+) -> int:
+    """Tell ``school_class``'s subscribers to ``kind`` — all but ``author`` —
+    through one bot built for this notice, and answer how many were told.
+
+    v2's writes register it as an effect (``Call.after_commit``), so it runs
+    once the change is committed, never on a refusal, and with the call's
+    session still open: ``notify_subscribers`` reads the recipients from it,
+    and switches off whoever blocked the bot. ``text`` is HTML, escaped by
+    whoever worded it. Never raises: a bot that cannot be built, a recipient
+    Telegram refuses or a failure on the way is logged, and answered as fewer
+    told, because the change is saved already. With no ``BOT_TOKEN`` nothing
+    is built. The bot is closed whatever happened.
+    """
+    if not get_settings().bot_token:
+        return 0
+    try:
+        bot = build_bot()
+    except Exception:  # noqa: BLE001 - see the docstring
+        log.warning("class %s was not told: no bot could be built", school_class.id, exc_info=True)
+        return 0
+    try:
+        return await notify.notify_subscribers(
+            session, bot, school_class, text, kind=kind, exclude=author
+        )
+    except Exception:  # noqa: BLE001 - see the docstring
+        log.warning("could not notify class %s", school_class.id, exc_info=True)
+        return 0
+    finally:
+        try:
+            await close_bot(bot)
+        except Exception as error:  # noqa: BLE001 - see the docstring
+            log.warning("could not close the bot: %s", type(error).__name__)
