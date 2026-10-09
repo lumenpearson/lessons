@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons
 
 import android.app.Application
+import com.lumenpearson.lessons.appicon.AppIcons
 import com.lumenpearson.lessons.core.data.di.Graph
 import com.lumenpearson.lessons.core.data.diagnostics.LifecycleRecorder
 import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
@@ -16,7 +17,7 @@ import kotlinx.coroutines.launch
 /**
  * Process entry point.
  *
- * It exists for exactly three reasons, and deliberately does no more:
+ * It exists for exactly four reasons, and deliberately does no more:
  *
  *  1. [Graph.init] has to run before anything can reach a repository. There is
  *     no Hilt in this project — the widget and the sync worker are woken by the
@@ -30,6 +31,12 @@ import kotlinx.coroutines.launch
  *  3. The developer mode's records have to be following their switches before
  *     anything they would record happens — a sign-in, a sync, an activity
  *     starting — which is only true if they start with the process.
+ *  4. The launcher icon is reconciled once per process start
+ *     (docs/specs/2026-10-09-app-icons-design.md): an update can have taken
+ *     away the alias this phone had chosen, and a switch can have died between
+ *     its two calls below Android 13, and either leaves the launcher with the
+ *     wrong number of entries. The update's own broadcast does the same; this
+ *     is the net under it.
  *
  * What it does **not** do is read the diary. The diary is refreshed only while
  * somebody is looking at it — `HomeShell`'s start effect, in the diary mode —
@@ -54,6 +61,8 @@ class LessonsApplication : Application() {
         // arm for, and Application.onCreate is on the critical path of every
         // cold start, including the one a widget update triggers.
         applicationScope.launch { SchoolAlerts.onAppStart(this@LessonsApplication) }
+        // Off the main thread inside the store, like the alarms above.
+        AppIcons.store(this).reconcileInBackground()
         startDeveloperMode()
     }
 

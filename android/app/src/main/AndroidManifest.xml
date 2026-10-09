@@ -901,6 +901,20 @@
         </activity-alias>
 
         <!--
+          Reconciles the launcher icons after an update, which can have removed
+          the alias this phone had chosen (appicon/PackageReplacedReceiver.kt).
+          Not exported: MY_PACKAGE_REPLACED comes from the system, which reaches
+          a receiver no other app can.
+        -->
+        <receiver
+            android:name=".appicon.PackageReplacedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
           Shares a crash report with whatever the user picks from the share
           sheet. exported=false and grantUriPermissions=true is the pair that
           makes that safe: no app can reach in, and the one file the user chose
