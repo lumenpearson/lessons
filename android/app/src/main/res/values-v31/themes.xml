@@ -2,14 +2,16 @@
 <resources>
 
     <!--
-      The launcher icon on the window background is what the system animates
-      from the home screen, which removes the blank frame between tap and first
-      draw. Both attributes arrived in API 31, so this overrides the empty
-      declaration in values/themes.xml rather than appearing beside it.
+      The window background is what the system paints between the tap and the
+      first frame. The icon on it is left to the system, which draws the icon of
+      the component that was started: the launcher alias the reader chose
+      (docs/specs/2026-10-09-app-icons-design.md). Pinning
+      windowSplashScreenAnimatedIcon here drew one drawable whatever the
+      launcher showed. The attribute arrived in API 31, so this overrides the
+      empty declaration in values/themes.xml rather than appearing beside it.
     -->
     <style name="Theme.Lessons.Starting" parent="Theme.Lessons">
         <item name="android:windowSplashScreenBackground">@color/window_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
     </style>
 
 </resources>

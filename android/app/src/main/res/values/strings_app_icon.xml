@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The launcher icon's looks and colours (docs/specs/2026-10-09-app-icons-design.md),
+      named as the page «Значок приложения» shows them. A palette's light twin names
+      its hue first, so the two sit together when read.
+    -->
+    <string name="app_icon_style_classic">Классика</string>
+    <string name="app_icon_style_edge">Край в край</string>
+    <string name="app_icon_style_glow">Свечение</string>
+    <string name="app_icon_style_dark">Тёмная</string>
+    <string name="app_icon_style_glass">Матовое стекло</string>
+    <string name="app_icon_style_matte">Матовая</string>
+    <string name="app_icon_style_oneui">Размытие</string>
+    <string name="app_icon_style_amoled">AMOLED</string>
+
+    <string name="app_icon_palette_rassvet">Рассвет</string>
+    <string name="app_icon_palette_indigo">Индиго</string>
+    <string name="app_icon_palette_myata">Мята</string>
+    <string name="app_icon_palette_lavanda">Лаванда</string>
+    <string name="app_icon_palette_rassvet_light">Рассвет, светлый</string>
+    <string name="app_icon_palette_indigo_light">Индиго, светлый</string>
+    <string name="app_icon_palette_myata_light">Мята, светлая</string>
+    <string name="app_icon_palette_lavanda_light">Лаванда, светлая</string>
+
+    <!-- A style and a palette: «Свечение · Мята». -->
+    <string name="app_icon_variant">%1$s · %2$s</string>
+</resources>

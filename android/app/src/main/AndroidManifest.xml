@@ -42,9 +42,9 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/ic_launcher_classic_myata"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@mipmap/ic_launcher_classic_myata_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Lessons.Starting"
         tools:targetApi="31">
@@ -55,12 +55,850 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/Theme.Lessons.Starting"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize" />
+
+        <!--
+          The launcher icons (docs/specs/2026-10-09-app-icons-design.md). Each is
+          an alias of MainActivity under its own icon, and exactly one of them is
+          enabled: the app changes its icon by changing which one
+          (appicon/LauncherAliases.kt), and the component state is the only record
+          of the choice. MainActivity itself is never a launcher entry and never
+          disabled, because the widget and the alerts start it by class name.
+          Only «Классика · Мята» is enabled here, so a fresh install shows it
+          before a line of code runs. AppIconCatalogTest holds this list,
+          AppIconCatalog and res/ to one another, in this order.
+        -->
+        <activity-alias
+            android:name=".launcher.classic_rassvet"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_classic_rassvet"
+            android:roundIcon="@mipmap/ic_launcher_classic_rassvet_round"
+            android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.classic_indigo"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_classic_indigo"
+            android:roundIcon="@mipmap/ic_launcher_classic_indigo_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.classic_myata"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_classic_myata"
+            android:roundIcon="@mipmap/ic_launcher_classic_myata_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.classic_lavanda"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_classic_lavanda"
+            android:roundIcon="@mipmap/ic_launcher_classic_lavanda_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.classic_rassvet_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_classic_rassvet_light"
+            android:roundIcon="@mipmap/ic_launcher_classic_rassvet_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.classic_indigo_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_classic_indigo_light"
+            android:roundIcon="@mipmap/ic_launcher_classic_indigo_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.classic_myata_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_classic_myata_light"
+            android:roundIcon="@mipmap/ic_launcher_classic_myata_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.classic_lavanda_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_classic_lavanda_light"
+            android:roundIcon="@mipmap/ic_launcher_classic_lavanda_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.edge_rassvet"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_edge_rassvet"
+            android:roundIcon="@mipmap/ic_launcher_edge_rassvet_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.edge_indigo"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_edge_indigo"
+            android:roundIcon="@mipmap/ic_launcher_edge_indigo_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.edge_myata"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_edge_myata"
+            android:roundIcon="@mipmap/ic_launcher_edge_myata_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.edge_lavanda"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_edge_lavanda"
+            android:roundIcon="@mipmap/ic_launcher_edge_lavanda_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.edge_rassvet_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_edge_rassvet_light"
+            android:roundIcon="@mipmap/ic_launcher_edge_rassvet_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.edge_indigo_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_edge_indigo_light"
+            android:roundIcon="@mipmap/ic_launcher_edge_indigo_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.edge_myata_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_edge_myata_light"
+            android:roundIcon="@mipmap/ic_launcher_edge_myata_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.edge_lavanda_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_edge_lavanda_light"
+            android:roundIcon="@mipmap/ic_launcher_edge_lavanda_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glow_rassvet"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glow_rassvet"
+            android:roundIcon="@mipmap/ic_launcher_glow_rassvet_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glow_indigo"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glow_indigo"
+            android:roundIcon="@mipmap/ic_launcher_glow_indigo_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glow_myata"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glow_myata"
+            android:roundIcon="@mipmap/ic_launcher_glow_myata_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glow_lavanda"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glow_lavanda"
+            android:roundIcon="@mipmap/ic_launcher_glow_lavanda_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glow_rassvet_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glow_rassvet_light"
+            android:roundIcon="@mipmap/ic_launcher_glow_rassvet_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glow_indigo_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glow_indigo_light"
+            android:roundIcon="@mipmap/ic_launcher_glow_indigo_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glow_myata_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glow_myata_light"
+            android:roundIcon="@mipmap/ic_launcher_glow_myata_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glow_lavanda_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glow_lavanda_light"
+            android:roundIcon="@mipmap/ic_launcher_glow_lavanda_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.dark_rassvet"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_dark_rassvet"
+            android:roundIcon="@mipmap/ic_launcher_dark_rassvet_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.dark_indigo"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_dark_indigo"
+            android:roundIcon="@mipmap/ic_launcher_dark_indigo_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.dark_myata"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_dark_myata"
+            android:roundIcon="@mipmap/ic_launcher_dark_myata_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.dark_lavanda"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_dark_lavanda"
+            android:roundIcon="@mipmap/ic_launcher_dark_lavanda_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.dark_rassvet_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_dark_rassvet_light"
+            android:roundIcon="@mipmap/ic_launcher_dark_rassvet_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.dark_indigo_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_dark_indigo_light"
+            android:roundIcon="@mipmap/ic_launcher_dark_indigo_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.dark_myata_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_dark_myata_light"
+            android:roundIcon="@mipmap/ic_launcher_dark_myata_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.dark_lavanda_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_dark_lavanda_light"
+            android:roundIcon="@mipmap/ic_launcher_dark_lavanda_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glass_rassvet"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glass_rassvet"
+            android:roundIcon="@mipmap/ic_launcher_glass_rassvet_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glass_indigo"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glass_indigo"
+            android:roundIcon="@mipmap/ic_launcher_glass_indigo_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glass_myata"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glass_myata"
+            android:roundIcon="@mipmap/ic_launcher_glass_myata_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glass_lavanda"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glass_lavanda"
+            android:roundIcon="@mipmap/ic_launcher_glass_lavanda_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glass_rassvet_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glass_rassvet_light"
+            android:roundIcon="@mipmap/ic_launcher_glass_rassvet_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glass_indigo_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glass_indigo_light"
+            android:roundIcon="@mipmap/ic_launcher_glass_indigo_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glass_myata_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glass_myata_light"
+            android:roundIcon="@mipmap/ic_launcher_glass_myata_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.glass_lavanda_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_glass_lavanda_light"
+            android:roundIcon="@mipmap/ic_launcher_glass_lavanda_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.matte_rassvet"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_matte_rassvet"
+            android:roundIcon="@mipmap/ic_launcher_matte_rassvet_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.matte_indigo"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_matte_indigo"
+            android:roundIcon="@mipmap/ic_launcher_matte_indigo_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.matte_myata"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_matte_myata"
+            android:roundIcon="@mipmap/ic_launcher_matte_myata_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.matte_lavanda"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_matte_lavanda"
+            android:roundIcon="@mipmap/ic_launcher_matte_lavanda_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.matte_rassvet_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_matte_rassvet_light"
+            android:roundIcon="@mipmap/ic_launcher_matte_rassvet_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.matte_indigo_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_matte_indigo_light"
+            android:roundIcon="@mipmap/ic_launcher_matte_indigo_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.matte_myata_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_matte_myata_light"
+            android:roundIcon="@mipmap/ic_launcher_matte_myata_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.matte_lavanda_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_matte_lavanda_light"
+            android:roundIcon="@mipmap/ic_launcher_matte_lavanda_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.oneui_rassvet"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_oneui_rassvet"
+            android:roundIcon="@mipmap/ic_launcher_oneui_rassvet_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.oneui_indigo"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_oneui_indigo"
+            android:roundIcon="@mipmap/ic_launcher_oneui_indigo_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.oneui_myata"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_oneui_myata"
+            android:roundIcon="@mipmap/ic_launcher_oneui_myata_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.oneui_lavanda"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_oneui_lavanda"
+            android:roundIcon="@mipmap/ic_launcher_oneui_lavanda_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.oneui_rassvet_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_oneui_rassvet_light"
+            android:roundIcon="@mipmap/ic_launcher_oneui_rassvet_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.oneui_indigo_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_oneui_indigo_light"
+            android:roundIcon="@mipmap/ic_launcher_oneui_indigo_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.oneui_myata_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_oneui_myata_light"
+            android:roundIcon="@mipmap/ic_launcher_oneui_myata_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.oneui_lavanda_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_oneui_lavanda_light"
+            android:roundIcon="@mipmap/ic_launcher_oneui_lavanda_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.amoled_rassvet"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_amoled_rassvet"
+            android:roundIcon="@mipmap/ic_launcher_amoled_rassvet_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.amoled_indigo"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_amoled_indigo"
+            android:roundIcon="@mipmap/ic_launcher_amoled_indigo_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.amoled_myata"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_amoled_myata"
+            android:roundIcon="@mipmap/ic_launcher_amoled_myata_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.amoled_lavanda"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_amoled_lavanda"
+            android:roundIcon="@mipmap/ic_launcher_amoled_lavanda_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.amoled_rassvet_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_amoled_rassvet_light"
+            android:roundIcon="@mipmap/ic_launcher_amoled_rassvet_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.amoled_indigo_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_amoled_indigo_light"
+            android:roundIcon="@mipmap/ic_launcher_amoled_indigo_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.amoled_myata_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_amoled_myata_light"
+            android:roundIcon="@mipmap/ic_launcher_amoled_myata_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".launcher.amoled_lavanda_light"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_amoled_lavanda_light"
+            android:roundIcon="@mipmap/ic_launcher_amoled_lavanda_light_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <!--
           Shares a crash report with whatever the user picks from the share
