@@ -4,11 +4,8 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.SystemClock
 import androidx.annotation.StringRes
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.FlowRowScope
@@ -32,11 +29,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -48,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.appicon.AppIconImage
+import com.lumenpearson.lessons.appicon.rememberCurrentAppIcon
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
@@ -153,29 +149,19 @@ internal fun AboutCard(
 }
 
 /**
- * The launcher icon, drawn the way a launcher draws it.
+ * The launcher icon in use, as the home screen shows it.
  *
- * An adaptive icon is a 108 dp canvas of which only the middle 72 dp is ever
- * shown; painting the mipmap directly would letterbox the whole canvas and the
- * mark would sit small in a field of its own background. So the foreground is
- * drawn at the reciprocal of that fraction and clipped to the box, which is the
- * same crop the home screen applies.
+ * The current one rather than a fixed drawable: this card is where somebody
+ * looks to see which app they have, and since «Значок приложения» the icon on
+ * their home screen can be any of the catalog's.
  */
 @Composable
 private fun AppMark() {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(MarkSize)
-            .clip(RoundedCornerShape(MarkCorner))
-            .background(colorResource(R.color.ic_launcher_background)),
-    ) {
-        Image(
-            painter = painterResource(R.drawable.ic_launcher_foreground),
-            contentDescription = null,
-            modifier = Modifier.size(MarkSize * AdaptiveCanvasRatio),
-        )
-    }
+    AppIconImage(
+        variant = rememberCurrentAppIcon(),
+        shape = RoundedCornerShape(MarkCorner),
+        modifier = Modifier.size(MarkSize),
+    )
 }
 
 /**
@@ -524,13 +510,6 @@ private val BlockGap = 12.dp
 private val MarkSize = 96.dp
 
 private val MarkCorner = 24.dp
-
-/**
- * 108 dp of adaptive canvas over the 72 dp a launcher actually shows.
- *
- * @see AppMark
- */
-private const val AdaptiveCanvasRatio = 108f / 72f
 
 private val PillGap = 8.dp
 

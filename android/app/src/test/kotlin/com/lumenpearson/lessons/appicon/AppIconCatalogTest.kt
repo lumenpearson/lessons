@@ -92,6 +92,26 @@ class AppIconCatalogTest {
         }
     }
 
+    @Test
+    fun `no launcher resource is left that no catalog entry uses`() {
+        val used = AppIconCatalog.variants.flatMap { variant ->
+            val name = variant.resourceName
+            listOf(name, "${name}_round", "${name}_background", "${name}_foreground")
+        }.toSet() + MonochromeLayers
+        val present = res.listFiles().orEmpty()
+            .filter { it.isDirectory }
+            .flatMap { it.listFiles().orEmpty().toList() }
+            .map { it.nameWithoutExtension }
+            .filter { it.startsWith("ic_launcher") }
+            .toSet()
+
+        assertEquals("launcher resources no icon uses", emptySet<String>(), present - used)
+        assertFalse(
+            "the old book's colour is still declared",
+            "ic_launcher_background" in File(res, "values/colors.xml").readText(),
+        )
+    }
+
     private fun layerExists(stem: String): Boolean =
         listOf("drawable/$stem.xml", "drawable-xxxhdpi/$stem.webp").any { File(res, it).isFile }
 
