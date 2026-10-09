@@ -65,8 +65,10 @@ is enabled.
 - **A reconciliation brings the components back to exactly one enabled catalog alias.** It runs on
   `ACTION_MY_PACKAGE_REPLACED`, from a receiver, and once per process start.
   - If none is enabled, it enables the default.
-  - If more than one is, it keeps the first in catalog order that is not the default (the default
-    is the one a half-finished switch leaves behind), and disables the rest.
+  - If more than one is, it keeps the first in catalog order that is not the default, and disables
+    the rest. For a half-finished switch away from the default that is the new icon. For a switch
+    back to the default, or between two other icons when the one being left comes first, it is the
+    icon being left: the last choice is undone, but there is still exactly one launcher entry.
   - Both happen, and both are why it exists. A switch can die halfway: a process killed between two
     calls below API 33. An update can remove the alias a phone had chosen. Without this, that phone
     would be left with no launcher entry at all, and no way back into the app but the widget.

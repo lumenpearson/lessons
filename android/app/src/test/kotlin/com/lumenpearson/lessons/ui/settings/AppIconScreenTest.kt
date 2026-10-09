@@ -37,9 +37,10 @@ import org.robolectric.annotation.Config
  * Over the real catalog, because the page draws the real catalog.
  */
 // marquee clock: the page's one-line texts are its title «Значок
-// приложения» and the style names, the longest «Матовое стекло», none near
-// the width of a 411 dp page; this test reaches nodes with `performScrollTo`,
-// which holding the clock would stop.
+// приложения», its subtitle «Стиль и цвет значка на главном экране» and the
+// style names, the longest «Матовое стекло», none near the width of a 411 dp
+// page; this test reaches nodes with `performScrollTo`, which holding the
+// clock would stop.
 @RunWith(RobolectricTestRunner::class)
 // Russian and tall, for the reasons `AppIconRowsTest` gives.
 @Config(qualifiers = "ru-rRU-w411dp-h3000dp")

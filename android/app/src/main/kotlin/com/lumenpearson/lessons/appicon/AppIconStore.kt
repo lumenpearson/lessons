@@ -45,12 +45,13 @@ class AppIconStore(
     }
 
     /**
-     * Throws whatever the platform throws, and then [current] is what the
-     * launcher says after the failure. For a write refused outright that is
-     * the icon it was. Below Android 13 a switch is two calls, and when the
-     * first lands and the second throws, the launcher has the new icon and the
-     * old one both on, and [current] names the new one, which is what the next
-     * reconcile keeps; the icon it was would be a name for neither.
+     * Throws whatever the platform throws, and then [current] is what
+     * [LauncherAliases.current] reads after the failure: the icon the next
+     * reconcile keeps. For a write refused outright that is the icon it was.
+     * Below Android 13 a switch is two calls; when the first lands and the
+     * second throws, the old icon and the new one are both on, and [current]
+     * names whichever the reconcile will keep: the new one for a switch away
+     * from the default, the first of the two in catalog order otherwise.
      *
      * The assignments run inside [locked], after the write, rather than after
      * this suspend function resumes: a caller cancelled while the write is on
