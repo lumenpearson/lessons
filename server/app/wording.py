@@ -428,6 +428,23 @@ UNKNOWN_EVENT_DETAIL = "Unknown event"
 SCHEDULE_NOT_IN_CLASS_DETAIL = "bell_schedule_id is not in this class"
 SHORTENED_NEEDS_SCHEDULE_DETAIL = "a shortened day needs the bell schedule it rings"
 
+
+def no_bell_detail(index: int) -> str:
+    """v1's ``PUT /overrides`` and v2's ``CreateSubstitution``: a lesson number
+    the day rings no bell for. The bot says it in a sentence of its own, which
+    names «🔔 Звонки»."""
+    return f"нет звонка для урока №{index} в этот день"
+
+
+def lesson_not_on_timetable_detail(index: int, *, cancelling: bool) -> str:
+    """v1's ``PUT /overrides``, v2's substitutions and the bot's «🔄 Замены»:
+    cancelling, or replacing without a subject, a lesson the day's template
+    does not have."""
+    if cancelling:
+        return f"в этот день нет урока №{index}, отменять нечего"
+    return f"в этот день нет урока №{index}: замене без предмета нечего заменять"
+
+
 #: v1's ``POST`` and ``PATCH /tasks`` and v2's ``CreateTask`` and
 #: ``UpdateTask``: a task's ``homework_id`` names homework of another class, or
 #: none. It names the field, never the value.
@@ -438,11 +455,12 @@ HOMEWORK_NOT_IN_CLASS_DETAIL = "homework_id is not in this class"
 # What the class is told
 #
 # When something of the class's is written from a phone, through the service
-# that writes it: v1's ``/homework``, ``/events`` and ``/days``, and v2's
-# ``HomeworkService``, ``EventService`` and ``DayService``. Everything typed is
-# escaped here; an assignment's text arrives cut already (``notify.shorten``),
-# because cutting after escaping can leave «&am», a message Telegram refuses
-# whole. The bot's own flows word theirs for a chat.
+# that writes it: v1's ``/homework``, ``/overrides``, ``/events`` and ``/days``,
+# and v2's ``HomeworkService``, ``SubstitutionService``, ``EventService`` and
+# ``DayService``. Everything typed is escaped here; an assignment's text
+# arrives cut already (``notify.shorten``), because cutting after escaping can
+# leave «&am», a message Telegram refuses whole. The bot's own flows word
+# theirs for a chat.
 # --------------------------------------------------------------------------
 
 
@@ -487,3 +505,24 @@ def day_set_notice(when: str, label: str, note: str | None) -> str:
 
 def day_cleared_notice(when: str) -> str:
     return f"📆 {escape(when)} — обычный учебный день."
+
+
+def substitution_replaced_notice(
+    index: int, when: str, what: str, room: str | None, note: str | None
+) -> str:
+    """«🔁 Замена …: урок №N — …», with the room and, below, the note when
+    there are any. ``what`` is the subject, or «кабинет/учитель» for a change
+    of room or teacher alone."""
+    text = f"🔁 Замена {escape(when)}: урок №{index} — <b>{escape(what)}</b>"
+    if room:
+        text += f", каб. {escape(room)}"
+    return f"{text}\n{escape(note)}" if note else text
+
+
+def substitution_cancelled_notice(index: int, when: str, note: str | None) -> str:
+    text = f"🚫 Урок №{index} {escape(when)} отменён."
+    return f"{text}\n{escape(note)}" if note else text
+
+
+def substitution_cleared_notice(index: int, when: str) -> str:
+    return f"♻️ Урок №{index} {escape(when)} снова идёт по расписанию."

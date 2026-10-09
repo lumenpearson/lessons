@@ -12,9 +12,9 @@ from html import escape
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.bot.button_style import DANGER
 from app.bot.content_keyboard import OverrideAction as OverrideCB
 from app.bot.handlers.calendar import open_month
@@ -28,9 +28,9 @@ from app.bot.handlers.content._common import (
 from app.bot.keyboards import Menu, back_to_menu
 from app.bot.render import human_date, relative_day_name
 from app.bot.states import AddOverride
-from app.models import LessonOverride, OverrideAction, Role, SchoolClass
+from app.models import OverrideAction, Role, SchoolClass
 from app.schedule import ScheduleResolver
-from app.services import audit, notify, subjects, timetable_edit
+from app.services import audit, notify, substitutions
 
 router = Router(name="content.overrides")
 
@@ -161,48 +161,34 @@ async def _save_override(
     """Write the substitution, or answer with why this day cannot carry it.
 
     ``None`` means written. A sentence means refused, and it is the sentence to
-    show — the API says the same ones, because both come from
-    `services/timetable_edit`.
+    show. The three questions — does the day draw lessons at all, does it ring
+    this number, is there a lesson underneath — are
+    ``services/substitutions``', which v1 and v2 ask too: the first and the
+    third are said in the API's words, and the bell in this screen's own,
+    which names «🔔 Звонки». The bell is asked of a new row only, because an
+    existing row at a bad number has to stay clearable, and against *this
+    day's* bells, because a shortened day rings a shorter schedule than the
+    class's usual.
 
-    Two questions, and they are not the same. **Does the day draw lessons at
-    all** — it does not out of the school year or when somebody marked it
-    «выходной», and a row written then is stored, logged and announced to every
-    subscriber while being drawn on no phone. This check had no twin here at
-    all: the bot was thought safe because its lesson picker offers nothing on
-    such a day, which is true of the picker and not of the flow, since the
-    bot's calendar bounds the year differently (1 September to 1 August) and so
-    offers June, July and August. **And does the day ring this number** — the
-    resolver takes a lesson's times from the bell row of the same number, so a
-    row at a number that does not ring is drawn by nothing either. The second
-    is checked on create only, because an existing row at a bad number has to
-    stay clearable, and against *this day's* bells, because a shortened day
-    rings a shorter schedule than the class's usual.
+    The bot asked two of the three until #383. Its picker lists the lessons the
+    day draws, so a lesson added by a substitution at a number the template
+    leaves empty could be «отменён» here: stored as a cancellation of nothing,
+    announced to every subscriber and drawn nowhere — which v1 refused, and
+    pointed at «♻️ Вернуть по расписанию» instead.
     """
-    out_of_season = await timetable_edit.why_no_lesson_can_be_drawn(session, class_id, day)
-    if out_of_season is not None:
-        return out_of_season
-
-    existing = await session.scalar(
-        select(LessonOverride).where(
-            LessonOverride.class_id == class_id,
-            LessonOverride.date == day,
-            LessonOverride.index == index,
-        )
-    )
-    if existing is None:
-        rung = await timetable_edit.rung_indexes_on(session, class_id, day)
-        if not timetable_edit.can_ring(rung, index):
-            return NO_BELL.format(index=index)
-        existing = LessonOverride(class_id=class_id, date=day, index=index, action=action)
-        session.add(existing)
-    existing.action = action
-    # The class's spelling: `app/schedule.py` looks a substitution's colour up by
-    # exact name, so one typed in the wrong case draws grey among coloured
-    # lessons on every phone.
-    existing.subject_name = (
-        await subjects.spelling(session, class_id, subject) if subject else subject
-    )
-    existing.room = room
+    changes: dict[str, object] = {"action": action}
+    if action is OverrideAction.REPLACE:
+        # The screen asks for a subject and a room; a teacher or a note set
+        # from a phone stays as it was.
+        changes.update(subject=subject, room=room)
+    try:
+        await substitutions.upsert(session, class_id, day, index, changes)
+    except substitutions.NoLessonOnDay as refused:
+        return refused.sentence
+    except substitutions.NoBellForLesson:
+        return NO_BELL.format(index=index)
+    except substitutions.LessonNotOnTimetable as refused:
+        return wording.lesson_not_on_timetable_detail(index, cancelling=refused.cancelling)
     # Staged, not committed: the caller commits it together with its audit
     # line, so a substitution and the record of who made it land as one fact.
     return None
@@ -343,13 +329,7 @@ async def override_clear(
     day = Date.fromisoformat(data["date"])
     index = int(data["index"])
 
-    existing = await session.scalar(
-        select(LessonOverride).where(
-            LessonOverride.class_id == school_class.id,
-            LessonOverride.date == day,
-            LessonOverride.index == index,
-        )
-    )
+    existing = await substitutions.substitution_on(session, school_class.id, day, index)
     if existing is not None:
         await session.delete(existing)
         await audit.record(
