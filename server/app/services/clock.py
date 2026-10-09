@@ -5,11 +5,15 @@ them from a router, and where a v2 handler could not reach them without
 importing v1 (``docs/specs/2026-10-05-server-v2-design.md``, decision 2). They
 are one answer for every shell: a bound that two copies hold is a bound that
 one day disagrees with itself.
+
+The window a list of the class's dated things covers is here for the same
+reason (:func:`window`): v1's ``GET /homework`` held it in its router, and
+v2's ``ListHomework`` and ``ListEvents`` answer the same one.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from datetime import date as Date
 
 from app.models import SchoolClass
@@ -32,6 +36,63 @@ DATE_OUT_OF_BOUNDS = f"date must be between {MIN_DATE.isoformat()} and {MAX_DATE
 def in_bounds(*days: Date) -> bool:
     """Whether every one of ``days`` is a date a request may name."""
     return all(MIN_DATE <= day <= MAX_DATE for day in days)
+
+
+#: The days a list of the class's dated things covers after its start when no
+#: end is named, and the most it may cover: v1's ``GET /homework``, and v2's
+#: ``ListHomework`` and ``ListEvents``. Homework older than a term is not
+#: something the app shows, and an unbounded range is an unbounded query.
+WINDOW_DAYS = 21
+WINDOW_MAX_DAYS = 62
+
+#: Why :func:`window` refused, as :class:`WindowRefused` carries it.
+OUT_OF_BOUNDS = "out_of_bounds"
+BACKWARDS = "backwards"
+TOO_WIDE = "too_wide"
+
+#: What both versions say of two of those refusals. The third, an end before
+#: its start, each version says in the names of its own fields.
+DATES_OUT_OF_BOUNDS = f"dates must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}"
+WINDOW_TOO_WIDE = f"the range may span at most {WINDOW_MAX_DAYS} days"
+
+
+class WindowRefused(ValueError):
+    """A window no list may be asked for.
+
+    ``edge`` is the end at fault, ``"start"`` or ``"end"``, and ``why`` one of
+    :data:`OUT_OF_BOUNDS`, :data:`BACKWARDS` and :data:`TOO_WIDE`: facts, so
+    that each shell says them in its own words and on its own field.
+    """
+
+    def __init__(self, edge: str, why: str) -> None:
+        super().__init__(f"{edge}: {why}")
+        self.edge = edge
+        self.why = why
+
+
+def window(start: Date | None, end: Date | None, today: Date) -> tuple[Date, Date]:
+    """The first and the last day a list covers, both included.
+
+    ``start`` is ``today`` when absent, and ``end`` :data:`WINDOW_DAYS` after
+    the start; the window spans :data:`WINDOW_MAX_DAYS` at most. The start is
+    bounded before the end is derived from it: ``start + 21 days`` overflows
+    within three weeks of ``date.max``, which v1 once answered with a 500
+    where every other date got a 422. An end that was derived is the start's
+    fault, so it is the start that is named.
+
+    @raises WindowRefused naming the edge at fault, and why.
+    """
+    first = start if start is not None else today
+    if not in_bounds(first):
+        raise WindowRefused("start", OUT_OF_BOUNDS)
+    last = end if end is not None else first + timedelta(days=WINDOW_DAYS)
+    if not in_bounds(last):
+        raise WindowRefused("end" if end is not None else "start", OUT_OF_BOUNDS)
+    if last < first:
+        raise WindowRefused("end", BACKWARDS)
+    if (last - first).days > WINDOW_MAX_DAYS:
+        raise WindowRefused("end", TOO_WIDE)
+    return first, last
 
 
 def now(school_class: SchoolClass) -> datetime:

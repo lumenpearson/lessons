@@ -62,6 +62,25 @@ async def homework_of(session: AsyncSession, class_id: int, homework_id: int) ->
     )
 
 
+async def due_between(
+    session: AsyncSession, class_id: int, start: Date, end: Date
+) -> list[Homework]:
+    """The class's homework due from ``start`` to ``end``, both included, by
+    date, then subject, then id: v1's ``GET /homework`` and v2's
+    ``ListHomework``, each windowed by ``clock.window``. Writes nothing."""
+    return list(
+        await session.scalars(
+            select(Homework)
+            .where(
+                Homework.class_id == class_id,
+                Homework.due_date >= start,
+                Homework.due_date <= end,
+            )
+            .order_by(Homework.due_date, Homework.subject_name, Homework.id)
+        )
+    )
+
+
 async def upsert(
     session: AsyncSession,
     class_id: int,

@@ -50,6 +50,19 @@ async def event_of(session: AsyncSession, class_id: int, event_id: int) -> DayEv
     )
 
 
+async def between(session: AsyncSession, class_id: int, start: Date, end: Date) -> list[DayEvent]:
+    """The class's events from ``start`` to ``end``, both included, by date,
+    then the time they start, then id: v2's ``ListEvents``, windowed by
+    ``clock.window`` as ``ListHomework`` is. Writes nothing."""
+    return list(
+        await session.scalars(
+            select(DayEvent)
+            .where(DayEvent.class_id == class_id, DayEvent.date >= start, DayEvent.date <= end)
+            .order_by(DayEvent.date, DayEvent.starts_at, DayEvent.id)
+        )
+    )
+
+
 async def create(
     session: AsyncSession,
     school_class: SchoolClass,
