@@ -100,9 +100,9 @@ development installs only.
 ### Task 1: The logo's generators in the repository, and the sixty-four icons they write
 
 **Files:**
-- Create: `design/logo/gen.py`, `design/logo/clock.py`, `design/logo/build_pack.py` and
-  `design/logo/build_styles.py`. Each is copied verbatim.
-- Create: `design/logo/export_android.py` and `design/logo/README.md`.
+- Create: `android/logo/gen.py`, `android/logo/clock.py`, `android/logo/build_pack.py` and
+  `android/logo/build_styles.py`. Each is copied verbatim.
+- Create: `android/logo/export_android.py` and `android/logo/README.md`.
 - Modify: `.gitignore`, by appending a «Logo» block.
 - Create, by running the script:
   - 128 files `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_<key>{,_round}.xml`;
@@ -117,7 +117,7 @@ development installs only.
 - [ ] **Step 1: Copy the four generators verbatim**
 
 Copy these four files, unchanged, from `C:\Users\lumen\OneDrive\Документы\Dnevnik-logo\logo\` to
-`design/logo/`. That is the owner's design folder, outside the repository.
+`android/logo/`. That is the owner's design folder, outside the repository.
 
 | File | Its job |
 | --- | --- |
@@ -129,11 +129,11 @@ Copy these four files, unchanged, from `C:\Users\lumen\OneDrive\Документ
 Do not edit them. `export_android.py` imports them as they are.
 
 ```bash
-mkdir -p design/logo
-cp "/c/Users/lumen/OneDrive/Документы/Dnevnik-logo/logo/"{gen,clock,build_pack,build_styles}.py design/logo/
+mkdir -p android/logo
+cp "/c/Users/lumen/OneDrive/Документы/Dnevnik-logo/logo/"{gen,clock,build_pack,build_styles}.py android/logo/
 ```
 
-- [ ] **Step 2: Write `design/logo/export_android.py`**
+- [ ] **Step 2: Write `android/logo/export_android.py`**
 
 ```python
 """Write the app's launcher icons into android/app/src/main/res.
@@ -153,8 +153,8 @@ named ic_launcher_<style>_<palette>:
 and every icon's monochrome layer is one of two shared drawables: the classic dial
 (ic_launcher_monochrome_classic) or the edge-to-edge one (ic_launcher_monochrome_edge).
 
-    python design/logo/export_android.py              everything; needs Chrome and Pillow
-    python design/logo/export_android.py --no-raster  vectors only; the WebP layers stay
+    python android/logo/export_android.py              everything; needs Chrome and Pillow
+    python android/logo/export_android.py --no-raster  vectors only; the WebP layers stay
 
 It writes all sixty-four. Once the owner has taken variants out of the app, the files of the
 ones taken out have to be deleted again after a run; AppIconCatalogTest names any it finds.
@@ -178,7 +178,7 @@ import build_pack as bp  # noqa: E402  (beside this file)
 import build_styles as bs  # noqa: E402
 import clock as c  # noqa: E402
 
-RES = HERE.parent.parent / "android" / "app" / "src" / "main" / "res"
+RES = HERE.parent / "app" / "src" / "main" / "res"
 # The order of the picker's groups, and of the catalog in AppIconCatalog.kt.
 STYLES = ["classic", *bs.STYLES]
 MONO_CLASSIC = "ic_launcher_monochrome_classic"
@@ -344,7 +344,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 3: Write `design/logo/README.md`**
+- [ ] **Step 3: Write `android/logo/README.md`**
 
 ```markdown
 # The logo
@@ -363,8 +363,8 @@ designed on 9 October 2026; `docs/specs/2026-10-09-app-icons-design.md` says how
 
 ## Rebuilding the app's icons
 
-    python design/logo/export_android.py              # everything
-    python design/logo/export_android.py --no-raster  # the vectors only
+    python android/logo/export_android.py              # everything
+    python android/logo/export_android.py --no-raster  # the vectors only
 
 The two styles whose look is a blur, «Матовое стекло» and «Размытие», are bitmaps, because a
 VectorDrawable cannot blur. They are rendered by headless Chrome and encoded as WebP by Pillow:
@@ -381,7 +381,7 @@ from `android/` says whether the resources, the manifest's aliases and `AppIconC
 and names whatever is left over.
 
 `build_pack.py` and `build_styles.py` also run on their own. They write the whole kit (SVG, PNG and
-previews) into `design/pack/`, which git ignores. Their PNGs need the logo-design skill's
+previews) into `android/pack/`, which git ignores. Their PNGs need the logo-design skill's
 `render_png.py`, whose path is `build_pack.RENDER`.
 ```
 
@@ -393,9 +393,10 @@ Append to `.gitignore`:
 
 # ---- Logo ----
 # build_pack.py and build_styles.py, run on their own, write the whole logo kit
-# (SVG, PNG, previews) beside design/logo. Only export_android.py's output, under
-# android/, belongs in the repository.
-design/pack/
+# (SVG, PNG, previews) into android/pack, beside android/logo. Only
+# export_android.py's output, under android/app/src/main/res, belongs in the
+# repository.
+android/pack/
 ```
 
 - [ ] **Step 5: Run the export**
@@ -408,7 +409,7 @@ example:
 Run from the repository root:
 
 ```bash
-python design/logo/export_android.py
+python android/logo/export_android.py
 ```
 
 Expected: thirty-two lines `[1/32] ic_launcher_glass_rassvet_background.webp` … `[32/32] …`, then
@@ -420,7 +421,7 @@ Expected: thirty-two lines `[1/32] ic_launcher_glass_rassvet_background.webp` �
 ls android/app/src/main/res/mipmap-anydpi-v26 | wc -l    # 130: 128 new, plus the old ic_launcher.xml and ic_launcher_round.xml
 ls android/app/src/main/res/drawable | wc -l             # 99: 96 layers, 2 monochrome, plus the old ic_launcher_foreground.xml
 ls android/app/src/main/res/drawable-xxxhdpi | wc -l     # 32
-git status --short design .gitignore                     # the six files and .gitignore, no __pycache__
+git status --short android/logo .gitignore               # the six files and .gitignore, no __pycache__
 ```
 
 - [ ] **Step 7: Prove every resource compiles**
@@ -437,7 +438,7 @@ yet, which is expected.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add .gitignore design/logo android/app/src/main/res/mipmap-anydpi-v26 android/app/src/main/res/drawable android/app/src/main/res/drawable-xxxhdpi
+git add .gitignore android/logo android/app/src/main/res/mipmap-anydpi-v26 android/app/src/main/res/drawable android/app/src/main/res/drawable-xxxhdpi
 git commit -m "Bring the logo's generators into the repository, and the sixty-four launcher icons they write" -m "The «Пятёрка» mark was designed outside the repository. Its generators come in verbatim so that the app's resources can be rebuilt from something here. export_android.py writes the eight styles by eight palettes the spec offers, under one naming scheme: vectors for six styles, and 432 px WebP for the two whose look is a blur. Nothing uses them yet; the next commits put them on the launcher."
 ```
 
@@ -732,7 +733,7 @@ import com.lumenpearson.lessons.appicon.AppIconStyle.ONEUI
  *
  * [key] is the first half of every name a variant has: its resources
  * (`ic_launcher_<style>_<palette>`), its alias (`.launcher.<style>_<palette>`)
- * and the generator's (design/logo/export_android.py).
+ * and the generator's (android/logo/export_android.py).
  */
 enum class AppIconStyle(val key: String, @param:StringRes val labelRes: Int) {
     CLASSIC("classic", R.string.app_icon_style_classic),
@@ -2781,7 +2782,7 @@ private fun ApplyBlock(enabled: Boolean, onApply: () -> Unit) {
 
 /**
  * A superellipse, |x|⁵ + |y|⁵ = 1. It stands for the rounded-square masks of
- * One UI and of Pixel's «Squircle», and design/logo/build_styles.py previews
+ * One UI and of Pixel's «Squircle», and android/logo/build_styles.py previews
  * the styles under the same one.
  */
 private val SquircleShape: Shape = GenericShape { size, _ ->
@@ -2907,7 +2908,7 @@ git commit -m "Let the reader choose the launcher icon on «Значок при�
 **Files:**
 - Modify: `docs/design.md`, the «Not carried over» paragraph (about line 167) and «The mark is drawn
   the way a launcher draws it» (about line 640).
-- Modify: `CLAUDE.md`, the repository tree near the top.
+- Modify: `CLAUDE.md`, the `android/` line of the repository tree near the top.
 
 **Interfaces:**
 - Consumes: everything above.
@@ -2942,12 +2943,18 @@ foreground on a colour: five of the eight styles have a ground of their own.
 
 - [ ] **Step 3: `CLAUDE.md`, the tree**
 
-In the fenced block near the top that lists `android/`, `server/`, `api/`, `proto/` and `docs/`, add
-this line after the `docs/` entry's last line:
+In the fenced block near the top, replace the line
 
 ```
-design/      the logo's generators (design/logo/), which write the launcher icons
-             into android/app/src/main/res; README.md there says how
+android/     Kotlin / Compose / Glance, five Gradle modules
+```
+
+with
+
+```
+android/     Kotlin / Compose / Glance, five Gradle modules; logo/ beside them holds
+             the logo's generators, which write the launcher icons into
+             app/src/main/res (its README says how)
 ```
 
 - [ ] **Step 4: Check that nothing else describes the old icon**
@@ -2962,7 +2969,7 @@ Expected: no output outside `docs/history.md`, which is a record and is not edit
 
 ```bash
 git add docs/design.md CLAUDE.md
-git commit -m "Say in the design notes that the app icon is chosen now, and where the logo's generators live" -m "design.md said the icon picker was not carried over from Essentials because there were no other icons, and described the About mark as a foreground on a colour; both stopped being true in this branch. CLAUDE.md's tree gains design/."
+git commit -m "Say in the design notes that the app icon is chosen now, and where the logo's generators live" -m "design.md said the icon picker was not carried over from Essentials because there were no other icons, and described the About mark as a foreground on a colour; both stopped being true in this branch. CLAUDE.md's tree says where android/logo/ is."
 ```
 
 ---

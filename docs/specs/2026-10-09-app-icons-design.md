@@ -19,7 +19,7 @@ and the old icon, an open book with a bookmark, goes. The sources are:
 - `build_pack.py`: the «Классика» set, the dial at 90 % of the visible circle on white;
 - `build_styles.py`: seven styles drawn edge to edge, the lobe tips on the visible circle.
 
-All three are copied into `design/logo/`, so that the resources in the app can be rebuilt from
+All three are copied into `android/logo/`, beside the app whose icons they draw, so that the resources in the app can be rebuilt from
 something in the repository.
 
 ## What the owner decided
