@@ -31,10 +31,12 @@ every caller before you change a signature.
   minutes, one phone, carries the minting account's role, re-checked per request and never
   cached). The class code is looked up first; the lengths are what keeps them apart. A
   `403` is deliberately not counted against the throttle — that caller had a real code.
-- **A lesson number needs a bell of its own number.** `edit.day_put` and the substitution path
-  must check `timetable_edit.can_ring`, and a dated write must use `rung_indexes_on`,
-  because a shortened day points at a shorter schedule. A row at a number the day does
-  not ring is stored and drawn nowhere. `day_put` also refuses a bell schedule with no rows.
+- **A lesson number needs a bell of its own number.** `services/substitutions.py`, which
+  `edit.override_put`, v2's `SubstitutionService` and the bot all ask, checks
+  `timetable_edit.can_ring` against `rung_indexes_on` for a new row, because a shortened day
+  points at a shorter schedule. A row at a number the day does not ring is stored and drawn
+  nowhere. `special_days.put_day`, behind `edit.day_put`, also refuses a bell schedule with
+  no rows.
 - **`/api/v1/health` opens no connection on purpose**; `/api/v1/warmup` is the one that can
   say the database is behind or ahead of the code. Do not make `health` clever.
 - **The server has no clock.** Nothing runs between requests on Vercel. Anything you want

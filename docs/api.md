@@ -4,7 +4,7 @@ Version `1`. Base path `/api/v1`. Every change since the first release is
 additive - new endpoints, new optional fields - so the version has not moved
 and a client built against the original `/bundle` keeps working unchanged.
 A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
-fifty-four of its methods so far: «v2: the contract», at the end of this page.
+sixty-one of its methods so far: «v2: the contract», at the end of this page.
 
 There is no user account and no password. A device holds a bearer token; a
 device that has been **linked** to a Telegram account through the bot acts
@@ -1596,7 +1596,7 @@ Postgres, which has been checked on SQLite only. Nothing here has been asked of 
 
 ## v2: the contract
 
-**Served beside v1, fifty-four methods so far.** Everything above this section is v1, and
+**Served beside v1, sixty-one methods so far.** Everything above this section is v1, and
 v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
 checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
 [the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
@@ -1606,7 +1606,8 @@ Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateD
 methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
 eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
 `DirectoryService` methods (3b-3); the other eleven `MeService` methods, a phone's own
-(3b-4); and the five `HomeworkService` methods and the five `EventService` methods (3b-5).
+(3b-4); the five `HomeworkService` methods and the five `EventService` methods (3b-5); and
+the two `DayService` methods and the five `SubstitutionService` methods (3b-6).
 Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
 credential. No APK calls v2 yet. The proto files are
 the reference: every service, method, message and field there carries the comment that says
@@ -1720,6 +1721,13 @@ unaffected.
   `covers_lesson` back to what the kind means and makes `kind` an event, and refuses `date`,
   `starts_at`, `ends_at` or `title`. An update of either that changes nothing writes nothing
   and tells nobody.
+  `UpdateDay` clears `note` and `bell_schedule_id` when they are masked and left unset — the
+  schedule refused on a shortened day, which would ring the default — and refuses `kind` so;
+  `UpdateSubstitution` clears `subject`, `room`, `teacher` and `note`, and refuses `action`.
+  Each checks the resource as it would stand, so a field the mask leaves alone is held too:
+  a substitution left with no subject, room or teacher is refused on `substitution`, and a
+  self-study day changes from v2 only into a kind v2 writes. As for the homework and the
+  events, an update that changes nothing writes nothing and tells nobody.
 - **A preview.** `ImportTimetable` with `validate_only` writes nothing, whatever `replace`
   says, and answers what the bot shows before «Применить»: `applied` false, the weekdays, the
   lessons the paste holds, the bells, the conflicts, and the lines the parser could not read.
@@ -1800,6 +1808,34 @@ unaffected.
   its new day. A notice Telegram will not deliver is logged and dropped: the write stands.
   Deleting an assignment takes every tick on it with it, and a task made from it keeps
   itself without the link.
+
+### Days and substitutions
+
+- **Every date has a kind.** `GetDay` answers a date nobody marked as `DAY_KIND_NORMAL`, never
+  `NOT_FOUND`, and a date the bot marked «самоподготовка» or «отгул» as `DAY_KIND_SELF_STUDY` or
+  `DAY_KIND_DAY_OFF`. `UpdateDay` changes a mark, and with `allow_missing` makes one, which is
+  an upsert by date; without it, a date nobody marked is `RESOURCE_NOT_FOUND` with
+  `resource: "day"`. `DAY_KIND_NORMAL` takes a mark off, and on a date with none, with
+  `allow_missing`, writes nothing and tells nobody. v2 writes the kinds v1 wrote — normal,
+  holiday, shortened and remote — and refuses the other two on `day.kind`: they are the bot's.
+- **A shortened day rings a schedule of its own class that rings something.** Another class's
+  schedule, or none on a shortened day, is `VALIDATION_FAILED` on `day.bell_schedule_id`, and a
+  schedule with no rows is `EMPTY_BELL_SCHEDULE`, each in v1's words.
+- **One substitution per lesson per day, and no upsert.** `CreateSubstitution` refuses a lesson
+  that already has one that day with `RESOURCE_EXISTS` (`resource: "substitution"`,
+  `field: "index"`), where v1's `PUT /overrides` changed it; `UpdateSubstitution` changes one;
+  `DeleteSubstitution` puts the lesson back on the timetable, v1's `"clear"`.
+- **A substitution nobody would see is refused with its reason**, in v1's words:
+  `NO_LESSON_ON_DAY` on a day that draws no lessons, with `why` — `"out_of_year"`,
+  `"between_terms"`, `"public_holiday"` or `"marked_day_off"`; `NO_BELL_FOR_LESSON` at a number
+  the day rings no bell for, with `index`, asked of a new substitution only, so that one at a
+  number that no longer rings stays editable and deletable; and `LESSON_NOT_ON_TIMETABLE`, with
+  `index`, for cancelling a lesson the day's template does not have, or replacing one without a
+  subject of its own. The bot asks the same three questions, through the same service.
+- **Who may.** Every method of both services is an editor's, the reads included, as the
+  contract has them. `ListSubstitutions` reads its window as `ListHomework` does.
+- **The class is told**, those who asked to hear about changes and never the author, in v1's
+  words, once the change is committed and never when it is refused.
 
 ### What the values look like
 
