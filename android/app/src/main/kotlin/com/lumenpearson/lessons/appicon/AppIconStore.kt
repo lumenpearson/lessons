@@ -45,9 +45,14 @@ class AppIconStore(
     }
 
     /**
-     * Throws whatever the platform throws, and then [current] is what it was.
+     * Throws whatever the platform throws, and then [current] is what the
+     * launcher says after the failure. For a write refused outright that is
+     * the icon it was. Below Android 13 a switch is two calls, and when the
+     * first lands and the second throws, the launcher has the new icon and the
+     * old one both on, and [current] names the new one, which is what the next
+     * reconcile keeps; the icon it was would be a name for neither.
      *
-     * The assignment runs inside [locked], after the write, rather than after
+     * The assignments run inside [locked], after the write, rather than after
      * this suspend function resumes: a caller cancelled while the write is on
      * [io] would otherwise resume into a thrown `CancellationException` and
      * never reach `state.value = target`, leaving [current] naming the old
@@ -56,7 +61,9 @@ class AppIconStore(
      */
     suspend fun switchTo(target: AppIconVariant) {
         locked {
-            aliases.switchTo(target)
+            runCatching { aliases.switchTo(target) }
+                .onFailure { state.value = runCatching { aliases.current() }.getOrNull() ?: state.value }
+                .getOrThrow()
             state.value = target
         }
     }

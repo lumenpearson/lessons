@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -57,6 +58,31 @@ class AppIconStoreTest {
 
         assertTrue(result.exceptionOrNull() is SecurityException)
         assertEquals(default, store.current.value)
+    }
+
+    @Test
+    fun `a switch that dies between its two calls leaves current naming what the launcher shows`() = runTest {
+        // Below Android 13 a switch is two calls. Here the first, which enables the
+        // new icon, lands, and the second, which would disable the default, throws:
+        // the launcher has two entries, and the one a reconcile keeps is the new one.
+        val launcher = TestCatalog.launcher()
+        val refused = IllegalStateException("the second call failed")
+        val diesHalfway = object : LauncherComponents {
+            override fun isEnabled(alias: String) = launcher.isEnabled(alias)
+            override fun apply(changes: List<AliasChange>) {
+                launcher.apply(changes.take(1))
+                throw refused
+            }
+        }
+        val store = store(diesHalfway)
+        store.refresh()
+
+        val result = runCatching { store.switchTo(other) }
+
+        assertSame(refused, result.exceptionOrNull())
+        assertEquals(listOf(default, other), launcher.enabled())
+        assertEquals(TestCatalog.aliases(launcher).current(), store.current.value)
+        assertEquals(other, store.current.value)
     }
 
     @Test
