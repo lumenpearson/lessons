@@ -28,6 +28,104 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: on SQLite a savepoint behaves as it does on Postgres (#373, #354)
+
+Merged as #379 (`e30a71e`, 9 October 2026), from `fix/sqlite-savepoint`, on milestone 11. It
+closes #373 and #354, and refers to #378. The branch was cut from `2f99ef6`, the head of #376,
+whose content `main` holds since #376's merge, and carries 2 commits before this
+close-out, to `bb9fce5`. Written on 9 October 2026, after #376 merged. No revision goes with it:
+the schema stays at `0019`. It is the fix the 3b plan asks for before stage 3b-5, whose
+`CreateHomework` writes through `homework.upsert`'s savepoint.
+
+- **The defect.** pysqlite, and aiosqlite over it, sends no `BEGIN` before a `SELECT`. So on a
+  session that had only read, `session.begin_nested()`'s `SAVEPOINT` opened the transaction
+  itself, and its `RELEASE` committed it; a later rollback undid nothing. Every savepoint in
+  `services/` met it, and on the test suite's and a developer's SQLite a refused write could
+  keep a row that Postgres, which production runs, rolls back. #354 was the same defect, seen
+  through a refused `UpdateTerm`.
+- **The fix**, in `server/app/db.py`, for SQLite only: a `savepoint` listener sends `BEGIN`
+  first when the driver has no transaction open, so a savepoint nests inside a transaction
+  as it does on Postgres. Reads stay as the driver handles them.
+- **Why not SQLAlchemy's documented recipe** (no implicit `BEGIN` from the driver, an explicit
+  one on every transaction). Under it every transaction holds SQLite's lock from its first
+  `SELECT`. The bot's middleware reads on every update, and the FSM storage then commits on a
+  connection of its own: it waited out the busy timeout and failed «database is locked» on
+  every step after a read. With write-ahead logging, 24 of 771 interleaving tests read
+  snapshots older than the request they had just made, which Postgres would not.
+- **One production change, in the tick** (`server/app/api/cron.py`): it commits before its sweep
+  of stale conversations. A transaction this fix begins keeps its lock until it ends. The
+  reminders' digest opens one at its savepoint, and the sweep commits on another connection,
+  so on SQLite the tick waited thirty seconds and failed. Every claim of the tick has
+  committed by then, so on Postgres the new commit ends an empty transaction.
+- **Seven new tests.**
+  - The issue's own probe: a savepoint that opens the transaction, then a rollback, leaves
+    nothing.
+  - A guard on the bot's busiest path: the middleware reads, the FSM storage commits, then
+    the handler writes. It fails under either form of the recipe.
+  - A tick that sends a digest and still sweeps a stale conversation.
+  - The three commits #373's comment asked for: v1's `/me`, v1's
+    `POST /homework/{id}/done`, and the bot's tick handler. Each test closes the session
+    without that commit and finds no write.
+  - The bot's tick put on is committed before its redraw.
+
+  `test_v2_terms.py`'s refused term now asserts that no row is left, as #354 asked.
+- **One defect filed**, #378: on SQLite a commit refused as «database is locked» goes back to
+  the pool unfinished, and the next session commits it. It is the driver's handling, with or
+  without this fix.
+
+### Gates
+
+All at `bb9fce5`, the head before this close-out. CI runs on the head the merge is made from,
+and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed.
+- **mypy**: no issues found in 231 source files.
+- **The server suite.** `pytest -q -n 4`, run alone from `server/` at `57e281b`, gave **2846
+  passed** in 1422 s, four workers rather than `-n auto` to spare the machine's faulty RAM.
+  The seven places the `handover` skill names say 2846.
+- **A mutation check.** With the three commits removed from v1's `me` and `homework_done` and
+  from the bot's tick, sixteen tests fail on this engine, `test_me_issues_a_link_code_once_and_repeats_it`
+  among them. On the old engine they passed.
+- **A smoke check.** `uvicorn` on a fresh SQLite file answered `/api/v1/health` `ok`, and
+  `/api/v1/warmup` `degraded` with schema `unknown`, the documented state of a database made by
+  `create_all`. `scripts.init_db` then `scripts.seed_demo` made the demo class.
+- **Review.** A review of the fix by the stronger model, the tick's change included, before
+  the pull request.
+- **The contract and Android** were not run: nothing under `proto/` or `android/` changed.
+
+### What was deliberately left alone
+
+- **#378**: it is not this defect, and neither causes nor cures it.
+- **SQLAlchemy's recipe and write-ahead logging**, for the reasons above.
+- **v1's notice seams** (#377).
+
+### What nobody has verified in this batch
+
+- **Postgres.** The listener does nothing there. The tick's new commit was reasoned about,
+  not run, on Postgres: production runs it from the merge on.
+- **The bot's long polling against a real token** on a local SQLite file: the smoke check ran
+  with no token.
+
+### After #376's merge: stage 3b-4 in production
+
+None of this is code in #379, and a close-out never gets a close-out of its own, so it is
+written here. The source is the session's own reads of 9 October 2026.
+
+- **The merge, by the session**, after the five checks. #376 merged as `8cb3261` at 04:01:23
+  UTC on 9 October 2026, pinned to `2f99ef6`. CI was green on that head: Server, Contract
+  (Buf), What changed and Vercel; Android was skipped. It closed #374.
+- **Production built the merge itself.** Vercel reported the production deployment of
+  `8cb3261` successful at 04:02:32 UTC. A read a minute earlier still answered `501`
+  `UNIMPLEMENTED` from the code before the merge. Read again at 04:02:21 UTC, after the
+  deployment:
+  - `/api/v1/warmup` answered `ok`, `0019`, `v2` `true`;
+  - REST `GET /api/v2/me/tasks`, `GET /api/v2/me/calendarFeed`, `POST /api/v2/me/linkCodes`
+    and `DELETE /api/v2/me/homeworkTicks/1` answered `401` `DEVICE_TOKEN_INVALID` with
+    `WWW-Authenticate: Bearer`;
+  - Connect `MeService/ListTasks` answered `401` `unauthenticated`.
+- **#377 was filed** while writing 3b-5's task list: v1's notices to the class can turn a saved
+  write into a 500. It is on the backlog.
+
 ## What the batch before added: a phone's own over v2 — its link, the calendar feed, its tasks and its homework ticks — stage 3b-4 of sub-project 3 (#273)
 
 Merged as #376 (`8cb3261`, 9 October 2026), from `server-v2/3b-4`, on milestone 11. It closes
@@ -7186,3 +7284,39 @@ forty-four methods. `docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-5
 to the class as effects; the controller decided its two open questions. By the owner's order of 8 October, sub-project 3 is finished first, 3c included, and
 everything recorded as unverified is checked on the development machine before sub-project 4
 starts.
+
+## Moved out of section 7 on 9 October 2026, after 3b-6
+
+Stage 3b-6 was built (#385), so `HANDOVER.md`'s section 7 points at 3b-7 instead; and the
+owner's cleanup of the development machine's disk on 9 October answered the running concern
+about space on C:, which this file had carried since 27 September. As the two paragraphs stood
+until then:
+
+**Next for the programme: stage 3b-6 of sub-project 3, from the 3b plan.** Stages 3a (#342),
+3b-1 (#350), 3b-2 (#356), 3b-3 (#372), 3b-4 (#376) and 3b-5 (#380) are merged, and v2 serves
+fifty-four methods. `docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-6 to 3b-8. 3b-6
+covers days and substitutions, the last of v1's `edit.py`, over what 3b-5 built: the class
+notice as an effect, `rpc/dates.py` and the `notices` fixtures. Its two open questions are the
+controller's before its task list is written. By the owner's order of 8 October, sub-project 3
+is finished first, 3c included, and everything recorded as unverified is checked on the
+development machine before sub-project 4 starts.
+
+**Keep some space on C:.** It had about 1.3 GB left early on 27 September, and 14 GB when #187
+began, the same night; its builds and one emulator boot left 12 GB, and #189's left 9.4 GB,
+so each batch with a device in it costs two or three. The emulator refused to
+start once below 2 GB, and the AVD's Quick Boot image alone is 8.5 GB. The worktrees under
+`.claude/worktrees/` each carry their own Gradle build directories. On 2 October it had
+4.5 GB at the start of #241's session and fell to 3.0 GB by #245, and #245 gave it room:
+8 GB moved to `F:\MovedFromC` or deleted as a rebuildable cache, listed in #245's section,
+for 11.3 GB free. Both AVDs live on F: (`Pixel_10_Pro_XL` 12 GB, `Release_Check` 5 GB).
+`F:\MovedFromC` is yours to keep, put back or delete.
+
+On 9 October, with C: short of space again, the owner moved more of it to
+`F:\MovedFromC\…` behind junctions — Gradle's caches and wrapper, `.m2`, `.cargo`, `.rustup`,
+the Android SDK, VS Code's data, CapCut, ms-playwright and pnpm-cache — for 32.1 GB free, up
+from 8.3 GB. The Claude desktop app is an MSIX package, and a process it starts cannot follow a
+junction under `AppData` to another volume (error 649), although the owner's own programs
+follow it fine, so a Gradle build started from a Claude session needs `ANDROID_HOME` set to
+`F:\MovedFromC\Users\lumen\AppData\Local\Android\Sdk`, and `sdk.dir` in a worktree's
+`android/local.properties` likewise; this matters for the device check before sub-project 4.
+Junctions under the profile root, such as `~\.gradle\caches`, resolve inside Claude too.
