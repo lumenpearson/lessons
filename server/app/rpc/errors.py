@@ -32,6 +32,15 @@ from app import wording
 from app.contract.google.rpc.error_details_pb import BadRequest, ErrorInfo, RetryInfo
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.providers import dadata
+from app.providers.diary.errors import (
+    AddressRefused,
+    BadCredentials,
+    DiaryError,
+    NoStudents,
+    UnexpectedResponse,
+    UpstreamUnavailable,
+)
+from app.security import Throttled
 from app.services import access as access_service
 from app.services import clock, join, quota, window
 from app.services import diary as diary_service
@@ -396,6 +405,47 @@ def _substitution_exists(_error: substitutions_service.SubstitutionExists) -> Re
     )
 
 
+def _diary_throttled(error: Throttled) -> Refusal:
+    # Only the diary's two doors raise it (security.DiaryAttempt), and v1's
+    # /session and /login say it in these words.
+    return Refusal(
+        ErrorReason.THROTTLED, wording.DIARY_THROTTLED_DETAIL, retry_after_seconds=error.seconds
+    )
+
+
+def _diary_region_not_served(_error: diary_service.RegionNotServed) -> Refusal:
+    # CreateDiarySession is the one method that names a region.
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.DIARY_REGION_NOT_SERVED_DETAIL,
+        violations=[("region", wording.DIARY_REGION_NOT_SERVED_DETAIL)],
+    )
+
+
+def _diary_credentials_rejected(_error: BadCredentials) -> Refusal:
+    # v2 judges no password: what it meets of this family is a session the
+    # diary would not take from this server (diary_service.SessionRefused).
+    return Refusal(ErrorReason.DIARY_CREDENTIALS_REJECTED, wording.DIARY_SESSION_REFUSED_DETAIL)
+
+
+# The diary's own failures answer with their class's sentence, a constant of
+# providers/diary/errors.py written for a person, and never the instance's:
+# an UnexpectedResponse can carry the upstream's own message.
+
+
+def _diary_no_students(_error: NoStudents) -> Refusal:
+    return Refusal(ErrorReason.DIARY_NO_STUDENTS, NoStudents.message)
+
+
+def _diary_unavailable(error: UpstreamUnavailable) -> Refusal:
+    upstream = "address-refused" if isinstance(error, AddressRefused) else "upstream"
+    return Refusal(ErrorReason.DIARY_UNAVAILABLE, type(error).message, upstream=upstream)
+
+
+def _diary_unreadable(error: DiaryError) -> Refusal:
+    return Refusal(ErrorReason.DIARY_UPSTREAM_UNREADABLE, type(error).message)
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -436,6 +486,13 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     substitutions_service.NoBellForLesson: _no_bell_for_lesson,
     substitutions_service.LessonNotOnTimetable: _lesson_not_on_timetable,
     substitutions_service.SubstitutionExists: _substitution_exists,
+    Throttled: _diary_throttled,
+    diary_service.RegionNotServed: _diary_region_not_served,
+    BadCredentials: _diary_credentials_rejected,
+    NoStudents: _diary_no_students,
+    UpstreamUnavailable: _diary_unavailable,
+    UnexpectedResponse: _diary_unreadable,
+    DiaryError: _diary_unreadable,
 }
 
 

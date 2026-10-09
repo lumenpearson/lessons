@@ -63,6 +63,8 @@ HANDLERS: dict[str, Handler] = {
     "lessons.v2.DayService/GetDay": day.get_day,
     "lessons.v2.DayService/UpdateDay": day.update_day,
     "lessons.v2.DeviceService/CreateDevice": device.create_device,
+    "lessons.v2.DiaryService/CreateDiarySession": diary.create_diary_session,
+    "lessons.v2.DiaryService/DeleteDiarySession": diary.delete_diary_session,
     "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
     "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
     "lessons.v2.DirectoryService/ListSchools": directory.list_schools,
