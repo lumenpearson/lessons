@@ -80,10 +80,10 @@ fun SectionHeader(
                 // 12 dp for the label and the arrow to land exactly on
                 // ScreenPadding themselves. With no action there is no
                 // button eating into it, so the end is ScreenPadding, same
-                // as the start. Fixing this at a flat ScreenPadding on both
-                // sides (what shipped first) put the ink 12 dp short of the
-                // switcher, the chips and the weekday strip it was meant to
-                // match — bounds do not mean ink, for a button.
+                // as the start. A flat ScreenPadding on both sides puts the
+                // ink 12 dp short of the switcher, the chips and the weekday
+                // strip it is meant to match — bounds do not mean ink, for a
+                // button.
                 end = if (hasAction) ScreenPadding - TextButtonEndPadding else ScreenPadding,
                 top = InlineGap,
                 bottom = InlineGap,

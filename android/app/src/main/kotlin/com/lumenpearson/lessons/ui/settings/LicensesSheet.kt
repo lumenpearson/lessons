@@ -58,6 +58,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.RowLeadingGap
 import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
+import com.lumenpearson.lessons.core.designsystem.theme.RowPaddingVertical
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
@@ -195,7 +196,7 @@ private fun CreditRow(credit: Credit) {
 
             AnimatedVisibility(visible = expanded) {
                 Column(
-                    modifier = Modifier.padding(top = RowPadding.calculateTopPadding()),
+                    modifier = Modifier.padding(top = RowPaddingVertical),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(

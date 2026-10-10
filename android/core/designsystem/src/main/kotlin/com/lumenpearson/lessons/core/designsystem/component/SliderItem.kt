@@ -4,9 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -21,18 +20,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
-import androidx.compose.foundation.layout.heightIn
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.RowLeadingGap
 import com.lumenpearson.lessons.core.designsystem.theme.RowMinHeight
-import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
+import com.lumenpearson.lessons.core.designsystem.theme.RowPaddingHorizontal
+import com.lumenpearson.lessons.core.designsystem.theme.RowPaddingVertical
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import java.math.BigDecimal
@@ -42,10 +40,10 @@ import java.math.RoundingMode
 private const val ValueScale = 2
 
 /**
- * The gap under the slider's own track, rather than [RowPadding]'s 12 dp: the
- * track is this row's content, the way a row's own text is elsewhere, so it
- * keeps the slimmer rhythm instead of doubling up under a control that
- * already reads as the bottom of the row.
+ * The gap under the slider's own track, rather than [RowPaddingVertical]'s
+ * 12 dp: the track is this row's content, the way a row's own text is
+ * elsewhere, so it keeps the slimmer rhythm instead of doubling up under a
+ * control that already reads as the bottom of the row.
  */
 private val SliderBottomPadding = 4.dp
 
@@ -99,10 +97,10 @@ fun GroupSliderItem(
             .heightIn(min = RowMinHeight)
             .background(scheme.rowContainer)
             .padding(
-                start = RowPadding.calculateStartPadding(LayoutDirection.Ltr),
-                end = RowPadding.calculateEndPadding(LayoutDirection.Ltr),
-                top = RowPadding.calculateTopPadding(),
-                // Not RowPadding's own bottom — see SliderBottomPadding.
+                start = RowPaddingHorizontal,
+                end = RowPaddingHorizontal,
+                top = RowPaddingVertical,
+                // Not the row's own bottom — see SliderBottomPadding.
                 bottom = SliderBottomPadding,
             ),
     ) {

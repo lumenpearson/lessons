@@ -118,12 +118,25 @@ val GroupSpacing: Dp = 16.dp
  */
 val GroupRowSpacing: Dp = 2.dp
 
+/** A list row's padding at its start and at its end: Material's 16 dp. See [RowPadding]. */
+val RowPaddingHorizontal: Dp = 16.dp
+
+/** A list row's padding at its top and at its bottom: Material's 12 dp. See [RowPadding]. */
+val RowPaddingVertical: Dp = 12.dp
+
 /**
  * A list row's padding: Material's own list-item rhythm (12 dp top and
  * bottom, 16 at the start and end), named once so every row of a group reads
  * it instead of each re-declaring its own answer to "how tall is one row".
+ *
+ * Built from [RowPaddingHorizontal] and [RowPaddingVertical], which a row that
+ * pads one side differently — the slider's bottom, the segmented item's two
+ * lines — reads directly, rather than taking this apart at a layout direction
+ * it has to name and is right about only because the padding is symmetric.
+ * Declared after them, because a top-level property is initialised in file
+ * order.
  */
-val RowPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+val RowPadding: PaddingValues = PaddingValues(horizontal = RowPaddingHorizontal, vertical = RowPaddingVertical)
 
 /**
  * A hand-built row's floor, not its fixed height, so it grows with the system

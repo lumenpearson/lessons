@@ -78,10 +78,9 @@ internal fun DayPanel(
         )
 
         // One padded Column for everything but the header, rather than each
-        // child naming ScreenPadding on its own: the fix round that added
-        // this found the per-child version left a trap for the next row
-        // anybody adds here — nothing would stop it landing flush at the
-        // true edge, at 0 dp, the one failure mode this guards against.
+        // child naming ScreenPadding on its own: per child, the next row
+        // anybody adds here has nothing to stop it landing flush at the true
+        // edge, at 0 dp, which is the one failure this guards against.
         Column(
             modifier = Modifier.padding(horizontal = ScreenPadding),
             verticalArrangement = Arrangement.spacedBy(GroupSpacing),
