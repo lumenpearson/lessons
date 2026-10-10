@@ -30,6 +30,7 @@ import com.lumenpearson.lessons.core.data.network.cleartextVerdict
 import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 
@@ -103,6 +104,9 @@ fun ServerUrlSheet(
                 .fillMaxWidth()
                 .padding(horizontal = ScreenPadding),
             singleLine = true,
+            // Group, not Material's 4 dp field corner: decision 1 puts a
+            // standalone field at 28 dp.
+            shape = LessonsShapeTokens.Group,
             interactionSource = interactionSource,
             label = {
                 Text(
