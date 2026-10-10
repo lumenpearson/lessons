@@ -219,6 +219,13 @@ screen can move it.
   card with 20 dp and 28 dp of its own padding. Its content is one centred row padded
   `RowPadding`. The prose is still centred; only the geometry moved.
 
+**«Календарь»'s period sits between the arrows that step it** (#416).
+- **Before.** The period was the title's subtitle, a line above a row that held the «2026/27» chip at one end and «‹ ›» at the other, with nothing between them. The owner circled that band on the emulator.
+- **The panel.** Under the title is now one panel in the view switcher's skin: «‹», the period with «term · school year ▾» under it, and «›». Pressing the period opens the year picker, as the chip did. «Сегодня» is a pill at the title's end, shown only away from today; TalkBack hears «Текущая неделя» or «Текущий месяц».
+- **Overflow, the owner's choice.** At a large font or on a narrow phone nothing is clipped or scrolled. The pill drops under the title, the period wraps, and the panel grows taller while its arrows stay 48 dp squares at the ends.
+- **Wrapping.** A number is kept with its month by a non-breaking space, so a week wraps at its dash: «12 октября —» over «18 октября».
+- **Shape.** The panel is rounded by `Group`, not as a capsule. At its one-line height of 56 dp the two are the same shape as the switcher, and taller it stays a rounded rectangle instead of swelling into a stadium.
+
 **`SegmentedPicker` has one skin.** The skin is its own concentric tray, padded 4 dp around
 Material's connected buttons, which reads as 8 dp on every side once the buttons' touch target
 is counted (#414). The diary's tabs used to clip that tray a second time, at 24 dp,

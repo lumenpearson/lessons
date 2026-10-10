@@ -12,15 +12,18 @@ import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * The calendar's header, at the width a phone actually has.
@@ -43,6 +46,9 @@ import org.robolectric.annotation.Config
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "ru-rRU-w411dp")
+// NATIVE, so text has its real width: under LEGACY a line is almost no width
+// at all, and nothing here could ever be too wide to share a row.
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class CalendarHeaderTest {
 
     @get:Rule val compose = createComposeRule()
@@ -74,6 +80,9 @@ class CalendarHeaderTest {
      */
     private var step by mutableStateOf(PeriodStep.WEEK)
 
+    /** How many times the panel asked for the year picker. */
+    private var yearPicks = 0
+
     private fun show(width: androidx.compose.ui.unit.Dp = 411.dp) {
         compose.setContent {
             LessonsTheme {
@@ -87,7 +96,7 @@ class CalendarHeaderTest {
                         onToday = {},
                         onPrevious = {},
                         onNext = {},
-                        onPickYear = {},
+                        onPickYear = { yearPicks++ },
                     )
                 }
             }
@@ -114,10 +123,56 @@ class CalendarHeaderTest {
     }
 
     @Test
-    fun `the subtitle is one line too`() {
+    fun `the period sits between the arrows that step it`() {
+        // #416: the period was the title's subtitle, a line above the row that
+        // stepped it, and that row left an empty band between the year chip
+        // and the arrows. Now the period is the panel's middle.
         show()
 
-        compose.onNodeWithText("Вторник, 22 сентября · 1 полугодие").assertIsDisplayed()
+        val previous = compose.onNodeWithContentDescription("Предыдущая неделя").getBoundsInRoot()
+        val next = compose.onNodeWithContentDescription("Следующая неделя").getBoundsInRoot()
+        val period = compose.onNodeWithText("Вторник, 22\u00A0сентября", useUnmergedTree = true)
+            .getBoundsInRoot()
+
+        assertTrue("after «‹»", period.left >= previous.right)
+        assertTrue("before «›»", period.right <= next.left)
+        assertTrue("level with the arrows", period.top < previous.bottom && period.bottom > previous.top)
+        compose.onNodeWithText("1 полугодие · 2026/27", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `pressing the period opens the year picker`() {
+        // The year is the panel's middle now rather than a chip of its own,
+        // and it is still the way into the years either side of this one.
+        show()
+
+        compose.onNodeWithText("2026/27", substring = true).performClick()
+        settle()
+
+        assertEquals(1, yearPicks)
+    }
+
+    @Test
+    @Config(qualifiers = "ru-rRU-w320dp", fontScale = 2.0f)
+    fun `at a large font on a narrow phone the pill drops under the title and the panel grows`() {
+        // The owner's word for overflow was «растягивать по высоте»: nothing is
+        // cut or scrolled. The title keeps its line, «Сегодня» takes the next
+        // one rather than squeezing it, and the period wraps inside a panel
+        // that gets taller while its arrows stay at the ends.
+        showToday = true
+        show(width = 320.dp)
+
+        val title = compose.onNodeWithText("Календарь").getBoundsInRoot()
+        val today = compose.onNodeWithContentDescription("Текущая неделя").getBoundsInRoot()
+        val previous = compose.onNodeWithContentDescription("Предыдущая неделя").getBoundsInRoot()
+        val next = compose.onNodeWithContentDescription("Следующая неделя").getBoundsInRoot()
+        val period = compose.onNodeWithText("Вторник, 22\u00A0сентября", useUnmergedTree = true)
+            .getBoundsInRoot()
+
+        assertTrue("«Сегодня» under the title", today.top >= title.bottom)
+        assertTrue("the arrows still flank the period", period.left >= previous.right && period.right <= next.left)
+        assertTrue("the period wrapped rather than clipped", (period.bottom - period.top).value > 40f)
+        assertTrue("both arrows on screen", next.right.value <= 320f)
     }
 
     @Test
@@ -143,14 +198,14 @@ class CalendarHeaderTest {
     }
 
     @Test
-    fun `the year chip and both arrows are reachable on a narrow phone`() {
+    fun `the year and both arrows are reachable on a narrow phone`() {
         // 320 dp is the narrowest Android phone worth drawing for. Everything
-        // in the control row has to still be on screen: a chip pushed off the
-        // end is a year nobody can change.
+        // in the panel has to still be on screen: a year pushed off the end is
+        // a year nobody can change.
         showToday = true
         show(width = 320.dp)
 
-        compose.onNodeWithText("2026/27").assertIsDisplayed()
+        compose.onNodeWithText("2026/27", substring = true).assertIsDisplayed()
         compose.onNodeWithContentDescription("Предыдущая неделя").assertIsDisplayed()
         compose.onNodeWithContentDescription("Следующая неделя").assertIsDisplayed()
         compose.onNodeWithContentDescription("Текущая неделя").assertIsDisplayed()
