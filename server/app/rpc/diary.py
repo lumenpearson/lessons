@@ -30,6 +30,8 @@ from app.contract.lessons.v2.diary_pb import (
     AttendanceDirection,
     BatchUpdateCorrectionsRequest,
     BatchUpdateCorrectionsResponse,
+    ClearCorrectionsRequest,
+    ClearCorrectionsResponse,
     CreateDiarySessionRequest,
     CreateDiarySessionResponse,
     DeleteDiarySessionRequest,
@@ -70,6 +72,8 @@ from app.contract.lessons.v2.diary_pb import (
     ListTurnstileEventsResponse,
     MarkKind,
     ProviderCapabilities,
+    ResetCorrectionsRequest,
+    ResetCorrectionsResponse,
     SignInMethod,
 )
 from app.contract.lessons.v2.errors_pb import ErrorReason
@@ -80,7 +84,12 @@ from app.providers.diary.models import AcademicPeriod, Mark, Student
 from app.providers.diary.registry import NETSCHOOL, PETERSBURG, TABLE, Feature, row_for
 from app.rpc import dates, values
 from app.rpc.errors import Refusal, validate
-from app.schemas import DiaryOverrideIn, NetSchoolSessionIn, PetersburgSessionIn
+from app.schemas import (
+    DiaryOverrideIn,
+    DiaryResetIn,
+    NetSchoolSessionIn,
+    PetersburgSessionIn,
+)
 from app.security import DIARY_FAILURES_BUCKET, DIARY_OPENED_BUCKET
 from app.services import diary as diary_service
 from app.services import diary_corrections
@@ -619,3 +628,43 @@ async def batch_update_corrections(
     student, scope = await svc.child(request.student_id)
     stored = await diary_corrections.correct(call.session, scope, student.id, updates)
     return BatchUpdateCorrectionsResponse(corrections=[_correction(row) for row in stored])
+
+
+def _keys(request: ResetCorrectionsRequest) -> list[tuple[str, str]]:
+    """The corrections to take off, each validated with v1's own schema,
+    ``DiaryResetIn``: a target and a field, and nothing of their shape — a key
+    that names nothing takes nothing off. The first refused names its index,
+    from 0, and its part, and never what was sent."""
+    _capped(len(request.corrections))
+    keys: list[tuple[str, str]] = []
+    for index, key in enumerate(request.corrections):
+        form = validate(
+            DiaryResetIn, {"target": key.target, "field": key.field}, at=f"corrections[{index}]."
+        )
+        keys.append((form.target, form.field))
+    return keys
+
+
+async def reset_corrections(
+    call: Call, request: ResetCorrectionsRequest
+) -> ResetCorrectionsResponse:
+    """Takes the named corrections off, for everyone who sees the pupil, as
+    v1's ``POST /overrides/reset`` takes one off, all or none: the same answer
+    whether or not there was one, and for a pupil who can have none. The keys
+    are checked before the diary is asked anything."""
+    keys = _keys(request)
+    svc = _service(call)
+    student, scope = await svc.child(request.student_id)
+    await diary_corrections.reset(call.session, scope, student.id, keys)
+    return ResetCorrectionsResponse()
+
+
+async def clear_corrections(
+    call: Call, request: ClearCorrectionsRequest
+) -> ClearCorrectionsResponse:
+    """Takes every correction for this pupil off, and nothing of any other's,
+    as v1's ``DELETE /overrides/all``: nothing for a pupil who can have none."""
+    svc = _service(call)
+    student, scope = await svc.child(request.student_id)
+    await diary_corrections.clear(call.session, scope, student.id)
+    return ClearCorrectionsResponse()
