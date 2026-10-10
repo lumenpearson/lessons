@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.AltRoute
 import androidx.compose.material.icons.automirrored.rounded.Login
@@ -70,6 +69,7 @@ import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import kotlin.math.floor
@@ -297,7 +297,8 @@ private fun StepDots(progress: StepProgress) {
     )
 
     Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        // 4, not the 6 this was: on the grid, and still close for dots this small.
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
         // One description for the row, not one per dot. Hiding it outright —
         // which is what this did first, and what the reference does — leaves a
@@ -325,7 +326,7 @@ private fun StepDots(progress: StepProgress) {
             )
             Surface(
                 modifier = Modifier.size(width = width, height = DotSize),
-                shape = RoundedCornerShape(percent = 50),
+                shape = LessonsShapeTokens.Pill,
                 color = colour,
                 content = {},
             )

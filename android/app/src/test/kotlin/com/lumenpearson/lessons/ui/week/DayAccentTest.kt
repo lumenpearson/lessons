@@ -1,5 +1,7 @@
 package com.lumenpearson.lessons.ui.week
 
+import androidx.compose.ui.graphics.RectangleShape
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.model.DayKind
 import com.lumenpearson.lessons.core.model.DayOffReason
 import com.lumenpearson.lessons.core.model.Lesson
@@ -8,6 +10,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -134,5 +137,28 @@ class DayAccentTest {
         // Index 6 is the last column of the first week; index 7 opens the second.
         assertFalse("Sunday does not close the run", runs[6].last)
         assertFalse("Monday does not reopen it", runs[7].first)
+    }
+
+    /**
+     * `RunPosition.shape()` used to read an `as?` cast with a hardcoded 12 dp
+     * fallback that could never actually run — [LessonsShapeTokens.Row], what
+     * it matched against, is a [androidx.compose.foundation.shape.RoundedCornerShape]
+     * and so the cast never failed — while the shape it drew when it *did*
+     * succeed was 4 dp, not 12. Both halves of that mismatch are gone now:
+     * the round end of a run reads [LessonsShapeTokens.Cell] directly, the
+     * same 12 dp a standalone tile or cell gets.
+     */
+    @Test
+    fun `a cell that is its own whole run gets the standalone-cell radius`() {
+        val run = RunPosition(first = true, last = true)
+        assertSame(LessonsShapeTokens.Cell, run.shape())
+    }
+
+    /** The flat middle of a run is a plain rectangle, by design — see the
+     *  design doc's "0 dp stays where a month-grid run is flat inside". */
+    @Test
+    fun `the middle of a run carries no rounding at all`() {
+        val run = RunPosition(first = false, last = false)
+        assertSame(RectangleShape, run.shape())
     }
 }

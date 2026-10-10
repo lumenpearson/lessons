@@ -182,6 +182,14 @@ private fun HomeworkFilterRow(
         labelProvider = { upcoming ->
             if (upcoming) correctedString(R.string.homework_filter_upcoming) else allLabel
         },
-        modifier = modifier.padding(horizontal = ScreenPadding, vertical = 8.dp),
+        // No containerColor/contentPadding: the picker's own default is the
+        // filled tray — the same the calendar's view switcher gets, instead
+        // of bare buttons on the page background, one of three skins the
+        // audit found on what is structurally the same control everywhere.
+        // No extra ScreenPadding here: this row sits in the same LazyColumn
+        // as the header and the groups below it, whose own contentPadding
+        // already insets every item by ScreenPadding — adding it again
+        // doubled this row's margin to 32 dp while its siblings stayed at 16.
+        modifier = modifier,
     )
 }

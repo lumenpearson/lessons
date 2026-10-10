@@ -12,6 +12,7 @@ import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,7 +99,16 @@ fun HomeworkRow(
             val attachment = item.attachmentUrl
             if (attachment != null) {
                 Row(
+                    // PillChip's own two padding tokens (TappableChipPadding,
+                    // StaticChipPadding) instead of a third, hand-rolled pill —
+                    // this row keeps its own icon size and labelLarge text, which
+                    // PillChip does not expose, so it reads its exact geometry
+                    // instead of becoming one, and the two cannot drift apart
+                    // since both files read the same declaration. When it is
+                    // tappable it takes a 48 dp touch target the way PillChip
+                    // does, as a slot its capsule is centred in.
                     modifier = Modifier
+                        .then(if (onOpenAttachment != null) Modifier.minimumInteractiveComponentSize() else Modifier)
                         .clip(LessonsShapeTokens.Pill)
                         .then(
                             if (onOpenAttachment != null) {
@@ -108,7 +118,7 @@ fun HomeworkRow(
                             },
                         )
                         .background(tone.container)
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                        .padding(if (onOpenAttachment != null) TappableChipPadding else StaticChipPadding),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {

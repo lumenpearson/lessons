@@ -3,6 +3,7 @@ package com.lumenpearson.lessons.core.designsystem.component
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,8 +29,22 @@ import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 
 /**
+ * A pill's two padding variants, on the 4 dp grid: 16 x 8 for a tappable pill
+ * (its touch target past 48 dp comes from [minimumInteractiveComponentSize]
+ * instead of this padding), 12 x 4 for a static one.
+ *
+ * `internal` rather than `private` so [HomeworkRow]'s attachment pill — which
+ * cannot call [PillChip] itself without changing its icon size and text style,
+ * both fixed here — reads the same two pairs instead of a third, hand-copied
+ * set that could drift from these the day either changes.
+ */
+internal val TappableChipPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+internal val StaticChipPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+
+/**
  * The smallest status carrier in the design system: "замена", "отменён", "сейчас",
- * and — with [onClick] — the day selector at the top of the week screen.
+ * and — with [onClick] — the calendar's filters and its year, the diary's
+ * pupils, and the choices in the sync and notification settings.
  *
  * Exists instead of `AssistChip`/`FilterChip` because most of these are pure
  * labels: a chip that invites a tap that does nothing is worse than a label, and
@@ -98,9 +114,25 @@ fun PillChip(
 ) {
     // Clipping before the click keeps the ripple inside the capsule; Surface's
     // own clip happens too late for a modifier handed in from outside.
+    //
+    // minimumInteractiveComponentSize gives a tappable chip Material's 48 dp
+    // touch target, and it does that as layout, not only as touch: the chip
+    // reports at least 48 x 48 dp to whatever places it and centres its
+    // capsule in that slot. The capsule is not enlarged and draws exactly as
+    // before, but a row of tappable chips is 48 dp tall instead of 32, so
+    // chip rows read looser — a line of filters 16 dp taller, and wrapped
+    // lines that InlineGap spaced 8 dp apart now 24 apart, capsule to capsule.
+    // A static chip is never pressed, gets no slot and stays as short as its
+    // text, so a row that mixes the two has to line them up by their centres.
+    //
+    // `clickable`'s own hit testing already reaches 48 dp around a smaller
+    // node in this Compose, so the slot is not what makes the chip pressable;
+    // the target is asked for through the documented Material API rather
+    // than left to rest on that detail.
     val interaction = when (onClick) {
         null -> Modifier
         else -> Modifier
+            .minimumInteractiveComponentSize()
             .clip(LessonsShapeTokens.Pill)
             .clickable(onClick = onClick)
     }
@@ -113,11 +145,7 @@ fun PillChip(
         border = border,
     ) {
         Row(
-            // A tappable chip gets a taller box so it clears a usable touch target.
-            modifier = Modifier.padding(
-                horizontal = if (onClick != null) 14.dp else 10.dp,
-                vertical = if (onClick != null) 8.dp else 4.dp,
-            ),
+            modifier = Modifier.padding(if (onClick != null) TappableChipPadding else StaticChipPadding),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {

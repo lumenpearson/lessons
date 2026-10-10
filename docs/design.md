@@ -11,7 +11,7 @@ repository rather than invented again.
 The whole interface is three things:
 
 * a **page** — `surfaceContainer`, 16 dp margins;
-* a **group** — `RoundedCardContainer`: a 24 dp corner radius, a transparent background, 2 dp
+* a **group** — `RoundedCardContainer`: a 28 dp corner radius, a transparent background, 2 dp
   between rows. A group is a mask and nothing else. It has no fill of its own; it is the
   group that rounds the corners, not the rows;
 * a **row** — a rectangle on `surfaceBright` with a round coloured tile on the left.
@@ -49,7 +49,7 @@ rounds it by more than the button is rounded by, in the exact direction the clas
 fix. It also caps the radius at half the shorter side: larger than that is not a rounder
 rectangle but a malformed outline, with two corners of one edge overlapping, so a very short
 tray simply becomes a capsule. The picker used to be clipped at the call site with
-`LessonsShapeTokens.Group` — 24 dp, the radius of a *group of rows* — around buttons with
+`LessonsShapeTokens.Group` — then 24 dp, the radius of a *group of rows* — around buttons with
 4 dp of padding. Both `ConcentricShapeTest` and `WidgetInnerCornerTest` check this as
 arithmetic rather than on a screen, which is the only way either could be checked at all:
 Glance builds `RemoteViews` and there is no frame loop to draw them into.
@@ -80,7 +80,7 @@ does not apply.
 * **A row inside a group.** There is no inset to work from: `RoundedCardContainer` clips
   its rows rather than padding them, so the group's own mask is what rounds them and
   `GroupRow` is a rectangle, which its KDoc says outright. That is the grammar above
-  working as intended — the group's 24 dp is meant to be the only large radius the eye
+  working as intended — the group's 28 dp is meant to be the only large radius the eye
   picks up, and a row that rounded itself concentrically would put a second one where the
   design wants none.
 * **The widget's week strip.** `DayChipCorner` is a constant and deliberately not
@@ -91,6 +91,198 @@ does not apply.
   timeline row**, 2 dp on a bar 4 dp wide. Both are rounded by their own smaller dimension.
   A shape whose radius is half its height is a capsule, and a capsule has no corner to nest
   inside anything.
+
+## One scale for corners, rows and insets
+
+The owner asked for it on 10 October 2026, pointing at a screenshot of «Календарь»'s week view
+(«выровни скругления, элементы в списках и отступы по всему приложению»). On that screenshot
+four neighbours had four corners and four right edges:
+- the view switcher was a full pill;
+- the «Отмеченные» chip was a pill with insets of its own;
+- a weekday tile was 4 dp;
+- the day panel's «Подробно» and its arrow sat on an invisible button's edge.
+
+An audit found nine radii, nine horizontal insets, five shapes of «one row of a group» and two
+heights of a full-width button. The design is `docs/specs/2026-10-10-ui-geometry-design.md`.
+What it settled lives in `theme/Shape.kt`, and the rest of this section is why.
+
+**The corners are four values, and each is a Material 3 token.**
+
+| Value | Token | Used for |
+| --- | --- | --- |
+| 4 dp | `LessonsShapeTokens.Row` | a row inside a group, where the group's mask does the rounding |
+| 12 dp | `LessonsShapeTokens.Cell` | a tile or a cell standing on its own: a weekday, a month cell, an icon tile |
+| 28 dp | `LessonsShapeTokens.Group`, `Hero` | a group, a card, a field standing on its own, and a card inside a sheet |
+| full | `LessonsShapeTokens.Pill`, `Tile` | a full-width button, a chip, the leading tile of a row |
+
+The owner chose 24 dp for groups, which was Essentials' radius. 24 is on no Material scale, and
+this theme already drew its sheets and dialogs at 28. A card inside a sheet therefore sat at 24
+under a sheet edge at 28: two large radii side by side, the very thing the screenshot showed.
+At 28 the scale has four values instead of five. Taking it back is one constant,
+`LargeContainerCorner`.
+
+A field standing on its own is a container and takes `Group`. That covers:
+- the join and class-code fields;
+- the school searches, onboarding's and the diary picker's;
+- the server address;
+- the admin sheets' fields.
+
+A field inside a `GroupRow` keeps Material's own 4, as a row does.
+
+**There is one exception: the floating action buttons.** They keep Material's own FAB corner,
+the theme's `large`, 20 dp. On a 56 dp FAB, 28 is a circle (a capsule on an extended one), and
+12 is squarer than any FAB Material draws. The two FABs side by side on «День» share that one
+radius, so the small one, 40 dp tall, is drawn as a circle. Apart from them, no source reads
+`medium` (16) or `large` (20) by name, and a test refuses one that starts to. `CircleShape` is
+kept for things that really are circles, such as a dot or a badge.
+
+**A row is padded 16 × 12, and is never shorter than Material's list item.**
+- **Every row of a group is padded `RowPadding`.** That is `GroupItem` in both overloads,
+  `GroupRow`, `GroupSliderItem` and `GroupSegmentedItem`. Before this, a clickable `GroupItem`
+  was padded 16 × 8, and a non-clickable one fell back to `ListItem`'s own padding, so the same
+  content measured two heights depending on whether it could be pressed.
+- **The height floor depends on how the row is built.**
+  - `GroupItem` is a `ListItem`, and `ListItem` floors itself by line count: 56, 72 or 88 dp.
+    A `heightIn` around it replaces that floor rather than adding to it. A two-line row dropped
+    from 72 to 64 dp beside a `GroupSwitchItem` that kept 72, so `GroupItem` carries none.
+  - The rows built by hand (`GroupRow`, the slider and the segmented item) carry
+    `heightIn(min = RowMinHeight)`, 56 dp.
+  - Either way the floor is a minimum, never a fixed height. A row grows with the system font
+    size instead of clipping its second line, and it is always a touch target taller than
+    48 dp.
+- **A row's leading tile is 12 dp from its text,** Material's gap, where `GroupRow` had 14.
+
+**A chip keeps a 48 dp touch target whatever it draws.**
+- **The padding.** `PillChip` is padded 12 × 4 as a status and 16 × 8 when it can be pressed,
+  both on the 4 dp grid (they were 10 × 4 and 14 × 8).
+- **The target.** A tappable chip carries `minimumInteractiveComponentSize`. The people this app
+  is for are children from seven and their parents, and a 32 dp chip is a small target for
+  either.
+- **That slot is layout, not only touch.** The capsule is drawn centred in a 48 dp box, so a row
+  of tappable chips reads looser:
+  - «Календарь»'s filter line is 16 dp taller;
+  - wrapped chip lines sit 24 dp apart, capsule to capsule, instead of 8.
+
+  A row that mixes static and tappable chips lines them up by their centres. «О приложении»'s
+  badges do.
+
+**Every inset and gap this pass touched is a multiple of 4,** and the common ones have names:
+
+| Token | Value | What it is |
+| --- | --- | --- |
+| `ScreenPadding` | 16 dp | every screen's edge inset |
+| `GroupSpacing` | 16 dp | between two groups |
+| `GroupRowSpacing` | 2 dp | between two rows of a group |
+| `RowPadding` | 16 × 12 dp | a row's inner padding, built from `RowPaddingHorizontal` and `RowPaddingVertical` |
+| `RowMinHeight` | 56 dp | the minimum of a row built by hand |
+| `RowLeadingGap` | 12 dp | a row's leading tile to its text |
+| `PillButtonHeight` | 56 dp | a full-width pill button, Material's Medium button |
+| `CardPadding` | 20 dp | a card that holds text rather than rows: a sheet's note, the hero |
+| `InlineGap` | 8 dp | between the items of a row or of a chip strip |
+
+Older insets the pass did not reach are not all on the grid yet: a 10 dp here, a 14 or a 6
+there, in the chip strips of the sync and notification settings, the «сейчас» separator, the
+empty-state hero and a few others. Each is a literal with no token, so the next change to its
+screen can move it.
+
+**Edges line up because there is one inset to line up with.**
+- **`SectionHeader`'s start inset is `ScreenPadding`,** where it was a literal. The four call
+  sites that wrote `ScreenPadding - 16.dp` to undo it are gone.
+- **A header's action is measured by its ink, not by its button.** A `TextButton` pads its
+  content by 12 dp on each side, so a button flush with the edge draws its text 12 dp short of
+  the edge. The header gives up exactly that padding when it has an action, so «Подробно» and
+  its arrow end where the chips above them end.
+- **The weekday strip fills the width when its days fit.**
+  - Each tile is at least 48 dp wide, its own touch target, and the tiles are 4 dp apart, the
+    month grid's gap.
+  - When seven or five tiles fit between the margins, they share the width equally, so the
+    strip starts and ends on `ScreenPadding` like the switcher above it. A full week fits from
+    a 392 dp window; the owner's emulator is 411.
+  - When they do not fit, they scroll as before, and the end they scroll to lands on the edge.
+  - The width is read through `onSizeChanged`, never by subcomposing (see «Nothing is cut off,
+    and nothing subcomposes to find out how wide it is» below). So the first frame draws the
+    scrolling strip, and the tiles spread out on the next.
+- **Onboarding's acknowledgement card is inset once,** by `ScreenPadding`. Its prose, padded
+  `RowPadding`, starts 32 dp from the edge, on the line where the row under the card starts. It
+  was 36 dp.
+- **«О приложении» is a `RoundedCardContainer`,** like every other group, instead of a bespoke
+  card with 20 dp and 28 dp of its own padding. Its content is one centred row padded
+  `RowPadding`. The prose is still centred; only the geometry moved.
+
+**`SegmentedPicker` has one skin.** The skin is its own concentric tray, 4 dp around
+Material's connected buttons. The diary's tabs used to clip that tray a second time, at 24 dp,
+which recreated the guessed-radius bug the component was rewritten to remove. «Задания» had no
+tray at all and now has the default one.
+
+### What holds it
+
+- **`GeometryScaleTest`** (in `:core:designsystem`'s tests) reads the source of `android/app`
+  and of the design system outside `theme/Shape.kt`. Like `StabilityPromiseTest`, it fails on
+  four things:
+  - a corner radius written as a literal: a dp value in a `RoundedCornerShape` on one line or
+    several, a percent given positionally, or a dp value under any name once a corner reads it;
+  - a `CircleShape` given to a button or a chip;
+  - a private constant whose name ends in `Corner`;
+  - a shape role off the scale read by name: `medium`, `large`, or an Expressive role past them.
+    It catches the read even when the chain is wrapped across lines.
+
+  Its allowances for corners and for role reads are empty. Its allowance for `CircleShape` names
+  the things that really are circles: a dot, a disc, a badge, and the round icon at the end of
+  «Значок приложения»'s row. `@Preview` code is exempt.
+- **`RowGeometryTest`** holds the row rhythm. It runs under Robolectric's `NATIVE` graphics,
+  where text has its real size:
+  - a clickable and a non-clickable `GroupItem` with the same content measure the same height;
+  - a two-line `GroupItem` and a two-line `GroupSwitchItem` measure the same, at least 72 dp;
+  - every row type reaches 56 dp;
+  - a tappable chip's touch target is at least 48 × 48 dp.
+
+  The 56 dp tests of `GroupSliderItem` and `GroupSegmentedItem` pin today's behaviour and guard
+  nothing. Their controls (a 44 dp slider handle, 40 dp toggle and icon buttons) keep them above
+  56 dp with or without the floor, and the tests' KDoc says so.
+- **`WeekScreenEdgeAlignmentTest`** composes the real `WeekScreen` with a real week, of seven
+  days and of five, in Russian, at 360 and 411 dp. It checks four things share one right edge,
+  within half a pixel:
+  - the switcher;
+  - the chips;
+  - the strip, dragged to its end where it scrolls;
+  - the ink of «Подробно».
+
+  Where the days fit, the strip's first tile must also start on the left margin.
+- **`AboutBadgeAlignmentTest`** checks that every two badges on one line of «О приложении» share
+  a centre.
+- **Untested:** the FABs' shared radius and the four fields at 28 dp. Both corners are Material
+  defaults inside a component, which neither a layout test nor the source scan can read.
+
+### What nobody has looked at on a device
+
+Robolectric measures sizes; it does not judge whether a screen looks right. Everything above was
+measured in tests, and none of it has been seen on a device. These are the screens to look at,
+on the emulator or a phone, in light and dark:
+- «Сегодня»;
+- «Календарь», with the week, month and agenda views;
+- «Задания»;
+- the diary;
+- «Оформление» and «Значок приложения»;
+- «О приложении»;
+- the first-run path.
+
+The likeliest to look different from what was meant:
+- **every group is 4 dp rounder;**
+- **one-line rows are a little taller,** from `RowPadding`'s 12 dp; two-line rows stay at 72;
+- **chip rows are looser,** from the 48 dp slot;
+- **the weekday tiles are 4 dp apart and stretched to the width.** A week of five draws tiles
+  about 70 dp wide at 411 dp, and the strip spreads out one frame after it appears;
+- **the small «День» FAB is a circle,** beside the extended one;
+- **12 dp cells on «Календарь»:** the agenda's rows, the month banner, and the selected and
+  today cells of the month grid are now `Cell`.
+
+The widget is not part of this pass. Glance has its own corner arithmetic
+(`WidgetSizeClass.innerCorner()`, from a 24 dp surface), and the widget was not in the
+screenshot.
+
+**Not done: margins that widen with the window.** Material asks for 24 dp at medium and
+expanded widths. `ScreenPadding` is a constant, and it is read in places that are not
+composable, so a margin that depends on the window is a change of its own (#405).
 
 ## What came from where
 

@@ -35,6 +35,7 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
@@ -170,7 +171,9 @@ internal fun SearchBox(
             }
         },
         singleLine = true,
-        shape = MaterialTheme.shapes.large,
+        // Group, not a Material role: decision 1 puts fields at 28 dp, the
+        // same move the join screen's class-code field already made.
+        shape = LessonsShapeTokens.Group,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(
             onSearch = {

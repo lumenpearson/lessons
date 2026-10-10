@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.LocalTextStyle
@@ -38,6 +36,9 @@ import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.LocalCorrections
 import com.lumenpearson.lessons.core.designsystem.text.NoCorrections
+import com.lumenpearson.lessons.core.designsystem.theme.CardPadding
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
+import com.lumenpearson.lessons.core.designsystem.theme.PillButtonHeight
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
@@ -119,7 +120,7 @@ private fun ColumnScope.EditorContent(
             )
         },
         minLines = FieldMinLines,
-        shape = RoundedCornerShape(FieldCorner),
+        shape = LessonsShapeTokens.Group,
         keyboardOptions = KeyboardOptions(
             capitalization = KeyboardCapitalization.Sentences,
             imeAction = ImeAction.Default,
@@ -140,11 +141,11 @@ private fun ColumnScope.EditorContent(
             }
             onDismiss()
         },
-        shape = CircleShape,
+        shape = LessonsShapeTokens.Pill,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenPadding)
-            .height(PillHeight),
+            .height(PillButtonHeight),
     ) {
         Text(stringResource(R.string.translation_editor_save))
     }
@@ -159,11 +160,11 @@ private fun ColumnScope.EditorContent(
                 keys.forEach { TranslationMode.drop(it, locale) }
                 onDismiss()
             },
-            shape = CircleShape,
+            shape = LessonsShapeTokens.Pill,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = ScreenPadding)
-                .height(PillHeight),
+                .height(PillButtonHeight),
         ) {
             Text(stringResource(R.string.translation_editor_revert))
         }
@@ -181,7 +182,7 @@ private fun ColumnScope.EditorContent(
 @Composable
 private fun IdentityCard(places: List<Pair<String, String>>, original: String) {
     Surface(
-        shape = RoundedCornerShape(CardCorner),
+        shape = LessonsShapeTokens.Group,
         color = MaterialTheme.colorScheme.rowContainer,
         modifier = Modifier
             .fillMaxWidth()
@@ -232,16 +233,7 @@ private fun Labelled(label: String, value: String, monospace: Boolean) {
     }
 }
 
-private val CardCorner = 24.dp
-
-private val CardPadding = 20.dp
-
 private val LineGap = 8.dp
-
-private val FieldCorner = 24.dp
 
 /** Room for a sentence that grew in translation without the field jumping. */
 private const val FieldMinLines = 3
-
-/** Height of a full-width pill button on a sheet; the bug report's own. */
-private val PillHeight = 56.dp

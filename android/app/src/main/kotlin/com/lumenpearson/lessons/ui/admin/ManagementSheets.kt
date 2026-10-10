@@ -32,6 +32,7 @@ import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import java.time.DayOfWeek
@@ -125,6 +126,9 @@ fun SheetField(
         enabled = enabled,
         singleLine = singleLine,
         minLines = minLines,
+        // Group, not Material's 4 dp field corner: decision 1 puts a
+        // standalone field at 28 dp, and every sheet here reads this one.
+        shape = LessonsShapeTokens.Group,
         interactionSource = interactionSource,
         label = {
             Text(text = label, style = LocalTextStyle.current.emphasised(focused))

@@ -52,6 +52,7 @@ import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -289,6 +290,10 @@ private fun SearchField(
         leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        // Group, not Material's 4 dp field corner: decision 1 puts a
+        // standalone field at 28 dp, the same as onboarding's school search,
+        // which asks the same question.
+        shape = LessonsShapeTokens.Group,
     )
 }
 

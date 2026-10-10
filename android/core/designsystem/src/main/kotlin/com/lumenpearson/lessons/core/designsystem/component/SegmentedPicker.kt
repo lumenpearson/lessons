@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,6 +43,10 @@ import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.ConcentricShape
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.RowLeadingGap
+import com.lumenpearson.lessons.core.designsystem.theme.RowMinHeight
+import com.lumenpearson.lessons.core.designsystem.theme.RowPaddingHorizontal
+import com.lumenpearson.lessons.core.designsystem.theme.RowPaddingVertical
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
@@ -72,7 +77,14 @@ private val SegmentFadeWidth = 8.dp
  *
  * @param contentPadding the tray's inset around the segments, when
  *   [containerColor] draws one. Its top is the one number the tray's corners
- *   and the gaps between segments are both derived from.
+ *   and the gaps between segments are both derived from. Defaults to the
+ *   filled 4 dp tray every standalone picker in the app wants — the
+ *   calendar's view switcher and day-mode picker, the homework filter, the
+ *   ribbon's flow picker — so a caller does not have to copy the same two
+ *   parameters to get it, and a new caller that forgets them still does.
+ *   [GroupSegmentedItem] is the one caller that does not want a tray: its own
+ *   row already fills with [rowContainer][com.lumenpearson.lessons.core.designsystem.theme.rowContainer],
+ *   so it passes `Color.Transparent`/`PaddingValues(0.dp)` back explicitly.
  * @param labelProvider the visible text of an option; also its accessibility name.
  * @param iconProvider optional glyph, drawn before the label.
  */
@@ -84,8 +96,8 @@ fun <T> SegmentedPicker(
     labelProvider: @Composable (T) -> String,
     modifier: Modifier = Modifier,
     iconProvider: ((T) -> ImageVector)? = null,
-    containerColor: Color = Color.Transparent,
-    contentPadding: PaddingValues = PaddingValues(0.dp),
+    containerColor: Color = MaterialTheme.colorScheme.rowContainer,
+    contentPadding: PaddingValues = PaddingValues(4.dp),
 ) {
     val view = rememberHapticView()
     // Which segment was pressed, for whatever starts an effect where the finger
@@ -225,15 +237,16 @@ fun <T> GroupSegmentedItem(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .heightIn(min = RowMinHeight)
             .background(MaterialTheme.colorScheme.rowContainer)
-            .padding(top = 12.dp, bottom = 12.dp),
+            .padding(vertical = RowPaddingVertical),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = RowPaddingHorizontal),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(RowLeadingGap),
         ) {
             if (icon != null) {
                 AccentIconTile(icon = icon, tone = tone)
@@ -246,7 +259,16 @@ fun <T> GroupSegmentedItem(
             onItemSelected = onItemSelected,
             labelProvider = labelProvider,
             iconProvider = iconProvider,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+            // Opts out of the picker's own default tray: this row already
+            // fills with rowContainer and pads itself above, and a second
+            // tray on top of that would be a 4 dp frame nobody asked for.
+            containerColor = Color.Transparent,
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.padding(
+                start = RowPaddingHorizontal,
+                end = RowPaddingHorizontal,
+                top = RowPaddingVertical,
+            ),
         )
     }
 }

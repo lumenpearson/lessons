@@ -57,6 +57,7 @@ import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsSans
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
@@ -150,7 +151,9 @@ fun JoinScreen(
                     modifier = Modifier.size(72.dp),
                 )
 
-                Spacer(Modifier.height(18.dp))
+                // 16, not the 18 this was: every other gap on this screen is a
+                // multiple of 4.
+                Spacer(Modifier.height(16.dp))
                 Text(
                     text = correctedString(R.string.join_title),
                     // The app's own face at a real weight — see the note in
@@ -307,7 +310,7 @@ private fun ClassCodeField(
         interactionSource = interactionSource,
         singleLine = true,
         isError = error != null,
-        shape = MaterialTheme.shapes.large,
+        shape = LessonsShapeTokens.Group,
         textStyle = MaterialTheme.typography.displaySmall.copy(
             textAlign = TextAlign.Center,
             fontWeight = FontWeight.SemiBold,

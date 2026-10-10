@@ -24,8 +24,12 @@ import com.lumenpearson.lessons.core.designsystem.theme.neutralTone
  * Two, which is five years in all. Not a guess: the phone keeps three years at
  * a time, so offering ten would be offering seven that each cost the two either
  * side of the one being looked at. Five is the range somebody actually asks
- * about — last year's marks, next year's first September — and it fits a sheet
- * without scrolling.
+ * about — last year's marks, next year's first September. Each row is a
+ * two-line row, a year over whether it is downloaded, and stays at Material's
+ * two-line 72 dp. On a short window or a large system font the five do not all
+ * fit without scrolling; [LessonsBottomSheet] already scrolls its content for
+ * exactly that case, so a reader never loses a row, only sometimes a swipe to
+ * see it.
  */
 private const val YearsEitherSide = 2
 

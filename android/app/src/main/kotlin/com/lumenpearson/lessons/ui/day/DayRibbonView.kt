@@ -25,11 +25,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallFloatingActionButton
@@ -68,7 +68,9 @@ import com.lumenpearson.lessons.core.designsystem.state.formatLength
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.InlineGap
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
+import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.neutralTone
@@ -315,10 +317,21 @@ internal fun DayRibbonView(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SmallFloatingActionButton(onClick = {
-                LessonsHaptics.press(view)
-                onSettings()
-            }) {
+            // The extended FAB's corner rather than the small FAB's own. The
+            // two sit side by side in this row whenever «К текущему» is out,
+            // and Material gives them two radii, 16 dp here and 20 beside it:
+            // two corners next to each other, the thing the app's corner scale
+            // exists to stop. Read through FloatingActionButtonDefaults, so
+            // both buttons take one token, Material's FAB corner (the theme's
+            // `large`, 20 dp), and neither names a role. On a 40 dp button
+            // 20 dp is half its side, so this one draws as a circle.
+            SmallFloatingActionButton(
+                onClick = {
+                    LessonsHaptics.press(view)
+                    onSettings()
+                },
+                shape = FloatingActionButtonDefaults.extendedFabShape,
+            ) {
                 Icon(
                     imageVector = Icons.Rounded.Tune,
                     contentDescription = correctedString(R.string.ribbon_settings),
@@ -446,8 +459,9 @@ private fun RibbonRow(
                 ),
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(RowPadding),
+        // InlineGap, not the 6 dp this was: on the grid.
+        verticalArrangement = Arrangement.spacedBy(InlineGap),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.width(ClockColumnWidth)) {
@@ -515,14 +529,14 @@ private fun RibbonProgressLine(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(ProgressHeight)
-                    .clip(RoundedCornerShape(percent = 50))
+                    .clip(LessonsShapeTokens.Pill)
                     .background(content.copy(alpha = 0.18f)),
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(fraction.coerceIn(0f, 1f))
                         .height(ProgressHeight)
-                        .clip(RoundedCornerShape(percent = 50))
+                        .clip(LessonsShapeTokens.Pill)
                         .background(content),
                 )
             }
@@ -640,7 +654,10 @@ internal fun ribbonEdgeHeight(viewportHeight: Float, fullHeight: Float): Float {
 /** No more of the ribbon than this may be under a fade, at each end. */
 private const val EdgeShare = 0.12f
 private val ProgressHeight: Dp = 6.dp
-private val RowGap: Dp = 10.dp
+/** 12, not the 10 this was: on the grid, and the same rhythm as a card's own
+ *  RowPadding top/bottom, so the gap between two cards reads as one more
+ *  step of it rather than an unrelated number. */
+private val RowGap: Dp = 12.dp
 private val GroupGap: Dp = 16.dp
 
 private const val SecondMillis = 1_000L

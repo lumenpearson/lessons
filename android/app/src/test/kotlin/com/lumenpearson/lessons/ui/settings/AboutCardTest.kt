@@ -2,17 +2,22 @@ package com.lumenpearson.lessons.ui.settings
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.unit.DpRect
 import com.lumenpearson.lessons.core.data.repository.ServerStatus
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * «О приложении», drawn.
@@ -225,5 +230,86 @@ class AboutCardTest {
         show(ServerStatus.Checking)
 
         assertShows("Любопытное")
+    }
+}
+
+/**
+ * The badges are one strip, and a tappable badge is laid out in a 48 dp slot.
+ *
+ * `PillChip` gives a tappable chip Material's touch target as layout: it
+ * reports 48 dp and centres its capsule in that. A static badge is only as
+ * tall as its text. In a `FlowRow` left at its default top alignment, the
+ * repository and commit badges therefore drew 8 dp below every other badge on
+ * their line, the one strip on «О приложении» meant to read as one. Every
+ * pair of badges on one line has to share a centre.
+ *
+ * [GraphicsMode.Mode.NATIVE] for real text heights: under `LEGACY` a label is
+ * tall enough for a tappable capsule to outgrow its 48 dp slot, and what is
+ * left of the defect is the difference between the two chips' paddings.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "ru-rRU-w411dp-h3000dp")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class AboutBadgeAlignmentTest {
+
+    @get:Rule val compose = createComposeRule()
+
+    /** The card carries marquee lines; see [AboutCardTest.holdTheClock]. */
+    @Before
+    fun holdTheClock() {
+        compose.mainClock.autoAdvance = false
+    }
+
+    @Test
+    fun `badges that share a line share a centre, tappable or not`() {
+        compose.setContent {
+            LessonsTheme {
+                AboutCard(
+                    serverStatus = ServerStatus.Checking,
+                    build = BuildProvenance(
+                        repository = "lumenpearson/lessons",
+                        ref = "main",
+                        commit = "9b8eba790ffdd6ab7b5e4acf7f6c4e30538d2477",
+                        number = "26",
+                        builtAt = "",
+                    ),
+                )
+            }
+        }
+        repeat(4) { compose.mainClock.advanceTimeByFrame() }
+
+        val tappable = setOf("lumenpearson/lessons", "Коммит 9b8eba7")
+        val badges = (tappable + listOf("Проверяю сервер…", "Ветка main", "Сборка №26"))
+            .associateWith { compose.onNodeWithText(it).getUnclippedBoundsInRoot() }
+        val names = badges.keys.toList()
+        val onOneLine = names.indices.flatMap { i ->
+            (i + 1 until names.size).map { j -> names[i] to names[j] }
+        }.filter { (a, b) -> badges.getValue(a).overlapsVertically(badges.getValue(b)) }
+        val mixed = onOneLine.filter { (a, b) -> (a in tappable) != (b in tappable) }
+
+        assertTrue(
+            "No line of badges holds a tappable badge beside a static one, so this test asks " +
+                "nothing; the lines were $onOneLine",
+            mixed.isNotEmpty(),
+        )
+        mixed.forEach { (a, b) ->
+            assertEquals(
+                "«$a» and «$b» are on one line and must share a centre",
+                badges.getValue(a).centreY,
+                badges.getValue(b).centreY,
+                // One pixel at this density: centring an odd height in an
+                // even one rounds.
+                CentreTolerance,
+            )
+        }
+    }
+
+    private fun DpRect.overlapsVertically(other: DpRect): Boolean =
+        top < other.bottom && other.top < bottom
+
+    private val DpRect.centreY: Float get() = (top.value + bottom.value) / 2f
+
+    private companion object {
+        const val CentreTolerance = 1f
     }
 }
