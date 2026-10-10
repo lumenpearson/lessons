@@ -59,10 +59,11 @@ class YearPickerScreenTest {
         // is what is printed on a timetable.
         compose.onNodeWithText("2026/27").assertIsDisplayed()
         compose.onNodeWithText("2024/25").assertIsDisplayed()
-        // The last row no longer fits an un-scrolled sheet now that every
-        // GroupItem row is at least RowMinHeight tall (#404's geometry pass,
-        // Task 2) — the sheet already scrolls for exactly this (BottomSheet.kt),
-        // so the row is still offered, just not without scrolling to it first.
+        // Scrolled to rather than assumed on screen. Each row is a two-line
+        // row at Material's 72 dp at the least, so whether the fifth fits an
+        // unscrolled sheet depends on the window and the font, and the sheet
+        // scrolls for exactly that case (BottomSheet.kt). What this asks is
+        // that the row is offered, not how tall the window is.
         compose.onNodeWithText("2028/29").performScrollTo().assertIsDisplayed()
     }
 

@@ -19,6 +19,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 // marquee clock: every title, subtitle and chip label here is one short word or
 // phrase — «Класс», «Пн», «замена» — well inside the width Robolectric gives a
@@ -29,20 +31,17 @@ private val DpRect.width: Dp get() = right - left
 private val DpRect.height: Dp get() = bottom - top
 
 /**
- * The one row-padding defect the 2026-10-10 geometry audit named by number
- * (`docs/specs/2026-10-10-ui-geometry-design.md`, §3.1): a clickable `GroupItem`
- * read `RowPadding`, and a read-only one fell through to Material's own
- * `ListItemDefaults.ContentPadding` — not the same value — so two rows of the
- * same group, side by side, with the same title and subtitle, measured
- * different heights depending only on whether one of them happened to be
- * tappable. Measured rather than read off the source, because the defect was
- * never a wrong token, it was that one of the two paths named none at all.
+ * The row-padding defect the 2026-10-10 geometry audit found in `GroupItem`
+ * (`docs/specs/2026-10-10-ui-geometry-design.md`, «What the audit found»): a
+ * clickable `GroupItem` read `RowPadding`, and a read-only one fell through to
+ * Material's own `ListItemDefaults.ContentPadding` — not the same value — so
+ * two rows of the same group, side by side, with the same title and subtitle,
+ * measured different heights depending only on whether one of them happened
+ * to be tappable. Measured rather than read off the source, because the defect
+ * was never a wrong token, it was that one of the two paths named none at all.
  *
- * Before Task 2's fix this test failed: the non-clickable branch of `GroupItem`
- * passed no `contentPadding`, `ListItemDefaults.ContentPadding` differs from
- * `RowPadding`, and the two rows below measured different heights — confirmed
- * by staging that revert and running this test red before restoring the fix
- * (see the Task 2 report's red/green evidence).
+ * It fails against that code: with no `contentPadding` on the read-only
+ * branch, the two rows below measure 94 and 90 dp.
  */
 @RunWith(RobolectricTestRunner::class)
 class GroupItemHeightParityTest {
@@ -94,17 +93,111 @@ class GroupItemHeightParityTest {
 }
 
 /**
- * The floor every row of a group is held to: `RowMinHeight`, 56 dp, the
- * Material measure for a one-line list item — and, unlike a fixed height,
- * one that only ever grows, so a row never clips at a larger system font
- * size (`docs/specs/2026-10-10-ui-geometry-design.md`, "Added").
+ * A two-line row is Material's two-line list item, 72 dp, whichever overload
+ * of `ListItem` draws it.
+ *
+ * `ListItem` floors itself by line count — 56, 72 or 88 dp — but only while
+ * nothing outside it has asked for a minimum height of its own: its measure
+ * policy takes Material's figure when the incoming `minHeight` is zero and the
+ * caller's otherwise, «the same behavior as Modifier.defaultMinSize». A
+ * `heightIn(min = RowMinHeight)` on `GroupItem` was such a minimum. It reached
+ * `ListItem` as 56 dp less `RowPadding`'s 24, replaced the two-line 72 with
+ * it, and a two-line `GroupItem` measured 64 dp beside a two-line
+ * `GroupSwitchItem` at 72: the same title and subtitle at two heights, on the
+ * same settings page.
+ *
+ * [GraphicsMode.Mode.NATIVE], because only real text metrics leave the
+ * content short enough for a minimum to decide anything. The icon is there
+ * because every settings row carries one, and its 40 dp tile is exactly the
+ * content height that made the wrong floor read as 64.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class TwoLineRowHeightTest {
+
+    @get:Rule
+    val compose = createComposeRule()
+
+    @Test
+    fun `a two-line GroupItem and a two-line GroupSwitchItem measure the same, at least 72 dp`() {
+        compose.setContent {
+            LessonsTheme {
+                RoundedCardContainer {
+                    GroupItem(
+                        title = "Оформление",
+                        subtitle = "Тема и цвета",
+                        icon = Icons.Rounded.Palette,
+                        tone = accentTone(0),
+                        onClick = {},
+                        modifier = Modifier.testTag(Item),
+                    )
+                    GroupSwitchItem(
+                        title = "Оформление",
+                        subtitle = "Тема и цвета",
+                        icon = Icons.Rounded.Palette,
+                        tone = accentTone(0),
+                        checked = false,
+                        onCheckedChange = {},
+                        modifier = Modifier.testTag(Switch),
+                    )
+                }
+            }
+        }
+
+        val item = compose.onNodeWithTag(Item).getUnclippedBoundsInRoot().height.value
+        val switch = compose.onNodeWithTag(Switch).getUnclippedBoundsInRoot().height.value
+        assertEquals(
+            "A two-line GroupItem and a two-line GroupSwitchItem of the same content must measure " +
+                "the same height; GroupItem was $item dp, GroupSwitchItem was $switch dp.",
+            switch,
+            item,
+            0.5f,
+        )
+        assertTrue(
+            "A two-line row must keep Material's two-line minimum of 72 dp; it measured $item dp.",
+            item >= TwoLineMinimum - 0.5f,
+        )
+    }
+
+    private companion object {
+        const val Item = "item"
+        const val Switch = "switch"
+
+        /** `ListTokens.ItemTwoLineContainerHeight`, which is internal to Material. */
+        const val TwoLineMinimum = 72f
+    }
+}
+
+/**
+ * The floor every row of a group is held to: 56 dp, the Material measure for a
+ * one-line list item — and, unlike a fixed height, one that only ever grows,
+ * so a row never clips at a larger system font size
+ * (`docs/specs/2026-10-10-ui-geometry-design.md`, «Added»). The hand-built rows
+ * carry it as `RowMinHeight`; `GroupItem` gets it from `ListItem`, which floors
+ * itself by line count.
+ *
+ * [GraphicsMode.Mode.NATIVE], because under Robolectric's `LEGACY` default a
+ * line of text measures tall enough to clear 56 dp on its own, and the
+ * `GroupItem` and `GroupRow` tests here passed there with no floor at all.
+ * With real metrics both of those rows are shorter than 56 dp without one, so
+ * each fails when its floor goes. The slider and the segmented tests pass with
+ * or without theirs, and each says why.
+ */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class RowMinimumHeightTest {
 
     @get:Rule
     val compose = createComposeRule()
 
+    /**
+     * No icon, so the content is one line of text and the 56 dp is
+     * `ListItem`'s own one-line minimum. It fails when anything outside
+     * `ListItem` asks for a smaller minimum, which `ListItem` then takes
+     * instead of its own: a `heightIn(min = 48.dp)` on `GroupItem` measures
+     * 48.
+     */
     @Test
     fun `a one-line GroupItem is at least 56 dp tall`() {
         compose.setContent {
@@ -123,6 +216,10 @@ class RowMinimumHeightTest {
         assertAtLeastRowMinHeight(compose.onNodeWithTag(Tag).getUnclippedBoundsInRoot().height.value)
     }
 
+    /**
+     * `RowMinHeight` is this row's only floor: without it the row is its one
+     * line of text plus `RowPadding`, under 56 dp.
+     */
     @Test
     fun `a one-line GroupRow is at least 56 dp tall`() {
         compose.setContent {
@@ -139,25 +236,18 @@ class RowMinimumHeightTest {
     }
 
     /**
-     * Task 2's review named this the one Major gap: `GroupSliderItem` is on
-     * the design doc's own list of rows that share `RowMinHeight`, but its
-     * outer `Column` carried no floor at all.
+     * `GroupSliderItem` is a hand-built row, so `RowMinHeight` is its own floor
+     * rather than `ListItem`'s.
      *
-     * **This is a floor for the future, not a red/green test, and that is
-     * checked rather than assumed.** A fix round traced Material 3
-     * 1.5.0-alpha24's own sources for every control this row can hold: a
-     * plain `IconButton` has no fixed 48 dp container — only a 48 dp *touch*
-     * target around a 40 dp one (`IconButtonDefaults.smallContainerSize()`,
-     * `SmallIconButtonTokens.ContainerHeight`) — and a horizontal `Slider`'s
-     * own thumb is 44 dp (`SliderTokens.HandleHeight`). Both are drawn in
-     * the *same* row here, so that row alone is at least 44 dp before the
-     * title row above it adds anything, and no choice of `title`, `icon` or
-     * `subtitle` changes either number — there is no parameter that removes
-     * either row. So this test cannot go red by shrinking the content passed
-     * to it; what it still catches is `.heightIn(min = RowMinHeight)` itself
-     * going missing from the source, the same way a type error would, just
-     * slower — a real property, stated for what it is rather than claimed as
-     * the red/green catch a Major finding first called it.
+     * **This passes with or without that floor, and that was checked rather
+     * than assumed.** Material 3 1.5.0-alpha24's own sources, for the two
+     * controls the row always holds: a plain `IconButton` has a 40 dp
+     * container inside a 48 dp touch target
+     * (`IconButtonDefaults.smallContainerSize()`), and a horizontal `Slider`'s
+     * thumb is 44 dp (`SliderTokens.HandleHeight`). Both sit in one line under
+     * the title, and no parameter removes either, so nothing passed here
+     * brings the row anywhere near 56 dp. It holds the row to the floor the
+     * day those controls change; it cannot fail on today's.
      */
     @Test
     fun `a GroupSliderItem is at least 56 dp tall`() {
@@ -179,15 +269,14 @@ class RowMinimumHeightTest {
     }
 
     /**
-     * Same Major gap as [GroupSliderItem], and the same finding: a plain
+     * The same as [GroupSliderItem], for the same kind of reason: a plain
      * `ToggleButton` — what `SegmentedPicker` builds each segment from —
      * carries its own `.defaultMinSize(minHeight = ToggleButtonDefaults
      * .MinHeight)`, 40 dp (`ButtonSmallTokens.ContainerHeight`), underneath
-     * whatever `contentPadding` is passed to it; `SegmentedPicker` passes
-     * one, but it cannot shrink that floor. Added to the title row above it,
-     * no choice of `title` or `items` brings this under 56 dp either. A
-     * floor for the future, not a red/green test — see [GroupSliderItem]'s
-     * own note for why that is checked, not assumed.
+     * whatever `contentPadding` is passed to it; `SegmentedPicker` passes one,
+     * but it cannot shrink that floor. Under the title, no choice of `title`
+     * or `items` brings this row under 56 dp, so this too passes with or
+     * without `RowMinHeight`.
      */
     @Test
     fun `a GroupSegmentedItem is at least 56 dp tall`() {

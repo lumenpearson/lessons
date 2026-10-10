@@ -116,8 +116,15 @@ val GroupRowSpacing: Dp = 2.dp
 val RowPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
 
 /**
- * A row's floor, not its fixed height, so it grows with the system font size
- * instead of clipping it, and is always a touch target past Material's 48 dp.
+ * A hand-built row's floor, not its fixed height, so it grows with the system
+ * font size instead of clipping it, and is always a touch target past
+ * Material's 48 dp. 56 dp, Material's one-line list item.
+ *
+ * Read by the rows that lay themselves out — `GroupRow`, the slider and the
+ * segmented items — and deliberately not by the ones built on `ListItem`, which
+ * floors itself by line count (56, 72 or 88 dp). A minimum handed to `ListItem`
+ * from outside replaces that figure rather than adding to it, so this one on a
+ * two-line row drew it at 64 dp instead of 72.
  */
 val RowMinHeight: Dp = 56.dp
 

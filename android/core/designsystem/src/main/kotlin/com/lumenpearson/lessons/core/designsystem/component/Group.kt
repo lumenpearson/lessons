@@ -237,14 +237,20 @@ fun GroupItem(
     // button that cannot be pressed, which is a lie about a row that was never
     // meant to be pressed at all.
     //
-    // Both branches pass the same contentPadding and the same floor: a
-    // read-only row used to fall back to Material's own ListItemDefaults
-    // .ContentPadding here, which is not RowPadding, so a clickable row and a
-    // read-only row in the very same group were padded by two different
-    // rulebooks (the audit this geometry pass is built from).
+    // Both branches pass the same contentPadding: a read-only row used to fall
+    // back to Material's own ListItemDefaults.ContentPadding here, which is not
+    // RowPadding, so a clickable row and a read-only row in the very same
+    // group were padded by two different rulebooks.
+    //
+    // Neither sets a minimum height. ListItem floors itself by line count —
+    // 56, 72 or 88 dp — but only while the caller has asked for no minimum of
+    // its own, so a RowMinHeight here replaced the two-line 72 with 56 and
+    // drew a two-line row at 64 dp beside a GroupSwitchItem of the same
+    // content at 72. The hand-built rows, GroupRow and the slider and
+    // segmented items, have no such floor and carry RowMinHeight themselves.
     if (onClick == null) {
         ListItem(
-            modifier = modifier.fillMaxWidth().heightIn(min = RowMinHeight),
+            modifier = modifier.fillMaxWidth(),
             contentPadding = RowPadding,
             leadingContent = leading,
             supportingContent = supporting,
@@ -259,7 +265,7 @@ fun GroupItem(
                 onClick()
             },
             enabled = enabled,
-            modifier = modifier.fillMaxWidth().heightIn(min = RowMinHeight),
+            modifier = modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             contentPadding = RowPadding,
             leadingContent = leading,
