@@ -25,16 +25,18 @@ import pytest
 from httpx import ASGITransport
 from sqlalchemy import select
 
-from app.contract.lessons.v2.diary_pb import DiaryFeature, SignInMethod
+from app.contract.lessons.v2.diary_pb import DiaryFeature, MarkKind, SignInMethod
 from app.crypto import seal
 from app.main import app
 from app.models import DiarySession, SchoolClass
 from app.providers.diary import registry
 from app.providers.diary.errors import DiaryError
+from app.providers.diary.models import MarkKind as ProviderMarkKind
 from app.providers.diary.registry import Feature, Needs, Scope, SignIn
 from app.providers.netschool import client as nsclient
 from app.providers.petersburg import client as pbclient
 from app.security import hash_token
+from app.services import diary as diary_service
 from app.services import diary_corrections, diary_keepalive
 
 SERVER = Path(__file__).resolve().parents[1]
@@ -141,6 +143,15 @@ def test_the_features_and_the_ways_in_are_the_contract_s_names() -> None:
     }
     for row in registry.TABLE:
         assert row.sign_in == (SignIn.PASSWORD,), row.key
+
+
+def test_the_marks_kinds_are_the_contract_s_names() -> None:
+    """``rpc/diary.py``'s ``MarkKind[mark.kind.name]`` is unguarded: a member
+    added to the provider's enum without the proto's would be a 500 on every
+    ``ListMarks``, with no silent fallback to catch it in the handler."""
+    assert {kind.name for kind in ProviderMarkKind} <= {
+        value.name for value in MarkKind if value is not MarkKind.UNSPECIFIED
+    }
 
 
 @pytest.mark.parametrize("key", registry.KEYS)
@@ -275,6 +286,25 @@ async def test_a_session_of_a_provider_this_deployment_does_not_know_is_read_by_
     row = await session.scalar(select(DiarySession))
     await session.refresh(row)
     assert row.expired_at is None
+
+
+async def test_a_diary_service_over_an_unknown_provider_raises_and_sends_nothing(
+    session, asked
+) -> None:
+    """#389's second half: every door that builds a ``DiaryService`` already
+    refuses such a row first, so nothing today reaches this, but the
+    ``__init__`` that used to fall back to Petersburg now raises on its own."""
+    row = DiarySession(
+        token_hash=hash_token("fourth-diary"),
+        upstream_token=seal("fourth-diary-cookie"),
+        login="parent",
+        provider="dnevnik-ru",
+    )
+    session.add(row)
+    await session.commit()
+    with pytest.raises(ValueError):
+        diary_service.DiaryService(session, row)
+    assert asked == []
 
 
 async def test_the_bot_binds_a_diary_that_needs_nothing_at_once_in_its_own_name(
