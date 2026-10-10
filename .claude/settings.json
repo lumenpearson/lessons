@@ -32,7 +32,11 @@
     ],
     "deny": [
       "Read(./server/.env)",
-      "Read(./server/.env.*)",
+      "Read(./server/.env.local)",
+      "Read(./server/.env.*.local)",
+      "Read(./server/.env.development)",
+      "Read(./server/.env.preview)",
+      "Read(./server/.env.production)",
       "Read(./**/local.properties)",
       "Read(./**/keystore.properties)",
       "Read(./**/*.jks)",
