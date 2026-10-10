@@ -7,17 +7,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -47,6 +46,7 @@ import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -62,14 +62,15 @@ import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.GroupRowSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.PillButtonHeight
+import com.lumenpearson.lessons.core.designsystem.theme.RowLeadingGap
+import com.lumenpearson.lessons.core.designsystem.theme.RowMinHeight
+import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.designsystem.theme.rowSelectedContainer
 
 private val TileSize: Dp = 40.dp
-
-/** Padding of a row built on [ListItem]; Essentials' own 16 × 8. */
-private val RowPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
 
 /**
  * The container every screen in this app is built from: one rounded block
@@ -82,19 +83,25 @@ private val RowPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
  * between them show the page through. That is what makes a group read as one
  * slab with soft ends rather than as a pile of separate cards, and it is why
  * neither the rows nor this container round their own corners.
+ *
+ * @param shape [LessonsShapeTokens.Group] by default — a [Shape] rather than a
+ *   bare corner radius, so a caller cannot re-derive the same 28 dp as its own
+ *   literal and drift from the token the day it changes, which is exactly how
+ *   this container's corner and the token's disagreed before the 2026-10-10
+ *   geometry pass.
  */
 @Composable
 fun RoundedCardContainer(
     modifier: Modifier = Modifier,
     spacing: Dp = GroupRowSpacing,
-    cornerRadius: Dp = 24.dp,
+    shape: Shape = LessonsShapeTokens.Group,
     containerColor: Color = Color.Transparent,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(cornerRadius))
+            .clip(shape)
             .background(containerColor),
         verticalArrangement = Arrangement.spacedBy(spacing),
         content = content,
@@ -145,9 +152,10 @@ fun GroupRow(
                         Modifier
                     },
                 )
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .heightIn(min = RowMinHeight)
+                .padding(RowPadding),
             verticalAlignment = verticalAlignment,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(RowLeadingGap),
             content = content,
         )
     }
@@ -228,9 +236,22 @@ fun GroupItem(
     // one that has been disabled: the disabled clickable is announced as a
     // button that cannot be pressed, which is a lie about a row that was never
     // meant to be pressed at all.
+    //
+    // Both branches pass the same contentPadding: a read-only row used to fall
+    // back to Material's own ListItemDefaults.ContentPadding here, which is not
+    // RowPadding, so a clickable row and a read-only row in the very same
+    // group were padded by two different rulebooks.
+    //
+    // Neither sets a minimum height. ListItem floors itself by line count —
+    // 56, 72 or 88 dp — but only while the caller has asked for no minimum of
+    // its own, so a RowMinHeight here replaced the two-line 72 with 56 and
+    // drew a two-line row at 64 dp beside a GroupSwitchItem of the same
+    // content at 72. The hand-built rows, GroupRow and the slider and
+    // segmented items, have no such floor and carry RowMinHeight themselves.
     if (onClick == null) {
         ListItem(
             modifier = modifier.fillMaxWidth(),
+            contentPadding = RowPadding,
             leadingContent = leading,
             supportingContent = supporting,
             trailingContent = trailing,
@@ -384,7 +405,10 @@ fun GroupActionItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp)
-                .height(ActionRowHeight),
+                // A floor rather than a fixed height, like every other row in
+                // this file, so the button grows with the system font size
+                // instead of clipping a label at a large one.
+                .heightIn(min = PillButtonHeight),
         ) {
             if (busy || icon != null) {
                 // One slot for the icon and the spinner, so the label does not
@@ -412,9 +436,6 @@ fun GroupActionItem(
         }
     }
 }
-
-/** Height of a filled action inside a group; Essentials' own 52 dp. */
-private val ActionRowHeight: Dp = 52.dp
 
 /** A [GroupItem] that leads somewhere: an optional value, then a chevron. */
 @Composable

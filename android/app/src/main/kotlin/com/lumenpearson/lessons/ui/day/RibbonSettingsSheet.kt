@@ -1,13 +1,11 @@
 package com.lumenpearson.lessons.ui.day
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.SwipeVertical
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -20,7 +18,6 @@ import com.lumenpearson.lessons.core.designsystem.component.SegmentedPicker
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
-import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.model.RibbonFlow
 
 /**
@@ -50,19 +47,16 @@ internal fun RibbonSettingsSheet(
         onDismissRequest = onDismiss,
         title = correctedString(R.string.ribbon_settings),
     ) {
-        SectionHeader(
-            title = correctedString(R.string.ribbon_flow_title),
-            modifier = Modifier.padding(horizontal = ScreenPadding - 16.dp),
-        )
+        SectionHeader(title = correctedString(R.string.ribbon_flow_title))
         SegmentedPicker(
             items = RibbonFlow.entries,
             selectedItem = flow,
             onItemSelected = onFlow,
             labelProvider = { it.asLabel() },
-            containerColor = MaterialTheme.colorScheme.rowContainer,
-            contentPadding = PaddingValues(4.dp),
-            // The picker rounds its own tray from the buttons inside it; a
-            // radius chosen here could only agree with them by coincidence.
+            // No containerColor/contentPadding: the picker's own default is
+            // the filled tray. It rounds its own corner from the buttons
+            // inside it; a radius chosen here could only agree with them by
+            // coincidence.
             modifier = Modifier.padding(horizontal = ScreenPadding),
         )
 

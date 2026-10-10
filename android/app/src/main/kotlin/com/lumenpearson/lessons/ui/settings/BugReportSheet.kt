@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
@@ -51,7 +49,10 @@ import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.CardPadding
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.PillButtonHeight
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
@@ -154,7 +155,7 @@ private fun ColumnScope.BugReportContent(
         onValueChange = { description = it },
         label = correctedString(R.string.bug_report_description_label),
         minLines = DescriptionMinLines,
-        shape = RoundedCornerShape(FieldCorner),
+        shape = LessonsShapeTokens.Group,
         keyboardOptions = KeyboardOptions(
             capitalization = KeyboardCapitalization.Sentences,
             imeAction = ImeAction.Default,
@@ -167,7 +168,7 @@ private fun ColumnScope.BugReportContent(
         singleLine = true,
         // A one-line field is a pill, like the buttons under it; only the
         // tall field needs corners it can afford.
-        shape = CircleShape,
+        shape = LessonsShapeTokens.Pill,
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.Email,
             imeAction = ImeAction.Done,
@@ -180,11 +181,11 @@ private fun ColumnScope.BugReportContent(
             onSend(trimmed, contact)
         },
         enabled = canSend,
-        shape = CircleShape,
+        shape = LessonsShapeTokens.Pill,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenPadding)
-            .height(PillHeight),
+            .height(PillButtonHeight),
     ) {
         when {
             isSending -> {
@@ -250,7 +251,7 @@ private fun ColumnScope.BugReportContent(
 @Composable
 private fun DeviceCard(deviceInfo: List<Pair<String, String>>) {
     Surface(
-        shape = RoundedCornerShape(CardCorner),
+        shape = LessonsShapeTokens.Group,
         color = MaterialTheme.colorScheme.rowContainer,
         modifier = Modifier
             .fillMaxWidth()
@@ -331,11 +332,11 @@ private fun OutlinedPill(
             LessonsHaptics.press(view)
             onClick()
         },
-        shape = CircleShape,
+        shape = LessonsShapeTokens.Pill,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenPadding)
-            .height(PillHeight),
+            .height(PillButtonHeight),
     ) {
         Icon(
             imageVector = icon,
@@ -347,21 +348,10 @@ private fun OutlinedPill(
     }
 }
 
-/** Radius of the device card; the page's other cards use the same one. */
-private val CardCorner = 24.dp
-
-private val CardPadding = 20.dp
-
 private val DeviceLineGap = 4.dp
-
-/** Corner of the tall field. Same radius as a group, so it sits in the family. */
-private val FieldCorner = 24.dp
 
 /** Tall enough to say that a paragraph is welcome here. */
 private const val DescriptionMinLines = 4
-
-/** Height of a full-width pill button on a sheet. */
-private val PillHeight = 56.dp
 
 private val BusyStroke = 2.dp
 

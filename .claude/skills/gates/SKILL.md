@@ -38,7 +38,7 @@ Narrower while iterating: `python -m pytest -q tests/test_schedule.py -k parity`
 
 ## Android, from `android/`
 
-1. `./gradlew test` — all JVM unit tests across the five modules, 1684 today.
+1. `./gradlew test` — all JVM unit tests across the five modules, 1728 today.
 2. `./gradlew assembleDebug`
 3. `./gradlew assembleRelease` — **not optional.** CI builds both on every push, because R8
    and resource shrinking are where "worked in debug" stops being true.

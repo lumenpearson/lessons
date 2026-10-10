@@ -39,6 +39,7 @@ import com.lumenpearson.lessons.core.designsystem.component.LessonsBottomSheet
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.text.correctedLine
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
@@ -205,6 +206,10 @@ internal fun AddClassSheet(
                 .padding(horizontal = ScreenPadding),
             singleLine = true,
             isError = errorText != null,
+            // Group, not Material's 4 dp field corner: decision 1 puts a
+            // standalone field at 28 dp, and this is the join screen's
+            // class-code field again, in a sheet.
+            shape = LessonsShapeTokens.Group,
             interactionSource = interactionSource,
             label = {
                 Text(

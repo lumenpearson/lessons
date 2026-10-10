@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.designsystem.theme
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
@@ -16,12 +17,37 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 /**
- * The corner scale, taken from `sameerasw/essentials` `ui/theme/Shapes.kt`.
+ * The one declaration of the large-container radius, so `extraLarge` and
+ * [LessonsShapeTokens.Group]/[LessonsShapeTokens.Hero] read the same number
+ * instead of three independent "28.dp" literals that could drift apart —
+ * which is exactly how a card ended up at 24 dp under a sheet edge at 28 dp
+ * before the 2026-10-10 geometry pass. Declared before [LessonsShapes]: a
+ * top-level property is initialised in file order, and a forward reference
+ * here would read the backing field before its own initialiser ran.
+ */
+private val LargeContainerCorner: Dp = 28.dp
+
+/**
+ * The corner scale, taken from `sameerasw/essentials` `ui/theme/Shapes.kt` and
+ * then checked, on 2026-10-10, against Material 3 Expressive's own scale (0, 4,
+ * 8, 12, 16, 20, 28, 32, 48, full): every radius this app draws is one of four
+ * values — 4 (`Row`), 12 (`Cell`), 28 (`Group`/`Hero`/`extraLarge`) and full —
+ * and each is a Material token rather than a guess.
+ *
+ * With one exception: the floating action buttons. The toolbar's action button
+ * and the two buttons over «День»'s ribbon keep Material's own FAB shape, the
+ * `CornerLarge` token, which resolves to [large][Shapes.large] here — 20 dp.
+ * None of the four fits a FAB: on a 56 dp button 28 is a circle, or a capsule
+ * on an extended one, and 12 is squarer than any FAB Material draws. So
+ * `medium` and `large` are still declared below, for the Material components
+ * that read them, and nothing in the app reads either by name —
+ * `GeometryScaleTest` holds that, so the exception cannot spread from the FABs
+ * to anything else.
  *
  * Essentials overrides only three roles and leaves `extraSmall` and
  * `extraLarge` at the Material defaults; both are spelled out here because
  * `extraSmall` is load-bearing in this design language — it is the corner of a
- * *row*, and rows are deliberately near-square so that the 24 dp corner of the
+ * *row*, and rows are deliberately near-square so that the 28 dp corner of the
  * group container around them is the only large radius the eye picks up.
  */
 val LessonsShapes: Shapes = Shapes(
@@ -29,7 +55,7 @@ val LessonsShapes: Shapes = Shapes(
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(16.dp),
     large = RoundedCornerShape(20.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    extraLarge = RoundedCornerShape(LargeContainerCorner),
 )
 
 /**
@@ -41,17 +67,35 @@ object LessonsShapeTokens {
     /**
      * The container that holds a stack of rows.
      *
-     * 24 dp is `RoundedCardContainer`'s default in Essentials, and the rows
-     * inside it are clipped by it rather than rounded themselves — that is what
-     * makes a group read as one slab with soft ends instead of a pile of cards.
+     * 28 dp, the same corner as [LessonsShapes.extraLarge] — the owner chose 24,
+     * but every sheet and dialog in this theme already sits at 28, so a card
+     * inside a sheet used to show two large radii side by side. Equal to
+     * [LargeContainerCorner] rather than its own literal so the two cannot
+     * disagree. The rows inside it are clipped by it rather than rounded
+     * themselves — that is what makes a group read as one slab with soft ends
+     * instead of a pile of cards.
      */
-    val Group: RoundedCornerShape = RoundedCornerShape(24.dp)
+    val Group: RoundedCornerShape = RoundedCornerShape(LargeContainerCorner)
 
-    /** One row inside a group. Near-square; the group's clip does the rounding. */
+    /**
+     * One row inside a group. 4 dp, the bottom rung of the scale — near-square,
+     * because the group's own 28 dp clip is the only rounding the eye should
+     * register.
+     */
     val Row: RoundedCornerShape = RoundedCornerShape(4.dp)
 
-    /** The one card per screen that answers "what is happening right now". */
-    val Hero: RoundedCornerShape = RoundedCornerShape(24.dp)
+    /**
+     * The one card per screen that answers "what is happening right now".
+     * Shares [LargeContainerCorner] with [Group] for the same reason.
+     */
+    val Hero: RoundedCornerShape = RoundedCornerShape(LargeContainerCorner)
+
+    /**
+     * A standalone tile or cell that is not a row of a group — the weekday
+     * tile, the month-grid cell, an icon tile. Material's medium, which this
+     * theme's own roles call `small`.
+     */
+    val Cell: RoundedCornerShape = RoundedCornerShape(12.dp)
 
     /** The circular colour tile in front of a row. */
     val Tile: RoundedCornerShape = RoundedCornerShape(percent = 50)
@@ -73,6 +117,51 @@ val GroupSpacing: Dp = 16.dp
  * the page between two rows, too narrow to break the slab apart.
  */
 val GroupRowSpacing: Dp = 2.dp
+
+/** A list row's padding at its start and at its end: Material's 16 dp. See [RowPadding]. */
+val RowPaddingHorizontal: Dp = 16.dp
+
+/** A list row's padding at its top and at its bottom: Material's 12 dp. See [RowPadding]. */
+val RowPaddingVertical: Dp = 12.dp
+
+/**
+ * A list row's padding: Material's own list-item rhythm (12 dp top and
+ * bottom, 16 at the start and end), named once so every row of a group reads
+ * it instead of each re-declaring its own answer to "how tall is one row".
+ *
+ * Built from [RowPaddingHorizontal] and [RowPaddingVertical], which a row that
+ * pads one side differently — the slider's bottom, the segmented item's two
+ * lines — reads directly, rather than taking this apart at a layout direction
+ * it has to name and is right about only because the padding is symmetric.
+ * Declared after them, because a top-level property is initialised in file
+ * order.
+ */
+val RowPadding: PaddingValues = PaddingValues(horizontal = RowPaddingHorizontal, vertical = RowPaddingVertical)
+
+/**
+ * A hand-built row's floor, not its fixed height, so it grows with the system
+ * font size instead of clipping it, and is always a touch target past
+ * Material's 48 dp. 56 dp, Material's one-line list item.
+ *
+ * Read by the rows that lay themselves out — `GroupRow`, the slider and the
+ * segmented items — and deliberately not by the ones built on `ListItem`, which
+ * floors itself by line count (56, 72 or 88 dp). A minimum handed to `ListItem`
+ * from outside replaces that figure rather than adding to it, so this one on a
+ * two-line row drew it at 64 dp instead of 72.
+ */
+val RowMinHeight: Dp = 56.dp
+
+/** Gap between a row's leading tile and its text, Material's own list-item measure. */
+val RowLeadingGap: Dp = 12.dp
+
+/** Height of a full-width pill button — Material's own Medium button. */
+val PillButtonHeight: Dp = 56.dp
+
+/** Inner padding of a card that holds text rather than rows: a sheet's notes, and the hero. */
+val CardPadding: Dp = 20.dp
+
+/** Gap between the items of a row or a chip strip — today's most common `spacedBy`. */
+val InlineGap: Dp = 8.dp
 
 /**
  * The radius a block should have to sit concentrically inside [outer].

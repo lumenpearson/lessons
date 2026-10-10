@@ -51,9 +51,7 @@ internal fun DayPanel(
     val lessons = schoolDay?.activeLessons.orEmpty()
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = ScreenPadding),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(GroupSpacing),
     ) {
         SectionHeader(
@@ -68,56 +66,74 @@ internal fun DayPanel(
             },
             actionLabel = schoolDay?.let { correctedString(R.string.schedule_day_details) },
             onActionClick = schoolDay?.let { { onOpenDay() } },
+            // An extra start-only inset, on top of SectionHeader's own
+            // ScreenPadding: the title lines up with the text inside the
+            // group's first row below (both end up 32 dp from the edge, its
+            // own ScreenPadding plus this one), while the action on the
+            // other end of the same row is left at ScreenPadding alone, so
+            // it shares a right edge with the switcher, the chips and the
+            // weekday strip above it — the four elements the owner's
+            // screenshot showed landing at four different insets.
+            modifier = Modifier.padding(start = ScreenPadding),
         )
 
-        DayChips(day = day, date = date)
+        // One padded Column for everything but the header, rather than each
+        // child naming ScreenPadding on its own: per child, the next row
+        // anybody adds here has nothing to stop it landing flush at the true
+        // edge, at 0 dp, which is the one failure this guards against.
+        Column(
+            modifier = Modifier.padding(horizontal = ScreenPadding),
+            verticalArrangement = Arrangement.spacedBy(GroupSpacing),
+        ) {
+            DayChips(day = day, date = date)
 
-        when {
-            // Three ways to be empty, and they were one until the cache learned
-            // to hold more than a year. «Нет данных» about a year nobody has
-            // asked for is a timetable that looks like it stops; «загружаю» is
-            // the same screen with the truth on it.
-            schoolDay == null && day?.isFetched == false -> EmptyState(
-                title = correctedString(
-                    if (loadingYear) {
-                        R.string.week_year_loading_title
-                    } else {
-                        R.string.week_year_missing_title
-                    },
-                ),
-                description = correctedString(
-                    if (loadingYear) {
-                        R.string.week_year_loading_description
-                    } else {
-                        R.string.week_year_missing_description
-                    },
-                    yearLabel(SchoolYear.openingYearOf(date)),
-                ),
-            )
+            when {
+                // Three ways to be empty, and they were one until the cache
+                // learned to hold more than a year. «Нет данных» about a year
+                // nobody has asked for is a timetable that looks like it
+                // stops; «загружаю» is the same screen with the truth on it.
+                schoolDay == null && day?.isFetched == false -> EmptyState(
+                    title = correctedString(
+                        if (loadingYear) {
+                            R.string.week_year_loading_title
+                        } else {
+                            R.string.week_year_missing_title
+                        },
+                    ),
+                    description = correctedString(
+                        if (loadingYear) {
+                            R.string.week_year_loading_description
+                        } else {
+                            R.string.week_year_missing_description
+                        },
+                        yearLabel(SchoolYear.openingYearOf(date)),
+                    ),
+                )
 
-            schoolDay == null -> EmptyState(
-                title = correctedString(R.string.week_no_data_title),
-                description = correctedString(R.string.week_no_data_description),
-            )
+                schoolDay == null -> EmptyState(
+                    title = correctedString(R.string.week_no_data_title),
+                    description = correctedString(R.string.week_no_data_description),
+                )
 
-            lessons.isEmpty() -> EmptyState(
-                title = correctedString(R.string.week_day_off_title),
-                description = schoolDay.offReason.asEmptyDescription(),
-            )
+                lessons.isEmpty() -> EmptyState(
+                    title = correctedString(R.string.week_day_off_title),
+                    description = schoolDay.offReason.asEmptyDescription(),
+                )
 
-            else -> LessonGroup(
-                lessons = lessons,
-                now = now,
-                showTeacher = showTeacher,
-                onLessonClick = onLessonClick,
+                else -> LessonGroup(
+                    lessons = lessons,
+                    now = now,
+                    showTeacher = showTeacher,
+                    onLessonClick = onLessonClick,
+                )
+            }
+
+            DayExtras(
+                day = schoolDay,
+                showEvents = showEvents,
+                showHomework = showHomework,
             )
         }
-
-        DayExtras(
-            day = schoolDay,
-            showEvents = showEvents,
-            showHomework = showHomework,
-        )
     }
 }
 

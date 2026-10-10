@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
@@ -54,7 +53,9 @@ import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.text.correctedLine
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.PillButtonHeight
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -203,10 +204,10 @@ private fun ColumnScope.AwaitingBlock(
                 copied = true
             }
         },
-        shape = CircleShape,
+        shape = LessonsShapeTokens.Pill,
         modifier = Modifier
             .align(Alignment.CenterHorizontally)
-            .height(PillHeight),
+            .height(PillButtonHeight),
     ) {
         Icon(
             imageVector = if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
@@ -224,11 +225,11 @@ private fun ColumnScope.AwaitingBlock(
             LessonsHaptics.press(view)
             onOpenLogin(flow.verificationUrl)
         },
-        shape = CircleShape,
+        shape = LessonsShapeTokens.Pill,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenPadding)
-            .height(PillHeight),
+            .height(PillButtonHeight),
     ) {
         Text(text = correctedString(R.string.github_open_login))
     }
@@ -341,11 +342,11 @@ private fun ColumnScope.SignedInBlock(
             LessonsHaptics.press(view)
             onDone()
         },
-        shape = CircleShape,
+        shape = LessonsShapeTokens.Pill,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenPadding)
-            .height(PillHeight),
+            .height(PillButtonHeight),
     ) {
         Text(text = correctedString(R.string.github_done))
     }
@@ -396,11 +397,11 @@ private fun ColumnScope.FailedBlock(
             LessonsHaptics.press(view)
             onRetry()
         },
-        shape = CircleShape,
+        shape = LessonsShapeTokens.Pill,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenPadding)
-            .height(PillHeight),
+            .height(PillButtonHeight),
     ) {
         Text(text = correctedString(R.string.github_retry))
     }
@@ -418,9 +419,6 @@ private fun explanationFor(reason: String?): Int = when (reason) {
 private const val ReasonExpired = "expired_token"
 
 private const val ReasonDenied = "access_denied"
-
-/** Height of a full-width pill button on a sheet. */
-private val PillHeight = 56.dp
 
 /** Wide tracking on the code: it is read glyph by glyph, not as a word. */
 private val CodeTracking = 4.sp

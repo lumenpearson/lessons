@@ -28,6 +28,119 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the diary's corrections over v2, a batch at a time and all or none — stage 3b-8 of sub-project 3 (#273)
+
+Merged as #394 (`d985ffa`, 10 October 2026), from `server-v2/3b-8`, on milestone 11. It closes
+#393, and refers to #273 and #391. The branch was cut from `main` at `11ee629`, the merge of
+#392, and carries 11 commits before this close-out, to `9f6e02a`. Written on 10 October 2026.
+No revision goes with it: the schema stays at `0019`. This is stage 3b-8 of
+`docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the
+next — Tasks 1 to 4 were each approved first time — then a review of the whole branch found
+nothing Critical, one Important test gap, and one fix wave of five changes. v1 answers as
+before, but for the defect; v2 now answers every unary method of the contract, seventy-five.
+
+- **The corrections are written by whoever calls.** `services/diary_corrections`'
+  `put_override`, `drop_override` and `drop_overrides` commit no longer; v1's three write
+  routes commit after the call, and v2's `invoke` once for a whole request. Two parents
+  correcting one field at once land on one row inside a savepoint, where the old retry rolled
+  the caller's transaction back and committed itself; a test pins that such a lost race keeps
+  the batch's earlier writes.
+- **v1's rules for corrections are `services/`'s**: `listed`, `correct`, `reset` and `clear`,
+  over `diary_overrides.check_correction`. A child the diary lists outside its own numbering
+  is refused a write and given none to list or take off; every correction of a request is
+  checked before any is written, in v1's order; v1's four sentences are `app/wording.py`'s.
+- **One defect filed and fixed here:** #393, a target whose number was spelled any way but the
+  read path's own — `hw:id:007`, a superscript or an Arabic-Indic digit — was stored and
+  matched by nothing for ever; it is refused now, by v1 and v2 alike.
+- **Four methods, and with them every unary method of the contract, seventy-five:**
+  - `ListCorrections`, v1's `GET /overrides`;
+  - `BatchUpdateCorrections`, up to 200 a request, all or none, each correction refused by
+    its index and its part before the diary is asked anything, a key named twice keeping the
+    later, and `CORRECTIONS_UNAVAILABLE` for a pupil who can have none;
+  - `ResetCorrections`, up to 200, all or none, the same answer whether or not there was
+    anything to take off, and `ClearCorrections`.
+- **The error table gains one row**, `CORRECTIONS_UNAVAILABLE` in v1's words, read back on both
+  paths by a named test. It was the last reason nothing produced: `LATER` and `STAGES` are
+  empty.
+- **`diary.proto`** says, in comments only, the order of a batch's checks, the cap, where a
+  refused correction's index counts from, a key named twice, what a pupil who can have none
+  gets, and `CorrectionKey`'s limits.
+
+### Gates
+
+The full suite ran twice, alone with `-n 4`: at `1c0a362`, the head of the four code tasks,
+and at `f2bfea1`, after the final review's fix wave — the documents (`9f6e02a`) came after the
+second, and their own files ran again. CI runs on the head the merge is made from, and the
+merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `9f6e02a`.
+- **mypy**: no issues found in 238 source files, at `9f6e02a`.
+- **The server suite.**
+  - `pytest -q -n 4`, run alone from `server/` at `1c0a362`, the head of the four code tasks,
+    gave **3140 passed** in 1960.27 s (545 warnings).
+  - After the final review's one fix wave, the same run at `f2bfea1` gave **3142 passed** in
+    2098.58 s (549 warnings). The seven places the `handover` skill names say 3142.
+  - The documents' own files (`9f6e02a`) ran again, focused: **226 passed**.
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files, `diary_connect.py`'s and `diary_pb.py`'s
+  docstrings the only change; a reviewer regenerated the contract independently and found no
+  difference.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its count stands from
+  #388.
+
+### What was deliberately left alone
+
+- **3c**, the host target and `WatchClass`'s streaming beta.
+- **v1's behaviour**, but for #393: `PUT /overrides` and `POST /overrides/reset` are served
+  by the router's own route class, so a body their schema refuses still gets FastAPI's
+  default `422`, repeating the value as `input`; a correction is a family's own text, not a
+  credential, so v1 stays as it is, and v2 never repeats it.
+- **A feature for corrections**: none is declared or asked for, since every provider has
+  the schedule and the homework they lie over.
+- **Smaller test-coverage notes**: no `Cache-Control` assertion on the batch POST
+  (Ruling 135); a key named twice in a reset tested at service level only; a negative number
+  in a target refused by the regex but not pinned by a test; a NetSchool-scoped batch and
+  `ListDiaryHomework`'s read-back not tested over v2, both reusing code v1's per-child tests
+  cover; two read-side copies of the «no scope» rule; `test_corrections_per_child_revision`'s
+  own-engine harness, which carries no savepoint listener, cannot detect a missing caller
+  commit on an insert.
+
+### What nobody has verified in this batch
+
+- **The four methods against PostgreSQL**: every test ran on SQLite, the race staged by a
+  read that answers «none» once.
+- **The four on Vercel** beyond the post-merge read, without a token.
+- **Behaviour against a real diary**: the corrections are laid over reads every test fakes.
+
+### After #392's merge: the merge, and production read
+
+None of this is code in #394, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 10 October 2026.
+
+- **The merge, by this session.** #392 «Serve the diary over v2: its registry as a table, its
+  sessions and its reads — stage 3b-7» merged at 01:53:14 UTC on 10 October 2026 as
+  `11ee6291c1c3410b6b2918e43915e40b6263a145`, pinned to `a434c9c`, after the five checks:
+  Server (API + bot), Contract (Buf), What changed and Vercel green on `a434c9c`, Android
+  skipped; `mergeable_state` clean; milestone 11; no review waiting. It closed #389 and #390.
+  #391 (deprecation warnings) stays open in the backlog; #393, this batch's defect, was filed
+  for 3b-8 after #392 opened, so #392's own close-out did not name it.
+- **Production.** Vercel's status on the merge commit turned success by 01:53:24 UTC; read at
+  01:53:24:
+  - `/api/v1/warmup` `{"status":"ok","api_version":1,"schema":"0019","v2":true}`;
+  - `GET /api/v2/diary/capabilities` `200`, `Cache-Control: private, no-store`, `enabled`
+    true, petersburg `SIGN_IN_METHOD_PASSWORD` and seven features, netschool the same way in,
+    its sixteen regions, and four features — the table, so the new code runs;
+  - `POST /api/v2/diary/sessions` with `{}` `400` `VALIDATION_FAILED` on `credential`;
+  - `DELETE /api/v2/diary/sessions/current`, `GET /api/v2/diary/students`,
+    `…/students/1/scheduleDays` and `…/students/1/turnstileEvents` each `401` with
+    `WWW-Authenticate: Bearer`, Google's body, reason `DIARY_TOKEN_INVALID`;
+  - Connect `DiaryService/ListStudents` `401` `unauthenticated`; `CreateDiarySession` `400`
+    `invalid_argument`;
+  - no `501`.
+
 ## What the batch before added: the diary's registry as a table, its sessions and its reads over v2 — stage 3b-7 of sub-project 3 (#273)
 
 Merged as #392 (`11ee629`, 10 October 2026), from `server-v2/3b-7`, on milestone 11. It closes
@@ -7928,3 +8041,25 @@ As the paragraph stood until then:
 
 On 5 October a `/permissions` run removed twenty allow rules from the file, and the owner
 restored it with `git checkout`; none of the three lines is in it yet.
+
+## Moved out of section 7 on 11 October 2026, after the geometry pass
+
+Sub-project 3's live-verification gate began on the night of 10–11 October, and #410 decided
+where the host lives (Selectel or RUVDS), so `HANDOVER.md`'s section 7 points at #411's pull
+request, the rest of the gate, #406 and #407, then sub-project 4, and no longer asks where the
+second host lives. As the two paragraphs stood until then:
+
+**Next for the programme: sub-project 3's live tests, then sub-project 4.** Stages 3a (#342),
+3b-1 to 3b-8 and 3c (#396) are merged, and the server-v2 design is delivered: v2 serves every
+unary method beside v1 on Vercel, and the host target serves native gRPC and `WatchClass`.
+By the owner's order of 8 October, everything recorded as unverified in sub-project 3 is
+checked on the development machine before sub-project 4 starts; where the host runs is
+decided when a phone needs it (the design's question 3).
+
+**Decide where milestone 11's second host lives, when it is needed.** The design
+(`docs/specs/2026-10-03-one-contract-design.md`, section 2) adds a long-running target beside
+Vercel for native gRPC and the streaming beta, packaged as a `Dockerfile` for Cloud Run,
+Fly.io or a VPS, and deliberately leaves the place open. 3c (#396) built and proved the image
+once, by hand, on this machine, under PostgreSQL, over native gRPC; it is not deployed
+anywhere, and is not needed until a phone needs it (the design's question 3), which is
+sub-project 5's. #235 no longer waits on it: its egress is a RUVDS VPS since 5 October.

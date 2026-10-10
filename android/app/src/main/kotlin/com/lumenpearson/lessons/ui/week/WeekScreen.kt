@@ -9,14 +9,12 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,7 +32,6 @@ import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
-import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.core.model.Lesson
 import com.lumenpearson.lessons.core.model.SchoolYear
@@ -148,11 +145,11 @@ fun WeekScreen(
             selectedItem = state.view,
             onItemSelected = viewModel::setView,
             labelProvider = { view -> correctedString(view.labelRes) },
-            containerColor = MaterialTheme.colorScheme.rowContainer,
-            contentPadding = PaddingValues(4.dp),
-            // No `clip` here any more: the picker rounds its own tray, from the
-            // corner of the buttons inside it plus this padding. A radius
-            // chosen here could only ever agree with them by coincidence.
+            // No containerColor/contentPadding here any more: the picker's
+            // own default is the filled tray. No `clip` either — the tray
+            // rounds itself from the corner of the buttons inside it plus
+            // its own contentPadding. A radius chosen here could only ever
+            // agree with them by coincidence.
             modifier = Modifier.padding(horizontal = ScreenPadding),
         )
 
@@ -307,11 +304,11 @@ internal fun RibbonPage(
             selectedItem = state.view,
             onItemSelected = viewModel::setView,
             labelProvider = { view -> correctedString(view.labelRes) },
-            containerColor = MaterialTheme.colorScheme.rowContainer,
-            contentPadding = PaddingValues(4.dp),
-            // No `clip` here any more: the picker rounds its own tray, from the
-            // corner of the buttons inside it plus this padding. A radius
-            // chosen here could only ever agree with them by coincidence.
+            // No containerColor/contentPadding here any more: the picker's
+            // own default is the filled tray. No `clip` either — the tray
+            // rounds itself from the corner of the buttons inside it plus
+            // its own contentPadding. A radius chosen here could only ever
+            // agree with them by coincidence.
             modifier = Modifier.padding(horizontal = ScreenPadding),
         )
 
@@ -325,8 +322,6 @@ internal fun RibbonPage(
             selectedItem = state.dayMode,
             onItemSelected = viewModel::setDayMode,
             labelProvider = { mode -> correctedString(mode.labelRes) },
-            containerColor = MaterialTheme.colorScheme.rowContainer,
-            contentPadding = PaddingValues(4.dp),
             modifier = Modifier.padding(horizontal = ScreenPadding),
         )
 

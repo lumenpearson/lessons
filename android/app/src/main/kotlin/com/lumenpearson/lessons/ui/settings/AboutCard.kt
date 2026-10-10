@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Gavel
@@ -24,7 +23,6 @@ import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -45,11 +43,15 @@ import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.appicon.AppIconImage
 import com.lumenpearson.lessons.appicon.rememberCurrentAppIcon
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
+import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.text.correctedLine
+import com.lumenpearson.lessons.core.designsystem.theme.InlineGap
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
+import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.data.legal.LegalDocument
 import com.lumenpearson.lessons.core.data.repository.ServerStatus
 import com.lumenpearson.lessons.ui.developer.RevealTaps
@@ -62,7 +64,8 @@ import com.lumenpearson.lessons.ui.legal.rememberLegalOpener
  * The card at the very bottom of the about page: what this is, and who it is by.
  *
  * A port of Essentials' `AboutSection`, arranged as its own screenshot has it —
- * one card, everything centred, the links as pills two to a row.
+ * one card, everything centred — except that the links are pills one to a row
+ * rather than its two; [LinkPills] says why.
  *
  * Rebuilt rather than copied, because the reference has a row of defects worth
  * not inheriting. Its nine link buttons are nine copies of the same fifteen
@@ -94,15 +97,23 @@ internal fun AboutCard(
     onVersionTapped: () -> Unit = {},
 ) {
     val taps = remember { RevealTaps() }
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(CardCorner),
-        color = MaterialTheme.colorScheme.surfaceBright,
+    // A RoundedCardContainer of one row — decision 5's own words, "a group
+    // with rows like every other group" — rather than a bespoke Surface:
+    // the shape is Group by the container's own default, not a second 28 dp
+    // literal, and the content's horizontal inset is RowPadding's 16, the
+    // same number every other group's row text sits behind its own clip at.
+    // Centred prose rather than icon-tile rows is still what this card
+    // shows — only the geometry moved.
+    RoundedCardContainer(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surfaceBright,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(BlockGap),
-            modifier = Modifier.padding(horizontal = CardPadding, vertical = CardPaddingTall),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(RowPadding),
         ) {
             Text(
                 text = correctedString(R.string.about_name_and_version, BuildConfig.VERSION_NAME),
@@ -159,7 +170,7 @@ internal fun AboutCard(
 private fun AppMark() {
     AppIconImage(
         variant = rememberCurrentAppIcon(),
-        shape = RoundedCornerShape(MarkCorner),
+        shape = LessonsShapeTokens.Group,
         modifier = Modifier.size(MarkSize),
     )
 }
@@ -293,6 +304,12 @@ private fun Badges(serverStatus: ServerStatus, build: BuildProvenance) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(BadgeGap, Alignment.CenterHorizontally),
         verticalArrangement = Arrangement.spacedBy(BadgeGap),
+        // Centred, not FlowRow's default top: the repository and commit
+        // badges are tappable, and a tappable PillChip is laid out in a 48 dp
+        // slot with its capsule in the middle of it. Top-aligned beside the
+        // static badges, which are only as tall as their text, those two drew
+        // their capsules 8 dp below the top of every other badge on the line.
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         ServerBadges(serverStatus)
 
@@ -497,27 +514,20 @@ private fun LinkPill(
     }
 }
 
-/** Radius of the card. The page's other cards use the same one. */
-private val CardCorner = 24.dp
-
-private val CardPadding = 20.dp
-
-/** Taller than it is wide: the block is a column of centred lines, not a row. */
-private val CardPaddingTall = 28.dp
-
 private val BlockGap = 12.dp
 
 private val MarkSize = 96.dp
 
-private val MarkCorner = 24.dp
+private val PillGap = InlineGap
 
-private val PillGap = 8.dp
+/** Gap between two badges, in both directions of the flow: `InlineGap`, 8 dp,
+ *  the same as `PillGap` one line above. It was 6 dp; 8 puts it on the 4 dp
+ *  grid and makes the badges and the link pills one rhythm. */
+private val BadgeGap = InlineGap
 
-/** Gap between two badges, in both directions of the flow. */
-private val BadgeGap = 6.dp
-
-/** Gap between two lines of the facts block; tighter than [BlockGap]. */
-private val FactGap = 6.dp
+/** Gap between two lines of the facts block; tighter than [BlockGap]. 4, not
+ *  the 6 this was: on the grid, and still clearly tighter than 12. */
+private val FactGap = 4.dp
 
 /** The facts block, in the order they are drawn. */
 private val Facts = listOf(
