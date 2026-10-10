@@ -11,6 +11,7 @@ import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,9 +99,18 @@ fun PillChip(
 ) {
     // Clipping before the click keeps the ripple inside the capsule; Surface's
     // own clip happens too late for a modifier handed in from outside.
+    // minimumInteractiveComponentSize raises the touch target to Material's
+    // 48 dp floor without changing what is drawn — a tappable chip stays as
+    // short as its text, the way the day selector's row of seven needs it to.
+    // `clickable` already does the same on its own in this Compose Foundation
+    // (`ClickableNode`'s own touch-bounds expansion, confirmed in
+    // `PillChipTouchTargetTest` by measuring with and without this line and
+    // seeing no difference), but the floor is asked for through the
+    // documented Material API rather than left to rely on that detail.
     val interaction = when (onClick) {
         null -> Modifier
         else -> Modifier
+            .minimumInteractiveComponentSize()
             .clip(LessonsShapeTokens.Pill)
             .clickable(onClick = onClick)
     }
@@ -113,9 +123,11 @@ fun PillChip(
         border = border,
     ) {
         Row(
-            // A tappable chip gets a taller box so it clears a usable touch target.
+            // On the 4 dp grid: 16 x 8 for a tappable chip, 12 x 4 for a
+            // static one — its touch target past 48 dp comes from
+            // minimumInteractiveComponentSize above, not from this padding.
             modifier = Modifier.padding(
-                horizontal = if (onClick != null) 14.dp else 10.dp,
+                horizontal = if (onClick != null) 16.dp else 12.dp,
                 vertical = if (onClick != null) 8.dp else 4.dp,
             ),
             verticalAlignment = Alignment.CenterVertically,

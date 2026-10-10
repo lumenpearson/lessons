@@ -5,6 +5,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -58,7 +59,11 @@ class YearPickerScreenTest {
         // is what is printed on a timetable.
         compose.onNodeWithText("2026/27").assertIsDisplayed()
         compose.onNodeWithText("2024/25").assertIsDisplayed()
-        compose.onNodeWithText("2028/29").assertIsDisplayed()
+        // The last row no longer fits an un-scrolled sheet now that every
+        // GroupItem row is at least RowMinHeight tall (#404's geometry pass,
+        // Task 2) — the sheet already scrolls for exactly this (BottomSheet.kt),
+        // so the row is still offered, just not without scrolling to it first.
+        compose.onNodeWithText("2028/29").performScrollTo().assertIsDisplayed()
     }
 
     @Test

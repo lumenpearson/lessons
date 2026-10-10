@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,6 +35,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
@@ -42,6 +45,8 @@ import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.ConcentricShape
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.RowLeadingGap
+import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
@@ -226,14 +231,14 @@ fun <T> GroupSegmentedItem(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.rowContainer)
-            .padding(top = 12.dp, bottom = 12.dp),
+            .padding(top = RowPadding.calculateTopPadding(), bottom = RowPadding.calculateBottomPadding()),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = RowPadding.calculateStartPadding(LayoutDirection.Ltr)),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(RowLeadingGap),
         ) {
             if (icon != null) {
                 AccentIconTile(icon = icon, tone = tone)
@@ -246,7 +251,11 @@ fun <T> GroupSegmentedItem(
             onItemSelected = onItemSelected,
             labelProvider = labelProvider,
             iconProvider = iconProvider,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+            modifier = Modifier.padding(
+                start = RowPadding.calculateStartPadding(LayoutDirection.Ltr),
+                end = RowPadding.calculateEndPadding(LayoutDirection.Ltr),
+                top = RowPadding.calculateTopPadding(),
+            ),
         )
     }
 }

@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -19,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
@@ -26,6 +29,8 @@ import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.RowLeadingGap
+import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import java.math.BigDecimal
@@ -33,6 +38,14 @@ import java.math.RoundingMode
 
 /** Decimal places a stepped value is rounded to, so 0.7 + 0.1 is not 0.7999999. */
 private const val ValueScale = 2
+
+/**
+ * The gap under the slider's own track, rather than [RowPadding]'s 12 dp: the
+ * track is this row's content, the way a row's own text is elsewhere, so it
+ * keeps the slimmer rhythm instead of doubling up under a control that
+ * already reads as the bottom of the row.
+ */
+private val SliderBottomPadding = 4.dp
 
 /**
  * A row of a group that holds a slider, with a minus and a plus button either
@@ -82,12 +95,18 @@ fun GroupSliderItem(
         modifier = modifier
             .fillMaxWidth()
             .background(scheme.rowContainer)
-            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+            .padding(
+                start = RowPadding.calculateStartPadding(LayoutDirection.Ltr),
+                end = RowPadding.calculateEndPadding(LayoutDirection.Ltr),
+                top = RowPadding.calculateTopPadding(),
+                // Not RowPadding's own bottom — see SliderBottomPadding.
+                bottom = SliderBottomPadding,
+            ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(RowLeadingGap),
         ) {
             if (icon != null) {
                 AccentIconTile(icon = icon, tone = tone)
