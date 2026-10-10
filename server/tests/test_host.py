@@ -11,6 +11,7 @@ before it starts any server.
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import os
 import struct
@@ -102,6 +103,35 @@ async def test_native_grpc_at_the_root_over_http_1_1_meets_the_same_guard() -> N
     assert (status, body) == (415, GRPC_REFUSED.encode())
 
 
+@pytest.mark.parametrize("content_type", ["application/grpc-web", "application/grpc-web+proto"])
+async def test_grpc_web_at_the_root_is_not_native_grpc(content_type) -> None:
+    """grpc-web is Connect's own territory, kept at ``/api/rpc`` on both
+    targets; the root answers true native gRPC alone, so a grpc-web call at
+    the root reaches ``app.main``, which has no route for it there, exactly
+    as :func:`test_the_root_answers_native_grpc_and_nothing_else` does for
+    JSON."""
+    status, _body, _trailers = await _ask(
+        "/lessons.v2.DiaryService/GetDiaryCapabilities", content_type, b"{}"
+    )
+    assert status == 404
+
+
+async def test_native_grpc_at_the_root_is_unavailable_not_404_when_v2_failed_to_load(
+    monkeypatch,
+) -> None:
+    """``/api/rpc`` answers 503 (UNAVAILABLE, retried) when v2 could not be
+    loaded (``main.mount_v2``'s fallback); the root must say the same, never
+    ``app.main``'s bare 404 for a path it has no route for, which a gRPC
+    client reads as UNIMPLEMENTED and does not retry."""
+    from app.main import app as main_app
+
+    monkeypatch.setattr(main_app.state, "v2_services", None)
+    status, _body, _trailers = await _ask(
+        "/lessons.v2.DiaryService/GetDiaryCapabilities", "application/grpc", _envelope(b"")
+    )
+    assert status == 503
+
+
 async def test_everything_else_is_the_app_vercel_serves() -> None:
     sent: list[dict[str, Any]] = []
 
@@ -172,14 +202,75 @@ def test_envoy_takes_the_client_from_the_connection_on_every_listener() -> None:
         assert manager["generate_request_id"] is False
 
 
+def test_envoy_is_matched_by_its_type_rather_than_its_name() -> None:
+    """Envoy itself chooses the filter by ``typed_config``'s ``@type``, never
+    by the filter's own ``name`` — a listener whose manager carries an
+    unusual name must still be corrected."""
+    odd = copy.deepcopy(PYVOY_CONFIG)
+    for listener in odd["static_resources"]["listeners"]:
+        listener["filter_chains"][0]["filters"][0]["name"] = "an.unusual.name"
+    corrected = host.envoy_config(odd)
+    managers = [
+        chain["filters"][0]["typed_config"]
+        for listener in corrected["static_resources"]["listeners"]
+        for chain in listener["filter_chains"]
+    ]
+    assert len(managers) == 2
+    for manager in managers:
+        assert manager["use_remote_address"] is True
+        assert manager["skip_xff_append"] is True
+
+
 def test_a_configuration_with_nothing_to_correct_is_refused_rather_than_served() -> None:
     """A pyvoy that stopped writing the manager would otherwise start a host
     whose throttles a forged header walks past."""
     bare = copy.deepcopy(PYVOY_CONFIG)
     for listener in bare["static_resources"]["listeners"]:
-        listener["filter_chains"][0]["filters"][0]["name"] = "envoy.filters.network.tcp_proxy"
+        chain_filter = listener["filter_chains"][0]["filters"][0]
+        chain_filter["name"] = "envoy.filters.network.tcp_proxy"
+        chain_filter["typed_config"]["@type"] = (
+            "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy"
+        )
     with pytest.raises(RuntimeError, match="client's address"):
         host.envoy_config(bare)
+
+
+async def test_pyvoy_is_given_its_own_stdout_and_stderr_rather_than_pyvoys_default(
+    monkeypatch,
+) -> None:
+    """pyvoy 1.3.0 defaults both to ``subprocess.DEVNULL`` (its own CLI passes
+    ``None``): left at the default, the app's own logging, a traceback, and
+    why Envoy itself failed to start would all be thrown away."""
+    captured: dict[str, Any] = {}
+
+    class FakePyvoyServer:
+        def __init__(self, entry: str, **kwargs: Any) -> None:
+            captured["entry"] = entry
+            captured.update(kwargs)
+
+        async def __aenter__(self) -> FakePyvoyServer:
+            return self
+
+        async def __aexit__(self, *exc_info: Any) -> None:
+            return None
+
+        async def wait(self) -> int | None:
+            # Never resolves on its own: the stop event below is what ends
+            # the server, exactly as a real Envoy would be told to stop.
+            await asyncio.Event().wait()
+            return None
+
+        @property
+        def listener_address(self) -> str:
+            return "127.0.0.1"
+
+    monkeypatch.setattr("pyvoy.PyvoyServer", FakePyvoyServer)
+    stop = asyncio.Event()
+    stop.set()
+
+    assert await host._serve_pyvoy("127.0.0.1", 0, stop) == 0
+    assert captured["stdout"] is None
+    assert captured["stderr"] is None
 
 
 def test_the_launcher_meets_the_settings_refusal_before_any_server_starts() -> None:

@@ -56,9 +56,13 @@ ENTRY = "app.host:application"
 #: The servers this module can run, the first by default.
 SERVERS = ("pyvoy", "hypercorn")
 
-#: Envoy's HTTP connection manager: the filter whose idea of the client's
-#: address :func:`envoy_config` corrects.
-_HCM = "envoy.filters.network.http_connection_manager"
+#: The suffix of a filter's `typed_config` `@type` that marks it as Envoy's
+#: HTTP connection manager, whose idea of the client's address
+#: :func:`envoy_config` corrects. Envoy itself chooses the filter by this
+#: value, never by the filter's own `name` — which happens to spell
+#: `envoy.filters.network.http_connection_manager` in pyvoy 1.3.0's own
+#: output today, but is not what decides it.
+_HCM_TYPE_SUFFIX = ".HttpConnectionManager"
 
 
 def _main_app() -> Any:
@@ -75,15 +79,24 @@ async def application(scope: Scope, receive: Receive, send: Send) -> None:
     """``app.main``'s app, with native gRPC answered at the root as well."""
     main = _main_app()
     if scope["type"] == "http" and scope["path"].startswith(GRPC_ROOT):
-        # None when v2 could not be loaded: the path then falls to app.main,
-        # which answers it 404, while /api/rpc says 503 (main.mount_v2).
-        services = getattr(main.state, "v2_services", None)
-        if services is not None:
-            from app.rpc import is_native_grpc
+        from app.rpc import is_native_grpc
 
-            if is_native_grpc(scope):
-                await services({**scope, "root_path": ""}, receive, send)
+        if is_native_grpc(scope):
+            # None when v2 could not be loaded (app.main.mount_v2's fallback).
+            services = getattr(main.state, "v2_services", None)
+            if services is None:
+                # The same answer /api/rpc gives there: 503, read as
+                # UNAVAILABLE and retried — never app.main's bare 404 for a
+                # path it has no route for, which a gRPC client reads as
+                # UNIMPLEMENTED and does not retry.
+                from app.main import _v2_unavailable
+
+                await _v2_unavailable({**scope, "path": "/api/rpc" + scope["path"]}, receive, send)
                 return
+            await services({**scope, "root_path": ""}, receive, send)
+            return
+        # grpc-web and anything else under /lessons.v2.: Connect's own
+        # territory, kept at /api/rpc on both targets — fall through below.
     await main(scope, receive, send)
 
 
@@ -107,7 +120,7 @@ def envoy_config(config: dict[str, Any]) -> dict[str, Any]:
         for listener in config.get("static_resources", {}).get("listeners", [])
         for chain in listener.get("filter_chains", [])
         for chain_filter in chain.get("filters", [])
-        if chain_filter.get("name") == _HCM
+        if chain_filter.get("typed_config", {}).get("@type", "").endswith(_HCM_TYPE_SUFFIX)
     ]
     if not managers:
         raise RuntimeError(
@@ -138,6 +151,12 @@ async def _serve_pyvoy(host: str, port: int, stop: asyncio.Event) -> int:
         # tables and the providers' clients are closed.
         lifespan=True,
         content_encodings=["gzip"],
+        # pyvoy 1.3.0 defaults both to subprocess.DEVNULL (its own CLI passes
+        # None): left at the default, the app's own logging, a traceback, and
+        # why Envoy itself failed to start would all be thrown away, and the
+        # host's log would hold only this module's lines.
+        stdout=None,
+        stderr=None,
     )
     async with server:
         log.info("host target on %s:%s, served by pyvoy", server.listener_address, port)
