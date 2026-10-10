@@ -59,6 +59,7 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.CardPadding
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -386,7 +387,12 @@ private fun AcknowledgementStep(
             Column(
                 modifier = Modifier
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    // CardPadding, the same token (and the same value this
+                    // already was) StateHeroCard's own inner Column uses for
+                    // a card that holds prose rather than rows — this card is
+                    // inset once, by ScreenPadding, on the Surface above; this
+                    // is its own interior padding, a separate concern.
+                    .padding(CardPadding),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 Text(
