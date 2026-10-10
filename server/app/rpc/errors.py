@@ -45,6 +45,7 @@ from app.security import Throttled
 from app.services import access as access_service
 from app.services import clock, join, quota, window
 from app.services import diary as diary_service
+from app.services import diary_corrections as diary_corrections_service
 from app.services import directory as directory_service
 from app.services import homework as homework_service
 from app.services import schools as schools_service
@@ -460,6 +461,12 @@ def _unknown_student(_error: diary_service.UnknownStudent) -> Refusal:
     )
 
 
+def _corrections_unavailable(_error: diary_corrections_service.CorrectionsUnavailable) -> Refusal:
+    # Only a write meets it: a pupil the diary lists outside its own numbering
+    # has an empty list, and nothing to reset or clear.
+    return Refusal(ErrorReason.CORRECTIONS_UNAVAILABLE, wording.CORRECTIONS_UNAVAILABLE_DETAIL)
+
+
 #: Every service and provider exception a v2 method can meet, and its refusal.
 #: Matched along the exception's MRO, so a subclass is worded by its own row
 #: when it has one and by its base's otherwise. 3a holds the rows its four
@@ -509,6 +516,7 @@ TABLE: Mapping[type[Exception], Callable[[Any], Refusal]] = {
     UnexpectedResponse: _diary_unreadable,
     DiaryError: _diary_unreadable,
     diary_service.UnknownStudent: _unknown_student,
+    diary_corrections_service.CorrectionsUnavailable: _corrections_unavailable,
 }
 
 
