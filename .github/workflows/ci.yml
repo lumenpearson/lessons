@@ -123,11 +123,12 @@ jobs:
               # test_contract also holds `buf.lock`'s googleapis commit level
               # with `buf.gen.yaml`'s input.
               # `docker-compose.yml` is read by test_compose, which is all that
-              # checks it: nothing here runs Docker. `api/` and `vercel.json`
+              # checks it: nothing here runs Docker; the host's `Dockerfile` and
+              # `.dockerignore`, at the root, by test_host_image. `api/` and `vercel.json`
               # are read by test_vercel_entry, `.vercelignore` by
               # test_region_catalog. server/tests/test_ci_paths.py fails on a
               # file the suite reads that this line does not match.
-              server/*|api/*|vercel.json|.vercelignore|requirements.txt|requirements.in|.python-version|docker-compose.yml|proto/*|buf.yaml|buf.lock|buf.gen.yaml|README.md|CLAUDE.md|AGENTS.md|.github/copilot-instructions.md|docs/*.md|.claude/*.md|.github/workflows/*) server=true ;;
+              server/*|api/*|vercel.json|.vercelignore|requirements.txt|requirements.in|.python-version|docker-compose.yml|Dockerfile|.dockerignore|proto/*|buf.yaml|buf.lock|buf.gen.yaml|README.md|CLAUDE.md|AGENTS.md|.github/copilot-instructions.md|docs/*.md|.claude/*.md|.github/workflows/*) server=true ;;
             esac
             case "$file" in
               # The v2 contract and what is generated from it: the job below.

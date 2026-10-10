@@ -1,0 +1,13 @@
+# The context of the root Dockerfile, the host image: two locks and the
+# server's package. Everything else here — the Android app, the documents, the
+# history, a developer's .env and venv — would be uploaded to the builder on
+# every build and read by nothing, and a .env is a secret besides.
+# server/Dockerfile builds from server/ and does not read this file.
+*
+!requirements.txt
+!server/requirements-host.txt
+!server/pyproject.toml
+!server/app/
+!server/scripts/
+**/__pycache__
+**/*.pyc
