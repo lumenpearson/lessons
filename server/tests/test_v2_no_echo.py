@@ -36,20 +36,31 @@ def _path(key: str, fill: str = "2026") -> str:
     return "/api" + path
 
 
-def _field_paths(message) -> list[tuple[str, ...]]:
-    """Every request field, and one level into each message-typed one.
+#: How many messages deep the sweep follows a field path. A guard rather than
+#: unconditional recursion — a message type that referred to itself would
+#: recurse forever otherwise — generous beside the contract's deepest nesting
+#: today, three (``netschool.cookies.ns_session_id``).
+_MAX_FIELD_DEPTH = 8
+
+
+def _field_paths(message, _depth: int = _MAX_FIELD_DEPTH) -> list[tuple[str, ...]]:
+    """Every request field, and every field nested inside a message-typed
+    one, however deep.
 
     A body field such as ``subject`` carries ``name`` and ``color``, and a
     refusal about ``subject.name`` is as able to quote it as one about a
-    top-level field is. One level is the depth the contract has: no request
-    nests a message inside a message inside the request.
+    top-level field is — and the same is true of a field two messages down,
+    such as ``netschool.cookies.ns_session_id``: ``credential``'s
+    ``netschool`` case is a message, and its ``cookies`` is a message too. A
+    oneof's cases are fields of their own here already, since the descriptor
+    lists them that way.
     """
     paths: list[tuple[str, ...]] = []
     for field in message.fields:
         paths.append((field.json_name,))
         inner = getattr(field.value, "message", None)
-        if inner is not None:
-            paths.extend((field.json_name, sub.json_name) for sub in inner.fields)
+        if inner is not None and _depth > 0:
+            paths.extend((field.json_name, *sub) for sub in _field_paths(inner, _depth - 1))
     return paths
 
 
@@ -153,3 +164,14 @@ def test_the_sweep_reaches_a_field_inside_a_message() -> None:
     assert ("subject",) in paths
     assert ("subject", "name") in paths
     assert _nest(("subject", "name"), SECRET) == {"subject": {"name": SECRET}}
+
+
+def test_the_sweep_reaches_a_field_inside_a_message_inside_a_message() -> None:
+    """Held here rather than trusted: a sweep that went only one level deep
+    would pass on ``CreateDiarySessionRequest``, whose ``netschool`` case
+    carries ``cookies``, itself a message."""
+    paths = _field_paths(METHODS["lessons.v2.DiaryService/CreateDiarySession"].input.desc())
+    assert ("netschool", "cookies", "nsSessionId") in paths
+    assert _nest(("netschool", "cookies", "nsSessionId"), SECRET) == {
+        "netschool": {"cookies": {"nsSessionId": SECRET}}
+    }
