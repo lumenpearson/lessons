@@ -131,6 +131,29 @@ def pytest_configure(config: pytest.Config) -> None:
         )
 
 
+#: Why a test marked ``host`` did not run.
+HOST_ABSENT = (
+    "needs a running host target: LESSONS_HOST_URL is unset, as everywhere but "
+    "CI's «Host» job (docs/specs/2026-10-05-server-v2-design.md, decision 14)"
+)
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip the tests marked ``host`` unless a host is running to be asked.
+
+    They talk to ``python -m app.host`` over the network (``test_host_live.py``):
+    with no address there is nothing to ask, and a test that failed for that
+    would only teach people to ignore it. Skipped rather than deselected, so
+    the ordinary run's summary says they exist and why they did not run.
+    """
+    if os.environ.get("LESSONS_HOST_URL"):
+        return
+    absent = pytest.mark.skip(reason=HOST_ABSENT)
+    for item in items:
+        if item.get_closest_marker("host") is not None:
+            item.add_marker(absent)
+
+
 @pytest.fixture(autouse=True)
 async def fresh_database() -> AsyncIterator[None]:
     async with engine.begin() as conn:
