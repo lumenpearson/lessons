@@ -35,7 +35,7 @@ from app.providers.diary.errors import AddressRefused, SignInUnsupported
 from app.providers.netschool import client as nsclient
 from app.providers.petersburg import client as pbclient
 from app.providers.petersburg.provider import PetersburgProvider
-from app.security import diary_login_limiter, hash_token
+from app.security import diary_login_limiter, diary_open_limiter, hash_token
 from app.services import diary as diary_service
 
 CREATE = "DiaryService/CreateDiarySession"
@@ -411,6 +411,35 @@ async def test_v1_and_v2_draw_on_one_budget(v2, petersburg) -> None:
     v1 = await v2.http.post("/api/v1/diary/session", json=_v1_body(_petersburg()))
     assert (v1.status_code, v1.json()["detail"]) == (429, wording.DIARY_THROTTLED_DETAIL)
     assert len(petersburg.seen) == diary_login_limiter.limit
+
+
+async def test_v1_and_v2_draw_on_one_budget_for_opened_sessions(v2, petersburg) -> None:
+    """The ``diary-open:`` bucket is the same spelling in `api/diary.py` and
+    `rpc/diary.py` (decision 11): a caller alternating versions gets twenty
+    opened sessions in a quarter of an hour, not forty. Mirrors
+    `test_v1_and_v2_draw_on_one_budget` above, which holds the failures'
+    bucket the same way — before this, only the failures' spelling was held
+    by a test, so a typo in the opened one would have doubled this budget
+    silently."""
+    for attempt in range(diary_open_limiter.limit):
+        if attempt % 2:
+            answer = await v2.http.post("/api/v1/diary/session", json=_v1_body(_petersburg()))
+            assert answer.status_code == 200
+        else:
+            assert (await v2.rest(CREATE, _petersburg())).status == 201
+    # Each transport on its own, as above: the seconds left are counted at
+    # each call, and two calls a millisecond apart may straddle a second.
+    rest = await v2.rest(CREATE, _petersburg())
+    connect = await v2.connect(CREATE, _petersburg())
+    for refused in (rest, connect):
+        assert (refused.code, refused.reason, refused.error) == (
+            "RESOURCE_EXHAUSTED",
+            "THROTTLED",
+            wording.DIARY_THROTTLED_DETAIL,
+        )
+    v1 = await v2.http.post("/api/v1/diary/session", json=_v1_body(_petersburg()))
+    assert (v1.status_code, v1.json()["detail"]) == (429, wording.DIARY_THROTTLED_DETAIL)
+    assert len(petersburg.seen) == diary_open_limiter.limit
 
 
 async def test_signing_out_ends_the_token_and_the_session(v2, petersburg) -> None:

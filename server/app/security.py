@@ -353,6 +353,14 @@ class Throttled(Exception):
         return int(self.retry_after) + 1
 
 
+#: The caller's two diary buckets, named once so `api/diary.py` and
+#: `rpc/diary.py` cannot spell either apart (decision 11): before this, only
+#: `"diary:"` was held by a test, so a typo in `"diary-open:"` on one side
+#: would have doubled a caller's budget silently.
+DIARY_FAILURES_BUCKET = "diary:"
+DIARY_OPENED_BUCKET = "diary-open:"
+
+
 class DiaryAttempt:
     """One attempt on either diary door, counted by both diary limiters until
     the outcome says which of the two it was.

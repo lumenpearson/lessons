@@ -68,10 +68,11 @@ from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.crypto import diary_enabled
 from app.models import DiarySession as DiarySessionRow
 from app.providers.diary.models import AcademicPeriod, Mark, Student
-from app.providers.diary.registry import PETERSBURG, TABLE, Feature, row_for
+from app.providers.diary.registry import NETSCHOOL, PETERSBURG, TABLE, Feature, row_for
 from app.rpc import dates, values
 from app.rpc.errors import Refusal, validate
 from app.schemas import NetSchoolSessionIn, PetersburgSessionIn
+from app.security import DIARY_FAILURES_BUCKET, DIARY_OPENED_BUCKET
 from app.services import diary as diary_service
 from app.services import diary_overrides as overrides
 
@@ -80,9 +81,10 @@ if TYPE_CHECKING:
 
 #: v1's schema for each case of the request's ``credential``, which is the
 #: provider's key: v1's ``DiarySessionBody`` told the two apart by ``provider``.
+#: Named through the registry rather than spelled again, so the two cannot drift.
 _SESSIONS: dict[str, type[PetersburgSessionIn] | type[NetSchoolSessionIn]] = {
-    "petersburg": PetersburgSessionIn,
-    "netschool": NetSchoolSessionIn,
+    PETERSBURG: PetersburgSessionIn,
+    NETSCHOOL: NetSchoolSessionIn,
 }
 
 #: v1's spelling of a credential's field where v2's differs: the two cookies,
@@ -243,8 +245,8 @@ async def create_diary_session(
         handed=form.credential.model_dump(exclude_none=True),
         region=netschool.region if netschool is not None else None,
         school_id=netschool.school_id if netschool is not None else None,
-        failures_key=call.bucket("diary:"),
-        opened_key=call.bucket("diary-open:"),
+        failures_key=call.bucket(DIARY_FAILURES_BUCKET),
+        opened_key=call.bucket(DIARY_OPENED_BUCKET),
     )
     row = registered.row
     return CreateDiarySessionResponse(

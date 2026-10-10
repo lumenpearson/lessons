@@ -72,7 +72,7 @@ from app.schemas import (
     NetSchoolCapabilitiesOut,
     NetSchoolSessionIn,
 )
-from app.security import DiaryAttempt, Throttled
+from app.security import DIARY_FAILURES_BUCKET, DIARY_OPENED_BUCKET, DiaryAttempt, Throttled
 from app.security import diary_login_limiter as diary_login_limiter
 from app.security import diary_open_limiter as diary_open_limiter
 from app.services import clock, diary_corrections
@@ -248,8 +248,8 @@ _THROTTLED_DETAIL = wording.DIARY_THROTTLED_DETAIL
 def _buckets(request: Request) -> dict[str, str]:
     """The caller's two diary buckets, as `DiaryAttempt.admit` takes them."""
     return {
-        "failures_key": request_bucket(request, scope="diary:"),
-        "opened_key": request_bucket(request, scope="diary-open:"),
+        "failures_key": request_bucket(request, scope=DIARY_FAILURES_BUCKET),
+        "opened_key": request_bucket(request, scope=DIARY_OPENED_BUCKET),
     }
 
 
