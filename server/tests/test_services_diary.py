@@ -21,6 +21,7 @@ import pytest
 from httpx import ASGITransport
 from sqlalchemy import func, select
 
+from app import wording
 from app.crypto import seal
 from app.db import SessionLocal
 from app.main import app
@@ -188,8 +189,12 @@ async def test_each_outcome_is_counted_as_v1_counted_it(
         assert [student.id for student in registered.students] == [4021]
         assert (registered.row.provider, registered.zone) == ("petersburg", "Europe/Moscow")
     else:
-        with pytest.raises(raised):
+        with pytest.raises(raised) as caught:
             await _register(session)
+        if raised is service.SessionRefused:
+            # Its own sentence, not BadCredentials's «Неверный логин или
+            # пароль» — a session is not a password (decision 2).
+            assert caught.value.message == wording.DIARY_SESSION_REFUSED_DETAIL
     assert [request.credential for request in handed] == [JWT]
     assert await _counted() == counted
 

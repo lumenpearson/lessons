@@ -39,6 +39,7 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.crypto import diary_enabled, seal, unseal
 from app.db import rows_affected
 from app.models import DiarySession, SchoolClass
@@ -117,8 +118,12 @@ class SessionRefused(BadCredentials):
     again», and here that would loop: the session was good on the phone seconds
     ago, and it is this server the diary will not take it from. A
     :class:`BadCredentials`, because nothing retried with it will help, and so
-    every shell words the two alike.
+    every shell words the two alike — but not by inheriting its message:
+    «Неверный логин или пароль» is wrong for a session, not a password, so this
+    carries v1's own sentence instead.
     """
+
+    message = wording.DIARY_SESSION_REFUSED_DETAIL
 
 
 class UnknownStudent(LookupError):
