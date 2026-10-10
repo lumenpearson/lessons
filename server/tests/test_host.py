@@ -18,6 +18,7 @@ import struct
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -264,7 +265,10 @@ async def test_pyvoy_is_given_its_own_stdout_and_stderr_rather_than_pyvoys_defau
         def listener_address(self) -> str:
             return "127.0.0.1"
 
-    monkeypatch.setattr("pyvoy.PyvoyServer", FakePyvoyServer)
+    # pyvoy is the host's own dependency (requirements-host.txt), not the
+    # suite's: CI's server job never installs it, so the module is replaced
+    # whole rather than patched, and the test asks the same with or without it.
+    monkeypatch.setitem(sys.modules, "pyvoy", SimpleNamespace(PyvoyServer=FakePyvoyServer))
     stop = asyncio.Event()
     stop.set()
 
