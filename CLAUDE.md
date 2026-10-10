@@ -68,7 +68,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3233 tests in about four minutes, six of them skipped unless a
+- **`pytest -q -n auto`** — 3240 tests in about four minutes, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a

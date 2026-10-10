@@ -1673,7 +1673,7 @@ unaffected.
 `python -m app.host` serves this whole API — v1, v2 over REST and Connect, the webhook and
 the tick — and native gRPC, over HTTP/1.1 and HTTP/2 with prior knowledge on one port
 (`docs/deploy.md`, «Option 3: the host target»). It is the same app, and nothing on this
-page answers differently there but two things.
+page answers differently there but three things.
 
 - **Native gRPC.** A refusal is the same `google.rpc.Status` the other transports carry, in
   `grpc-status`, `grpc-message` and `grpc-status-details-bin`. A method the contract does not
@@ -1692,15 +1692,15 @@ page answers differently there but two things.
   `DEVICE_TOKEN_INVALID` at the next change, or within the thirty seconds. The host is one
   instance, because a stream hears what that one process writes; a script writing the
   database directly wakes nobody.
-- **A phone holds one stream.** A newer `WatchClass` from the same phone ends the one it
-  held before, at once and cleanly, with no error, and leaves every other phone's stream
-  alone: a stream that ends without an error has been replaced, and a client keeps one per
-  phone rather than reopening it. The host learns that a phone has gone only when it next
-  writes to it. A phone that closes its connection is forgotten at its stream's next message,
-  within the thirty seconds. One that drops off the network without closing it keeps its
-  stream, and a gate every thirty seconds, until the host's kernel gives up on the
-  connection — about a quarter of an hour on Linux's defaults, by calculation — or until the
-  phone opens a new stream, which ends the old one.
+- **A phone holds one stream.** A newer `WatchClass` under the same device token ends the
+  one it held before, at once and cleanly, with no error, and leaves every other phone's
+  stream alone: a stream that ends without an error has been replaced, and a client keeps
+  one per phone rather than reopening it. A closed connection reaches the host at once, but
+  the host only acts on it — ending that stream — at its next message, within the thirty
+  seconds. One that drops off the network without closing it keeps its stream, and a gate
+  every thirty seconds, until the host's kernel gives up on the connection — about a quarter
+  of an hour on Linux's defaults, by calculation — or until the same token opens a new
+  stream, which ends the old one.
 
 ### What REST adds
 
