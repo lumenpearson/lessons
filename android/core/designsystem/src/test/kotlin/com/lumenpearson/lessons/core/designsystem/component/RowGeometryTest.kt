@@ -141,10 +141,23 @@ class RowMinimumHeightTest {
     /**
      * Task 2's review named this the one Major gap: `GroupSliderItem` is on
      * the design doc's own list of rows that share `RowMinHeight`, but its
-     * outer `Column` carried no floor at all. Latent today — a slider plus
-     * two 48 dp `IconButton`s is already well over 56 dp — which is exactly
-     * why only a measurement, not a reading of the source, would have caught
-     * its absence.
+     * outer `Column` carried no floor at all.
+     *
+     * **This is a floor for the future, not a red/green test, and that is
+     * checked rather than assumed.** A fix round traced Material 3
+     * 1.5.0-alpha24's own sources for every control this row can hold: a
+     * plain `IconButton` has no fixed 48 dp container — only a 48 dp *touch*
+     * target around a 40 dp one (`IconButtonDefaults.smallContainerSize()`,
+     * `SmallIconButtonTokens.ContainerHeight`) — and a horizontal `Slider`'s
+     * own thumb is 44 dp (`SliderTokens.HandleHeight`). Both are drawn in
+     * the *same* row here, so that row alone is at least 44 dp before the
+     * title row above it adds anything, and no choice of `title`, `icon` or
+     * `subtitle` changes either number — there is no parameter that removes
+     * either row. So this test cannot go red by shrinking the content passed
+     * to it; what it still catches is `.heightIn(min = RowMinHeight)` itself
+     * going missing from the source, the same way a type error would, just
+     * slower — a real property, stated for what it is rather than claimed as
+     * the red/green catch a Major finding first called it.
      */
     @Test
     fun `a GroupSliderItem is at least 56 dp tall`() {
@@ -165,7 +178,17 @@ class RowMinimumHeightTest {
         assertAtLeastRowMinHeight(compose.onNodeWithTag(Tag).getUnclippedBoundsInRoot().height.value)
     }
 
-    /** Same Major gap as [GroupSliderItem], same reason, same fix. */
+    /**
+     * Same Major gap as [GroupSliderItem], and the same finding: a plain
+     * `ToggleButton` — what `SegmentedPicker` builds each segment from —
+     * carries its own `.defaultMinSize(minHeight = ToggleButtonDefaults
+     * .MinHeight)`, 40 dp (`ButtonSmallTokens.ContainerHeight`), underneath
+     * whatever `contentPadding` is passed to it; `SegmentedPicker` passes
+     * one, but it cannot shrink that floor. Added to the title row above it,
+     * no choice of `title` or `items` brings this under 56 dp either. A
+     * floor for the future, not a red/green test — see [GroupSliderItem]'s
+     * own note for why that is checked, not assumed.
+     */
     @Test
     fun `a GroupSegmentedItem is at least 56 dp tall`() {
         compose.setContent {

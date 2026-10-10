@@ -22,6 +22,7 @@ import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
+import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
@@ -160,10 +161,16 @@ private fun AgendaRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(LessonsShapeTokens.Row)
+            // Cell, not Row: this row is standalone (spaced apart, no group
+            // clip rounding it), so decision 2's reasoning for the weekday
+            // tile and the month-grid cell applies here too. RowPadding for
+            // the same reason the 14 dp here was off the grid — it is
+            // horizontal 16 and vertical 12 already, so the fix is the token
+            // rather than a new literal.
+            .clip(LessonsShapeTokens.Cell)
             .background(container)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(RowPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

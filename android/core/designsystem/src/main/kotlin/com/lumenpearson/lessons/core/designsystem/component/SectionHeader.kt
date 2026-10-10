@@ -67,15 +67,27 @@ fun SectionHeader(
     onActionClick: (() -> Unit)? = null,
     titleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
+    val hasAction = actionLabel != null && onActionClick != null
     Row(
         modifier = modifier
             .fillMaxWidth()
-            // Symmetric, on the grid: the owner's screenshot showed this
-            // header's action sitting short of the screen margin the three
-            // other elements in the same shot all land on exactly, because
-            // this used to be `end = 6.dp` — off the 4 dp grid, and 10 dp
-            // short of ScreenPadding on a side nothing else shortens.
-            .padding(horizontal = ScreenPadding, vertical = InlineGap),
+            .padding(
+                start = ScreenPadding,
+                // TextButton pads its own content 12 dp at each end
+                // (ButtonDefaults.TextButtonContentPadding) — a fixed
+                // measure of the button, not of this row — so when the
+                // action is shown the row's own end has to give up those
+                // 12 dp for the label and the arrow to land exactly on
+                // ScreenPadding themselves. With no action there is no
+                // button eating into it, so the end is ScreenPadding, same
+                // as the start. Fixing this at a flat ScreenPadding on both
+                // sides (what shipped first) put the ink 12 dp short of the
+                // switcher, the chips and the weekday strip it was meant to
+                // match — bounds do not mean ink, for a button.
+                end = if (hasAction) ScreenPadding - TextButtonEndPadding else ScreenPadding,
+                top = InlineGap,
+                bottom = InlineGap,
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -114,6 +126,16 @@ fun SectionHeader(
         }
     }
 }
+
+/**
+ * Material's own `TextButtonContentPadding` end value (1.5.0-alpha24,
+ * `Button.kt`'s `TextButtonHorizontalPadding`). Named here, not read off
+ * `ButtonDefaults`, because what this file needs is the number, not a
+ * `PaddingValues` to destructure every time; a future Material bump that
+ * changes this would need this constant moved anyway, and it would be found
+ * exactly as a corner literal is — by the number no longer matching.
+ */
+private val TextButtonEndPadding = 12.dp
 
 @Preview(name = "SectionHeader", showBackground = true)
 @Composable

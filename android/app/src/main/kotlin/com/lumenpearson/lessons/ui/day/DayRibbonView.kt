@@ -69,6 +69,7 @@ import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.InlineGap
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
+import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.neutralTone
@@ -446,7 +447,7 @@ private fun RibbonRow(
                 ),
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(RowPadding),
         // InlineGap, not the 6 dp this was: on the grid.
         verticalArrangement = Arrangement.spacedBy(InlineGap),
     ) {
@@ -641,9 +642,9 @@ internal fun ribbonEdgeHeight(viewportHeight: Float, fullHeight: Float): Float {
 /** No more of the ribbon than this may be under a fade, at each end. */
 private const val EdgeShare = 0.12f
 private val ProgressHeight: Dp = 6.dp
-/** 12, not the 10 this was: on the grid, and the same rhythm as a row's own
- *  top/bottom padding (line 448), so the gap between two cards reads as one
- *  more step of it rather than an unrelated number. */
+/** 12, not the 10 this was: on the grid, and the same rhythm as a card's own
+ *  RowPadding top/bottom, so the gap between two cards reads as one more
+ *  step of it rather than an unrelated number. */
 private val RowGap: Dp = 12.dp
 private val GroupGap: Dp = 16.dp
 

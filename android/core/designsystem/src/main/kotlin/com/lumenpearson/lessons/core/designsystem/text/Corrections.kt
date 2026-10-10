@@ -4,7 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -24,6 +23,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import java.util.Locale
 
 /**
@@ -259,10 +259,16 @@ private fun Modifier.correctionTarget(onLongPress: () -> Unit): Modifier {
     val outline = MaterialTheme.colorScheme.tertiary
 
     return this
+        // Row (4 dp), not Cell: the border wraps a line of text, so the
+        // deciding dimension is the line's own height, not the word's
+        // width — RoundedCornerShape clamps a corner to half the shorter
+        // side, and Cell's 12 dp is already a full capsule on a label line,
+        // which is not legible as "a rectangle with a touch of rounding" at
+        // every size this outline is actually asked to wrap. Row is.
         .border(
             width = OutlineWidth,
             color = outline.copy(alpha = OutlineAlpha),
-            shape = RoundedCornerShape(OutlineCorner),
+            shape = LessonsShapeTokens.Row,
         )
         .pointerInput(Unit) {
             awaitEachGesture {
@@ -315,18 +321,6 @@ private suspend fun AwaitPointerEventScope.swallowRestOfGesture(pointer: Pointer
 }
 
 private val OutlineWidth: Dp = 1.dp
-
-/**
- * A reasoned exception to the four-value corner scale (#404's geometry pass),
- * not an oversight: this outline wraps whatever text a correction target
- * happens to be, from a single short word to a wrapped paragraph, and
- * [LessonsShapeTokens.Cell]'s 12 dp reads as a near-pill around the smallest
- * of those — a single two- or three-letter Russian word is not much wider
- * than 12 dp is tall, so a corner meant to soften a rectangle would instead
- * swallow it. 8 dp stays legible as "a rectangle with a touch of rounding"
- * at every size this outline is actually asked to wrap.
- */
-private val OutlineCorner: Dp = 8.dp
 
 /** Enough to see where the targets are, faint enough to read the page through. */
 private const val OutlineAlpha = 0.5f

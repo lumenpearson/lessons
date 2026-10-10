@@ -77,59 +77,64 @@ internal fun DayPanel(
             modifier = Modifier.padding(start = ScreenPadding),
         )
 
-        DayChips(day = day, date = date, modifier = Modifier.padding(horizontal = ScreenPadding))
+        // One padded Column for everything but the header, rather than each
+        // child naming ScreenPadding on its own: the fix round that added
+        // this found the per-child version left a trap for the next row
+        // anybody adds here — nothing would stop it landing flush at the
+        // true edge, at 0 dp, the one failure mode this guards against.
+        Column(
+            modifier = Modifier.padding(horizontal = ScreenPadding),
+            verticalArrangement = Arrangement.spacedBy(GroupSpacing),
+        ) {
+            DayChips(day = day, date = date)
 
-        when {
-            // Three ways to be empty, and they were one until the cache learned
-            // to hold more than a year. «Нет данных» about a year nobody has
-            // asked for is a timetable that looks like it stops; «загружаю» is
-            // the same screen with the truth on it.
-            schoolDay == null && day?.isFetched == false -> EmptyState(
-                title = correctedString(
-                    if (loadingYear) {
-                        R.string.week_year_loading_title
-                    } else {
-                        R.string.week_year_missing_title
-                    },
-                ),
-                description = correctedString(
-                    if (loadingYear) {
-                        R.string.week_year_loading_description
-                    } else {
-                        R.string.week_year_missing_description
-                    },
-                    yearLabel(SchoolYear.openingYearOf(date)),
-                ),
-                modifier = Modifier.padding(horizontal = ScreenPadding),
-            )
+            when {
+                // Three ways to be empty, and they were one until the cache
+                // learned to hold more than a year. «Нет данных» about a year
+                // nobody has asked for is a timetable that looks like it
+                // stops; «загружаю» is the same screen with the truth on it.
+                schoolDay == null && day?.isFetched == false -> EmptyState(
+                    title = correctedString(
+                        if (loadingYear) {
+                            R.string.week_year_loading_title
+                        } else {
+                            R.string.week_year_missing_title
+                        },
+                    ),
+                    description = correctedString(
+                        if (loadingYear) {
+                            R.string.week_year_loading_description
+                        } else {
+                            R.string.week_year_missing_description
+                        },
+                        yearLabel(SchoolYear.openingYearOf(date)),
+                    ),
+                )
 
-            schoolDay == null -> EmptyState(
-                title = correctedString(R.string.week_no_data_title),
-                description = correctedString(R.string.week_no_data_description),
-                modifier = Modifier.padding(horizontal = ScreenPadding),
-            )
+                schoolDay == null -> EmptyState(
+                    title = correctedString(R.string.week_no_data_title),
+                    description = correctedString(R.string.week_no_data_description),
+                )
 
-            lessons.isEmpty() -> EmptyState(
-                title = correctedString(R.string.week_day_off_title),
-                description = schoolDay.offReason.asEmptyDescription(),
-                modifier = Modifier.padding(horizontal = ScreenPadding),
-            )
+                lessons.isEmpty() -> EmptyState(
+                    title = correctedString(R.string.week_day_off_title),
+                    description = schoolDay.offReason.asEmptyDescription(),
+                )
 
-            else -> LessonGroup(
-                lessons = lessons,
-                now = now,
-                showTeacher = showTeacher,
-                onLessonClick = onLessonClick,
-                modifier = Modifier.padding(horizontal = ScreenPadding),
+                else -> LessonGroup(
+                    lessons = lessons,
+                    now = now,
+                    showTeacher = showTeacher,
+                    onLessonClick = onLessonClick,
+                )
+            }
+
+            DayExtras(
+                day = schoolDay,
+                showEvents = showEvents,
+                showHomework = showHomework,
             )
         }
-
-        DayExtras(
-            day = schoolDay,
-            showEvents = showEvents,
-            showHomework = showHomework,
-            modifier = Modifier.padding(horizontal = ScreenPadding),
-        )
     }
 }
 

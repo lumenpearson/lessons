@@ -27,14 +27,21 @@ import org.junit.Test
  * literal picked in a screen is exactly how the audit found nine distinct
  * radii in the first place.
  *
- * Two shapes of offender, both read as plain text, comments stripped first so
+ * Three shapes of offender, all read as plain text, comments stripped first so
  * that a sentence quoting one in prose is not mistaken for one:
  * - a `RoundedCornerShape(` call, read as the whole balanced expression from
  *   its opening paren to its matching close — across however many lines it
  *   spans and past however many nested calls sit inside it — carrying a
  *   numeric `.dp` literal or `percent =` anywhere inside that span;
  * - a `val` whose name ends in `Corner`, bound to a `.dp` literal — a private
- *   constant re-inventing a token under a name of its own.
+ *   constant re-inventing a token under a name of its own;
+ * - a bare `CircleShape` token, the spec's own third promise ("What holds
+ *   it": "a `CircleShape` given to a button or a chip") — left out of Task 1's
+ *   guard and said so there, closed now that Task 3 has removed every
+ *   `CircleShape`-as-pill-button in the app. [circleShapeAllowance] is the
+ *   standing, non-pending list of what a `CircleShape` is allowed to be
+ *   instead: a dot, a disc, a badge, a circular preview — read [circleShapeAllowance]'s
+ *   own doc for the file-by-file reasons.
  *
  * The first shape used to be read one physical line at a time, bounded at the
  * first `)` — which missed a call wrapped across lines (`DayAccent.kt`'s own
@@ -62,11 +69,12 @@ import org.junit.Test
  * until Tasks 2 and 3 moved each onto a token; the test below that checks it
  * against the source fails the day a count in it no longer matches, so a
  * fixed site had to be taken out of the list by hand rather than the list
- * quietly going stale while the count it was given kept passing. One entry
- * is left, and it is not pending: `text/Corrections.kt`'s outline wraps text
- * of every size a correction target can be, down to a single short word, and
- * [LessonsShapeTokens.Cell]'s 12 dp reads as a near-pill around the smallest
- * of those — see the reason written beside its own declaration.
+ * quietly going stale while the count it was given kept passing. It is
+ * **empty** now: `text/Corrections.kt`'s outline, the one entry the Task 3
+ * report had kept as a reasoned exception, reads [LessonsShapeTokens.Row]
+ * (4 dp) instead — the fix round that emptied this map found the earlier
+ * reasoning backwards, because the border's deciding dimension is the text
+ * line's own height, and `Cell`'s 12 dp is already a capsule on a label line.
  */
 class GeometryScaleTest {
 
@@ -107,7 +115,7 @@ class GeometryScaleTest {
      * nothing to be measured against, so it is flagged outright.
      */
     @Test
-    fun `no corner radius outside the pending allowance is a raw literal`() {
+    fun `no corner radius outside the one file that declares the scale is a raw literal`() {
         val byFile = offenders().groupBy { it.file }
         val beyondAllowance = byFile.entries.flatMap { (file, found) ->
             val allowed = allowance[file] ?: 0
@@ -115,10 +123,9 @@ class GeometryScaleTest {
         }
 
         assertTrue(
-            "A corner radius outside the pending allowance of #404's Task 1 is a " +
-                "raw literal rather than a token read from theme/Shape.kt. Either " +
-                "point it at LessonsShapeTokens/LessonsShapes, or — if this is " +
-                "Task 2 or 3's own work landing — add it to the allowance in the " +
+            "A corner radius is a raw literal rather than a token read from " +
+                "theme/Shape.kt. Point it at LessonsShapeTokens/LessonsShapes, or " +
+                "— if this is new work landing — add it to the allowance in the " +
                 "same commit that introduces it and remove it again once it reads " +
                 "a token:\n" + beyondAllowance.joinToString("\n") { "${it.file}:${it.line}: ${it.text}" },
             beyondAllowance.isEmpty(),
@@ -145,6 +152,93 @@ class GeometryScaleTest {
                 "standing at the old number, which is what keeps the list from " +
                 "rotting into a blanket exemption:\n" + stale.joinToString("\n"),
             stale.isEmpty(),
+        )
+    }
+
+    /**
+     * The guard's third promise: a `CircleShape` is either in
+     * [circleShapeAllowance] — a dot, a disc, a badge, a circular preview,
+     * each with its own reason — or it is a raw literal standing in for
+     * `LessonsShapeTokens.Pill`/`Tile`, which is exactly what Task 3 removed
+     * eleven of.
+     */
+    @Test
+    fun `no CircleShape outside the allowance is given to a button or a chip`() {
+        val byFile = circleShapeOffenders().groupBy { it.file }
+        val beyondAllowance = byFile.entries.flatMap { (file, found) ->
+            val allowed = circleShapeAllowance[file] ?: 0
+            if (found.size > allowed) found.drop(allowed) else emptyList()
+        }
+
+        assertTrue(
+            "A CircleShape outside circleShapeAllowance is standing in for a " +
+                "Pill or a Tile. Either point it at LessonsShapeTokens.Pill/Tile, " +
+                "or — if this really is a circle (a dot, a disc, a badge, a " +
+                "circular preview) — add it to circleShapeAllowance with its " +
+                "own reason:\n" + beyondAllowance.joinToString("\n") { "${it.file}:${it.line}: ${it.text}" },
+            beyondAllowance.isEmpty(),
+        )
+    }
+
+    /** The CircleShape allowance's own drift check — see the corner allowance's. */
+    @Test
+    fun `the CircleShape allowance names exactly today's real circles, not more and not fewer`() {
+        val counted = circleShapeOffenders().groupingBy { it.file }.eachCount()
+        val stale = circleShapeAllowance.entries
+            .filter { (file, count) -> (counted[file] ?: 0) != count }
+            .map { (file, count) -> "$file: allowance says $count, the source now has ${counted[file] ?: 0}" }
+
+        assertTrue(
+            "The CircleShape allowance has drifted from the source:\n" + stale.joinToString("\n"),
+            stale.isEmpty(),
+        )
+    }
+
+    // --- Fixture tests for the CircleShape scanner ---
+
+    @Test
+    fun `a bare CircleShape literal is caught`() {
+        val found = circleShapeOffenders(listOf(1 to "shape = CircleShape,"))
+        assertTrue("A bare CircleShape should be caught. Found: $found", found.isNotEmpty())
+    }
+
+    @Test
+    fun `a fully-qualified CircleShape reference is caught`() {
+        // CalendarGrids.kt's own load dot writes it this way, with no import.
+        val found = circleShapeOffenders(
+            listOf(1 to ".clip(androidx.compose.foundation.shape.CircleShape)"),
+        )
+        assertTrue("A fully-qualified reference should still be caught. Found: $found", found.isNotEmpty())
+    }
+
+    /**
+     * The first real run of this scanner over both trees counted one extra
+     * offender in every file that imports `CircleShape` at all — the import
+     * line itself, which names the type with no call after it the way
+     * `RoundedCornerShape(` always has one, so nothing about the regex told
+     * the import apart from a use. Excluded by name instead.
+     */
+    @Test
+    fun `an import line is not itself an offender`() {
+        val found = circleShapeOffenders(
+            listOf(1 to "import androidx.compose.foundation.shape.CircleShape"),
+        )
+        assertTrue("An import line must not be flagged. Found: $found", found.isEmpty())
+    }
+
+    @Test
+    fun `CircleShape in prose is not mistaken for a comment-stripping bug`() {
+        // circleShapeOffenders is a pure function over already comment-stripped
+        // lines — it does not itself filter `//` — so a sentence of prose
+        // quoting "CircleShape" is caught here too; what actually keeps a
+        // comment like this one out of offenders() is nonPreviewLines calling
+        // stripComments first, the same split the corner scanner relies on.
+        val found = circleShapeOffenders(listOf(1 to "// a sentence that quotes CircleShape"))
+        assertTrue(
+            "This function does not strip comments itself, so this line is " +
+                "flagged — confirming offenders() needs nonPreviewLines to run " +
+                "first, not this scanner alone. Found: $found",
+            found.isNotEmpty(),
         )
     }
 
@@ -230,6 +324,36 @@ class GeometryScaleTest {
         }
         (cornerVals + roundedCornerShapes).sortedBy { it.line }
     }
+
+    /** Every `CircleShape` token across both scanned trees, one per [Offender]. */
+    private fun circleShapeOffenders(): List<Offender> = scannedFiles.flatMap { file ->
+        val relative = file.relativeTo(root).invariantSeparatorsPath
+        circleShapeOffenders(nonPreviewLines(file)).map { (number, text) ->
+            Offender(relative, number, "a CircleShape — $text")
+        }
+    }
+
+    /**
+     * Every line in [lines] carrying a bare `CircleShape` token, qualified or
+     * not — `CalendarGrids.kt`'s own load dot writes the fully-qualified
+     * `androidx.compose.foundation.shape.CircleShape` with no import, and the
+     * word boundary before `CircleShape` still matches past the dot — except
+     * an `import` line itself. `RoundedCornerShape(` cannot match one of
+     * those, since an import names a type with no call after it, but
+     * `CircleShape` is a bare value with nothing to tell a use from its own
+     * import by shape alone; the first real run of this scanner counted
+     * exactly one import line per file that has one, which this excludes by
+     * name rather than by a second, parallel allowance for "files that
+     * import CircleShape at all".
+     */
+    private fun circleShapeOffenders(lines: List<Pair<Int, String>>): List<Pair<Int, String>> =
+        lines.mapNotNull { (number, text) ->
+            if (!text.trimStart().startsWith("import ") && circleShapeLiteral.containsMatchIn(text)) {
+                number to text.trim()
+            } else {
+                null
+            }
+        }
 
     /**
      * Every `RoundedCornerShape(` call in [lines], read as the whole balanced
@@ -401,19 +525,41 @@ class GeometryScaleTest {
         val cornerValLiteral = Regex("""\bval\s+\w*Corner\b[^=]*=\s*\d+(\.\d+)?\.dp""")
 
         /**
-         * What is left once Task 3 of #404 moved every other 2026-10-10 audit
-         * finding onto a token: one entry, kept on purpose rather than pending.
-         * [Corrections.kt]'s outline wraps whatever text a correction target
-         * happens to be — a single short word as often as a wrapped paragraph
-         * — and [LessonsShapeTokens.Cell]'s 12 dp reads as a near-pill around
-         * the smallest of those, so 8 dp stays a literal; see the reasoning
-         * written beside its own declaration (`text/Corrections.kt`'s
-         * `OutlineCorner`). Every other site this map used to name — a `*Corner`
-         * constant or a raw `RoundedCornerShape(...)` literal — now reads a
-         * token instead.
+         * A bare `CircleShape` token — see [circleShapeOffenders]. Not anchored
+         * to `shape =` or `.clip(` on purpose: every real use found by the
+         * 2026-10-10 audit and this fix round was one of those two forms, but
+         * a plain word match is simpler than guessing every syntax a future
+         * one might take, and [circleShapeAllowance] is where the real
+         * circles are told apart from everything else by hand regardless.
          */
-        val allowance: Map<String, Int> = mapOf(
-            "core/designsystem/src/main/kotlin/com/lumenpearson/lessons/core/designsystem/text/Corrections.kt" to 1,
+        val circleShapeLiteral = Regex("""\bCircleShape\b""")
+
+        /**
+         * Empty once Task 3 of #404 moved every 2026-10-10 audit finding onto
+         * a token — see this class's own doc for `text/Corrections.kt`'s move
+         * from `Cell` to `Row`, the one entry a fix round found was itself
+         * wrong rather than merely pending.
+         */
+        val allowance: Map<String, Int> = emptyMap()
+
+        /**
+         * `CircleShape` used for something that actually is a circle, not a
+         * stand-in for `LessonsShapeTokens.Pill`/`Tile` — a standing list, not
+         * a pending one, because none of these is meant to move onto a token:
+         * - `ui/week/CalendarGrids.kt` (1) — the week-strip and month-grid
+         *   load dot, a few dp wide.
+         * - `core/designsystem/.../component/FloatingToolbar.kt` (3) — the
+         *   held tab's disc, and the tab's and the action button's own
+         *   notification badge, each a small filled circle.
+         * - `ui/settings/AppIconRows.kt` (2) — the "what a circle mask looks
+         *   like" preview beside the squircle one, and the settings row's own
+         *   small round preview of the icon currently in use.
+         */
+        val circleShapeAllowance: Map<String, Int> = mapOf(
+            "app/src/main/kotlin/com/lumenpearson/lessons/ui/week/CalendarGrids.kt" to 1,
+            ("core/designsystem/src/main/kotlin/com/lumenpearson/lessons/core/designsystem/" +
+                "component/FloatingToolbar.kt") to 3,
+            "app/src/main/kotlin/com/lumenpearson/lessons/ui/settings/AppIconRows.kt" to 2,
         )
     }
 }

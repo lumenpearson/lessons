@@ -79,7 +79,14 @@ private val SegmentFadeWidth = 8.dp
  *
  * @param contentPadding the tray's inset around the segments, when
  *   [containerColor] draws one. Its top is the one number the tray's corners
- *   and the gaps between segments are both derived from.
+ *   and the gaps between segments are both derived from. Defaults to the
+ *   filled 4 dp tray every standalone picker in the app wants — the
+ *   calendar's view switcher and day-mode picker, the homework filter, the
+ *   ribbon's flow picker — so a caller does not have to copy the same two
+ *   parameters to get it, and a new caller that forgets them still does.
+ *   [GroupSegmentedItem] is the one caller that does not want a tray: its own
+ *   row already fills with [rowContainer][com.lumenpearson.lessons.core.designsystem.theme.rowContainer],
+ *   so it passes `Color.Transparent`/`PaddingValues(0.dp)` back explicitly.
  * @param labelProvider the visible text of an option; also its accessibility name.
  * @param iconProvider optional glyph, drawn before the label.
  */
@@ -91,8 +98,8 @@ fun <T> SegmentedPicker(
     labelProvider: @Composable (T) -> String,
     modifier: Modifier = Modifier,
     iconProvider: ((T) -> ImageVector)? = null,
-    containerColor: Color = Color.Transparent,
-    contentPadding: PaddingValues = PaddingValues(0.dp),
+    containerColor: Color = MaterialTheme.colorScheme.rowContainer,
+    contentPadding: PaddingValues = PaddingValues(4.dp),
 ) {
     val view = rememberHapticView()
     // Which segment was pressed, for whatever starts an effect where the finger
@@ -254,6 +261,11 @@ fun <T> GroupSegmentedItem(
             onItemSelected = onItemSelected,
             labelProvider = labelProvider,
             iconProvider = iconProvider,
+            // Opts out of the picker's own default tray: this row already
+            // fills with rowContainer and pads itself above, and a second
+            // tray on top of that would be a 4 dp frame nobody asked for.
+            containerColor = Color.Transparent,
+            contentPadding = PaddingValues(0.dp),
             modifier = Modifier.padding(
                 start = RowPadding.calculateStartPadding(LayoutDirection.Ltr),
                 end = RowPadding.calculateEndPadding(LayoutDirection.Ltr),

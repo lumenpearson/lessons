@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -37,7 +36,6 @@ import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
-import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.ui.common.asRelativeDayLabel
 import com.lumenpearson.lessons.ui.common.asText
@@ -184,11 +182,10 @@ private fun HomeworkFilterRow(
         labelProvider = { upcoming ->
             if (upcoming) correctedString(R.string.homework_filter_upcoming) else allLabel
         },
-        // The same tray as the calendar's view switcher, instead of bare
-        // buttons on the page background — one of three skins the audit
-        // found on what is structurally the same control everywhere else.
-        containerColor = MaterialTheme.colorScheme.rowContainer,
-        contentPadding = PaddingValues(4.dp),
+        // No containerColor/contentPadding: the picker's own default is the
+        // filled tray — the same the calendar's view switcher gets, instead
+        // of bare buttons on the page background, one of three skins the
+        // audit found on what is structurally the same control everywhere.
         // No extra ScreenPadding here: this row sits in the same LazyColumn
         // as the header and the groups below it, whose own contentPadding
         // already insets every item by ScreenPadding — adding it again

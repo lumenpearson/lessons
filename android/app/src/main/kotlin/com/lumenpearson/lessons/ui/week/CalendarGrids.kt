@@ -260,7 +260,10 @@ internal fun MonthGrid(
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
-                        .clip(LessonsShapeTokens.Row)
+                        // Cell, not Row: this banner is a standalone label
+                        // over the grid, not a row inside a group — the same
+                        // reasoning decision 2 gives the weekday tile.
+                        .clip(LessonsShapeTokens.Cell)
                         .background(MaterialTheme.colorScheme.tertiaryContainer)
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
@@ -298,8 +301,10 @@ private fun MonthCell(
     }
     // A selected day is its own shape: it is one cell being pointed at, and
     // squaring its corners to join a run would lose the one thing the
-    // selection is for.
-    val shape = if (selected || day.isToday) LessonsShapeTokens.Row else run.shape()
+    // selection is for. Cell, the same standalone-cell radius the month grid
+    // and the weekday tile both read elsewhere — a selected day is a cell on
+    // its own by definition, not a 4 dp row.
+    val shape = if (selected || day.isToday) LessonsShapeTokens.Cell else run.shape()
 
     // Filtered out: dimmed, never removed. A grid with holes in it stops
     // lining up with its own weekday header. Today and the selection keep

@@ -61,7 +61,6 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
-import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 import com.lumenpearson.lessons.ui.common.syncedAtLabel
 
@@ -214,12 +213,12 @@ fun DiaryScreen(
                     selectedItem = state.tab,
                     onItemSelected = viewModel::setTab,
                     labelProvider = { tab -> correctedString(tab.labelRes()) },
-                    containerColor = MaterialTheme.colorScheme.rowContainer,
-                    contentPadding = PaddingValues(4.dp),
-                    // No extra clip: the picker rounds its own tray from the
-                    // buttons inside it plus this padding. The 24 dp clip that
-                    // used to sit here disagreed with that derived radius —
-                    // the exact "radius picked in three places" bug
+                    // No containerColor/contentPadding: the picker's own
+                    // default is the filled tray. No extra clip either — the
+                    // picker rounds its own tray from the buttons inside it
+                    // plus its own contentPadding. The Group clip that used
+                    // to sit here disagreed with that derived radius — the
+                    // exact "radius picked in three places" bug
                     // ConcentricShape exists to prevent, reintroduced on this
                     // one screen.
                 )
