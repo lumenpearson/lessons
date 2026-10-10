@@ -1,28 +1,45 @@
 package com.lumenpearson.lessons.ui.week
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
 import com.lumenpearson.lessons.core.designsystem.component.ScreenHeader
+import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.InlineGap
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 
 /** What «назад» announces, for the unit this press actually moves. */
 private val PeriodStep.previousRes: Int
@@ -49,12 +66,20 @@ private val PeriodStep.currentRes: Int
     }
 
 /**
- * The page title and the three period controls.
+ * The page title, and a panel holding the period between the arrows that step it.
  *
  * The controls used to be actions in a top app bar. They are here because there
  * is no top app bar any more, and because the top-right corner of a 6.7 inch
  * phone was a poor place for the one pair of buttons on this screen that
  * anybody presses repeatedly.
+ *
+ * The period sits *between* its arrows (#416). It used to be the title's
+ * subtitle, a line above the row that stepped it, and that row held the
+ * «2026/27» chip at one end and the arrows at the other with nothing between —
+ * a band the owner circled on the emulator. Now the panel is what the eye
+ * meets under the title: «‹», the period with its term and school year under
+ * it, «›». The year is the panel's middle rather than a chip of its own, and
+ * pressing it still opens the year picker.
  */
 @Composable
 internal fun ScheduleHeader(
@@ -70,94 +95,150 @@ internal fun ScheduleHeader(
     onPickYear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Two rows, not one, and that is the whole fix. While the title shared a
-    // row with the chip and three icon buttons it was given what was left —
-    // about eight characters at 411 dp — so «Календарь» wrapped after
-    // «Календар» and the subtitle ran to three lines. Nothing about it looks
-    // wrong in the code: `weight(1f)` is the correct way to share a row, and
-    // the row was simply asked to hold more than it has.
-    //
-    // On its own row the title has the screen's width, which is more than any
-    // title here will ever need, and the controls below have the width they
-    // need rather than the width that is left.
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = ScreenPadding),
+        verticalArrangement = Arrangement.spacedBy(InlineGap),
     ) {
-        ScreenHeader(
-            title = correctedString(R.string.week_title),
-            // «Октябрь 2026 · 1 четверть». One line rather than two: the term
-            // qualifies the period rather than standing beside it, and a second
-            // line pushes the grid down on every phone for a word. It is asked
-            // for explicitly now — the header wraps a subtitle by default,
-            // because `DocsScreen` puts a whole sentence there.
-            subtitle = listOfNotNull(periodLabel, termLabel).joinToString(" · "),
-            singleLineSubtitle = true,
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                // Level with the header's own text, which insets itself by 8.
-                .padding(start = 8.dp, end = 8.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        // The title on a row of its own width, so «Календарь» never shares
+        // what is left of a row and wraps after «Календар» again — the defect
+        // this header was split into rows for. «Сегодня» rides at the row's
+        // end and drops under the title when both do not fit, at a large
+        // font on a narrow phone, rather than squeezing it. Nothing else is on
+        // this row, so its coming and going moves nothing under the thumb: the
+        // arrows are in the panel below and stay where they are.
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            itemVerticalAlignment = Alignment.CenterVertically,
         ) {
-            // The school year, and the way into the years either side of it. A
-            // chip rather than a third pair of arrows: the arrows step the
-            // *period*, which is a week here and a month there, and a second
-            // pair meaning «year» beside them is two controls that look the
-            // same and are not.
-            PillChip(
-                text = yearLabel,
-                onClick = onPickYear,
+            ScreenHeader(
+                title = correctedString(R.string.week_title),
+                // The title's own width rather than the row's: the header fills
+                // whatever it is given, and given the row it would leave the
+                // pill nowhere but the next line on every phone.
+                modifier = Modifier.width(IntrinsicSize.Max),
             )
-            Spacer(Modifier.weight(1f))
-            // The slot is always here; only the button inside it comes and
-            // goes. «Вернуться к сегодня» is offered only when it would do
-            // something — a button for a period that already contains today is
-            // noise — but while the button itself was the thing that appeared,
-            // both arrows slid sideways by 48 dp every time the reader stepped
-            // into or out of this week. A control that moves under the thumb
-            // between two presses is worse than a gap.
-            Box(
-                modifier = Modifier.size(IconButtonSlot),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (showTodayAction) {
-                    IconButton(onClick = onToday) {
-                        Icon(
-                            imageVector = Icons.Rounded.Today,
-                            contentDescription = correctedString(step.currentRes),
-                        )
-                    }
-                }
-            }
-            // From [step], not from `R.string.week_*`. These three are the only
-            // part of the header a sighted reader never sees, which is how they
-            // went on saying «неделя» in four of the five modes long after the
-            // text above them learned to name the day or the month.
-            IconButton(onClick = onPrevious) {
-                Icon(
-                    imageVector = Icons.Rounded.ChevronLeft,
-                    contentDescription = correctedString(step.previousRes),
+            if (showTodayAction) {
+                // «Сегодня» on the screen, and the unit it returns to for a
+                // reader who cannot see it: «Текущая неделя», «Текущий месяц».
+                // From [step] for the same reason as the arrows below.
+                val announced = correctedString(step.currentRes)
+                PillChip(
+                    text = correctedString(R.string.nav_today),
+                    icon = Icons.Rounded.Today,
+                    onClick = onToday,
+                    modifier = Modifier.semantics { contentDescription = announced },
                 )
             }
-            IconButton(onClick = onNext) {
+        }
+        PeriodPanel(
+            periodLabel = periodLabel,
+            detail = listOfNotNull(termLabel, yearLabel).joinToString(" · "),
+            step = step,
+            onPrevious = onPrevious,
+            onNext = onNext,
+            onPickYear = onPickYear,
+        )
+    }
+}
+
+/**
+ * «‹ period ›» in a tray of the view switcher's skin, which sits under it.
+ *
+ * Grows rather than clips (the owner's choice for overflow): at a large font or
+ * on a narrow phone the period and its detail wrap, the panel gets taller, and
+ * the arrows stay 48 dp squares at its ends. Rounded by `Group` rather than as
+ * a capsule, so that a taller panel stays a rounded rectangle with the radius
+ * of every other container instead of a pill whose ends swell with its height;
+ * at its one-line height of 56 dp the two are the same shape, the switcher's.
+ */
+@Composable
+private fun PeriodPanel(
+    periodLabel: String,
+    detail: String,
+    step: PeriodStep,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onPickYear: () -> Unit,
+) {
+    val pickYear = correctedString(R.string.week_year_pick)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = PanelMinHeight)
+            .clip(LessonsShapeTokens.Group)
+            .background(MaterialTheme.colorScheme.rowContainer)
+            .padding(PanelInset),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // From [step], not from `R.string.week_*`. These two are the only part
+        // of the header a sighted reader never hears, which is how they went on
+        // saying «неделя» in four of the five modes long after the text beside
+        // them learned to name the day or the month.
+        IconButton(onClick = onPrevious) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronLeft,
+                contentDescription = correctedString(step.previousRes),
+            )
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clip(LessonsShapeTokens.Pill)
+                .clickable(onClickLabel = pickYear, role = Role.Button, onClick = onPickYear)
+                .padding(horizontal = InlineGap, vertical = PanelInset),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // Wraps, never marquees: the owner chose a panel that grows over a
+            // line that scrolls, so every word of the period is on screen. A
+            // number stays with the word after it, so a week wraps at its dash
+            // — «12 октября —» over «18 октября» — and never as «… — 18» over a
+            // lone «октября», which is how it broke at twice the font size.
+            Text(
+                text = remember(periodLabel) { periodLabel.replace(NumberThenSpace, "$1\u00A0") },
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
                 Icon(
-                    imageVector = Icons.Rounded.ChevronRight,
-                    contentDescription = correctedString(step.nextRes),
+                    imageVector = Icons.Rounded.ArrowDropDown,
+                    // The year is already in the text; the arrow only says that
+                    // pressing it opens something.
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(DropDownSize),
                 )
             }
+        }
+        IconButton(onClick = onNext) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = correctedString(step.nextRes),
+            )
         }
     }
 }
 
 /**
- * The side of the square an [IconButton] occupies, so a slot can be kept for
- * one that is not there.
- *
- * Material's own minimum touch target, which is what `IconButton` sizes itself
- * to; named here rather than written as `48.dp` at the one place that needs it,
- * because the number is only correct as long as it is the same number.
+ * The panel's one-line height: a 48 dp touch target in the tray's 4 dp, the
+ * same as the view switcher under it, so the two read as one family.
  */
-private val IconButtonSlot: Dp = 48.dp
+private val PanelMinHeight: Dp = 56.dp
+
+/** The tray's padding, the switcher's `contentPadding`. */
+private val PanelInset: Dp = 4.dp
+
+/** A number and the space after it, which [PeriodPanel] makes non-breaking. */
+private val NumberThenSpace = Regex("""(\d) """)
+
+/** The drop-down arrow beside the year: the size of the detail line's text. */
+private val DropDownSize: Dp = 18.dp
