@@ -701,6 +701,13 @@ docker run -p 8000:8000 --env-file host.env lessons-host
   Telegram hands updates to one consumer, so the webhook can point at the host or at Vercel,
   never both.
 - **One instance.** Two would each stream what they wrote and miss what the other did.
+- **One stream per phone.** A phone that opens `WatchClass` again ends the stream it held,
+  so the host never holds more streams than live phones, however often one reconnects. A
+  phone that drops off the network without closing its connection keeps its stream until
+  the host's kernel gives up on it, about a quarter of an hour on Linux's defaults, by
+  calculation, or until it opens a new one: neither server, as the host runs it, pings a
+  silent HTTP/2 peer. Meanwhile that stream asks the database for its gate every thirty
+  seconds, on the one pool every request shares.
 - **HTTP/2 the whole way.** The host serves HTTP/1.1 and HTTP/2 with prior knowledge on one
   plain port and terminates no TLS, so it sits behind something that does. For native gRPC
   that proxy must speak HTTP/2 to it: one that downgrades to HTTP/1.1 gets the `415` Vercel

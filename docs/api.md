@@ -1692,6 +1692,15 @@ page answers differently there but two things.
   `DEVICE_TOKEN_INVALID` at the next change, or within the thirty seconds. The host is one
   instance, because a stream hears what that one process writes; a script writing the
   database directly wakes nobody.
+- **A phone holds one stream.** A newer `WatchClass` from the same phone ends the one it
+  held before, at once and cleanly, with no error, and leaves every other phone's stream
+  alone: a stream that ends without an error has been replaced, and a client keeps one per
+  phone rather than reopening it. The host learns that a phone has gone only when it next
+  writes to it. A phone that closes its connection is forgotten at its stream's next message,
+  within the thirty seconds. One that drops off the network without closing it keeps its
+  stream, and a gate every thirty seconds, until the host's kernel gives up on the
+  connection — about a quarter of an hour on Linux's defaults, by calculation — or until the
+  phone opens a new stream, which ends the old one.
 
 ### What REST adds
 

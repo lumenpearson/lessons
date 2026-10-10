@@ -174,9 +174,11 @@ which is why the host replaces Vercel, and why it runs as one instance.
 The stream holds no database session between messages (`rpc/call.py`, `stream`): the gate
 runs in a scope of its own before the first message and again before each one after it, so
 a revoked phone or a deleted class ends its stream, and a hundred open phones hold no pooled
-connection. The host never sets its own deployment marker, `LESSONS_TARGET`; the root
-`Dockerfile` does, and with it the host refuses to start without what a deployment needs, as
-Vercel does.
+connection. A phone holds one stream (`rpc/watch.py`): a newer one from the same phone ends
+the older at once, so a phone that lost its connection without closing it, and came back,
+leaves no orphan running the gate beside its new stream. The host never sets its own
+deployment marker, `LESSONS_TARGET`; the root `Dockerfile` does, and with it the host
+refuses to start without what a deployment needs, as Vercel does.
 
 ### The tick checks the deployment, and tells its owner
 
