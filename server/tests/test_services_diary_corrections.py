@@ -129,6 +129,82 @@ async def test_two_writers_racing_for_one_field_land_on_one_row_and_commit_nothi
         assert list(await fresh.scalars(select(DiaryOverride.value))) == ["301"]
 
 
+async def test_a_lost_race_inside_a_batch_keeps_the_batch_s_earlier_writes(
+    session, monkeypatch
+) -> None:
+    """``correct`` writes a batch one ``put_override`` at a time, inside the
+    one transaction the caller — v1's route, or ``invoke`` — commits once. The
+    second correction here loses its own race and concedes inside its own
+    savepoint; the first correction's write, flushed moments earlier in the
+    very same transaction, must go on with it rather than be undone, which is
+    the promise at the top of ``put_override``'s ``except`` (``:196-197``):
+    "the caller's transaction, and what it wrote before this, go on"."""
+    other = "hw:id:2"
+    async with SessionLocal() as parent2:
+        # The other parent's row, committed before this batch even starts:
+        # once the batch's own first write opens the transaction (below), the
+        # #373 listener has it holding SQLite's one write lock, so a second
+        # writer could no longer land here mid-batch — it has to have landed
+        # first.
+        parent2.add(
+            DiaryOverride(
+                login=SCOPE,
+                student_id=4021,
+                target=other,
+                field="text",
+                value="папина правка",
+                original=None,
+            )
+        )
+        await parent2.commit()
+
+    check = session.scalar
+    calls: list[object] = []
+
+    async def miss_once(statement, *args, **kwargs):
+        calls.append(statement)
+        if len(calls) == 2:
+            # The 2nd correction's own lookup: answered `None` once, as if
+            # this session had not yet seen the row `parent2` just committed,
+            # which is what sends `put_override` into the insert path and
+            # onto the unique constraint.
+            return None
+        return await check(statement, *args, **kwargs)
+
+    monkeypatch.setattr(session, "scalar", miss_once)
+
+    rows = await service.correct(
+        session,
+        SCOPE,
+        4021,
+        [
+            service.Correction("hw:id:1", "text", "мамина правка"),
+            service.Correction(other, "text", "правка из этой пачки"),
+        ],
+    )
+    # Both answered with this batch's values, not the one it raced against.
+    assert [(row.target, row.value) for row in rows] == [
+        ("hw:id:1", "мамина правка"),
+        (other, "правка из этой пачки"),
+    ]
+
+    async def _seen() -> dict[str, str]:
+        async with SessionLocal() as fresh:
+            rows = await fresh.scalars(
+                select(DiaryOverride).where(DiaryOverride.student_id == 4021)
+            )
+            return {row.target: row.value for row in rows}
+
+    # Before the caller commits, a fresh session sees only what `parent2`
+    # committed: the batch's own writes are still inside this transaction.
+    assert await _seen() == {other: "папина правка"}
+    await session.commit()
+    assert await _seen() == {
+        "hw:id:1": "мамина правка",
+        other: "правка из этой пачки",
+    }
+
+
 # ---- the rules v1's routes held ---------------------------------------------
 
 
