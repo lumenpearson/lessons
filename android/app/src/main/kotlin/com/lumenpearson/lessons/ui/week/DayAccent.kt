@@ -138,9 +138,10 @@ internal fun List<DayAccent>.runPositions(): List<RunPosition> = mapIndexed { in
  * corners are read directly rather than through an `as?` cast with a
  * hardcoded fallback — the fallback used to read 12 dp while [Row] (what it
  * actually matched against) was 4 dp, a mismatch nothing could reach, because
- * the cast never failed. [FlatCornerSize] is named rather than spelled as a
- * literal so a flat side is never itself a `RoundedCornerShape(0.dp)`
- * literal for the guard to flag.
+ * the cast never failed. A flat side is 0 dp, which the corner scale allows
+ * on purpose (`docs/specs/2026-10-10-ui-geometry-design.md`, decision 9): the
+ * cells of one run touch and read as a single bar, so where the run carries on
+ * there is no corner to round.
  */
 internal fun RunPosition.shape(): Shape {
     val round = LessonsShapeTokens.Cell

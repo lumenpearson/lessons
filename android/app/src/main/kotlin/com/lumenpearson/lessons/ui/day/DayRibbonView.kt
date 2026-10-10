@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SmallFloatingActionButton
@@ -316,10 +317,21 @@ internal fun DayRibbonView(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SmallFloatingActionButton(onClick = {
-                LessonsHaptics.press(view)
-                onSettings()
-            }) {
+            // The extended FAB's corner rather than the small FAB's own. The
+            // two sit side by side in this row whenever «К текущему» is out,
+            // and Material gives them two radii, 16 dp here and 20 beside it:
+            // two corners next to each other, the thing the app's corner scale
+            // exists to stop. Read through FloatingActionButtonDefaults, so
+            // both buttons take one token, Material's FAB corner (the theme's
+            // `large`, 20 dp), and neither names a role. On a 40 dp button
+            // 20 dp is half its side, so this one draws as a circle.
+            SmallFloatingActionButton(
+                onClick = {
+                    LessonsHaptics.press(view)
+                    onSettings()
+                },
+                shape = FloatingActionButtonDefaults.extendedFabShape,
+            ) {
                 Icon(
                     imageVector = Icons.Rounded.Tune,
                     contentDescription = correctedString(R.string.ribbon_settings),

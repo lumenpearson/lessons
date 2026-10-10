@@ -30,9 +30,19 @@ private val LargeContainerCorner: Dp = 28.dp
 /**
  * The corner scale, taken from `sameerasw/essentials` `ui/theme/Shapes.kt` and
  * then checked, on 2026-10-10, against Material 3 Expressive's own scale (0, 4,
- * 8, 12, 16, 20, 28, 32, 48, full): every radius this app draws is now one of
- * four values — 4 (`Row`), 12 (`Cell`), 28 (`Group`/`Hero`/`extraLarge`) and
- * full — and each is a Material token rather than a guess.
+ * 8, 12, 16, 20, 28, 32, 48, full): every radius this app draws is one of four
+ * values — 4 (`Row`), 12 (`Cell`), 28 (`Group`/`Hero`/`extraLarge`) and full —
+ * and each is a Material token rather than a guess.
+ *
+ * With one exception: the floating action buttons. The toolbar's action button
+ * and the two buttons over «День»'s ribbon keep Material's own FAB shape, the
+ * `CornerLarge` token, which resolves to [large][Shapes.large] here — 20 dp.
+ * None of the four fits a FAB: on a 56 dp button 28 is a circle, or a capsule
+ * on an extended one, and 12 is squarer than any FAB Material draws. So
+ * `medium` and `large` are still declared below, for the Material components
+ * that read them, and nothing in the app reads either by name —
+ * `GeometryScaleTest` holds that, so the exception cannot spread from the FABs
+ * to anything else.
  *
  * Essentials overrides only three roles and leaves `extraSmall` and
  * `extraLarge` at the Material defaults; both are spelled out here because

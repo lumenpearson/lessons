@@ -1380,9 +1380,12 @@ private fun ToolbarActionButton(action: ToolbarAction) {
         modifier = Modifier.centreInRoot { centre = it },
         containerColor = scheme.primaryContainer,
         contentColor = scheme.onPrimaryContainer,
-        // Material's own FAB shape, not a theme role: this is a stock
-        // FloatingActionButton, and a Material component keeps its own
-        // token rather than being pointed at one of ours.
+        // Material's own FAB shape, kept on purpose. It is the FAB's
+        // CornerLarge token, which this theme resolves to its `large` role:
+        // 20 dp, the one corner the app draws off its four-value scale
+        // (theme/Shape.kt says why, for this and the «День» FABs). Named
+        // through FloatingActionButtonDefaults rather than read as a role, so
+        // the exception stays tied to the component that carries it.
         shape = FloatingActionButtonDefaults.shape,
         elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
     ) {

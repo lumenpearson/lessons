@@ -12,7 +12,8 @@ import org.junit.Test
  * guessed again as a literal or re-declared under a private name. That is the
  * audit's own finding: a 24 dp corner declared seven times under names like
  * `CardCorner` and `FieldCorner`, instead of the one token that already said
- * the same thing.
+ * the same thing. The floating action buttons are the one exception, and they
+ * take it through Material's own FAB defaults; `theme/Shape.kt` says why.
  *
  * Modelled on `StabilityPromiseTest` (`:core:model`): it reads the source out
  * of the tree rather than the classpath, because a radius literal compiles to
@@ -22,34 +23,42 @@ import org.junit.Test
  * module's own directory and an IDE sometimes runs them from the repository
  * root instead.
  *
- * `android/theme/Shape.kt` is the one file allowed to declare the scale's own
- * literals — everywhere else is read, `android/app` included, because a
- * literal picked in a screen is exactly how the audit found nine distinct
- * radii in the first place.
+ * `core/designsystem/src/main/kotlin/.../theme/Shape.kt` is the one file
+ * allowed to declare the scale's own literals — everywhere else is read,
+ * `android/app` included, because a literal picked in a screen is exactly how
+ * the audit found nine distinct radii in the first place.
  *
- * Three shapes of offender, all read as plain text, comments stripped first so
+ * Four shapes of offender, all read as plain text, comments stripped first so
  * that a sentence quoting one in prose is not mistaken for one:
  * - a `RoundedCornerShape(` call, read as the whole balanced expression from
  *   its opening paren to its matching close — across however many lines it
  *   spans and past however many nested calls sit inside it — carrying a
- *   numeric `.dp` literal or `percent =` anywhere inside that span;
- * - a `val` whose name ends in `Corner`, bound to a `.dp` literal — a private
- *   constant re-inventing a token under a name of its own;
+ *   numeric `.dp` literal or `percent =` anywhere inside that span, or an
+ *   argument that is a bare number: `RoundedCornerShape(50)` is fifty percent
+ *   and `RoundedCornerShape(24f)` is 24 pixels, and neither says `.dp`;
+ * - a `.dp` literal under a name of its own: a `val` whose name ends in
+ *   `Corner`, wherever it is used, and any `val` bound to a `.dp` literal that
+ *   a `RoundedCornerShape(…)` in the same file reads — `val CardRadius = 24.dp`
+ *   is a corner by its use, whatever it is called;
  * - a bare `CircleShape` token, the spec's own third promise ("What holds
- *   it": "a `CircleShape` given to a button or a chip") — left out of Task 1's
- *   guard and said so there, closed now that Task 3 has removed every
- *   `CircleShape`-as-pill-button in the app. [circleShapeAllowance] is the
- *   standing, non-pending list of what a `CircleShape` is allowed to be
- *   instead: a dot, a disc, a badge, a circular preview — read [circleShapeAllowance]'s
- *   own doc for the file-by-file reasons.
+ *   it": "a `CircleShape` given to a button or a chip"). [circleShapeAllowance]
+ *   is the standing list of what a `CircleShape` is allowed to be instead, each
+ *   with its reason;
+ * - a read by name of a `Shapes` role that is off the scale — `medium` (16),
+ *   `large` (20), and Expressive's `largeIncreased`, `extraLargeIncreased` and
+ *   `extraExtraLarge` (24, 32, 48): `MaterialTheme.shapes.large`,
+ *   `LessonsShapes.medium`. That is how three of the off-scale corners reached
+ *   the screen before the pass, because a role read by name looks like a token.
+ *   Its allowance is empty. The FABs that do draw `large` take it through
+ *   `FloatingActionButtonDefaults`, which this does not see and is not meant
+ *   to: that is Material's component reading its own shape.
  *
- * The first shape used to be read one physical line at a time, bounded at the
- * first `)` — which missed a call wrapped across lines (`DayAccent.kt`'s own
- * `RunPosition.shape()` already writes `RoundedCornerShape(topStart = …, …)`
- * that way, today with no literal in it) and missed a literal sitting after an
- * earlier nested call's own close paren on the same line
- * (`RoundedCornerShape(something(), 4.dp)`). Task 1's review caught both before
- * Tasks 2 and 3 could lean on a guard narrower than it looked.
+ * The first shape is read as a whole call because a read one physical line at
+ * a time, bounded at the first `)`, misses a call wrapped across lines
+ * (`DayAccent.kt`'s own `RunPosition.shape()` writes
+ * `RoundedCornerShape(topStart = …, …)` that way, today with no literal in it)
+ * and a literal sitting after an earlier nested call's own close paren on the
+ * same line (`RoundedCornerShape(something(), 4.dp)`).
  *
  * The paren-depth tracker counts every literal `(`/`)` character, with no
  * awareness of string-literal boundaries, so a call that put a parenthesis
@@ -65,16 +74,14 @@ import org.junit.Test
  * parsing Kotlin, which is enough for a preview body that never puts a brace
  * character inside a string literal, true of every preview here today.
  *
- * The [allowance] held every 2026-10-10 audit finding as a pending count
- * until Tasks 2 and 3 moved each onto a token; the test below that checks it
- * against the source fails the day a count in it no longer matches, so a
- * fixed site had to be taken out of the list by hand rather than the list
- * quietly going stale while the count it was given kept passing. It is
- * **empty** now: `text/Corrections.kt`'s outline, the one entry the Task 3
- * report had kept as a reasoned exception, reads [LessonsShapeTokens.Row]
- * (4 dp) instead — the fix round that emptied this map found the earlier
- * reasoning backwards, because the border's deciding dimension is the text
- * line's own height, and `Cell`'s 12 dp is already a capsule on a label line.
+ * The [allowance] held every 2026-10-10 audit finding as a pending count while
+ * the pass moved each onto a token. The test that checks it against the source
+ * fails the day a count in it no longer matches, so a fixed site has to be
+ * taken out of the list by hand rather than the list quietly going stale while
+ * the count it was given kept passing. It is **empty** now; the last entry was
+ * `text/Corrections.kt`'s outline, which reads [LessonsShapeTokens.Row] (4 dp)
+ * because the border's deciding dimension is the text line's own height, and
+ * `Cell`'s 12 dp is already a capsule on a label line.
  */
 class GeometryScaleTest {
 
@@ -116,11 +123,7 @@ class GeometryScaleTest {
      */
     @Test
     fun `no corner radius outside the one file that declares the scale is a raw literal`() {
-        val byFile = offenders().groupBy { it.file }
-        val beyondAllowance = byFile.entries.flatMap { (file, found) ->
-            val allowed = allowance[file] ?: 0
-            if (found.size > allowed) found.drop(allowed) else emptyList()
-        }
+        val beyondAllowance = beyond(allowance, offenders())
 
         assertTrue(
             "A corner radius is a raw literal rather than a token read from " +
@@ -141,10 +144,7 @@ class GeometryScaleTest {
      */
     @Test
     fun `the allowance names exactly today's offenders, not more and not fewer`() {
-        val counted = offenders().groupingBy { it.file }.eachCount()
-        val stale = allowance.entries
-            .filter { (file, count) -> (counted[file] ?: 0) != count }
-            .map { (file, count) -> "$file: allowance says $count, the source now has ${counted[file] ?: 0}" }
+        val stale = drift(allowance, offenders())
 
         assertTrue(
             "The pending allowance has drifted from the source. A fixed site must " +
@@ -157,25 +157,21 @@ class GeometryScaleTest {
 
     /**
      * The guard's third promise: a `CircleShape` is either in
-     * [circleShapeAllowance] — a dot, a disc, a badge, a circular preview,
-     * each with its own reason — or it is a raw literal standing in for
-     * `LessonsShapeTokens.Pill`/`Tile`, which is exactly what Task 3 removed
-     * eleven of.
+     * [circleShapeAllowance] — a dot, a disc, a badge, a mask preview, a row's
+     * round tile, each with its own reason — or it is a raw literal standing
+     * in for `LessonsShapeTokens.Pill`/`Tile`, which is what the geometry pass
+     * removed eleven of.
      */
     @Test
     fun `no CircleShape outside the allowance is given to a button or a chip`() {
-        val byFile = circleShapeOffenders().groupBy { it.file }
-        val beyondAllowance = byFile.entries.flatMap { (file, found) ->
-            val allowed = circleShapeAllowance[file] ?: 0
-            if (found.size > allowed) found.drop(allowed) else emptyList()
-        }
+        val beyondAllowance = beyond(circleShapeAllowance, circleShapeOffenders())
 
         assertTrue(
             "A CircleShape outside circleShapeAllowance is standing in for a " +
                 "Pill or a Tile. Either point it at LessonsShapeTokens.Pill/Tile, " +
-                "or — if this really is a circle (a dot, a disc, a badge, a " +
-                "circular preview) — add it to circleShapeAllowance with its " +
-                "own reason:\n" + beyondAllowance.joinToString("\n") { "${it.file}:${it.line}: ${it.text}" },
+                "or — if this really is a circle (a dot, a disc, a badge, a mask " +
+                "preview) — add it to circleShapeAllowance with its own " +
+                "reason:\n" + beyondAllowance.joinToString("\n") { "${it.file}:${it.line}: ${it.text}" },
             beyondAllowance.isEmpty(),
         )
     }
@@ -183,14 +179,32 @@ class GeometryScaleTest {
     /** The CircleShape allowance's own drift check — see the corner allowance's. */
     @Test
     fun `the CircleShape allowance names exactly today's real circles, not more and not fewer`() {
-        val counted = circleShapeOffenders().groupingBy { it.file }.eachCount()
-        val stale = circleShapeAllowance.entries
-            .filter { (file, count) -> (counted[file] ?: 0) != count }
-            .map { (file, count) -> "$file: allowance says $count, the source now has ${counted[file] ?: 0}" }
+        val stale = drift(circleShapeAllowance, circleShapeOffenders())
 
         assertTrue(
             "The CircleShape allowance has drifted from the source:\n" + stale.joinToString("\n"),
             stale.isEmpty(),
+        )
+    }
+
+    /**
+     * The fourth promise: no source reads a shape role off the scale by name —
+     * Material's `medium` (16 dp) and `large` (20 dp), or Expressive's larger
+     * three. Its allowance is empty and meant to stay so: the one corner that
+     * really is `large` is the FAB exception `theme/Shape.kt` describes, and
+     * it reads the FAB's own default.
+     */
+    @Test
+    fun `no source reads a shape role off the scale by name`() {
+        val beyondAllowance = beyond(roleReadAllowance, roleReadOffenders())
+
+        assertTrue(
+            "A shape role off the four-value scale is read by name. medium is 16 dp, " +
+                "large is 20, and largeIncreased, extraLargeIncreased and extraExtraLarge " +
+                "are 24, 32 and 48; none is one of the app's corners. Point it at " +
+                "LessonsShapeTokens instead:\n" +
+                beyondAllowance.joinToString("\n") { "${it.file}:${it.line}: ${it.text}" },
+            beyondAllowance.isEmpty(),
         )
     }
 
@@ -227,7 +241,7 @@ class GeometryScaleTest {
     }
 
     @Test
-    fun `CircleShape in prose is not mistaken for a comment-stripping bug`() {
+    fun `the CircleShape scanner does not strip comments itself`() {
         // circleShapeOffenders is a pure function over already comment-stripped
         // lines — it does not itself filter `//` — so a sentence of prose
         // quoting "CircleShape" is caught here too; what actually keeps a
@@ -244,8 +258,7 @@ class GeometryScaleTest {
 
     // --- Fixture tests for the whole-call RoundedCornerShape(...) scanner ---
     // These feed constructed (line, text) pairs straight to the scanning
-    // function, the way Task 1's review probed the old regexes in Python,
-    // rather than staging a real offending file in the tree.
+    // function rather than staging a real offending file in the tree.
 
     @Test
     fun `a literal spread across a multi-line RoundedCornerShape call is caught`() {
@@ -305,8 +318,136 @@ class GeometryScaleTest {
         assertTrue("A plain single-line literal regressed. Found: $found", found.isNotEmpty())
     }
 
+    /** `RoundedCornerShape(50)` is the `percent: Int` overload, positionally. */
+    @Test
+    fun `a positional integer percent is caught`() {
+        val found = roundedCornerShapeOffenders(listOf(1 to "val shape = RoundedCornerShape(50)"))
+        assertTrue("A positional percent says neither .dp nor percent =. Found: $found", found.isNotEmpty())
+    }
+
+    @Test
+    fun `a named per-corner percent is caught`() {
+        val found = roundedCornerShapeOffenders(
+            listOf(1 to "val shape = RoundedCornerShape(topStartPercent = 50, topEndPercent = 50)"),
+        )
+        assertTrue("A per-corner percent is still a literal. Found: $found", found.isNotEmpty())
+    }
+
+    @Test
+    fun `a corner read from a token is not mistaken for a bare number`() {
+        val found = roundedCornerShapeOffenders(
+            listOf(1 to "val shape = RoundedCornerShape(LessonsShapeTokens.Cell.topStart)"),
+        )
+        assertTrue("A token read must not be flagged. Found: $found", found.isEmpty())
+    }
+
+    // --- Fixture tests for a .dp literal under a name of its own ---
+
+    @Test
+    fun `a dp literal named Radius and used as a corner is caught`() {
+        val lines = listOf(
+            1 to "private val CardRadius = 24.dp",
+            2 to "",
+            3 to "val shape = RoundedCornerShape(CardRadius)",
+        )
+        val found = namedCornerLiteralOffenders(lines)
+        assertTrue("A Radius literal read as a corner must be caught. Found: $found", found.isNotEmpty())
+        assertTrue(
+            "It should be reported where the literal is declared (1). Found: $found",
+            found.single().first == 1,
+        )
+    }
+
+    @Test
+    fun `a dp literal under any name is caught once a corner reads it`() {
+        val lines = listOf(
+            1 to "private val Soft: Dp = 20.dp",
+            2 to "val shape = RoundedCornerShape(",
+            3 to "    topStart = Soft,",
+            4 to "    topEnd = Soft,",
+            5 to "    bottomStart = 0.dp,",
+            6 to "    bottomEnd = 0.dp,",
+            7 to ")",
+        )
+        assertTrue(
+            "A corner is a corner by its use, whatever its name. Found: ${namedCornerLiteralOffenders(lines)}",
+            namedCornerLiteralOffenders(lines).isNotEmpty(),
+        )
+    }
+
+    @Test
+    fun `a dp literal named Radius that no corner reads is not flagged`() {
+        val lines = listOf(
+            1 to "private val BlurRadius = 12.dp",
+            2 to "val blurred = Modifier.blur(BlurRadius)",
+        )
+        assertTrue(
+            "A blur radius is not a corner. Found: ${namedCornerLiteralOffenders(lines)}",
+            namedCornerLiteralOffenders(lines).isEmpty(),
+        )
+    }
+
+    // --- Fixture tests for the shape-role scanner ---
+
+    @Test
+    fun `a read of the large role by name is caught`() {
+        val found = roleReadOffenders(listOf(1 to "    shape = MaterialTheme.shapes.large,"))
+        assertTrue("MaterialTheme.shapes.large is a 20 dp corner by another name. Found: $found", found.isNotEmpty())
+    }
+
+    @Test
+    fun `a read of the medium role through the theme object is caught`() {
+        val found = roleReadOffenders(listOf(1 to "    .clip(LessonsShapes.medium)"))
+        assertTrue("LessonsShapes.medium is the same role, read directly. Found: $found", found.isNotEmpty())
+    }
+
+    @Test
+    fun `a role read wrapped across lines is caught`() {
+        val found = roleReadOffenders(
+            listOf(
+                1 to "    shape = MaterialTheme.shapes",
+                2 to "        .medium,",
+            ),
+        )
+        assertTrue("A chained read split over two lines is still a read. Found: $found", found.isNotEmpty())
+    }
+
+    @Test
+    fun `a read of an Expressive role past large is caught`() {
+        val found = roleReadOffenders(listOf(1 to "    shape = MaterialTheme.shapes.largeIncreased,"))
+        assertTrue("largeIncreased is 24 dp, the radius the pass removed. Found: $found", found.isNotEmpty())
+    }
+
+    @Test
+    fun `the roles on the scale and the FAB's own default are not flagged`() {
+        val found = roleReadOffenders(
+            listOf(
+                1 to "    shape = MaterialTheme.shapes.extraLarge,",
+                2 to "    shape = MaterialTheme.shapes.extraSmall,",
+                3 to "    shape = FloatingActionButtonDefaults.shape,",
+                4 to "    shape = LessonsShapeTokens.Group,",
+            ),
+        )
+        assertTrue("Only medium and large are off the scale. Found: $found", found.isEmpty())
+    }
+
     /** One offending line, by the module-relative path a human would read in a review. */
     private data class Offender(val file: String, val line: Int, val text: String)
+
+    /** What is past each file's allowed count, and so a failure. */
+    private fun beyond(allowed: Map<String, Int>, found: List<Offender>): List<Offender> =
+        found.groupBy { it.file }.entries.flatMap { (file, inFile) ->
+            val count = allowed[file] ?: 0
+            if (inFile.size > count) inFile.drop(count) else emptyList()
+        }
+
+    /** Every allowance entry whose count is not what the source has today. */
+    private fun drift(allowed: Map<String, Int>, found: List<Offender>): List<String> {
+        val counted = found.groupingBy { it.file }.eachCount()
+        return allowed.entries
+            .filter { (file, count) -> (counted[file] ?: 0) != count }
+            .map { (file, count) -> "$file: allowance says $count, the source now has ${counted[file] ?: 0}" }
+    }
 
     private fun offenders(): List<Offender> = scannedFiles.flatMap { file ->
         val relative = file.relativeTo(root).invariantSeparatorsPath
@@ -319,10 +460,15 @@ class GeometryScaleTest {
                 null
             }
         }
+        // A `…Corner` val that a call also reads is one offence, not two.
+        val cornerValLines = cornerVals.map { it.line }.toSet()
+        val namedLiterals = namedCornerLiteralOffenders(kept)
+            .filterNot { (number, _) -> number in cornerValLines }
+            .map { (number, text) -> Offender(relative, number, "a .dp literal read as a corner — $text") }
         val roundedCornerShapes = roundedCornerShapeOffenders(kept).map { (number, text) ->
             Offender(relative, number, "a raw RoundedCornerShape(...) — $text")
         }
-        (cornerVals + roundedCornerShapes).sortedBy { it.line }
+        (cornerVals + namedLiterals + roundedCornerShapes).sortedBy { it.line }
     }
 
     /** Every `CircleShape` token across both scanned trees, one per [Offender]. */
@@ -330,6 +476,14 @@ class GeometryScaleTest {
         val relative = file.relativeTo(root).invariantSeparatorsPath
         circleShapeOffenders(nonPreviewLines(file)).map { (number, text) ->
             Offender(relative, number, "a CircleShape — $text")
+        }
+    }
+
+    /** Every read of an off-scale shape role by name across both scanned trees. */
+    private fun roleReadOffenders(): List<Offender> = scannedFiles.flatMap { file ->
+        val relative = file.relativeTo(root).invariantSeparatorsPath
+        roleReadOffenders(nonPreviewLines(file)).map { (number, text) ->
+            Offender(relative, number, "a shape role off the scale, read by name — $text")
         }
     }
 
@@ -356,38 +510,70 @@ class GeometryScaleTest {
         }
 
     /**
-     * Every `RoundedCornerShape(` call in [lines], read as the whole balanced
-     * parenthesised expression it opens — joining continuation lines and
-     * tracking paren depth past any nested call — rather than one physical
-     * line bounded at the first `)`. Returns the call's own opening line and a
-     * whitespace-collapsed rendering of what was found, for every call that
-     * carries a literal `<number>.dp` or `percent =` anywhere inside it,
-     * nested or not.
+     * Every read of an off-scale shape role in [lines], matched over the
+     * joined text so that a chain broken across two lines is still one read,
+     * and reported at the line the match starts on.
+     */
+    private fun roleReadOffenders(lines: List<Pair<Int, String>>): List<Pair<Int, String>> {
+        val (joined, lineOf) = join(lines)
+        return roleRead.findAll(joined)
+            .map { match -> lineOf[match.range.first] to match.value.replace(Regex("""\s+"""), "") }
+            .toList()
+    }
+
+    /**
+     * Every `RoundedCornerShape(` call in [lines] that carries a literal: a
+     * `<number>.dp` or `percent =` anywhere inside it, nested or not, or an
+     * argument that is a bare number. Returns the call's own opening line and
+     * a whitespace-collapsed rendering of the call.
      *
      * A pure function of [lines] rather than a file, so a fixture list of
      * `(line, text)` pairs can probe it directly — see the tests above —
      * without staging a real offending file in the tree.
      */
-    private fun roundedCornerShapeOffenders(lines: List<Pair<Int, String>>): List<Pair<Int, String>> {
-        if (lines.isEmpty()) return emptyList()
+    private fun roundedCornerShapeOffenders(lines: List<Pair<Int, String>>): List<Pair<Int, String>> =
+        cornerCalls(lines)
+            .filter { call ->
+                literalInsideCall.containsMatchIn(call.args) ||
+                    topLevelArguments(call.args).any { bareNumber.matches(it.substringAfter('=').trim()) }
+            }
+            .map { call -> call.line to call.text }
 
-        // One joined string so a call spanning several of `lines` can be read
-        // as one expression, plus a parallel array mapping every character
-        // back to the *original* line number it came from — which a plain
-        // count of newlines in the joined text could not do, because
-        // `nonPreviewLines` already removed whole preview bodies, leaving gaps
-        // in the numbering.
-        val source = StringBuilder()
-        val lineOf = ArrayList<Int>()
-        for ((number, text) in lines) {
-            repeat(text.length) { lineOf.add(number) }
-            source.append(text)
-            lineOf.add(number)
-            source.append('\n')
+    /**
+     * Every `val` in [lines] bound straight to a `.dp` literal and read by a
+     * `RoundedCornerShape(…)` call in the same [lines], reported where it is
+     * declared. A literal moved one line up under a name is the same literal,
+     * and the name is no evidence either way: `CardRadius` is a corner, and so
+     * is anything a corner call reads.
+     */
+    private fun namedCornerLiteralOffenders(lines: List<Pair<Int, String>>): List<Pair<Int, String>> {
+        val declared = lines.mapNotNull { (number, text) ->
+            dpLiteralVal.find(text)?.let { match -> Triple(match.groupValues[1], number, text.trim()) }
         }
-        val joined = source.toString()
+        if (declared.isEmpty()) return emptyList()
+        val calls = cornerCalls(lines)
+        return declared
+            .filter { (name, _, _) ->
+                val read = Regex("""\b${Regex.escape(name)}\b""")
+                calls.any { read.containsMatchIn(it.args) }
+            }
+            .map { (_, number, text) -> number to text }
+    }
 
-        val found = mutableListOf<Pair<Int, String>>()
+    /** One `RoundedCornerShape(…)` call: where it opens, what is inside it, and the whole of it. */
+    private data class CornerCall(val line: Int, val args: String, val text: String)
+
+    /**
+     * Every `RoundedCornerShape(` call in [lines], read as the whole balanced
+     * parenthesised expression it opens — joining continuation lines and
+     * tracking paren depth past any nested call — rather than one physical
+     * line bounded at the first `)`.
+     */
+    private fun cornerCalls(lines: List<Pair<Int, String>>): List<CornerCall> {
+        if (lines.isEmpty()) return emptyList()
+        val (joined, lineOf) = join(lines)
+
+        val found = mutableListOf<CornerCall>()
         for (match in callOpen.findAll(joined)) {
             val openParen = match.range.last
             var depth = 1
@@ -405,16 +591,53 @@ class GeometryScaleTest {
             if (depth > 0) continue
 
             val closeParen = index - 1
-            val args = joined.substring(openParen + 1, closeParen)
-            if (literalInsideCall.containsMatchIn(args)) {
-                val callLine = lineOf[match.range.first]
-                val flattened = joined.substring(match.range.first, closeParen + 1)
+            found += CornerCall(
+                line = lineOf[match.range.first],
+                args = joined.substring(openParen + 1, closeParen),
+                text = joined.substring(match.range.first, closeParen + 1)
                     .replace(Regex("""\s+"""), " ")
-                    .trim()
-                found += callLine to flattened
-            }
+                    .trim(),
+            )
         }
         return found
+    }
+
+    /**
+     * [lines] as one string, so that an expression spanning several of them
+     * can be read as one, plus a parallel array mapping every character back
+     * to the *original* line number it came from — which a plain count of
+     * newlines in the joined text could not do, because `nonPreviewLines`
+     * already removed whole preview bodies, leaving gaps in the numbering.
+     */
+    private fun join(lines: List<Pair<Int, String>>): Pair<String, List<Int>> {
+        val source = StringBuilder()
+        val lineOf = ArrayList<Int>()
+        for ((number, text) in lines) {
+            repeat(text.length) { lineOf.add(number) }
+            source.append(text)
+            lineOf.add(number)
+            source.append('\n')
+        }
+        return source.toString() to lineOf
+    }
+
+    /** [args] split at its own top-level commas, past any nested call's. */
+    private fun topLevelArguments(args: String): List<String> {
+        val parts = mutableListOf<String>()
+        var depth = 0
+        var start = 0
+        args.forEachIndexed { index, char ->
+            when (char) {
+                '(' -> depth++
+                ')' -> depth--
+                ',' -> if (depth == 0) {
+                    parts += args.substring(start, index)
+                    start = index + 1
+                }
+            }
+        }
+        parts += args.substring(start)
+        return parts.map { it.trim() }.filter { it.isNotEmpty() }
     }
 
     /**
@@ -515,45 +738,74 @@ class GeometryScaleTest {
     private companion object {
         val previewAnnotation = Regex("""@Preview\b""")
 
-        /** The opening of a call this guard reads in full — see [roundedCornerShapeOffenders]. */
+        /** The opening of a call this guard reads in full — see [cornerCalls]. */
         val callOpen = Regex("""RoundedCornerShape\(""")
 
         /** A numeric `.dp` literal or a bare `percent =`, anywhere inside a call's own span. */
         val literalInsideCall = Regex("""\d+(\.\d+)?\.dp|percent\s*=""")
 
+        /**
+         * An argument that is nothing but a number — `50`, `24f`, `12.5f` —
+         * once any `name =` in front of it is dropped: a positional percent,
+         * a per-corner `topStartPercent = 50`, or a size in pixels.
+         */
+        val bareNumber = Regex("""\d+(\.\d+)?[fF]?""")
+
         /** A `val` ending in `Corner`, of any visibility, bound to a `.dp` literal. */
         val cornerValLiteral = Regex("""\bval\s+\w*Corner\b[^=]*=\s*\d+(\.\d+)?\.dp""")
 
+        /** A `val` of any name bound straight to a `.dp` literal; the name is group 1. */
+        val dpLiteralVal = Regex("""\bval\s+(\w+)\s*(?::\s*Dp\s*)?=\s*\d+(\.\d+)?\.dp\b""")
+
         /**
          * A bare `CircleShape` token — see [circleShapeOffenders]. Not anchored
-         * to `shape =` or `.clip(` on purpose: every real use found by the
-         * 2026-10-10 audit and this fix round was one of those two forms, but
-         * a plain word match is simpler than guessing every syntax a future
-         * one might take, and [circleShapeAllowance] is where the real
-         * circles are told apart from everything else by hand regardless.
+         * to `shape =` or `.clip(` on purpose: every real use found so far was
+         * one of those two forms, but a plain word match is simpler than
+         * guessing every syntax a future one might take, and
+         * [circleShapeAllowance] is where the real circles are told apart from
+         * everything else by hand regardless.
          */
         val circleShapeLiteral = Regex("""\bCircleShape\b""")
 
         /**
-         * Empty once Task 3 of #404 moved every 2026-10-10 audit finding onto
-         * a token — see this class's own doc for `text/Corrections.kt`'s move
-         * from `Cell` to `Row`, the one entry a fix round found was itself
-         * wrong rather than merely pending.
+         * A `Shapes` role off the scale, read by name: `MaterialTheme
+         * .shapes.large`, `shapes.medium` off a theme held in a local, or
+         * [LessonsShapes] itself. `\s*` either side of the dot, so a chain
+         * broken across lines still matches over the joined text. `small`,
+         * `extraSmall` and `extraLarge` are on the scale here — 12, 4 and 28.
+         */
+        val roleRead = Regex(
+            """\b(?:shapes|LessonsShapes)\s*\.\s*""" +
+                """(?:medium|large|largeIncreased|extraLargeIncreased|extraExtraLarge)\b""",
+        )
+
+        /**
+         * Empty: every 2026-10-10 audit finding reads a token now — see this
+         * class's own doc for `text/Corrections.kt`, the last to move.
          */
         val allowance: Map<String, Int> = emptyMap()
 
         /**
-         * `CircleShape` used for something that actually is a circle, not a
-         * stand-in for `LessonsShapeTokens.Pill`/`Tile` — a standing list, not
-         * a pending one, because none of these is meant to move onto a token:
+         * Empty, and meant to stay so: the only corners drawn off the scale are
+         * the FABs', which read Material's FAB default instead of a role.
+         */
+        val roleReadAllowance: Map<String, Int> = emptyMap()
+
+        /**
+         * `CircleShape` used for something that actually is round, not a
+         * stand-in for `LessonsShapeTokens.Pill` on a button or a chip — a
+         * standing list, not a pending one, because none of these is meant to
+         * move:
          * - `ui/week/CalendarGrids.kt` (1) — the week-strip and month-grid
          *   load dot, a few dp wide.
          * - `core/designsystem/.../component/FloatingToolbar.kt` (3) — the
          *   held tab's disc, and the tab's and the action button's own
          *   notification badge, each a small filled circle.
-         * - `ui/settings/AppIconRows.kt` (2) — the "what a circle mask looks
-         *   like" preview beside the squircle one, and the settings row's own
-         *   small round preview of the icon currently in use.
+         * - `ui/settings/AppIconRows.kt` (2) — the «Значок приложения»
+         *   preview of what a circle mask does to the icon, beside the
+         *   squircle one, which is a circle by definition; and the settings
+         *   row's small picture of the icon in use, a round tile in a row, the
+         *   same round shape every row's leading `Tile` has.
          */
         val circleShapeAllowance: Map<String, Int> = mapOf(
             "app/src/main/kotlin/com/lumenpearson/lessons/ui/week/CalendarGrids.kt" to 1,
