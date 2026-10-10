@@ -3,8 +3,9 @@
 ``GetMe`` and ``GetDiaryCapabilities`` are asked both ways and against v1's
 own answer for the same caller, because «the same answer in v2's shape» is the
 promise (``docs/specs/2026-10-05-server-v2-design.md``, decisions 10 and 12).
-The gate's behaviour is asked of every method in ``HANDLERS``, so a method a
-later task registers is held by the same test the moment it is served.
+The gate's behaviour is asked of every method in ``HANDLERS`` and ``STREAMS``,
+so a method a later task registers is held by the same test the moment it is
+served.
 The statement test counts writes, not rows: the link code, the feed secret
 and a relinked subject are all updates, which a row count cannot see.
 """
@@ -18,7 +19,7 @@ from app.contract.lessons.v2.me_pb import GetMeRequest, Me
 from app.contract.lessons.v2.options_pb import AuthKind
 from app.contract.lessons.v2.options_pb import Role as ProtoRole
 from app.providers.diary.registry import KEYS
-from app.rpc.handlers import HANDLERS
+from app.rpc.handlers import HANDLERS, STREAMS
 from app.rpc.methods import METHODS
 
 #: The refusals only the gate makes.
@@ -31,7 +32,7 @@ GATE_REASONS = {"DEVICE_TOKEN_INVALID", "DIARY_TOKEN_INVALID", "DEVICE_NOT_LINKE
 SELF_ENDING = {"lessons.v2.DiaryService/DeleteDiarySession"}
 
 def _served() -> list[str]:
-    return sorted(HANDLERS)
+    return sorted([*HANDLERS, *STREAMS])
 
 
 def _request(key: str):

@@ -22,7 +22,8 @@ COMPOSE = ROOT / "docker-compose.yml"
 #: said in the compose file too; this is the list the test believes.
 NOT_FORWARDED = {
     "VERCEL": "the platform's own; set here it would switch on Vercel's refusal to start",
-    "HOST": "read only by `python -m app.main`; the image's command binds 0.0.0.0 itself",
+    "LESSONS_TARGET": "the host image's own statement; it would switch on the same refusal",
+    "HOST": "read only by `python -m app.main` and `python -m app.host`; the image binds itself",
     "PORT": "the same, and the published port is 8000 either way",
     "WEBHOOK_PATH": "read by nothing: the webhook's route is fixed in app/api/telegram.py",
 }

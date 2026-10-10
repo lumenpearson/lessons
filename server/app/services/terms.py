@@ -29,6 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import watch
 from app.models import SchoolClass, Term, TermKind
 from app.schedule import (
     default_term_bounds,
@@ -191,6 +192,7 @@ async def ensure(
         await session.execute(
             sa_delete(Term).where(Term.class_id == school_class.id, Term.year == year)
         )
+        watch.touch(session, school_class.id)
 
     seeded = [
         Term(

@@ -31,9 +31,13 @@ class WatchService(Protocol):
     def watch_class(self, request: WatchClassRequest, ctx: RequestContext[WatchClassRequest, WatchClassResponse], /) -> AsyncIterator[WatchClassResponse]:
         """
         A server stream of revisions, never the data: on each, the phone fetches
-        the schedule window as it already does. No REST binding, because REST
-        cannot carry a stream. A target without streaming answers
-        FEATURE_UNSUPPORTED.
+        the schedule window as it already does. The first message is the class's
+        revision now; another follows whenever the class changes, and the same
+        one again at least every thirty seconds while nothing does, so a revision
+        the phone already has means nothing changed. No REST binding, because
+        REST cannot carry a stream. A target without streaming answers
+        FEATURE_UNSUPPORTED; a device revoked, or its class deleted, ends the
+        stream with DEVICE_TOKEN_INVALID.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -88,9 +92,13 @@ class WatchServiceClient(ConnectClient):
     ) -> AsyncIterator[WatchClassResponse]:
         """
         A server stream of revisions, never the data: on each, the phone fetches
-        the schedule window as it already does. No REST binding, because REST
-        cannot carry a stream. A target without streaming answers
-        FEATURE_UNSUPPORTED.
+        the schedule window as it already does. The first message is the class's
+        revision now; another follows whenever the class changes, and the same
+        one again at least every thirty seconds while nothing does, so a revision
+        the phone already has means nothing changed. No REST binding, because
+        REST cannot carry a stream. A target without streaming answers
+        FEATURE_UNSUPPORTED; a device revoked, or its class deleted, ends the
+        stream with DEVICE_TOKEN_INVALID.
         """
         return self.execute_server_stream(
             request=request,
@@ -109,9 +117,13 @@ class WatchServiceSync(Protocol):
     def watch_class(self, request: WatchClassRequest, ctx: RequestContext[WatchClassRequest, WatchClassResponse], /) -> Iterator[WatchClassResponse]:
         """
         A server stream of revisions, never the data: on each, the phone fetches
-        the schedule window as it already does. No REST binding, because REST
-        cannot carry a stream. A target without streaming answers
-        FEATURE_UNSUPPORTED.
+        the schedule window as it already does. The first message is the class's
+        revision now; another follows whenever the class changes, and the same
+        one again at least every thirty seconds while nothing does, so a revision
+        the phone already has means nothing changed. No REST binding, because
+        REST cannot carry a stream. A target without streaming answers
+        FEATURE_UNSUPPORTED; a device revoked, or its class deleted, ends the
+        stream with DEVICE_TOKEN_INVALID.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -164,9 +176,13 @@ class WatchServiceClientSync(ConnectClientSync):
     ) -> Iterator[WatchClassResponse]:
         """
         A server stream of revisions, never the data: on each, the phone fetches
-        the schedule window as it already does. No REST binding, because REST
-        cannot carry a stream. A target without streaming answers
-        FEATURE_UNSUPPORTED.
+        the schedule window as it already does. The first message is the class's
+        revision now; another follows whenever the class changes, and the same
+        one again at least every thirty seconds while nothing does, so a revision
+        the phone already has means nothing changed. No REST binding, because
+        REST cannot carry a stream. A target without streaming answers
+        FEATURE_UNSUPPORTED; a device revoked, or its class deleted, ends the
+        stream with DEVICE_TOKEN_INVALID.
         """
         return self.execute_server_stream(
             request=request,

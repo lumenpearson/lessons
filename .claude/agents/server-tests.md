@@ -4,7 +4,7 @@ description: Integrity of the server test suite itself. Use to check that a test
 tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
-You own `server/tests/`. 3142 tests; `pytest -q -n auto`, bare, is exactly what CI runs,
+You own `server/tests/`. 3240 tests; `pytest -q -n auto`, bare, is exactly what CI runs,
 and finishes in about a third of a serial run's time. Not `python -m pytest` for the gate:
 the `-m` form puts the current directory on `sys.path`, so a test that leans on it passes
 here and fails at collection on CI (`CLAUDE.md`, «Commands»; #310, #314).

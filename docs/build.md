@@ -252,7 +252,9 @@ step. What stayed in CI for good:
   `test_schema_version` fails on one that names an old head, so a change to any of them
   runs the server, a change confined to `docs/` included; so does a change to `proto/`,
   `buf.yaml`, `buf.gen.yaml`, `buf.lock`, `vercel.json`, `.vercelignore`, `.python-version`,
-  the two requirements files or `docker-compose.yml`, each read by a server test. `docs/app/` and
+  the two requirements files, `docker-compose.yml` or the host's `Dockerfile` and
+  `.dockerignore`, each read by a server test; the «Host» job runs whenever the server job
+  does. `docs/app/` and
   `docs/legal/` are packaged into the APK and run Android as well; a change to `proto/`,
   `buf.yaml`, `buf.gen.yaml`, `buf.lock` or `server/app/contract/` runs the «Contract» job,
   which only those files, a workflow edit or an unknown range run; and the region catalog

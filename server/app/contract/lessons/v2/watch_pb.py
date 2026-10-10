@@ -47,12 +47,16 @@ class WatchClassResponse(Message[_WatchClassResponseFields]):
 
     Attributes:
         revision:
-            Changes whenever the class does. Opaque: compare it, never parse it.
+            Changes whenever the class does, and when the host restarts. Opaque:
+            compare it, never parse it.
 
             ```proto
             string revision = 1;
             ```
         changed_at:
+            When this host last saw the class change; unset when it has seen no
+            change since it started.
+
             ```proto
             optional google.protobuf.Timestamp changed_at = 2;
             ```

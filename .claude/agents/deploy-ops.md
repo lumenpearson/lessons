@@ -18,6 +18,12 @@ command in its header rather than editing a pin.
 Locally the bot long-polls from the `app/main.py` lifespan; on serverless it is a webhook.
 `RUN_BOT=false` starts the API alone.
 
+The host target (`python -m app.host`, the root `Dockerfile`; `docs/deploy.md`, «Option 3»)
+is a whole deployment chosen instead of Vercel, never beside it: it sets `LESSONS_TARGET=host`
+about itself and refuses to start exactly as Vercel does, takes the webhook and the cron, and
+runs as one instance, because its stream hears only its own process's writes. It is deployed
+nowhere yet.
+
 ## The three things that are usually wrong
 
 1. **A setting is missing.** `get_settings()` raises `DeploymentNotConfigured` when `VERCEL`

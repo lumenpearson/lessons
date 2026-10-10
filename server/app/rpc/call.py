@@ -1,10 +1,12 @@
 """One call of one v2 method: its gate, its scope, its handler, its commit, its effects.
 
-Both transports call :func:`invoke` — the RPC adapters with what Connect's
-``RequestContext`` carries, the REST transcoder with what Starlette's request
-does — so REST and RPC cannot disagree about a rule
+Both transports call :func:`invoke` for every unary method — the RPC adapters
+with what Connect's ``RequestContext`` carries, the REST transcoder with what
+Starlette's request does — so REST and RPC cannot disagree about a rule
 (``docs/specs/2026-10-05-server-v2-design.md``, decisions 3 and 4). A handler
-is a plain ``async`` function of ``(call, request)`` that knows neither.
+is a plain ``async`` function of ``(call, request)`` that knows neither. The
+one stream, which REST cannot carry, is :func:`stream`'s, and its handler an
+async generator (below).
 
 **The scope.** Each call opens a dishka ``REQUEST`` scope from the process
 container, the way the bot's ``ContextMiddleware`` does and not through
@@ -36,12 +38,21 @@ themselves keep doing so, and their writes stay when the call is refused:
 - ``api.deps.touch_last_seen`` — the device stays seen.
 
 Each has a test over v2.
+
+**A stream holds no session** (decision 13). :func:`stream` serves a
+server-streaming method: the gate runs in a scope of its own, committed and
+closed before the first message, and again in another each time the handler
+calls :meth:`Stream.recheck`. One scope held per watcher would hold a pooled
+connection for as long as a phone is in the foreground, and the pool is
+5 + 10. A refusal from any of those gates ends the stream with the gate's own
+answer, worded by the one table as every refusal is.
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from contextlib import aclosing
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -56,7 +67,7 @@ from app.config import Settings
 from app.models import DeviceToken, DiarySession, Role, SchoolClass
 from app.rpc import gate
 from app.rpc.errors import connect_error
-from app.rpc.handlers import HANDLERS
+from app.rpc.handlers import HANDLERS, STREAMS
 from app.rpc.methods import Method
 
 log = logging.getLogger(__name__)
@@ -101,6 +112,90 @@ class Call:
         if self.device is None or self.school_class is None:
             raise RuntimeError(f"{self.method.key} asked for a device it does not take")
         return self.device, self.school_class
+
+
+@dataclass
+class Stream:
+    """What a streaming handler is handed: the caller the gate admitted, and no session."""
+
+    method: Method
+    settings: Settings
+    # Out of the repr, as `Call`'s: the lines include `Authorization: Bearer …`.
+    headers: Sequence[tuple[str, str]] = field(repr=False)
+    peer: str | None
+    class_id: int
+    device_id: int
+    role: Role | None = None
+
+    async def recheck(self) -> None:
+        """The gate again, in a scope of its own, or the refusal it makes.
+
+        On every event and every heartbeat: a device revoked, or its class
+        deleted with its devices, since the last check is refused here, as a
+        unary call would be, and the stream ends with that refusal.
+        """
+        self.settings, admitted = await _admitted(self.method, self.headers)
+        self.device_id, self.class_id = _device_and_class(self.method, admitted)
+        self.role = admitted.role
+
+
+def _device_and_class(method: Method, admitted: gate.Admitted) -> tuple[int, int]:
+    if admitted.device is None or admitted.school_class is None:
+        raise RuntimeError(f"{method.key} streams to a caller that is no device")
+    return admitted.device.id, admitted.school_class.id
+
+
+async def _admitted(
+    method: Method, headers: Sequence[tuple[str, str]]
+) -> tuple[Settings, gate.Admitted]:
+    """The gate in a scope of its own: committed — the device stays seen — and closed."""
+    async with di.container()() as scope:
+        session = await scope.get(AsyncSession)
+        settings = await scope.get(Settings)
+        try:
+            admitted = await gate.admit(method, session, settings, headers)
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        return settings, admitted
+
+
+async def stream(
+    method: Method,
+    request: Message,
+    *,
+    headers: Sequence[tuple[str, str]],
+    peer: str | None,
+) -> AsyncIterator[Any]:
+    """Serve one call of a streaming ``method``, message by message, or raise
+    the ``ConnectError`` it ends with."""
+    handler = STREAMS.get(method.key)
+    if handler is None:
+        raise ConnectError(Code.UNIMPLEMENTED, NOT_IMPLEMENTED)
+    try:
+        settings, admitted = await _admitted(method, headers)
+        device_id, class_id = _device_and_class(method, admitted)
+        call = Stream(
+            method=method,
+            settings=settings,
+            headers=headers,
+            peer=peer,
+            class_id=class_id,
+            device_id=device_id,
+            role=admitted.role,
+        )
+        # `aclosing`, because closing this generator — the client gone, the
+        # server shutting down — does not close the one it is iterating: the
+        # handler's own `finally`, which forgets the watcher, would otherwise
+        # wait for the garbage collector.
+        async with aclosing(handler(call, request)) as messages:
+            async for message in messages:
+                yield message
+    except ConnectError:
+        raise
+    except Exception as failure:
+        raise connect_error(failure) from None
 
 
 async def _run_effects(call: Call) -> None:

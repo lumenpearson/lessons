@@ -1,10 +1,12 @@
 """v2 over RPC: Connect and gRPC-Web, mounted at ``/api/rpc``.
 
 :func:`rpc_app` is one ASGI app over the seventeen generated service apps. Each
-generated ``Protocol`` is implemented by an adapter whose every method turns
-Connect's ``RequestContext`` into :func:`call.invoke`'s arguments, so the RPC
-path and the REST transcoder run one function
-(``docs/specs/2026-10-05-server-v2-design.md``, decision 3).
+generated ``Protocol`` is implemented by an adapter whose every unary method
+turns Connect's ``RequestContext`` into :func:`call.invoke`'s arguments, so the
+RPC path and the REST transcoder run one function
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 3). The one stream,
+``WatchClass``, which REST cannot carry, is handed to :func:`call.stream`
+the same way.
 
 Two of ``connectrpc`` 0.12.1's defects under HTTP/1.1 are corrected in front
 of it (decision 7), because the library answers both with a ``500`` and a
@@ -34,7 +36,7 @@ from connectrpc.errors import ConnectError
 from starlette.responses import PlainTextResponse, Response
 
 from app.api.deps import peer_host
-from app.rpc.call import invoke
+from app.rpc.call import invoke, stream
 from app.rpc.errors import INTERNAL_MESSAGE, connect_error, undecodable
 from app.rpc.methods import METHODS, Method
 
@@ -133,10 +135,11 @@ def _unary(method: Method) -> Callable[..., Awaitable[Any]]:
 
 
 def _server_stream(method: Method) -> Callable[..., Any]:
-    async def call(self: object, request: Any, ctx: Any) -> Any:
-        # A stream's handler answers once, today always with a refusal
-        # (`rpc/watch.py`); 3c's host yields from it instead.
-        yield await invoke(
+    def call(self: object, request: Any, ctx: Any) -> Any:
+        # The generator itself, not one wrapped in another: connectrpc closes
+        # what it is handed when the client goes, and a wrapper's close would
+        # not reach the stream inside it (`call.stream` says why that matters).
+        return stream(
             method,
             request,
             headers=list(ctx.request_headers.allitems()),
@@ -164,7 +167,10 @@ def _service_app(service: str, methods: list[Method]) -> Any:
     return application(adapter(), codecs=CODECS, compressions=COMPRESSIONS)
 
 
-def _is_native_grpc(scope: Scope) -> bool:
+def is_native_grpc(scope: Scope) -> bool:
+    """Whether a request is native gRPC — ``application/grpc`` or
+    ``application/grpc+…``, never gRPC-Web — as the guard below and the host's
+    root (``app/host.py``) both ask it."""
     for name, value in scope.get("headers", ()):
         if name.lower() == b"content-type":
             media = value.decode("latin-1").split(";", 1)[0].strip().lower()
@@ -218,7 +224,7 @@ class _Services:
             return
         # Not «is it 1.1»: ASGI makes `http_version` optional and reads a
         # missing one as "1.1", so only a scope that says 2 or 3 is let past.
-        if scope.get("http_version") not in ("2", "3") and _is_native_grpc(scope):
+        if scope.get("http_version") not in ("2", "3") and is_native_grpc(scope):
             await PlainTextResponse(GRPC_REFUSED, status_code=415)(scope, receive, send)
             return
         path = scope["path"].removeprefix(scope.get("root_path", ""))

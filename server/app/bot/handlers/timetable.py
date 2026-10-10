@@ -18,7 +18,7 @@ from html import escape
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import render
@@ -211,11 +211,10 @@ async def timetable_apply(
     raw = (message.text or "").strip()
 
     if raw in {"-", "—"}:
-        await session.execute(
-            delete(TimetableEntry).where(
-                TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == weekday
-            )
-        )
+        # Through the service that writes the template, as a paste is below: a
+        # weekday named with nothing under it is emptied, and the service is
+        # what tells a host's watchers that the class changed (app/watch.py).
+        await structure.apply_timetable(session, school_class, {weekday: []}, [])
         await audit.record(
             session,
             school_class.id,

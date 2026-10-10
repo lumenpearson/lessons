@@ -90,10 +90,15 @@ services:
       # variable nobody set. The defaults written here are the settings' own.
       RUN_BOT: ${RUN_BOT:-true}
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
+      # WatchClass's stream, over Connect: this image serves HTTP/1.1, so
+      # native gRPC is the host image's alone (the root Dockerfile).
+      LESSONS_STREAMING: ${LESSONS_STREAMING:-false}
       # Deliberately absent: VERCEL is the platform's own, and set here it would
-      # switch on Vercel's refusal to start; HOST and PORT are read only by
-      # `python -m app.main`, while the image's command binds 0.0.0.0:8000
-      # itself; WEBHOOK_PATH is read by nothing.
+      # switch on Vercel's refusal to start; LESSONS_TARGET is the host image's
+      # statement about itself and switches on the same refusal; HOST and PORT
+      # are read only by `python -m app.main` and `python -m app.host`, while
+      # this image's command binds 0.0.0.0:8000 itself; WEBHOOK_PATH is read by
+      # nothing.
     depends_on:
       db:
         condition: service_healthy

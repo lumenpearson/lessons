@@ -234,7 +234,10 @@ like any other pull request.
   its floor there and its pin in the lock. `pyproject.toml` is not in that directory, so
   `test_requirements_mirror.py` fails and names the package; raise the floor in
   `pyproject.toml` to match, and touch nothing in the lock — it is regenerated, never
-  edited. A bump of a transitive package changes the lock alone and needs nothing.
+  edited. A bump of a transitive package changes the lock alone and needs nothing — unless
+  the host's lock pins it too: `test_host_image.py` then fails and names it, and
+  `server/requirements-host.txt` is regenerated with the command in its header, from
+  `server/`, in the same pull request.
 - **Install what the bump declares before running the suite.** For a lock bump that is
   `pip install -r ../requirements.txt -e ".[dev]"` from `server/`, which is what CI runs; a
   floor of `>=2.0.54` proves nothing while the environment still holds 2.0.53, and the green

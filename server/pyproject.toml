@@ -120,6 +120,11 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
 ]
+# A native gRPC client, for the tests CI's «Host» job runs against a running
+# host (tests/test_host_live.py, behind the `host` marker): Google's own
+# implementation, so that what is proved is that a gRPC client that is not
+# this server's library reads what it answers. Only that job installs it.
+host-check = ["grpcio>=1.84.0"]
 
 # Not a type checker in the usual sense - one question, asked of the whole
 # server: does this code reach for an attribute the type does not have?
@@ -175,6 +180,11 @@ ignore_errors = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# What the ordinary run skips: conftest.py skips the mark unless
+# LESSONS_HOST_URL names a running host, which CI's «Host» job does.
+markers = [
+    "host: needs a running host target at LESSONS_HOST_URL (tests/test_host_live.py)",
+]
 
 [tool.ruff]
 line-length = 100

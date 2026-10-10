@@ -207,10 +207,11 @@ Read this before planning a release.
 | Check | Result |
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
-| `python -m mypy` | clean, 238 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 3142 tests, green, about four minutes — the command CI runs |
+| `python -m mypy` | clean, 240 modules — asks whether anything reaches for an attribute that does not exist |
+| `pytest -q -n auto` | 3240 tests, green, about four minutes — the command CI runs |
 | buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
 | v2 over REST and Connect | seventy-five methods served beside v1, every unary one: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), the homework and the events, whose notices to the class go out after the commit (3b-5), the days and the substitutions, told to the class the same way (3b-6), a diary session and the reads of one pupil, with what each diary has declared from the registry's table (3b-7), and the family's corrections over the diary, a batch at a time, all or none (3b-8), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+| The host target and `WatchClass` | `python -m app.host`, under pyvoy and under hypercorn, started on SQLite by CI's «Host» job and asked over native gRPC: a unary call, a method the contract lacks, `WatchClass` hearing an ORM write, a bulk write and a bell change, a revoked phone cut off, and a forged `X-Forwarded-For` throttled all the same; the bus and the stream are tested in-process too. The image was built and run by hand once (at `261450e`, with a throwaway PostgreSQL 18: the same six live tests passed under both servers, and grpcurl was answered over native gRPC), and nothing builds it routinely; the host is deployed nowhere, and no phone streams yet |
 | Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter; none of it has run in production yet |
 | `./gradlew test` | 1684 tests, green, all five modules |
 | `./gradlew detekt` | no finding beyond each module's baseline, all five modules |
@@ -508,7 +509,9 @@ one of them is proved by a test rather than by a screen.
   again.
 * **`docker compose up` has not been run.** There is no Docker in this environment: the
   compose file was parsed and its dependency conditions asserted. The `migrate` service and
-  the revisions now in the image are written and never watched coming up.
+  the revisions now in the image are written and never watched coming up. Nor has the host's
+  image, the root `Dockerfile`: CI starts `python -m app.host` from the same two locks
+  instead, on Linux, and the file is read by a test.
 
 **What does not exist at all.**
 

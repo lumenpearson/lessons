@@ -63,6 +63,15 @@ def _start_sentry() -> None:
 
 _start_sentry()
 
+# The class-changed bus `WatchClass` streams from, where streaming is on
+# (app/watch.py). At import, like Sentry, so that the first write of the first
+# request is heard; nowhere else, so Vercel, the suite and every run without
+# LESSONS_STREAMING pay nothing for it.
+if get_settings().streaming_enabled:
+    from app import watch
+
+    watch.attach()
+
 
 def _report_bot_exit(task: asyncio.Task) -> None:
     """Log why the polling task stopped, if it stopped on its own."""
@@ -148,12 +157,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 # The interactive docs and the schema they are drawn from, locally and never on
-# the production server (#200): nobody there needs them — the app is written
-# against docs/api.md, not against a schema it fetches — and each is surface.
-# The signal is the one `get_settings` refuses to start on, Vercel's own
-# `VERCEL`, never a guess at "this looks like production". A compose or VPS
-# deployment keeps them, as it keeps every other local default.
-_api_docs = not get_settings().behind_vercel
+# a deployment (#200): nobody there needs them — the app is written against
+# docs/api.md, not against a schema it fetches — and each is surface. The
+# signal is the one `get_settings` refuses to start on, Vercel's own `VERCEL`
+# or the host image's `LESSONS_TARGET`, never a guess at "this looks like
+# production". A compose or VPS deployment keeps them, as it keeps every other
+# local default.
+_api_docs = not get_settings().deployed
 app = FastAPI(
     title="Lessons",
     version="0.1.0",
@@ -263,10 +273,14 @@ def mount_v2(target: FastAPI) -> bool:
         # Read back by `/api/v1/warmup`: a fallback that only the log knew of
         # would be invisible to whatever pings it.
         target.state.v2_mounted = False
+        target.state.v2_services = None
         return False
     target.router.routes.extend(routes)
     target.mount("/api/rpc", services)
     target.state.v2_mounted = True
+    # The same services, for the host target to answer native gRPC at the
+    # root with (app/host.py): one set, so the two paths cannot differ.
+    target.state.v2_services = services
     return True
 
 

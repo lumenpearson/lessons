@@ -21,13 +21,14 @@ that happens and names both trees (#312).
 
 1. `ruff check app tests scripts migrations` — exactly what CI lints. `ruff check .` from
    `server/` covers the same tree.
-2. `python -m mypy` — one question of all 238 modules, in seconds: does anything reach for an
+2. `python -m mypy` — one question of all 240 modules, in seconds: does anything reach for an
    attribute its type does not have? Every other error code is switched off by name in
    `pyproject.toml`, with its count and its reason. **In CI** since 27 September 2026, right
    after ruff — the owner asked for it through that day's audit (#210) — and still worth
    running before a push: seconds here, minutes there. It is the thing that reproduces the
    «🗓 Четверти» crash.
-3. `pytest -q -n auto`, bare, from `server/` with its venv active — 3142 tests today, and
+3. `pytest -q -n auto`, bare, from `server/` with its venv active — 3240 tests today, six of
+   them skipped unless a host is running (`-m host`, CI's «Host» job), and
    **the exact command CI runs**. Not `python -m pytest`: the `-m` form puts the current
    directory on `sys.path` and the bare one does not, so whatever leans on that passes here and
    fails on CI (CLAUDE.md, «Commands»; #310). Serial takes about five minutes; `-n auto`
@@ -70,8 +71,10 @@ Only when `proto/`, `buf.*` or `server/app/contract/` changed, which is CI's own
 ## What CI is
 
 `.github/workflows/ci.yml`: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both
-assembles, and `./gradlew detekt` as a step of its own after them; and «Contract (Buf)» when
-the contract changed. Nothing else.
+assembles, and `./gradlew detekt` as a step of its own after them; «Contract (Buf)» when
+the contract changed; and «Host», under pyvoy and hypercorn, whenever the server job runs: the
+host started on SQLite, and `pytest -m host` asking it over native gRPC — tests the ordinary
+run skips, and which need a Linux runner, the host's lock and a network. Nothing else.
 
 ## Two rules about evidence
 

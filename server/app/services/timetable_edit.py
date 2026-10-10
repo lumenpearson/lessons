@@ -31,6 +31,7 @@ from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import watch
 from app.db import rows_affected
 from app.models import (
     BellPeriod,
@@ -356,6 +357,7 @@ async def _shift(
         )
         .values(index=TimetableEntry.index - PARK + by)
     )
+    watch.touch(session, class_id)
 
 
 async def add_lesson(
@@ -445,6 +447,7 @@ async def remove_lesson(session: AsyncSession, class_id: int, weekday: int, inde
     )
     removed = rows_affected(result)
     if removed:
+        watch.touch(session, class_id)
         rung = await rung_indexes(session, class_id)
         moved = [used for used in await _indexes(session, class_id, weekday) if used > index]
         if all(can_ring(rung, one - 1) for one in moved):
@@ -484,6 +487,7 @@ async def move_lesson(
     await session.execute(_set(index, PARK))
     await session.execute(_set(neighbour, index))
     await session.execute(_set(PARK, neighbour))
+    watch.touch(session, class_id)
     return neighbour
 
 

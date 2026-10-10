@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 import httpx
+import pytest
 from httpx import ASGITransport
 
 from app.main import app
@@ -59,11 +60,17 @@ print(json.dumps(asyncio.run(ask())))
 """
 
 
-def test_a_vercel_deployment_serves_no_docs_and_still_answers():
+#: What the host image is started with: the same settings, said by the host's
+#: own marker rather than by Vercel's (the server-v2 design, decision 7).
+_HOST_ENV = {**_VERCEL_ENV, "VERCEL": "", "LESSONS_TARGET": "host"}
+
+
+@pytest.mark.parametrize("deployment", [_VERCEL_ENV, _HOST_ENV], ids=["vercel", "host"])
+def test_a_deployment_serves_no_docs_and_still_answers(deployment):
     result = subprocess.run(
         [sys.executable, "-c", _ASK_AS_VERCEL.format(paths=DOC_PATHS)],
         cwd=str(SERVER),
-        env={**os.environ, **_VERCEL_ENV},
+        env={**os.environ, **deployment},
         capture_output=True,
         text=True,
         timeout=120,

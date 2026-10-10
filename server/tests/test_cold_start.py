@@ -47,6 +47,12 @@ def from_aiogram(value):
 
 
 loaded = sorted(name for name in sys.modules if name.partition(".")[0] == "aiogram")
+bus = sys.modules.get("app.watch")
+host = sorted(
+    name
+    for name in sys.modules
+    if name == "app.host" or name.partition(".")[0] in ("pyvoy", "hypercorn", "envoy")
+)
 sentry = sorted(name for name in sys.modules if name.partition(".")[0] == "sentry_sdk")
 holders = sorted(
     name
@@ -62,6 +68,8 @@ print(
             "sentry": sentry,
             "holders": holders,
             "webhook": "app.api.telegram" in sys.modules,
+            "streaming": bool(bus is not None and bus.listening()),
+            "host": host,
         }
     )
 )
@@ -86,9 +94,13 @@ _VERCEL = {
 
 
 def _import_in_a_fresh_interpreter(module: str, settings: dict[str, str]) -> dict:
-    # `VERCEL` dropped first, so the local case is local even in a shell that
-    # happens to carry it; the Vercel case sets it again.
-    env = {name: value for name, value in os.environ.items() if name != "VERCEL"}
+    # `VERCEL` and the host's marker dropped first, so the local case is local
+    # even in a shell that happens to carry one; the Vercel case sets it again.
+    env = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in ("VERCEL", "LESSONS_TARGET")
+    }
     result = subprocess.run(
         [sys.executable, "-c", _PROBE.replace("MODULE", module)],
         cwd=str(SERVER),
@@ -121,6 +133,35 @@ def test_importing_the_api_leaves_aiogram_out(settings, webhook_mounted):
         f"importing app.main loaded {len(found['aiogram'])} aiogram modules; "
         f"held by {found['holders']}"
     )
+
+
+@pytest.mark.parametrize(
+    ("settings", "listening"),
+    [
+        ({**_LOCAL, "LESSONS_STREAMING": "true"}, True),
+        ({**_VERCEL, "LESSONS_STREAMING": "true"}, False),
+        ({**_LOCAL, "LESSONS_STREAMING": "false"}, False),
+    ],
+    ids=["asked-for", "on-vercel", "not-asked"],
+)
+def test_the_bus_listens_where_streaming_is_on_and_nowhere_else(settings, listening):
+    """``app.main`` attaches the class-changed bus at import where streaming is
+    on (``app/watch.py``), so that the first write of the first request is
+    heard — and never on Vercel, whatever LESSONS_STREAMING says."""
+    found = _import_in_a_fresh_interpreter("app.main", settings)
+    assert found["streaming"] is listening
+
+
+@pytest.mark.parametrize("settings", [_LOCAL, _VERCEL], ids=["webhook-unmounted", "vercel"])
+def test_the_api_cold_start_carries_nothing_of_the_host_target(settings):
+    """``app.main`` is Vercel's function, and Vercel's lock has neither pyvoy
+    nor hypercorn: an import of either from the API's path would be a
+    ``ModuleNotFoundError`` on every cold start. The host's server is
+    ``app.host``'s alone, and only its own ``main`` imports it."""
+    found = _import_in_a_fresh_interpreter("app.main", settings)
+    assert found["host"] == []
+    hosted = _import_in_a_fresh_interpreter("app.host", _LOCAL)
+    assert hosted["host"] == ["app.host"]
 
 
 def test_the_probe_sees_aiogram_where_it_is():

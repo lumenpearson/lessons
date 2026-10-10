@@ -51,6 +51,17 @@ os.environ["SENTRY_DSN"] = ""
 # key exported in the shell would send a password-shaped query to the real
 # directory. A test that wants the directory configures one and replaces it.
 os.environ["DADATA_TOKEN"] = ""
+# Whatever the shell holds: the suite is no host and streams nothing. The build
+# console runs the host and this suite on one machine, and a LESSONS_STREAMING
+# exported for the one would attach the bus here, so that every WatchClass the
+# gate test opens through httpx's ASGI transport — which returns only when the
+# answer ends — would wait for ever; a LESSONS_TARGET would make the suite a
+# deployment, which get_settings refuses on the first import. Set empty rather
+# than removed, because Settings reads server/.env as well and the environment
+# wins over the file: a marker written there would otherwise still count. A
+# test that wants the bus attaches it (test_watch.py, test_v2_watch.py).
+os.environ["LESSONS_STREAMING"] = "false"
+os.environ["LESSONS_TARGET"] = ""
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402
@@ -120,6 +131,29 @@ def pytest_configure(config: pytest.Config) -> None:
             'pip install -r ../requirements.txt -e ".[dev]") and run pytest from it, and '
             "unset a PYTHONPATH that points elsewhere."
         )
+
+
+#: Why a test marked ``host`` did not run.
+HOST_ABSENT = (
+    "needs a running host target: LESSONS_HOST_URL is unset, as everywhere but "
+    "CI's «Host» job (docs/specs/2026-10-05-server-v2-design.md, decision 14)"
+)
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Skip the tests marked ``host`` unless a host is running to be asked.
+
+    They talk to ``python -m app.host`` over the network (``test_host_live.py``):
+    with no address there is nothing to ask, and a test that failed for that
+    would only teach people to ignore it. Skipped rather than deselected, so
+    the ordinary run's summary says they exist and why they did not run.
+    """
+    if os.environ.get("LESSONS_HOST_URL"):
+        return
+    absent = pytest.mark.skip(reason=HOST_ABSENT)
+    for item in items:
+        if item.get_closest_marker("host") is not None:
+            item.add_marker(absent)
 
 
 @pytest.fixture(autouse=True)

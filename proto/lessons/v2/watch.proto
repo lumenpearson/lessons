@@ -15,9 +15,13 @@ option java_package = "com.lumenpearson.lessons.contract.v2";
 
 service WatchService {
   // A server stream of revisions, never the data: on each, the phone fetches
-  // the schedule window as it already does. No REST binding, because REST
-  // cannot carry a stream. A target without streaming answers
-  // FEATURE_UNSUPPORTED.
+  // the schedule window as it already does. The first message is the class's
+  // revision now; another follows whenever the class changes, and the same
+  // one again at least every thirty seconds while nothing does, so a revision
+  // the phone already has means nothing changed. No REST binding, because
+  // REST cannot carry a stream. A target without streaming answers
+  // FEATURE_UNSUPPORTED; a device revoked, or its class deleted, ends the
+  // stream with DEVICE_TOKEN_INVALID.
   rpc WatchClass(WatchClassRequest) returns (stream WatchClassResponse) {
     option (lessons.v2.auth) = AUTH_KIND_DEVICE;
     option (lessons.v2.min_role) = ROLE_VIEWER;
@@ -27,7 +31,10 @@ service WatchService {
 message WatchClassRequest {}
 
 message WatchClassResponse {
-  // Changes whenever the class does. Opaque: compare it, never parse it.
+  // Changes whenever the class does, and when the host restarts. Opaque:
+  // compare it, never parse it.
   string revision = 1;
+  // When this host last saw the class change; unset when it has seen no
+  // change since it started.
   google.protobuf.Timestamp changed_at = 2;
 }

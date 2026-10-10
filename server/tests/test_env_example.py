@@ -17,6 +17,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 from app.config import Settings
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -24,11 +26,13 @@ EXAMPLE = ROOT / "server" / ".env.example"
 WORKFLOWS = ROOT / ".github" / "workflows"
 BUILD_DOC = ROOT / "docs" / "build.md"
 
-# The one setting that is never written by hand. Vercel sets it about itself,
-# and it is what switches on the refusal-to-start check — so a line for it in
-# the file people copy would be an invitation to make a laptop refuse to start.
-# The file says so in prose, which this test checks for rather than against.
-PLATFORM_SET = {"VERCEL"}
+# The settings that are never written by hand. Vercel sets VERCEL about
+# itself, and the root Dockerfile sets LESSONS_TARGET about the host image;
+# each is what switches on the refusal-to-start check — so a line for either
+# in the file people copy would be an invitation to make a laptop refuse to
+# start. The file says so in prose, which this test checks for rather than
+# against.
+PLATFORM_SET = {"VERCEL", "LESSONS_TARGET"}
 
 
 def env_names() -> set[str]:
@@ -66,15 +70,16 @@ def test_the_example_invents_nothing() -> None:
     )
 
 
-def test_the_platform_variable_is_explained_rather_than_listed() -> None:
+@pytest.mark.parametrize("name", sorted(PLATFORM_SET))
+def test_the_platform_variable_is_explained_rather_than_listed(name: str) -> None:
     # It is deliberately absent, and «absent» and «forgotten» look identical in
     # a file — which is how the three missing ones survived. The prose is what
     # tells them apart, so the prose is what is pinned.
     text = EXAMPLE.read_text("utf-8")
-    assert "VERCEL" in text, "the example no longer says why VERCEL is not in it"
-    assert not re.search(r"^#?\s*VERCEL=", text, re.MULTILINE), (
-        "VERCEL is given as a variable to set; it is the platform's own, and "
-        "setting it by hand makes a machine refuse to start"
+    assert name in text, f"the example no longer says why {name} is not in it"
+    assert not re.search(rf"^#?\s*{name}=", text, re.MULTILINE), (
+        f"{name} is given as a variable to set; it is a deployment's statement "
+        "about itself, and setting it by hand makes a machine refuse to start"
     )
 
 

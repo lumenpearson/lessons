@@ -45,6 +45,8 @@ READ_BY_THE_SUITE = {
     "requirements.txt": "test_requirements_mirror",
     ".python-version": "test_requirements_mirror",
     "docker-compose.yml": "test_compose",
+    "Dockerfile": "test_host_image",
+    ".dockerignore": "test_host_image",
     "api/*.py": "test_vercel_entry",
     "vercel.json": "test_vercel_entry",
     ".vercelignore": "test_region_catalog",

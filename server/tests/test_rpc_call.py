@@ -2,7 +2,8 @@
 
 ``invoke`` is driven directly here, with handlers put into ``HANDLERS`` for
 the test, so that each rule of decision 4 is asked of the one function both
-transports call (``docs/specs/2026-10-05-server-v2-design.md``).
+transports call (``docs/specs/2026-10-05-server-v2-design.md``); and so is
+``stream``, the one stream's twin of it, with handlers put into ``STREAMS``.
 """
 
 from __future__ import annotations
@@ -17,21 +18,23 @@ from connectrpc.errors import ConnectError
 from sqlalchemy import func, select
 
 from app.api.deps import caller_bucket
-from app.contract.lessons.v2 import school_class_connect
+from app.contract.lessons.v2 import school_class_connect, watch_connect
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.contract.lessons.v2.school_class_pb import GetClassRequest, GetClassResponse
+from app.contract.lessons.v2.watch_pb import WatchClassRequest, WatchClassResponse
 from app.db import SessionLocal
 from app.models import AuditEntry, DeviceToken, DiarySession
 from app.rpc import call as call_module
-from app.rpc.call import NOT_IMPLEMENTED, Call, invoke
+from app.rpc.call import NOT_IMPLEMENTED, Call, invoke, stream
 from app.rpc.errors import Refusal
-from app.rpc.handlers import HANDLERS
+from app.rpc.handlers import HANDLERS, STREAMS
 from app.rpc.methods import METHODS
 from app.security import hash_token
 
 SERVER = Path(__file__).resolve().parents[1]
 GET_CLASS = METHODS["lessons.v2.ClassService/GetClass"]
 LIST_STUDENTS = METHODS["lessons.v2.DiaryService/ListStudents"]
+WATCH_CLASS = METHODS["lessons.v2.WatchService/WatchClass"]
 
 
 def _bearer(token: str) -> list[tuple[str, str]]:
@@ -56,6 +59,46 @@ async def test_a_method_with_no_handler_answers_as_the_generated_protocol_does(
         await invoke(GET_CLASS, GetClassRequest(), headers=[], peer=None)
     assert served.value.code is protocol.value.code is Code.UNIMPLEMENTED
     assert served.value.message == protocol.value.message == NOT_IMPLEMENTED
+
+
+async def test_a_stream_with_no_handler_answers_as_the_generated_protocol_does(
+    monkeypatch,
+) -> None:
+    """``stream``'s twin of the test above, before any gate as well: sent with
+    no credential, so a gate that ran first would answer ``UNAUTHENTICATED``."""
+    monkeypatch.delitem(STREAMS, WATCH_CLASS.key)
+    with pytest.raises(ConnectError) as protocol:
+        watch_connect.WatchService.watch_class(None, WatchClassRequest(), None)
+    with pytest.raises(ConnectError) as served:
+        await anext(stream(WATCH_CLASS, WatchClassRequest(), headers=[], peer=None))
+    assert served.value.code is protocol.value.code is Code.UNIMPLEMENTED
+    assert served.value.message == protocol.value.message == NOT_IMPLEMENTED
+
+
+async def test_a_stream_closed_has_closed_its_handler_by_the_time_the_close_returns(
+    monkeypatch, v2_tokens
+) -> None:
+    """connectrpc closes the generator it was handed once its client has gone,
+    and closing a generator does not close the one it iterates: without
+    ``aclosing`` the handler's ``finally`` — where ``WatchClass`` forgets its
+    watcher — would wait for asyncio's finalizer hook, a loop turn later or
+    the collector's next pass. Nothing is awaited between the close and the look."""
+    closed: list[bool] = []
+
+    async def handler(call, request):
+        try:
+            while True:
+                yield WatchClassResponse(revision="r")
+        finally:
+            closed.append(True)
+
+    monkeypatch.setitem(STREAMS, WATCH_CLASS.key, handler)
+    messages = stream(
+        WATCH_CLASS, WatchClassRequest(), headers=_bearer(v2_tokens["viewer"]), peer=None
+    )
+    assert (await anext(messages)).revision == "r"
+    await messages.aclose()
+    assert closed == [True]
 
 
 async def test_a_success_commits_before_its_effects_run(monkeypatch, v2_tokens, school_class):
