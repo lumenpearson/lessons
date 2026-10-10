@@ -4,7 +4,7 @@ Version `1`. Base path `/api/v1`. Every change since the first release is
 additive - new endpoints, new optional fields - so the version has not moved
 and a client built against the original `/bundle` keeps working unchanged.
 A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
-sixty-one of its methods so far: «v2: the contract», at the end of this page.
+seventy-one of its methods so far: «v2: the contract», at the end of this page.
 
 There is no user account and no password. A device holds a bearer token; a
 device that has been **linked** to a Telegram account through the bot acts
@@ -1218,6 +1218,8 @@ call, so an unknown region, a region the allow-list knows to take only Госу�
 missing school is a `422`. A region whose server answers at sign-in that it takes only
 Госуслуги, or refuses this deployment's address, answers `503` with `X-Diary-Unavailable`,
 and the sign-in limiter does not count it, because nothing there looked at the password.
+A body it refuses is a `422` that names what was wrong and never repeats the value, a
+password refused for its length included, as `/session`'s never has.
 
 This route **receives the password**, and so does the bot's sign-in page (`/diary/signin`,
 described in [bot.md](bot.md)), which is a separate route over the same sign-in: each passes
@@ -1596,7 +1598,7 @@ Postgres, which has been checked on SQLite only. Nothing here has been asked of 
 
 ## v2: the contract
 
-**Served beside v1, sixty-one methods so far.** Everything above this section is v1, and
+**Served beside v1, seventy-one methods so far.** Everything above this section is v1, and
 v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
 checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
 [the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
@@ -1606,8 +1608,9 @@ Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateD
 methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
 eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
 `DirectoryService` methods (3b-3); the other eleven `MeService` methods, a phone's own
-(3b-4); the five `HomeworkService` methods and the five `EventService` methods (3b-5); and
-the two `DayService` methods and the five `SubstitutionService` methods (3b-6).
+(3b-4); the five `HomeworkService` methods and the five `EventService` methods (3b-5); the
+two `DayService` methods and the five `SubstitutionService` methods (3b-6); and ten
+`DiaryService` methods, a diary session's two and its eight reads (3b-7).
 Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
 credential. No APK calls v2 yet. The proto files are
 the reference: every service, method, message and field there carries the comment that says
@@ -1677,8 +1680,9 @@ unaffected.
   `Cache-Control`, as v1's `/bundle` does. `Cache-Control: private, no-store` goes on every
   diary `GET`, on `GetCalendarFeed` and `CreateCalendarFeed` (their answer is a secret URL),
   on `GetClass` and `UpdateClass` (their answer is the class card, whose join code admits a
-  phone), on `CreateDevice` (its answer is a device token) and on `CreateLinkCode` (its answer
-  links the phone to whoever sends it to the bot).
+  phone), on `CreateDevice` and `CreateDiarySession` (their answer is a device token or a
+  diary token) and on `CreateLinkCode` (its answer links the phone to whoever sends it to the
+  bot).
 - **No CORS header**, on any answer: v2 answers apps, not pages on other sites.
 - **A failure to write an answer** is Google's `INTERNAL` body like any other refusal, never
   plain text.
@@ -1836,6 +1840,48 @@ unaffected.
   contract has them. `ListSubstitutions` reads its window as `ListHomework` does.
 - **The class is told**, those who asked to hear about changes and never the author, in v1's
   words, once the change is committed and never when it is refused.
+
+### The diary
+
+- **What a provider has is said before a password is typed.** `GetDiaryCapabilities` lists,
+  for every provider of the server's registry, the regions it signs in to, the ways in a
+  phone may draw a form for (`SIGN_IN_METHOD_PASSWORD`, for both today) and the data the
+  provider has: Петербург the schedule, the homework, the marks, the periods, the subjects,
+  the teachers and the turnstile; «Сетевой город» the first four, because its diary has
+  none of the other three and is never asked them. With the diary off, `enabled` is false
+  and no provider offers a way in or any data; the regions are v1's answer either way.
+- **A session is kept as v1's `/session` keeps it.** `CreateDiarySession` takes the session
+  the phone opened with the diary itself, in the case of `credential` that names its
+  provider, validated by v1's own schema, so the two versions refuse the same sessions; a
+  violation is named as v2 spells the field (`netschool.cookies.ns_session_id`), never with
+  what was sent. The diary reads with it once from this server's address, and the token it
+  answers with is never cached over REST (Connect's answers carry no such header yet, #357).
+  A region this server does not serve is `VALIDATION_FAILED` on `region` before anything is
+  counted or sent. An attempt is counted as v1 counts it, on one
+  budget with v1 for the same caller: `DIARY_CREDENTIALS_REJECTED` (the diary would not take
+  the session from here, which asking for the password again would not change),
+  `DIARY_NO_STUDENTS` and `DIARY_UPSTREAM_UNREADABLE` count; `DIARY_UNAVAILABLE` (`upstream`,
+  or `address-refused` when the region drops this server's address) and `DIARY_DISABLED` do
+  not; past either limit it is `THROTTLED`. `DeleteDiarySession` is v1's `/logout`.
+- **A read asks the session's own diary who the pupil is, every time.** An id it does not
+  list is `RESOURCE_NOT_FOUND` with `resource: "student"`, on all seven reads of one pupil,
+  so another family's child is nobody here. A read whose `DiaryFeature` the session's
+  provider does not declare is `UNIMPLEMENTED` with `FEATURE_UNSUPPORTED`
+  (`feature: "DIARY_FEATURE_SUBJECTS"`, say) before the diary is asked anything, where v1
+  answered «Сетевой город»'s subjects, teachers and turnstile with an empty list a client
+  could not tell from an empty diary.
+- **A window from the diary's own today.** `ListScheduleDays`, `ListDiaryHomework` and
+  `ListMarks` read `start_date` and `end_date` as v1 read `from` and `to`: the diary's today
+  and 14 days on when unset, 62 days at most. A window v2 refuses is `VALIDATION_FAILED` on
+  the field at fault, before the diary is asked anything, in the words every list of v2 uses.
+  `ListScheduleDays` lists each day that has lessons once, in date order.
+- **The family's corrections are laid over as v1 lays them**: this child's, in this diary,
+  over the lessons and the homework and never over a mark. Writing them is 3b-8's.
+- **When the diary ends a session**, a read is `DIARY_REAUTH`, and the session stays ended
+  whatever the call does; a session the diary rotated is kept, even by a read that is
+  refused. A session opened with a diary this deployment does not know, which a later
+  release added, is `DIARY_TOKEN_INVALID`, left for the release that knows it, and never
+  sent to another diary.
 
 ### What the values look like
 

@@ -127,7 +127,9 @@ order of checks, then a phone's own: its link code and the code's deep link, unl
 itself, the feed's address, a task's checks and its patch, and a tick set rather than
 toggled, then the homework's and the events' writes, each with its line in the journal and
 its notice, and the window a list of the class's days covers, then a day's mark and a
-substitution's three questions, each one write the bot makes through too — and the
+substitution's three questions, each one write the bot makes through too, then the
+diary's: a phone's session registered and counted, the days a diary read covers and the reads
+of one pupil — and the
 limiters into `security.py`, one instance each, so a caller cannot double its attempts by
 alternating versions. `main.mount_v2` catches a v2 that will not import and answers `503`
 under its two prefixes, so v1 and the webhook never go down with it.
@@ -678,9 +680,19 @@ broke; a thin `petersburg/provider.py` wraps the existing client and mapper behi
 contract. Rewriting the one provider a real account has been promised against, for behaviour
 no reader would see, was the change deliberately not made.
 
-`registry.py` answers two questions in one place. `provider_for(key)` maps a stored key to an
-implementation, importing the provider module lazily so neither upstream's HTTP client lands
-on the cold-start path of a request that does not use it. `binding(school_class)` resolves
+`registry.py` is the diary as data: one row per provider in `TABLE` — its key, its
+implementation, what a class's binding to it needs (nothing, or a region and a school), the
+ways in a phone may draw a form for, the features it has, how a child's corrections are
+scoped, whether the tick keeps its sessions open, and how what a phone hands over is
+sealed. Every question asked of a key reads its row, so a third diary is a row and its
+module rather than an `if` in five places. A row names its implementation, and a regional
+provider its allow-list, as a module imported lazily, so neither upstream's HTTP client
+lands on the cold-start path of a request that does not use it. A feature is declared only
+when the provider's connection reads it from the diary: «Сетевой город» has no subjects,
+teachers or turnstile, so v2 refuses those with `FEATURE_UNSUPPORTED` rather than an empty
+list. A session row whose key no row answers — a provider a later release added, read
+after a rollback — is refused by `services/diary.find_session` and left alone, never read
+through another provider (#389). `binding(school_class)` resolves
 what a class is bound to; the bot menu, the class card, the web form and `POST /join`'s
 `diary` field all call it, so "is this class bound, and to what" has a single answer, and a
 class bound to a «Сетевой город» region since dropped from the allow-list reads as unbound
@@ -944,7 +956,7 @@ with the host.
 
 ## Testing
 
-3000 tests on the server, 1684 on Android; `pytest -q -n auto` and `./gradlew test`, both
+3094 tests on the server, 1684 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 161, `:widget` 126, `:app` 657 (#325).
 
