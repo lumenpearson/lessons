@@ -1,7 +1,7 @@
 # One contract: REST v2, Connect and native gRPC, decomposition, and a build console
 
 Status: **agreed with the owner on 3 October 2026, not yet built.** This is the design of a
-programme of six sub-projects. Each sub-project gets its own detailed specification and its own
+programme of six sub-projects (seven since 10 October 2026). Each sub-project gets its own detailed specification and its own
 implementation plan before any of its code is written; this document fixes what they share and
 the order they go in. A feasibility spike (sub-project 0) ran in parallel with the review of
 this document on 3 October 2026; «What the spike found» below holds its answers, and every
@@ -418,8 +418,10 @@ on success, so a method behaves exactly as the endpoint it replaces.
 What the process is running on decides what it can serve, so there is no flag that could claim
 gRPC on Vercel. The host target keeps every rule of the Vercel one — the external cron tick, no
 in-process scheduler, the same settings refusal — so one codebase never has two behaviours
-beyond the transport. **Where the host lives is not decided here.** One option worth weighing
-when it is: a host inside Russia would also be the egress #235 is waiting for.
+beyond the transport. **Where the host lives was decided on 10 October 2026:** Selectel or
+RUVDS, inside Russia, which is also the egress #235 was waiting for. The six deployment
+scenarios are in `docs/specs/2026-10-10-deployment-scenarios-design.md`: the core on a VPS, on
+Vercel or in the app, and the diary reached through a proxy, the relay or directly.
 
 **Cold start.** Nothing under `rpc/`, `rest/` or `contract/` may import `app.bot`;
 `tests/test_service_layering.py` is extended to those packages, and a new test imports
@@ -566,7 +568,7 @@ no web frontend stands.
 | --- | --- |
 | Build | the gates exactly as CI runs them, per half or all; an APK for a chosen transport and streaming flag; a history of runs, each with its saved log |
 | Contract | `buf generate`, `buf lint`, `buf breaking` against `main`, and the generated-code freshness check |
-| Deploy | the Vercel target: production's `/api/v1/warmup` (status, schema revision against `EXPECTED_REVISION`) and a preview deployment through the Vercel CLI once #118 has said what Preview is for; the host target run locally |
+| Deploy | the Vercel target: production's `/api/v1/warmup` (status, schema revision against `EXPECTED_REVISION`) and a preview deployment through the Vercel CLI once #118 has said what Preview is for; the host target run locally; and, since 10 October 2026, the six deployment scenarios (`docs/specs/2026-10-10-deployment-scenarios-design.md`): build and check each, the VPS over SSH, the proxy's health, the egress setting |
 | Device | `adb devices`, install the chosen APK on the emulator or a phone, a filtered logcat, and `adb reverse` for a locally running target — on this machine the emulator cannot reach `10.0.2.2`. It never installs over the app the owner has on the device: a build of another signature or a lower version goes in under its own application id or not at all |
 | Environment | every setting the server reads, which are mandatory on Vercel, which are switched off and what that switches off — read from `server/.env.example` and `app/config.py`, never a third copy; set or missing locally, values never shown |
 | Docs | `docs/`, `CLAUDE.md` and `HANDOVER.md` in Textual's Markdown viewer |
@@ -601,8 +603,9 @@ second way in that nothing reviews.
 | 2 | Contract | `proto/`, Buf in CI, the error model, the resource map final, `docs/api.md` for v2 | 0 |
 | 3 | Server shells and targets | `rpc/`, `rest/`, `host.py`, the `Dockerfile`, streaming beta, v2 live beside v1 | 2 |
 | 4 | Android decomposition | the splits above, the worker cap | #264 for the shell |
-| 5 | Android transports | the remotes, three bindings, `RemoteError`, golden files, the new APK; then v1 deleted | 3, 4 |
-| 6 | Build console | `tools/console/` | 3, 5 for the variants it builds |
+| 5 | Android transports | the remotes, three bindings, `RemoteError`, golden files, the new APK; the server's address at run time and the diary relay (scenarios 3 and 4, with its protections and the privacy policy); then v1 deleted | 3, 4 |
+| 6 | Build console | `tools/console/`, its Deploy tab knowing the six scenarios | 3, 5 for the variants it builds |
+| 7 | The core in the app | the class's rules in Kotlin over Room, the diary read on the phone, a standalone build (scenarios 5 and 6); added on 10 October 2026 | 6 |
 
 Each sub-project is its own pull request (or several), with the gates green and a milestone.
 
