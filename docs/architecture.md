@@ -53,6 +53,8 @@ app/
 ├── wording.py     the words both shells print: dates, plurals, a day's card
 ├── telegram_send.py  a bot built for one job: the tick's, v1's and v2's notices', the owner's alerts
 ├── observability.py  Sentry's start and its scrubbing, imported only where SENTRY_DSN is set
+├── watch.py       the class-changed bus WatchClass streams from, fed by the session itself
+├── host.py        the host target: the whole app over HTTP/2, under pyvoy or hypercorn
 ├── catalog/       the region catalog — generated data, never edited by hand
 ├── services/      the rules both shells call — pure async functions over a session
 ├── providers/     the foreign services: the diaries (petersburg, netschool) and dadata
@@ -150,6 +152,31 @@ they tell Telegram, and the retries that leaned on a failing commit — a link c
 twice, a racing tick, and two parents correcting one field of a diary's lesson at once —
 concede inside a savepoint, each only its own write, so a correction's race never undoes the
 batch's earlier ones.
+
+### The host target, and a stream that hears every shell
+
+`python -m app.host` serves the same app as Vercel, under pyvoy — Envoy with the app
+inside it — or hypercorn, and adds what HTTP/2 and a long-running process allow: native
+gRPC, also at the root where a gRPC client calls, and `WatchClass`, a stream of «this class
+changed» (`docs/specs/2026-10-05-server-v2-design.md`, decision 13). It is a complete
+deployment chosen instead of Vercel, because of how the stream hears a change.
+
+`app/watch.py` listens to the session itself, so it hears the bot, v1 and v2 alike: before
+each flush it collects the class of every row written to a table a schedule window is read
+from — a bell period through its schedule, the class through its own id — and it publishes
+them once the transaction's outermost commit is done, never at a savepoint's release, whose
+write nobody else can read yet. A bulk `update` or `delete` never passes through the unit of
+work, so every one on such a table calls `watch.touch` with the class it has at hand, and
+`tests/test_watch.py` walks all of `app/` and fails on one that does not. A process hears
+only its own writes: a host beside Vercel would never hear an edit the webhook made there,
+which is why the host replaces Vercel, and why it runs as one instance.
+
+The stream holds no database session between messages (`rpc/call.py`, `stream`): the gate
+runs in a scope of its own before the first message and again before each one after it, so
+a revoked phone or a deleted class ends its stream, and a hundred open phones hold no pooled
+connection. The host never sets its own deployment marker, `LESSONS_TARGET`; the root
+`Dockerfile` does, and with it the host refuses to start without what a deployment needs, as
+Vercel does.
 
 ### The tick checks the deployment, and tells its owner
 
@@ -959,7 +986,7 @@ with the host.
 
 ## Testing
 
-3142 tests on the server, 1684 on Android; `pytest -q -n auto` and `./gradlew test`, both
+3233 tests on the server, 1684 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 161, `:widget` 126, `:app` 657 (#325).
 

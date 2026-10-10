@@ -36,8 +36,8 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 | Command | What it does |
 | --- | --- |
 | `ruff check app tests scripts migrations` | lints the server — exactly what CI runs |
-| `python -m mypy` | one question of all 238 modules: does anything reach for an attribute its type does not have? |
-| `pytest -q -n auto` | the server tests, 3142 of them, in about four minutes on CI — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
+| `python -m mypy` | one question of all 240 modules: does anything reach for an attribute its type does not have? |
+| `pytest -q -n auto` | the server tests, 3233 of them, in about four minutes on CI — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
 | `python -m pytest -q tests/test_schedule.py -k parity` | one file, one test |
 | `python -m uvicorn app.main:app --reload` | run the server |
 | `alembic upgrade head` | apply the migrations (with a working `DATABASE_URL`) |
@@ -51,7 +51,8 @@ The first six run from `server/`, the rest from `android/`.
 CI (`.github/workflows/ci.yml`) runs exactly this: `ruff`, `python -m mypy`,
 `pytest -n auto`, `./gradlew test`, `assembleDebug`, `assembleRelease` and `./gradlew detekt`; and, when the
 contract changed, `buf lint`, `buf breaking` and a check that `server/app/contract/` is what
-`buf generate` writes. The release
+`buf generate` writes; and, whenever the server's do, the «Host» job, which starts `python -m
+app.host` under pyvoy and under hypercorn and asks it over native gRPC. The release
 build runs on every push, not only on a release: R8 and resource shrinking are the classic
 "it worked in debug and broke in the installed APK", and catching that on a pull request is
 cheaper than catching it on people.

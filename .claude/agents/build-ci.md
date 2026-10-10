@@ -9,8 +9,11 @@ You own `.github/`. **The workflows work — do not edit them casually.**
 ## What CI is
 
 `ci.yml` is: `ruff`, `python -m mypy`, `pytest -n auto`, `./gradlew test`, `assembleDebug`,
-`assembleRelease`, `./gradlew detekt`, and the path-filtered «Contract (Buf)» job (`buf lint`,
-`buf breaking` against the base, the generated-code check), which reads no secret. Nothing
+`assembleRelease`, `./gradlew detekt`, the path-filtered «Contract (Buf)» job (`buf lint`,
+`buf breaking` against the base, the generated-code check), which reads no secret, and
+«Host», a matrix of pyvoy and hypercorn run whenever the server job is: `python -m app.host`
+started in the background on SQLite and `pytest -m host` asking it over native gRPC
+(`server/tests/test_host_job.py` holds the job to those tests). Nothing
 else. mypy joined on 27 September 2026, when the owner asked for
 it through that day's audit (#210). The server job installs the root `requirements.txt` —
 the lock Vercel installs — together with the package (#192), so its verdict is about the

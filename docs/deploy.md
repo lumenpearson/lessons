@@ -15,6 +15,10 @@ whether you are willing to pay €4 a month.
 If being free is a hard requirement, take the first. If four euros a month are acceptable,
 the second is simpler, faster and requires rewriting nothing.
 
+A third, the host target, is for what neither serves: native gRPC and the class's changes
+streamed to a phone as they happen. It is a beta, deployed nowhere yet («Option 3: the host
+target», below).
+
 ## Why Vercel does not work "as is"
 
 Three obstacles, and all of them are real.
@@ -124,10 +128,12 @@ process is an `OWNER_IDS` with no readable id in it, or a `TIMEZONE` that is not
 | `OWNER_IDS` | the value is there but no id is read from it: only a comma separates, a newline does not, and the field in Vercel is a textarea |
 | `TIMEZONE` | a name that does not exist in this Python build: nothing fails, and `resolve` quietly gives every new class Moscow |
 
-The check is switched on by the `VERCEL` variable, which the platform sets about itself.
-Guessing "this looks like production" anywhere else would one day mean refusing to start on
-somebody's laptop, and that is worse than what the check prevents. Your own server
-(option 2) is configured by hand from the same table.
+The check is switched on by the `VERCEL` variable, which the platform sets about itself,
+and by `LESSONS_TARGET=host`, which the host's image (option 3) sets about itself; a
+`LESSONS_TARGET` that says anything else is refused too, so that a misspelt marker cannot
+leave a deployment on the local defaults. Guessing "this looks like production" anywhere
+else would one day mean refusing to start on somebody's laptop, and that is worse than what
+the check prevents. Your own server (option 2) is configured by hand from the same table.
 
 The rest are optional, and that is deliberate too. They do not fail the deployment; they are
 written to the log at startup as switched off: `DIARY_SECRET` (the diary), `DADATA_TOKEN`
@@ -605,8 +611,9 @@ used to say `server/.env`, which compose never reads, so `up` stopped at «set B
 **Every setting the server reads reaches the container.** Besides `BOT_TOKEN`, `OWNER_IDS`
 and `TIMEZONE`, the file hands it `WEBHOOK_SECRET`, `CRON_SECRET`, `BOT_USERNAME`,
 `DIARY_SECRET`, `DADATA_TOKEN`, `DIARY_PROXY_URL`, `PUBLIC_BASE_URL`, `MIN_CLIENT_VERSION`,
-`RUN_BOT` and `TRUSTED_PROXY_HOPS` from the same `.env`, each arriving as its own default when
-unset. Until #191 none of those was
+`RUN_BOT`, `TRUSTED_PROXY_HOPS` and `LESSONS_STREAMING` from the same `.env`, each arriving as
+its own default when unset. This image speaks HTTP/1.1, so `WatchClass` streams over Connect
+there and native gRPC is option 3's alone. Until #191 none of those was
 passed, and a container sees only what the file lists: a compose deployment had no diary,
 no digests and no calendar link whatever `.env` said. What they are for is the table under
 Option 1; here, the digests need `CRON_SECRET` and an external cron exactly as on Vercel
@@ -661,6 +668,58 @@ port, a tunnel such as Cloudflare Tunnel, or — if every pupil is on the same s
 network — simply the local address.
 
 Any VPS with 1 GB of memory will do. One class's load is a few hundred requests a day.
+
+## Option 3: the host target
+
+The same app as Vercel's, and everything it serves — v1, v2 over REST and Connect, the
+webhook and the tick — from one long-running process over HTTP/2, which adds what Vercel
+cannot: native gRPC, and `WatchClass`, the class's changes streamed to a phone while the app
+is open (`docs/api.md`, «The host target, and WatchClass»). It is a whole deployment, chosen
+**instead of** Vercel, not beside it: a stream hears only what its own process writes, and
+on Vercel the bot's webhook would land elsewhere. **A beta, and deployed nowhere yet**: where
+it runs is decided when a phone needs it (the server-v2 design, question 3).
+
+```bash
+docker build -t lessons-host .          # from the repository's root
+docker run -p 8000:8000 --env-file host.env lessons-host
+```
+
+- **The image is the root `Dockerfile`**, not `server/Dockerfile`, which is option 2's. It
+  installs Vercel's lock and the host's (`server/requirements-host.txt`, compiled against
+  it), then the package without its floors, and runs `python -m app.host` as a user of its
+  own. Nothing here has built it: there is no Docker where this project is developed. CI's
+  «Host» job installs the same two locks and starts the same command on every change to the
+  server.
+- **It says it is a deployment.** The image sets `LESSONS_TARGET=host`, and with it the server
+  refuses to start without what option 1's table asks for, exactly as on Vercel — the
+  database, `BOT_TOKEN`, `WEBHOOK_SECRET` and `RUN_BOT=false` among them («What is missing is
+  said at the door»). `host.env` is that table's values, and `LESSONS_STREAMING=true` for the
+  stream.
+- **The webhook and the cron point at it.** Register the webhook with the host's own HTTPS
+  address («Registering the webhook»), and point the external cron at its
+  `/api/v1/cron/tick` («The external cron»): the host has no clock either, by the same rule.
+  Telegram hands updates to one consumer, so the webhook can point at the host or at Vercel,
+  never both.
+- **One instance.** Two would each stream what they wrote and miss what the other did.
+- **HTTP/2 the whole way.** The host serves HTTP/1.1 and HTTP/2 with prior knowledge on one
+  plain port and terminates no TLS, so it sits behind something that does. For native gRPC
+  that proxy must speak HTTP/2 to it: one that downgrades to HTTP/1.1 gets the `415` Vercel
+  gives, and Connect and REST work either way. Behind it, `TRUSTED_PROXY_HOPS=1` is what lets
+  the throttles see the caller rather than the proxy, as on option 2. The host takes the
+  client's address from the connection and never from `X-Forwarded-For` by itself: pyvoy's
+  Envoy did the second until `app.host` turned it off, and a caller who wrote a new address
+  each time would never have been throttled (#395).
+- **Migrations** are applied from a workstation, before the deploy that needs them, as for
+  Vercel; the image carries no `alembic`.
+- **The self-check's `deploy` check** reads what Vercel says about the running deployment,
+  so on the host it answers ❔ «not on Vercel»; the schema, v2 and the diary's proxy are
+  checked there as anywhere («Monitoring», below).
+
+To run it on a laptop, from `server/` with the dev install: `pip install -r
+requirements-host.txt`, which resolves for Windows as well as Linux, then `python -m
+app.host`, on the local defaults and SQLite, without the marker — `--server hypercorn` is the
+fallback the 5 October spike proved beside pyvoy. A host on the local defaults streams only
+when `LESSONS_STREAMING=true`.
 
 ## The files Vercel needs
 

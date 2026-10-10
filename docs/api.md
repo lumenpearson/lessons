@@ -1635,16 +1635,21 @@ from one handler — `server/app/rpc/call.py`'s `invoke`, which both transports 
 - **Connect and gRPC-Web**, as `POST /api/rpc/lessons.v2.<Service>/<Method>`. Every `Get`
   and `List` is marked `NO_SIDE_EFFECTS`, so Connect may send it as a `GET`. Nothing else is
   marked.
-- **Native gRPC**, on the same path, on the long-running host target only: Vercel passes no
-  response trailers, and gRPC carries its status in them.
+- **Native gRPC**, on the same path and at the root, `/lessons.v2.<Service>/<Method>`, where a
+  gRPC client calls when it is given no prefix, on the host target only («The host target,
+  and WatchClass», below): Vercel passes no response trailers, and gRPC carries its status in
+  them.
 
 One method, `WatchService.WatchClass`, is a server stream: a beta of the host target, with
 no REST binding.
 
-On this deployment, which speaks HTTP/1.1, a request with `Content-Type: application/grpc` or
+On Vercel, which speaks HTTP/1.1, a request with `Content-Type: application/grpc` or
 `application/grpc+…` is refused with `415` and a sentence saying where native gRPC is served;
-gRPC-Web passes. `WatchClass` answers `UNIMPLEMENTED` with the reason `FEATURE_UNSUPPORTED`
-(`feature: "streaming"`): no deployment streams yet. If a deployment cannot load v2 at all,
+gRPC-Web passes. A native gRPC request that reaches the host over HTTP/1.1 — through a proxy
+that does not speak HTTP/2 to it — is refused the same way. `WatchClass` answers
+`UNIMPLEMENTED` with the reason `FEATURE_UNSUPPORTED` (`feature: "streaming"`) on Vercel,
+whatever it is told, and wherever `LESSONS_STREAMING` is not `true`. If a deployment cannot
+load v2 at all,
 `/api/v2` and `/api/rpc` answer `503` in their own error shapes and v1 goes on
 (`/api/v1/warmup` says which, with `"v2": true` or `false`).
 
@@ -1662,6 +1667,31 @@ is not `application/json` or `+json` (parameters such as `; charset=utf-8` are f
 a cross-site page can send a text, form or multipart body without a preflight and would
 otherwise spend the visitor's address's join budget (#340, #341). A request without a body is
 unaffected.
+
+### The host target, and WatchClass
+
+`python -m app.host` serves this whole API — v1, v2 over REST and Connect, the webhook and
+the tick — and native gRPC, over HTTP/1.1 and HTTP/2 with prior knowledge on one port
+(`docs/deploy.md`, «Option 3: the host target»). It is the same app, and nothing on this
+page answers differently there but two things.
+
+- **Native gRPC.** A refusal is the same `google.rpc.Status` the other transports carry, in
+  `grpc-status`, `grpc-message` and `grpc-status-details-bin`. A method the contract does not
+  have is `UNIMPLEMENTED`.
+- **`WatchClass` streams**, where `LESSONS_STREAMING` is `true`. The first message is the
+  class's `revision` now. Another follows whenever the class changes — its card, a member's
+  role, its bells, its timetable or subjects, a term, a day's mark, a substitution, an event
+  or homework — whether the bot, v1 or v2 changed it, and the same one again at least every
+  thirty seconds while nothing does. A revision the phone already holds means nothing
+  changed; on any other it fetches `GetScheduleWindow` as it does anyway, and a burst of
+  changes is one message. A host that restarted never repeats a revision from before. A
+  pupil's task, a tick, the diary, the journal and a phone's own row change no revision.
+  `changed_at` is when the host last saw the class change, unset when it has seen none since
+  it started. Before each message after the first, the stream asks the gate again: a phone
+  revoked, or a class deleted, ends its stream with `UNAUTHENTICATED` /
+  `DEVICE_TOKEN_INVALID` at the next change, or within the thirty seconds. The host is one
+  instance, because a stream hears what that one process writes; a script writing the
+  database directly wakes nobody.
 
 ### What REST adds
 
