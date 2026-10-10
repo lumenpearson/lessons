@@ -28,6 +28,139 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the diary's registry as a table, its sessions and its reads over v2 — stage 3b-7 of sub-project 3 (#273)
+
+Merged as #392 (`11ee629`, 10 October 2026), from `server-v2/3b-7`, on milestone 11. It closes
+#389 and #390, and refers to #273 and #391. The branch was cut from `main` at `6c96003`, the
+merge of #388, and carries 14 commits before this close-out, to `ac167a2`. Written on 10
+October 2026. No revision goes with it: the schema stays at `0019`. This is stage 3b-7 of
+`docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the
+next — Tasks 1 and 2 had one fix round each, Tasks 3 to 5 were approved first time — then a
+review of the whole branch found nothing Critical, two Important test gaps and one fix wave of
+seven changes, and filed #391, not fixed here. v1 answers as before, but for the two defects;
+v2 now answers seventy-one methods.
+
+- **The diary's registry is a table.** `providers/diary/registry.py`'s `TABLE` holds a row per
+  provider — its key, its implementation and a regional provider's allow-list, both imported on
+  first use, what a binding needs, the ways in, the features, how a child's corrections are
+  scoped, whether the tick keeps its sessions open, and how what a phone hands over is sealed —
+  and the binding, the corrections' scope, the keep-alive's claim and the bot's provider step
+  read it. A feature is declared exactly when the provider's connection asks the diary for it:
+  «Сетевой город» declares the schedule, the homework, the marks and the periods, and Петербург
+  those and the subjects, the teachers and the turnstile.
+- **v1's session and read rules are `services/diary.py`'s**: `target`, `sealed_form`,
+  `register` and its counting, `window`, and `DiaryService`'s `student`, `child` and reads of
+  one pupil, which v1's routes now call. `_open_row` and `sign_out` leave their commits to
+  their callers; a registered session is committed with the attempt that counts it.
+- **Two defects filed and fixed here:**
+  - #389: a session of a provider the deployment does not know — a provider is a value, not a
+    migration, so a rollback past the release that added one leaves its sessions — was read
+    through Petersburg's diary, its credential sent there as Petersburg's cookie. It is now
+    refused as an unknown token and left for the release that can read it.
+  - #390: `POST /api/v1/diary/login` repeated a password over two hundred characters in its
+    `422`; it is served through `_NoEchoRoute`, as `/session` always was.
+- **Ten methods, `DiaryService` whole but its corrections:**
+  - `CreateDiarySession` (`201`, never cached), on v1's budget and v1's counting, validated by
+    v1's own schemas, and `DeleteDiarySession`, v1's `/logout`;
+  - `ListStudents`, `ListPeriods`, `ListDiarySubjects`, `ListTeachers` and
+    `ListTurnstileEvents`; a feature the session's provider does not declare is
+    `FEATURE_UNSUPPORTED` before the diary is asked anything;
+  - `ListScheduleDays`, `ListDiaryHomework` and `ListMarks`, a window from the diary's own
+    today, with the family's corrections laid over the lessons and the homework;
+  - and `GetDiaryCapabilities` fills `sign_in_methods` and `features` from the table, which
+    sub-project 5 waits for before it moves the diary.
+- **The error table gains ten rows**, each read back on both paths by a named test:
+  `THROTTLED` and a region not served in v1's words, `DIARY_CREDENTIALS_REJECTED`,
+  `DIARY_NO_STUDENTS`, `DIARY_REAUTH`, `DIARY_UNAVAILABLE` with `upstream`,
+  `DIARY_UPSTREAM_UNREADABLE` twice, and an unknown pupil as `RESOURCE_NOT_FOUND`. The five
+  diary reasons left `LATER`, and 3b-7 left `STAGES`; `CORRECTIONS_UNAVAILABLE` is 3b-8's.
+- **`diary.proto`** says, in a comment only, how `ListScheduleDays` lists its days and that a
+  refused window and an undeclared feature are refused before the diary is asked.
+
+### Gates
+
+The full suite ran twice, alone with `-n 4`: at `1c05d1f`, the head of the five code tasks,
+and at `9c57a6d`, after the final review's fix wave — the documents (`ac167a2`) came after the
+second, and their own files ran again. CI runs on the head the merge is made from, and the
+merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `ac167a2`.
+- **mypy**: no issues found in 238 source files, at `ac167a2`.
+- **The server suite.**
+  - `pytest -q -n 4`, run alone from `server/` at `1c05d1f`, the head of the five code tasks,
+    gave **3090 passed** in 1939.68 s (434 warnings).
+  - After the final review's one fix wave, the same run at `9c57a6d` gave **3094 passed** in
+    1848.00 s (455 warnings). The seven places the `handover` skill names say 3094.
+  - The documents' own files (`ac167a2`) ran again, focused: **215 passed**.
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files, `diary_connect.py`'s docstrings the only
+  change.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its count stands from
+  #388.
+
+### What was deliberately left alone
+
+- **3b-8**, the corrections, and **3c**.
+- **v1's behaviour**, but for #389 and #390: `/login` still signs in with a password here, the
+  reads still answer an empty list for a feature a diary does not have, and `_guard` still
+  words the diary's failures as v1 always did.
+- **The bot's region and school steps** of «📒 Дневник», which stay «Сетевой город»'s own
+  screens; a second regional provider would bring its own.
+- **`SIGN_IN_METHOD_SESSION_ADOPT`**, declared by no provider until the provider-side sign-in
+  (the owner's decision of 5 October) is built.
+- **`DIARY_FEATURE_ATTENDANCE`, `MEAL_ACCOUNT` and `FINAL_MARKS`**, declared by none: no
+  method reads them yet.
+- **A token of a provider this deployment does not know, on a write.** v1's `/logout` and
+  v2's `DeleteDiarySession` now answer `401` where they answered `204` and deleted the row; the
+  row waits for the TTL purge instead, following #389's rule (refuse as an unknown token, read
+  by nobody).
+- **The error table's `Throttled` row** is keyed on the generic base class and speaks the
+  diary's sentence; a future limiter that raises bare `Throttled` would answer with it. No
+  limiter does today, and changing `DiaryAttempt`'s raising was out of scope.
+- **`zone_for` has no production caller now** (v1's tests pin it; the stage does not edit v1's
+  tests).
+- **`NoStudents` from a read** would answer `403` on v2 and `401` plus reauth on v1 —
+  unreachable today, since `bootstrap` runs only in sign-in and adopt.
+- **Smaller test-coverage notes stay in the ledger**: the homework v1/v2 comparison fields,
+  NetSchool's success over REST only, and the bot's alert texts.
+- **#384 and #391**, as filed, neither fixed here.
+
+### What nobody has verified in this batch
+
+- **The ten methods against a real diary**: every test drives a fake upstream (Petersburg
+  through the proxy in production, «Сетевой город» directly), or none; no session has been
+  registered over v2 from a phone.
+- **The ten against Postgres**: every v2 test ran on SQLite, the limiters' counting under both
+  versions among them.
+- **The ten on Vercel** beyond the post-merge check, which asks the capabilities, six routes
+  and two Connect methods once, without a token.
+- **«Сетевой город» over v2 at all** beyond its features' refusal: its periods, its week walk
+  and its adoption have never met a live server through either version.
+
+### After #388's merge: the merge, and production read
+
+None of this is code in #392, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 9 and 10 October 2026.
+
+- **The merge, by this session.** #388 «Let the reader choose the launcher icon among the
+  sixty-four «Пятёрка» variants» merged at 22:04:24 UTC on 9 October 2026 as
+  `6c960036353e284dae29fb604442f70bcb288b88`, pinned to `c5442d7`, after the five checks:
+  Android, Server (API + bot), What changed and Vercel green on `c5442d7`, Contract skipped;
+  `mergeable_state` clean; milestone 12; no review waiting. It closed #386 and #387, both found
+  inside the branch. Android-only: no server change, no revision.
+- **Production.** Vercel's status on the merge commit turned success by 22:04:42 UTC;
+  `/api/v1/warmup` answered `{"status":"ok","api_version":1,"schema":"0019","v2":true}` at
+  22:04:43 UTC.
+- **The next owner step for the icons** stands as #388 left it: choose which of the 64
+  variants to keep; a session then takes the rest out (catalog line, alias and four resources
+  each; the tests survive a trim to the default).
+- **The owner's standing order of 9 October evening**: once #388 merged, finish sub-project 3
+  (3b-7, 3b-8, 3c), then its live tests, then sub-project 4 and onwards, autonomously until
+  11:00 Moscow on 10 October 2026 — that is what this batch and the next are.
+
 ## What the batch before added: the launcher icon chosen in the app, sixty-four «Пятёрка» variants behind activity-aliases (#388)
 
 Merged as #388 (`6c96003`, 9 October 2026), from `android/app-icons`, on milestone 12. It
@@ -7762,3 +7895,36 @@ sub-project 3 is finished first, 3c included, and everything recorded as unverif
 on the development machine before sub-project 4 starts. By the owner's order of 9 October,
 3b-7 starts once #388 has merged, and the work goes on autonomously until 11:00 Moscow on 10
 October 2026.
+
+## Moved out of section 7 on 10 October 2026, after 3c
+
+Stage 3c was built (#396) and sub-project 3 is complete, so `HANDOVER.md`'s section 7 points
+at sub-project 3's live-verification gate, then sub-project 4, instead. As the paragraph stood
+until then:
+
+**Next for the programme: stage 3c of sub-project 3.** Stages 3a (#342), 3b-1 (#350), 3b-2
+(#356), 3b-3 (#372), 3b-4 (#376), 3b-5 (#380), 3b-6 (#385), 3b-7 (#392) and 3b-8 (#394) are
+merged, and v2 serves every unary method of the contract, seventy-five, beside
+`WatchClass`'s refusal. 3c is the host target and `WatchClass`'s streaming beta (the
+design's decision 13), and its task list is not written yet. `STAGES` in
+`test_rpc_errors.py` is empty: a stage that brings an `ErrorReason` names itself there
+first. By the owner's order of 8 October, sub-project 3 is finished first, 3c included, and
+everything recorded as unverified is checked on the development machine before sub-project 4
+starts.
+
+## Moved out of section 7 on 10 October 2026, after 3c's narrowing of a deny rule
+
+The owner narrowed the third line, so `HANDOVER.md`'s section 7 names two rather than three.
+As the paragraph stood until then:
+
+**Three lines in `.claude/settings.json`, which a session may not edit itself** (#314, #318):
+- **Under `deny`**, `Read(~/.gradle/gradle.properties)`. It stops the file tools from opening
+  the passwords' file. It would not stop a shell `cat`, which the instructions alone hold.
+- **Under `allow`**, `Bash(pytest *)` and `Bash(pytest)`. The list holds only `python -m
+  pytest`, so the bare command CI runs, and every gate document now gives, asks for
+  permission each time.
+- **`Read(./server/.env.*)` under `deny`** also catches `server/.env.example`, which holds no
+  secret and documents every setting. Narrow it, or accept it.
+
+On 5 October a `/permissions` run removed twenty allow rules from the file, and the owner
+restored it with `git checkout`; none of the three lines is in it yet.
