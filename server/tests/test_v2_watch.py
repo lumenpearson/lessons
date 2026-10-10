@@ -16,10 +16,10 @@ phone, and nothing held between.
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import json
 import struct
-from datetime import date
 from typing import Any
 
 import pytest
@@ -27,15 +27,17 @@ from connectrpc.errors import ConnectError
 from sqlalchemy import update
 
 from app import watch
+from app.bot.handlers.content.homework import homework_text
+from app.contract.google.rpc.error_details_pb import ErrorInfo
+from app.contract.google.rpc.status_pb import Status
 from app.contract.lessons.v2.homework_pb import CreateHomeworkRequest, Homework
 from app.contract.lessons.v2.me_pb import CreateTaskRequest, Task
 from app.contract.lessons.v2.school_class_pb import DeleteClassRequest
 from app.contract.lessons.v2.watch_pb import WatchClassResponse
 from app.db import SessionLocal, engine
-from app.models import DeviceToken, SchoolClass
+from app.models import DeviceToken, Role, SchoolClass
 from app.rpc import watch as rpc_watch
 from app.security import hash_token
-from app.services import homework as homework_service
 
 PATH = "/api/rpc/lessons.v2.WatchService/WatchClass"
 #: The heartbeat of a test that does not wait for one: a message that comes
@@ -69,8 +71,8 @@ def beating(streaming, monkeypatch):
 class _Watcher:
     """One ``WatchClass`` call, driven through the app as a server drives it."""
 
-    def __init__(self, token: str | None, *, grpc: bool = False) -> None:
-        self.token, self.grpc = token, grpc
+    def __init__(self, token: str | None, *, grpc: bool = False, client: int | None = None) -> None:
+        self.token, self.grpc, self.client = token, grpc, client
         self.frames: asyncio.Queue[tuple[int, bytes] | None] = asyncio.Queue()
         self.status: int | None = None
         self.trailers: dict[bytes, bytes] = {}
@@ -90,6 +92,8 @@ class _Watcher:
             headers.append((b"te", b"trailers"))
         if self.token is not None:
             headers.append((b"authorization", f"Bearer {self.token}".encode()))
+        if self.client is not None:
+            headers.append((b"x-lessons-client", str(self.client).encode()))
         scope = {
             "type": "http",
             "http_version": "2" if self.grpc else "1.1",
@@ -178,7 +182,16 @@ class _Watcher:
         """The code and the reason the stream ended with, on either protocol."""
         if self.grpc:
             status = self.trailers.get(b"grpc-status", b"").decode()
-            return status, None
+            # The google.rpc.Status, base64 as every `-bin` header is, and
+            # unpadded as gRPC writes it.
+            text = self.trailers.get(b"grpc-status-details-bin", b"").decode()
+            details = Status.from_binary(base64.b64decode(text + "=" * (-len(text) % 4)))
+            reasons = [
+                ErrorInfo.from_binary(detail.value).reason
+                for detail in details.details
+                if detail.type_url.endswith("/google.rpc.ErrorInfo")
+            ]
+            return status, reasons[0] if reasons else None
         assert self.error is not None, "the stream ended without an error"
         detail = self.error["details"][0]
         return self.error["code"], detail.get("debug", {}).get("reason")
@@ -196,8 +209,10 @@ async def test_the_first_message_is_the_class_s_revision_now(
 
 @pytest.mark.parametrize("shell", ["v1", "v2", "bot"])
 async def test_a_change_any_shell_makes_wakes_the_watcher_with_a_new_revision(
-    streaming, v2, v2_tokens, school_class, shell
+    streaming, v2, v2_tokens, school_class, FakeMessage, FakeState, shell
 ) -> None:
+    """The bot's case is its own handler for a homework's text, which writes
+    inside a savepoint and commits by itself, as it does in a chat."""
     async with _Watcher(v2_tokens["viewer"]) as stream:
         first = await stream.next()
         if shell == "v1":
@@ -216,12 +231,14 @@ async def test_a_change_any_shell_makes_wakes_the_watcher_with_a_new_revision(
             )
             assert written.status == 200, written.body
         else:
-            async with SessionLocal() as update_session:
-                klass = await update_session.get(SchoolClass, school_class.id)
-                await homework_service.create(
-                    update_session, klass, 2002, date(2026, 9, 15), "Алгебра", "№ 1–5"
-                )
-                await update_session.commit()
+            # A session of the bot's own, from the same factory its middleware
+            # opens one from for every update.
+            async with SessionLocal() as bot_session:
+                klass = await bot_session.get(SchoolClass, school_class.id)
+                message = FakeMessage(text="№ 1–5", user_id=2002)
+                state = FakeState(data={"due": "2026-09-15", "subject": "Алгебра"})
+                await homework_text(message, state, bot_session, klass, Role.EDITOR)
+                assert "добавлено" in message.last
         changed = await stream.next(timeout=PATIENCE)
         assert changed is not None and first is not None
         assert changed.revision != first.revision
@@ -236,14 +253,18 @@ async def test_a_quiet_class_hears_its_own_revision_again_at_the_heartbeat(
     heartbeat, saying the same revision."""
     async with _Watcher(v2_tokens["viewer"]) as stream:
         first = await stream.next()
+        assert first is not None
         written = await v2.connect(
             "MeService/CreateTask",
             CreateTaskRequest(task=Task(title="Купить тетрадь")),
             token=v2_tokens["viewer"],
         )
         assert written.status == 200, written.body
+        # Read from the bus straight after the write: a heartbeat sent before
+        # the write landed would say the first revision whatever it woke.
+        assert beating.revision(school_class.id) == first.revision
         again = await stream.next(timeout=PATIENCE)
-        assert again is not None and first is not None
+        assert again is not None
         assert again.revision == first.revision
 
 
@@ -277,6 +298,20 @@ async def test_a_device_revoked_while_it_watches_is_refused_at_the_next_heartbea
         await session.commit()
         await stream.end()
         assert stream.ended_with() == ("unauthenticated", "DEVICE_TOKEN_INVALID")
+
+
+async def test_a_client_too_old_is_refused_at_the_next_heartbeat(
+    beating, v2_tokens, served_settings, monkeypatch
+) -> None:
+    """The gate is asked whole again, the client's version first, of a phone
+    that sends ``X-Lessons-Client``. A running process reads its minimum once,
+    so a host meets this only across a restart; what is held here is that the
+    check before every message is the whole gate, not the token alone."""
+    async with _Watcher(v2_tokens["viewer"], client=41) as stream:
+        assert await stream.next() is not None
+        monkeypatch.setattr(served_settings, "min_client_version", 42)
+        await stream.end()
+        assert stream.ended_with() == ("failed_precondition", "CLIENT_TOO_OLD")
 
 
 async def test_a_newer_stream_from_the_same_phone_ends_the_older_one(
@@ -320,7 +355,7 @@ async def test_a_stream_from_another_phone_of_the_class_is_untouched(
 
 
 async def test_a_class_deleted_ends_its_streams_at_once(
-    streaming, v2, v2_tokens, school_class, monkeypatch
+    streaming, v2, v2_tokens, school_class
 ) -> None:
     """The delete is a change of the class: every watcher's gate runs at once
     and finds its device gone with the class, long before any heartbeat."""
@@ -392,4 +427,4 @@ async def test_over_native_grpc_the_revision_comes_in_binary_and_the_end_in_trai
         )
         assert deleted.status == 200, deleted.body
         assert await stream.next(timeout=PATIENCE) is None
-        assert stream.ended_with() == ("16", None)
+        assert stream.ended_with() == ("16", "DEVICE_TOKEN_INVALID")

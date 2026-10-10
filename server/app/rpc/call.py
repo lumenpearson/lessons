@@ -1,10 +1,12 @@
 """One call of one v2 method: its gate, its scope, its handler, its commit, its effects.
 
-Both transports call :func:`invoke` — the RPC adapters with what Connect's
-``RequestContext`` carries, the REST transcoder with what Starlette's request
-does — so REST and RPC cannot disagree about a rule
+Both transports call :func:`invoke` for every unary method — the RPC adapters
+with what Connect's ``RequestContext`` carries, the REST transcoder with what
+Starlette's request does — so REST and RPC cannot disagree about a rule
 (``docs/specs/2026-10-05-server-v2-design.md``, decisions 3 and 4). A handler
-is a plain ``async`` function of ``(call, request)`` that knows neither.
+is a plain ``async`` function of ``(call, request)`` that knows neither. The
+one stream, which REST cannot carry, is :func:`stream`'s, and its handler an
+async generator (below).
 
 **The scope.** Each call opens a dishka ``REQUEST`` scope from the process
 container, the way the bot's ``ContextMiddleware`` does and not through

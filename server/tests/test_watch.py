@@ -10,6 +10,7 @@ text: a revision is opaque to every client, and to these tests too.
 from __future__ import annotations
 
 import ast
+import re
 from datetime import date, time
 from pathlib import Path
 from typing import Any
@@ -329,8 +330,19 @@ async def test_attaching_twice_hears_each_change_once(bus, session, school_class
 
 # ---- every bulk write on a window table touches the bus ---------------------
 
-#: The statements sqlalchemy builds that never pass through the unit of work.
+#: The statements sqlalchemy builds that never pass through the unit of work,
+#: as functions and as the methods of a model's ``__table__``.
 _BULK = {"update", "delete", "insert"}
+
+#: How raw SQL handed to ``text()`` begins when it writes: it never passes
+#: through the unit of work either.
+_DML = re.compile(r"\s*(?:update|delete|insert|replace|merge)\b", re.IGNORECASE)
+#: The table such SQL writes, where its first words name it.
+_DML_TABLE = re.compile(
+    r"\s*(?:update(?:\s+or\s+\w+)?|delete\s+from"
+    r"|(?:insert(?:\s+or\s+\w+)?|replace|merge)\s+into)\s+[\"`\[]?(\w+)",
+    re.IGNORECASE,
+)
 
 
 def _tables() -> dict[str, str]:
@@ -340,42 +352,87 @@ def _tables() -> dict[str, str]:
     return {mapper.class_.__name__: mapper.local_table.name for mapper in Base.registry.mappers}
 
 
-def _bulk_names(tree: ast.Module) -> tuple[set[str], set[str]]:
+def _bulk_names(tree: ast.Module) -> tuple[set[str], set[str], set[str]]:
     """The names a module calls sqlalchemy's bulk statements by, however it
-    imports them, and the names it calls sqlalchemy itself by."""
+    imports them, the names it calls ``text`` by, and the names it calls
+    sqlalchemy itself by."""
     functions: set[str] = set()
+    texts: set[str] = set()
     modules: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "sqlalchemy":
-            functions.update(
-                alias.asname or alias.name for alias in node.names if alias.name in _BULK
-            )
+            for alias in node.names:
+                if alias.name in _BULK:
+                    functions.add(alias.asname or alias.name)
+                elif alias.name == "text":
+                    texts.add(alias.asname or alias.name)
         elif isinstance(node, ast.Import):
             modules.update(
                 alias.asname or alias.name
                 for alias in node.names
                 if alias.name.split(".")[0] == "sqlalchemy"
             )
-    return functions, modules
+    return functions, texts, modules
 
 
-def _is_bulk(call: ast.Call, functions: set[str], modules: set[str]) -> bool:
-    if isinstance(call.func, ast.Name):
-        return call.func.id in functions
-    if isinstance(call.func, ast.Attribute) and call.func.attr in _BULK:
-        root = call.func.value
-        while isinstance(root, ast.Attribute):
-            root = root.value
-        return isinstance(root, ast.Name) and root.id in modules
-    return False
+def _on_table(node: ast.expr) -> bool:
+    return isinstance(node, ast.Attribute) and node.attr == "__table__"
+
+
+def _leading_sql(call: ast.Call) -> str | None:
+    """The text a call's first argument starts with, where it is written out."""
+    first = call.args[0] if call.args else None
+    if isinstance(first, ast.JoinedStr) and first.values:
+        first = first.values[0]
+    if isinstance(first, ast.Constant) and isinstance(first.value, str):
+        return first.value
+    return None
+
+
+def _writes(call: ast.Call) -> bool:
+    """Whether a ``text()`` writes: its SQL begins with a write, or the walk
+    cannot read how it begins and takes it for one."""
+    sql = _leading_sql(call)
+    return sql is None or _DML.match(sql) is not None
+
+
+def _is_bulk(call: ast.Call, functions: set[str], texts: set[str], modules: set[str]) -> bool:
+    func = call.func
+    if isinstance(func, ast.Name):
+        if func.id in texts:
+            return _writes(call)
+        return func.id in functions
+    if not isinstance(func, ast.Attribute):
+        return False
+    if func.attr in _BULK and _on_table(func.value):
+        # `Model.__table__.delete()`: Core's spelling of the same statement.
+        return True
+    root = func.value
+    while isinstance(root, ast.Attribute):
+        root = root.value
+    if not (isinstance(root, ast.Name) and root.id in modules):
+        return False
+    if func.attr == "text":
+        return _writes(call)
+    return func.attr in _BULK
 
 
 def _on_a_window_table(call: ast.Call, tables: dict[str, str]) -> bool:
-    """A statement on a model the walk can name is judged by its table; any
-    other — a loop variable, an attribute — is taken to be a window table."""
-    first = call.args[0] if call.args else None
-    if isinstance(first, ast.Name) and first.id in tables:
-        return tables[first.id] in watch.WINDOW_TABLES
+    """A statement on a model the walk can name is judged by its table, and
+    raw SQL by the table its first words name; any other — a loop variable,
+    an attribute, SQL the walk cannot read — is taken to be a window table."""
+    func = call.func
+    target = func.value if isinstance(func, ast.Attribute) and _on_table(func.value) else None
+    if target is None and call.args:
+        target = call.args[0]
+    if isinstance(target, ast.Attribute) and _on_table(target):
+        target = target.value
+    if isinstance(target, ast.Name) and target.id in tables:
+        return tables[target.id] in watch.WINDOW_TABLES
+    sql = _leading_sql(call)
+    named = _DML_TABLE.match(sql) if sql is not None else None
+    if named is not None:
+        return named.group(1).lower() in watch.WINDOW_TABLES
     return True
 
 
@@ -395,7 +452,7 @@ def bulk_writes(source: str, tables: dict[str, str]) -> list[tuple[str, int, boo
     function or method it is built in, its line, and whether that function
     touches the bus. A helper defined inside the function is the function's."""
     tree = ast.parse(source)
-    functions, modules = _bulk_names(tree)
+    functions, texts, modules = _bulk_names(tree)
     scopes: list[tuple[str, ast.AST]] = []
     for node in tree.body:
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -413,7 +470,7 @@ def bulk_writes(source: str, tables: dict[str, str]) -> list[tuple[str, int, boo
         for name, scope in scopes
         for call in ast.walk(scope)
         if isinstance(call, ast.Call)
-        and _is_bulk(call, functions, modules)
+        and _is_bulk(call, functions, texts, modules)
         and _on_a_window_table(call, tables)
     ]
 
@@ -445,8 +502,13 @@ def test_every_bulk_write_on_a_window_table_touches_the_bus() -> None:
 
 
 def test_the_walk_sees_an_untouched_bulk_write_however_it_is_spelled() -> None:
+    """Including Core's ``Model.__table__`` methods and raw SQL through
+    ``text()``, which pass the unit of work by just as much; a ``text()`` that
+    reads, or writes a table no window is read from, is no window write."""
     slips = """
 from sqlalchemy import delete as sa_delete
+from sqlalchemy import text
+from sqlalchemy import text as sql
 from sqlalchemy import update
 import sqlalchemy as sa
 
@@ -465,8 +527,31 @@ class Holder:
         await session.execute(sa.delete(TimetableEntry))
 
 
+async def core(session):
+    await session.execute(Homework.__table__.delete())
+
+
+async def core_function(session):
+    await session.execute(sa.insert(DayEvent.__table__))
+
+
+async def raw(session, class_id):
+    await session.execute(text("  UPDATE homework SET text = 'x' WHERE class_id = :c"))
+
+
+async def raw_aliased(session, table):
+    await session.execute(sql(f"DELETE FROM {table}"))
+
+
+async def raw_unread(session, statement):
+    await session.execute(sa.text(statement))
+
+
 async def elsewhere(session):
     await session.execute(sa_delete(PersonalTask))
+    await session.execute(PersonalTask.__table__.update())
+    await session.execute(text("delete from join_attempts"))
+    await session.execute(sql("SELECT 1 FROM homework"))
 
 
 async def kept(session, class_id):
@@ -478,6 +563,11 @@ async def kept(session, class_id):
         ("direct", False),
         ("looped", False),
         ("Holder.method", False),
+        ("core", False),
+        ("core_function", False),
+        ("raw", False),
+        ("raw_aliased", False),
+        ("raw_unread", False),
         ("kept", True),
     ]
 

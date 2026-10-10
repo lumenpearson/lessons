@@ -56,10 +56,12 @@ os.environ["DADATA_TOKEN"] = ""
 # exported for the one would attach the bus here, so that every WatchClass the
 # gate test opens through httpx's ASGI transport — which returns only when the
 # answer ends — would wait for ever; a LESSONS_TARGET would make the suite a
-# deployment, which get_settings refuses on the first import. A test that wants
-# the bus attaches it (test_watch.py, test_v2_watch.py).
+# deployment, which get_settings refuses on the first import. Set empty rather
+# than removed, because Settings reads server/.env as well and the environment
+# wins over the file: a marker written there would otherwise still count. A
+# test that wants the bus attaches it (test_watch.py, test_v2_watch.py).
 os.environ["LESSONS_STREAMING"] = "false"
-os.environ.pop("LESSONS_TARGET", None)
+os.environ["LESSONS_TARGET"] = ""
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402

@@ -31,6 +31,7 @@ from urllib.parse import urlsplit
 import httpx
 import pytest
 from protobuf.wkt import FieldMask
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.contract.lessons.v2.bell_pb import BellPeriod as BellRow
@@ -58,6 +59,7 @@ from app.models import (
     BellSchedule,
     BotUser,
     DeviceToken,
+    JoinAttempt,
     Role,
     SchoolClass,
     TimetableEntry,
@@ -240,9 +242,11 @@ def test_a_method_the_contract_does_not_have_is_unimplemented(channel, grpc) -> 
 def test_watch_class_hears_an_orm_write_a_bulk_write_and_a_bell_change(
     channel, grpc, seeded
 ) -> None:
-    """The three ways a class changes (``app/watch.py``): a row through the
-    unit of work, a bulk statement that only touches the bus, and a bell
-    period, found through its schedule."""
+    """A row written through the unit of work, a bulk statement that only
+    touches the bus, and a bell change (``app/watch.py``). The bell change
+    writes its periods after a bulk delete that touches the bus too, so it
+    wakes the class whichever way the bus finds it; that a bell period is found
+    through its schedule is ``test_watch.py``'s to show."""
     watch = _Watch(channel, grpc, seeded.tokens["viewer"])
     try:
         first = watch.next()
@@ -337,11 +341,28 @@ def test_the_rest_of_the_app_answers_over_http_1_1(http, seeded) -> None:
     assert http.get("/api/v1/cron/tick").status_code == 403
 
 
+async def _forget_join_attempts() -> None:
+    engine = create_async_engine(os.environ["LESSONS_HOST_DATABASE_URL"])
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(delete(JoinAttempt))
+    finally:
+        await engine.dispose()
+
+
 def test_a_forged_forwarded_for_buys_no_fresh_join_budget(http) -> None:
     """pyvoy's Envoy took the client from the last ``X-Forwarded-For`` entry
     until ``app.host.envoy_config`` turned that off: a caller writing a new
     one each time would never have met the join limiter. Thirty wrong codes
-    from thirty forged addresses, and the next is refused, as from one."""
+    from thirty forged addresses, and the next is refused, as from one.
+
+    The budget has to be fresh, and a second run against the same database
+    within a quarter of an hour — under the other server, say — would find
+    it spent. The attempts are cleared first, all of them: their key is a hash
+    of the address the host sees this side as, loopback in CI and a gateway
+    in front of a container, which this side cannot name; and the database
+    is the run's own."""
+    asyncio.run(_forget_join_attempts())
     answers = [
         http.post(
             "/api/v1/join",

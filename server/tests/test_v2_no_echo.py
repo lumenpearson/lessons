@@ -24,7 +24,8 @@ from app.rpc.methods import METHODS
 
 SECRET = "Pa55w0rd-s3cr3t-Hunter2"
 
-SERVED = sorted(key for key in HANDLERS if not METHODS[key].streaming)
+#: Every method in ``HANDLERS`` is unary; the one stream is in ``STREAMS``.
+SERVED = sorted(HANDLERS)
 
 
 def _path(key: str, fill: str = "2026") -> str:

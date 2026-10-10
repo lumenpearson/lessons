@@ -1,10 +1,12 @@
 """v2 over RPC: Connect and gRPC-Web, mounted at ``/api/rpc``.
 
 :func:`rpc_app` is one ASGI app over the seventeen generated service apps. Each
-generated ``Protocol`` is implemented by an adapter whose every method turns
-Connect's ``RequestContext`` into :func:`call.invoke`'s arguments, so the RPC
-path and the REST transcoder run one function
-(``docs/specs/2026-10-05-server-v2-design.md``, decision 3).
+generated ``Protocol`` is implemented by an adapter whose every unary method
+turns Connect's ``RequestContext`` into :func:`call.invoke`'s arguments, so the
+RPC path and the REST transcoder run one function
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 3). The one stream,
+``WatchClass``, which REST cannot carry, is handed to :func:`call.stream`
+the same way.
 
 Two of ``connectrpc`` 0.12.1's defects under HTTP/1.1 are corrected in front
 of it (decision 7), because the library answers both with a ``500`` and a
