@@ -331,7 +331,10 @@ def test_a_reset_in_the_window_after_the_merge_comes_back_when_this_runs(tmp_pat
     async def in_the_window(session):
         assert await service.load_corrections(session, PETERSBURG, 4021) == {}
         await service.put_override(session, PETERSBURG, 4021, LESSON, "room", "301", "12")
-        return await service.drop_overrides(session, PETERSBURG, 4021)
+        dropped = await service.drop_overrides(session, PETERSBURG, 4021)
+        # The caller's commit, as v1's route makes it: the service leaves it.
+        await session.commit()
+        return dropped
 
     assert _service_run(database, in_the_window) == 1
     assert _alembic(database, "upgrade", "head").returncode == 0

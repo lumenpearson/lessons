@@ -758,6 +758,9 @@ async def put_override(
         value=payload.value,
         original=payload.original,
     )
+    # The service leaves the commit to its caller, and a correction answered
+    # before it is kept would be gone from the next read.
+    await session.commit()
     return DiaryOverrideOut.of(stored)
 
 
@@ -788,6 +791,7 @@ async def reset_override(
         await diary_corrections.drop_override(
             session, scope, student_id, payload.target, payload.field
         )
+        await session.commit()
 
 
 @router.delete(
@@ -806,3 +810,4 @@ async def reset_all_overrides(
     _, scope = await _child(svc, student_id)
     if scope is not None:
         await diary_corrections.drop_overrides(session, scope, student_id)
+        await session.commit()
