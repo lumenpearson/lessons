@@ -517,10 +517,13 @@ one of them is proved by a test rather than by a screen.
 rhythm and one inset now run through every screen (`docs/design.md`, «One scale for corners,
 rows and insets»). Robolectric holds them as sizes, and a source scan refuses a raw corner
 literal. Nobody has yet looked at any screen after the change, on an emulator or on a phone.
-Three things are the likeliest to look different from what was meant:
+The likeliest to look different from what was meant:
 - every group is 4 dp rounder;
-- the denser settings pages are taller, from the 56 dp minimum row;
-- «Календарь» has 12 dp cells.
+- chip rows are looser, because a tappable chip takes a 48 dp slot;
+- «Календарь»'s weekday tiles are 4 dp apart and stretched to fill the width;
+- the small «День» FAB is a circle.
+
+The full list is in that section.
 
 **What does not exist at all.**
 

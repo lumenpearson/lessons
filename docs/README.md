@@ -83,8 +83,8 @@ the user will actually see, it quotes it in Russian, because that is what is on 
   answer is known in, and the four places that deliberately do not follow it.
 - **Which radius, padding or inset to use** — [design.md](design.md), "One scale for corners,
   rows and insets":
-  - the four corners;
-  - the row rhythm (16 × 12, at least 56 dp tall);
+  - the four corners, and the floating action buttons as the one exception;
+  - the row rhythm (16 × 12, never shorter than Material's list item);
   - the named insets in `theme/Shape.kt`, and the test that refuses a raw literal.
 - **What is not verified** — the "Honest status" section of the [README](../README.md). It
   is kept on purpose and updated together with the code.
