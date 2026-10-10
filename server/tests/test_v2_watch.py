@@ -9,8 +9,8 @@ the heartbeat is put out of reach, or to a moment where a test waits for one, so
 that what the design promises
 (``docs/specs/2026-10-05-server-v2-design.md``, decision 13) is asked in
 seconds: a revision on open, a new one for a change any shell makes, the same
-one again when nothing changes, the gate asked again each time, and nothing
-held between.
+one again when nothing changes, the gate asked again each time, one stream per
+phone, and nothing held between.
 """
 
 from __future__ import annotations
@@ -277,6 +277,46 @@ async def test_a_device_revoked_while_it_watches_is_refused_at_the_next_heartbea
         await session.commit()
         await stream.end()
         assert stream.ended_with() == ("unauthenticated", "DEVICE_TOKEN_INVALID")
+
+
+async def test_a_newer_stream_from_the_same_phone_ends_the_older_one(
+    streaming, v2_tokens, school_class
+) -> None:
+    """A phone holds one stream. One that left coverage without closing its
+    connection keeps its stream, and a gate every heartbeat, until the kernel
+    gives up on it; when it comes back, the orphan ends — cleanly, with no
+    error, and with the heartbeat out of reach, so it is the newer stream that
+    ends it — and the class has one watcher again."""
+    async with _Watcher(v2_tokens["viewer"]) as older:
+        assert await older.next() is not None
+        async with _Watcher(v2_tokens["viewer"]) as newer:
+            first = await newer.next()
+            assert first is not None
+            assert await older.end() == []
+            assert older.error is None
+            assert streaming.watchers(school_class.id) == 1
+            streaming.publish([school_class.id])
+            woken = await newer.next(timeout=PATIENCE)
+            assert woken is not None and woken.revision != first.revision
+
+
+async def test_a_stream_from_another_phone_of_the_class_is_untouched(
+    streaming, v2_tokens, school_class
+) -> None:
+    """One stream per phone, not per class nor per member: the editor's phone
+    watching beside it goes on, and hears the next change."""
+    async with _Watcher(v2_tokens["editor"]) as other, _Watcher(v2_tokens["viewer"]) as older:
+        assert await other.next() is not None
+        assert await older.next() is not None
+        async with _Watcher(v2_tokens["viewer"]) as newer:
+            assert await newer.next() is not None
+            assert await older.end() == []
+            assert streaming.watchers(school_class.id) == 2
+            streaming.publish([school_class.id])
+            latest = streaming.revision(school_class.id)
+            for stream in (other, newer):
+                woken = await stream.next(timeout=PATIENCE)
+                assert woken is not None and woken.revision == latest
 
 
 async def test_a_class_deleted_ends_its_streams_at_once(
