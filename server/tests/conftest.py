@@ -51,6 +51,15 @@ os.environ["SENTRY_DSN"] = ""
 # key exported in the shell would send a password-shaped query to the real
 # directory. A test that wants the directory configures one and replaces it.
 os.environ["DADATA_TOKEN"] = ""
+# Whatever the shell holds: the suite is no host and streams nothing. The build
+# console runs the host and this suite on one machine, and a LESSONS_STREAMING
+# exported for the one would attach the bus here, so that every WatchClass the
+# gate test opens through httpx's ASGI transport — which returns only when the
+# answer ends — would wait for ever; a LESSONS_TARGET would make the suite a
+# deployment, which get_settings refuses on the first import. A test that wants
+# the bus attaches it (test_watch.py, test_v2_watch.py).
+os.environ["LESSONS_STREAMING"] = "false"
+os.environ.pop("LESSONS_TARGET", None)
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402

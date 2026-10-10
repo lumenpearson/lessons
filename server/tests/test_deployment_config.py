@@ -389,3 +389,74 @@ def test_the_shortest_usable_diary_secret_is_announced_as_on():
     # Trimmed first: padding does not buy length.
     padded = deployed(DIARY_SECRET="  " + "k" * (MIN_DIARY_SECRET_LENGTH - 1) + "  ")
     assert padded.diary_configured is False
+
+
+# ---- the host target (docs/specs/2026-10-05-server-v2-design.md, decisions 7, 13)
+
+#: A correctly configured host: everything a Vercel deployment needs, said by
+#: the host image's own marker rather than by Vercel's.
+HOSTED = {**DEPLOYED, "VERCEL": "", "LESSONS_TARGET": "host"}
+
+
+def hosted(**overrides: str) -> Settings:
+    """A correctly configured host, with one thing changed."""
+    return Settings(**{**HOSTED, **overrides})
+
+
+def test_a_configured_host_has_nothing_to_report():
+    settings = hosted()
+    assert (settings.behind_host, settings.behind_vercel, settings.deployed) == (True, False, True)
+    assert settings.deployment_problems() == []
+
+
+def test_a_host_on_the_local_defaults_is_refused_as_vercel_is():
+    problems = hosted(
+        DATABASE_URL=LOCAL_DATABASE_URL, BOT_TOKEN="", RUN_BOT="true"
+    ).deployment_problems()
+    for name in ("DATABASE_URL", "BOT_TOKEN", "RUN_BOT"):
+        assert any(name in problem for problem in problems), name
+
+
+@pytest.mark.parametrize("marker", ["hots", "vercel", "docker"])
+def test_a_marker_that_names_no_target_is_refused_rather_than_ignored(marker):
+    """A misspelt marker must not leave a deployment on the local defaults."""
+    settings = hosted(LESSONS_TARGET=marker)
+    assert settings.deployed is True
+    assert settings.behind_host is False
+    (problem,) = settings.deployment_problems()
+    assert "LESSONS_TARGET" in problem
+
+
+def test_the_marker_is_read_whatever_its_case_and_spacing():
+    assert hosted(LESSONS_TARGET=" Host\n").behind_host is True
+
+
+def test_a_deployment_is_one_target_or_the_other():
+    (problem,) = hosted(VERCEL="1").deployment_problems()
+    assert "LESSONS_TARGET" in problem and "VERCEL" in problem
+
+
+def test_get_settings_refuses_a_misconfigured_host(monkeypatch):
+    monkeypatch.delenv("VERCEL", raising=False)
+    monkeypatch.setenv("LESSONS_TARGET", "host")
+    monkeypatch.setenv("DATABASE_URL", LOCAL_DATABASE_URL)
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(DeploymentNotConfigured) as raised:
+            get_settings()
+        assert "DATABASE_URL" in str(raised.value)
+        assert "docs/deploy.md" in str(raised.value)
+    finally:
+        get_settings.cache_clear()
+
+
+def test_a_local_run_is_no_deployment_and_streams_only_when_asked():
+    assert Settings().deployed is False
+    assert Settings().streaming_enabled is False
+    assert Settings(LESSONS_STREAMING="true").streaming_enabled is True
+
+
+def test_vercel_never_streams_whatever_it_is_told():
+    """There is no flag that could claim a stream on Vercel (decision 7)."""
+    assert deployed(LESSONS_STREAMING="true").streaming_enabled is False
+    assert hosted(LESSONS_STREAMING="true").streaming_enabled is True

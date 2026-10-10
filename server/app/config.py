@@ -171,6 +171,22 @@ class Settings(BaseSettings):
     # for a token with write access, and this one must never be that.
     github_read_token: str = ""
 
+    # The host target's statement about itself, as VERCEL is Vercel's: the root
+    # Dockerfile sets LESSONS_TARGET=host, and `python -m app.host` never does
+    # (docs/specs/2026-10-05-server-v2-design.md, decisions 7 and 13). With it,
+    # `get_settings` refuses a deployment that is missing what one needs,
+    # exactly as on Vercel. Never set by hand on a laptop, where it would make
+    # the SQLite default a refusal; CI's «Host» job and a local host run go
+    # without it. "host" is the only value: anything else is refused at the
+    # door, because a misspelt marker would otherwise leave a deployment on
+    # every local default with nothing saying so.
+    lessons_target: str = ""
+
+    # WatchClass's stream, the host target's beta (decision 13): «this class
+    # changed», as it happens. Off unless asked for, and never on Vercel,
+    # whatever this says, because nothing there outlives a response.
+    lessons_streaming: bool = False
+
     # The oldest v2 client this server still answers, as the APK's versionCode
     # in its `X-Lessons-Client` header (docs/specs/2026-10-05-server-v2-design.md,
     # decision 9). Empty, or 0, means no minimum. With one set, a present
@@ -207,6 +223,30 @@ class Settings(BaseSettings):
     @property
     def behind_vercel(self) -> bool:
         return bool(self.vercel)
+
+    @property
+    def behind_host(self) -> bool:
+        """Whether the deployment says it is the host target (``LESSONS_TARGET=host``)."""
+        return self.lessons_target.strip().lower() == "host"
+
+    @property
+    def deployed(self) -> bool:
+        """Whether this process is a deployment that says so about itself:
+        Vercel's ``VERCEL``, or a ``LESSONS_TARGET`` at all — a misspelt one
+        included, so that `get_settings` names it rather than letting it pass
+        for a laptop. A deployment refuses to start without what one needs and
+        serves no API docs."""
+        return self.behind_vercel or bool(self.lessons_target.strip())
+
+    @property
+    def streaming_enabled(self) -> bool:
+        """Whether ``WatchClass`` streams here: asked for, and not on Vercel.
+
+        Not tied to the host's marker: CI's «Host» job and a local host run
+        stream without it, and a stream over Connect needs no HTTP/2 —
+        native gRPC does, which is the server's business, not this flag's.
+        """
+        return self.lessons_streaming and not self.behind_vercel
 
     @property
     def tz(self) -> ZoneInfo:
@@ -267,7 +307,8 @@ class Settings(BaseSettings):
         if self.database_url.strip() in ("", LOCAL_DATABASE_URL):
             problems.append(
                 "DATABASE_URL is unset or empty, so the local SQLite default stands. A "
-                "deployment has no disk to keep that file on, and `aiosqlite` is "
+                "deployment keeps nothing on a disk of its own - Vercel has none, and a "
+                "container's goes with it - and `aiosqlite` is "
                 "deliberately absent from requirements.txt, so the process dies while "
                 "importing app.db with `ModuleNotFoundError: No module named 'aiosqlite'` "
                 "raised from inside SQLAlchemy - which names neither this setting nor "
@@ -290,9 +331,10 @@ class Settings(BaseSettings):
 
         if self.run_bot:
             problems.append(
-                "RUN_BOT is not false. Long polling cannot outlive a response here, and "
-                "Telegram hands updates to one consumer: a loop started on a cold start "
-                "takes them away from the webhook that is supposed to receive them."
+                "RUN_BOT is not false. A deployment takes its updates from the webhook, "
+                "and Telegram hands updates to one consumer: a polling loop started here "
+                "takes them away from the webhook that is supposed to receive them - and "
+                "on Vercel it dies with the response that started it."
             )
 
         if self.owner_ids.strip() and not self.owner_id_list:
@@ -320,6 +362,19 @@ class Settings(BaseSettings):
                 f"TIMEZONE is {self.timezone!r}, which this build of Python has no data "
                 "for. Nothing raises: `resolve` falls back on purpose, so every class "
                 "created here quietly gets Europe/Moscow instead of the zone you meant."
+            )
+
+        target = self.lessons_target.strip()
+        if target and not self.behind_host:
+            problems.append(
+                f"LESSONS_TARGET is {target!r}, which names no target. The one value it "
+                "takes is `host`, which the root Dockerfile sets; a local run leaves it "
+                "unset."
+            )
+        if target and self.behind_vercel:
+            problems.append(
+                "LESSONS_TARGET is set on Vercel. A deployment is one target: Vercel says "
+                "so about itself with VERCEL, and the host image with LESSONS_TARGET."
             )
 
         return problems
@@ -521,11 +576,13 @@ def deployment(environ: Mapping[str, str] | None = None) -> Deployment:
 @lru_cache
 def get_settings() -> Settings:
     settings = Settings()
-    # Only where the platform says so about itself. Guessing "this looks like
-    # production" anywhere else would eventually refuse to start on somebody's
-    # laptop, which is a worse failure than the one this prevents. A VPS
-    # deployment is configured by hand from docs/deploy.md and is not covered.
-    if settings.behind_vercel:
+    # Only where the deployment says so about itself: Vercel's VERCEL, or the
+    # host image's LESSONS_TARGET. Guessing "this looks like production"
+    # anywhere else would eventually refuse to start on somebody's laptop,
+    # which is a worse failure than the one this prevents. A compose or VPS
+    # deployment run from server/Dockerfile is configured by hand from
+    # docs/deploy.md and is not covered.
+    if settings.deployed:
         problems = settings.deployment_problems()
         if problems:
             raise DeploymentNotConfigured(
