@@ -2,11 +2,8 @@ package com.lumenpearson.lessons.core.designsystem.component
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
@@ -19,13 +16,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
 
 /** How far the loader sits from the edges when it is given a whole screen. */
 private val LoadingBoxPadding: Dp = 24.dp
+
+/**
+ * The pull-to-refresh loader's test tag. Where it is laid out is where
+ * Material3 clips it (#397), and no node but this one can be asked that.
+ */
+internal const val PullToRefreshLoaderTag = "lessons_pull_to_refresh_loader"
 
 /**
  * The indeterminate loader this app waits with.
@@ -115,12 +120,16 @@ fun LessonsPullToRefreshBox(
                 state = state,
                 isRefreshing = isRefreshing,
                 // Both screens start at the top of the window and pass their
-                // first rows under the status bar, so without this the
-                // indicator came down from behind the clock and parked on the
-                // screen's title (#224).
+                // first rows under the status bar. A loader travelling the
+                // default distance would park behind the clock, over the
+                // screen's title (#224), so it travels the status bar's height
+                // further. It is not laid out lower instead: Material3 clips
+                // the loader at its own top edge, so a loader placed below the
+                // status bar came down cut off along that line (#397).
+                maxDistance = PullToRefreshDefaults.IndicatorMaxDistance + statusBarSpace(),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .windowInsetsPadding(WindowInsets.statusBars),
+                    .testTag(PullToRefreshLoaderTag),
             )
         },
         content = content,
