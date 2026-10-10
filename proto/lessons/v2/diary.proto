@@ -62,10 +62,17 @@ service DiaryService {
     option (lessons.v2.auth) = AUTH_KIND_DIARY;
   }
   // A pupil's lessons, day by day, with the family's corrections laid over
-  // them. The range is the diary's today and 14 days on when unset, and
-  // spans 62 days at most. A student id this session's diary does not list
-  // is RESOURCE_NOT_FOUND, on every method below: an id from another family
-  // must reach nothing. DIARY_FEATURE_SCHEDULE.
+  // them: a day without lessons is not listed, the days come in date order,
+  // and each day's lessons in the order the diary is read in. The range is
+  // the diary's today and 14 days on when unset, and spans 62 days at most;
+  // one it refuses is
+  // VALIDATION_FAILED on start_date or end_date before the diary is asked
+  // anything, here and on every method below that takes a range. A student
+  // id this session's diary does not list is RESOURCE_NOT_FOUND, on every
+  // method below: an id from another family must reach nothing. A method
+  // whose DIARY_FEATURE the session's provider does not declare answers
+  // FEATURE_UNSUPPORTED before the diary is asked anything.
+  // DIARY_FEATURE_SCHEDULE.
   rpc ListScheduleDays(ListScheduleDaysRequest) returns (ListScheduleDaysResponse) {
     option (google.api.http) = {get: "/v2/diary/students/{student_id}/scheduleDays"};
     option idempotency_level = NO_SIDE_EFFECTS;

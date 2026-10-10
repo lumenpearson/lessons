@@ -24,6 +24,12 @@ from app.rpc.methods import METHODS
 #: The refusals only the gate makes.
 GATE_REASONS = {"DEVICE_TOKEN_INVALID", "DIARY_TOKEN_INVALID", "DEVICE_NOT_LINKED", "ROLE_REQUIRED"}
 
+#: Methods whose success ends the credential that called them, so that a
+#: second call with it is the gate's to refuse: the gate lets them through
+#: once, over REST. ``test_v2_diary_sessions.py`` asks each transport with a
+#: session of its own.
+SELF_ENDING = {"lessons.v2.DiaryService/DeleteDiarySession"}
+
 def _served() -> list[str]:
     return sorted(HANDLERS)
 
@@ -42,10 +48,12 @@ def _request(key: str):
     return request
 
 
-async def _call(v2, key: str, token: str | None):
+async def _call(v2, key: str, token: str | None, *, once: bool = False):
     name = key.removeprefix("lessons.v2.")
     if METHODS[key].streaming:
         return await v2.stream(name, token=token)
+    if once:
+        return await v2.rest(name, _request(key), token=token)
     return await v2.both(name, _request(key), token=token, differ=("token", "window.generated_at"))
 
 
@@ -53,7 +61,9 @@ async def _call(v2, key: str, token: str | None):
 
 
 @pytest.mark.parametrize("key", _served())
-async def test_the_gate_stands_in_front_of_every_served_method(v2, v2_tokens, key) -> None:
+async def test_the_gate_stands_in_front_of_every_served_method(
+    v2, v2_tokens, diary_offline, key
+) -> None:
     method = METHODS[key]
     nobody = await _call(v2, key, None)
     wrong = await _call(
@@ -76,7 +86,7 @@ async def test_the_gate_stands_in_front_of_every_served_method(v2, v2_tokens, ke
         ProtoRole.OWNER: "owner",
     }
     if method.auth is AuthKind.DIARY:
-        admitted = await _call(v2, key, v2_tokens["diary"])
+        admitted = await _call(v2, key, v2_tokens["diary"], once=key in SELF_ENDING)
         assert admitted.reason not in GATE_REASONS
         return
     admitted = await _call(v2, key, v2_tokens[passing.get(method.min_role, "viewer")])
@@ -157,7 +167,9 @@ async def test_diary_capabilities_are_v1_s_in_v2_s_shape(v2) -> None:
     assert set(providers) == set(KEYS)
     assert list(providers["netschool"].regions) == v1["providers"]["netschool"]["regions"]
     assert list(providers["petersburg"].regions) == []
-    assert all(not p.sign_in_methods and not p.features for p in capabilities.providers)
+    # What v1 did not say, each provider's row does (3b-7): held in
+    # test_v2_diary_reads.py, against the table.
+    assert all(p.sign_in_methods and p.features for p in capabilities.providers)
     assert answer.headers["cache-control"] == "private, no-store"
 
 

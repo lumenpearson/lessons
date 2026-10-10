@@ -61,7 +61,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3000 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 3094 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -195,7 +195,8 @@ Server modules:
   claim; `rpc/call.py` names those a v2 call meets — or because only the bot or the tick
   calls it, as `linking.link_device` and `calendar.rotate_calendar_token`; v2 calls none of
   those until its commit moves out, as 3b-4 moved the tasks', the ticks', the link code's and
-  the feed secret's, and as 3b-8 moves the diary corrections'.
+  the feed secret's, as 3b-7 moved a diary session's opening and closing, and as 3b-8 moves
+  the diary corrections'.
   `services/manage/` is running a class, one module per screen named like the shells'
   (`subjects`, `bells`, `devices`, `classes`, `requests`, `journal`, `terms`, `timetable`,
   `special_days`, `search`): each does the check, the write and the audit line with its
@@ -220,10 +221,14 @@ Server modules:
   notice), `manage/special_days.py`'s `put_day` (the one write of a day's mark, which v1,
   v2 and the bot make, its line and its notice through `set_day` and `update_day`),
   `substitutions.py` (the three questions a substitution is asked, as facts, its line and
-  its notice), `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
+  its notice), `diary.py`'s `register` (a phone's session kept and counted on both diary
+  limiters, refusing with facts), `target`, `sealed_form`, `window` (a diary read's days,
+  from the diary's own today) and `DiaryService`'s `student`, `child` and reads of one pupil,
+  `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
   `feed_url`, and `audit.py`'s `older_than` (a page keyed on its last line); the limiters
   are `security.py`'s, one instance each, and the sentences both versions answer with (the
-  join's four, the diary's «disabled», and the subjects', the devices', the bells', the
+  join's four, the diary's «disabled», its sessions' three and its unknown pupil, and the
+  subjects', the devices', the bells', the
   import's, the zone's, the access requests', the directory's, the tasks', the ticks', the
   homework's, the events', the days' and the substitutions' refusals, and the notices to the
   class) are
@@ -265,7 +270,10 @@ Server modules:
   the ЕГРЮЛ company register, because no downloadable register of Russian schools exists;
   without `DADATA_TOKEN`
   it refuses at the door and the bot asks for the name to be typed, exactly as the diary
-  refuses without `DIARY_SECRET`
+  refuses without `DIARY_SECRET`. The diaries are one table, `providers/diary/registry.py`'s
+  `TABLE`, a row per provider, which every question about a provider key reads — the binding,
+  the features, the corrections' scope, the keep-alive — and a session whose key no row
+  answers is read by nobody
 - `contract/` — the Python `buf generate` writes from `proto/lessons/v2/` (and googleapis'
   `google/api` and `google/rpc`). Never edited by hand, since every regeneration deletes and
   rewrites it. Skipped by ruff and mypy, and on the API's cold path on purpose since v2 is
@@ -279,7 +287,8 @@ Server modules:
   `handlers.py` (which methods are served). A handler never commits and never
   checks a credential; `rpc_app()` mounts the seventeen Connect apps at `/api/rpc`, refusing
   native gRPC over HTTP/1.1 with `415`. May import `services/`, `models`, `schedule`,
-  `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry,
+  `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary
+  registry and the diary's error family (`providers/diary/errors`, which the table words),
   the school directory's provider (`providers/dadata`, whose refusals the error table maps),
   `telegram_send` and the contract — never `app.bot`
   or a v1 router, `api/directory.py` among them; `tests/test_service_layering.py` walks it

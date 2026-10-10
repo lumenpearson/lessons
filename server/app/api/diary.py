@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Coroutine
 from datetime import date as Date
-from datetime import timedelta
 from typing import Annotated, Any
 
 from dishka.integrations.fastapi import FromDishka, inject
@@ -49,7 +48,6 @@ from app.providers.diary.errors import (
     UpstreamUnavailable,
 )
 from app.providers.diary.models import Student
-from app.providers.diary.registry import NETSCHOOL, PETERSBURG
 from app.providers.petersburg import (
     today as diary_today,
 )
@@ -74,7 +72,7 @@ from app.schemas import (
     NetSchoolCapabilitiesOut,
     NetSchoolSessionIn,
 )
-from app.security import DiaryAttempt, Throttled
+from app.security import DIARY_FAILURES_BUCKET, DIARY_OPENED_BUCKET, DiaryAttempt, Throttled
 from app.security import diary_login_limiter as diary_login_limiter
 from app.security import diary_open_limiter as diary_open_limiter
 from app.services import clock, diary_corrections
@@ -83,51 +81,35 @@ from app.services import diary_overrides as overrides
 
 router = APIRouter(route_class=DishkaAnnotatedRoute, prefix="/api/v1/diary", tags=["diary"])
 
-#: How wide a window one request may ask for. The upstream is asked for the
-#: same span, and a year of lessons in one call is how an undocumented API
-#: starts refusing to answer at all.
-MAX_RANGE_DAYS = 62
-DEFAULT_RANGE_DAYS = 14
+#: How wide a window one request may ask for, and how wide it is when no end
+#: is named: `services/diary`'s, which v2's reads answer too.
+MAX_RANGE_DAYS = service.WINDOW_MAX_DAYS
+DEFAULT_RANGE_DAYS = service.WINDOW_DAYS
 
-#: The widest dates a request may name — literally `/bundle`'s own pair,
-#: `services/clock.py`'s, imported rather than repeated, because a second copy
-#: of a bound that must agree with the first is a bound that eventually does
-#: not.
-#:
-#: They are needed here for the same reason: `from` is arbitrary client input
-#: and the default window is `start + 14 days` on top of it, which within a
-#: fortnight of `date.max` raises OverflowError — a 500 out of a query string,
-#: where every other bad date on this surface is a 422 saying what was wrong.
-MIN_DATE = clock.MIN_DATE
-MAX_DATE = clock.MAX_DATE
+#: v1's words for each refusal of `services/diary.window`, in its own field
+#: names, `from` and `to`. The out-of-bounds sentence is `clock`'s own, so it
+#: lives once rather than being re-spelled here from `clock.MIN_DATE` and
+#: `clock.MAX_DATE`.
+_RANGE_REFUSED = {
+    clock.OUT_OF_BOUNDS: clock.DATES_OUT_OF_BOUNDS,
+    clock.BACKWARDS: "`to` is before `from`",
+    clock.TOO_WIDE: f"the range must be at most {MAX_RANGE_DAYS} days",
+}
 
 
 def _range(
     date_from: Date | None, date_to: Date | None, today: Date | None = None
 ) -> tuple[Date, Date]:
-    for day in (date_from, date_to):
-        if day is not None and not (MIN_DATE <= day <= MAX_DATE):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"dates must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}",
-            )
     # The diary's own day, not the server's — the provider's, so «Сетевой
     # город» gets its region's zone and Petersburg its city's. The default is
     # Petersburg's when a caller passes no `today`, which keeps the standalone
     # `_range(None, None)` behaviour its test pins.
-    start = date_from or today or diary_today()
-    end = date_to or start + timedelta(days=DEFAULT_RANGE_DAYS)
-    if end < start:
+    try:
+        return service.window(date_from, date_to, today or diary_today())
+    except clock.WindowRefused as refusal:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="`to` is before `from`",
-        )
-    if (end - start).days > MAX_RANGE_DAYS:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"the range must be at most {MAX_RANGE_DAYS} days",
-        )
-    return start, end
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_RANGE_REFUSED[refusal.why]
+        ) from None
 
 
 @inject
@@ -260,17 +242,21 @@ async def _guard(awaitable):
 #: double its guesses by alternating versions (the server-v2 design, decision
 #: 11). Imported above under their own names, which the tests read here.
 
-_THROTTLED_DETAIL = "Слишком много попыток входа. Попробуйте позже."
+_THROTTLED_DETAIL = wording.DIARY_THROTTLED_DETAIL
+
+
+def _buckets(request: Request) -> dict[str, str]:
+    """The caller's two diary buckets, as `DiaryAttempt.admit` takes them."""
+    return {
+        "failures_key": request_bucket(request, scope=DIARY_FAILURES_BUCKET),
+        "opened_key": request_bucket(request, scope=DIARY_OPENED_BUCKET),
+    }
 
 
 async def _admit(session: AsyncSession, request: Request) -> DiaryAttempt:
     """Count the attempt on both diary limiters, or 429 while either is spent."""
     try:
-        return await DiaryAttempt.admit(
-            session,
-            failures_key=request_bucket(request, scope="diary:"),
-            opened_key=request_bucket(request, scope="diary-open:"),
-        )
+        return await DiaryAttempt.admit(session, **_buckets(request))
     except Throttled as refusal:
         raise _throttled(refusal.retry_after) from None
 
@@ -283,48 +269,22 @@ def _throttled(retry_after: float) -> HTTPException:
     )
 
 
-def _served_region(key: str | None) -> str:
-    """An allow-listed «Сетевой город» region that still takes a password, or
-    a 422 — asked before any upstream call, so a region we do not serve never
-    receives a request, whichever door it came through."""
-    from app.providers.netschool import regions
-
-    region = regions.get(key)
-    if region is None or not region.password:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Unknown or unsupported region for «Сетевой город»",
-        )
-    return region.key
-
-
-def _resolve_login_target(payload: DiaryLoginIn) -> tuple[str, str | None, int | None]:
-    """The provider, region and school to sign in with, validated locally.
-
-    Absent provider is Petersburg, so an older phone that sends only a login and
-    a password is unchanged. For «Сетевой город» the region must be an
-    allow-listed key that still takes a password and the school a positive id —
-    checked here, before any upstream call, so a bad target is a 422 and never a
-    request to a region we do not serve.
-    """
-    provider = payload.provider or PETERSBURG
-    if provider == PETERSBURG:
-        return PETERSBURG, None, None
-    if provider == NETSCHOOL:
-        region = _served_region(payload.region)
-        if payload.school_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="A school id is required for «Сетевой город»",
-            )
-        return NETSCHOOL, region, payload.school_id
-    raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail=f"Unknown diary provider {provider!r}",
-    )
+def _resolve_login_target(payload: DiaryLoginIn) -> service.Target:
+    """The provider, region and school to sign in with, validated locally by
+    `services/diary.target`: a 422 that nothing upstream saw, for a provider no
+    row answers, a region this server does not serve with a password, or a
+    «Сетевой город» sign-in without a school."""
+    try:
+        return service.target(payload.provider, payload.region, payload.school_id)
+    except service.UnknownProvider as failure:
+        detail = f"Unknown diary provider {failure.key!r}"
+    except service.RegionNotServed:
+        detail = wording.DIARY_REGION_NOT_SERVED_DETAIL
+    except service.SchoolRequired:
+        detail = "A school id is required for «Сетевой город»"
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
 
 
-@router.post("/login", response_model=DiaryLoginOut)
 async def login(
     request: Request,
     payload: DiaryLoginIn,
@@ -348,7 +308,7 @@ async def login(
     # The target is checked before the attempt is counted: a region we do not serve is a 422
     # that nothing upstream saw, and counting it would charge the caller for
     # our refusal.
-    provider, region, school_id = _resolve_login_target(payload)
+    where = _resolve_login_target(payload)
     attempt = await _admit(session, request)
 
     try:
@@ -357,9 +317,9 @@ async def login(
                 session,
                 payload.login,
                 payload.password,
-                provider=provider,
-                region=region,
-                school_id=school_id,
+                provider=where.provider,
+                region=where.region,
+                school_id=where.school_id,
             )
         )
     except service.DiaryDisabled as failure:
@@ -396,6 +356,8 @@ async def login(
         else:
             await attempt.failed(session)
         raise
+    # Commits the new session with the attempt's outcome, on purpose
+    # (`security.DiaryAttempt`): `sign_in` leaves its row to its caller.
     await attempt.succeeded(session)
     return DiaryLoginOut(token=token, login=row.login)
 
@@ -405,8 +367,9 @@ async def login(
 # ---------------------------------------------------------------------------
 
 
-#: The detail of a registration the upstream refused from this server.
-REFUSED_FROM_HERE_DETAIL = "Дневник не принял эту сессию с нашего сервера — дело не в пароле."
+#: The detail of a registration the upstream refused from this server, in the
+#: words v2's ``DIARY_CREDENTIALS_REJECTED`` uses too (``app/wording.py``).
+REFUSED_FROM_HERE_DETAIL = wording.DIARY_SESSION_REFUSED_DETAIL
 
 
 class _NoEchoRoute(DishkaAnnotatedRoute):
@@ -415,8 +378,9 @@ class _NoEchoRoute(DishkaAnnotatedRoute):
     FastAPI's validation answer carries each refused value back as ``input``.
     On ``/session`` that value is an upstream session — a cookie that failed
     the charset check, a token that is not a JWT — or, for a client that sent
-    one, a password. A session goes to this server once and is never echoed;
-    the refusal is no exception to that.
+    one, a password; on ``/login`` it is the password itself, refused for its
+    length (#390). A session or a password goes to this server once and is
+    never echoed; the refusal is no exception to that.
     """
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
@@ -434,6 +398,17 @@ class _NoEchoRoute(DishkaAnnotatedRoute):
                 ) from None
 
         return without_echo
+
+
+# Added by hand rather than by decorator only to give it the route class that
+# keeps a refused password out of the 422 (#390).
+router.add_api_route(
+    "/login",
+    login,
+    methods=["POST"],
+    response_model=DiaryLoginOut,
+    route_class_override=_NoEchoRoute,
+)
 
 
 @router.get("/capabilities", response_model=DiaryCapabilitiesOut)
@@ -454,16 +429,6 @@ async def capabilities() -> DiaryCapabilitiesOut:
             netschool=NetSchoolCapabilitiesOut(regions=[r.key for r in regions.listed()]),
         ),
     )
-
-
-def _resolve_session_target(payload: DiarySessionBody) -> tuple[str, str | None, int | None]:
-    """The provider, region and school to adopt into, checked against the
-    allow-list before any call — a region outside it, or one that takes no
-    password (altai-krai, primorye, tula), is a 422 that nothing upstream saw.
-    """
-    if not isinstance(payload, NetSchoolSessionIn):
-        return PETERSBURG, None, None
-    return NETSCHOOL, _served_region(payload.region), payload.school_id
 
 
 async def register_session(
@@ -491,65 +456,55 @@ async def register_session(
     409 rather than ``/login``'s 401 + ``X-Diary-Reauth``, because asking for
     the password again would loop: the session was good on the phone seconds
     ago, and it is *this server* the diary will not take it from.
-    """
-    provider, region, school_id = _resolve_session_target(payload)
-    # The same limiters and buckets as /login: separate ones would double what
-    # one caller may try against the upstream from our address.
-    attempt = await _admit(session, request)
-    # The provider's own serialisation: Petersburg's bare token, or the JSON of
-    # what «Сетевой город» handed the phone, with the fields it did not hand
-    # left out rather than stored as nulls.
-    credential = (
-        payload.credential.model_dump_json(exclude_none=True)
-        if isinstance(payload, NetSchoolSessionIn)
-        else payload.credential.token
-    )
 
+    The rules, the order and the counting are `services/diary.register`'s,
+    which v2's ``CreateDiarySession`` calls too; this words its facts.
+    """
     try:
-        registered = await service.adopt(
+        registered = await service.register(
             session,
-            provider=provider,
+            provider=payload.provider,
             login=payload.login,
-            credential=credential,
-            region=region,
-            school_id=school_id,
+            handed=payload.credential.model_dump(exclude_none=True),
+            region=payload.region if isinstance(payload, NetSchoolSessionIn) else None,
+            school_id=payload.school_id if isinstance(payload, NetSchoolSessionIn) else None,
+            **_buckets(request),
         )
+    except service.RegionNotServed:
+        # Before anything was counted or sent: a 422 that nothing upstream saw.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=wording.DIARY_REGION_NOT_SERVED_DETAIL,
+        ) from None
+    except Throttled as refusal:
+        raise _throttled(refusal.retry_after) from None
     except service.DiaryDisabled as failure:
-        await attempt.not_judged(session)
         raise _disabled() from failure
     except UpstreamUnavailable as failure:
         # Nothing judged the session: the diary did not answer, or will not
         # talk to this address at all. Forgiven, like /login's 503.
-        await attempt.not_judged(session)
         raise _unavailable(failure) from failure
     except NoStudents as failure:
-        await attempt.failed(session)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail=failure.message
         ) from failure
-    except (SessionExpired, BadCredentials) as failure:
-        # Before the broader DiaryError below, and after NoStudents, which is
-        # a SessionExpired too. Counted: this is also what a replay of a
-        # session that was never real looks like.
-        await attempt.failed(session)
+    except service.SessionRefused as failure:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=REFUSED_FROM_HERE_DETAIL
         ) from failure
     except DiaryError as failure:
-        await attempt.failed(session)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=failure.message
         ) from failure
 
-    await attempt.succeeded(session)
     return DiarySessionOut(
         token=registered.token,
         login=registered.row.login,
-        provider=provider,
-        region=region,
-        school_id=school_id,
+        provider=payload.provider,
+        region=registered.row.region,
+        school_id=registered.school_id,
         school_name=registered.school_name,
-        zone=service.zone_for(provider, region),
+        zone=registered.zone,
         students=[DiaryStudentOut.of(student) for student in registered.students],
     )
 
@@ -572,6 +527,7 @@ async def logout(
     session: FromDishka[AsyncSession],
 ) -> None:
     await service.sign_out(session, row)
+    await session.commit()
 
 
 @router.get("/students", response_model=list[DiaryStudentOut])
@@ -586,17 +542,15 @@ async def students(svc: service.DiaryService = Depends(_service)) -> list[DiaryS
 # ---------------------------------------------------------------------------
 
 
-async def _student(svc: service.DiaryService, student_id: int):
-    """The student, or 404 - resolved from the account rather than trusted.
-
-    The path carries an id and the id is not a secret, so it is looked up among
-    the pupils this session may actually see. Without that, one account's id in
-    another account's request would be a way to read somebody else's child.
-    """
-    for student in await _guard(svc.students()):
-        if student.id == student_id:
-            return student
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown student")
+async def _student(svc: service.DiaryService, student_id: int) -> Student:
+    """The student, or 404 - resolved from the account rather than trusted
+    (`DiaryService.student`, which v2's reads ask too)."""
+    try:
+        return await _guard(svc.student(student_id))
+    except service.UnknownStudent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_STUDENT_DETAIL
+        ) from None
 
 
 async def _child(svc: service.DiaryService, student_id: int) -> tuple[Student, str | None]:
@@ -609,16 +563,12 @@ async def _child(svc: service.DiaryService, student_id: int) -> tuple[Student, s
     none over it, the list is empty, a reset has nothing to take off, and a
     write is refused.
     """
-    student = await _student(svc, student_id)
-    return student, await _guard(svc.scope_of(student))
-
-
-async def _corrections(
-    session: AsyncSession, scope: str | None, student_id: int
-) -> dict[str, dict[str, tuple[str, str | None]]]:
-    if scope is None:
-        return {}
-    return await diary_corrections.load_corrections(session, scope, student_id)
+    try:
+        return await _guard(svc.child(student_id))
+    except service.UnknownStudent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_STUDENT_DETAIL
+        ) from None
 
 
 @router.get("/students/{student_id}/schedule", response_model=list[DiaryLessonOut])
@@ -627,17 +577,11 @@ async def schedule(
     date_from: Date | None = Query(default=None, alias="from"),
     date_to: Date | None = Query(default=None, alias="to"),
     svc: service.DiaryService = Depends(_service),
-    *,
-    session: FromDishka[AsyncSession],
 ) -> list[DiaryLessonOut]:
     student, scope = await _child(svc, student_id)
     start, end = _range(date_from, date_to, svc.today())
-    lessons = await _guard(svc.schedule(student.education_id, start, end))
-    corrections = await _corrections(session, scope, student_id)
-    return [
-        DiaryLessonOut.of(overlaid)
-        for overlaid in overrides.overlay_lessons(lessons, corrections)
-    ]
+    lessons = await _guard(svc.schedule_of(student, scope, start, end))
+    return [DiaryLessonOut.of(overlaid) for overlaid in lessons]
 
 
 @router.get("/students/{student_id}/homework", response_model=list[DiaryHomeworkOut])
@@ -646,8 +590,6 @@ async def homework(
     date_from: Date | None = Query(default=None, alias="from"),
     date_to: Date | None = Query(default=None, alias="to"),
     svc: service.DiaryService = Depends(_service),
-    *,
-    session: FromDishka[AsyncSession],
 ) -> list[DiaryHomeworkOut]:
     """Homework as its own resource.
 
@@ -656,12 +598,8 @@ async def homework(
     """
     student, scope = await _child(svc, student_id)
     start, end = _range(date_from, date_to, svc.today())
-    items = await _guard(svc.homework(student.education_id, start, end))
-    corrections = await _corrections(session, scope, student_id)
-    return [
-        DiaryHomeworkOut.of(overlaid)
-        for overlaid in overrides.overlay_homework(items, corrections)
-    ]
+    items = await _guard(svc.homework_of(student, scope, start, end))
+    return [DiaryHomeworkOut.of(overlaid) for overlaid in items]
 
 
 @router.get("/students/{student_id}/grades", response_model=list[DiaryMarkOut])
@@ -683,9 +621,7 @@ async def periods(
     svc: service.DiaryService = Depends(_service),
 ) -> list[DiaryPeriodOut]:
     student = await _student(svc, student_id)
-    if student.group_id is None:
-        return []
-    found = await _guard(svc.periods(student.group_id))
+    found = await _guard(svc.periods_of(student))
     return [DiaryPeriodOut.of(period) for period in found]
 
 
@@ -697,16 +633,7 @@ async def subjects(
 ) -> list[DiarySubjectOut]:
     """Subjects studied in a period; the current one when none is named."""
     student = await _student(svc, student_id)
-    if student.group_id is None:
-        return []
-    chosen = period_id
-    if chosen is None:
-        found = await _guard(svc.periods(student.group_id))
-        current = next((period for period in found if period.is_current), None)
-        if current is None:
-            return []
-        chosen = current.id
-    items = await _guard(svc.subjects(student.group_id, chosen))
+    items = await _guard(svc.subjects_of(student, period_id))
     return [DiarySubjectOut.of(item) for item in items]
 
 

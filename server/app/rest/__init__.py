@@ -94,16 +94,18 @@ NO_STORE_ALSO = frozenset(
 
 #: Writes whose *answer* is a credential: the token a phone will use for good,
 #: the class card ``UpdateClass`` answers with, join code included, the code
-#: that links a phone to whoever sends it to the bot, until it is used, and
-#: the class's secret calendar address, which ``GetCalendarFeed`` keeps from
-#: caches too. Nobody asked a cache to keep a POST or a PATCH, but the answer
-#: says so anyway, as defence in depth. 3b-7 adds ``CreateDiarySession`` here.
+#: that links a phone to whoever sends it to the bot, until it is used, the
+#: class's secret calendar address, which ``GetCalendarFeed`` keeps from
+#: caches too, and the diary token ``CreateDiarySession`` answers with. Nobody
+#: asked a cache to keep a POST or a PATCH, but the answer says so anyway, as
+#: defence in depth.
 NO_STORE_CREDENTIAL = frozenset(
     {
         "lessons.v2.DeviceService/CreateDevice",
         "lessons.v2.ClassService/UpdateClass",
         "lessons.v2.MeService/CreateLinkCode",
         "lessons.v2.MeService/CreateCalendarFeed",
+        "lessons.v2.DiaryService/CreateDiarySession",
     }
 )
 

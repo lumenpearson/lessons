@@ -26,7 +26,7 @@ from app.bot.manage_keyboards.diary_binding import (
 from app.bot.states import BindDiary
 from app.models import Role, SchoolClass
 from app.providers.diary.errors import AddressRefused, DiaryError, SignInUnsupported
-from app.providers.diary.registry import NETSCHOOL, PETERSBURG
+from app.providers.diary.registry import NETSCHOOL, Needs, row_for
 from app.providers.netschool import regions as ns_regions
 from app.providers.netschool.client import NetSchoolClient
 from app.services import audit, diary_link
@@ -92,9 +92,16 @@ async def class_diary_provider(
     school_class: SchoolClass,
     role: Role,
 ) -> None:
-    """Second step of binding: the provider was picked."""
-    if callback_data.value == PETERSBURG:
-        school_class.diary_provider = PETERSBURG
+    """Second step of binding: the provider was picked. One whose binding
+    needs nothing more is bound at once; one that needs a region and a school
+    asks for them, on «Сетевой город»'s screens, the one regional provider's."""
+    row = row_for(callback_data.value)
+    if row is None:
+        await callback.answer("Неизвестный дневник", show_alert=True)
+        return
+    if row.needs is Needs.NOTHING:
+        provider = row.provider()
+        school_class.diary_provider = row.key
         school_class.diary_region = None
         school_class.diary_school_id = None
         school_class.diary_school_name = None
@@ -106,19 +113,16 @@ async def class_diary_provider(
         await diary_link.drop_for_class(session, school_class.id)
         await audit.record(
             session, school_class.id, callback.from_user.id, "class.diary",
-            "привязан дневник Санкт-Петербурга",
+            f"привязан дневник {provider.genitive}",
         )
         await session.commit()
         await _redraw_class(callback, session, school_class, role)
-        await callback.answer("Привязан дневник Санкт-Петербурга")
+        await callback.answer(f"Привязан дневник {provider.genitive}")
         return
-    if callback_data.value == NETSCHOOL:
-        await callback.message.edit_text(
-            "🌆 <b>Сетевой город</b>\n\nВыберите регион.", reply_markup=diary_region_menu()
-        )
-        await callback.answer()
-        return
-    await callback.answer("Неизвестный дневник", show_alert=True)
+    await callback.message.edit_text(
+        "🌆 <b>Сетевой город</b>\n\nВыберите регион.", reply_markup=diary_region_menu()
+    )
+    await callback.answer()
 
 
 @router.callback_query(ManageAction.filter(F.action == "diary_reg"))

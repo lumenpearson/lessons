@@ -30849,6 +30849,5947 @@ A `501` with `UNIMPLEMENTED` means production still runs the code from before th
 - **Is a feature declared by a provider that returns empty for one pupil unsupported?** Recommended: no. Only what the provider never implements is undeclared; an empty answer is an answer.
 - **What do `features` hold when the diary is disabled?** Recommended: empty, with `enabled` false, as today.
 
+### 3b-7 task list
+
+**Status:** written on 9–10 October 2026, against `e88e1c8`, the merge of #385 (stage 3b-6) into `main`, in the worktree `continue-previous-session-991230`, whose `server/`, `proto/` and `api/` on the branch `android/app-icons` are `e88e1c8`'s byte for byte. Every code step was applied in order to a copy of that tree and checked («What was verified», below). Where it differs from the 3b-7 summary above, this list is the one to follow; «Defects in the summary» says where and why.
+
+**Branch:** `server-v2/3b-7`, cut from `origin/main` once #388 (an Android-only pull request) has merged; the server tree is `e88e1c8`'s either way. It is its own pull request, on milestone 11, referring to #273.
+
+**Filed before Task 1:** the two defects this list found, #389 and #390 («Defects found while writing this list»). 3b-7 fixes both, in Tasks 1 and 2.
+
+**Scope.** The ten methods of `DiaryService` the summary names, and what they need first:
+- the registry becomes a table, and every branch on a provider key that is a property of the provider reads its row: the binding, the scope a child's corrections are filed under, which sessions the tick keeps alive, and the bot's binding screen; a session of a provider the table does not know is read by nobody (Task 1, #389);
+- the rules v1's `api/diary.py` held move into `services/diary.py`: where a session goes (`target`), how what a phone hands over is sealed (`sealed_form`), a session's registration and its counting (`register`), the window of a diary read (`window`), and the reads of one pupil; v1's `/login` stops repeating a password it refuses (Task 2, #390);
+- `CreateDiarySession` and `DeleteDiarySession` (Task 3); `ListStudents`, `ListPeriods`, `ListDiarySubjects`, `ListTeachers` and `ListTurnstileEvents`, the features, and `GetDiaryCapabilities` filled from the table, with which 3b-7 leaves `STAGES` (Task 4); and `ListScheduleDays`, `ListDiaryHomework` and `ListMarks`, with the family's corrections laid over (Task 5).
+
+No revision. A comment-only change to the contract: `diary.proto`, in Task 5.
+
+| Task | Title | Tests added | Suite after | mypy after |
+| --- | --- | --- | --- | --- |
+| 1 | The registry as a table, and every branch on a key reads its row | 11 | 3011 | 238 |
+| 2 | v1's session and read rules, in `services/diary.py` | 20 | 3031 | 238 |
+| 3 | `CreateDiarySession` and `DeleteDiarySession` | 13 + 4 | 3048 | 238 |
+| 4 | The reads of one pupil without a window, the features, and 3b-7 leaves `STAGES` | 13 + 10 | 3071 | 238 |
+| 5 | The reads of a window, with the corrections laid over, and the batch's one full run | 12 + 6 | 3089 | 238 |
+| 6 | The documents, the counts, the HANDOVER close-out, and production after the merge | — | 3089 | 238 |
+
+**Counts.**
+- Tests: 11 + 20 + 17 + 23 + 18 = **89**, so the suite goes from **3000** at `e88e1c8` to **3089**. Each «+ N» counts the cases the served methods add by themselves: `test_v2_reads.py`'s gate test and `test_v2_no_echo.py`'s sweep are each parametrized over `rpc/handlers.HANDLERS`, so every method served adds one case to each, twenty in all. Counted with `pytest --collect-only -q` on the copy: 3000 at the base, then 3011, 3031, 3048, 3071 and 3089.
+- mypy: **238** throughout, as at `e88e1c8`: no module is added, since `rpc/diary.py` has existed since 3a. `mypy` reads `app/` only. If mypy on the branch's first commit prints another number, shift every N by the difference.
+
+**Commands.** As 3b-6's:
+- `WT` is `/c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230`, and its venv is `$WT/server/.venv`, made in that tree, which the #312 guard asks for.
+- `pytest` is `$WT/server/.venv/Scripts/pytest.exe`, run from `$WT/server`, bare, as CI runs it; a task's gate adds `-p no:xdist` and names its files. Before any run, `tasklist | grep -i pytest` must print nothing: one test process at a time on this machine. The full suite runs once, alone, at the end of Task 5, as `pytest -q -n 4`, and the controller runs it.
+- `ruff` and `mypy` are `$WT/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations` and `… -m mypy`, from `$WT/server`.
+- `buf` is `/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe` (1.73.0), run from `$WT`; `buf breaking` runs from `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b7.sh` (written in Task 5), because the shell refuses `.git#ref` on a command line.
+- Commit messages are `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b7-t<N>.txt`, written with the Write tool and committed with `git commit -F`. They carry no trailer lines (Ruling 102).
+- The shell refuses a compound command that `cd`s to a computed path, so every command below spells its paths out. One heavy job at a time: never two test processes at once, and never the suite beside Gradle.
+- The files of this checkout are CRLF on disk and LF in Git, as `core.autocrlf` leaves them; the code below is LF, and the Edit tool matches either. A file a step writes whole is written LF.
+
+#389, #390 and `#PR` are numbers the controller obtains before Task 1 and at Task 6 Step 7; wherever #389 or #390 stands below — in a comment, a docstring, a test, a commit message or a document — it is written as the number the controller filed. `[AFTER-388]` is the slot in Task 6 Step 8 for what the controller hands over about #388's merge.
+
+### Rulings for 3b-7
+
+Numbered after the plan's own 1 to 17, 3b-2's 18 to 33, 3b-3's 34 to 51, 3b-4's 52 to 67, 3b-5's 68 to 86 and 3b-6's 87 to 103, which still hold.
+
+104. **Open question 1: a feature is undeclared only when the provider never implements it; an empty answer is an answer** (the controller's ruling). Read from the code: «Сетевой город»'s connection answers `subjects` and `teachers` with `[]` and `attendance` with `m.to_attendance()`, which is `[]` too, and none of the three asks the diary anything (`providers/netschool/provider.py`, lines 128–135; `mapper.py`, lines 303–305). So its row declares `SCHEDULE`, `HOMEWORK`, `MARKS` and `PERIODS`, and Petersburg's the seven its connection reads from the diary, those four and `SUBJECTS`, `TEACHERS` and `TURNSTILE`. `ATTENDANCE`, `MEAL_ACCOUNT` and `FINAL_MARKS` are declared by none: no method reads them yet. `test_diary_registry.py` holds the declaration to the connection — a feature is declared exactly when its read sends the diary a request — so a provider that starts reading one, or stops, fails there until its row says so.
+105. **Open question 2: with the diary disabled, `features` and `sign_in_methods` are empty and `enabled` is false, as today** (the controller's ruling). The regions stay as v1's answer lists them, disabled or not: v1's `/capabilities` does, and `GetDiaryCapabilities` is its twin.
+106. **The commits** (the controller's ruling). `find_session` (with `unusable`, which it calls), `DiaryService._expire` and `_remember_token` go on committing inside themselves (decision 4): a dead credential stays expired, a rotated one stays kept, whatever the call then does. Every other service write v2 reaches leaves its commit to the caller (3b-4's discipline, Ruling 91's wording), and two existing ones commit no longer:
+    - `_open_row`, behind `sign_in` and `adopt`, flushes. `register`'s row is committed with the attempt's outcome, which `security.DiaryAttempt` commits on purpose, so a session is never kept apart from the outcome that counts it; v1's `/login` is the same; `diary_web` commits after it sets the class, as it did.
+    - `sign_out` flushes; v1's `/logout` commits after it, and v2's `DeleteDiarySession` in `invoke`.
+
+    `rpc/call.py`'s docstring, which names the writes a refused call keeps, gains the attempt, `security.DiaryAttempt` through `register` (Task 3). Cost if wrong: nothing a client sees, since every caller commits in the same request.
+107. **No class notices** (the controller's ruling): the diary is a family's, not the class's. No handler of 3b-7 registers an effect, and `test_announcements.py`'s `ANNOUNCED_HERE` does not grow.
+108. **The registry's row** (Task 1; decision 12). `registry.Row` holds the key; the implementation as `"module:Class"`, imported on the first `provider()`; `needs`, `NOTHING` or `REGION_AND_SCHOOL`; `regions`, the module of a regional provider's allow-list, imported on first use, `None` for one server; `sign_in`; `features`; `scope`, `PROVIDER` or `REGIONAL_SERVER`; `kept_alive`; and `bare_field`, the one field of what a phone hands over that is the whole session (Petersburg's `token`), or `None` when the session is the JSON of everything handed. The features and the ways in are `StrEnum`s of the registry whose names are the proto values' without their prefixes, held level with `diary.proto` by a test: the registry imports nothing of the contract, because a provider knows nothing of the wire. `KEYS` stays, read off the table. Every branch on a key that is a property of the provider reads the row: `binding`, `child_scope`, the keep-alive's claim, the bot's provider step, `sealed_form`, `target` and `GetDiaryCapabilities`. What stays a key, because it is no property of a provider: a session row's `NULL` provider read as Petersburg (history: the column did not exist), the bot's region and school steps (the one regional provider's screens: a second would bring its own), `diary_web`'s two branches on whether a binding has a region, `project_stats`' count, and v1's schemas' `Literal`s (v1's wire).
+109. **Each row declares `SIGN_IN_METHOD_PASSWORD` alone.** It is the phone's own form for a login and a password, the one way in the app has for both diaries today, and it ends in `CreateDiarySession`. `SIGN_IN_METHOD_SESSION_ADOPT`, a session opened elsewhere (the diary's own page in a WebView, the owner's reversal of 5 October, whose design is pending), waits for that sign-in; adding it is one word in a row. Cost if wrong: a client that offers the provider's own sign-in would not see it offered, and none does yet.
+110. **`services/diary.register` raises facts** (Task 2), in v1's `/session` order: `RegionNotServed` before anything is counted or sent; `security.Throttled` while the caller has spent either limit; then the diary's answer through `adopt`. `SessionRefused`, a `BadCredentials`, is what it raises for what `adopt` answers as `SessionExpired` (but not `NoStudents`) or as `BadCredentials`: a read's `SessionExpired` means «sign in again», and here that would loop, since the session was good on the phone seconds ago. It counts as v1's route counted: a failure for `SessionRefused`, `NoStudents` and any other answer of the diary's family; nothing for `DiaryDisabled` and `UpstreamUnavailable`, `AddressRefused` and a read out of time included; a session opened otherwise. `target` raises `UnknownProvider`, `RegionNotServed` and `SchoolRequired`, in v1's order, which v1's `/login` words in its three 422s.
+111. **The error table's rows** (Tasks 3 and 4):
+
+     | Exception | Reason | Metadata | Message |
+     | --- | --- | --- | --- |
+     | `security.Throttled` | `THROTTLED` | `retry_after_seconds` | v1's, `wording.DIARY_THROTTLED_DETAIL` |
+     | `diary_service.RegionNotServed` | `VALIDATION_FAILED` | a violation on `region` | v1's, `wording.DIARY_REGION_NOT_SERVED_DETAIL` |
+     | `BadCredentials`, which `SessionRefused` is | `DIARY_CREDENTIALS_REJECTED` | none | v1's 409, `wording.DIARY_SESSION_REFUSED_DETAIL` |
+     | `NoStudents` | `DIARY_NO_STUDENTS` | none | v1's 403, `NoStudents.message` |
+     | `SessionExpired` | `DIARY_REAUTH` | none | `SessionExpired.message` |
+     | `UpstreamUnavailable` | `DIARY_UNAVAILABLE` | `upstream`: `"address-refused"` for `AddressRefused`, `"upstream"` otherwise | the class's own sentence |
+     | `UnexpectedResponse`, and `DiaryError` as the fallback | `DIARY_UPSTREAM_UNREADABLE` | none | the class's own sentence |
+     | `diary_service.UnknownStudent` | `RESOURCE_NOT_FOUND` | `resource: "student"` | v1's, `wording.UNKNOWN_STUDENT_DETAIL` |
+
+     Every sentence is a constant, never the instance's text: an `UnexpectedResponse` can carry the upstream's own message. `SignInUnsupported` has no row: it comes only from a password sign-in's check of the region's options, which v2 never runs, and `DiaryError`'s row words it as v1's `/session` answered it, unreadable and counted. Each row is `HELD_BY` a test that raises it through a served method and reads it back on both transports.
+112. **The order a read asks in** (Tasks 4 and 5): the feature, from the session's row; then the window, where there is one; then the pupil, from the session's own diary; then the read. Nothing before the pupil asks the diary anything, so a request v2 can judge on its own is refused without an upstream call. v1 asks for the pupil first; the cost is that a request with a bad window and an unknown pupil is `VALIDATION_FAILED` in v2 and `404` in v1.
+113. **The diary's window is `services/diary.window`**, v1's `_range` moved (Task 2): the diary's own today and 14 days on, 62 at most, each named date bounded before anything is derived from it. Its refusals are `clock.WindowRefused`, which the table's row from 3b-5 words on `start_date` or `end_date`. `WINDOW_MAX_DAYS` is `clock`'s own sixty-two, so that row's sentence, «the range may span at most 62 days», is true of the diary's lists; v1's diary keeps its own words for its own field names, and v2's lists say one sentence for one rule. A request's dates are parsed by `rpc/dates.asked`, the parse `dates.window` already made, split out (Task 5).
+114. **`ListScheduleDays` lists the days that have lessons**, one `DiaryScheduleDay` each, in date order, each day's lessons in the order the diary is read in (Petersburg's mapper sorts them by number). A day without lessons is not listed. `diary.proto` says so in a comment (Task 5).
+115. **`CreateDiarySession` validates with v1's own schemas** (Task 3; decision 5): `PetersburgSessionIn` or `NetSchoolSessionIn`, chosen by the case of `credential` that is set and fed `login`, the credential under v1's field names, and `region` and `school_id` where set. So v2 refuses what v1 refuses, an extra field included: a region beside Petersburg's credential is a violation on `region`. A violation is named as v2 spells it, `netschool.cookies.ns_session_id` where v1 says `credential.cookies.NSSESSIONID`, and a request with no case is `VALIDATION_FAILED` on `credential`. What reaches `register` is the credential v1's schema validated, dumped without its nulls, which `sealed_form` writes as v1's route wrote it, byte for byte.
+116. **The buckets are v1's**: `call.bucket("diary:")` and `call.bucket("diary-open:")` are `request_bucket(request, scope=…)` for the same caller, so v1 and v2 draw on one budget (decision 11).
+117. **`DeleteDiarySession` ends the token that calls it** (Task 3), so `test_v2_reads.py`'s gate test lets it through once, over REST (`SELF_ENDING`), and `test_v2_diary_sessions.py` asks each transport with a session of its own.
+118. **The generic tests stay offline** (Task 4). From Task 4 a diary read asks the diary for the session's pupils, and the gate test and the no-echo sweep call every served method with `v2_tokens`' diary session. `conftest.diary_offline` drops every request both providers' pooled clients would send, as a connection that failed, so those calls meet `DIARY_UNAVAILABLE` rather than the real diary. It is not autouse: `test_diary_proxy.py` reads the real pooled client.
+119. **`rest.NO_STORE_CREDENTIAL` gains `CreateDiarySession`** (Task 3), whose answer is a diary token; it is in `rest.CREATED` already, and every `DiaryService` read is under `NO_STORE` already.
+120. **3b-7 leaves `STAGES` in Task 4**, the commit that produces its last reason, `DIARY_REAUTH`; the other four leave `LATER` in Task 3, where `DiaryDisabled`'s `HELD_BY` row names its test.
+121. **v2's sentences where v1 had none**: `rpc/diary.NOT_IN_THIS_DIARY`, «this diary does not offer this», for `FEATURE_UNSUPPORTED`, with `feature` the `DiaryFeature` value's name; `rpc/diary.NO_CREDENTIAL`. Where v1 had one, it moves to `app/wording.py`: `DIARY_THROTTLED_DETAIL`, `DIARY_REGION_NOT_SERVED_DETAIL`, `DIARY_SESSION_REFUSED_DETAIL` and `UNKNOWN_STUDENT_DETAIL`.
+122. **Handler module**: `rpc/diary.py`, 3a's, grows (Ruling 16); `rpc/dates.asked` is the one helper outside it.
+123. **Process, as Ruling 102 has it.** Each task's gate is its named test files with `-p no:xdist`, then ruff and mypy; the full suite runs once, alone, with `-n 4`, at the end of Task 5, the last code task, and the controller runs it. Commit messages carry no trailer line.
+
+### What 3b-1 to 3b-6 left that every task here uses
+
+- **`v2_tokens["diary"]`**: a live Petersburg session whose sealed credential is `an-upstream-session`, never used, so its `last_used_at` is empty. A read made with it writes `last_used_at` once, which `ALLOWED_WRITES` allows.
+- **`FakeUpstream`** (`conftest.py`): a recorder of the paths it is asked, answering `{"data": …}` for a route and `404` otherwise; each diary test installs it on a provider's `shared_client`, as `test_diary_api.py` does.
+- **The statement listener** (`statement_writes`, `unexpected_writes`): a read of 3b-7 writes the session's `last_used_at`, or a credential the diary rotated, and nothing else.
+- **`v2.both`, `v2.rest` and `v2.connect`**: a create's success is asked once per transport (Ruling 17), and a call that ends its own token is asked once each, with a session each (Ruling 117).
+- **`clock.WindowRefused`'s row** (3b-5), and `rpc/dates`' parse of `start_date` and `end_date`, which Task 5 splits out as `asked`.
+- **`ListStudents` is the method two generic tests borrow**: `test_rpc_mount.py`'s `unserved` takes it out of `HANDLERS` with `monkeypatch`, and `test_rpc_call.py` puts a handler of its own in its place, so both hold once it is served.
+
+### Review Focus (3b-7)
+
+The five inputs most likely to bite a person using 3b-7 that the generic tests do not reach, each with the test that pins it and the task that owns it.
+
+1. **Another family's child's id**, on every read of one pupil: `test_an_id_this_diary_does_not_list_reaches_nothing` (Task 4), `test_an_id_this_diary_does_not_list_reaches_none_of_its_days` (Task 5) and `test_a_pupil_is_resolved_from_the_session_s_own_diary` (Task 2).
+2. **A session of a diary this deployment does not know**, after a rollback past the release that added it (#389): `test_a_session_of_a_provider_this_deployment_does_not_know_is_read_by_nobody` (Task 1, v1) and `test_a_session_of_a_provider_this_deployment_does_not_know_is_the_gate_s_to_refuse` (Task 4, v2).
+3. **A session the diary ends or rotates in the middle of a read**: `test_a_session_the_diary_ended_is_reauth_and_stays_ended` and `test_a_credential_the_diary_rotated_is_kept_even_when_the_read_is_refused` (Task 4).
+4. **A caller alternating versions, and what must not be counted**: `test_v1_and_v2_draw_on_one_budget`, `test_a_diary_that_does_not_answer_is_unavailable_and_not_counted`, `test_a_region_this_server_does_not_serve_is_refused_before_anything_is_counted` and `test_without_the_secret_the_diary_is_disabled_on_both_methods` (Task 3); `test_each_outcome_is_counted_as_v1_counted_it` (Task 2).
+5. **A password or a session repeated back in a refusal**: `test_v1_never_repeats_a_password_it_refuses` (Task 2, #390), `test_the_session_handed_over_is_never_echoed` and `test_a_request_v1_would_refuse_is_refused_on_v2_s_own_fields` (Task 3); the no-echo sweep reaches every field of the ten.
+
+### Defects in the summary, and how this list resolves them
+
+- **«`BadCredentials` → `DIARY_CREDENTIALS_REJECTED`»**: neither provider's `adopt` raises `BadCredentials` for a session it will not take. Petersburg's answers a 401, a 403 or a login page with `SessionExpired`, and so does «Сетевой город»'s, which the summary's own table words `DIARY_REAUTH`, the proto's «sign in again». `register` raises `SessionRefused`, a `BadCredentials`, for both (Ruling 110), and the summary's row then words it as the proto's `CreateDiarySession` promises.
+- **«`UpstreamUnavailable` and `SignInUnsupported` → `DIARY_UNAVAILABLE`»**: `SignInUnsupported` comes only from `NetSchoolClient.login_allowed`, the password sign-in's check, which v2 never runs; v1's `/session` answers one from `adopt` with `502`, counted, and the proto promises that `DIARY_UNAVAILABLE` is not counted. It has no row; `DiaryError`'s words it (Ruling 111).
+- **«`_guard`, which maps each provider error to its refusal», among the reads' rules that move**: `_guard` is v1's wording of the diary's facts as `HTTPException`s, and v2's twin is the error table. It stays in `api/diary.py`, and what moves is the rule beside it: `_student` and `_child` as `DiaryService.student` and `child`, `_corrections` as `services/diary.corrections`, and the per-route rules (`periods`' and `subjects`' «no class», `subjects`' current period, the overlays) as `DiaryService`'s reads of one pupil.
+- **«Every branch on the provider key, as the survey lists them (…, `api/diary_web.py`, …)»**: `diary_web` has no branch on a key. `_where` and `_site_of` branch on whether the binding has a region, which `binding()` decides from the row; they are left alone. Nor is `row.provider or PETERSBURG` a property of a provider: it reads a row from before the column (Ruling 108).
+- **«The writes services commit, kept on purpose: `find_session`, `_expire` and `_remember_token`»**: `find_session` commits through `unusable`; and two more writes v2 now reaches committed inside themselves, `_open_row` and `sign_out`, which stop (Ruling 106).
+- **«an unknown student → `RESOURCE_NOT_FOUND`»** is a row of the table for a fact, `UnknownStudent`, which `DiaryService.student` raises for v1 and v2 alike (Task 2), rather than a handler's `Refusal`.
+- **«Five reasons leave `LATER`»**: in two commits, not one — four in Task 3 and `DIARY_REAUTH` in Task 4 (Ruling 120).
+- **The summary is silent on** the window (Ruling 113), the order of a read's checks (112), the schedule's grouping (114), the ways in (109), a session of a provider the table does not know (#389), the self-ending method in the gate test (117), and keeping the generic tests off the network (118).
+
+### Defects found while writing this list
+
+The controller files each, with `type:bug`, its `area:` labels, a `status:`, milestone 11, where its fix lands, and an item on project 6, as the `github-pr` skill says, and writes its number into this list in place of the placeholder.
+
+**#389.** Title: «A diary session of a provider this deployment does not know is read through Petersburg's diary». Labels `type:bug`, `area:server`, `status:now`; milestone 11. Where: `server/app/services/diary.py:310-324` (`find_session` asks whether the row's credential opens, never whether its provider exists) and `server/app/services/diary.py:451-456` (`DiaryService` falls back to Petersburg's provider for a key no implementation answers). The fix lands in 3b-7's Task 1. Body, written to `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\issue-3b7-d1.md`:
+```markdown
+`server/app/services/diary.py`: `find_session` (lines 310–324) hands on any live row whose
+sealed credential opens, and never asks whether its `provider` names a diary this deployment
+has; `DiaryService.__init__` (lines 451–456) then falls back to Petersburg's provider for a key
+`provider_for` does not answer. The comment there says `find_session` expires such a row
+first, and it does not. The bot's own lookup is safe — it filters by the class's binding —
+but every phone's read through `/api/v1/diary` goes through `find_session`, and so will v2's
+`DiaryService` from stage 3b-7.
+
+**Failure scenario:** `diary_sessions.provider` is a string, not an enum, on purpose: a new
+diary is a value, not a migration. A later release adds a third diary, families open
+sessions with it from their phones, and production is rolled back past that release — a
+Vercel instant rollback, or a revert of a pull request that broke something else. No schema
+change marks the rows. The older code finds such a row by its token, `find_session` returns
+it, and `DiaryService` opens it with Petersburg's connection: the other diary's session
+credential goes to `dnevnik2.petersburgedu.ru` as the `X-JWT-Token` cookie, on every read the
+phone makes, from this server's address. Probed on 9 October 2026 at `e88e1c8`: a row with
+`provider` `"dnevnik-ru"` and a sealed credential `third-diary-cookie`; `GET
+/api/v1/diary/students` with its token answered `200`, and Petersburg's fake upstream received
+`GET /api/journal/person/related-child-list` with `Cookie: X-JWT-Token=third-diary-cookie`.
+
+Revision `0015`'s downgrade already expires non-Petersburg sessions so that reverted code
+cannot replay a credential at the wrong upstream; a rollback without a downgrade, which is
+what adding a provider allows, has no such guard. Fixed in stage 3b-7 of sub-project 3
+(#273), where the registry becomes a table: `find_session` refuses a row whose key no row of
+the table answers, as an unknown token, and leaves it alone for the release that can read it;
+`DiaryService` no longer falls back.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && gh issue create --repo lumenpearson/lessons --title "A diary session of a provider this deployment does not know is read through Petersburg's diary" --body-file C:/Users/lumen/.claude/jobs/c9e2d980/tmp/issue-3b7-d1.md --label type:bug --label area:server --label status:now --milestone "v0.10.0 — One contract: REST v2, Connect and native gRPC, build console"
+```
+
+**#390.** Title: «`POST /api/v1/diary/login` repeats a password it refuses in its 422». Labels `type:bug`, `area:server`, `status:now`; milestone 11. Where: `server/app/api/diary.py:327` (`/login` is served by the router's own route class, while `/session` goes through `_NoEchoRoute`, lines 412–436 and 557–565, for exactly this reason). The fix lands in 3b-7's Task 2. Body, written to `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\issue-3b7-d2.md`:
+```markdown
+`server/app/api/diary.py`: `POST /api/v1/diary/login` (line 327) is served by the router's own
+route class, so a body it refuses gets FastAPI's default 422, which carries each refused value
+back as `input`. `POST /api/v1/diary/session` goes through `_NoEchoRoute` (lines 412–436,
+registered at 557–565) for exactly this reason — «A session goes to this server once and is
+never echoed» — and the route that receives the password never got the same treatment.
+
+**Failure scenario:** a parent signs in from an older APK, or any client of `/login`, with a
+password over 200 characters (`DiaryLoginIn.password`'s `max_length`) — a password manager's
+long generated one. The answer is a `422` whose body holds the password in clear text, in
+`detail[0].input`, and whatever keeps response bodies keeps it: the phone's HTTP logging, a
+proxy's, a crash report. A login shorter than three usable characters is echoed the same way.
+Probed on 9 October 2026 at `e88e1c8`: a 280-character password came back whole in the `422`.
+
+Fixed in stage 3b-7 of sub-project 3 (#273), where `/login`'s target check moves into
+`services/diary.py` and the route is registered through `_NoEchoRoute`, as `/session` is.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && gh issue create --repo lumenpearson/lessons --title "POST /api/v1/diary/login repeats a password it refuses in its 422" --body-file C:/Users/lumen/.claude/jobs/c9e2d980/tmp/issue-3b7-d2.md --label type:bug --label area:server --label status:now --milestone "v0.10.0 — One contract: REST v2, Connect and native gRPC, build console"
+```
+
+### What was verified while writing this list, and what was not
+
+**Read, at `e88e1c8`'s code** (the worktree's `server/`, `proto/` and `api/` on `android/app-icons`, byte for byte): `providers/diary/` (`registry.py`, `base.py`, `errors.py`, `models.py`, `http.py`), `providers/petersburg/provider.py`, `client.py` and `mapper.py`'s readers, `providers/netschool/provider.py`, `client.py`'s request plumbing, `mapper.py`'s `to_attendance` and `regions.py`; `services/diary.py`, `diary_keepalive.py`, `diary_corrections.py`'s `child_scope` and `diary_overrides.py`'s overlays; `api/diary.py` whole and `api/diary_web.py`'s sign-in; `bot/handlers/manage/diary_binding.py` and the bot's `_session_for`; `security.py`'s `JoinThrottle` and `DiaryAttempt`; `schemas/diary_session.py` and `schemas/diary.py`; `rpc/` (`diary.py`, `errors.py`, `methods.py`, `gate.py`, `call.py`, `handlers.py`, `dates.py`, `values.py`, `substitution.py`) and `rest/__init__.py`; `proto/lessons/v2/diary.proto`, `errors.proto` and `options.proto`, and `contract/lessons/v2/diary_pb.py`; and the tests that read any of them: `conftest.py` (its v2 harness, `v2_tokens`, `FakeUpstream`, the statement listener), `test_v2_reads.py`, `test_v2_no_echo.py`, `test_rpc_errors.py`, `test_rpc_gate.py`, `test_rpc_call.py`, `test_rpc_mount.py`, `test_rest.py`, `test_service_layering.py`, `test_cold_start.py`, `test_diary_api.py`, `test_diary_session.py`, `test_diary_web.py`, `test_diary_keepalive.py`, `test_diary_corrections_per_child.py`, `test_netschool_client.py`'s `/login` test and `test_bot_manage.py`'s binding. The documents Task 6 edits were read at the lines it quotes, `HANDOVER.md` as `7fc97d6` commits it, and the `handover` skill whole.
+
+**Probed**, with the copy's venv:
+- protobuf-py: `CreateDiarySessionRequest`'s `credential` is a `protobuf.Oneof` with `field` and `value`, `None` when no case is set, and canonical JSON naming both cases keeps the last; `request.has_field("region")` is false for an unset `optional` string, which reads as `""`, and an unset `optional` field of a response reads as its zero, which is why the tests read them through `has_field`; `DiaryFeature`'s and `SignInMethod`'s members are named without their prefixes (`SCHEDULE`, `PASSWORD`).
+- #389: on `e88e1c8`'s tree, a session row with `provider` `"dnevnik-ru"` and a sealed credential: `GET /api/v1/diary/students` answered `200`, and Petersburg's fake upstream received the children's list with `Cookie: X-JWT-Token=third-diary-cookie`.
+- #390: on the same tree, `POST /api/v1/diary/login` with a 280-character password answered `422` with the password whole in `detail[0].input`.
+- `git show <sha>:<path>` fails on this machine's long scratch path («Filename too long»), and `git cat-file blob` does not; the rendering of this list uses the second.
+
+**Applied and run, in a scratch copy** (`git archive` of `7fc97d6`, whose `server/`, `proto/` and `api/` are `e88e1c8`'s, without `android/`, made a git repository of its own; never the worktree):
+- **The venv.** One made by `uv` on Python 3.12 from `requirements.txt` and `-e ".[dev]"`, installed editable from the copy, so the #312 guard took it; it sits beside the copy rather than in it, because Windows would not load `greenlet`'s compiled module at the copy's depth, and SQLAlchemy's compiled modules were removed for the same reason, so it ran its pure-Python twins. At the base, `pytest --collect-only -q` counted **3000**, `mypy` printed `Success: no issues found in 238 source files`, and ruff was clean.
+- **How the code got in.** The code was written in the copy, one commit per task, and every code block of this list is rendered from those commits by a script: a file a step writes whole is the commit's file, and every «replace» is cut from the commit's diff, its anchor grown until it is found exactly once in the file as it stands at that step. The same script then applied the rendered steps, in order, to a branch at the base — each task's Red step, its run, its Green steps, its run — and the branch it built was compared with the commits it was rendered from: the first run's branch differed from the commits in two files, `wording.py` and `diary_binding.py`, and by line endings alone (the commits had kept them CRLF; `git diff --ignore-cr-at-eol` printed nothing), so the commits were remade from that branch's trees; Task 3 then gained `call.py`'s docstring and Task 6 its last wording, and a second run applied the list as it now stands, every task's steps in order, committing after each: after every task `git diff --stat` against that task's commit printed nothing, and after Task 6 against the last commit nothing either.
+- **Red and green**, from the first run: Task 1's Red is the collection error `ImportError: cannot import name 'Feature'` and its Green 574 passed; Task 2's Red `AttributeError: module 'app.services.diary' has no attribute 'SessionRefused'` and its Green 594 passed; Task 3's Red `14 failed, 14 passed` and its Green 418 passed; Task 4's Red the collection error `cannot import name 'NOT_IN_THIS_DIARY'`, with `3 failed, 91 passed` for `test_rpc_errors.py` and `test_v2_reads.py` alone (second run), and its Green 378 passed; Task 5's Red `12 failed` and its Green 430 passed. Each is the step's own command, with `-p no:xdist`, on the copy's venv.
+- **After each task**, `ruff check app tests scripts migrations` printed `All checks passed!`; every new or rewritten file is as `ruff format` writes it, and no modified file gained a difference from `ruff format` it did not have before; `pytest --collect-only -q` counted 3011, 3031, 3048, 3071 and 3089; `mypy` printed `Success: no issues found in 238 source files` after each.
+- **The contract**: after Task 5's comment, `buf lint` printed nothing, `buf generate` changed `diary_connect.py` alone, in its four docstrings of `list_schedule_days`, and `buf breaking` against the copy's own commit of the base printed nothing.
+- **Task 6**: `docs3b7.py` printed seventeen `missing` lines and six `still says` lines before Steps 2 to 4, and `the documents say what 3b-7 serves` after them; Step 5's seven files gave 215 passed in the first run, and 226 with `test_rpc_call.py` beside them in the second, on the documents as they now stand; the counts script, pointed at the copy and given `3000 3089 238 238`, printed `written` and changed the seven places, and was undone there.
+
+**Not run:**
+- the full suite, in the copy or the worktree;
+- `buf breaking` against `origin/main`, which the copy has not: it ran against the copy's own commit of the same tree;
+- anything on Postgres or Vercel, a real diary, Telegram itself, or a phone;
+- Task 6's HANDOVER edits, which wait for facts that exist only at the merge, and the head scan of Step 5, which reads the worktree.
+
+The run at each task's gate is the truth.
+
+### File map (3b-7)
+
+| File | Task | What it holds |
+| --- | --- | --- |
+| `server/app/providers/diary/registry.py` | 1 | rewritten: `Needs`, `Feature`, `SignIn`, `Scope`, `Row` (with `provider`, `served_region`, `listed_regions`, `server_of`), `TABLE`, `KEYS`, `row_for`, `provider_for`, `kept_alive`, `Binding`, `binding` |
+| `server/app/services/diary_corrections.py` | 1 | `child_scope` reads the row |
+| `server/app/services/diary_keepalive.py` | 1 | `_claim` takes the providers the table keeps alive |
+| `server/app/services/diary.py` | 1, 2 | `find_session` refuses a key the table does not know (#389); `UnknownProvider`, `RegionNotServed`, `SchoolRequired`, `SessionRefused`, `UnknownStudent`, `Target`, `target`, `sealed_form`, `register`, `WINDOW_DAYS`, `WINDOW_MAX_DAYS`, `window`, `corrections`, `DiaryService.student`, `child`, `schedule_of`, `homework_of`, `periods_of`, `subjects_of`; `_open_row` and `sign_out` commit no longer |
+| `server/app/bot/handlers/manage/diary_binding.py` | 1 | the provider step reads the row |
+| `server/app/wording.py` | 2 | the diary's four sentences both versions say |
+| `server/app/api/diary.py` | 2 | v1 over the moved rules; `/login` through `_NoEchoRoute` (#390); `/logout` commits |
+| `server/app/rpc/diary.py` | 3, 4, 5 | rewritten in 3, grown in 4 and 5: the ten methods, `GetDiaryCapabilities` from the table |
+| `server/app/rpc/errors.py` | 3, 4 | the table's ten rows |
+| `server/app/rpc/handlers.py` | 3, 4, 5 | `HANDLERS` |
+| `server/app/rest/__init__.py` | 3 | `NO_STORE_CREDENTIAL` |
+| `server/app/rpc/dates.py` | 5 | `asked` |
+| `proto/lessons/v2/diary.proto`, `server/app/contract/**` | 5 | a comment, regenerated |
+| `server/tests/test_diary_registry.py` | 1 | the table, and #389 over v1 |
+| `server/tests/test_services_diary.py` | 2 | the moved rules, and #390 |
+| `server/tests/test_v2_diary_sessions.py` | 3 | `CreateDiarySession`, `DeleteDiarySession` |
+| `server/tests/test_v2_diary_reads.py` | 4 | the five reads without a window, the capabilities, #389 over v2 |
+| `server/tests/test_v2_diary_days.py` | 5 | the three reads of a window |
+| `server/tests/conftest.py` | 4 | `diary_offline` |
+| `server/tests/test_v2_reads.py`, `test_v2_no_echo.py`, `test_rpc_errors.py` | 3, 4 | `SELF_ENDING`, the offline diary, the capabilities' table; `HELD_BY`, `LATER` and `STAGES` |
+| documents | 6 | `docs/api.md`, `docs/README.md`, `README.md`, `docs/architecture.md`, `CLAUDE.md`, `.claude/agents/server-providers.md`, the counts in the seven places; `HANDOVER.md` and `docs/history.md` |
+
+---
+
+### 3b-7 Task 1: The registry as a table, and every branch on a key reads its row
+
+Decisions 2 and 12; Rulings 104, 108 and 109; #389. v1's answers, the bot's screens and the tick stay as they were: `test_bot_manage.py`, `test_bot_diary.py`, `test_diary_keepalive.py`, `test_diary_corrections_per_child.py`, `test_diary_api.py`, `test_diary_session.py` and `test_diary_web.py` are the proof and are not edited.
+
+**Files:**
+- Create: `server/tests/test_diary_registry.py`
+- Rewrite: `server/app/providers/diary/registry.py`
+- Modify: `server/app/services/diary_corrections.py`, `server/app/services/diary_keepalive.py`, `server/app/services/diary.py`, `server/app/bot/handlers/manage/diary_binding.py`
+
+**Interfaces:**
+- Consumes: the two providers (`PetersburgProvider`, `NetSchoolProvider`, each with `key`, `genitive`, `open` and `zone`); `providers/netschool/regions`' `get` and `listed`, and its `Region`'s `key`, `origin` and `password`.
+- Produces:
+  - `registry.Needs` (`NOTHING`, `REGION_AND_SCHOOL`), `registry.Feature` (the ten `DiaryFeature` names), `registry.SignIn` (`PASSWORD`, `SESSION_ADOPT`), `registry.Scope` (`PROVIDER`, `REGIONAL_SERVER`);
+  - `registry.Row(key, implementation, needs, regions, sign_in, features, scope, kept_alive, bare_field)`, frozen, with `provider() -> DiaryProvider`, `served_region(key) -> str | None`, `listed_regions() -> list[str]` and `server_of(region) -> str | None`;
+  - `registry.TABLE`, `KEYS`, `row_for(key) -> Row | None`, `provider_for(key) -> DiaryProvider | None`, `kept_alive() -> tuple[str, ...]`; `Binding` and `binding(school_class)` as before;
+  - `diary_corrections.child_scope(provider, region)`, the same scopes, read from the row;
+  - `services/diary.find_session` answering `None` for a row whose key the table does not know, and leaving the row alone; `DiaryService(session, row)` raising `ValueError` for one, where it fell back to Petersburg.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_diary_registry.py`:
+```python
+"""The diary's registry as a table: every question asked of a provider key reads its row.
+
+``providers/diary/registry.py`` chose a provider with an ``if`` per key, and
+four more places did the same — the binding, the scope a child's corrections
+are filed under, which sessions the tick keeps alive, and the bot's binding
+screen (``docs/specs/2026-10-05-server-v2-design.md``, decision 12). These hold
+the table's answers, that a provider declares a feature exactly when its
+connection asks the diary for it, and that a session of a provider this
+deployment does not know is read by nobody (#389).
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from collections.abc import Callable
+from datetime import date
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+
+import httpx
+import pytest
+from httpx import ASGITransport
+from sqlalchemy import select
+
+from app.contract.lessons.v2.diary_pb import DiaryFeature, SignInMethod
+from app.crypto import seal
+from app.main import app
+from app.models import DiarySession, SchoolClass
+from app.providers.diary import registry
+from app.providers.diary.errors import DiaryError
+from app.providers.diary.registry import Feature, Needs, Scope, SignIn
+from app.providers.netschool import client as nsclient
+from app.providers.petersburg import client as pbclient
+from app.security import hash_token
+from app.services import diary_corrections, diary_keepalive
+
+SERVER = Path(__file__).resolve().parents[1]
+DAY = date(2026, 9, 14)
+
+#: The connection read behind each feature a method of v2 serves.
+READS: dict[Feature, Callable[[Any], Any]] = {
+    Feature.SCHEDULE: lambda connection: connection.schedule(1, DAY, DAY),
+    Feature.HOMEWORK: lambda connection: connection.homework(1, DAY, DAY),
+    Feature.MARKS: lambda connection: connection.marks(1, DAY, DAY),
+    Feature.PERIODS: lambda connection: connection.periods(1),
+    Feature.SUBJECTS: lambda connection: connection.subjects(1, 1),
+    Feature.TEACHERS: lambda connection: connection.teachers(1),
+    Feature.TURNSTILE: lambda connection: connection.attendance(1),
+}
+
+#: A credential each provider opens, with the school year «Сетевой город»
+#: clips its walks to, so that a read asks for one week and nothing else.
+CREDENTIALS = {
+    registry.PETERSBURG: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbg",
+    registry.NETSCHOOL: json.dumps(
+        {
+            "v": nsclient.CREDENTIAL_VERSION,
+            "region": "zabaikalsky",
+            "school_id": 42,
+            "at": "56574745368264517434263",
+            "cookies": {"NSSESSIONID": "sess"},
+            "year_id": 2026,
+            "year_start": "2026-09-01",
+            "year_end": "2027-05-31",
+        }
+    ),
+}
+
+
+@pytest.fixture
+def asked(monkeypatch) -> list[httpx.Request]:
+    """Both diaries, answering every request with an empty JSON object and
+    recording it: what matters here is whether a read asks at all."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={})
+
+    async def petersburg() -> httpx.AsyncClient:
+        return httpx.AsyncClient(base_url=pbclient.BASE_URL, transport=httpx.MockTransport(handler))
+
+    async def netschool() -> httpx.AsyncClient:
+        return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    monkeypatch.setattr(pbclient, "shared_client", petersburg)
+    monkeypatch.setattr(nsclient, "shared_client", netschool)
+    return seen
+
+
+def test_every_row_names_the_provider_that_answers_to_its_key() -> None:
+    assert registry.KEYS == (registry.PETERSBURG, registry.NETSCHOOL)
+    for row in registry.TABLE:
+        assert registry.row_for(row.key) is row
+        assert row.provider().key == row.key
+        assert type(registry.provider_for(row.key)) is type(row.provider())
+        # A row that needs a region has an allow-list to take it from, and
+        # files its children per regional server; one that does not, neither.
+        regional = row.needs is Needs.REGION_AND_SCHOOL
+        assert (row.regions is not None) is regional
+        assert (row.scope is Scope.REGIONAL_SERVER) is regional
+    for unknown in (None, "", "dnevnik-ru", "PETERSBURG"):
+        assert registry.row_for(unknown) is None
+        assert registry.provider_for(unknown) is None
+
+
+def test_a_provider_and_its_allow_list_are_imported_only_when_asked_for() -> None:
+    """In a fresh interpreter, since this suite's own process has imported both
+    providers long since: the table is read on every request, and neither
+    provider's client may land on the cold start of one that does not use it."""
+    probe = (
+        "import json, sys\n"
+        "from app.providers.diary import registry\n"
+        "names = ('app.providers.petersburg.provider', 'app.providers.netschool.provider',"
+        " 'app.providers.netschool.regions')\n"
+        "first = [name in sys.modules for name in names]\n"
+        "registry.row_for('netschool').listed_regions()\n"
+        "second = [name in sys.modules for name in names]\n"
+        "registry.row_for('petersburg').provider()\n"
+        "third = [name in sys.modules for name in names]\n"
+        "print(json.dumps([first, second, third]))\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe], cwd=SERVER, capture_output=True, text=True, check=True
+    )
+    first, second, third = json.loads(result.stdout.strip().splitlines()[-1])
+    assert first == [False, False, False]
+    assert second == [False, False, True]
+    assert third == [True, False, True]
+
+
+def test_the_features_and_the_ways_in_are_the_contract_s_names() -> None:
+    assert {feature.name for feature in Feature} == {
+        value.name for value in DiaryFeature if value is not DiaryFeature.UNSPECIFIED
+    }
+    assert {method.name for method in SignIn} == {
+        value.name for value in SignInMethod if value is not SignInMethod.UNSPECIFIED
+    }
+    for row in registry.TABLE:
+        assert row.sign_in == (SignIn.PASSWORD,), row.key
+
+
+@pytest.mark.parametrize("key", registry.KEYS)
+async def test_a_provider_declares_a_feature_exactly_when_its_connection_asks_the_diary(
+    asked, key
+) -> None:
+    """Ruling 104: a feature is undeclared only when the provider never
+    implements it. «Сетевой город»'s connection answers subjects, teachers and
+    the turnstile with a constant empty list and asks nothing; an empty answer
+    from the diary would still be an answer."""
+    row = registry.row_for(key)
+    assert row is not None
+    connection = row.provider().open(CREDENTIALS[key])
+    asks: set[Feature] = set()
+    for feature, read in READS.items():
+        before = len(asked)
+        try:
+            await read(connection)
+        except DiaryError:
+            pass  # an empty object is no answer a mapper reads; it was asked
+        if len(asked) > before:
+            asks.add(feature)
+    assert asks == row.features & set(READS)
+    # What no method of v2 reads yet is declared by nobody.
+    assert not row.features & {Feature.ATTENDANCE, Feature.MEAL_ACCOUNT, Feature.FINAL_MARKS}
+
+
+def test_netschool_declares_four_and_petersburg_seven() -> None:
+    petersburg = registry.row_for(registry.PETERSBURG)
+    netschool = registry.row_for(registry.NETSCHOOL)
+    assert petersburg is not None and netschool is not None
+    assert netschool.features == {
+        Feature.SCHEDULE,
+        Feature.HOMEWORK,
+        Feature.MARKS,
+        Feature.PERIODS,
+    }
+    assert petersburg.features == netschool.features | {
+        Feature.SUBJECTS,
+        Feature.TEACHERS,
+        Feature.TURNSTILE,
+    }
+
+
+def test_a_binding_is_validated_by_its_row() -> None:
+    def bound(**columns: Any) -> registry.Binding | None:
+        return registry.binding(SchoolClass(name="9А", join_code="ROW1", **columns))
+
+    petersburg = bound(diary_provider="petersburg", diary_region="samara", diary_school_id=7)
+    assert petersburg is not None
+    # One server: whatever else the class holds, the binding needs nothing more.
+    assert (petersburg.provider.key, petersburg.region, petersburg.school_id) == (
+        "petersburg",
+        None,
+        None,
+    )
+    netschool = bound(
+        diary_provider="netschool",
+        diary_region="samara",
+        diary_school_id=7,
+        diary_school_name="Школа № 7",
+    )
+    assert netschool is not None
+    assert (netschool.region, netschool.school_id, netschool.school_name) == (
+        "samara",
+        7,
+        "Школа № 7",
+    )
+    for unusable in (
+        {"diary_provider": "netschool", "diary_region": "samara"},
+        {"diary_provider": "netschool", "diary_region": "tula", "diary_school_id": 7},
+        {"diary_provider": "netschool", "diary_region": "moscow", "diary_school_id": 7},
+        {"diary_provider": "dnevnik-ru"},
+        {"diary_provider": None},
+    ):
+        assert bound(**unusable) is None, unusable
+
+
+def test_a_child_s_corrections_are_scoped_as_its_row_says() -> None:
+    """The two shapes ``child_scope`` has always made, byte for byte, now read
+    from the row; a password-less region still names its server, since its
+    sessions' corrections are filed under it."""
+    scope = diary_corrections.child_scope
+    assert scope("petersburg", None) == scope(None, "samara") == "CHILD:petersburg"
+    assert scope("netschool", "zabaikalsky") == "CHILD:netschool:region.zabedu.ru"
+    assert scope("netschool", "tula") == "CHILD:netschool:sgo1.edu71.ru"
+    for provider, region in (("netschool", "moscow"), ("netschool", None), ("dnevnik-ru", None)):
+        with pytest.raises(diary_corrections.UnknownDiaryServer):
+            scope(provider, region)
+
+
+async def test_the_tick_claims_only_the_sessions_of_a_provider_it_keeps_alive(session) -> None:
+    assert registry.kept_alive() == ("netschool",)
+    for provider in ("netschool", "petersburg", None, "dnevnik-ru"):
+        session.add(
+            DiarySession(
+                token_hash=hash_token(f"kept-{provider}"),
+                upstream_token=seal("{}"),
+                login="parent",
+                provider=provider,
+                region="zabaikalsky" if provider == "netschool" else None,
+            )
+        )
+    await session.commit()
+    claims = await diary_keepalive._claim(session)
+    assert [claim.provider for claim in claims] == ["netschool"]
+
+
+async def test_a_session_of_a_provider_this_deployment_does_not_know_is_read_by_nobody(
+    session, asked
+) -> None:
+    """#389. A provider is a value, not a migration, so a deployment rolled back
+    past the release that added one still holds its sessions. The reader fell
+    back to Petersburg and sent the other diary's credential there. Now the
+    token is refused as v1's ``current_diary`` refuses any unknown token, and
+    the row is left for the release that can read it."""
+    session.add(
+        DiarySession(
+            token_hash=hash_token("third-diary"),
+            upstream_token=seal("third-diary-cookie"),
+            login="parent",
+            provider="dnevnik-ru",
+        )
+    )
+    await session.commit()
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as v1:
+        answer = await v1.get(
+            "/api/v1/diary/students", headers={"Authorization": "Bearer third-diary"}
+        )
+    assert (answer.status_code, answer.json()["detail"]) == (401, "Diary session is not valid")
+    assert asked == []
+    row = await session.scalar(select(DiarySession))
+    await session.refresh(row)
+    assert row.expired_at is None
+
+
+async def test_the_bot_binds_a_diary_that_needs_nothing_at_once_in_its_own_name(
+    session, school_class, FakeCallback, FakeEditable
+) -> None:
+    """The provider step reads the row: one that needs nothing is bound, and
+    the line in the journal and the alert name it in its own genitive; an
+    unknown key is refused and binds nothing."""
+    from app.bot.handlers.manage.diary_binding import class_diary_provider
+    from app.models import AuditEntry, Role
+
+    callback = FakeCallback(message=FakeEditable())
+    await class_diary_provider(
+        callback, SimpleNamespace(value="petersburg"), session, school_class, Role.ADMIN
+    )
+    assert school_class.diary_provider == "petersburg"
+    line = await session.scalar(select(AuditEntry.summary))
+    assert line == "привязан дневник Санкт-Петербурга"
+
+    refused = FakeCallback(message=FakeEditable())
+    school_class.diary_provider = None
+    await class_diary_provider(
+        refused, SimpleNamespace(value="dnevnik-ru"), session, school_class, Role.ADMIN
+    )
+    assert school_class.diary_provider is None
+    assert refused.alerted
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_diary_registry.py
+```
+Expected: a collection error, `ImportError: cannot import name 'Feature' from 'app.providers.diary.registry'`.
+
+- [ ] **Step 2: The registry as a table.** Replace `server/app/providers/diary/registry.py` whole with:
+```python
+"""Which diaries this deployment serves, as one table, and what a class is bound to.
+
+:data:`TABLE` is the diary as data (``docs/specs/2026-10-05-server-v2-design.md``,
+decision 12): one :class:`Row` per provider — its key, where its implementation
+lives, what a class's binding to it needs, the ways in a phone may draw a form
+for, the data it has, how a child's corrections are scoped, whether the tick
+keeps its sessions open, and how what a phone hands over is sealed. Every
+question asked of a provider key reads its row, so a provider is added by a row
+and its module, and no ``if`` on a key has to learn about it.
+
+A row names its implementation, and a regional provider its allow-list, as a
+module path imported on first use — so neither Petersburg's client nor «Сетевой
+город»'s lands on the cold-start path of a request that does not use it, the
+same care `main.py` takes.
+
+`binding` is the one place that reads a class's diary binding. `_bound` in the
+bot, the main menu, the class card and the web form all call it, so that
+"is this class bound, and to what" has a single answer and the web form never
+imports aiogram to get it.
+"""
+
+from __future__ import annotations
+
+import importlib
+from dataclasses import dataclass
+from enum import StrEnum
+from types import ModuleType
+from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
+
+from app.providers.diary.base import DiaryProvider
+
+if TYPE_CHECKING:
+    from app.models import SchoolClass
+
+PETERSBURG = "petersburg"
+NETSCHOOL = "netschool"
+
+
+class Needs(StrEnum):
+    """What a class's binding to a provider needs besides the provider's key."""
+
+    #: Nothing: the provider is one server, as Petersburg's city diary is.
+    NOTHING = "nothing"
+    #: A region of the provider's allow-list that takes a password, and the
+    #: diary's own id of the school in it, as «Сетевой город» needs.
+    REGION_AND_SCHOOL = "region_and_school"
+
+
+class Feature(StrEnum):
+    """What a provider has: v2's ``DiaryFeature``, by its value's name without
+    the prefix, which ``test_diary_registry.py`` holds level with the proto.
+
+    A provider declares a feature when its connection reads it from the diary,
+    and only then: one that answers with a constant empty list and asks the
+    diary nothing never implemented it, while an empty answer from the diary is
+    an answer (the 3b plan, Ruling 104)."""
+
+    SCHEDULE = "schedule"
+    HOMEWORK = "homework"
+    MARKS = "marks"
+    PERIODS = "periods"
+    SUBJECTS = "subjects"
+    TEACHERS = "teachers"
+    ATTENDANCE = "attendance"
+    TURNSTILE = "turnstile"
+    MEAL_ACCOUNT = "meal_account"
+    FINAL_MARKS = "final_marks"
+
+
+class SignIn(StrEnum):
+    """How a phone gets into a provider's diary, so it draws the right form: v2's
+    ``SignInMethod``, by its value's name without the prefix."""
+
+    #: A login and a password, typed into the phone's own form; the phone signs
+    #: in with the diary itself and hands the session over.
+    PASSWORD = "password"
+    #: A session the phone opened elsewhere, such as the diary's own page.
+    SESSION_ADOPT = "session_adopt"
+
+
+class Scope(StrEnum):
+    """What a child's corrections are filed under besides the child's id
+    (`services/diary_corrections.child_scope`)."""
+
+    #: The provider: one server numbers every pupil.
+    PROVIDER = "provider"
+    #: The regional server the session's region names: each numbers its own.
+    REGIONAL_SERVER = "regional_server"
+
+
+@dataclass(frozen=True)
+class Row:
+    """One provider, as every question about its key is answered."""
+
+    key: str
+    #: ``"module:Class"``, imported on the first :meth:`provider`.
+    implementation: str
+    needs: Needs
+    #: The module holding a regional provider's allow-list (``get``, ``listed``
+    #: and regions with ``key``, ``origin`` and ``password``), imported on first
+    #: use; ``None`` for a provider that is one server.
+    regions: str | None
+    sign_in: tuple[SignIn, ...]
+    features: frozenset[Feature]
+    scope: Scope
+    #: Whether the cron tick pings the provider's live sessions
+    #: (`services/diary_keepalive`): «Сетевой город»'s idle out in minutes.
+    kept_alive: bool
+    #: The one field of what a phone hands over that is the whole session,
+    #: sealed as it is (Petersburg's ``token``); ``None`` when the session is the
+    #: JSON of everything handed, as «Сетевой город»'s ``at``, cookies, ``ver``
+    #: and ``time_out`` are.
+    bare_field: str | None
+
+    def provider(self) -> DiaryProvider:
+        """The implementation, imported on the first call for it."""
+        module, _, name = self.implementation.partition(":")
+        return getattr(importlib.import_module(module), name)()
+
+    def _allow_list(self) -> ModuleType | None:
+        return importlib.import_module(self.regions) if self.regions else None
+
+    def served_region(self, key: str | None) -> str | None:
+        """``key``, when it names a region of the allow-list that takes a
+        password; ``None`` otherwise, and always for a provider that is one
+        server. Asked before any upstream call, so a region this server does not
+        serve never receives one, whichever door it came through."""
+        allow = self._allow_list()
+        region = allow.get(key) if allow is not None else None
+        return region.key if region is not None and region.password else None
+
+    def listed_regions(self) -> list[str]:
+        """The allow-list keys a phone may sign in to with a password, in the
+        bot's order; none for a provider that is one server."""
+        allow = self._allow_list()
+        return [region.key for region in allow.listed()] if allow is not None else []
+
+    def server_of(self, region: str | None) -> str | None:
+        """The host of ``region``'s server, lower case, or ``None`` when the
+        allow-list does not hold the region. Every region, a password-less one
+        included: its sessions' corrections are still filed under it."""
+        allow = self._allow_list()
+        known = allow.get(region) if allow is not None else None
+        return urlsplit(known.origin).netloc.lower() if known is not None else None
+
+
+TABLE: tuple[Row, ...] = (
+    Row(
+        key=PETERSBURG,
+        implementation="app.providers.petersburg.provider:PetersburgProvider",
+        needs=Needs.NOTHING,
+        regions=None,
+        sign_in=(SignIn.PASSWORD,),
+        features=frozenset(
+            {
+                Feature.SCHEDULE,
+                Feature.HOMEWORK,
+                Feature.MARKS,
+                Feature.PERIODS,
+                Feature.SUBJECTS,
+                Feature.TEACHERS,
+                Feature.TURNSTILE,
+            }
+        ),
+        scope=Scope.PROVIDER,
+        kept_alive=False,
+        bare_field="token",
+    ),
+    Row(
+        key=NETSCHOOL,
+        implementation="app.providers.netschool.provider:NetSchoolProvider",
+        needs=Needs.REGION_AND_SCHOOL,
+        regions="app.providers.netschool.regions",
+        sign_in=(SignIn.PASSWORD,),
+        # Its connection answers subjects, teachers and the turnstile with a
+        # constant empty list and asks the diary nothing (`NetSchoolConnection`):
+        # never implemented, so never declared.
+        features=frozenset({Feature.SCHEDULE, Feature.HOMEWORK, Feature.MARKS, Feature.PERIODS}),
+        scope=Scope.REGIONAL_SERVER,
+        kept_alive=True,
+        bare_field=None,
+    ),
+)
+
+#: Every key, in the table's order.
+KEYS = tuple(row.key for row in TABLE)
+
+_BY_KEY = {row.key: row for row in TABLE}
+
+
+def row_for(key: str | None) -> Row | None:
+    """The row for a key, or ``None`` for an unknown or absent one.
+
+    A ``None`` key on a session row means the row pre-dates the ``provider``
+    column, which is Petersburg — but the caller decides that, not this
+    function, which answers only about the key it was given."""
+    return _BY_KEY.get(key) if key is not None else None
+
+
+def provider_for(key: str | None) -> DiaryProvider | None:
+    """The provider for a key, or ``None`` for an unknown or absent one."""
+    row = row_for(key)
+    return row.provider() if row is not None else None
+
+
+def kept_alive() -> tuple[str, ...]:
+    """The keys whose live sessions the tick pings."""
+    return tuple(row.key for row in TABLE if row.kept_alive)
+
+
+@dataclass(frozen=True)
+class Binding:
+    """A class's diary binding, resolved and validated.
+
+    For a provider whose binding needs a region and a school, ``region`` names
+    an allow-listed regional server and ``school`` its id and name; otherwise
+    both are ``None``. A class whose stored region has since been dropped from
+    the allow-list resolves to *no* binding, so a diary that can no longer be
+    reached stops being offered.
+    """
+
+    provider: DiaryProvider
+    region: str | None = None
+    school_id: int | None = None
+    school_name: str | None = None
+
+
+def binding(school_class: SchoolClass) -> Binding | None:
+    """What ``school_class`` is bound to, or ``None`` if nothing usable.
+
+    Reads only the class columns and the row — its allow-list, when it has one;
+    no aiogram, no HTTP — so it is safe on the request path and in the web form.
+    """
+    row = row_for(school_class.diary_provider)
+    if row is None:
+        return None
+    if row.needs is Needs.NOTHING:
+        return Binding(provider=row.provider())
+    region = row.served_region(school_class.diary_region)
+    # A class bound to a region since removed from the allow-list, or that
+    # never finished the school step, is not a usable binding.
+    if region is None or school_class.diary_school_id is None:
+        return None
+    return Binding(
+        provider=row.provider(),
+        region=region,
+        school_id=school_class.diary_school_id,
+        school_name=school_class.diary_school_name,
+    )
+```
+
+- [ ] **Step 3: A child's scope is its row's.** In `server/app/services/diary_corrections.py`:
+  1. Replace:
+```python
+from urllib.parse import urlsplit
+
+from sqlalchemy import ColumnElement, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import DiaryOverride
+from app.providers.diary.registry import NETSCHOOL, PETERSBURG
+```
+     with:
+```python
+from sqlalchemy import ColumnElement, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import DiaryOverride
+from app.providers.diary.registry import PETERSBURG, Scope, row_for
+```
+  2. Replace:
+```python
+    """
+    provider = provider or PETERSBURG
+    if provider == PETERSBURG:
+        scope = f"{SCOPE_PREFIX}{PETERSBURG}"
+    elif provider == NETSCHOOL:
+        from app.providers.netschool import regions
+
+        known = regions.get(region)
+        if known is None:
+            raise UnknownDiaryServer(f"no «Сетевой город» server for region {region!r}")
+        scope = f"{SCOPE_PREFIX}{NETSCHOOL}:{urlsplit(known.origin).netloc.lower()}"
+    else:
+        raise UnknownDiaryServer(f"unknown diary provider {provider!r}")
+    return scope
+```
+     with:
+```python
+    """
+    # The row says which of the two shapes a provider's scope takes, so a
+    # provider added to the table files its children without a branch here.
+    row = row_for(provider or PETERSBURG)
+    if row is None:
+        raise UnknownDiaryServer(f"unknown diary provider {provider!r}")
+    if row.scope is Scope.PROVIDER:
+        return f"{SCOPE_PREFIX}{row.key}"
+    server = row.server_of(region)
+    if server is None:
+        raise UnknownDiaryServer(f"no {row.key} server for region {region!r}")
+    return f"{SCOPE_PREFIX}{row.key}:{server}"
+```
+
+- [ ] **Step 4: The tick keeps alive what the table says.** In `server/app/services/diary_keepalive.py`:
+  1. Replace:
+```python
+from app.providers.diary.errors import AddressRefused, SessionExpired
+from app.providers.diary.registry import NETSCHOOL, provider_for
+```
+     with:
+```python
+from app.providers.diary.errors import AddressRefused, SessionExpired
+from app.providers.diary.registry import kept_alive, provider_for
+```
+  2. Replace:
+```python
+        .where(
+            DiarySession.provider == NETSCHOOL,
+            DiarySession.expired_at.is_(None),
+```
+     with:
+```python
+        .where(
+            # The providers whose sessions idle out upstream, as the table says.
+            DiarySession.provider.in_(kept_alive()),
+            DiarySession.expired_at.is_(None),
+```
+
+- [ ] **Step 5: A session of a provider the table does not know is read by nobody** (#389). In `server/app/services/diary.py`:
+  1. Replace:
+```python
+)
+from app.providers.diary.registry import PETERSBURG, Binding, provider_for
+from app.providers.diary.registry import binding as class_binding
+```
+     with:
+```python
+)
+from app.providers.diary.registry import PETERSBURG, Binding, provider_for, row_for
+from app.providers.diary.registry import binding as class_binding
+```
+  2. Replace:
+```python
+    thing, from an address the upstream rate-limits.
+    """
+    row = await session.scalar(
+        select(DiarySession).where(DiarySession.token_hash == hash_token(token))
+    )
+    if row is None or not row.is_live:
+        return None
+```
+     with:
+```python
+    thing, from an address the upstream rate-limits.
+
+    A row of a provider this deployment does not know is refused and left as
+    it is (#389). A provider is a value, not a migration, so a deployment rolled
+    back past the release that added one still holds that provider's sessions;
+    read here, they would go to whichever diary the reader fell back to, with
+    another diary's credential. Not expired: the release that knows the
+    provider reads them again.
+    """
+    row = await session.scalar(
+        select(DiarySession).where(DiarySession.token_hash == hash_token(token))
+    )
+    if row is None or not row.is_live:
+        return None
+    if row_for(row.provider or PETERSBURG) is None:
+        return None
+```
+  3. Replace:
+```python
+        provider = provider_for(row.provider or PETERSBURG)
+        # An unknown provider is treated like an unreadable seal: `find_session`
+        # and the bot's `_session_for` expire such a row before building this,
+        # so this fallback is only ever reached in a test that skips them.
+        provider = provider or provider_for(PETERSBURG)
+        self.connection = provider.open(self._credential)  # type: ignore[union-attr]
+```
+     with:
+```python
+        provider = provider_for(row.provider or PETERSBURG)
+        if provider is None:
+            # Every door refuses such a row before building this: `find_session`
+            # by the table, the bot's `_session_for` by the class's binding.
+            # Reading it with another provider would send its credential to a
+            # diary it was never opened with (#389).
+            raise ValueError(f"no provider answers diary session {row.id}")
+        self.connection = provider.open(self._credential)
+```
+
+- [ ] **Step 6: The bot's provider step reads the row.** In `server/app/bot/handlers/manage/diary_binding.py`:
+  1. Replace:
+```python
+from app.providers.diary.errors import AddressRefused, DiaryError, SignInUnsupported
+from app.providers.diary.registry import NETSCHOOL, PETERSBURG
+from app.providers.netschool import regions as ns_regions
+```
+     with:
+```python
+from app.providers.diary.errors import AddressRefused, DiaryError, SignInUnsupported
+from app.providers.diary.registry import NETSCHOOL, Needs, row_for
+from app.providers.netschool import regions as ns_regions
+```
+  2. Replace:
+```python
+) -> None:
+    """Second step of binding: the provider was picked."""
+    if callback_data.value == PETERSBURG:
+        school_class.diary_provider = PETERSBURG
+        school_class.diary_region = None
+```
+     with:
+```python
+) -> None:
+    """Second step of binding: the provider was picked. One whose binding
+    needs nothing more is bound at once; one that needs a region and a school
+    asks for them, on «Сетевой город»'s screens, the one regional provider's."""
+    row = row_for(callback_data.value)
+    if row is None:
+        await callback.answer("Неизвестный дневник", show_alert=True)
+        return
+    if row.needs is Needs.NOTHING:
+        provider = row.provider()
+        school_class.diary_provider = row.key
+        school_class.diary_region = None
+```
+  3. Replace:
+```python
+            session, school_class.id, callback.from_user.id, "class.diary",
+            "привязан дневник Санкт-Петербурга",
+        )
+        await session.commit()
+        await _redraw_class(callback, session, school_class, role)
+        await callback.answer("Привязан дневник Санкт-Петербурга")
+        return
+    if callback_data.value == NETSCHOOL:
+        await callback.message.edit_text(
+            "🌆 <b>Сетевой город</b>\n\nВыберите регион.", reply_markup=diary_region_menu()
+        )
+        await callback.answer()
+        return
+    await callback.answer("Неизвестный дневник", show_alert=True)
+```
+     with:
+```python
+            session, school_class.id, callback.from_user.id, "class.diary",
+            f"привязан дневник {provider.genitive}",
+        )
+        await session.commit()
+        await _redraw_class(callback, session, school_class, role)
+        await callback.answer(f"Привязан дневник {provider.genitive}")
+        return
+    await callback.message.edit_text(
+        "🌆 <b>Сетевой город</b>\n\nВыберите регион.", reply_markup=diary_region_menu()
+    )
+    await callback.answer()
+```
+
+  The region and the school steps below it stay «Сетевой город»'s own (Ruling 108), and so does the keyboard that offers the two diaries.
+
+- [ ] **Step 7: Green, and v1, the bot and the tick unchanged.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_diary_registry.py tests/test_bot_manage.py tests/test_bot_diary.py tests/test_diary_keepalive.py tests/test_diary_corrections_per_child.py tests/test_diary_api.py tests/test_diary_session.py tests/test_diary_web.py tests/test_region_catalog.py tests/test_v2_reads.py tests/test_v2_devices.py tests/test_service_layering.py tests/test_project_screen.py tests/test_cold_start.py
+```
+Expected: all pass, 574 tests; `test_diary_registry.py` has 11. The files beside it pass unedited:
+- `test_diary_corrections_per_child.py` holds the scopes `CHILD:petersburg` and `CHILD:netschool:` with the host, byte for byte, that `child_scope` now reads from the row;
+- `test_diary_keepalive.py`'s `test_petersburg_and_expired_rows_are_left_out` holds the claim the table now names;
+- `test_bot_manage.py`'s `test_choosing_petersburg_binds_it_and_the_card_says_so` and `test_an_editor_cannot_bind_the_diary` press the provider step; the new test reads its line in the journal, «привязан дневник Санкт-Петербурга», word for word what the step wrote before;
+- `test_region_catalog.py` reads `registry.KEYS`, the table's keys now.
+
+`test_a_session_of_a_provider_this_deployment_does_not_know_is_read_by_nobody` is #389's: before Step 5, v1 answered `200` and sent the cookie to Petersburg.
+
+- [ ] **Step 8: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`.
+
+- [ ] **Step 9: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b7-t1.txt`:
+```text
+Make the diary's registry a table that every question about a provider reads
+
+registry.py chose a provider with an if per key, and four more places
+did the same: the binding, the scope a child's corrections are filed
+under, which sessions the tick keeps alive, and the bot's binding
+screen. Each provider is now a row of registry.TABLE: its key, its
+implementation and a regional provider's allow-list, both imported on
+first use, what a class's binding to it needs, the ways in a phone may
+draw a form for, the features it has, how a child's corrections are
+scoped, whether the tick keeps its sessions open, and how what a phone
+hands over is sealed. binding, child_scope, the keep-alive's claim and
+the bot's provider step read the row, with the same answers as before.
+
+A feature is declared only when the provider's connection reads it from
+the diary: «Сетевой город» answers subjects, teachers and the turnstile
+with a constant empty list and asks nothing, so its row declares the
+other four, and a test holds every row to its connection.
+
+A session whose provider no row answers was read through Petersburg's
+diary, its credential sent there as Petersburg's cookie (#389): a
+provider is a value, not a migration, so a rollback past the release
+that added one leaves its sessions in the table. find_session now
+refuses such a row as an unknown token and leaves it for the release
+that can read it, and DiaryService no longer falls back.
+
+Not covered: the bot's region and school steps stay «Сетевой город»'s
+own screens; a second regional provider would bring its own.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/providers/diary/registry.py server/app/services/diary_corrections.py server/app/services/diary_keepalive.py server/app/services/diary.py server/app/bot/handlers/manage/diary_binding.py server/tests/test_diary_registry.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b7-t1.txt
+```
+
+---
+
+### 3b-7 Task 2: v1's session and read rules, in `services/diary.py`
+
+Decisions 2, 4 and 11; Rulings 106, 110, 113 and 116; #390. v1 keeps its answers, its statuses and its counting: `test_diary_api.py`, `test_diary_session.py`, `test_diary_web.py`, `test_diary_crypto.py`, `test_directory.py` and `test_shared_rules.py` are the proof and are not edited.
+
+**Files:**
+- Create: `server/tests/test_services_diary.py`
+- Modify: `server/app/services/diary.py`, `server/app/wording.py`, `server/app/api/diary.py`
+
+**Interfaces:**
+- Consumes: Task 1's `registry.Needs`, `row_for` and `Row.served_region` and `bare_field`; `security.DiaryAttempt` and `Throttled`; `clock.in_bounds`, `WindowRefused`, `OUT_OF_BOUNDS`, `BACKWARDS`, `TOO_WIDE` and `WINDOW_MAX_DAYS`; `diary_corrections.load_corrections`; `diary_overrides.overlay_lessons`, `overlay_homework`, `OverlaidLesson` and `OverlaidHomework`.
+- Produces, in `services/diary.py`:
+  - the facts `UnknownProvider(key)`, `RegionNotServed`, `SchoolRequired`, `SessionRefused(BadCredentials)` and `UnknownStudent(student_id)`;
+  - `Target(provider, region, school_id)`, frozen, and `target(provider, region, school_id) -> Target`;
+  - `sealed_form(provider, handed: Mapping[str, Any]) -> str`;
+  - `Registered` gains `school_id` and `zone`; `register(session, *, provider, login, handed, region, school_id, failures_key, opened_key) -> Registered`;
+  - `WINDOW_DAYS = 14`, `WINDOW_MAX_DAYS = clock.WINDOW_MAX_DAYS`, `window(start, end, today) -> tuple[Date, Date]`;
+  - `corrections(session, scope, student_id)`;
+  - `DiaryService.student(student_id) -> Student`, `child(student_id) -> tuple[Student, str | None]`, `schedule_of(student, scope, start, end)`, `homework_of(student, scope, start, end)`, `periods_of(student)`, `subjects_of(student, period_id)`;
+  - `_open_row` and `sign_out` flush and leave the commit to their callers (Ruling 106).
+- Produces, in `app/wording.py`: `DIARY_THROTTLED_DETAIL`, `DIARY_REGION_NOT_SERVED_DETAIL`, `DIARY_SESSION_REFUSED_DETAIL` and `UNKNOWN_STUDENT_DETAIL`, v1's words.
+- Produces, in `api/diary.py`: `_RANGE_REFUSED` and `_buckets(request)`; `_range`, `_resolve_login_target`, `register_session`, `_student`, `_child` and the reads over the moved rules; `/login` registered through `_NoEchoRoute` (#390); `/logout` committing after `sign_out`. `_guard`, `_admit` and `current_diary` stay as they are: they word facts, and v2's twin is the error table.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_services_diary.py`:
+```python
+"""The diary's session and read rules, in ``services/diary``: one set for v1 and v2.
+
+v1's ``api/diary.py`` held them in its routes: where a session goes and which
+region it may, how what a phone hands over is sealed, how an attempt is
+counted on each outcome, the window a read covers, and which pupil an id
+names. v2's ``DiaryService`` answers the same questions, so they moved
+(``docs/specs/2026-10-05-server-v2-design.md``, decision 2), as facts each
+shell words. ``test_diary_api.py``, ``test_diary_session.py`` and
+``test_diary_web.py``, untouched, are the proof that v1's answers did not
+move; these hold the rules a fact at a time, that the new writes leave their
+commit to the caller, and that v1 never repeats a password it refuses (#390).
+"""
+
+from __future__ import annotations
+
+from datetime import date, timedelta
+from typing import Any
+
+import httpx
+import pytest
+from httpx import ASGITransport
+from sqlalchemy import func, select
+
+from app.crypto import seal
+from app.db import SessionLocal
+from app.main import app
+from app.models import DiaryOverride, DiarySession, JoinAttempt
+from app.providers.diary.base import Adopted
+from app.providers.diary.errors import (
+    AddressRefused,
+    BadCredentials,
+    NoStudents,
+    SessionExpired,
+    UnexpectedResponse,
+    UpstreamUnavailable,
+)
+from app.providers.diary.models import AcademicPeriod, DiaryLesson, Student, Subject
+from app.providers.petersburg.provider import PetersburgProvider
+from app.schemas import NetSchoolCredentialIn
+from app.security import Throttled, diary_login_limiter, hash_token
+from app.services import clock
+from app.services import diary as service
+
+JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0MDIxIn0.c2lnbmF0dXJlLWZyb20tdGhlLXBob25l"
+TODAY = date(2026, 9, 14)
+PUPIL = Student(id=4021, first_name="Пётр", last_name="Иванов", education_id=90210, group_id=771)
+#: The two buckets one caller's attempts are counted in.
+KEYS = {"failures_key": "diary:caller", "opened_key": "diary-open:caller"}
+
+
+async def _counted() -> tuple[int, int]:
+    """The rows each diary limiter holds for the caller: (failures, opened)."""
+    async with SessionLocal() as fresh:
+        found = []
+        for key in KEYS.values():
+            found.append(
+                await fresh.scalar(
+                    select(func.count())
+                    .select_from(JoinAttempt)
+                    .where(JoinAttempt.client_key == key)
+                )
+            )
+        return found[0], found[1]
+
+
+async def _committed_sessions() -> int:
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(select(func.count()).select_from(DiarySession)) or 0
+
+
+def _adopting(monkeypatch, outcome: Any) -> list[Any]:
+    """Petersburg's ``adopt``, answering ``outcome``: an exception to raise, or
+    the pupils of a session that opened. Every request it was handed is kept."""
+    handed: list[Any] = []
+
+    async def adopt(self, request) -> Adopted:
+        handed.append(request)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return Adopted(credential=request.credential, students=tuple(outcome))
+
+    monkeypatch.setattr(PetersburgProvider, "adopt", adopt)
+    return handed
+
+
+async def _register(session, **over: Any) -> service.Registered:
+    sent: dict[str, Any] = {
+        "provider": "petersburg",
+        "login": "parent@example.com",
+        "handed": {"token": JWT},
+        "region": None,
+        "school_id": None,
+        **KEYS,
+    }
+    return await service.register(session, **(sent | over))
+
+
+class _Connection:
+    """A connection answering what a test gives it, and counting what it was asked."""
+
+    credential = "unchanged"
+
+    def __init__(self, **answers: Any) -> None:
+        self.answers = answers
+        self.asked: list[str] = []
+
+    def __getattr__(self, name: str) -> Any:
+        if name not in ("students", "periods", "subjects", "schedule", "homework"):
+            raise AttributeError(name)
+
+        async def read(*_: Any) -> Any:
+            self.asked.append(name)
+            return self.answers.get(name, [])
+
+        return read
+
+    def today(self) -> date:
+        return TODAY
+
+
+async def _service_over(session, connection: _Connection) -> service.DiaryService:
+    row = DiarySession(
+        token_hash=hash_token("rules"),
+        upstream_token=seal("an-upstream-session"),
+        login="parent@example.com",
+        provider="petersburg",
+    )
+    session.add(row)
+    await session.commit()
+    svc = service.DiaryService(session, row)
+    svc.connection = connection  # type: ignore[assignment]
+    return svc
+
+
+def test_a_target_is_checked_against_its_row_before_anything_is_sent() -> None:
+    assert service.target("petersburg", "samara", 7) == service.Target("petersburg", None, None)
+    assert service.target(None, None, None) == service.Target("petersburg", None, None)
+    assert service.target("netschool", "zabaikalsky", 42) == service.Target(
+        "netschool", "zabaikalsky", 42
+    )
+    # A region off the allow-list, one that takes only Госуслуги, and none.
+    for region in ("moscow", "tula", None):
+        with pytest.raises(service.RegionNotServed):
+            service.target("netschool", region, 42)
+    with pytest.raises(service.SchoolRequired):
+        service.target("netschool", "zabaikalsky", None)
+    with pytest.raises(service.UnknownProvider) as unknown:
+        service.target("dnevnik-ru", "zabaikalsky", 42)
+    assert unknown.value.key == "dnevnik-ru"
+
+
+def test_what_a_phone_hands_over_is_sealed_in_its_provider_s_own_form() -> None:
+    """Byte for byte what v1's route sealed: Petersburg's bare token, and the
+    JSON pydantic wrote of «Сетевой город»'s credential, nulls left out."""
+    assert service.sealed_form("petersburg", {"token": JWT}) == JWT
+    handed = NetSchoolCredentialIn(
+        at="56574745368264517434263",
+        cookies={"NSSESSIONID": "sess-phone"},
+        ver="639",
+    )
+    assert service.sealed_form(
+        "netschool", handed.model_dump(exclude_none=True)
+    ) == handed.model_dump_json(exclude_none=True)
+    with pytest.raises(service.UnknownProvider):
+        service.sealed_form("dnevnik-ru", {"token": JWT})
+
+
+@pytest.mark.parametrize(
+    ("outcome", "raised", "counted"),
+    [
+        ([PUPIL], None, (0, 1)),
+        (SessionExpired(), service.SessionRefused, (1, 0)),
+        (BadCredentials(), service.SessionRefused, (1, 0)),
+        (NoStudents(), NoStudents, (1, 0)),
+        (UnexpectedResponse(), UnexpectedResponse, (1, 0)),
+        (UpstreamUnavailable(), UpstreamUnavailable, (0, 0)),
+        (AddressRefused(), AddressRefused, (0, 0)),
+    ],
+)
+async def test_each_outcome_is_counted_as_v1_counted_it(
+    session, monkeypatch, outcome, raised, counted
+) -> None:
+    """A session opened is one of the twenty; a session the diary judged and
+    refused is a failure; nothing having judged it is neither."""
+    handed = _adopting(monkeypatch, outcome)
+    if raised is None:
+        registered = await _register(session)
+        assert [student.id for student in registered.students] == [4021]
+        assert (registered.row.provider, registered.zone) == ("petersburg", "Europe/Moscow")
+    else:
+        with pytest.raises(raised):
+            await _register(session)
+    assert [request.credential for request in handed] == [JWT]
+    assert await _counted() == counted
+
+
+async def test_without_the_secret_nothing_is_sent_and_nothing_is_counted(
+    session, monkeypatch
+) -> None:
+    handed = _adopting(monkeypatch, [PUPIL])
+    monkeypatch.setattr(service, "diary_enabled", lambda: False)
+    with pytest.raises(service.DiaryDisabled):
+        await _register(session)
+    assert handed == []
+    assert await _counted() == (0, 0)
+
+
+async def test_a_region_this_server_does_not_serve_is_refused_before_anything_is_counted(
+    session, monkeypatch
+) -> None:
+    handed = _adopting(monkeypatch, [PUPIL])
+    with pytest.raises(service.RegionNotServed):
+        await _register(session, provider="netschool", region="tula", school_id=42)
+    assert handed == []
+    assert await _counted() == (0, 0)
+
+
+async def test_a_spent_budget_is_throttled_before_the_diary_is_asked(session, monkeypatch) -> None:
+    handed = _adopting(monkeypatch, SessionExpired())
+    for _ in range(diary_login_limiter.limit):
+        with pytest.raises(service.SessionRefused):
+            await _register(session)
+    with pytest.raises(Throttled) as throttled:
+        await _register(session)
+    assert throttled.value.seconds >= 1
+    assert len(handed) == diary_login_limiter.limit
+
+
+async def test_a_new_session_is_committed_with_its_outcome_and_never_apart(
+    session, monkeypatch
+) -> None:
+    """``register`` commits its row with the attempt's outcome, which commits on
+    purpose; ``sign_in`` and ``sign_out`` leave theirs to the caller, as v1's
+    ``/login`` and ``/logout`` and the sign-in page now commit."""
+    _adopting(monkeypatch, [PUPIL])
+    await _register(session)
+    assert await _committed_sessions() == 1
+
+    async def signed_in(self, request) -> str:
+        return JWT
+
+    monkeypatch.setattr(PetersburgProvider, "sign_in", signed_in)
+    _token, row = await service.sign_in(session, "parent@example.com", "hunter2")
+    assert await _committed_sessions() == 1
+    await session.commit()
+    assert await _committed_sessions() == 2
+
+    await service.sign_out(session, row)
+    assert await _committed_sessions() == 2
+    await session.commit()
+    assert await _committed_sessions() == 1
+
+
+def test_the_window_is_v1_s_from_the_diary_s_own_today() -> None:
+    window = service.window
+    assert window(None, None, TODAY) == (TODAY, TODAY + timedelta(days=14))
+    assert window(date(2026, 9, 1), None, TODAY) == (date(2026, 9, 1), date(2026, 9, 15))
+    assert window(None, date(2026, 9, 20), TODAY) == (TODAY, date(2026, 9, 20))
+    assert window(date(2026, 9, 1), date(2026, 11, 2), TODAY)[1] == date(2026, 11, 2)
+    for start, end, edge, why in (
+        (date(9999, 12, 31), None, "start", clock.OUT_OF_BOUNDS),
+        (date(2026, 9, 1), date(9999, 12, 31), "end", clock.OUT_OF_BOUNDS),
+        (None, date(1999, 12, 31), "end", clock.OUT_OF_BOUNDS),
+        (date(2026, 9, 20), date(2026, 9, 1), "end", clock.BACKWARDS),
+        (date(2026, 1, 1), date(2026, 12, 31), "end", clock.TOO_WIDE),
+    ):
+        with pytest.raises(clock.WindowRefused) as refused:
+            window(start, end, TODAY)
+        assert (refused.value.edge, refused.value.why) == (edge, why)
+
+
+async def test_a_pupil_is_resolved_from_the_session_s_own_diary(session) -> None:
+    elsewhere = PUPIL.model_copy(update={"id": 7, "id_space": "relation"})
+    connection = _Connection(students=[PUPIL, elsewhere])
+    svc = await _service_over(session, connection)
+    assert (await svc.student(4021)).education_id == 90210
+    with pytest.raises(service.UnknownStudent) as unknown:
+        await svc.student(999)
+    assert unknown.value.student_id == 999
+    assert await svc.child(4021) == (PUPIL, "CHILD:petersburg")
+    # A pupil listed outside the provider's own numbering can have no corrections.
+    assert await svc.child(7) == (elsewhere, None)
+    assert connection.asked == ["students"] * 4
+
+
+async def test_the_reads_lay_the_child_s_corrections_over_what_came_down(session) -> None:
+    lesson = DiaryLesson(date=TODAY, number=2, subject="Алгебра", room="12")
+    connection = _Connection(schedule=[lesson])
+    svc = await _service_over(session, connection)
+    session.add(
+        DiaryOverride(
+            login="CHILD:petersburg",
+            student_id=4021,
+            target="lesson:2026-09-14:n2:Алгебра",
+            field="room",
+            value="301",
+            original="12",
+        )
+    )
+    await session.commit()
+    (overlaid,) = await svc.schedule_of(PUPIL, "CHILD:petersburg", TODAY, TODAY)
+    assert (overlaid.lesson.room, overlaid.target) == ("301", "lesson:2026-09-14:n2:Алгебра")
+    assert [(edit.field, edit.value, edit.original) for edit in overlaid.edits] == [
+        ("room", "301", "12")
+    ]
+    # Another child's corrections, and a child who can have none, are not laid over.
+    (other,) = await svc.schedule_of(
+        PUPIL.model_copy(update={"id": 5}), "CHILD:petersburg", TODAY, TODAY
+    )
+    (none,) = await svc.schedule_of(PUPIL, None, TODAY, TODAY)
+    assert other.edits == none.edits == ()
+    assert other.lesson.room == none.lesson.room == "12"
+
+
+async def test_periods_and_subjects_of_a_pupil_with_no_class_ask_the_diary_nothing(
+    session,
+) -> None:
+    connection = _Connection()
+    svc = await _service_over(session, connection)
+    classless = PUPIL.model_copy(update={"group_id": None})
+    assert await svc.periods_of(classless) == []
+    assert await svc.subjects_of(classless, None) == []
+    assert connection.asked == []
+
+
+async def test_subjects_are_the_current_period_s_when_none_is_named(session) -> None:
+    periods = [
+        AcademicPeriod(id=1, name="1 четверть", is_current=False),
+        AcademicPeriod(id=2, name="2 четверть", is_current=True),
+    ]
+    connection = _Connection(periods=periods, subjects=[Subject(id=3, name="Алгебра")])
+    svc = await _service_over(session, connection)
+    assert [subject.name for subject in await svc.subjects_of(PUPIL, None)] == ["Алгебра"]
+    assert connection.asked == ["periods", "subjects"]
+    assert [subject.name for subject in await svc.subjects_of(PUPIL, 1)] == ["Алгебра"]
+    assert connection.asked == ["periods", "subjects", "subjects"]
+    connection.answers["periods"] = [periods[0]]
+    assert await svc.subjects_of(PUPIL, None) == []
+
+
+async def test_v1_s_login_refuses_a_target_in_v1_s_words_before_counting() -> None:
+    """``/login``'s three refusals of a target, now ``target``'s facts, in the
+    words the route always used and before anything is counted or sent. No v1
+    test held them; this one holds them across the move."""
+    cases = (
+        ({"provider": "dnevnik-ru"}, "Unknown diary provider 'dnevnik-ru'"),
+        (
+            {"provider": "netschool", "region": "tula", "school_id": 42},
+            "Unknown or unsupported region for «Сетевой город»",
+        ),
+        (
+            {"provider": "netschool", "region": "zabaikalsky"},
+            "A school id is required for «Сетевой город»",
+        ),
+    )
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as v1:
+        for sent, detail in cases:
+            body = {"login": "parent@example.com", "password": "hunter2", **sent}
+            refused = await v1.post("/api/v1/diary/login", json=body)
+            assert (refused.status_code, refused.json()["detail"]) == (422, detail), sent
+    async with SessionLocal() as fresh:
+        assert await fresh.scalar(select(func.count()).select_from(JoinAttempt)) == 0
+
+
+async def test_v1_never_repeats_a_password_it_refuses() -> None:
+    """#390. ``/login``'s 422 carried each refused value back as ``input``, so a
+    password over two hundred characters came back in the answer, to whatever
+    logs the phone keeps. It names the field now, as ``/session`` always did."""
+    secret = "Pa55w0rd-s3cr3t-Hunter2-" * 10
+    async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as v1:
+        refused = await v1.post(
+            "/api/v1/diary/login", json={"login": "parent@example.com", "password": secret}
+        )
+    assert refused.status_code == 422
+    assert secret not in refused.text
+    assert [error["loc"] for error in refused.json()["detail"]] == [["body", "password"]]
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_diary.py
+```
+Expected: a collection error, `AttributeError: module 'app.services.diary' has no attribute 'SessionRefused'`.
+
+- [ ] **Step 2: The rules, in `services/diary.py`.** In `server/app/services/diary.py`:
+  1. Replace:
+```python
+import asyncio
+import logging
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from datetime import date as Date
+```
+     with:
+```python
+import asyncio
+import json
+import logging
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from datetime import date as Date
+from typing import Any
+```
+  2. Replace:
+```python
+from app.providers.diary.base import AdoptRequest, SignInRequest
+from app.providers.diary.errors import DiaryError, SessionExpired, UpstreamUnavailable
+from app.providers.diary.models import (
+```
+     with:
+```python
+from app.providers.diary.base import AdoptRequest, SignInRequest
+from app.providers.diary.errors import (
+    BadCredentials,
+    DiaryError,
+    NoStudents,
+    SessionExpired,
+    UpstreamUnavailable,
+)
+from app.providers.diary.models import (
+```
+  3. Replace:
+```python
+)
+from app.providers.diary.registry import PETERSBURG, Binding, provider_for, row_for
+from app.providers.diary.registry import binding as class_binding
+from app.security import hash_token, new_token
+from app.services.diary_corrections import UnknownDiaryServer, child_scope
+```
+     with:
+```python
+)
+from app.providers.diary.registry import PETERSBURG, Binding, Needs, provider_for, row_for
+from app.providers.diary.registry import binding as class_binding
+from app.security import DiaryAttempt, hash_token, new_token
+from app.services import clock, diary_corrections
+from app.services import diary_overrides as overrides
+from app.services.diary_corrections import UnknownDiaryServer, child_scope
+```
+  4. Replace:
+```python
+def utcnow() -> datetime:
+```
+     with:
+```python
+class UnknownProvider(ValueError):
+    """A provider key the table has no row for, named by the caller."""
+
+    def __init__(self, key: str) -> None:
+        super().__init__("unknown diary provider")
+        self.key = key
+
+
+class RegionNotServed(ValueError):
+    """A provider whose binding needs a region, named with one its allow-list
+    does not hold or that takes no password — or with none."""
+
+
+class SchoolRequired(ValueError):
+    """A provider whose binding needs a school, named without one."""
+
+
+class SessionRefused(BadCredentials):
+    """The diary would not take the session a phone opened, from this server.
+
+    What the provider's ``adopt`` raises for it is :class:`SessionExpired` — a
+    401, a 403 or a login page in answer to the validating read — or, from a
+    provider that judged it as credentials, :class:`BadCredentials`. Told apart
+    from the first because a read's :class:`SessionExpired` means «sign in
+    again», and here that would loop: the session was good on the phone seconds
+    ago, and it is this server the diary will not take it from. A
+    :class:`BadCredentials`, because nothing retried with it will help, and so
+    every shell words the two alike.
+    """
+
+
+class UnknownStudent(LookupError):
+    """A pupil id this session's diary does not list: another family's child,
+    or nobody's."""
+
+    def __init__(self, student_id: int) -> None:
+        super().__init__("unknown student")
+        self.student_id = student_id
+
+
+@dataclass(frozen=True)
+class Target:
+    """Where a sign-in or a session goes: a provider, and for one whose binding
+    needs them, an allow-listed region and a school; ``None`` for one that
+    does not."""
+
+    provider: str
+    region: str | None
+    school_id: int | None
+
+
+def target(provider: str | None, region: str | None, school_id: int | None) -> Target:
+    """The provider, region and school to sign in with or adopt into, checked
+    against the provider's row before any upstream call and before anything is
+    counted, so a region this server does not serve never receives a request,
+    whichever door it came through.
+
+    An absent provider is Petersburg, so an older phone that sends only a login
+    and a password is unchanged. A provider whose binding needs nothing takes
+    no region and no school, whatever was sent with it.
+
+    @raises UnknownProvider, RegionNotServed or SchoolRequired, in that order.
+    """
+    row = row_for(provider or PETERSBURG)
+    if row is None:
+        raise UnknownProvider(provider or PETERSBURG)
+    if row.needs is Needs.NOTHING:
+        return Target(row.key, None, None)
+    served = row.served_region(region)
+    if served is None:
+        raise RegionNotServed
+    if school_id is None:
+        raise SchoolRequired
+    return Target(row.key, served, school_id)
+
+
+def sealed_form(provider: str, handed: Mapping[str, Any]) -> str:
+    """What a phone handed over, in its provider's own serialisation: the one
+    field that is the whole session (Petersburg's bare token), or the JSON of
+    everything handed («Сетевой город»'s ``at``, cookies, ``ver`` and
+    ``time_out``), a field it did not hand left out rather than stored as a
+    null. ``handed`` is what v1's credential schema validated, dumped without
+    its nulls, whichever version received it."""
+    row = row_for(provider)
+    if row is None:
+        raise UnknownProvider(provider)
+    if row.bare_field is not None:
+        return str(handed[row.bare_field])
+    return json.dumps(dict(handed), ensure_ascii=False, separators=(",", ":"))
+
+
+def utcnow() -> datetime:
+```
+  5. Replace:
+```python
+    @return the token to hand the client — shown once, stored only as a hash —
+```
+     with:
+```python
+    Leaves the commit to its caller (the 3b plan, Ruling 106): a row whose
+    token never reached a phone is no session to keep, and the keep-alive would
+    ping it for a month. :func:`register`'s and ``/login``'s rows are committed
+    with the attempt's outcome, the sign-in page's with its class.
+
+    @return the token to hand the client — shown once, stored only as a hash —
+```
+  6. Replace:
+```python
+    session.add(row)
+    await session.commit()
+    return token, row
+```
+     with:
+```python
+    session.add(row)
+    await session.flush()
+    return token, row
+```
+  7. Replace:
+```python
+    """A session the phone opened, now ours: the token to hand back once, the
+    row, and what the validating read already fetched."""
+
+    token: str
+    row: DiarySession
+    students: list[Student]
+    school_name: str | None
+```
+     with:
+```python
+    """A session the phone opened, now ours: the token to hand back once, the
+    row, what the validating read already fetched, the school it was opened
+    with, and the zone its diary cuts its days at."""
+
+    token: str
+    row: DiarySession
+    students: list[Student]
+    school_name: str | None
+    school_id: int | None
+    zone: str
+```
+  8. Replace:
+```python
+    return Registered(
+        token=token, row=row, students=list(adopted.students), school_name=adopted.school_name
+    )
+```
+     with:
+```python
+    return Registered(
+        token=token,
+        row=row,
+        students=list(adopted.students),
+        school_name=adopted.school_name,
+        school_id=school_id,
+        zone=impl.zone(region),
+    )
+
+
+async def register(
+    session: AsyncSession,
+    *,
+    provider: str,
+    login: str,
+    handed: Mapping[str, Any],
+    region: str | None,
+    school_id: int | None,
+    failures_key: str,
+    opened_key: str,
+) -> Registered:
+    """Keep a session a phone opened itself, counted on both diary limiters,
+    or raise the fact that says why not: v1's ``POST /diary/session`` and v2's
+    ``CreateDiarySession`` alike, on one budget (the server-v2 design,
+    decision 11).
+
+    In that route's order: the target, so a region this server does not serve
+    is :class:`RegionNotServed` before anything is counted or sent; then the
+    attempt, ``security.Throttled`` while the caller has spent either limit;
+    then :func:`adopt`, the diary's own read from this server's address.
+
+    - **Counted as a failure**, the diary having judged what was sent:
+      :class:`SessionRefused` (the session would not open from here),
+      ``NoStudents``, and any other answer of the diary's family nobody can read.
+    - **Counted as a session opened**: a success, twenty to a caller in fifteen
+      minutes across both doors.
+    - **Not counted**, nothing having judged it: :class:`DiaryDisabled`, and
+      ``UpstreamUnavailable`` (``AddressRefused`` and a read out of time
+      included).
+
+    The attempt's outcome commits, on purpose (``security.DiaryAttempt``), and
+    with it the new row, which is never kept apart from the outcome that
+    counts it; anything else is the caller's to commit.
+    """
+    where = target(provider, region, school_id)
+    attempt = await DiaryAttempt.admit(session, failures_key=failures_key, opened_key=opened_key)
+    try:
+        registered = await adopt(
+            session,
+            provider=where.provider,
+            login=login,
+            credential=sealed_form(where.provider, handed),
+            region=where.region,
+            school_id=where.school_id,
+        )
+    except (DiaryDisabled, UpstreamUnavailable):
+        await attempt.not_judged(session)
+        raise
+    except NoStudents:
+        # Before the clause below, which it is a SessionExpired of: the session
+        # opened, and there is nobody behind it to read.
+        await attempt.failed(session)
+        raise
+    except (SessionExpired, BadCredentials) as failure:
+        # Counted: this is also what a replay of a session that was never real
+        # looks like.
+        await attempt.failed(session)
+        raise SessionRefused from failure
+    except DiaryError:
+        await attempt.failed(session)
+        raise
+    await attempt.succeeded(session)
+    return registered
+
+
+#: The days a diary read covers after its start when no end is named, and the
+#: most it may span: v1's ``/diary`` reads and v2's alike. The upstream is asked
+#: for the same span, and a year of lessons in one call is how an undocumented
+#: API starts refusing to answer at all. The most is ``clock``'s own sixty-two,
+#: so that the error table's sentence, built from it, is true of these too.
+WINDOW_DAYS = 14
+WINDOW_MAX_DAYS = clock.WINDOW_MAX_DAYS
+
+
+def window(start: Date | None, end: Date | None, today: Date) -> tuple[Date, Date]:
+    """The first and last day a diary read covers, both included: ``today`` —
+    the diary's own, never the server's — and :data:`WINDOW_DAYS` on when
+    unset, :data:`WINDOW_MAX_DAYS` at most. Moved from v1's ``_range`` (the
+    server-v2 design, decision 2), whose order it keeps: each date named is
+    bounded before anything is derived from it, because ``start + 14 days``
+    near ``date.max`` raises OverflowError.
+
+    @raises clock.WindowRefused naming the edge at fault, and why.
+    """
+    for edge, day in (("start", start), ("end", end)):
+        if day is not None and not clock.in_bounds(day):
+            raise clock.WindowRefused(edge, clock.OUT_OF_BOUNDS)
+    first = start or today
+    last = end or first + timedelta(days=WINDOW_DAYS)
+    if last < first:
+        raise clock.WindowRefused("end", clock.BACKWARDS)
+    if (last - first).days > WINDOW_MAX_DAYS:
+        raise clock.WindowRefused("end", clock.TOO_WIDE)
+    return first, last
+
+
+async def corrections(
+    session: AsyncSession, scope: str | None, student_id: int
+) -> dict[str, dict[str, tuple[str, str | None]]]:
+    """Every correction laid over one child's diary, or none for a child who
+    can have none (``scope`` ``None``, :meth:`DiaryService.scope_of`)."""
+    if scope is None:
+        return {}
+    return await diary_corrections.load_corrections(session, scope, student_id)
+```
+  9. Replace:
+```python
+async def sign_out(session: AsyncSession, row: DiarySession) -> None:
+    """Forgets the session, telling the upstream first where it can be told."""
+    await _tell_upstream_goodbye(row)
+    await session.delete(row)
+    await session.commit()
+```
+     with:
+```python
+async def sign_out(session: AsyncSession, row: DiarySession) -> None:
+    """Forgets the session, telling the upstream first where it can be told.
+
+    Leaves the commit to its caller (the 3b plan, Ruling 106): v1's
+    ``/logout`` commits after it, and v2's ``DeleteDiarySession`` in ``invoke``.
+    """
+    await _tell_upstream_goodbye(row)
+    await session.delete(row)
+    await session.flush()
+```
+  10. Replace:
+```python
+    # ---- plumbing -----------------------------------------------------
+```
+     with:
+```python
+    # ---- one pupil: the rules v1's routes held, for every shell -------
+
+    async def student(self, student_id: int) -> Student:
+        """The pupil ``student_id``, resolved from this account's own diary on
+        every call rather than trusted. The id is not a secret, and without the
+        lookup one family's id in another family's request would read
+        somebody else's child.
+
+        @raises UnknownStudent for an id this session's diary does not list.
+        """
+        for student in await self.students():
+            if student.id == student_id:
+                return student
+        raise UnknownStudent(student_id)
+
+    async def child(self, student_id: int) -> tuple[Student, str | None]:
+        """The pupil, and the scope their corrections are filed under
+        (:meth:`scope_of`): the one door every correction read and write goes
+        through, so that an unknown id is refused before any row is touched and
+        the scope comes from the session's diary, never from its login (#165)."""
+        student = await self.student(student_id)
+        return student, await self.scope_of(student)
+
+    async def schedule_of(
+        self, student: Student, scope: str | None, start: Date, end: Date
+    ) -> list[overrides.OverlaidLesson]:
+        """The pupil's lessons from ``start`` to ``end``, with the corrections
+        filed under ``scope`` laid over them, in the diary's own order."""
+        lessons = await self.schedule(student.education_id, start, end)
+        found = await corrections(self.session, scope, student.id)
+        return overrides.overlay_lessons(lessons, found)
+
+    async def homework_of(
+        self, student: Student, scope: str | None, start: Date, end: Date
+    ) -> list[overrides.OverlaidHomework]:
+        """The pupil's homework due from ``start`` to ``end``, with the
+        corrections filed under ``scope`` laid over it."""
+        items = await self.homework(student.education_id, start, end)
+        found = await corrections(self.session, scope, student.id)
+        return overrides.overlay_homework(items, found)
+
+    async def periods_of(self, student: Student) -> list[AcademicPeriod]:
+        """The pupil's quarters or terms; none for a pupil the diary files
+        under no class, whose periods there is nothing to ask by."""
+        if student.group_id is None:
+            return []
+        return await self.periods(student.group_id)
+
+    async def subjects_of(self, student: Student, period_id: int | None) -> list[Subject]:
+        """The subjects of ``period_id``, or of the current period when it is
+        ``None``; none for a pupil with no class, or when no period is current."""
+        if student.group_id is None:
+            return []
+        chosen = period_id
+        if chosen is None:
+            found = await self.periods(student.group_id)
+            current = next((period for period in found if period.is_current), None)
+            if current is None:
+                return []
+            chosen = current.id
+        return await self.subjects(student.group_id, chosen)
+
+    # ---- plumbing -----------------------------------------------------
+```
+
+- [ ] **Step 3: The sentences both versions say.** In `server/app/wording.py`:
+  Replace:
+```python
+#: v1's ``POST /join`` and v2's ``CreateDevice``, for each refusal of
+```
+  with:
+```python
+#: ``services/diary.register``'s refusals, as v1's ``POST /diary/session`` and
+#: v2's ``CreateDiarySession`` word them: too many attempts on the diary's two
+#: doors, a «Сетевой город» region this server does not serve with a password,
+#: and a session the diary would not take from this server, which is not the
+#: password and so is never «войдите снова».
+DIARY_THROTTLED_DETAIL = "Слишком много попыток входа. Попробуйте позже."
+DIARY_REGION_NOT_SERVED_DETAIL = "Unknown or unsupported region for «Сетевой город»"
+DIARY_SESSION_REFUSED_DETAIL = "Дневник не принял эту сессию с нашего сервера — дело не в пароле."
+
+#: A pupil id this session's diary does not list, on every read of one pupil:
+#: v1's 404 and v2's ``RESOURCE_NOT_FOUND`` alike.
+UNKNOWN_STUDENT_DETAIL = "Unknown student"
+
+#: v1's ``POST /join`` and v2's ``CreateDevice``, for each refusal of
+```
+
+- [ ] **Step 4: v1 calls the moved rules.** In `server/app/api/diary.py`:
+  1. Replace:
+```python
+from datetime import date as Date
+from datetime import timedelta
+from typing import Annotated, Any
+```
+     with:
+```python
+from datetime import date as Date
+from typing import Annotated, Any
+```
+  2. Replace:
+```python
+from app.providers.diary.models import Student
+from app.providers.diary.registry import NETSCHOOL, PETERSBURG
+from app.providers.petersburg import (
+```
+     with:
+```python
+from app.providers.diary.models import Student
+from app.providers.petersburg import (
+```
+  3. Replace:
+```python
+#: How wide a window one request may ask for. The upstream is asked for the
+#: same span, and a year of lessons in one call is how an undocumented API
+#: starts refusing to answer at all.
+MAX_RANGE_DAYS = 62
+DEFAULT_RANGE_DAYS = 14
+```
+     with:
+```python
+#: How wide a window one request may ask for, and how wide it is when no end
+#: is named: `services/diary`'s, which v2's reads answer too.
+MAX_RANGE_DAYS = service.WINDOW_MAX_DAYS
+DEFAULT_RANGE_DAYS = service.WINDOW_DAYS
+```
+  4. Replace:
+```python
+def _range(
+    date_from: Date | None, date_to: Date | None, today: Date | None = None
+) -> tuple[Date, Date]:
+    for day in (date_from, date_to):
+        if day is not None and not (MIN_DATE <= day <= MAX_DATE):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"dates must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}",
+            )
+    # The diary's own day, not the server's — the provider's, so «Сетевой
+    # город» gets its region's zone and Petersburg its city's. The default is
+    # Petersburg's when a caller passes no `today`, which keeps the standalone
+    # `_range(None, None)` behaviour its test pins.
+    start = date_from or today or diary_today()
+    end = date_to or start + timedelta(days=DEFAULT_RANGE_DAYS)
+    if end < start:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="`to` is before `from`",
+        )
+    if (end - start).days > MAX_RANGE_DAYS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"the range must be at most {MAX_RANGE_DAYS} days",
+        )
+    return start, end
+```
+     with:
+```python
+#: v1's words for each refusal of `services/diary.window`, in its own field
+#: names, `from` and `to`.
+_RANGE_REFUSED = {
+    clock.OUT_OF_BOUNDS: f"dates must be between {MIN_DATE.isoformat()} and {MAX_DATE.isoformat()}",
+    clock.BACKWARDS: "`to` is before `from`",
+    clock.TOO_WIDE: f"the range must be at most {MAX_RANGE_DAYS} days",
+}
+
+
+def _range(
+    date_from: Date | None, date_to: Date | None, today: Date | None = None
+) -> tuple[Date, Date]:
+    # The diary's own day, not the server's — the provider's, so «Сетевой
+    # город» gets its region's zone and Petersburg its city's. The default is
+    # Petersburg's when a caller passes no `today`, which keeps the standalone
+    # `_range(None, None)` behaviour its test pins.
+    try:
+        return service.window(date_from, date_to, today or diary_today())
+    except clock.WindowRefused as refusal:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_RANGE_REFUSED[refusal.why]
+        ) from None
+```
+  5. Replace:
+```python
+_THROTTLED_DETAIL = "Слишком много попыток входа. Попробуйте позже."
+
+
+async def _admit(session: AsyncSession, request: Request) -> DiaryAttempt:
+    """Count the attempt on both diary limiters, or 429 while either is spent."""
+    try:
+        return await DiaryAttempt.admit(
+            session,
+            failures_key=request_bucket(request, scope="diary:"),
+            opened_key=request_bucket(request, scope="diary-open:"),
+        )
+    except Throttled as refusal:
+```
+     with:
+```python
+_THROTTLED_DETAIL = wording.DIARY_THROTTLED_DETAIL
+
+
+def _buckets(request: Request) -> dict[str, str]:
+    """The caller's two diary buckets, as `DiaryAttempt.admit` takes them."""
+    return {
+        "failures_key": request_bucket(request, scope="diary:"),
+        "opened_key": request_bucket(request, scope="diary-open:"),
+    }
+
+
+async def _admit(session: AsyncSession, request: Request) -> DiaryAttempt:
+    """Count the attempt on both diary limiters, or 429 while either is spent."""
+    try:
+        return await DiaryAttempt.admit(session, **_buckets(request))
+    except Throttled as refusal:
+```
+  6. Replace:
+```python
+def _served_region(key: str | None) -> str:
+    """An allow-listed «Сетевой город» region that still takes a password, or
+    a 422 — asked before any upstream call, so a region we do not serve never
+    receives a request, whichever door it came through."""
+    from app.providers.netschool import regions
+
+    region = regions.get(key)
+    if region is None or not region.password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Unknown or unsupported region for «Сетевой город»",
+        )
+    return region.key
+
+
+def _resolve_login_target(payload: DiaryLoginIn) -> tuple[str, str | None, int | None]:
+    """The provider, region and school to sign in with, validated locally.
+
+    Absent provider is Petersburg, so an older phone that sends only a login and
+    a password is unchanged. For «Сетевой город» the region must be an
+    allow-listed key that still takes a password and the school a positive id —
+    checked here, before any upstream call, so a bad target is a 422 and never a
+    request to a region we do not serve.
+    """
+    provider = payload.provider or PETERSBURG
+    if provider == PETERSBURG:
+        return PETERSBURG, None, None
+    if provider == NETSCHOOL:
+        region = _served_region(payload.region)
+        if payload.school_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="A school id is required for «Сетевой город»",
+            )
+        return NETSCHOOL, region, payload.school_id
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=f"Unknown diary provider {provider!r}",
+    )
+
+
+@router.post("/login", response_model=DiaryLoginOut)
+async def login(
+```
+     with:
+```python
+def _resolve_login_target(payload: DiaryLoginIn) -> service.Target:
+    """The provider, region and school to sign in with, validated locally by
+    `services/diary.target`: a 422 that nothing upstream saw, for a provider no
+    row answers, a region this server does not serve with a password, or a
+    «Сетевой город» sign-in without a school."""
+    try:
+        return service.target(payload.provider, payload.region, payload.school_id)
+    except service.UnknownProvider as failure:
+        detail = f"Unknown diary provider {failure.key!r}"
+    except service.RegionNotServed:
+        detail = wording.DIARY_REGION_NOT_SERVED_DETAIL
+    except service.SchoolRequired:
+        detail = "A school id is required for «Сетевой город»"
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
+
+async def login(
+```
+  7. Replace:
+```python
+    # our refusal.
+    provider, region, school_id = _resolve_login_target(payload)
+    attempt = await _admit(session, request)
+
+    try:
+        token, row = await _guard(
+            service.sign_in(
+                session,
+                payload.login,
+                payload.password,
+                provider=provider,
+                region=region,
+                school_id=school_id,
+            )
+```
+     with:
+```python
+    # our refusal.
+    where = _resolve_login_target(payload)
+    attempt = await _admit(session, request)
+
+    try:
+        token, row = await _guard(
+            service.sign_in(
+                session,
+                payload.login,
+                payload.password,
+                provider=where.provider,
+                region=where.region,
+                school_id=where.school_id,
+            )
+```
+  8. Replace:
+```python
+        raise
+    await attempt.succeeded(session)
+```
+     with:
+```python
+        raise
+    # Commits the new session with the attempt's outcome, on purpose
+    # (`security.DiaryAttempt`): `sign_in` leaves its row to its caller.
+    await attempt.succeeded(session)
+```
+  9. Replace:
+```python
+#: The detail of a registration the upstream refused from this server.
+REFUSED_FROM_HERE_DETAIL = "Дневник не принял эту сессию с нашего сервера — дело не в пароле."
+
+
+class _NoEchoRoute(DishkaAnnotatedRoute):
+    """A route whose 422 names what was wrong and never repeats what was sent.
+
+    FastAPI's validation answer carries each refused value back as ``input``.
+    On ``/session`` that value is an upstream session — a cookie that failed
+    the charset check, a token that is not a JWT — or, for a client that sent
+    one, a password. A session goes to this server once and is never echoed;
+    the refusal is no exception to that.
+    """
+```
+     with:
+```python
+#: The detail of a registration the upstream refused from this server, in the
+#: words v2's ``DIARY_CREDENTIALS_REJECTED`` uses too (``app/wording.py``).
+REFUSED_FROM_HERE_DETAIL = wording.DIARY_SESSION_REFUSED_DETAIL
+
+
+class _NoEchoRoute(DishkaAnnotatedRoute):
+    """A route whose 422 names what was wrong and never repeats what was sent.
+
+    FastAPI's validation answer carries each refused value back as ``input``.
+    On ``/session`` that value is an upstream session — a cookie that failed
+    the charset check, a token that is not a JWT — or, for a client that sent
+    one, a password; on ``/login`` it is the password itself, refused for its
+    length (#390). A session or a password goes to this server once and is
+    never echoed; the refusal is no exception to that.
+    """
+```
+  10. Replace:
+```python
+@router.get("/capabilities", response_model=DiaryCapabilitiesOut)
+```
+     with:
+```python
+# Added by hand rather than by decorator only to give it the route class that
+# keeps a refused password out of the 422 (#390).
+router.add_api_route(
+    "/login",
+    login,
+    methods=["POST"],
+    response_model=DiaryLoginOut,
+    route_class_override=_NoEchoRoute,
+)
+
+
+@router.get("/capabilities", response_model=DiaryCapabilitiesOut)
+```
+  11. Replace:
+```python
+def _resolve_session_target(payload: DiarySessionBody) -> tuple[str, str | None, int | None]:
+    """The provider, region and school to adopt into, checked against the
+    allow-list before any call — a region outside it, or one that takes no
+    password (altai-krai, primorye, tula), is a 422 that nothing upstream saw.
+    """
+    if not isinstance(payload, NetSchoolSessionIn):
+        return PETERSBURG, None, None
+    return NETSCHOOL, _served_region(payload.region), payload.school_id
+
+
+async def register_session(
+```
+     with:
+```python
+async def register_session(
+```
+  12. Replace:
+```python
+    ago, and it is *this server* the diary will not take it from.
+    """
+    provider, region, school_id = _resolve_session_target(payload)
+    # The same limiters and buckets as /login: separate ones would double what
+    # one caller may try against the upstream from our address.
+    attempt = await _admit(session, request)
+    # The provider's own serialisation: Petersburg's bare token, or the JSON of
+    # what «Сетевой город» handed the phone, with the fields it did not hand
+    # left out rather than stored as nulls.
+    credential = (
+        payload.credential.model_dump_json(exclude_none=True)
+        if isinstance(payload, NetSchoolSessionIn)
+        else payload.credential.token
+    )
+
+    try:
+        registered = await service.adopt(
+            session,
+            provider=provider,
+            login=payload.login,
+            credential=credential,
+            region=region,
+            school_id=school_id,
+        )
+    except service.DiaryDisabled as failure:
+        await attempt.not_judged(session)
+        raise _disabled() from failure
+    except UpstreamUnavailable as failure:
+        # Nothing judged the session: the diary did not answer, or will not
+        # talk to this address at all. Forgiven, like /login's 503.
+        await attempt.not_judged(session)
+        raise _unavailable(failure) from failure
+    except NoStudents as failure:
+        await attempt.failed(session)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=failure.message
+        ) from failure
+    except (SessionExpired, BadCredentials) as failure:
+        # Before the broader DiaryError below, and after NoStudents, which is
+        # a SessionExpired too. Counted: this is also what a replay of a
+        # session that was never real looks like.
+        await attempt.failed(session)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=REFUSED_FROM_HERE_DETAIL
+        ) from failure
+    except DiaryError as failure:
+        await attempt.failed(session)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=failure.message
+        ) from failure
+
+    await attempt.succeeded(session)
+    return DiarySessionOut(
+        token=registered.token,
+        login=registered.row.login,
+        provider=provider,
+        region=region,
+        school_id=school_id,
+        school_name=registered.school_name,
+        zone=service.zone_for(provider, region),
+        students=[DiaryStudentOut.of(student) for student in registered.students],
+```
+     with:
+```python
+    ago, and it is *this server* the diary will not take it from.
+
+    The rules, the order and the counting are `services/diary.register`'s,
+    which v2's ``CreateDiarySession`` calls too; this words its facts.
+    """
+    try:
+        registered = await service.register(
+            session,
+            provider=payload.provider,
+            login=payload.login,
+            handed=payload.credential.model_dump(exclude_none=True),
+            region=payload.region if isinstance(payload, NetSchoolSessionIn) else None,
+            school_id=payload.school_id if isinstance(payload, NetSchoolSessionIn) else None,
+            **_buckets(request),
+        )
+    except service.RegionNotServed:
+        # Before anything was counted or sent: a 422 that nothing upstream saw.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=wording.DIARY_REGION_NOT_SERVED_DETAIL,
+        ) from None
+    except Throttled as refusal:
+        raise _throttled(refusal.retry_after) from None
+    except service.DiaryDisabled as failure:
+        raise _disabled() from failure
+    except UpstreamUnavailable as failure:
+        # Nothing judged the session: the diary did not answer, or will not
+        # talk to this address at all. Forgiven, like /login's 503.
+        raise _unavailable(failure) from failure
+    except NoStudents as failure:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=failure.message
+        ) from failure
+    except service.SessionRefused as failure:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=REFUSED_FROM_HERE_DETAIL
+        ) from failure
+    except DiaryError as failure:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=failure.message
+        ) from failure
+
+    return DiarySessionOut(
+        token=registered.token,
+        login=registered.row.login,
+        provider=payload.provider,
+        region=registered.row.region,
+        school_id=registered.school_id,
+        school_name=registered.school_name,
+        zone=registered.zone,
+        students=[DiaryStudentOut.of(student) for student in registered.students],
+```
+  13. Replace:
+```python
+    await service.sign_out(session, row)
+```
+     with:
+```python
+    await service.sign_out(session, row)
+    await session.commit()
+```
+  14. Replace:
+```python
+async def _student(svc: service.DiaryService, student_id: int):
+    """The student, or 404 - resolved from the account rather than trusted.
+
+    The path carries an id and the id is not a secret, so it is looked up among
+    the pupils this session may actually see. Without that, one account's id in
+    another account's request would be a way to read somebody else's child.
+    """
+    for student in await _guard(svc.students()):
+        if student.id == student_id:
+            return student
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown student")
+```
+     with:
+```python
+async def _student(svc: service.DiaryService, student_id: int) -> Student:
+    """The student, or 404 - resolved from the account rather than trusted
+    (`DiaryService.student`, which v2's reads ask too)."""
+    try:
+        return await _guard(svc.student(student_id))
+    except service.UnknownStudent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_STUDENT_DETAIL
+        ) from None
+```
+  15. Replace:
+```python
+    """
+    student = await _student(svc, student_id)
+    return student, await _guard(svc.scope_of(student))
+
+
+async def _corrections(
+    session: AsyncSession, scope: str | None, student_id: int
+) -> dict[str, dict[str, tuple[str, str | None]]]:
+    if scope is None:
+        return {}
+    return await diary_corrections.load_corrections(session, scope, student_id)
+
+
+@router.get("/students/{student_id}/schedule", response_model=list[DiaryLessonOut])
+async def schedule(
+    student_id: int,
+    date_from: Date | None = Query(default=None, alias="from"),
+    date_to: Date | None = Query(default=None, alias="to"),
+    svc: service.DiaryService = Depends(_service),
+    *,
+    session: FromDishka[AsyncSession],
+) -> list[DiaryLessonOut]:
+    student, scope = await _child(svc, student_id)
+    start, end = _range(date_from, date_to, svc.today())
+    lessons = await _guard(svc.schedule(student.education_id, start, end))
+    corrections = await _corrections(session, scope, student_id)
+    return [
+        DiaryLessonOut.of(overlaid)
+        for overlaid in overrides.overlay_lessons(lessons, corrections)
+    ]
+
+
+@router.get("/students/{student_id}/homework", response_model=list[DiaryHomeworkOut])
+async def homework(
+    student_id: int,
+    date_from: Date | None = Query(default=None, alias="from"),
+    date_to: Date | None = Query(default=None, alias="to"),
+    svc: service.DiaryService = Depends(_service),
+    *,
+    session: FromDishka[AsyncSession],
+) -> list[DiaryHomeworkOut]:
+    """Homework as its own resource.
+
+    Upstream it is a field on a lesson; the client should not have to know
+    that, so the provider pulls it out and this endpoint exists.
+    """
+    student, scope = await _child(svc, student_id)
+    start, end = _range(date_from, date_to, svc.today())
+    items = await _guard(svc.homework(student.education_id, start, end))
+    corrections = await _corrections(session, scope, student_id)
+    return [
+        DiaryHomeworkOut.of(overlaid)
+        for overlaid in overrides.overlay_homework(items, corrections)
+    ]
+```
+     with:
+```python
+    """
+    try:
+        return await _guard(svc.child(student_id))
+    except service.UnknownStudent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=wording.UNKNOWN_STUDENT_DETAIL
+        ) from None
+
+
+@router.get("/students/{student_id}/schedule", response_model=list[DiaryLessonOut])
+async def schedule(
+    student_id: int,
+    date_from: Date | None = Query(default=None, alias="from"),
+    date_to: Date | None = Query(default=None, alias="to"),
+    svc: service.DiaryService = Depends(_service),
+) -> list[DiaryLessonOut]:
+    student, scope = await _child(svc, student_id)
+    start, end = _range(date_from, date_to, svc.today())
+    lessons = await _guard(svc.schedule_of(student, scope, start, end))
+    return [DiaryLessonOut.of(overlaid) for overlaid in lessons]
+
+
+@router.get("/students/{student_id}/homework", response_model=list[DiaryHomeworkOut])
+async def homework(
+    student_id: int,
+    date_from: Date | None = Query(default=None, alias="from"),
+    date_to: Date | None = Query(default=None, alias="to"),
+    svc: service.DiaryService = Depends(_service),
+) -> list[DiaryHomeworkOut]:
+    """Homework as its own resource.
+
+    Upstream it is a field on a lesson; the client should not have to know
+    that, so the provider pulls it out and this endpoint exists.
+    """
+    student, scope = await _child(svc, student_id)
+    start, end = _range(date_from, date_to, svc.today())
+    items = await _guard(svc.homework_of(student, scope, start, end))
+    return [DiaryHomeworkOut.of(overlaid) for overlaid in items]
+```
+  16. Replace:
+```python
+    student = await _student(svc, student_id)
+    if student.group_id is None:
+        return []
+    found = await _guard(svc.periods(student.group_id))
+    return [DiaryPeriodOut.of(period) for period in found]
+```
+     with:
+```python
+    student = await _student(svc, student_id)
+    found = await _guard(svc.periods_of(student))
+    return [DiaryPeriodOut.of(period) for period in found]
+```
+  17. Replace:
+```python
+    student = await _student(svc, student_id)
+    if student.group_id is None:
+        return []
+    chosen = period_id
+    if chosen is None:
+        found = await _guard(svc.periods(student.group_id))
+        current = next((period for period in found if period.is_current), None)
+        if current is None:
+            return []
+        chosen = current.id
+    items = await _guard(svc.subjects(student.group_id, chosen))
+    return [DiarySubjectOut.of(item) for item in items]
+```
+     with:
+```python
+    student = await _student(svc, student_id)
+    items = await _guard(svc.subjects_of(student, period_id))
+    return [DiarySubjectOut.of(item) for item in items]
+```
+
+- [ ] **Step 5: Green, and v1 unchanged.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_diary.py tests/test_diary_registry.py tests/test_diary_api.py tests/test_diary_session.py tests/test_diary_web.py tests/test_diary_crypto.py tests/test_diary_corrections_per_child.py tests/test_diary_overrides.py tests/test_bot_diary.py tests/test_directory.py tests/test_shared_rules.py tests/test_services.py tests/test_api_docs.py tests/test_service_layering.py tests/test_rpc_gate.py tests/test_rpc_call.py tests/test_v2_reads.py
+```
+Expected: all pass, 594 tests; `test_services_diary.py` has 20. The v1 files pass unedited:
+- `test_diary_session.py` holds `/session`'s answers, its statuses (`409`, `403`, `502`, `503` with `X-Diary-Unavailable`, `422` naming the field and not the value) and its counting on both limiters, now `register`'s;
+- `test_diary_api.py` holds `/login`'s counting, `_range`'s refusals (`test_an_impossible_or_enormous_range_is_refused`, `test_a_date_at_the_end_of_the_calendar_is_refused_not_crashed`), the standalone `diary_api._range(None, None)` on Petersburg's clock, and the reads' answers with the corrections laid over;
+- `test_diary_web.py` holds the sign-in page, which commits the new row with its class, now that `sign_in` leaves the commit to it;
+- `test_directory.py` patches `diary_api.service.sign_in`, which `/login` still calls through that name.
+
+`test_v1_never_repeats_a_password_it_refuses` is #390's: before Step 4, `/login`'s 422 carried the password back as `input`. `test_v1_s_login_refuses_a_target_in_v1_s_words_before_counting` passes before Step 4 too, on purpose: no v1 test held `/login`'s three refusals of a target, and it holds them across the move.
+
+- [ ] **Step 6: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`.
+
+- [ ] **Step 7: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b7-t2.txt`:
+```text
+Move the diary's session and read rules out of v1's router, for v2 to share
+
+v1's api/diary.py held the rules v2's DiaryService needs: where a
+session goes and which region it may (_resolve_session_target,
+_served_region), how what a phone hands over is sealed, how an attempt
+is counted on each outcome (register_session), the window a read covers
+(_range), and which pupil an id names (_student, _child, _corrections).
+They move to services/diary.py as facts each shell words: target,
+sealed_form, register, window, corrections, and DiaryService's student,
+child and reads of one pupil. register raises RegionNotServed before
+anything is counted, Throttled, and the diary's own answers, and a
+session the diary will not take from here is SessionRefused, a
+BadCredentials, where adopt said SessionExpired: a read's SessionExpired
+means «sign in again», and here that would loop. v1 words them all as
+before, and its four sentences both versions say move to app/wording.py.
+
+_open_row and sign_out no longer commit: register's row is committed
+with the attempt's outcome, /login's likewise, the sign-in page's with
+its class, and /logout commits after the call. _guard stays v1's.
+
+/login answered a body it refused with FastAPI's 422, which carried a
+password over two hundred characters back as input (#390). It is served
+through _NoEchoRoute now, as /session always was.
+
+Not covered: Postgres; the counting runs on SQLite, as v1's always has.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/services/diary.py server/app/wording.py server/app/api/diary.py server/tests/test_services_diary.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b7-t2.txt
+```
+
+---
+
+### 3b-7 Task 3: `CreateDiarySession` and `DeleteDiarySession`
+
+Decisions 4, 5, 11 and 14; Rulings 106, 110, 111, 115, 116, 117, 119 and 120.
+
+**Files:**
+- Create: `server/tests/test_v2_diary_sessions.py`
+- Rewrite: `server/app/rpc/diary.py`
+- Modify: `server/app/rpc/errors.py`, `server/app/rpc/handlers.py`, `server/app/rest/__init__.py`, `server/app/rpc/call.py` (its docstring), `server/tests/test_rpc_errors.py`, `server/tests/test_v2_reads.py`
+
+**Interfaces:**
+- Consumes: Task 2's `register`, `Registered` (with `school_id` and `zone`), `RegionNotServed`, `SessionRefused` and `sign_out`; the wording's four sentences; v1's `PetersburgSessionIn` and `NetSchoolSessionIn`; `rpc/errors.validate`; `call.bucket`.
+- Produces:
+  - `rpc/diary.create_diary_session` and `delete_diary_session`; `NO_CREDENTIAL`; the helpers `_row(call)`, `_plain(message)`, `_v2_path(path, case)`, `_session_form(request)` and `_student(student)`; `get_diary_capabilities` as 3a left it;
+  - `errors.TABLE` rows for `security.Throttled`, `diary_service.RegionNotServed`, `BadCredentials`, `NoStudents`, `UpstreamUnavailable`, `UnexpectedResponse` and `DiaryError`;
+  - `rest.NO_STORE_CREDENTIAL` with `CreateDiarySession`;
+  - `rpc/call.py`'s list of the writes a refused call keeps, with the diary attempt (Ruling 106);
+  - `test_v2_reads.SELF_ENDING`, and `_call(…, once=)`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_diary_sessions.py`:
+```python
+"""``CreateDiarySession`` and ``DeleteDiarySession``: v1's ``/session`` and ``/logout`` over v2.
+
+Through ``services/diary.register``, so both versions keep the same sessions,
+refuse the same ones, count the same attempts on one budget, and answer in
+words both share (``docs/specs/2026-10-05-server-v2-design.md``, decisions 5,
+11 and 14). A create is not idempotent, so its success is asked once per
+transport (the 3b plan, Ruling 17); its refusals, which keep nothing, through
+``both``. Nothing here reaches a real diary: Petersburg's pooled client and
+«Сетевой город»'s are each replaced by one over ``httpx.MockTransport``.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import httpx
+import pytest
+from protobuf import Oneof
+from sqlalchemy import func, select
+
+from app import wording
+from app.config import get_settings
+from app.contract.lessons.v2.diary_pb import (
+    CreateDiarySessionRequest,
+    DeleteDiarySessionResponse,
+    DiaryStudent,
+    NetSchoolCookies,
+    NetSchoolCredential,
+    PetersburgCredential,
+)
+from app.db import SessionLocal
+from app.models import DiarySession, JoinAttempt
+from app.providers.diary import http as diary_http
+from app.providers.diary.errors import AddressRefused, SignInUnsupported
+from app.providers.netschool import client as nsclient
+from app.providers.petersburg import client as pbclient
+from app.providers.petersburg.provider import PetersburgProvider
+from app.security import diary_login_limiter, hash_token
+from app.services import diary as diary_service
+
+CREATE = "DiaryService/CreateDiarySession"
+DELETE = "DiaryService/DeleteDiarySession"
+JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI0MDIxIn0.c2lnbmF0dXJlLWZyb20tdGhlLXBob25l"
+CHILDREN_PATH = "/api/journal/person/related-child-list"
+CHILD = {
+    "identity": {"id": 4021},
+    "firstname": "Пётр",
+    "surname": "Иванов",
+    "educations": [
+        {
+            "education_id": 90210,
+            "group_id": 771,
+            "group_name": "9А",
+            "institution_name": "ГБОУ СОШ № 1",
+        }
+    ],
+}
+
+
+@pytest.fixture
+def petersburg(monkeypatch, FakeUpstream):
+    """Petersburg's upstream, answering the pupils by default."""
+    fake = FakeUpstream({CHILDREN_PATH: {"items": [CHILD]}})
+
+    async def shared() -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=pbclient.BASE_URL, transport=httpx.MockTransport(fake.handler)
+        )
+
+    monkeypatch.setattr(pbclient, "shared_client", shared)
+    return fake
+
+
+@pytest.fixture
+def netschool(monkeypatch, FakeUpstream):
+    """«Сетевой город»'s regional server: the bootstrap's four answers."""
+    fake = FakeUpstream(
+        {
+            "/webapi/student/diary/init": {
+                "students": [{"studentId": 11, "nickName": "Иванов Иван", "classId": 3}]
+            },
+            "/webapi/years/current": {
+                "id": 2026,
+                "startDate": "2026-09-01",
+                "endDate": "2027-05-31",
+            },
+            "/webapi/context": {"organizationName": "Гимназия № 7"},
+            "/webapi/grade/assignment/types": [{"id": 3, "name": "Домашнее задание"}],
+        }
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        # «Сетевой город» answers bare JSON, not Petersburg's {"data": …}.
+        fake.seen.append(request)
+        route = fake.routes.get(request.url.path)
+        if isinstance(route, httpx.Response):
+            return route
+        if route is None:
+            return httpx.Response(404, json={})
+        return httpx.Response(200, json=route)
+
+    async def shared() -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            transport=httpx.MockTransport(handler), cookies=diary_http.NoCookieJar()
+        )
+
+    monkeypatch.setattr(nsclient, "shared_client", shared)
+    return fake
+
+
+def _petersburg(**over: Any) -> CreateDiarySessionRequest:
+    fields: dict[str, Any] = {
+        "login": "parent@example.com",
+        "credential": Oneof("petersburg", PetersburgCredential(token=JWT)),
+    }
+    return CreateDiarySessionRequest(**(fields | over))
+
+
+def _netschool(**over: Any) -> CreateDiarySessionRequest:
+    credential = NetSchoolCredential(
+        at="56574745368264517434263",
+        cookies=NetSchoolCookies(ns_session_id="sess-phone", esrn_sec="esrn-phone"),
+        ver="639",
+        time_out=900000,
+    )
+    fields: dict[str, Any] = {
+        "login": "ivanova",
+        "credential": Oneof("netschool", credential),
+        "region": "zabaikalsky",
+        "school_id": 42,
+    }
+    return CreateDiarySessionRequest(**(fields | over))
+
+
+def _v1_body(request: CreateDiarySessionRequest) -> dict[str, Any]:
+    """The same session as v1's ``/session`` takes it."""
+    chosen = request.credential
+    assert chosen is not None
+    if chosen.field == "petersburg":
+        return {
+            "provider": "petersburg",
+            "login": request.login,
+            "credential": {"token": chosen.value.token},
+        }
+    return {
+        "provider": "netschool",
+        "login": request.login,
+        "region": request.region,
+        "school_id": request.school_id,
+        "credential": {
+            "at": chosen.value.at,
+            "cookies": {
+                "NSSESSIONID": chosen.value.cookies.ns_session_id,
+                "ESRNSec": chosen.value.cookies.esrn_sec,
+            },
+            "ver": chosen.value.ver,
+            "time_out": chosen.value.time_out,
+        },
+    }
+
+
+async def _attempts() -> int:
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(select(func.count()).select_from(JoinAttempt)) or 0
+
+
+async def _rows() -> list[DiarySession]:
+    async with SessionLocal() as fresh:
+        return list(await fresh.scalars(select(DiarySession).order_by(DiarySession.id)))
+
+
+async def test_a_petersburg_session_is_kept_and_answered_as_v1_answers_it(v2, petersburg) -> None:
+    rest = await v2.rest(CREATE, _petersburg())
+    connect = await v2.connect(CREATE, _petersburg())
+    v1 = await v2.http.post("/api/v1/diary/session", json=_v1_body(_petersburg()))
+    assert (rest.status, connect.status, v1.status_code) == (201, 200, 200)
+    # A diary token is a credential: never kept by a cache. Connect's answers
+    # carry no such header yet (#357).
+    assert rest.headers["cache-control"] == "private, no-store"
+    expected = v1.json()
+    for answer in (rest, connect):
+        made = answer.message.session
+        assert made.token and made.token != JWT
+        assert (made.login, made.provider, made.zone) == (
+            expected["login"],
+            expected["provider"],
+            expected["zone"],
+        )
+        assert not made.has_field("region") and not made.has_field("school_id")
+        assert not made.has_field("school_name")
+        assert list(made.students) == [
+            DiaryStudent(
+                id=4021,
+                first_name="Пётр",
+                last_name="Иванов",
+                full_name="Иванов Пётр",
+                school="ГБОУ СОШ № 1",
+                class_name="9А",
+            )
+        ]
+    assert [s["full_name"] for s in expected["students"]] == ["Иванов Пётр"]
+    rows = await _rows()
+    assert len(rows) == 3
+    assert {row.token_hash for row in rows} == {
+        hash_token(rest.message.session.token),
+        hash_token(connect.message.session.token),
+        hash_token(expected["token"]),
+    }
+    # Sealed, not stored as it came; and an opened session is no failure.
+    assert all(diary_service.upstream_of(row) == JWT != row.upstream_token for row in rows)
+    assert await _attempts() == 3
+
+
+async def test_a_netschool_session_names_its_region_its_school_and_its_zone(v2, netschool) -> None:
+    rest = await v2.rest(CREATE, _netschool())
+    v1 = (await v2.http.post("/api/v1/diary/session", json=_v1_body(_netschool()))).json()
+    made = rest.message.session
+    assert (
+        (made.provider, made.region, made.school_id, made.school_name, made.zone)
+        == (
+            v1["provider"],
+            v1["region"],
+            v1["school_id"],
+            v1["school_name"],
+            v1["zone"],
+        )
+        == ("netschool", "zabaikalsky", 42, "Гимназия № 7", "Asia/Chita")
+    )
+    assert [student.id for student in made.students] == [s["id"] for s in v1["students"]] == [11]
+    # The phone's cookies went upstream as one header each time, from here.
+    assert all("NSSESSIONID=" in request.headers["cookie"] for request in netschool.seen)
+
+
+async def test_the_session_handed_over_is_never_echoed(v2, petersburg) -> None:
+    created = await v2.rest(CREATE, _petersburg())
+    assert JWT not in created.body.decode()
+    petersburg.routes[CHILDREN_PATH] = lambda request: httpx.Response(401, json={})
+    refused = await v2.both(CREATE, _petersburg())
+    assert JWT not in refused.body.decode()
+
+
+async def test_a_request_v1_would_refuse_is_refused_on_v2_s_own_fields(v2, petersburg) -> None:
+    """v1's own schema decides, so the two versions refuse the same sessions —
+    a token that is not a JWT, a cookie that would smuggle a second one, a
+    region beside Petersburg's credential — before anything is counted or
+    sent, naming the field as v2 spells it and never what was sent."""
+    smuggled = NetSchoolCredential(
+        at="56574745368264517434263", cookies=NetSchoolCookies(ns_session_id="a;b=c")
+    )
+    for request, field in (
+        (CreateDiarySessionRequest(login="parent@example.com"), "credential"),
+        (
+            _petersburg(credential=Oneof("petersburg", PetersburgCredential(token="x" * 20))),
+            "petersburg.token",
+        ),
+        (_petersburg(login=" ​ "), "login"),
+        (_petersburg(region="zabaikalsky"), "region"),
+        (_netschool(credential=Oneof("netschool", smuggled)), "netschool.cookies.ns_session_id"),
+        (_netschool(school_id=None), "school_id"),
+    ):
+        refused = await v2.both(CREATE, request)
+        assert (refused.status, refused.reason) == (400, "VALIDATION_FAILED"), field
+        assert field in [name for name, _ in refused.violations], refused.violations
+        assert "a;b=c" not in refused.body.decode()
+    assert petersburg.seen == []
+    assert await _attempts() == 0
+
+
+async def test_a_region_this_server_does_not_serve_is_refused_before_anything_is_counted(
+    v2, netschool
+) -> None:
+    """Off the allow-list, or one that takes only Госуслуги: refused in v1's
+    words, on ``region``, and nothing upstream ever hears of it."""
+    for region in ("tula", "moscow"):
+        refused = await v2.both(CREATE, _netschool(region=region))
+        v1 = await v2.http.post("/api/v1/diary/session", json=_v1_body(_netschool(region=region)))
+        assert (refused.status, refused.reason, refused.error) == (
+            400,
+            "VALIDATION_FAILED",
+            v1.json()["detail"],
+        )
+        assert refused.error == wording.DIARY_REGION_NOT_SERVED_DETAIL
+        assert refused.violations == [("region", wording.DIARY_REGION_NOT_SERVED_DETAIL)]
+    assert netschool.seen == []
+    assert await _attempts() == 0
+
+
+async def test_a_session_the_diary_will_not_take_from_here_is_rejected_and_counted(
+    v2, petersburg, netschool
+) -> None:
+    """Not «sign in again»: the session was good on the phone seconds ago, so
+    asking for the password would go round the same loop. Counted, because it
+    is also what a replay of a session that was never real looks like."""
+    petersburg.routes[CHILDREN_PATH] = lambda request: httpx.Response(401, json={})
+    netschool.routes["/webapi/student/diary/init"] = httpx.Response(401, json={})
+    for request in (_petersburg(), _netschool()):
+        refused = await v2.both(CREATE, request)
+        v1 = await v2.http.post("/api/v1/diary/session", json=_v1_body(request))
+        assert v1.status_code == 409
+        assert (refused.status, refused.code, refused.reason, refused.error) == (
+            403,
+            "PERMISSION_DENIED",
+            "DIARY_CREDENTIALS_REJECTED",
+            v1.json()["detail"],
+        )
+        assert refused.metadata == {}
+    assert await _attempts() == 6
+    assert await _rows() == []
+
+
+async def test_an_account_with_no_pupil_is_refused_and_counted(v2, petersburg) -> None:
+    petersburg.routes[CHILDREN_PATH] = {"items": []}
+    refused = await v2.both(CREATE, _petersburg())
+    v1 = await v2.http.post("/api/v1/diary/session", json=_v1_body(_petersburg()))
+    assert v1.status_code == 403
+    assert (refused.status, refused.reason, refused.error) == (
+        403,
+        "DIARY_NO_STUDENTS",
+        v1.json()["detail"],
+    )
+    assert await _attempts() == 3
+
+
+async def test_a_diary_that_does_not_answer_is_unavailable_and_not_counted(
+    v2, petersburg, netschool
+) -> None:
+    """Nothing judged the session: forgiven, and said apart from a region that
+    refuses this server's address, which is not worth retrying."""
+    petersburg.routes[CHILDREN_PATH] = lambda request: httpx.Response(503, json={})
+    down = await v2.both(CREATE, _petersburg())
+    assert (down.status, down.reason, down.metadata) == (
+        503,
+        "DIARY_UNAVAILABLE",
+        {"upstream": "upstream"},
+    )
+    netschool.routes["/webapi/student/diary/init"] = httpx.Response(403, text="blocked")
+    refused = await v2.both(CREATE, _netschool())
+    assert (refused.status, refused.reason, refused.metadata, refused.error) == (
+        503,
+        "DIARY_UNAVAILABLE",
+        {"upstream": "address-refused"},
+        AddressRefused.message,
+    )
+    assert await _attempts() == 0
+
+
+async def test_an_answer_nobody_can_read_is_unreadable_and_counted(v2, petersburg) -> None:
+    """A 200 that is not the diary's envelope, as a captcha or an outage page
+    would be in another dress. Counted: a login form answers a wrong guess
+    with the same bytes."""
+    petersburg.routes[CHILDREN_PATH] = lambda request: httpx.Response(
+        200, json={"message": "Pa55w0rd-s3cr3t-Hunter2"}
+    )
+    refused = await v2.both(CREATE, _petersburg())
+    v1 = await v2.http.post("/api/v1/diary/session", json=_v1_body(_petersburg()))
+    assert v1.status_code == 502
+    assert (refused.status, refused.code, refused.reason) == (
+        503,
+        "UNAVAILABLE",
+        "DIARY_UPSTREAM_UNREADABLE",
+    )
+    # The class's sentence, never the upstream's own message.
+    assert refused.error == "Электронный дневник ответил непонятно"
+    assert "Hunter2" not in refused.body.decode()
+    assert await _attempts() == 3
+
+
+async def test_a_failure_no_row_names_is_unreadable_and_counted(v2, monkeypatch) -> None:
+    """A member of the diary's family the table has no row for — here the
+    password sign-in's own refusal, which no v2 method can meet — is worded by
+    the family's fallback, and counted, as v1's ``/session`` counts it."""
+
+    async def refuses(self, request):
+        raise SignInUnsupported
+
+    monkeypatch.setattr(PetersburgProvider, "adopt", refuses)
+    refused = await v2.both(CREATE, _petersburg())
+    v1 = await v2.http.post("/api/v1/diary/session", json=_v1_body(_petersburg()))
+    assert v1.status_code == 502
+    assert (refused.reason, refused.error) == (
+        "DIARY_UPSTREAM_UNREADABLE",
+        SignInUnsupported.message,
+    )
+    assert await _attempts() == 3
+
+
+async def test_v1_and_v2_draw_on_one_budget(v2, petersburg) -> None:
+    """Decision 11: a caller alternating the versions gets ten guesses in a
+    quarter of an hour, not twenty."""
+    petersburg.routes[CHILDREN_PATH] = lambda request: httpx.Response(401, json={})
+    for attempt in range(diary_login_limiter.limit):
+        if attempt % 2:
+            answer = await v2.http.post("/api/v1/diary/session", json=_v1_body(_petersburg()))
+            assert answer.status_code == 409
+        else:
+            assert (await v2.rest(CREATE, _petersburg())).reason == "DIARY_CREDENTIALS_REJECTED"
+    # Each transport on its own, not `both`: the seconds left are counted at
+    # each call, and two calls a millisecond apart may straddle a second.
+    rest = await v2.rest(CREATE, _petersburg())
+    connect = await v2.connect(CREATE, _petersburg())
+    for refused in (rest, connect):
+        assert (refused.code, refused.reason, refused.error) == (
+            "RESOURCE_EXHAUSTED",
+            "THROTTLED",
+            wording.DIARY_THROTTLED_DETAIL,
+        )
+        seconds = int(refused.metadata["retry_after_seconds"])
+        assert seconds >= 1 and refused.retry_seconds == seconds
+    assert rest.status == 429
+    assert rest.headers["retry-after"] == rest.metadata["retry_after_seconds"]
+    v1 = await v2.http.post("/api/v1/diary/session", json=_v1_body(_petersburg()))
+    assert (v1.status_code, v1.json()["detail"]) == (429, wording.DIARY_THROTTLED_DETAIL)
+    assert len(petersburg.seen) == diary_login_limiter.limit
+
+
+async def test_signing_out_ends_the_token_and_the_session(v2, petersburg) -> None:
+    """Each transport signs out a session of its own: the second call with the
+    same token is the gate's to refuse."""
+    tokens = [(await v2.rest(CREATE, _petersburg())).message.session.token for _ in range(3)]
+    rest = await v2.rest(DELETE, token=tokens[0])
+    connect = await v2.connect(DELETE, token=tokens[1])
+    assert (rest.status, connect.status) == (200, 200)
+    assert rest.message == connect.message == DeleteDiarySessionResponse()
+    again = await v2.both(DELETE, token=tokens[0])
+    assert (again.status, again.reason, again.error) == (
+        401,
+        "DIARY_TOKEN_INVALID",
+        "Diary session is not valid",
+    )
+    rows = await _rows()
+    assert [row.token_hash for row in rows] == [hash_token(tokens[2])]
+    # v1 reads the session v2 left, and no other.
+    v1 = await v2.http.get(
+        "/api/v1/diary/students", headers={"Authorization": f"Bearer {tokens[0]}"}
+    )
+    assert v1.status_code == 401
+
+
+async def test_without_the_secret_the_diary_is_disabled_on_both_methods(
+    v2, v2_tokens, petersburg, monkeypatch
+) -> None:
+    """Nothing anybody types will help: said in v1's words, before any token is
+    read or anything is counted or sent, and no session is touched (#302)."""
+    monkeypatch.setattr(get_settings(), "diary_secret", "", raising=False)
+    created = await v2.both(CREATE, _petersburg())
+    v1 = await v2.http.post("/api/v1/diary/session", json=_v1_body(_petersburg()))
+    deleted = await v2.both(DELETE, token=v2_tokens["diary"])
+    for refused in (created, deleted):
+        assert (refused.status, refused.code, refused.reason, refused.error) == (
+            503,
+            "UNAVAILABLE",
+            "DIARY_DISABLED",
+            v1.json()["detail"],
+        )
+    assert v1.headers["x-diary-unavailable"] == "disabled"
+    assert petersburg.seen == []
+    assert await _attempts() == 0
+    (row,) = await _rows()
+    assert row.expired_at is None
+```
+  Then, in `server/tests/test_rpc_errors.py`, name the tests that read the new rows back, and take the four reasons this task produces out of `LATER`:
+  1. Replace:
+```python
+from app.providers import dadata
+from app.rest.errors import STATUS, error_response
+from app.rpc import errors
+from app.rpc.errors import CODES, Refusal, connect_error, validate
+from app.schemas import BellScheduleIn, JoinRequest, SubjectIn
+from app.services import access as access_service
+```
+     with:
+```python
+from app.providers import dadata
+from app.providers.diary.errors import (
+    BadCredentials,
+    DiaryError,
+    NoStudents,
+    UnexpectedResponse,
+    UpstreamUnavailable,
+)
+from app.rest.errors import STATUS, error_response
+from app.rpc import errors
+from app.rpc.errors import CODES, Refusal, connect_error, validate
+from app.schemas import BellScheduleIn, JoinRequest, SubjectIn
+from app.security import Throttled
+from app.services import access as access_service
+```
+  2. Replace:
+```python
+LATER = {
+    "DIARY_UNAVAILABLE": "3b-7",
+    "DIARY_REAUTH": "3b-7",
+    "DIARY_CREDENTIALS_REJECTED": "3b-7",
+    "DIARY_NO_STUDENTS": "3b-7",
+    "DIARY_UPSTREAM_UNREADABLE": "3b-7",
+    "CORRECTIONS_UNAVAILABLE": "3b-8",
+```
+     with:
+```python
+LATER = {
+    "DIARY_REAUTH": "3b-7",
+    "CORRECTIONS_UNAVAILABLE": "3b-8",
+```
+  3. Replace:
+```python
+    ),
+    # The gate raises it for a diary method, and none is served before 3b-7:
+    # test_rpc_gate.py holds the gate raising it until then.
+    diary_service.DiaryDisabled: "3b-7",
+}
+```
+     with:
+```python
+    ),
+    diary_service.DiaryDisabled: (
+        "test_v2_diary_sessions.py",
+        "test_without_the_secret_the_diary_is_disabled_on_both_methods",
+    ),
+    Throttled: ("test_v2_diary_sessions.py", "test_v1_and_v2_draw_on_one_budget"),
+    diary_service.RegionNotServed: (
+        "test_v2_diary_sessions.py",
+        "test_a_region_this_server_does_not_serve_is_refused_before_anything_is_counted",
+    ),
+    BadCredentials: (
+        "test_v2_diary_sessions.py",
+        "test_a_session_the_diary_will_not_take_from_here_is_rejected_and_counted",
+    ),
+    NoStudents: (
+        "test_v2_diary_sessions.py",
+        "test_an_account_with_no_pupil_is_refused_and_counted",
+    ),
+    UpstreamUnavailable: (
+        "test_v2_diary_sessions.py",
+        "test_a_diary_that_does_not_answer_is_unavailable_and_not_counted",
+    ),
+    UnexpectedResponse: (
+        "test_v2_diary_sessions.py",
+        "test_an_answer_nobody_can_read_is_unreadable_and_counted",
+    ),
+    DiaryError: (
+        "test_v2_diary_sessions.py",
+        "test_a_failure_no_row_names_is_unreadable_and_counted",
+    ),
+}
+```
+  And in `server/tests/test_v2_reads.py`, let the gate test ask `DeleteDiarySession` once (Ruling 117):
+  1. Replace:
+```python
+def _served() -> list[str]:
+```
+     with:
+```python
+#: Methods whose success ends the credential that called them, so that a
+#: second call with it is the gate's to refuse: the gate lets them through
+#: once, over REST. ``test_v2_diary_sessions.py`` asks each transport with a
+#: session of its own.
+SELF_ENDING = {"lessons.v2.DiaryService/DeleteDiarySession"}
+
+def _served() -> list[str]:
+```
+  2. Replace:
+```python
+async def _call(v2, key: str, token: str | None):
+    name = key.removeprefix("lessons.v2.")
+    if METHODS[key].streaming:
+        return await v2.stream(name, token=token)
+    return await v2.both(name, _request(key), token=token, differ=("token", "window.generated_at"))
+```
+     with:
+```python
+async def _call(v2, key: str, token: str | None, *, once: bool = False):
+    name = key.removeprefix("lessons.v2.")
+    if METHODS[key].streaming:
+        return await v2.stream(name, token=token)
+    if once:
+        return await v2.rest(name, _request(key), token=token)
+    return await v2.both(name, _request(key), token=token, differ=("token", "window.generated_at"))
+```
+  3. Replace:
+```python
+    if method.auth is AuthKind.DIARY:
+        admitted = await _call(v2, key, v2_tokens["diary"])
+        assert admitted.reason not in GATE_REASONS
+```
+     with:
+```python
+    if method.auth is AuthKind.DIARY:
+        admitted = await _call(v2, key, v2_tokens["diary"], once=key in SELF_ENDING)
+        assert admitted.reason not in GATE_REASONS
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_diary_sessions.py tests/test_rpc_errors.py
+```
+Expected: `14 failed, 14 passed`. Twelve of `test_v2_diary_sessions.py`'s thirteen meet `501` (`UNIMPLEMENTED`), the method being served by nobody; `test_the_session_handed_over_is_never_echoed` passes, because a `501` echoes nothing either. In `test_rpc_errors.py`, `test_every_reason_is_produced_or_waits_for_a_later_stage` fails on the four reasons the test no longer lets wait, and `test_every_row_of_the_table_names_the_test_that_reads_it_back` on the rows it names that the table has not yet.
+
+- [ ] **Step 2: The table's rows.** In `server/app/rpc/errors.py`:
+  1. Replace:
+```python
+from app.providers import dadata
+from app.services import access as access_service
+```
+     with:
+```python
+from app.providers import dadata
+from app.providers.diary.errors import (
+    AddressRefused,
+    BadCredentials,
+    DiaryError,
+    NoStudents,
+    UnexpectedResponse,
+    UpstreamUnavailable,
+)
+from app.security import Throttled
+from app.services import access as access_service
+```
+  2. Replace:
+```python
+#: Every service and provider exception a v2 method can meet, and its refusal.
+```
+     with:
+```python
+def _diary_throttled(error: Throttled) -> Refusal:
+    # Only the diary's two doors raise it (security.DiaryAttempt), and v1's
+    # /session and /login say it in these words.
+    return Refusal(
+        ErrorReason.THROTTLED, wording.DIARY_THROTTLED_DETAIL, retry_after_seconds=error.seconds
+    )
+
+
+def _diary_region_not_served(_error: diary_service.RegionNotServed) -> Refusal:
+    # CreateDiarySession is the one method that names a region.
+    return Refusal(
+        ErrorReason.VALIDATION_FAILED,
+        wording.DIARY_REGION_NOT_SERVED_DETAIL,
+        violations=[("region", wording.DIARY_REGION_NOT_SERVED_DETAIL)],
+    )
+
+
+def _diary_credentials_rejected(_error: BadCredentials) -> Refusal:
+    # v2 judges no password: what it meets of this family is a session the
+    # diary would not take from this server (diary_service.SessionRefused).
+    return Refusal(ErrorReason.DIARY_CREDENTIALS_REJECTED, wording.DIARY_SESSION_REFUSED_DETAIL)
+
+
+# The diary's own failures answer with their class's sentence, a constant of
+# providers/diary/errors.py written for a person, and never the instance's:
+# an UnexpectedResponse can carry the upstream's own message.
+
+
+def _diary_no_students(_error: NoStudents) -> Refusal:
+    return Refusal(ErrorReason.DIARY_NO_STUDENTS, NoStudents.message)
+
+
+def _diary_unavailable(error: UpstreamUnavailable) -> Refusal:
+    upstream = "address-refused" if isinstance(error, AddressRefused) else "upstream"
+    return Refusal(ErrorReason.DIARY_UNAVAILABLE, type(error).message, upstream=upstream)
+
+
+def _diary_unreadable(error: DiaryError) -> Refusal:
+    return Refusal(ErrorReason.DIARY_UPSTREAM_UNREADABLE, type(error).message)
+
+
+#: Every service and provider exception a v2 method can meet, and its refusal.
+```
+  3. Replace:
+```python
+    substitutions_service.SubstitutionExists: _substitution_exists,
+}
+```
+     with:
+```python
+    substitutions_service.SubstitutionExists: _substitution_exists,
+    Throttled: _diary_throttled,
+    diary_service.RegionNotServed: _diary_region_not_served,
+    BadCredentials: _diary_credentials_rejected,
+    NoStudents: _diary_no_students,
+    UpstreamUnavailable: _diary_unavailable,
+    UnexpectedResponse: _diary_unreadable,
+    DiaryError: _diary_unreadable,
+}
+```
+
+- [ ] **Step 3: Replace `server/app/rpc/diary.py` whole with** (its module docstring says what the service now does; `get_diary_capabilities` is 3a's, unchanged):
+```python
+"""``DiaryService``: one family's account with an electronic diary.
+
+3a serves ``GetDiaryCapabilities``. 3b-7 serves the sessions: a session the
+phone opened with the diary itself is kept by ``CreateDiarySession``, through
+``services/diary.register`` — v1's ``POST /diary/session``'s rules, order and
+counting, on the same budget — and signed out by ``DeleteDiarySession``, v1's
+``/logout``. v1's ``POST /diary/login``, a password through this server, has
+no twin here (``docs/api.md``, «Not in v2, on purpose»). The corrections are
+3b-8's (``docs/specs/2026-10-05-server-v2-3b-plan.md``).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from protobuf import Message
+
+from app.contract.lessons.v2.diary_pb import (
+    CreateDiarySessionRequest,
+    CreateDiarySessionResponse,
+    DeleteDiarySessionRequest,
+    DeleteDiarySessionResponse,
+    DiaryCapabilities,
+    DiarySession,
+    DiaryStudent,
+    GetDiaryCapabilitiesRequest,
+    GetDiaryCapabilitiesResponse,
+    ProviderCapabilities,
+)
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.crypto import diary_enabled
+from app.models import DiarySession as DiarySessionRow
+from app.providers.diary.models import Student
+from app.providers.diary.registry import KEYS, NETSCHOOL
+from app.rpc.errors import Refusal, validate
+from app.schemas import NetSchoolSessionIn, PetersburgSessionIn
+from app.services import diary as diary_service
+
+if TYPE_CHECKING:
+    from app.rpc.call import Call
+
+#: v1's schema for each case of the request's ``credential``, which is the
+#: provider's key: v1's ``DiarySessionBody`` told the two apart by ``provider``.
+_SESSIONS: dict[str, type[PetersburgSessionIn] | type[NetSchoolSessionIn]] = {
+    "petersburg": PetersburgSessionIn,
+    "netschool": NetSchoolSessionIn,
+}
+
+#: v1's spelling of a credential's field where v2's differs: the two cookies,
+#: whose upper-case names v2's lint will not take.
+_V1_NAMES = {"ns_session_id": "NSSESSIONID", "esrn_sec": "ESRNSec"}
+_V2_NAMES = {v1: v2 for v2, v1 in _V1_NAMES.items()}
+
+#: A request whose ``credential`` holds neither case. Fixed, naming the oneof.
+NO_CREDENTIAL = "credential must be petersburg or netschool"
+
+
+async def get_diary_capabilities(
+    call: Call, request: GetDiaryCapabilitiesRequest
+) -> GetDiaryCapabilitiesResponse:
+    """What this server's diary can do, before the phone takes a password.
+
+    The same answer v1's ``/diary/capabilities`` gives, in v2's shape
+    (decision 12): whether the diary runs here at all, every provider the
+    registry knows, and for «Сетевой город» the allow-list's regions that take
+    a password. ``sign_in_methods`` and ``features`` stay empty, because v1's
+    answer has neither and what each provider declares is 3b's registry table
+    to say, from what its connection really implements. Anonymous and
+    database-free, as v1's: the gate opens a scope, and nothing asks it for a
+    query.
+    """
+    from app.providers.netschool import regions
+
+    listed = [region.key for region in regions.listed()]
+    return GetDiaryCapabilitiesResponse(
+        capabilities=DiaryCapabilities(
+            enabled=diary_enabled(),
+            providers=[
+                ProviderCapabilities(provider=key, regions=listed if key == NETSCHOOL else [])
+                for key in KEYS
+            ],
+        )
+    )
+
+
+def _row(call: Call) -> DiarySessionRow:
+    """The diary session the gate found for every method of the diary kind."""
+    if call.diary is None:
+        raise RuntimeError(f"{call.method.key} asked for a diary session it does not take")
+    return call.diary
+
+
+def _plain(message: Message) -> dict[str, Any]:
+    """A credential message as v1's schema reads it: the fields that are set,
+    under v1's names, nested messages as objects."""
+    found: dict[str, Any] = {}
+    for field in message.desc().fields:
+        if not message.has_field(field.name):
+            continue
+        value = getattr(message, field.name)
+        found[_V1_NAMES.get(field.name, field.name)] = (
+            _plain(value) if isinstance(value, Message) else value
+        )
+    return found
+
+
+def _v2_path(path: str, case: str) -> str:
+    """A violation's path in v1's body, ``credential.cookies.NSSESSIONID``, as
+    the request spells it, ``netschool.cookies.ns_session_id``."""
+    head, _, rest = path.partition(".")
+    if head != "credential":
+        return path
+    return ".".join([case, *(_V2_NAMES.get(part, part) for part in rest.split(".") if part)])
+
+
+def _session_form(request: CreateDiarySessionRequest) -> PetersburgSessionIn | NetSchoolSessionIn:
+    """The request validated with v1's own schema (decision 5), so v1 and v2
+    refuse the same sessions: no password, no unknown cookie, no value a header
+    could not carry. A violation names the field as v2 spells it, and never
+    what was sent."""
+    chosen = request.credential
+    if chosen is None or chosen.field not in _SESSIONS:
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED, NO_CREDENTIAL, violations=[("credential", NO_CREDENTIAL)]
+        )
+    sent: dict[str, Any] = {
+        "provider": chosen.field,
+        "login": request.login,
+        "credential": _plain(chosen.value),
+    }
+    for name in ("region", "school_id"):
+        if request.has_field(name):
+            sent[name] = getattr(request, name)
+    try:
+        return validate(_SESSIONS[chosen.field], sent)
+    except Refusal as refusal:
+        violations = [(_v2_path(field, chosen.field), text) for field, text in refusal.violations]
+        fields = ", ".join(sorted({field for field, _ in violations}))
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED,
+            f"invalid request field: {fields}",
+            violations=violations,
+        ) from None
+
+
+def _student(student: Student) -> DiaryStudent:
+    """v1's ``DiaryStudentOut``, field for field: never the upstream's own
+    handles, which the server resolves from the id on every call."""
+    return DiaryStudent(
+        id=student.id,
+        first_name=student.first_name,
+        last_name=student.last_name,
+        middle_name=student.middle_name,
+        full_name=student.full_name,
+        school=student.school,
+        class_name=student.class_name,
+    )
+
+
+async def create_diary_session(
+    call: Call, request: CreateDiarySessionRequest
+) -> CreateDiarySessionResponse:
+    """Keeps a session the phone opened with the diary itself, and answers a
+    diary token of ours (REST ``201``, and never cached).
+
+    ``services/diary.register`` decides, in v1's order and on v1's budget —
+    the caller's buckets are v1's for the same caller, so a caller alternating
+    versions draws on one: a region this server does not serve is refused
+    before anything is counted or sent, then the attempt is counted, then the
+    diary reads with the session once, from this server's address. What it
+    raises the error table words. The session handed over is never echoed
+    back, not even in a refusal.
+    """
+    form = _session_form(request)
+    netschool = form if isinstance(form, NetSchoolSessionIn) else None
+    registered = await diary_service.register(
+        call.session,
+        provider=form.provider,
+        login=form.login,
+        handed=form.credential.model_dump(exclude_none=True),
+        region=netschool.region if netschool is not None else None,
+        school_id=netschool.school_id if netschool is not None else None,
+        failures_key=call.bucket("diary:"),
+        opened_key=call.bucket("diary-open:"),
+    )
+    row = registered.row
+    return CreateDiarySessionResponse(
+        session=DiarySession(
+            token=registered.token,
+            login=row.login,
+            provider=form.provider,
+            region=row.region,
+            school_id=registered.school_id,
+            school_name=registered.school_name,
+            zone=registered.zone,
+            students=[_student(student) for student in registered.students],
+        )
+    )
+
+
+async def delete_diary_session(
+    call: Call, request: DeleteDiarySessionRequest
+) -> DeleteDiarySessionResponse:
+    """Signs this session out, as v1's ``/logout``: the upstream is told
+    where it can be, the row goes, and the token stops working once the call
+    commits."""
+    await diary_service.sign_out(call.session, _row(call))
+    return DeleteDiarySessionResponse()
+```
+
+- [ ] **Step 4: Serve them, and keep the token out of caches.** In `server/app/rpc/handlers.py`'s `HANDLERS`:
+  Replace:
+```python
+    "lessons.v2.DeviceService/CreateDevice": device.create_device,
+    "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+```
+  with:
+```python
+    "lessons.v2.DeviceService/CreateDevice": device.create_device,
+    "lessons.v2.DiaryService/CreateDiarySession": diary.create_diary_session,
+    "lessons.v2.DiaryService/DeleteDiarySession": diary.delete_diary_session,
+    "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+```
+  and in `server/app/rest/__init__.py`:
+  Replace:
+```python
+#: the class card ``UpdateClass`` answers with, join code included, the code
+#: that links a phone to whoever sends it to the bot, until it is used, and
+#: the class's secret calendar address, which ``GetCalendarFeed`` keeps from
+#: caches too. Nobody asked a cache to keep a POST or a PATCH, but the answer
+#: says so anyway, as defence in depth. 3b-7 adds ``CreateDiarySession`` here.
+NO_STORE_CREDENTIAL = frozenset(
+    {
+        "lessons.v2.DeviceService/CreateDevice",
+        "lessons.v2.ClassService/UpdateClass",
+        "lessons.v2.MeService/CreateLinkCode",
+        "lessons.v2.MeService/CreateCalendarFeed",
+    }
+```
+  with:
+```python
+#: the class card ``UpdateClass`` answers with, join code included, the code
+#: that links a phone to whoever sends it to the bot, until it is used, the
+#: class's secret calendar address, which ``GetCalendarFeed`` keeps from
+#: caches too, and the diary token ``CreateDiarySession`` answers with. Nobody
+#: asked a cache to keep a POST or a PATCH, but the answer says so anyway, as
+#: defence in depth.
+NO_STORE_CREDENTIAL = frozenset(
+    {
+        "lessons.v2.DeviceService/CreateDevice",
+        "lessons.v2.ClassService/UpdateClass",
+        "lessons.v2.MeService/CreateLinkCode",
+        "lessons.v2.MeService/CreateCalendarFeed",
+        "lessons.v2.DiaryService/CreateDiarySession",
+    }
+```
+  And in `server/app/rpc/call.py`'s docstring, name the attempt among the writes a refused call keeps:
+  Replace:
+```python
+  search of the anonymous school directory;
+- ``quota.spend`` — a unit of the directory's daily allowance stays spent,
+```
+  with:
+```python
+  search of the anonymous school directory;
+- ``security.DiaryAttempt``, through ``services.diary.register`` — an attempt
+  to keep a diary session stays counted, as a failure or as a session opened,
+  and a session opened is committed with it;
+- ``quota.spend`` — a unit of the directory's daily allowance stays spent,
+```
+
+- [ ] **Step 5: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_diary_sessions.py tests/test_rpc_errors.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_contract.py tests/test_rpc_call.py tests/test_rpc_gate.py tests/test_rpc_mount.py tests/test_service_layering.py tests/test_announcements.py tests/test_diary_api.py tests/test_diary_session.py
+```
+Expected: all pass, 418 tests.
+- `test_v2_diary_sessions.py` has 13; `test_rpc_errors.py` reads the seven new rows and `DiaryDisabled`'s by their tests, and four reasons fewer in `LATER`.
+- The gate test and the no-echo sweep each gain two cases. An empty `CreateDiarySession` is `VALIDATION_FAILED` on `credential` without a token, with a bad one and with the diary's own; `DeleteDiarySession` refuses no token and a device token with `DIARY_TOKEN_INVALID`, and lets the diary token through once (Ruling 117). The sweep's secret in any one field of `CreateDiarySession` is refused by v1's schema, naming the field and never the value, before anything is counted or sent — no single field makes a whole session.
+- `test_rest.py`'s `test_the_created_table_is_what_the_proto_comments_promise` still holds `CREATED`, which had `CreateDiarySession` already; `test_announcements.py` names no new call site (Ruling 107).
+
+`HANDLERS` now holds three of `DiaryService`'s methods, and v2 answers sixty-three methods, beside `WatchClass`'s refusal.
+
+- [ ] **Step 6: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`.
+
+- [ ] **Step 7: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b7-t3.txt`:
+```text
+Serve a diary session over v2: keeping the one a phone opened, and signing out
+
+CreateDiarySession keeps a session the phone opened with the diary
+itself, through services/diary.register, so v1's /session and v2 keep
+the same sessions, refuse the same ones and count the same attempts on
+one budget for one caller. The request is validated by v1's own schemas
+from the case of credential that is set, a violation named as v2 spells
+the field and never with what was sent; the diary token it answers with
+is never cached. DeleteDiarySession is v1's /logout.
+
+The error table words what register raises: THROTTLED and a region this
+server does not serve in v1's words, DIARY_CREDENTIALS_REJECTED for a
+session the diary will not take from here, DIARY_NO_STUDENTS,
+DIARY_UNAVAILABLE with the upstream or the address refused, and
+DIARY_UPSTREAM_UNREADABLE for the rest of the diary's family, each with
+its class's own sentence rather than the instance's, which can carry the
+upstream's words. Four reasons leave LATER, and DiaryDisabled's row
+names its test. rpc/call.py names the diary attempt among the writes a
+refused call keeps. The gate test asks DeleteDiarySession once, since
+its success ends the token that asked.
+
+Not covered: a real diary; every test drives a fake upstream.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/rpc/diary.py server/app/rpc/errors.py server/app/rpc/handlers.py server/app/rest/__init__.py server/app/rpc/call.py server/tests/test_v2_diary_sessions.py server/tests/test_rpc_errors.py server/tests/test_v2_reads.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b7-t3.txt
+```
+
+---
+
+### 3b-7 Task 4: The reads of one pupil without a window, the features, and 3b-7 leaves `STAGES`
+
+Decisions 4, 10, 12 and 14; Rulings 104, 105, 106, 111, 112, 118, 120 and 121; #389 over v2.
+
+**Files:**
+- Create: `server/tests/test_v2_diary_reads.py`
+- Modify: `server/app/rpc/diary.py`, `server/app/rpc/errors.py`, `server/app/rpc/handlers.py`, `server/tests/conftest.py`, `server/tests/test_v2_reads.py`, `server/tests/test_v2_no_echo.py`, `server/tests/test_rpc_errors.py`
+
+**Interfaces:**
+- Consumes: Task 1's `registry.TABLE`, `Feature`, `row_for`, `Row.listed_regions`, `sign_in` and `features`; Task 2's `DiaryService.student`, `periods_of`, `subjects_of`, `teachers` and `attendance`, and `UnknownStudent`; `values.proto_name`, `date_string` and `wall_moment`.
+- Produces:
+  - `rpc/diary.get_diary_capabilities` filled from the table; `list_students`, `list_periods`, `list_diary_subjects`, `list_teachers` and `list_turnstile_events`; `NOT_IN_THIS_DIARY`, `_DIRECTIONS`, `_service(call)`, `_feature(call, feature)`, `_day(day)` and `_period(period)`;
+  - `errors.TABLE` rows for `SessionExpired` (`DIARY_REAUTH`) and `diary_service.UnknownStudent` (`RESOURCE_NOT_FOUND`);
+  - `conftest.diary_offline`, a fixture handing out the list of the requests it dropped;
+  - `test_rpc_errors.STAGES == {"3b-8"}` and `LATER == {"CORRECTIONS_UNAVAILABLE": "3b-8"}`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_diary_reads.py`:
+```python
+"""The diary's reads without a window, and what the diary can do: ``ListStudents``,
+``ListPeriods``, ``ListDiarySubjects``, ``ListTeachers``, ``ListTurnstileEvents``
+and ``GetDiaryCapabilities``.
+
+v1's ``/diary`` reads over v2, through ``services/diary``'s ``DiaryService``: the
+pupil resolved from the session's own diary on every call, the same answer in
+v2's shape, read against v1's own for the same session
+(``docs/specs/2026-10-05-server-v2-design.md``, decisions 10, 12 and 14). What
+v1 did not have: a feature the session's provider does not declare is
+``FEATURE_UNSUPPORTED`` before the diary is asked anything, and the
+capabilities say which features each provider has. Nothing here reaches a real
+diary: Petersburg's pooled client is replaced by one over
+``httpx.MockTransport``, and its clock is pinned to Monday 14 September 2026.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+from typing import Any
+
+import httpx
+import pytest
+from sqlalchemy import select
+
+from app.config import get_settings
+from app.contract.lessons.v2.diary_pb import (
+    AttendanceDirection,
+    DiaryFeature,
+    ListDiarySubjectsRequest,
+    ListPeriodsRequest,
+    ListTeachersRequest,
+    ListTurnstileEventsRequest,
+    SignInMethod,
+)
+from app.crypto import seal
+from app.db import SessionLocal
+from app.models import DiarySession
+from app.providers.petersburg import client as pbclient
+from app.providers.petersburg import provider as pbprovider
+from app.rpc.diary import NOT_IN_THIS_DIARY
+from app.security import hash_token
+from app.services import diary as diary_service
+
+TODAY = date(2026, 9, 14)
+CHILDREN = "/api/journal/person/related-child-list"
+PERIODS = "/api/group/group/get-list-period"
+SUBJECTS = "/api/journal/subject/list-studied"
+TEACHERS = "/api/journal/teacher/list"
+TURNSTILE = "/api/journal/acs/list"
+CHILD = {
+    "identity": {"id": 4021},
+    "firstname": "Пётр",
+    "surname": "Иванов",
+    "middlename": "Сергеевич",
+    "educations": [
+        {
+            "education_id": 90210,
+            "group_id": 771,
+            "group_name": "9А",
+            "institution_name": "ГБОУ СОШ № 1",
+        }
+    ],
+}
+#: The reads of one pupil this file serves, each with the request it is asked.
+READS = {
+    "DiaryService/ListPeriods": ListPeriodsRequest,
+    "DiaryService/ListDiarySubjects": ListDiarySubjectsRequest,
+    "DiaryService/ListTeachers": ListTeachersRequest,
+    "DiaryService/ListTurnstileEvents": ListTurnstileEventsRequest,
+}
+
+
+@pytest.fixture
+def petersburg(monkeypatch, FakeUpstream):
+    """Petersburg's upstream on 14 September 2026, answering one pupil and,
+    for them, two quarters, a subject, a teacher and three passages."""
+    fake = FakeUpstream(
+        {
+            CHILDREN: {"items": [CHILD]},
+            PERIODS: {
+                "items": [
+                    {
+                        "identity": {"id": 1},
+                        "name": "1 четверть",
+                        "date_from": "01.09.2026",
+                        "date_to": "25.10.2026",
+                    },
+                    {
+                        "identity": {"id": 2},
+                        "name": "2 четверть",
+                        "date_from": "05.11.2026",
+                        "date_to": "28.12.2026",
+                    },
+                ]
+            },
+            SUBJECTS: {"items": [{"subject_id": 12, "subject_name": "Алгебра"}]},
+            TEACHERS: {
+                "items": [
+                    {
+                        "identity": {"id": 5},
+                        "surname": "Петрова",
+                        "firstname": "Анна",
+                        "middlename": "Ивановна",
+                        "position_name": "учитель математики",
+                        "subjects": [{"subject_name": "Алгебра"}],
+                    }
+                ]
+            },
+            TURNSTILE: {
+                "items": [
+                    {"datetime": "13.09.2026 08:01:00", "direction": "Отказ"},
+                    {"datetime": "14.09.2026 14:02:59", "direction": "Выход"},
+                    {"datetime": "14.09.2026 08:15:00", "direction": "Вход"},
+                ]
+            },
+        }
+    )
+
+    async def shared() -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=pbclient.BASE_URL, transport=httpx.MockTransport(fake.handler)
+        )
+
+    monkeypatch.setattr(pbclient, "shared_client", shared)
+    monkeypatch.setattr(pbprovider, "today", lambda: TODAY)
+    return fake
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def _netschool_session(session) -> str:
+    """A live «Сетевой город» session, whose credential nothing here opens."""
+    session.add(
+        DiarySession(
+            token_hash=hash_token("v2-netschool-diary"),
+            upstream_token=seal('{"v": 1, "region": "zabaikalsky", "school_id": 42}'),
+            login="ivanova",
+            provider="netschool",
+            region="zabaikalsky",
+        )
+    )
+    await session.commit()
+    return "v2-netschool-diary"
+
+
+def _asked(fake, path: str) -> int:
+    return sum(1 for request in fake.seen if request.url.path == path)
+
+
+async def test_the_pupils_are_v1_s_in_v2_s_shape(v2, v2_tokens, petersburg) -> None:
+    token = v2_tokens["diary"]
+    answer = await v2.both("DiaryService/ListStudents", token=token)
+    v1 = (await v2.http.get("/api/v1/diary/students", headers=_auth(token))).json()
+    assert [student.to_json() for student in answer.message.students] == [
+        '{"id":"4021","firstName":"Пётр","lastName":"Иванов","middleName":"Сергеевич",'
+        '"fullName":"Иванов Пётр Сергеевич","school":"ГБОУ СОШ № 1","className":"9А"}'
+    ]
+    (pupil,) = answer.message.students
+    assert [
+        pupil.id,
+        pupil.first_name,
+        pupil.last_name,
+        pupil.middle_name,
+        pupil.full_name,
+        pupil.school,
+        pupil.class_name,
+    ] == list(v1[0].values())
+    assert answer.headers["cache-control"] == "private, no-store"
+
+
+async def test_periods_teachers_and_the_turnstile_are_v1_s_in_v2_s_shape(
+    v2, v2_tokens, petersburg
+) -> None:
+    token = v2_tokens["diary"]
+    periods = (
+        await v2.both("DiaryService/ListPeriods", ListPeriodsRequest(student_id=4021), token=token)
+    ).message.periods
+    v1_periods = (
+        await v2.http.get("/api/v1/diary/students/4021/periods", headers=_auth(token))
+    ).json()
+    assert (
+        [
+            (period.id, period.name, period.starts_on, period.ends_on, period.is_current)
+            for period in periods
+        ]
+        == [tuple(period.values()) for period in v1_periods]
+        == [
+            (1, "1 четверть", "2026-09-01", "2026-10-25", True),
+            (2, "2 четверть", "2026-11-05", "2026-12-28", False),
+        ]
+    )
+
+    teachers = (
+        await v2.both(
+            "DiaryService/ListTeachers", ListTeachersRequest(student_id=4021), token=token
+        )
+    ).message.teachers
+    v1_teachers = (
+        await v2.http.get("/api/v1/diary/students/4021/teachers", headers=_auth(token))
+    ).json()
+    assert (
+        [
+            (teacher.id, teacher.name, teacher.position, list(teacher.subjects))
+            for teacher in teachers
+        ]
+        == [tuple(teacher.values()) for teacher in v1_teachers]
+        == [(5, "Петрова Анна Ивановна", "учитель математики", ["Алгебра"])]
+    )
+
+    passages = (
+        await v2.both(
+            "DiaryService/ListTurnstileEvents",
+            ListTurnstileEventsRequest(student_id=4021),
+            token=token,
+        )
+    ).message.turnstile_events
+    v1_passages = (
+        await v2.http.get("/api/v1/diary/students/4021/attendance", headers=_auth(token))
+    ).json()
+    # Newest first, each on the diary's wall clock to the minute; a word the
+    # diary uses for neither way is «unknown», never «out».
+    assert [(event.at, event.direction) for event in passages] == [
+        ("2026-09-14T14:02", AttendanceDirection.OUT),
+        ("2026-09-14T08:15", AttendanceDirection.IN),
+        ("2026-09-13T08:01", AttendanceDirection.UNKNOWN),
+    ]
+    assert [event["direction"] for event in v1_passages] == ["out", "in", "unknown"]
+    assert [event["at"][:16] for event in v1_passages] == [event.at for event in passages]
+
+
+async def test_subjects_are_the_current_period_s_unless_one_is_named(
+    v2, v2_tokens, petersburg
+) -> None:
+    token = v2_tokens["diary"]
+    current = await v2.rest(
+        "DiaryService/ListDiarySubjects", ListDiarySubjectsRequest(student_id=4021), token=token
+    )
+    assert [(s.id, s.name) for s in current.message.subjects] == [(12, "Алгебра")]
+    assert petersburg.query(SUBJECTS)["p_periods[]"] == "1"
+    petersburg.seen.clear()
+    named = await v2.connect(
+        "DiaryService/ListDiarySubjects",
+        ListDiarySubjectsRequest(student_id=4021, period_id=2),
+        token=token,
+    )
+    assert [s.name for s in named.message.subjects] == ["Алгебра"]
+    assert petersburg.query(SUBJECTS)["p_periods[]"] == "2"
+    assert _asked(petersburg, PERIODS) == 0
+
+
+async def test_an_id_this_diary_does_not_list_reaches_nothing(v2, v2_tokens, petersburg) -> None:
+    """Another family's child's id is no different from nobody's: v1's 404 in
+    v1's words, asked of the session's own diary on every call, and nothing of
+    that child is asked for."""
+    token = v2_tokens["diary"]
+    for name, request in READS.items():
+        refused = await v2.both(name, request(student_id=999), token=token)
+        assert (refused.status, refused.code, refused.reason, refused.metadata, refused.error) == (
+            404,
+            "NOT_FOUND",
+            "RESOURCE_NOT_FOUND",
+            {"resource": "student"},
+            "Unknown student",
+        ), name
+    v1 = await v2.http.get("/api/v1/diary/students/999/periods", headers=_auth(token))
+    assert (v1.status_code, v1.json()["detail"]) == (404, "Unknown student")
+    assert {request.url.path for request in petersburg.seen} == {CHILDREN}
+
+
+async def test_a_session_of_a_provider_this_deployment_does_not_know_is_the_gate_s_to_refuse(
+    v2, session, diary_offline
+) -> None:
+    """#389, over v2: a session a later release opened with a diary this one
+    does not know is refused as an unknown token, before any diary is asked,
+    and left for the release that can read it."""
+    session.add(
+        DiarySession(
+            token_hash=hash_token("third-diary"),
+            upstream_token=seal("third-diary-cookie"),
+            login="parent",
+            provider="dnevnik-ru",
+        )
+    )
+    await session.commit()
+    refused = await v2.both("DiaryService/ListStudents", token="third-diary")
+    assert (refused.status, refused.reason, refused.error) == (
+        401,
+        "DIARY_TOKEN_INVALID",
+        "Diary session is not valid",
+    )
+    assert diary_offline == []
+    async with SessionLocal() as fresh:
+        assert (await fresh.scalar(select(DiarySession))).expired_at is None
+
+
+@pytest.mark.parametrize(
+    ("name", "feature"),
+    [
+        ("DiaryService/ListDiarySubjects", "DIARY_FEATURE_SUBJECTS"),
+        ("DiaryService/ListTeachers", "DIARY_FEATURE_TEACHERS"),
+        ("DiaryService/ListTurnstileEvents", "DIARY_FEATURE_TURNSTILE"),
+    ],
+)
+async def test_a_netschool_session_is_refused_what_its_diary_never_has_before_asking_it(
+    v2, session, diary_offline, name, feature
+) -> None:
+    """Ruling 104: «Сетевой город» never implemented these, and v1 answered
+    each with an empty list a client could not tell from an empty diary. The
+    refusal comes before the diary is asked for the pupils, or anything."""
+    token = await _netschool_session(session)
+    refused = await v2.both(name, READS[name](student_id=11), token=token)
+    assert (refused.status, refused.code, refused.reason, refused.metadata, refused.error) == (
+        501,
+        "UNIMPLEMENTED",
+        "FEATURE_UNSUPPORTED",
+        {"feature": feature},
+        NOT_IN_THIS_DIARY,
+    )
+    assert diary_offline == []
+
+
+async def test_a_session_the_diary_ended_is_reauth_and_stays_ended(
+    v2, v2_tokens, petersburg, session
+) -> None:
+    """«Sign in again», and the row stays expired though the call is refused
+    (decision 4): the next call, on either transport, is the gate's to refuse."""
+    petersburg.routes[CHILDREN] = lambda request: httpx.Response(401, json={})
+    token = v2_tokens["diary"]
+    ended = await v2.rest("DiaryService/ListStudents", token=token)
+    assert (ended.status, ended.code, ended.reason, ended.error) == (
+        401,
+        "UNAUTHENTICATED",
+        "DIARY_REAUTH",
+        "Сессия дневника истекла — войдите заново",
+    )
+    async with SessionLocal() as fresh:
+        row = await fresh.scalar(select(DiarySession))
+        assert row.expired_at is not None
+    again = await v2.connect("DiaryService/ListStudents", token=token)
+    assert (again.reason, again.error) == ("DIARY_TOKEN_INVALID", "Diary session is not valid")
+    assert _asked(petersburg, CHILDREN) == 1
+
+
+async def test_a_credential_the_diary_rotated_is_kept_even_when_the_read_is_refused(
+    v2, v2_tokens, petersburg
+) -> None:
+    """Decision 4: the answer that could not be read carried a new session,
+    and replaying the old one next call would sign the family out."""
+
+    def rotated(request: httpx.Request) -> httpx.Response:
+        answer = httpx.Response(200, json={"unexpected": True})
+        answer.headers["set-cookie"] = "X-JWT-Token=a.rotated.token; Path=/"
+        return answer
+
+    petersburg.routes[CHILDREN] = rotated
+    refused = await v2.rest("DiaryService/ListStudents", token=v2_tokens["diary"])
+    assert (refused.status, refused.reason) == (503, "DIARY_UPSTREAM_UNREADABLE")
+    async with SessionLocal() as fresh:
+        row = await fresh.scalar(select(DiarySession))
+    assert diary_service.upstream_of(row) == "a.rotated.token"
+    assert row.expired_at is None
+
+
+async def test_the_reads_write_nothing_but_the_session_s_last_use(
+    v2, v2_tokens, petersburg, statement_writes, unexpected_writes
+) -> None:
+    token = v2_tokens["diary"]
+    requests: dict[str, Any] = {"DiaryService/ListStudents": None} | {
+        name: request(student_id=4021) for name, request in READS.items()
+    }
+    with statement_writes() as seen:
+        for name, request in requests.items():
+            answer = await v2.both(name, request, token=token)
+            assert answer.status == 200, name
+    assert seen, "the session's last use is written once in fifteen minutes"
+    assert unexpected_writes(seen) == []
+
+
+async def test_capabilities_name_each_provider_s_ways_in_and_data_from_its_row(v2) -> None:
+    """Decision 12: what sub-project 5 waits for before it moves the diary. A
+    feature a provider never implemented is not listed (Ruling 104)."""
+    answer = await v2.both("DiaryService/GetDiaryCapabilities")
+    providers = {p.provider: p for p in answer.message.capabilities.providers}
+    assert list(providers["petersburg"].sign_in_methods) == [SignInMethod.PASSWORD]
+    assert list(providers["netschool"].sign_in_methods) == [SignInMethod.PASSWORD]
+    assert list(providers["petersburg"].features) == [
+        DiaryFeature.SCHEDULE,
+        DiaryFeature.HOMEWORK,
+        DiaryFeature.MARKS,
+        DiaryFeature.PERIODS,
+        DiaryFeature.SUBJECTS,
+        DiaryFeature.TEACHERS,
+        DiaryFeature.TURNSTILE,
+    ]
+    assert list(providers["netschool"].features) == [
+        DiaryFeature.SCHEDULE,
+        DiaryFeature.HOMEWORK,
+        DiaryFeature.MARKS,
+        DiaryFeature.PERIODS,
+    ]
+    # In JSON, a feature is its value's name, which a client decodes leniently.
+    assert '"features":["DIARY_FEATURE_SCHEDULE",' in answer.body.decode()
+
+
+async def test_with_the_diary_off_no_provider_offers_a_way_in_or_any_data(v2, monkeypatch) -> None:
+    """Ruling 105: as before 3b-7, with ``enabled`` false; the regions stay
+    v1's answer either way."""
+    monkeypatch.setattr(get_settings(), "diary_secret", "", raising=False)
+    answer = await v2.both("DiaryService/GetDiaryCapabilities")
+    capabilities = answer.message.capabilities
+    v1 = (await v2.http.get("/api/v1/diary/capabilities")).json()
+    assert capabilities.enabled is v1["enabled"] is False
+    assert all(not p.sign_in_methods and not p.features for p in capabilities.providers)
+    providers = {p.provider: list(p.regions) for p in capabilities.providers}
+    assert providers["netschool"] == v1["providers"]["netschool"]["regions"]
+```
+  Then add the offline diary to `server/tests/conftest.py`, after the `with_token` fixture (Ruling 118):
+  Replace:
+```python
+    return _with_token
+```
+  with:
+```python
+    return _with_token
+
+
+@pytest.fixture
+def diary_offline(monkeypatch) -> list[httpx.Request]:
+    """Both diaries' pooled clients, dropping every request as a connection
+    that failed, and recording it.
+
+    A v2 call that reaches a provider with no upstream of its test's own meets
+    ``UpstreamUnavailable`` here, never the real diary. The gate test and the
+    no-echo sweep call every served method with ``v2_tokens``' diary session,
+    and from 3b-7 a diary read asks the diary for the session's pupils.
+    """
+    from app.providers.netschool import client as nsclient
+    from app.providers.petersburg import client as pbclient
+
+    asked: list[httpx.Request] = []
+
+    def drop(request: httpx.Request) -> httpx.Response:
+        asked.append(request)
+        raise httpx.ConnectError("offline", request=request)
+
+    async def petersburg() -> httpx.AsyncClient:
+        return httpx.AsyncClient(base_url=pbclient.BASE_URL, transport=httpx.MockTransport(drop))
+
+    async def netschool() -> httpx.AsyncClient:
+        return httpx.AsyncClient(transport=httpx.MockTransport(drop))
+
+    monkeypatch.setattr(pbclient, "shared_client", petersburg)
+    monkeypatch.setattr(nsclient, "shared_client", netschool)
+    return asked
+```
+  In `server/tests/test_v2_reads.py`, the gate test takes it, and the capabilities' check says what the table now declares:
+  1. Replace:
+```python
+@pytest.mark.parametrize("key", _served())
+async def test_the_gate_stands_in_front_of_every_served_method(v2, v2_tokens, key) -> None:
+    method = METHODS[key]
+```
+     with:
+```python
+@pytest.mark.parametrize("key", _served())
+async def test_the_gate_stands_in_front_of_every_served_method(
+    v2, v2_tokens, diary_offline, key
+) -> None:
+    method = METHODS[key]
+```
+  2. Replace:
+```python
+    assert list(providers["petersburg"].regions) == []
+    assert all(not p.sign_in_methods and not p.features for p in capabilities.providers)
+    assert answer.headers["cache-control"] == "private, no-store"
+```
+     with:
+```python
+    assert list(providers["petersburg"].regions) == []
+    # What v1 did not say, each provider's row does (3b-7): held in
+    # test_v2_diary_reads.py, against the table.
+    assert all(p.sign_in_methods and p.features for p in capabilities.providers)
+    assert answer.headers["cache-control"] == "private, no-store"
+```
+  In `server/tests/test_v2_no_echo.py`, the sweep takes it:
+  Replace:
+```python
+async def test_no_refusal_repeats_what_was_sent(
+    v2, v2_tokens, monkeypatch, served_settings, key
+) -> None:
+```
+  with:
+```python
+async def test_no_refusal_repeats_what_was_sent(
+    v2, v2_tokens, monkeypatch, served_settings, diary_offline, key
+) -> None:
+```
+  And in `server/tests/test_rpc_errors.py`, 3b-7 leaves `STAGES` with its last reason, and the two new rows name their tests:
+  1. Replace:
+```python
+    NoStudents,
+    UnexpectedResponse,
+```
+     with:
+```python
+    NoStudents,
+    SessionExpired,
+    UnexpectedResponse,
+```
+  2. Replace:
+```python
+#: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
+STAGES = {"3b-7", "3b-8"}
+
+#: The reasons no served method produces yet, and the stage that brings each.
+#: A reason leaves this table in the commit whose handler raises it.
+LATER = {
+    "DIARY_REAUTH": "3b-7",
+    "CORRECTIONS_UNAVAILABLE": "3b-8",
+```
+     with:
+```python
+#: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
+STAGES = {"3b-8"}
+
+#: The reasons no served method produces yet, and the stage that brings each.
+#: A reason leaves this table in the commit whose handler raises it.
+LATER = {
+    "CORRECTIONS_UNAVAILABLE": "3b-8",
+```
+  3. Replace:
+```python
+        "test_a_failure_no_row_names_is_unreadable_and_counted",
+    ),
+```
+     with:
+```python
+        "test_a_failure_no_row_names_is_unreadable_and_counted",
+    ),
+    SessionExpired: (
+        "test_v2_diary_reads.py",
+        "test_a_session_the_diary_ended_is_reauth_and_stays_ended",
+    ),
+    diary_service.UnknownStudent: (
+        "test_v2_diary_reads.py",
+        "test_an_id_this_diary_does_not_list_reaches_nothing",
+    ),
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_diary_reads.py tests/test_rpc_errors.py tests/test_v2_reads.py
+```
+Expected: a collection error, `ImportError: cannot import name 'NOT_IN_THIS_DIARY' from 'app.rpc.diary'`, which interrupts the run before the other two files are asked anything; run those two alone and they give `3 failed, 91 passed`: `test_rpc_errors.py`'s `test_every_reason_is_produced_or_waits_for_a_later_stage` on `DIARY_REAUTH`, which no row produces yet and `LATER` no longer awaits, and `test_every_row_of_the_table_names_the_test_that_reads_it_back` on `SessionExpired` and `UnknownStudent`, rows it names that the table has not yet; and `test_v2_reads.py`'s `test_diary_capabilities_are_v1_s_in_v2_s_shape` on the new check, every provider offering a way in and its data.
+
+- [ ] **Step 2: The table's rows.** In `server/app/rpc/errors.py`:
+  1. Replace:
+```python
+    NoStudents,
+    UnexpectedResponse,
+```
+     with:
+```python
+    NoStudents,
+    SessionExpired,
+    UnexpectedResponse,
+```
+  2. Replace:
+```python
+def _diary_unavailable(error: UpstreamUnavailable) -> Refusal:
+    upstream = "address-refused" if isinstance(error, AddressRefused) else "upstream"
+    return Refusal(ErrorReason.DIARY_UNAVAILABLE, type(error).message, upstream=upstream)
+
+
+def _diary_unreadable(error: DiaryError) -> Refusal:
+    return Refusal(ErrorReason.DIARY_UPSTREAM_UNREADABLE, type(error).message)
+```
+     with:
+```python
+def _diary_reauth(_error: SessionExpired) -> Refusal:
+    # The diary ended the session: sign in to it again. The row is expired
+    # already, and stays so whatever the call does (services/diary._expire).
+    return Refusal(ErrorReason.DIARY_REAUTH, SessionExpired.message)
+
+
+def _diary_unavailable(error: UpstreamUnavailable) -> Refusal:
+    upstream = "address-refused" if isinstance(error, AddressRefused) else "upstream"
+    return Refusal(ErrorReason.DIARY_UNAVAILABLE, type(error).message, upstream=upstream)
+
+
+def _diary_unreadable(error: DiaryError) -> Refusal:
+    return Refusal(ErrorReason.DIARY_UPSTREAM_UNREADABLE, type(error).message)
+
+
+def _unknown_student(_error: diary_service.UnknownStudent) -> Refusal:
+    # An id of another family's child is no different from nobody's.
+    return Refusal(
+        ErrorReason.RESOURCE_NOT_FOUND, wording.UNKNOWN_STUDENT_DETAIL, resource="student"
+    )
+```
+  3. Replace:
+```python
+    NoStudents: _diary_no_students,
+    UpstreamUnavailable: _diary_unavailable,
+    UnexpectedResponse: _diary_unreadable,
+    DiaryError: _diary_unreadable,
+}
+```
+     with:
+```python
+    NoStudents: _diary_no_students,
+    SessionExpired: _diary_reauth,
+    UpstreamUnavailable: _diary_unavailable,
+    UnexpectedResponse: _diary_unreadable,
+    DiaryError: _diary_unreadable,
+    diary_service.UnknownStudent: _unknown_student,
+}
+```
+
+- [ ] **Step 3: The capabilities from the table, and the five reads.** In `server/app/rpc/diary.py`:
+  1. Replace:
+```python
+3a serves ``GetDiaryCapabilities``. 3b-7 serves the sessions: a session the
+phone opened with the diary itself is kept by ``CreateDiarySession``, through
+``services/diary.register`` — v1's ``POST /diary/session``'s rules, order and
+counting, on the same budget — and signed out by ``DeleteDiarySession``, v1's
+``/logout``. v1's ``POST /diary/login``, a password through this server, has
+no twin here (``docs/api.md``, «Not in v2, on purpose»). The corrections are
+3b-8's (``docs/specs/2026-10-05-server-v2-3b-plan.md``).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from protobuf import Message
+
+from app.contract.lessons.v2.diary_pb import (
+    CreateDiarySessionRequest,
+    CreateDiarySessionResponse,
+    DeleteDiarySessionRequest,
+    DeleteDiarySessionResponse,
+    DiaryCapabilities,
+    DiarySession,
+    DiaryStudent,
+    GetDiaryCapabilitiesRequest,
+    GetDiaryCapabilitiesResponse,
+    ProviderCapabilities,
+)
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.crypto import diary_enabled
+from app.models import DiarySession as DiarySessionRow
+from app.providers.diary.models import Student
+from app.providers.diary.registry import KEYS, NETSCHOOL
+from app.rpc.errors import Refusal, validate
+```
+     with:
+```python
+3a serves ``GetDiaryCapabilities``, which 3b-7 fills from the registry's
+table: each provider's ways in and the data it has (decision 12). 3b-7 serves
+the sessions: a session the phone opened with the diary itself is kept by
+``CreateDiarySession``, through ``services/diary.register`` — v1's
+``POST /diary/session``'s rules, order and counting, on the same budget — and
+signed out by ``DeleteDiarySession``, v1's ``/logout``. And the reads of one
+pupil, each through ``services/diary``'s ``DiaryService`` as v1's routes read:
+the pupil resolved from the session's own diary on every call, so an id of
+another family's child reaches nothing, and a feature the session's provider
+does not declare refused before the diary is asked anything. v1's
+``POST /diary/login``, a password through this server, has no twin here
+(``docs/api.md``, «Not in v2, on purpose»). The corrections are 3b-8's
+(``docs/specs/2026-10-05-server-v2-3b-plan.md``).
+"""
+
+from __future__ import annotations
+
+from datetime import date as Date
+from typing import TYPE_CHECKING, Any
+
+from protobuf import Message
+
+from app.contract.lessons.v2.diary_pb import (
+    AttendanceDirection,
+    CreateDiarySessionRequest,
+    CreateDiarySessionResponse,
+    DeleteDiarySessionRequest,
+    DeleteDiarySessionResponse,
+    DiaryAttendance,
+    DiaryCapabilities,
+    DiaryFeature,
+    DiaryPeriod,
+    DiarySession,
+    DiaryStudent,
+    DiarySubject,
+    DiaryTeacher,
+    GetDiaryCapabilitiesRequest,
+    GetDiaryCapabilitiesResponse,
+    ListDiarySubjectsRequest,
+    ListDiarySubjectsResponse,
+    ListPeriodsRequest,
+    ListPeriodsResponse,
+    ListStudentsRequest,
+    ListStudentsResponse,
+    ListTeachersRequest,
+    ListTeachersResponse,
+    ListTurnstileEventsRequest,
+    ListTurnstileEventsResponse,
+    ProviderCapabilities,
+    SignInMethod,
+)
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.crypto import diary_enabled
+from app.models import DiarySession as DiarySessionRow
+from app.providers.diary.models import AcademicPeriod, Student
+from app.providers.diary.registry import PETERSBURG, TABLE, Feature, row_for
+from app.rpc import values
+from app.rpc.errors import Refusal, validate
+```
+  2. Replace:
+```python
+
+async def get_diary_capabilities(
+    call: Call, request: GetDiaryCapabilitiesRequest
+) -> GetDiaryCapabilitiesResponse:
+    """What this server's diary can do, before the phone takes a password.
+
+    The same answer v1's ``/diary/capabilities`` gives, in v2's shape
+    (decision 12): whether the diary runs here at all, every provider the
+    registry knows, and for «Сетевой город» the allow-list's regions that take
+    a password. ``sign_in_methods`` and ``features`` stay empty, because v1's
+    answer has neither and what each provider declares is 3b's registry table
+    to say, from what its connection really implements. Anonymous and
+    database-free, as v1's: the gate opens a scope, and nothing asks it for a
+    query.
+    """
+    from app.providers.netschool import regions
+
+    listed = [region.key for region in regions.listed()]
+    return GetDiaryCapabilitiesResponse(
+        capabilities=DiaryCapabilities(
+            enabled=diary_enabled(),
+            providers=[
+                ProviderCapabilities(provider=key, regions=listed if key == NETSCHOOL else [])
+                for key in KEYS
+            ],
+```
+     with:
+```python
+#: A method whose feature the session's diary does not have. v2's own
+#: sentence, English like the gate's: v1 answered such a read with an empty
+#: list, which a client could not tell from an empty diary.
+NOT_IN_THIS_DIARY = "this diary does not offer this"
+
+#: A turnstile's direction, as the provider's model spells it. A word the
+#: model does not know cannot arrive (the mapper reads it as «unknown»), and is
+#: never drawn as the child leaving the building.
+_DIRECTIONS = {
+    "in": AttendanceDirection.IN,
+    "out": AttendanceDirection.OUT,
+    "unknown": AttendanceDirection.UNKNOWN,
+}
+
+
+async def get_diary_capabilities(
+    call: Call, request: GetDiaryCapabilitiesRequest
+) -> GetDiaryCapabilitiesResponse:
+    """What this server's diary can do, before the phone takes a password.
+
+    v1's ``/diary/capabilities`` in v2's shape, and what v1 did not say: for
+    every provider of the registry's table, the allow-list's regions that take
+    a password, the ways in a phone may draw a form for, and the data the
+    provider has, each read from its row (decision 12). With the diary off a
+    provider offers no way in and no data, though its regions are listed as
+    v1 lists them (the 3b plan, Ruling 105). Anonymous and database-free, as
+    v1's: the gate opens a scope, and nothing asks it for a query.
+    """
+    enabled = diary_enabled()
+    return GetDiaryCapabilitiesResponse(
+        capabilities=DiaryCapabilities(
+            enabled=enabled,
+            providers=[
+                ProviderCapabilities(
+                    provider=row.key,
+                    regions=row.listed_regions(),
+                    sign_in_methods=[SignInMethod[way.name] for way in row.sign_in]
+                    if enabled
+                    else [],
+                    features=sorted(
+                        (DiaryFeature[feature.name] for feature in row.features),
+                        key=lambda feature: feature.value,
+                    )
+                    if enabled
+                    else [],
+                )
+                for row in TABLE
+            ],
+```
+  3. Replace:
+```python
+    return DeleteDiarySessionResponse()
+```
+     with:
+```python
+    return DeleteDiarySessionResponse()
+
+
+# ---- the reads -----------------------------------------------------------
+
+
+def _service(call: Call) -> diary_service.DiaryService:
+    return diary_service.DiaryService(call.session, _row(call))
+
+
+def _feature(call: Call, feature: Feature) -> None:
+    """``FEATURE_UNSUPPORTED``, naming the ``DiaryFeature``, when the session's
+    provider does not declare ``feature``: asked before the diary is asked
+    anything, so a provider that never had it is not asked for it."""
+    row = row_for(_row(call).provider or PETERSBURG)
+    if row is None or feature not in row.features:
+        raise Refusal(
+            ErrorReason.FEATURE_UNSUPPORTED,
+            NOT_IN_THIS_DIARY,
+            feature=values.proto_name(DiaryFeature[feature.name]),
+        )
+
+
+def _day(day: Date | None) -> str | None:
+    return values.date_string(day) if day is not None else None
+
+
+def _period(period: AcademicPeriod) -> DiaryPeriod:
+    return DiaryPeriod(
+        id=period.id,
+        name=period.name,
+        starts_on=_day(period.starts_on),
+        ends_on=_day(period.ends_on),
+        is_current=period.is_current,
+    )
+
+
+async def list_students(call: Call, request: ListStudentsRequest) -> ListStudentsResponse:
+    """Every pupil this account may see, as v1's ``/students``. Writes nothing
+    but a credential the diary rotated, and when the session was last used."""
+    found = await _service(call).students()
+    return ListStudentsResponse(students=[_student(student) for student in found])
+
+
+async def list_periods(call: Call, request: ListPeriodsRequest) -> ListPeriodsResponse:
+    """A pupil's quarters or terms, as v1's ``/periods``: none for a pupil the
+    diary files under no class."""
+    _feature(call, Feature.PERIODS)
+    svc = _service(call)
+    student = await svc.student(request.student_id)
+    found = await svc.periods_of(student)
+    return ListPeriodsResponse(periods=[_period(period) for period in found])
+
+
+async def list_diary_subjects(
+    call: Call, request: ListDiarySubjectsRequest
+) -> ListDiarySubjectsResponse:
+    """The subjects of a period, the current one when none is named, as v1's
+    ``/subjects``: none when the pupil has no class or no period is current."""
+    _feature(call, Feature.SUBJECTS)
+    svc = _service(call)
+    student = await svc.student(request.student_id)
+    period = request.period_id if request.has_field("period_id") else None
+    found = await svc.subjects_of(student, period)
+    return ListDiarySubjectsResponse(
+        subjects=[DiarySubject(id=subject.id, name=subject.name) for subject in found]
+    )
+
+
+async def list_teachers(call: Call, request: ListTeachersRequest) -> ListTeachersResponse:
+    """A pupil's teachers, as v1's ``/teachers``."""
+    _feature(call, Feature.TEACHERS)
+    svc = _service(call)
+    student = await svc.student(request.student_id)
+    found = await svc.teachers(student.education_id)
+    return ListTeachersResponse(
+        teachers=[
+            DiaryTeacher(
+                id=teacher.id,
+                name=teacher.name,
+                position=teacher.position,
+                subjects=list(teacher.subjects),
+            )
+            for teacher in found
+        ]
+    )
+
+
+async def list_turnstile_events(
+    call: Call, request: ListTurnstileEventsRequest
+) -> ListTurnstileEventsResponse:
+    """A pupil's turnstile entries and exits, newest first, as v1's
+    ``/attendance``: each at the diary's own wall time, to the minute."""
+    _feature(call, Feature.TURNSTILE)
+    svc = _service(call)
+    student = await svc.student(request.student_id)
+    found = await svc.attendance(student.education_id)
+    return ListTurnstileEventsResponse(
+        turnstile_events=[
+            DiaryAttendance(
+                at=values.wall_moment(event.at),
+                direction=_DIRECTIONS.get(event.direction, AttendanceDirection.UNKNOWN),
+            )
+            for event in found
+        ]
+    )
+```
+
+- [ ] **Step 4: Serve them.** In `server/app/rpc/handlers.py`'s `HANDLERS`:
+  Replace:
+```python
+    "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+    "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
+```
+  with:
+```python
+    "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+    "lessons.v2.DiaryService/ListDiarySubjects": diary.list_diary_subjects,
+    "lessons.v2.DiaryService/ListPeriods": diary.list_periods,
+    "lessons.v2.DiaryService/ListStudents": diary.list_students,
+    "lessons.v2.DiaryService/ListTeachers": diary.list_teachers,
+    "lessons.v2.DiaryService/ListTurnstileEvents": diary.list_turnstile_events,
+    "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
+```
+
+- [ ] **Step 5: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_diary_reads.py tests/test_v2_diary_sessions.py tests/test_rpc_errors.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rpc_mount.py tests/test_rpc_call.py tests/test_rpc_gate.py tests/test_rest.py tests/test_contract.py tests/test_service_layering.py tests/test_diary_api.py
+```
+Expected: all pass, 378 tests.
+- `test_v2_diary_reads.py` has 13; `test_rpc_errors.py` holds `STAGES` at `{"3b-8"}`, `LATER` at `CORRECTIONS_UNAVAILABLE` alone, and the two new rows by their tests.
+- The gate test and the no-echo sweep each gain five cases, every one with the diary offline: the diary token gets past the gate and meets `DIARY_UNAVAILABLE`, the device token and no token `DIARY_TOKEN_INVALID`; the sweep's secret in a `student_id` or a `period_id` is the decoder's, and a valid request reaches the offline diary.
+- `test_rpc_mount.py` takes `ListStudents` out of `HANDLERS` with `monkeypatch` where it wants a method nobody serves, and `test_rpc_call.py` puts a handler of its own in its place, so both hold now that it is served.
+
+`HANDLERS` now holds eight of `DiaryService`'s methods, and v2 answers sixty-eight, beside `WatchClass`'s refusal.
+
+- [ ] **Step 6: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`.
+
+- [ ] **Step 7: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b7-t4.txt`:
+```text
+Serve the diary's pupils, periods, subjects, teachers and turnstile over v2
+
+ListStudents, ListPeriods, ListDiarySubjects, ListTeachers and
+ListTurnstileEvents answer what v1's reads answer, in v2's shape, through
+services/diary: the pupil is resolved from the session's own diary on
+every call, so another family's child's id is RESOURCE_NOT_FOUND, and a
+read whose feature the session's provider does not declare is
+FEATURE_UNSUPPORTED before the diary is asked anything, where v1
+answered «Сетевой город»'s subjects, teachers and turnstile with an
+empty list. A session the diary ends is DIARY_REAUTH and stays ended; a
+credential it rotates is kept even by a read that is refused.
+
+GetDiaryCapabilities fills sign_in_methods and features from the
+registry's table, which sub-project 5 waits for before it moves the
+diary; with the diary off, no provider offers a way in or any data.
+
+DIARY_REAUTH leaves LATER, and with it 3b-7 leaves STAGES. The gate test
+and the no-echo sweep call every served method with a diary session, so
+conftest's diary_offline drops whatever either provider would send:
+none of them reaches a real diary.
+
+Not covered: «Сетевой город»'s periods against a live server; every test
+drives a fake upstream or none.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/rpc/diary.py server/app/rpc/errors.py server/app/rpc/handlers.py server/tests/test_v2_diary_reads.py server/tests/conftest.py server/tests/test_v2_reads.py server/tests/test_v2_no_echo.py server/tests/test_rpc_errors.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b7-t4.txt
+```
+
+---
+
+### 3b-7 Task 5: The reads of a window, with the corrections laid over, and the batch's one full run
+
+Decisions 10 and 14; Rulings 112, 113, 114 and 123.
+
+**Files:**
+- Create: `server/tests/test_v2_diary_days.py`
+- Modify: `server/app/rpc/dates.py`, `server/app/rpc/diary.py`, `server/app/rpc/handlers.py`, `proto/lessons/v2/diary.proto` (a comment) and `server/app/contract/**` (regenerated)
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b7.sh`
+
+**Interfaces:**
+- Consumes: Task 2's `window`, `DiaryService.child`, `schedule_of`, `homework_of`, `student` and `marks`; `diary_overrides.Edit`, `OverlaidLesson` and `OverlaidHomework`; `values.time_string` and `date_string`; Task 4's `_feature`, `_service` and `_day`.
+- Produces:
+  - `rpc/dates.asked(request) -> tuple[Date | None, Date | None]`, which `dates.window` now calls;
+  - `rpc/diary.list_schedule_days`, `list_diary_homework` and `list_marks`; `_window(request, svc)`, `_time(moment)`, `_edits(edits)`, `_days(lessons)` and `_mark(mark)`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_diary_days.py`:
+```python
+"""The diary's reads of a window: ``ListScheduleDays``, ``ListDiaryHomework`` and ``ListMarks``.
+
+v1's ``/schedule``, ``/homework`` and ``/grades`` over v2, through
+``services/diary``: the window from the diary's own today, the pupil resolved
+from the session's own diary, and the family's corrections — the child's, in
+this diary — laid over the lessons and the homework and never over a mark
+(``docs/specs/2026-10-05-server-v2-design.md``, decisions 10 and 14). Each is
+read against v1's own answer for the same session. A window v2 refuses is
+refused before the diary is asked anything. Nothing here reaches a real
+diary: Petersburg's pooled client is replaced by one over
+``httpx.MockTransport``, and its clock is pinned to Monday 14 September 2026.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+from typing import Any
+
+import httpx
+import pytest
+
+from app.contract.lessons.v2.diary_pb import (
+    ListDiaryHomeworkRequest,
+    ListMarksRequest,
+    ListScheduleDaysRequest,
+    MarkKind,
+)
+from app.models import DiaryOverride
+from app.providers.petersburg import client as pbclient
+from app.providers.petersburg import provider as pbprovider
+from app.services import clock
+
+TODAY = date(2026, 9, 14)
+CHILDREN = "/api/journal/person/related-child-list"
+SCHEDULE = "/api/journal/schedule/list-by-education"
+LESSONS = "/api/journal/lesson/list-by-education"
+MARKS = "/api/journal/estimate/table"
+CHILD = {
+    "identity": {"id": 4021},
+    "firstname": "Пётр",
+    "surname": "Иванов",
+    "educations": [
+        {
+            "education_id": 90210,
+            "group_id": 771,
+            "group_name": "9А",
+            "institution_name": "ГБОУ СОШ № 1",
+        }
+    ],
+}
+#: The three windowed reads, each with its request and v1's path.
+READS = {
+    "DiaryService/ListScheduleDays": (ListScheduleDaysRequest, "schedule"),
+    "DiaryService/ListDiaryHomework": (ListDiaryHomeworkRequest, "homework"),
+    "DiaryService/ListMarks": (ListMarksRequest, "grades"),
+}
+
+
+@pytest.fixture
+def petersburg(monkeypatch, FakeUpstream):
+    """Petersburg's upstream on 14 September 2026: a Tuesday answered before a
+    Monday, homework, and three register entries."""
+    fake = FakeUpstream(
+        {
+            CHILDREN: {"items": [CHILD]},
+            SCHEDULE: {
+                "items": [
+                    {
+                        "date": "15.09.2026",
+                        "subject_name": "История",
+                        "number": 1,
+                        "time_from": "08:30",
+                        "time_to": "09:15",
+                    },
+                    {
+                        "date": "14.09.2026",
+                        "subject_name": "Алгебра",
+                        "number": 2,
+                        "office": "12",
+                        "teacher_name": "Петрова А. И.",
+                        "theme": "Квадратные уравнения",
+                    },
+                    {"date": "14.09.2026", "subject_name": "Физика", "number": 1},
+                ]
+            },
+            LESSONS: {
+                "items": [
+                    {"date": "15.09.2026", "subject_name": "Алгебра", "task": "№ 42"},
+                    {
+                        "identity": {"id": 77},
+                        "date": "16.09.2026",
+                        "subject_name": "Физика",
+                        "task": "§ 3",
+                    },
+                ]
+            },
+            MARKS: {
+                "items": [
+                    {
+                        "id": 1,
+                        "date": "10.09.2026",
+                        "subject_id": 12,
+                        "subject_name": "Алгебра",
+                        "estimate_value_name": "5",
+                        "estimate_type_code": "10000",
+                        "estimate_type_name": "Ответ на уроке",
+                    },
+                    {
+                        "id": 2,
+                        "date": "11.09.2026",
+                        "subject_id": 12,
+                        "subject_name": "Алгебра",
+                        "estimate_type_code": "30000",
+                    },
+                ]
+            },
+        }
+    )
+
+    async def shared() -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=pbclient.BASE_URL, transport=httpx.MockTransport(fake.handler)
+        )
+
+    monkeypatch.setattr(pbclient, "shared_client", shared)
+    monkeypatch.setattr(pbprovider, "today", lambda: TODAY)
+    return fake
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _sent(message: Any, *names: str) -> tuple[Any, ...]:
+    """The fields of ``message``, ``None`` for an ``optional`` one left unset,
+    which protobuf reads as its zero: v1 wrote it as ``null``."""
+    return tuple(getattr(message, name) if message.has_field(name) else None for name in names)
+
+
+async def _v1(v2, path: str, token: str, **query: str) -> Any:
+    answer = await v2.http.get(
+        f"/api/v1/diary/students/4021/{path}", params=query, headers=_auth(token)
+    )
+    assert answer.status_code == 200, answer.text
+    return answer.json()
+
+
+async def _correct(
+    session,
+    target: str,
+    field: str,
+    value: str,
+    *,
+    student_id: int = 4021,
+    scope: str = "CHILD:petersburg",
+) -> None:
+    session.add(
+        DiaryOverride(
+            login=scope,
+            student_id=student_id,
+            target=target,
+            field=field,
+            value=value,
+            original=None,
+        )
+    )
+    await session.commit()
+
+
+async def test_the_lessons_are_v1_s_day_by_day_with_the_corrections_laid_over(
+    v2, v2_tokens, session, petersburg
+) -> None:
+    token = v2_tokens["diary"]
+    await _correct(session, "lesson:2026-09-14:n2:Алгебра", "room", "301")
+    request = ListScheduleDaysRequest(
+        student_id=4021, start_date="2026-09-14", end_date="2026-09-20"
+    )
+    days = (await v2.both("DiaryService/ListScheduleDays", request, token=token)).message
+    v1 = await _v1(v2, "schedule", token, **{"from": "2026-09-14", "to": "2026-09-20"})
+    # One entry per day that has lessons, in date order, each day's lessons in
+    # the order the diary is read in: v1's list, grouped.
+    assert [
+        (day.date, [lesson.subject for lesson in day.lessons]) for day in days.schedule_days
+    ] == [
+        ("2026-09-14", ["Физика", "Алгебра"]),
+        ("2026-09-15", ["История"]),
+    ]
+    flat = [(day.date, lesson) for day in days.schedule_days for lesson in day.lessons]
+    for (day, lesson), expected in zip(flat, v1, strict=True):
+        fields = ("number", "subject", "room", "teacher", "topic", "homework")
+        assert (day, *_sent(lesson, *fields)) == (
+            expected["date"],
+            *(expected[field] for field in fields),
+        )
+        assert (lesson.target, lesson.ambiguous) == (expected["target"], expected["ambiguous"])
+        assert [(e.field, e.value, e.original, e.changed_upstream) for e in lesson.edits] == [
+            (e["field"], e["value"], e["original"], e["changed_upstream"])
+            for e in expected["edits"]
+        ]
+    algebra = days.schedule_days[0].lessons[1]
+    assert (algebra.room, [edit.original for edit in algebra.edits]) == ("301", ["12"])
+    history = days.schedule_days[1].lessons[0]
+    # Times are "HH:MM", where v1 wrote seconds.
+    assert (history.starts_at, history.ends_at) == ("08:30", "09:15")
+    assert v1[2]["starts_at"] == "08:30:00"
+
+
+async def test_homework_is_v1_s_with_its_corrections(v2, v2_tokens, session, petersburg) -> None:
+    token = v2_tokens["diary"]
+    await _correct(session, "hw:id:77", "text", "§ 3, задачи 1–5")
+    request = ListDiaryHomeworkRequest(student_id=4021)
+    homework = (
+        await v2.both("DiaryService/ListDiaryHomework", request, token=token)
+    ).message.homework
+    v1 = await _v1(v2, "homework", token)
+    assert (
+        [
+            (item.due_date, item.subject, item.text, item.target, item.has_field("id"))
+            for item in homework
+        ]
+        == [
+            (
+                item["due_date"],
+                item["subject"],
+                item["text"],
+                item["target"],
+                item["id"] is not None,
+            )
+            for item in v1
+        ]
+        == [
+            ("2026-09-15", "Алгебра", "№ 42", "hw:2026-09-15:Алгебра", False),
+            ("2026-09-16", "Физика", "§ 3, задачи 1–5", "hw:id:77", True),
+        ]
+    )
+    assert [(edit.field, edit.original) for edit in homework[1].edits] == [("text", "§ 3")]
+
+
+async def test_marks_are_v1_s_and_never_corrected(v2, v2_tokens, session, petersburg) -> None:
+    token = v2_tokens["diary"]
+    request = ListMarksRequest(student_id=4021, start_date="2026-09-07", end_date="2026-09-13")
+    marks = (await v2.both("DiaryService/ListMarks", request, token=token)).message.marks
+    v1 = await _v1(v2, "grades", token, **{"from": "2026-09-07", "to": "2026-09-13"})
+    fields = ("id", "subject_id", "subject", "date", "value", "reason", "comment")
+    assert [_sent(mark, *fields) for mark in marks] == [
+        tuple(mark[field] for field in fields) for mark in v1
+    ]
+    assert [(m.value, m.kind) for m in marks] == [("5", MarkKind.GRADE), ("Н", MarkKind.ABSENCE)]
+    assert [m["kind"] for m in v1] == ["grade", "absence"]
+    params = petersburg.query(MARKS)
+    assert (params["p_date_from"], params["p_date_to"]) == ("07.09.2026", "13.09.2026")
+
+
+async def test_the_window_is_the_diary_s_today_and_fourteen_days_on(
+    v2, v2_tokens, petersburg
+) -> None:
+    token = v2_tokens["diary"]
+    await v2.rest(
+        "DiaryService/ListScheduleDays", ListScheduleDaysRequest(student_id=4021), token=token
+    )
+    params = petersburg.query(SCHEDULE)
+    assert (params["p_datetime_from"], params["p_datetime_to"]) == ("14.09.2026", "28.09.2026")
+    petersburg.seen.clear()
+    await v2.rest(
+        "DiaryService/ListScheduleDays",
+        ListScheduleDaysRequest(student_id=4021, start_date="2026-10-01"),
+        token=token,
+    )
+    params = petersburg.query(SCHEDULE)
+    assert (params["p_datetime_from"], params["p_datetime_to"]) == ("01.10.2026", "15.10.2026")
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "field", "error"),
+    [
+        ("2026-09-20", "2026-09-01", "end_date", "end_date must not precede start_date"),
+        ("2026-01-01", "2026-12-31", "end_date", clock.WINDOW_TOO_WIDE),
+        ("9999-12-31", None, "start_date", clock.DATES_OUT_OF_BOUNDS),
+        ("2026-09-01", "1999-12-31", "end_date", clock.DATES_OUT_OF_BOUNDS),
+        ("14.09.2026", None, "start_date", None),
+    ],
+)
+async def test_a_window_v2_refuses_is_refused_on_its_field_before_the_diary_is_asked(
+    v2, v2_tokens, petersburg, start, end, field, error
+) -> None:
+    """Where v1 asked the diary for the pupil first and refused after, in its
+    own words for its own field names."""
+    token = v2_tokens["diary"]
+    for name, (request, _path) in READS.items():
+        sent = request(student_id=4021, start_date=start)
+        if end is not None:
+            sent.end_date = end
+        refused = await v2.both(name, sent, token=token)
+        assert (refused.status, refused.reason) == (400, "VALIDATION_FAILED"), name
+        assert [violation for violation, _ in refused.violations] == [field]
+        if error is not None:
+            assert refused.error == error
+    assert petersburg.seen == []
+
+
+async def test_an_id_this_diary_does_not_list_reaches_none_of_its_days(
+    v2, v2_tokens, petersburg
+) -> None:
+    """Another family's child's id, on the three reads of a window: refused
+    as nobody's, and nothing but the session's own pupils is asked for."""
+    for name, (request, path) in READS.items():
+        refused = await v2.both(name, request(student_id=999), token=v2_tokens["diary"])
+        assert (refused.status, refused.reason, refused.metadata) == (
+            404,
+            "RESOURCE_NOT_FOUND",
+            {"resource": "student"},
+        ), name
+        v1 = await v2.http.get(
+            f"/api/v1/diary/students/999/{path}", headers=_auth(v2_tokens["diary"])
+        )
+        assert (v1.status_code, v1.json()["detail"]) == (404, refused.error)
+    assert {request.url.path for request in petersburg.seen} == {CHILDREN}
+
+
+async def test_only_this_child_s_corrections_in_this_diary_are_laid_over(
+    v2, v2_tokens, session, petersburg
+) -> None:
+    """Corrections are filed under the child and the diary: another child's,
+    and the same id's on another diary's server, are nobody's business here."""
+    target = "lesson:2026-09-14:n2:Алгебра"
+    await _correct(session, target, "teacher", "чужой ребёнок", student_id=5)
+    await _correct(
+        session, target, "topic", "чужой дневник", scope="CHILD:netschool:region.zabedu.ru"
+    )
+    days = (
+        await v2.both(
+            "DiaryService/ListScheduleDays",
+            ListScheduleDaysRequest(
+                student_id=4021, start_date="2026-09-14", end_date="2026-09-14"
+            ),
+            token=v2_tokens["diary"],
+        )
+    ).message.schedule_days
+    algebra = days[0].lessons[1]
+    assert (algebra.teacher, algebra.topic, list(algebra.edits)) == (
+        "Петрова А. И.",
+        "Квадратные уравнения",
+        [],
+    )
+
+
+async def test_the_windowed_reads_write_nothing_but_the_session_s_last_use(
+    v2, v2_tokens, petersburg, statement_writes, unexpected_writes
+) -> None:
+    with statement_writes() as seen:
+        for name, (request, _path) in READS.items():
+            answer = await v2.both(name, request(student_id=4021), token=v2_tokens["diary"])
+            assert answer.status == 200, name
+    assert seen
+    assert unexpected_writes(seen) == []
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_diary_days.py
+```
+Expected: `12 failed`: every test of the file meets `501` (`UNIMPLEMENTED`), since nobody serves the three methods yet.
+
+- [ ] **Step 2: The dates a request names, apart from the class's window.** In `server/app/rpc/dates.py`:
+  1. Replace:
+```python
+Lists answer a window of the class's days — ``ListHomework`` and
+``ListEvents``, and from 3b-6 ``ListSubstitutions`` — and writes name a day.
+Written once here, so that no two methods read a date two ways: each is
+```
+     with:
+```python
+Lists answer a window of the class's days — ``ListHomework`` and
+``ListEvents``, and from 3b-6 ``ListSubstitutions`` — or of a pupil's diary —
+``ListScheduleDays``, ``ListDiaryHomework`` and ``ListMarks``, from 3b-7 —
+and writes name a day.
+Written once here, so that no two methods read a date two ways: each is
+```
+  2. Replace:
+```python
+def window(request: Message, today: Date) -> tuple[Date, Date]:
+    """The first and last day a list request covers, both included.
+
+    Its ``start_date`` and ``end_date`` are ``"YYYY-MM-DD"`` when set, as v1's
+    ``from`` and ``to`` were, and ``clock.window`` decides the rest: today and
+    three weeks on when unset, sixty-two days at most. A date that does not
+    parse is ``VALIDATION_FAILED`` on its field; a window ``clock`` refuses is
+    too, worded by the error table on the edge at fault.
+    """
+    sent = {
+        name: getattr(request, name) if request.has_field(name) else None
+        for name in ("start_date", "end_date")
+    }
+    form = validate(DateWindowIn, sent)
+    return clock.window(form.start_date, form.end_date, today)
+```
+     with:
+```python
+def asked(request: Message) -> tuple[Date | None, Date | None]:
+    """The ``start_date`` and ``end_date`` a list request names, ``None`` where
+    unset: ``"YYYY-MM-DD"``, parsed as v1's ``from`` and ``to`` were, or
+    ``VALIDATION_FAILED`` on the field that does not parse."""
+    sent = {
+        name: getattr(request, name) if request.has_field(name) else None
+        for name in ("start_date", "end_date")
+    }
+    form = validate(DateWindowIn, sent)
+    return form.start_date, form.end_date
+
+
+def window(request: Message, today: Date) -> tuple[Date, Date]:
+    """The first and last day a list of the class's days covers, both
+    included: what the request names (:func:`asked`), and ``clock.window``
+    decides the rest — today and three weeks on when unset, sixty-two days at
+    most. A window ``clock`` refuses is ``VALIDATION_FAILED``, worded by the
+    error table on the edge at fault. A diary's window is
+    ``services/diary.window``'s, from the diary's own today.
+    """
+    return clock.window(*asked(request), today)
+```
+
+- [ ] **Step 3: The three reads of a window.** In `server/app/rpc/diary.py`:
+  1. Replace:
+```python
+from datetime import date as Date
+from typing import TYPE_CHECKING, Any
+```
+     with:
+```python
+from datetime import date as Date
+from datetime import time as Time
+from typing import TYPE_CHECKING, Any
+```
+  2. Replace:
+```python
+    DiaryCapabilities,
+    DiaryFeature,
+    DiaryPeriod,
+    DiarySession,
+    DiaryStudent,
+    DiarySubject,
+    DiaryTeacher,
+    GetDiaryCapabilitiesRequest,
+    GetDiaryCapabilitiesResponse,
+    ListDiarySubjectsRequest,
+    ListDiarySubjectsResponse,
+    ListPeriodsRequest,
+    ListPeriodsResponse,
+    ListStudentsRequest,
+    ListStudentsResponse,
+    ListTeachersRequest,
+    ListTeachersResponse,
+    ListTurnstileEventsRequest,
+    ListTurnstileEventsResponse,
+    ProviderCapabilities,
+    SignInMethod,
+)
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.crypto import diary_enabled
+from app.models import DiarySession as DiarySessionRow
+from app.providers.diary.models import AcademicPeriod, Student
+from app.providers.diary.registry import PETERSBURG, TABLE, Feature, row_for
+from app.rpc import values
+from app.rpc.errors import Refusal, validate
+from app.schemas import NetSchoolSessionIn, PetersburgSessionIn
+from app.services import diary as diary_service
+```
+     with:
+```python
+    DiaryCapabilities,
+    DiaryEdit,
+    DiaryFeature,
+    DiaryHomework,
+    DiaryLesson,
+    DiaryMark,
+    DiaryPeriod,
+    DiaryScheduleDay,
+    DiarySession,
+    DiaryStudent,
+    DiarySubject,
+    DiaryTeacher,
+    GetDiaryCapabilitiesRequest,
+    GetDiaryCapabilitiesResponse,
+    ListDiaryHomeworkRequest,
+    ListDiaryHomeworkResponse,
+    ListDiarySubjectsRequest,
+    ListDiarySubjectsResponse,
+    ListMarksRequest,
+    ListMarksResponse,
+    ListPeriodsRequest,
+    ListPeriodsResponse,
+    ListScheduleDaysRequest,
+    ListScheduleDaysResponse,
+    ListStudentsRequest,
+    ListStudentsResponse,
+    ListTeachersRequest,
+    ListTeachersResponse,
+    ListTurnstileEventsRequest,
+    ListTurnstileEventsResponse,
+    MarkKind,
+    ProviderCapabilities,
+    SignInMethod,
+)
+from app.contract.lessons.v2.errors_pb import ErrorReason
+from app.crypto import diary_enabled
+from app.models import DiarySession as DiarySessionRow
+from app.providers.diary.models import AcademicPeriod, Mark, Student
+from app.providers.diary.registry import PETERSBURG, TABLE, Feature, row_for
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.schemas import NetSchoolSessionIn, PetersburgSessionIn
+from app.services import diary as diary_service
+from app.services import diary_overrides as overrides
+```
+  3. Replace:
+```python
+            for event in found
+        ]
+    )
+```
+     with:
+```python
+            for event in found
+        ]
+    )
+
+
+# ---- the reads of a window, with the family's corrections laid over -------
+
+
+def _window(request: Message, svc: diary_service.DiaryService) -> tuple[Date, Date]:
+    """The days a read covers, from the diary's own today: 14 on when unset,
+    62 at most, as v1's ``from`` and ``to``. Refused on ``start_date`` or
+    ``end_date`` before the diary is asked anything, where v1 asked for the
+    pupil first."""
+    return diary_service.window(*dates.asked(request), svc.today())
+
+
+def _time(moment: Time | None) -> str | None:
+    return values.time_string(moment) if moment is not None else None
+
+
+def _edits(edits: tuple[overrides.Edit, ...]) -> list[DiaryEdit]:
+    return [
+        DiaryEdit(
+            field=edit.field,
+            value=edit.value,
+            original=edit.original,
+            changed_upstream=edit.changed_upstream,
+        )
+        for edit in edits
+    ]
+
+
+def _days(lessons: list[overrides.OverlaidLesson]) -> list[DiaryScheduleDay]:
+    """The lessons day by day: a day without lessons is not listed, the days
+    come in date order, and each day's lessons in the order the diary is read
+    in, which for Petersburg is by number."""
+    by_day: dict[Date, list[DiaryLesson]] = {}
+    for overlaid in lessons:
+        lesson = overlaid.lesson
+        by_day.setdefault(lesson.date, []).append(
+            DiaryLesson(
+                number=lesson.number,
+                subject=lesson.subject,
+                starts_at=_time(lesson.starts_at),
+                ends_at=_time(lesson.ends_at),
+                room=lesson.room,
+                teacher=lesson.teacher,
+                homework=lesson.homework,
+                topic=lesson.topic,
+                target=overlaid.target,
+                edits=_edits(overlaid.edits),
+                ambiguous=overlaid.ambiguous,
+            )
+        )
+    return [
+        DiaryScheduleDay(date=values.date_string(day), lessons=by_day[day])
+        for day in sorted(by_day)
+    ]
+
+
+def _mark(mark: Mark) -> DiaryMark:
+    return DiaryMark(
+        id=mark.id,
+        subject_id=mark.subject_id,
+        subject=mark.subject_name,
+        date=_day(mark.date),
+        value=mark.value,
+        kind=MarkKind[mark.kind.name],
+        reason=mark.reason,
+        comment=mark.comment,
+    )
+
+
+async def list_schedule_days(
+    call: Call, request: ListScheduleDaysRequest
+) -> ListScheduleDaysResponse:
+    """A pupil's lessons day by day, with the family's corrections laid over
+    them, as v1's ``/schedule``."""
+    _feature(call, Feature.SCHEDULE)
+    svc = _service(call)
+    start, end = _window(request, svc)
+    student, scope = await svc.child(request.student_id)
+    lessons = await svc.schedule_of(student, scope, start, end)
+    return ListScheduleDaysResponse(schedule_days=_days(lessons))
+
+
+async def list_diary_homework(
+    call: Call, request: ListDiaryHomeworkRequest
+) -> ListDiaryHomeworkResponse:
+    """A pupil's homework by due date, with the family's corrections laid
+    over it, as v1's ``/homework``."""
+    _feature(call, Feature.HOMEWORK)
+    svc = _service(call)
+    start, end = _window(request, svc)
+    student, scope = await svc.child(request.student_id)
+    found = await svc.homework_of(student, scope, start, end)
+    return ListDiaryHomeworkResponse(
+        homework=[
+            DiaryHomework(
+                id=overlaid.item.id,
+                due_date=values.date_string(overlaid.item.due_date),
+                subject=overlaid.item.subject,
+                text=overlaid.item.text,
+                teacher=overlaid.item.teacher,
+                target=overlaid.target,
+                edits=_edits(overlaid.edits),
+                ambiguous=overlaid.ambiguous,
+            )
+            for overlaid in found
+        ]
+    )
+
+
+async def list_marks(call: Call, request: ListMarksRequest) -> ListMarksResponse:
+    """A pupil's marks, absences and lateness, as v1's ``/grades``: never
+    corrected."""
+    _feature(call, Feature.MARKS)
+    svc = _service(call)
+    start, end = _window(request, svc)
+    student = await svc.student(request.student_id)
+    found = await svc.marks(student.education_id, start, end)
+    return ListMarksResponse(marks=[_mark(mark) for mark in found])
+```
+
+- [ ] **Step 4: Serve them.** In `server/app/rpc/handlers.py`'s `HANDLERS`:
+  Replace:
+```python
+    "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+    "lessons.v2.DiaryService/ListDiarySubjects": diary.list_diary_subjects,
+    "lessons.v2.DiaryService/ListPeriods": diary.list_periods,
+    "lessons.v2.DiaryService/ListStudents": diary.list_students,
+```
+  with:
+```python
+    "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+    "lessons.v2.DiaryService/ListDiaryHomework": diary.list_diary_homework,
+    "lessons.v2.DiaryService/ListDiarySubjects": diary.list_diary_subjects,
+    "lessons.v2.DiaryService/ListMarks": diary.list_marks,
+    "lessons.v2.DiaryService/ListPeriods": diary.list_periods,
+    "lessons.v2.DiaryService/ListScheduleDays": diary.list_schedule_days,
+    "lessons.v2.DiaryService/ListStudents": diary.list_students,
+```
+
+- [ ] **Step 5: What `diary.proto` says of them** (Rulings 112, 113 and 114). In `proto/lessons/v2/diary.proto`, the comment on `ListScheduleDays`:
+  Replace:
+```protobuf
+  // A pupil's lessons, day by day, with the family's corrections laid over
+  // them. The range is the diary's today and 14 days on when unset, and
+  // spans 62 days at most. A student id this session's diary does not list
+  // is RESOURCE_NOT_FOUND, on every method below: an id from another family
+  // must reach nothing. DIARY_FEATURE_SCHEDULE.
+  rpc ListScheduleDays(ListScheduleDaysRequest) returns (ListScheduleDaysResponse) {
+```
+  with:
+```protobuf
+  // A pupil's lessons, day by day, with the family's corrections laid over
+  // them: a day without lessons is not listed, the days come in date order,
+  // and each day's lessons in the order the diary is read in. The range is
+  // the diary's today and 14 days on when unset, and spans 62 days at most;
+  // one it refuses is
+  // VALIDATION_FAILED on start_date or end_date before the diary is asked
+  // anything, here and on every method below that takes a range. A student
+  // id this session's diary does not list is RESOURCE_NOT_FOUND, on every
+  // method below: an id from another family must reach nothing. A method
+  // whose DIARY_FEATURE the session's provider does not declare answers
+  // FEATURE_UNSUPPORTED before the diary is asked anything.
+  // DIARY_FEATURE_SCHEDULE.
+  rpc ListScheduleDays(ListScheduleDaysRequest) returns (ListScheduleDaysResponse) {
+```
+
+  Then, from `$WT`:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe lint && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe generate && git status --short server/app/contract
+```
+  Expected: `buf lint` prints nothing; `buf generate` rewrites `server/app/contract/` whole, and `git status` names one file, `server/app/contract/lessons/v2/diary_connect.py`, whose four docstrings of `list_schedule_days` change. Then write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b7.sh`:
+```bash
+#!/bin/bash
+# buf breaking for 3b-7, from a file: the shell refuses `.git#ref` on a command line.
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 || exit 2
+git fetch origin main || exit 2
+/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe breaking --against ".git#ref=origin/main"
+echo "exit=$?"
+```
+  and run it:
+```bash
+bash C:/Users/lumen/.claude/jobs/c9e2d980/tmp/breaking3b7.sh
+```
+  Expected: `exit=0`; a comment breaks nothing.
+
+- [ ] **Step 6: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_diary_days.py tests/test_v2_diary_reads.py tests/test_v2_diary_sessions.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rpc_errors.py tests/test_rest.py tests/test_contract.py tests/test_contract_json.py tests/test_contract_mirror.py tests/test_v2_homework.py tests/test_v2_events.py tests/test_v2_substitutions.py tests/test_diary_api.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass, 430 tests.
+- `test_v2_diary_days.py` has 12, against v1's own answers for the same session.
+- The gate test and the no-echo sweep each gain three cases; the sweep's secret in `startDate` or `endDate` is refused on its field by the parse, never repeated, before the diary is asked.
+- `test_v2_homework.py`, `test_v2_events.py` and `test_v2_substitutions.py` hold `dates.window`, which now reads its dates through `asked`; `test_contract.py` reads the regenerated file's bindings as before, and `test_contract_mirror.py` holds the diary's messages level with v1's schemas, unchanged.
+
+`HANDLERS` now holds every method of `DiaryService` but the four corrections, which are 3b-8's, and v2 answers seventy-one methods, beside `WatchClass`'s refusal.
+
+- [ ] **Step 7: Gates, and the batch's one full run.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`. Then the controller runs the full suite once, alone — nothing else running, no Gradle, no second test process:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -n 4
+```
+Expected: `3089 passed`, and its time, which Task 6 writes down. If the count is not 3089, find the test file that moved before anything else.
+
+- [ ] **Step 8: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b7-t5.txt`:
+```text
+Serve the diary's lessons, homework and marks over v2, a window at a time
+
+ListScheduleDays, ListDiaryHomework and ListMarks read start_date and
+end_date as v1's /schedule, /homework and /grades read from and to: the
+diary's own today and fourteen days on when unset, sixty-two at most,
+through services/diary.window. A window v2 refuses is VALIDATION_FAILED
+on the field at fault before the diary is asked anything, where v1 asked
+for the pupil first. The family's corrections are laid over the lessons
+and the homework as v1 lays them, this child's in this diary and nobody
+else's, and never over a mark. ListScheduleDays lists each day that has
+lessons once, in date order; diary.proto says so, and only
+diary_connect.py's docstrings are regenerated. rpc/dates.asked is the
+parse dates.window already made, split out for the diary's own window.
+
+With these, v2 serves every method of DiaryService but the four
+corrections, which are 3b-8's: seventy-one methods.
+
+Not covered: «Сетевой город»'s week walk against a live server; every
+test drives Petersburg's fake upstream.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add proto/lessons/v2/diary.proto server/app/contract server/app/rpc/dates.py server/app/rpc/diary.py server/app/rpc/handlers.py server/tests/test_v2_diary_days.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b7-t5.txt
+```
+
+---
+
+### 3b-7 Task 6: The documents, the counts, the HANDOVER close-out, and production after the merge
+
+**Files:**
+- Modify: `docs/api.md`, `docs/README.md`, `README.md`, `docs/architecture.md`, `CLAUDE.md`, `.claude/agents/server-providers.md`, `CONTRIBUTING.md`, `.claude/skills/gates/SKILL.md`, `.claude/agents/server-tests.md`, `HANDOVER.md`, `docs/history.md`
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b7.py`. 3b-3's `counts3b2_3b3.py` and `scan_heads_3b3.py`, in the same folder, whose root is this worktree already, are used again as they are.
+
+**Interfaces:**
+- Consumes:
+  - Tasks 1 to 5, and the numbers of Task 5's full run;
+  - the documents as #388's merge leaves them: «sixty-one methods», the counts 3000 and 238, and `HANDOVER.md` with its two batch sections, #388's and #385's;
+  - what followed #388's merge, which the controller hands over at Step 8 for the slot `[AFTER-388]`;
+  - this pull request's number, `#PR`, which exists only once the controller opens it (Step 7), and #389 and #390.
+- Produces: documents that are true at the moment the pull request merges, and the post-merge read.
+
+The anchors below are `e88e1c8`'s, which #388 leaves as they are. If a line has moved, read it as it stands and apply the same change to it. #389 and #390 in the text below are written as the numbers the controller filed.
+
+- [ ] **Step 1: Red: the documents still describe 3b-6.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b7.py`:
+```python
+"""Which documents do not yet say what 3b-7 serves (3b-7, Task 6)."""
+
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
+    "C:/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230"
+)
+SAID = {
+    "docs/api.md": [
+        "seventy-one of its methods so far",
+        "**Served beside v1, seventy-one methods so far.**",
+        "`DiaryService` methods, a diary session's two and its eight reads (3b-7)",
+        "### The diary",
+        "on `CreateDevice` and `CreateDiarySession`",
+        "a\npassword refused for its length included",
+    ],
+    "docs/README.md": ["served beside v1, seventy-one methods so far"],
+    "README.md": [
+        "| v2 over REST and Connect | seventy-one methods served beside v1",
+        "a diary session and the reads of one pupil",
+    ],
+    "docs/architecture.md": [
+        "`registry.py` is the diary as data",
+        "diary's: a phone's session registered and counted",
+    ],
+    "CLAUDE.md": [
+        "`diary.py`'s `register`",
+        "as 3b-7 moved a diary session's opening and closing",
+        "`providers/diary/registry.py`'s\n  `TABLE`",
+        "its sessions' three and its unknown pupil",
+        "the diary's error family",
+    ],
+    ".claude/agents/server-providers.md": ["A diary is a row of `registry.TABLE`"],
+}
+STALE_IN = ["docs/api.md", "docs/README.md", "README.md", "docs/architecture.md", "CLAUDE.md"]
+STALE = re.compile(
+    r"sixty-one (?:of its )?methods|answers two questions in one place|"
+    r"A second diary is a value in `registry\.KEYS`"
+)
+
+problems = []
+for name, phrases in SAID.items():
+    text = (ROOT / name).read_bytes().decode("utf-8").replace("\r\n", "\n")
+    problems += [f"{name}: missing {phrase!r}" for phrase in phrases if phrase not in text]
+for name in STALE_IN + [".claude/agents/server-providers.md"]:
+    text = (ROOT / name).read_bytes().decode("utf-8").replace("\r\n", "\n")
+    problems += [f"{name}: still says {match.group(0)!r}" for match in STALE.finditer(text)]
+print("\n".join(problems) or "the documents say what 3b-7 serves")
+sys.exit(1 if problems else 0)
+```
+and run it:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b7.py
+```
+Expected: exit 1, with seventeen `missing` lines — the phrases of the six documents — and six `still says` lines: `docs/api.md` twice, `docs/README.md`, `README.md`, `docs/architecture.md` and `.claude/agents/server-providers.md` once each. Keep this output as the evidence.
+
+- [ ] **Step 2: `docs/api.md`**: the count twice, the methods served, the cache, a new «The diary», and `/login`'s 422 (#390).
+  1. Replace:
+```markdown
+A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
+sixty-one of its methods so far: «v2: the contract», at the end of this page.
+```
+     with:
+```markdown
+A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
+seventy-one of its methods so far: «v2: the contract», at the end of this page.
+```
+  2. Replace:
+```markdown
+and the sign-in limiter does not count it, because nothing there looked at the password.
+```
+     with:
+```markdown
+and the sign-in limiter does not count it, because nothing there looked at the password.
+A body it refuses is a `422` that names what was wrong and never repeats the value, a
+password refused for its length included, as `/session`'s never has.
+```
+  3. Replace:
+```markdown
+**Served beside v1, sixty-one methods so far.** Everything above this section is v1, and
+v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
+```
+     with:
+```markdown
+**Served beside v1, seventy-one methods so far.** Everything above this section is v1, and
+v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
+```
+  4. Replace:
+```markdown
+`DirectoryService` methods (3b-3); the other eleven `MeService` methods, a phone's own
+(3b-4); the five `HomeworkService` methods and the five `EventService` methods (3b-5); and
+the two `DayService` methods and the five `SubstitutionService` methods (3b-6).
+Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
+```
+     with:
+```markdown
+`DirectoryService` methods (3b-3); the other eleven `MeService` methods, a phone's own
+(3b-4); the five `HomeworkService` methods and the five `EventService` methods (3b-5); the
+two `DayService` methods and the five `SubstitutionService` methods (3b-6); and ten
+`DiaryService` methods, a diary session's two and its eight reads (3b-7).
+Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
+```
+  5. Replace:
+```markdown
+  on `GetClass` and `UpdateClass` (their answer is the class card, whose join code admits a
+  phone), on `CreateDevice` (its answer is a device token) and on `CreateLinkCode` (its answer
+  links the phone to whoever sends it to the bot).
+- **No CORS header**, on any answer: v2 answers apps, not pages on other sites.
+```
+     with:
+```markdown
+  on `GetClass` and `UpdateClass` (their answer is the class card, whose join code admits a
+  phone), on `CreateDevice` and `CreateDiarySession` (their answer is a device token or a
+  diary token) and on `CreateLinkCode` (its answer links the phone to whoever sends it to the
+  bot).
+- **No CORS header**, on any answer: v2 answers apps, not pages on other sites.
+```
+  6. Replace:
+```markdown
+### What the values look like
+```
+     with:
+```markdown
+### The diary
+
+- **What a provider has is said before a password is typed.** `GetDiaryCapabilities` lists,
+  for every provider of the server's registry, the regions it signs in to, the ways in a
+  phone may draw a form for (`SIGN_IN_METHOD_PASSWORD`, for both today) and the data the
+  provider has: Петербург the schedule, the homework, the marks, the periods, the subjects,
+  the teachers and the turnstile; «Сетевой город» the first four, because its diary has
+  none of the other three and is never asked them. With the diary off, `enabled` is false
+  and no provider offers a way in or any data; the regions are v1's answer either way.
+- **A session is kept as v1's `/session` keeps it.** `CreateDiarySession` takes the session
+  the phone opened with the diary itself, in the case of `credential` that names its
+  provider, validated by v1's own schema, so the two versions refuse the same sessions; a
+  violation is named as v2 spells the field (`netschool.cookies.ns_session_id`), never with
+  what was sent. The diary reads with it once from this server's address, and the token it
+  answers with is never cached over REST (Connect's answers carry no such header yet, #357).
+  A region this server does not serve is `VALIDATION_FAILED` on `region` before anything is
+  counted or sent. An attempt is counted as v1 counts it, on one
+  budget with v1 for the same caller: `DIARY_CREDENTIALS_REJECTED` (the diary would not take
+  the session from here, which asking for the password again would not change),
+  `DIARY_NO_STUDENTS` and `DIARY_UPSTREAM_UNREADABLE` count; `DIARY_UNAVAILABLE` (`upstream`,
+  or `address-refused` when the region drops this server's address) and `DIARY_DISABLED` do
+  not; past either limit it is `THROTTLED`. `DeleteDiarySession` is v1's `/logout`.
+- **A read asks the session's own diary who the pupil is, every time.** An id it does not
+  list is `RESOURCE_NOT_FOUND` with `resource: "student"`, on all seven reads of one pupil,
+  so another family's child is nobody here. A read whose `DiaryFeature` the session's
+  provider does not declare is `UNIMPLEMENTED` with `FEATURE_UNSUPPORTED`
+  (`feature: "DIARY_FEATURE_SUBJECTS"`, say) before the diary is asked anything, where v1
+  answered «Сетевой город»'s subjects, teachers and turnstile with an empty list a client
+  could not tell from an empty diary.
+- **A window from the diary's own today.** `ListScheduleDays`, `ListDiaryHomework` and
+  `ListMarks` read `start_date` and `end_date` as v1 read `from` and `to`: the diary's today
+  and 14 days on when unset, 62 days at most. A window v2 refuses is `VALIDATION_FAILED` on
+  the field at fault, before the diary is asked anything, in the words every list of v2 uses.
+  `ListScheduleDays` lists each day that has lessons once, in date order.
+- **The family's corrections are laid over as v1 lays them**: this child's, in this diary,
+  over the lessons and the homework and never over a mark. Writing them is 3b-8's.
+- **When the diary ends a session**, a read is `DIARY_REAUTH`, and the session stays ended
+  whatever the call does; a session the diary rotated is kept, even by a read that is
+  refused. A session opened with a diary this deployment does not know, which a later
+  release added, is `DIARY_TOKEN_INVALID`, left for the release that knows it, and never
+  sent to another diary.
+
+### What the values look like
+```
+
+- [ ] **Step 3: `docs/README.md`, `README.md` and `docs/architecture.md`.**
+  In `docs/README.md`'s row for `api.md`:
+  Replace:
+```markdown
+| [deploy.md](deploy.md) | Vercel plus Neon or your own server, the webhook, migrations, why the server has no clock of its own, and what tells the owner when something is wrong |
+| [api.md](api.md) | the whole `/api/v1` contract, and at its end the v2 contract, served beside v1, sixty-one methods so far: reads, writes, class management, the electronic diary — Петербург and «Сетевой город» behind one contract, signed into by this server or registered from a session the client opened itself — and the anonymous school directory |
+| [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the three homes a phone can have and the first run's state, the developer mode, why its gate is not a lock, and its request console, the service layer, the diary on both sides — the server's providers and the phone's sign-in, `diary.db` and import — the tests |
+```
+  with:
+```markdown
+| [deploy.md](deploy.md) | Vercel plus Neon or your own server, the webhook, migrations, why the server has no clock of its own, and what tells the owner when something is wrong |
+| [api.md](api.md) | the whole `/api/v1` contract, and at its end the v2 contract, served beside v1, seventy-one methods so far: reads, writes, class management, the electronic diary — Петербург and «Сетевой город» behind one contract, signed into by this server or registered from a session the client opened itself — and the anonymous school directory |
+| [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the three homes a phone can have and the first run's state, the developer mode, why its gate is not a lock, and its request console, the service layer, the diary on both sides — the server's providers and the phone's sign-in, `diary.db` and import — the tests |
+```
+  In `README.md`'s «Honest status», the row for v2:
+  Replace:
+```markdown
+| buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
+| v2 over REST and Connect | sixty-one methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), the homework and the events, whose notices to the class go out after the commit (3b-5), and the days and the substitutions, told to the class the same way (3b-6), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+| Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter; none of it has run in production yet |
+```
+  with:
+```markdown
+| buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
+| v2 over REST and Connect | seventy-one methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), the homework and the events, whose notices to the class go out after the commit (3b-5), the days and the substitutions, told to the class the same way (3b-6), and a diary session and the reads of one pupil, with what each diary has declared from the registry's table (3b-7), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+| Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter; none of it has run in production yet |
+```
+  In `docs/architecture.md`, under «v2: one invoke behind two transports» and «Somebody else's service behind one door»:
+  1. Replace:
+```markdown
+its notice, and the window a list of the class's days covers, then a day's mark and a
+substitution's three questions, each one write the bot makes through too — and the
+limiters into `security.py`, one instance each, so a caller cannot double its attempts by
+```
+     with:
+```markdown
+its notice, and the window a list of the class's days covers, then a day's mark and a
+substitution's three questions, each one write the bot makes through too, then the
+diary's: a phone's session registered and counted, the days a diary read covers and the reads
+of one pupil — and the
+limiters into `security.py`, one instance each, so a caller cannot double its attempts by
+```
+  2. Replace:
+```markdown
+`registry.py` answers two questions in one place. `provider_for(key)` maps a stored key to an
+implementation, importing the provider module lazily so neither upstream's HTTP client lands
+on the cold-start path of a request that does not use it. `binding(school_class)` resolves
+what a class is bound to; the bot menu, the class card, the web form and `POST /join`'s
+```
+     with:
+```markdown
+`registry.py` is the diary as data: one row per provider in `TABLE` — its key, its
+implementation, what a class's binding to it needs (nothing, or a region and a school), the
+ways in a phone may draw a form for, the features it has, how a child's corrections are
+scoped, whether the tick keeps its sessions open, and how what a phone hands over is
+sealed. Every question asked of a key reads its row, so a third diary is a row and its
+module rather than an `if` in five places. A row names its implementation, and a regional
+provider its allow-list, as a module imported lazily, so neither upstream's HTTP client
+lands on the cold-start path of a request that does not use it. A feature is declared only
+when the provider's connection reads it from the diary: «Сетевой город» has no subjects,
+teachers or turnstile, so v2 refuses those with `FEATURE_UNSUPPORTED` rather than an empty
+list. A session row whose key no row answers — a provider a later release added, read
+after a rollback — is refused by `services/diary.find_session` and left alone, never read
+through another provider (#389). `binding(school_class)` resolves
+what a class is bound to; the bot menu, the class card, the web form and `POST /join`'s
+```
+
+- [ ] **Step 4: `CLAUDE.md` and the `server-providers` agent.**
+  In `CLAUDE.md`'s `services/`, `providers/` and `rpc/` bullets:
+  1. Replace:
+```markdown
+  those until its commit moves out, as 3b-4 moved the tasks', the ticks', the link code's and
+  the feed secret's, and as 3b-8 moves the diary corrections'.
+  `services/manage/` is running a class, one module per screen named like the shells'
+```
+     with:
+```markdown
+  those until its commit moves out, as 3b-4 moved the tasks', the ticks', the link code's and
+  the feed secret's, as 3b-7 moved a diary session's opening and closing, and as 3b-8 moves
+  the diary corrections'.
+  `services/manage/` is running a class, one module per screen named like the shells'
+```
+  2. Replace:
+```markdown
+  `substitutions.py` (the three questions a substitution is asked, as facts, its line and
+  its notice), `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
+  `feed_url`, and `audit.py`'s `older_than` (a page keyed on its last line); the limiters
+  are `security.py`'s, one instance each, and the sentences both versions answer with (the
+  join's four, the diary's «disabled», and the subjects', the devices', the bells', the
+  import's, the zone's, the access requests', the directory's, the tasks', the ticks', the
+```
+     with:
+```markdown
+  `substitutions.py` (the three questions a substitution is asked, as facts, its line and
+  its notice), `diary.py`'s `register` (a phone's session kept and counted on both diary
+  limiters, refusing with facts), `target`, `sealed_form`, `window` (a diary read's days,
+  from the diary's own today) and `DiaryService`'s `student`, `child` and reads of one pupil,
+  `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
+  `feed_url`, and `audit.py`'s `older_than` (a page keyed on its last line); the limiters
+  are `security.py`'s, one instance each, and the sentences both versions answer with (the
+  join's four, the diary's «disabled», its sessions' three and its unknown pupil, and the
+  subjects', the devices', the bells', the
+  import's, the zone's, the access requests', the directory's, the tasks', the ticks', the
+```
+  3. Replace:
+```markdown
+  it refuses at the door and the bot asks for the name to be typed, exactly as the diary
+  refuses without `DIARY_SECRET`
+- `contract/` — the Python `buf generate` writes from `proto/lessons/v2/` (and googleapis'
+```
+     with:
+```markdown
+  it refuses at the door and the bot asks for the name to be typed, exactly as the diary
+  refuses without `DIARY_SECRET`. The diaries are one table, `providers/diary/registry.py`'s
+  `TABLE`, a row per provider, which every question about a provider key reads — the binding,
+  the features, the corrections' scope, the keep-alive — and a session whose key no row
+  answers is read by nobody
+- `contract/` — the Python `buf generate` writes from `proto/lessons/v2/` (and googleapis'
+```
+  4. Replace:
+```markdown
+  native gRPC over HTTP/1.1 with `415`. May import `services/`, `models`, `schedule`,
+  `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary registry,
+  the school directory's provider (`providers/dadata`, whose refusals the error table maps),
+```
+     with:
+```markdown
+  native gRPC over HTTP/1.1 with `415`. May import `services/`, `models`, `schedule`,
+  `wording`, `security`, `schemas`, `config`, `crypto`, `di`, `api/deps.py`, the diary
+  registry and the diary's error family (`providers/diary/errors`, which the table words),
+  the school directory's provider (`providers/dadata`, whose refusals the error table maps),
+```
+  In `.claude/agents/server-providers.md`:
+  Replace:
+```markdown
+  **one** place that resolves a class's diary binding (bot, main menu, class card and web
+  form all call it). A second diary is a value in `registry.KEYS`, never a rename.
+- `petersburg/` is one electronic diary, behind that seam and byte-for-byte unchanged. Its
+```
+  with:
+```markdown
+  **one** place that resolves a class's diary binding (bot, main menu, class card and web
+  form all call it). A diary is a row of `registry.TABLE` — its binding, its features, its
+  corrections' scope, its keep-alive — which every question about a key reads, never an `if`
+  beside it; a session whose key no row answers is read by nobody.
+- `petersburg/` is one electronic diary, behind that seam and byte-for-byte unchanged. Its
+```
+
+- [ ] **Step 5: Green: the documents, and what the tests read of them.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b7.py
+```
+Expected: `the documents say what 3b-7 serves`, exit 0. Then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_rpc_errors.py tests/test_schema_version.py tests/test_ci_paths.py tests/test_contract.py tests/test_rest.py tests/test_api_docs.py tests/test_bot_commands.py
+```
+Expected: all pass, 215 tests. `test_rpc_errors.py` reads `docs/api.md`'s status table, `test_schema_version.py` every document that names the schema, this plan included, and `test_bot_commands.py` `docs/bot.md`'s commands. Then 3b-3's head scan:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/scan_heads_3b3.py
+```
+Expected: the last line names `0019` alone, and no line names `docs/specs/`.
+
+- [ ] **Step 6: The gates, and their numbers everywhere.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe -m mypy
+```
+Expected: `All checks passed!`, and `Success: no issues found in 238 source files`. The suite is not run again: Task 5's run is the batch's one, and nothing but documents has changed since it, whose tests Step 5 ran. Then 3b-3's script, which takes the four numbers, the old count first:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/counts3b2_3b3.py 3000 NEW_TESTS 238 238
+```
+(with Task 5's count for `NEW_TESTS`: `3089` if nothing else moved). Expected: `written`. These are the seven places the `handover` skill names; with the module count unchanged, the script finds each and writes the same number back. The batch sections' own counts in `HANDOVER.md` are records of their commits, and they stay.
+
+- [ ] **Step 7: Commit the documents, and the controller opens the pull request.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b7-t6.txt`:
+```text
+Describe the seventy-one v2 methods served, and the counts from the run
+
+docs/api.md's «v2: the contract» names what 3b-7 serves, a new «The
+diary» says what each provider declares, how a session is kept and
+counted on v1's budget, that a read asks the session's own diary who
+the pupil is and refuses an undeclared feature before asking, the
+window from the diary's own today, the corrections laid over, and what
+happens to a session the diary ends or the deployment does not know;
+CreateDiarySession's answer joins the uncached, and /login's 422 no
+longer repeats a password (#390). docs/architecture.md says the registry
+is a table and that a session of an unknown provider is read by nobody
+(#389); CLAUDE.md names services/diary.py's shared rules, the table and
+the diary's error family in rpc/'s imports; the server-providers agent
+says a diary is a row. The counts are the run's own, in the seven
+places that carry them.
+
+Not covered: HANDOVER.md's close-out, written once the pull request has
+a number.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add docs/api.md docs/README.md README.md docs/architecture.md CLAUDE.md .claude/agents/server-providers.md CONTRIBUTING.md .claude/skills/gates/SKILL.md .claude/agents/server-tests.md HANDOVER.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b7-t6.txt
+```
+The controller pushes and opens the pull request (the `github-pr` skill), from `server-v2/3b-7` to `main`, on milestone 11, with its board item filled as the skill says. Its body says `Closes #389` and `Closes #390`, each on its own line and with their numbers, refers to #273, and says that no revision goes with it and that `diary.proto` changes in a comment only. Write the number it gets down as `#PR`.
+
+- [ ] **Step 8: The HANDOVER close-out** (the `handover` skill, «What goes stale mechanically»). Write it while the pull request is open. Read `HANDOVER.md`'s batch sections first: after #388's merge they are #388's and #385's.
+  1. **The chain of batch sections.**
+     - The section titled «## What the session before it added: days and substitutions over v2, one rule for the bot, v1 and v2 — stage 3b-6 of sub-project 3 (#273)», with all its subsections, moves verbatim to the top of `docs/history.md`, directly under the `---` that closes the file's introduction, retitled «## What the batch before added: …»; its subsections keep their titles. A sentence in it that says «section 5» or «above» now names `HANDOVER.md`, as the skill says.
+     - The section titled «## What the last session added: the launcher icon chosen in the app, sixty-four «Пятёрка» variants behind activity-aliases (#388)» becomes «## What the session before it added: …», with its subsections. Its first sentence, which names #388 as open, becomes «Merged as #388 (`[SHA]`, <date>), from `android/app-icons`, on milestone 12.», with the SHA and the date read from `gh pr view 388`.
+  2. **The new section**, above it, with the run's numbers, the real SHAs and the numbers in place of the bracketed words and the placeholders:
+```markdown
+## What the last session added: the diary's registry as a table, its sessions and its reads over v2 — stage 3b-7 of sub-project 3 (#273)
+
+Open as #PR, from `server-v2/3b-7` to `main`, on milestone 11, and on project 6. It closes
+#389 and #390, and refers to #273. The branch was cut from `main` at `[short SHA]`, the merge of
+#388, and carries [the number of] commits before this close-out, to `[short SHA]`. Written on
+[date]. No revision goes with it: the schema stays at `0019`. This is stage 3b-7 of
+`docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the
+next. v1 answers as before, but for the two defects; v2 now answers seventy-one methods.
+
+- **The diary's registry is a table.** `providers/diary/registry.py`'s `TABLE` holds a row per
+  provider — its key, its implementation and a regional provider's allow-list, both imported on
+  first use, what a binding needs, the ways in, the features, how a child's corrections are
+  scoped, whether the tick keeps its sessions open, and how what a phone hands over is sealed —
+  and the binding, the corrections' scope, the keep-alive's claim and the bot's provider step
+  read it. A feature is declared exactly when the provider's connection asks the diary for it:
+  «Сетевой город» declares the schedule, the homework, the marks and the periods, and Петербург
+  those and the subjects, the teachers and the turnstile.
+- **v1's session and read rules are `services/diary.py`'s**: `target`, `sealed_form`,
+  `register` and its counting, `window`, and `DiaryService`'s `student`, `child` and reads of
+  one pupil, which v1's routes now call. `_open_row` and `sign_out` leave their commits to
+  their callers; a registered session is committed with the attempt that counts it.
+- **Two defects filed and fixed here:**
+  - #389: a session of a provider the deployment does not know — a provider is a value, not a
+    migration, so a rollback past the release that added one leaves its sessions — was read
+    through Petersburg's diary, its credential sent there as Petersburg's cookie. It is now
+    refused as an unknown token and left for the release that can read it.
+  - #390: `POST /api/v1/diary/login` repeated a password over two hundred characters in its
+    `422`; it is served through `_NoEchoRoute`, as `/session` always was.
+- **Ten methods, `DiaryService` whole but its corrections:**
+  - `CreateDiarySession` (`201`, never cached), on v1's budget and v1's counting, validated by
+    v1's own schemas, and `DeleteDiarySession`, v1's `/logout`;
+  - `ListStudents`, `ListPeriods`, `ListDiarySubjects`, `ListTeachers` and
+    `ListTurnstileEvents`; a feature the session's provider does not declare is
+    `FEATURE_UNSUPPORTED` before the diary is asked anything;
+  - `ListScheduleDays`, `ListDiaryHomework` and `ListMarks`, a window from the diary's own
+    today, with the family's corrections laid over the lessons and the homework;
+  - and `GetDiaryCapabilities` fills `sign_in_methods` and `features` from the table, which
+    sub-project 5 waits for before it moves the diary.
+- **The error table gains ten rows**, each read back on both paths by a named test:
+  `THROTTLED` and a region not served in v1's words, `DIARY_CREDENTIALS_REJECTED`,
+  `DIARY_NO_STUDENTS`, `DIARY_REAUTH`, `DIARY_UNAVAILABLE` with `upstream`,
+  `DIARY_UPSTREAM_UNREADABLE` twice, and an unknown pupil as `RESOURCE_NOT_FOUND`. The five
+  diary reasons left `LATER`, and 3b-7 left `STAGES`; `CORRECTIONS_UNAVAILABLE` is 3b-8's.
+- **`diary.proto`** says, in a comment only, how `ListScheduleDays` lists its days and that a
+  refused window and an undeclared feature are refused before the diary is asked.
+
+### Gates
+
+The full suite ran once, at `[short SHA]`, the head of the five code tasks; the documents
+(`[short SHA]`) came after it, and their own files ran again. CI runs on the head the merge is
+made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `[short SHA]`.
+- **mypy**: no issues found in [the number] source files, at `[short SHA]`.
+- **The server suite.** `pytest -q -n 4`, run alone from `server/` at `[short SHA]`, gave
+  **[the number] passed** in [the time]. The seven places the `handover` skill names say
+  [the number].
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files, `diary_connect.py`'s docstrings the only
+  change.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its count stands from
+  #388.
+
+### What was deliberately left alone
+
+- **3b-8**, the corrections, and **3c**.
+- **v1's behaviour**, but for #389 and #390: `/login` still signs in with a password here, the
+  reads still answer an empty list for a feature a diary does not have, and `_guard` still
+  words the diary's failures as v1 always did.
+- **The bot's region and school steps** of «📒 Дневник», which stay «Сетевой город»'s own
+  screens; a second regional provider would bring its own.
+- **`SIGN_IN_METHOD_SESSION_ADOPT`**, declared by no provider until the provider-side sign-in
+  (the owner's decision of 5 October) is built.
+- **`DIARY_FEATURE_ATTENDANCE`, `MEAL_ACCOUNT` and `FINAL_MARKS`**, declared by none: no
+  method reads them yet.
+
+### What nobody has verified in this batch
+
+- **The ten methods against a real diary**: every test drives a fake upstream, or none; no
+  session has been registered over v2 from a phone.
+- **The ten against Postgres**: every v2 test ran on SQLite, the limiters' counting under both
+  versions among them.
+- **The ten on Vercel** beyond the post-merge check, which asks the capabilities, six routes
+  and two Connect methods once, without a token.
+- **«Сетевой город» over v2 at all** beyond its features' refusal: its periods, its week walk
+  and its adoption have never met a live server through either version.
+
+### After #388's merge: [the controller's title for it]
+
+None of this is code in #PR, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of [date].
+
+[AFTER-388: the controller's facts, handed over at this step and written in the shape of the
+last close-out's «After …'s merge», one bullet each: #388's merge and its CI; whether Vercel
+built production from it or the owner had to promote it; what production answered after it;
+what the monitoring said meanwhile, #365 included; and anything the owner did or decided
+since the last close-out. Nothing here is guessed: what the controller does not hand over is
+left out, and if it hands over nothing, this subsection is left out whole and the report says
+so.]
+```
+  3. **The opening paragraph**, in the shape the last close-out left it:
+     - «Last updated:» is the day of writing. The merged list gains #388 (read it back with `gh pr view 388` first); `main` is at #388's merge, or at whatever `git log -1 origin/main` says is newer.
+     - The sentence on the designs stays.
+     - The open pull requests are read from `gh pr list --state open`, not assumed. #PR is one, «the one carrying this paragraph», from `server-v2/3b-7`, on milestone 11, which closes #389 and #390 and refers to #273: v2 is served beside v1, seventy-one methods of it now.
+     - The schema did not move: still `0019`, on production since 16:28 UTC on 6 October, and `EXPECTED_REVISION` did not move either.
+     - The issues filed since #388 merged are named: #389 and #390, closed by #PR, and any the `[AFTER-388]` facts add. #352, #355, #357, #365, #368, #371, #375, #377, #378 and #384 stay as the last close-out left them, unless those facts say otherwise; #386 and #387 are closed.
+     - «The section «What the last session added» below is …» names #PR, and the batch before it, #388.
+     - It still ends: «The SHA of its own merge is for the next close-out to write.»
+     - The bold paragraph on the code's revision and production's stays as it is: no revision moved.
+  4. **The milestone table**: milestone 11's row gains #PR as open, and #389 and #390 among its issues; milestone 12's row gains #388 as merged, unless #388's own close-out already says so. Milestone 13's row stays.
+  5. **Section 5**, the bullet «v2 as … serve it has been asked little outside the test client»:
+     - its head gains #PR, and the stages «… and 3b-7»;
+     - the sub-item on production gains, at its end: «the ten of 3b-7 are asked after #PR's merge, once, without a token;»;
+     - «**the fifty-seven methods of 3b-1 to 3b-6 against Postgres**: …» becomes «**the sixty-seven methods of 3b-1 to 3b-7 against Postgres**: …», keeping its list and adding «the diary limiters' counting under both versions» to it;
+     - add the sub-item: «**the diary over v2 against a real diary**: every 3b-7 test drives Petersburg's or «Сетевой город»'s fake upstream, or none; no session has been registered over v2, and «Сетевой город»'s week walk, periods and adoption have never met a live server through either version;».
+  6. **Section 7**: replace the paragraph that begins «**Next for the programme: stage 3b-7 of sub-project 3, from the 3b plan.**», up to and including its last sentence, with:
+```markdown
+**Next for the programme: stage 3b-8 of sub-project 3, from the 3b plan.** Stages 3a (#342),
+3b-1 (#350), 3b-2 (#356), 3b-3 (#372), 3b-4 (#376), 3b-5 (#380), 3b-6 (#385) and 3b-7 (#PR)
+are merged, and v2 serves seventy-one methods. `docs/specs/2026-10-05-server-v2-3b-plan.md`
+summarises 3b-8, the diary's four correction methods: its corrections stop committing inside
+themselves, the target and the field move beside the services, and the scope is read from the
+3b-7 row; its two open questions, a cap on a batch and a reset of nothing, are the
+controller's before its task list is written. With 3b-8, `STAGES` is empty. By the owner's
+order of 8 October, sub-project 3 is finished first, 3c included, and everything recorded as
+unverified is checked on the development machine before sub-project 4 starts.
+```
+     Read section 7 for anything the owner did since the last close-out (the `[AFTER-388]` facts say), and move what they did to «## Moved out of section 7 on [date]» in `docs/history.md`, as the skill says.
+  7. The cheat-sheet's counts under «How to continue» were written by Step 6.
+
+  Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b7-handover.txt`, with the placeholders replaced by their numbers:
+```text
+Hand over stage 3b-7: the diary's registry as a table, its sessions and its reads over v2
+
+HANDOVER.md's close-out is written while the pull request is open, so
+the file is true when it merges. It describes 3b-7: the registry as a
+table every question about a provider reads, v1's session and read
+rules in services/diary.py, the two defects filed and fixed (#389, #390),
+the ten methods, the error table's ten rows, the comment in diary.proto,
+what is left alone and unverified, and what followed #388's merge. The
+batch before becomes the session before, its merge recorded, and the
+one before that moves to docs/history.md. Section 5 asks the same of
+Postgres for seven stages and adds the diary over v2 against a real
+diary; section 7 names 3b-8 as next.
+
+Not covered: production after this pull request's merge; the next
+close-out records it.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add HANDOVER.md docs/history.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b7-handover.txt
+```
+and push.
+
+- [ ] **Step 9: The merge** is the controller's, under the `github-pr` skill's five checks:
+  1. CI is green on the exact head, the «Contract» job included, since `proto/` changed;
+  2. `mergeable_state` is clean;
+  3. the gates ran locally before the push;
+  4. a milestone is attached;
+  5. no review is waiting.
+
+  No revision has to go on first: 3b-7 has none.
+
+- [ ] **Step 10: After the merge, read production.** A merge to `main` has not always deployed production by itself (#349).
+```bash
+curl -s https://lessons-ruddy-zeta.vercel.app/api/v1/warmup; echo
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/diary/capabilities
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/v2/diary/sessions
+curl -s -i -X DELETE https://lessons-ruddy-zeta.vercel.app/api/v2/diary/sessions/current
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/diary/students
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/diary/students/1/scheduleDays
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/diary/students/1/turnstileEvents
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.DiaryService/ListStudents
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.DiaryService/CreateDiarySession
+```
+Expected:
+- `/api/v1/warmup` reports `status` `ok`, `schema` `0019` and `v2` `true`.
+- `/api/v2/diary/capabilities` answers `200` with `private, no-store`, `enabled` true, and for `petersburg` `SIGN_IN_METHOD_PASSWORD` and seven features, for `netschool` the same way in and four; a `200` with both lists empty means production still runs the code from before the merge.
+- `POST /api/v2/diary/sessions` with an empty body answers `400`, Google's body and the reason `VALIDATION_FAILED` on `credential`: nothing was counted and the diary was not asked.
+- The four other REST routes answer `401`, with `WWW-Authenticate: Bearer`, Google's body and the reason `DIARY_TOKEN_INVALID`. The gate refuses each before any handler runs, so no diary is asked and nothing is written. If the diary were off on production, each would be `503` `DIARY_DISABLED` instead, which is a fact about its `DIARY_SECRET` to write down, not a failure of the merge.
+- Connect's `ListStudents` answers `401`, with `"code":"unauthenticated"`, and `CreateDiarySession` `400`, with `"code":"invalid_argument"`.
+
+A `501` with `UNIMPLEMENTED` means production still runs the code from before the merge: ask the owner to promote or redeploy the merge, then read again. Write what was seen into the controller's notes for the next close-out.
+
+### Self-review (3b-7)
+
+- **Against the 3b-7 summary.** Every method is served by a task: `CreateDiarySession` and `DeleteDiarySession` (3), `ListStudents`, `ListPeriods`, `ListDiarySubjects`, `ListTeachers` and `ListTurnstileEvents` (4), `ListScheduleDays`, `ListDiaryHomework` and `ListMarks` (5). The registry is a table with every field the summary and decision 12 name, and two more it needs, `kept_alive` and `bare_field` (1); `binding()` validates per row with no `if` per key (1); `GetDiaryCapabilities` fills `sign_in_methods` and `features` from it (4). The moves are Task 2's: `_admit` stays over `security.DiaryAttempt`, now asked by `register`; `_served_region` and `_resolve_session_target` are `target`; the serialisation is `sealed_form`; `register_session`'s outcome mapping is `register`'s; `_range` is `window`; `_child` and `_corrections` are `DiaryService.child` and `corrections`; `_guard` stays v1's (a defect in the summary). The branches on a key read the row where a key is a property of the provider (1, 2, 4), and those that are not stay, with the reason (Ruling 108). Every row the summary lists is here, but `SignInUnsupported`'s, which no v2 method can meet (Ruling 111), and three it lacks: `RegionNotServed`, `UnknownStudent` as a fact, and `SessionRefused` under `BadCredentials`. `DiaryDisabled`'s `HELD_BY` names its test (3); the five reasons leave `LATER` (3, 4) and 3b-7 leaves `STAGES` (4); `rest.NO_STORE_CREDENTIAL` gains `CreateDiarySession` (3). «What v2 does not repeat»: no method takes a password.
+- **The controller's rulings.** Open question 1, a feature undeclared only when never implemented, with a test that holds each row to its connection (104, Task 1's `test_a_provider_declares_a_feature_exactly_when_its_connection_asks_the_diary`); open question 2, empty with the diary off (105, Task 4's `test_with_the_diary_off_no_provider_offers_a_way_in_or_any_data`); the commits kept on purpose, and every other write's left to its caller, `_open_row`'s and `sign_out`'s included (106, Tasks 2 and 3, `test_a_new_session_is_committed_with_its_outcome_and_never_apart`); no class notices (107).
+- **Placeholders.** Every code step is the code, rendered from the copy's own commits, which were applied in order, linted, formatted and type-checked. The bracketed words left are the facts that exist only later: #389, #390 and `#PR`, the SHAs, dates, times and counts of the real run, and `[AFTER-388]`.
+- **Types across tasks.** `registry.Row` (1) is read by `child_scope` (1), the keep-alive (1), the bot (1), `target` and `sealed_form` (2) and `rpc/diary` (4); `Feature` and `SignIn` names are `DiaryFeature`'s and `SignInMethod`'s, held by a test (1) and mapped by name (4). `target` answers `Target` (2), which v1's `/login` reads (2); `register` answers `Registered` with `school_id` and `zone` (2), which v1's `/session` and `create_diary_session` read (2, 3); `window` answers the two dates, which v1's `_range` and `rpc/diary._window` read (2, 5), and raises `clock.WindowRefused`, which 3b-5's row words. `DiaryService.child` answers `(Student, scope)`, which `schedule_of` and `homework_of` take (2, 5); `subjects_of` takes `period_id | None` (2, 4). The facts carry what the shells word: `UnknownProvider.key` (v1 only), `UnknownStudent.student_id`, `SessionRefused` as a `BadCredentials`.
+- **Review Focus.** Each of its five lines names tests that exist in the task it names: Task 1's `test_a_session_of_a_provider_this_deployment_does_not_know_is_read_by_nobody`; Task 2's `test_a_pupil_is_resolved_from_the_session_s_own_diary`, `test_each_outcome_is_counted_as_v1_counted_it` and `test_v1_never_repeats_a_password_it_refuses`; Task 3's `test_v1_and_v2_draw_on_one_budget`, `test_a_diary_that_does_not_answer_is_unavailable_and_not_counted`, `test_a_region_this_server_does_not_serve_is_refused_before_anything_is_counted`, `test_without_the_secret_the_diary_is_disabled_on_both_methods`, `test_the_session_handed_over_is_never_echoed` and `test_a_request_v1_would_refuse_is_refused_on_v2_s_own_fields`; Task 4's `test_an_id_this_diary_does_not_list_reaches_nothing`, `test_a_session_of_a_provider_this_deployment_does_not_know_is_the_gate_s_to_refuse`, `test_a_session_the_diary_ended_is_reauth_and_stays_ended` and `test_a_credential_the_diary_rotated_is_kept_even_when_the_read_is_refused`; Task 5's `test_an_id_this_diary_does_not_list_reaches_none_of_its_days`.
+- **`HELD_BY`.** Its ten new rows name functions defined at the top level of their files, letter for letter: in `test_v2_diary_sessions.py` (Task 3), `DiaryDisabled` → `test_without_the_secret_the_diary_is_disabled_on_both_methods`, `Throttled` → `test_v1_and_v2_draw_on_one_budget`, `RegionNotServed` → `test_a_region_this_server_does_not_serve_is_refused_before_anything_is_counted`, `BadCredentials` → `test_a_session_the_diary_will_not_take_from_here_is_rejected_and_counted`, `NoStudents` → `test_an_account_with_no_pupil_is_refused_and_counted`, `UpstreamUnavailable` → `test_a_diary_that_does_not_answer_is_unavailable_and_not_counted`, `UnexpectedResponse` → `test_an_answer_nobody_can_read_is_unreadable_and_counted`, `DiaryError` → `test_a_failure_no_row_names_is_unreadable_and_counted`; in `test_v2_diary_reads.py` (Task 4), `SessionExpired` → `test_a_session_the_diary_ended_is_reauth_and_stays_ended` and `UnknownStudent` → `test_an_id_this_diary_does_not_list_reaches_nothing`. Each raises its exception through a served method and reads the refusal back on both transports, against v1's own answer where v1 has one.
+- **The head test's three shapes** appear nowhere in this list: no «head is» or «expects» before a backticked revision, and no line with `/warmup`'s quoted JSON.
+
 ## 3b-8: The diary's corrections (4 methods)
 
 **Methods.** `DiaryService.ListCorrections`, `BatchUpdateCorrections` (all or none), `ResetCorrections` and `ClearCorrections` (`AUTH_KIND_DIARY`).

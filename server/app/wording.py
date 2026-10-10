@@ -318,6 +318,19 @@ def render_day(day: ResolvedDay, today: Date) -> str:
 #: ``DIARY_DISABLED`` alike.
 DIARY_DISABLED_DETAIL = "Дневник на этом сервере выключен."
 
+#: ``services/diary.register``'s refusals, as v1's ``POST /diary/session`` and
+#: v2's ``CreateDiarySession`` word them: too many attempts on the diary's two
+#: doors, a «Сетевой город» region this server does not serve with a password,
+#: and a session the diary would not take from this server, which is not the
+#: password and so is never «войдите снова».
+DIARY_THROTTLED_DETAIL = "Слишком много попыток входа. Попробуйте позже."
+DIARY_REGION_NOT_SERVED_DETAIL = "Unknown or unsupported region for «Сетевой город»"
+DIARY_SESSION_REFUSED_DETAIL = "Дневник не принял эту сессию с нашего сервера — дело не в пароле."
+
+#: A pupil id this session's diary does not list, on every read of one pupil:
+#: v1's 404 and v2's ``RESOURCE_NOT_FOUND`` alike.
+UNKNOWN_STUDENT_DETAIL = "Unknown student"
+
 #: v1's ``POST /join`` and v2's ``CreateDevice``, for each refusal of
 #: ``services/join.py``: too many wrong codes, a code that names nothing, a
 #: class that takes personal codes only, and a class at its phone limit.

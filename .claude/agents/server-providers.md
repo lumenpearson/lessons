@@ -18,7 +18,9 @@ incomplete.
   `DiaryProvider`/`DiaryConnection` Protocol contract in `base.py`, and `registry.py` whose
   `provider_for(key)` lazily imports the implementation and `binding(school_class)` is the
   **one** place that resolves a class's diary binding (bot, main menu, class card and web
-  form all call it). A second diary is a value in `registry.KEYS`, never a rename.
+  form all call it). A diary is a row of `registry.TABLE` — its binding, its features, its
+  corrections' scope, its keep-alive — which every question about a key reads, never an `if`
+  beside it; a session whose key no row answers is read by nobody.
 - `petersburg/` is one electronic diary, behind that seam and byte-for-byte unchanged. Its
   session token is the one stored credential that cannot be a hash, because it is replayed
   upstream on every call, so it is sealed with Fernet — and without `DIARY_SECRET` the whole

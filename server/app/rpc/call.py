@@ -23,6 +23,9 @@ themselves keep doing so, and their writes stay when the call is refused:
 
 - ``JoinThrottle.admit`` — a wrong join code stays counted, and so does a
   search of the anonymous school directory;
+- ``security.DiaryAttempt``, through ``services.diary.register`` — an attempt
+  to keep a diary session stays counted, as a failure or as a session opened,
+  and a session opened is committed with it;
 - ``quota.spend`` — a unit of the directory's daily allowance stays spent,
   because the directory counted the request it paid for either way;
 - ``services.join.join`` — the device token it mints is committed inside

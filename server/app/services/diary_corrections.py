@@ -18,14 +18,12 @@ session module no longer carries a second subject in its middle.
 
 from __future__ import annotations
 
-from urllib.parse import urlsplit
-
 from sqlalchemy import ColumnElement, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DiaryOverride
-from app.providers.diary.registry import NETSCHOOL, PETERSBURG
+from app.providers.diary.registry import PETERSBURG, Scope, row_for
 
 #: What every scope starts with — upper case on purpose; see `child_scope`.
 SCOPE_PREFIX = "CHILD:"
@@ -82,19 +80,17 @@ def child_scope(provider: str | None, region: str | None) -> str:
     code writes while it runs is filed under logins this code never reads, so
     a revert is not lossless — ``0017``'s docstring says how to fold them in.
     """
-    provider = provider or PETERSBURG
-    if provider == PETERSBURG:
-        scope = f"{SCOPE_PREFIX}{PETERSBURG}"
-    elif provider == NETSCHOOL:
-        from app.providers.netschool import regions
-
-        known = regions.get(region)
-        if known is None:
-            raise UnknownDiaryServer(f"no «Сетевой город» server for region {region!r}")
-        scope = f"{SCOPE_PREFIX}{NETSCHOOL}:{urlsplit(known.origin).netloc.lower()}"
-    else:
+    # The row says which of the two shapes a provider's scope takes, so a
+    # provider added to the table files its children without a branch here.
+    row = row_for(provider or PETERSBURG)
+    if row is None:
         raise UnknownDiaryServer(f"unknown diary provider {provider!r}")
-    return scope
+    if row.scope is Scope.PROVIDER:
+        return f"{SCOPE_PREFIX}{row.key}"
+    server = row.server_of(region)
+    if server is None:
+        raise UnknownDiaryServer(f"no {row.key} server for region {region!r}")
+    return f"{SCOPE_PREFIX}{row.key}:{server}"
 
 
 def _of_child(scope: str, student_id: int) -> tuple[ColumnElement[bool], ColumnElement[bool]]:

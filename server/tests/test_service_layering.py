@@ -96,6 +96,27 @@ def _within(dotted: str, packages: tuple[str, ...]) -> bool:
     return any(dotted == package or dotted.startswith(package + ".") for package in packages)
 
 
+#: ``registry.Row.provider`` and ``Row._allow_list`` import a provider's
+#: module by a name read from ``registry.TABLE`` at runtime —
+#: ``importlib.import_module`` called on a variable, not a literal — so the
+#: AST reading in ``_imported_names`` cannot see it: it recognises only a
+#: literal argument. The edges are read from the table itself, below, so a
+#: row added later is covered by itself rather than by a second list here.
+REGISTRY = "app.providers.diary.registry"
+
+
+def _registry_edges() -> set[str]:
+    from app.providers.diary import registry
+
+    edges: set[str] = set()
+    for row in registry.TABLE:
+        module, _, _ = row.implementation.partition(":")
+        edges.add(module)
+        if row.regions:
+            edges.add(row.regions)
+    return edges
+
+
 def _chains(starts: tuple[str, ...], forbidden: tuple[str, ...]) -> list[str]:
     """Every import chain from a module under ``starts`` into one under
     ``forbidden``, followed through the rest of ``app/``."""
@@ -109,6 +130,8 @@ def _chains(starts: tuple[str, ...], forbidden: tuple[str, ...]) -> list[str]:
             for target in (_module_of(dotted, modules) for dotted in imported)
             if target is not None and target != name
         }
+    if REGISTRY in edges:
+        edges[REGISTRY] |= _registry_edges()
 
     chains: list[str] = []
     for start in sorted(name for name in modules if _within(name, starts)):
@@ -249,6 +272,20 @@ def test_the_walk_sees_a_v2_module_reach_a_v1_router():
     assert any(_within(name, V1_ROUTERS) for name in names)
     assert not _within("app.api.deps", V1_ROUTERS)
     assert not _within("app.api.publicity", V1_ROUTERS)
+
+
+def test_the_walk_sees_the_registry_reach_the_providers_it_imports_by_name():
+    """Held here rather than trusted: ``registry.Row.provider`` and
+    ``Row._allow_list`` import a provider's module by a name read from
+    ``registry.TABLE`` at runtime — ``importlib.import_module`` called on a
+    variable, not a literal — which the AST reading above cannot see on its
+    own. Without the registry's own edges added in ``_chains``, a provider
+    that later imported ``app.bot`` would slip through
+    ``test_no_service_reaches_the_bot`` unseen, because nothing would show the
+    chain from ``app.services`` to it at all."""
+    for target in ("app.providers.netschool.provider", "app.providers.petersburg.provider"):
+        chains = _chains(("app.services",), (target,))
+        assert chains, f"the walk should see app.services reach {target} through the registry"
 
 
 def test_the_neutral_sender_reaches_neither_the_bot_nor_a_shell():

@@ -71,10 +71,17 @@ class DiaryService(Protocol):
     async def list_schedule_days(self, request: ListScheduleDaysRequest, ctx: RequestContext[ListScheduleDaysRequest, ListScheduleDaysResponse], /) -> ListScheduleDaysResponse:
         """
         A pupil's lessons, day by day, with the family's corrections laid over
-        them. The range is the diary's today and 14 days on when unset, and
-        spans 62 days at most. A student id this session's diary does not list
-        is RESOURCE_NOT_FOUND, on every method below: an id from another family
-        must reach nothing. DIARY_FEATURE_SCHEDULE.
+        them: a day without lessons is not listed, the days come in date order,
+        and each day's lessons in the order the diary is read in. The range is
+        the diary's today and 14 days on when unset, and spans 62 days at most;
+        one it refuses is
+        VALIDATION_FAILED on start_date or end_date before the diary is asked
+        anything, here and on every method below that takes a range. A student
+        id this session's diary does not list is RESOURCE_NOT_FOUND, on every
+        method below: an id from another family must reach nothing. A method
+        whose DIARY_FEATURE the session's provider does not declare answers
+        FEATURE_UNSUPPORTED before the diary is asked anything.
+        DIARY_FEATURE_SCHEDULE.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -459,10 +466,17 @@ class DiaryServiceClient(ConnectClient):
     ) -> ListScheduleDaysResponse:
         """
         A pupil's lessons, day by day, with the family's corrections laid over
-        them. The range is the diary's today and 14 days on when unset, and
-        spans 62 days at most. A student id this session's diary does not list
-        is RESOURCE_NOT_FOUND, on every method below: an id from another family
-        must reach nothing. DIARY_FEATURE_SCHEDULE.
+        them: a day without lessons is not listed, the days come in date order,
+        and each day's lessons in the order the diary is read in. The range is
+        the diary's today and 14 days on when unset, and spans 62 days at most;
+        one it refuses is
+        VALIDATION_FAILED on start_date or end_date before the diary is asked
+        anything, here and on every method below that takes a range. A student
+        id this session's diary does not list is RESOURCE_NOT_FOUND, on every
+        method below: an id from another family must reach nothing. A method
+        whose DIARY_FEATURE the session's provider does not declare answers
+        FEATURE_UNSUPPORTED before the diary is asked anything.
+        DIARY_FEATURE_SCHEDULE.
         """
         return await self.execute_unary(
             request=request,
@@ -783,10 +797,17 @@ class DiaryServiceSync(Protocol):
     def list_schedule_days(self, request: ListScheduleDaysRequest, ctx: RequestContext[ListScheduleDaysRequest, ListScheduleDaysResponse], /) -> ListScheduleDaysResponse:
         """
         A pupil's lessons, day by day, with the family's corrections laid over
-        them. The range is the diary's today and 14 days on when unset, and
-        spans 62 days at most. A student id this session's diary does not list
-        is RESOURCE_NOT_FOUND, on every method below: an id from another family
-        must reach nothing. DIARY_FEATURE_SCHEDULE.
+        them: a day without lessons is not listed, the days come in date order,
+        and each day's lessons in the order the diary is read in. The range is
+        the diary's today and 14 days on when unset, and spans 62 days at most;
+        one it refuses is
+        VALIDATION_FAILED on start_date or end_date before the diary is asked
+        anything, here and on every method below that takes a range. A student
+        id this session's diary does not list is RESOURCE_NOT_FOUND, on every
+        method below: an id from another family must reach nothing. A method
+        whose DIARY_FEATURE the session's provider does not declare answers
+        FEATURE_UNSUPPORTED before the diary is asked anything.
+        DIARY_FEATURE_SCHEDULE.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -1165,10 +1186,17 @@ class DiaryServiceClientSync(ConnectClientSync):
     ) -> ListScheduleDaysResponse:
         """
         A pupil's lessons, day by day, with the family's corrections laid over
-        them. The range is the diary's today and 14 days on when unset, and
-        spans 62 days at most. A student id this session's diary does not list
-        is RESOURCE_NOT_FOUND, on every method below: an id from another family
-        must reach nothing. DIARY_FEATURE_SCHEDULE.
+        them: a day without lessons is not listed, the days come in date order,
+        and each day's lessons in the order the diary is read in. The range is
+        the diary's today and 14 days on when unset, and spans 62 days at most;
+        one it refuses is
+        VALIDATION_FAILED on start_date or end_date before the diary is asked
+        anything, here and on every method below that takes a range. A student
+        id this session's diary does not list is RESOURCE_NOT_FOUND, on every
+        method below: an id from another family must reach nothing. A method
+        whose DIARY_FEATURE the session's provider does not declare answers
+        FEATURE_UNSUPPORTED before the diary is asked anything.
+        DIARY_FEATURE_SCHEDULE.
         """
         return self.execute_unary(
             request=request,

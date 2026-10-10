@@ -21,10 +21,19 @@ from connectrpc.code import Code
 from app.contract.google.rpc.error_details_pb import ErrorInfo, RetryInfo
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.providers import dadata
+from app.providers.diary.errors import (
+    BadCredentials,
+    DiaryError,
+    NoStudents,
+    SessionExpired,
+    UnexpectedResponse,
+    UpstreamUnavailable,
+)
 from app.rest.errors import STATUS, error_response
 from app.rpc import errors
 from app.rpc.errors import CODES, Refusal, connect_error, validate
 from app.schemas import BellScheduleIn, JoinRequest, SubjectIn
+from app.security import Throttled
 from app.services import access as access_service
 from app.services import clock, join, quota, window
 from app.services import diary as diary_service
@@ -50,16 +59,11 @@ RPC = SERVER / "app" / "rpc"
 #: produces the last reason it brings, and a reason still listed under it in
 #: ``LATER`` then fails below
 #: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
-STAGES = {"3b-7", "3b-8"}
+STAGES = {"3b-8"}
 
 #: The reasons no served method produces yet, and the stage that brings each.
 #: A reason leaves this table in the commit whose handler raises it.
 LATER = {
-    "DIARY_UNAVAILABLE": "3b-7",
-    "DIARY_REAUTH": "3b-7",
-    "DIARY_CREDENTIALS_REJECTED": "3b-7",
-    "DIARY_NO_STUDENTS": "3b-7",
-    "DIARY_UPSTREAM_UNREADABLE": "3b-7",
     "CORRECTIONS_UNAVAILABLE": "3b-8",
 }
 
@@ -203,9 +207,43 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
         "test_v2_substitution_create.py",
         "test_a_lesson_that_already_has_a_substitution_that_day_is_refused_as_existing",
     ),
-    # The gate raises it for a diary method, and none is served before 3b-7:
-    # test_rpc_gate.py holds the gate raising it until then.
-    diary_service.DiaryDisabled: "3b-7",
+    diary_service.DiaryDisabled: (
+        "test_v2_diary_sessions.py",
+        "test_without_the_secret_the_diary_is_disabled_on_both_methods",
+    ),
+    Throttled: ("test_v2_diary_sessions.py", "test_v1_and_v2_draw_on_one_budget"),
+    diary_service.RegionNotServed: (
+        "test_v2_diary_sessions.py",
+        "test_a_region_this_server_does_not_serve_is_refused_before_anything_is_counted",
+    ),
+    BadCredentials: (
+        "test_v2_diary_sessions.py",
+        "test_a_session_the_diary_will_not_take_from_here_is_rejected_and_counted",
+    ),
+    NoStudents: (
+        "test_v2_diary_sessions.py",
+        "test_an_account_with_no_pupil_is_refused_and_counted",
+    ),
+    UpstreamUnavailable: (
+        "test_v2_diary_sessions.py",
+        "test_a_diary_that_does_not_answer_is_unavailable_and_not_counted",
+    ),
+    UnexpectedResponse: (
+        "test_v2_diary_sessions.py",
+        "test_an_answer_nobody_can_read_is_unreadable_and_counted",
+    ),
+    DiaryError: (
+        "test_v2_diary_sessions.py",
+        "test_a_failure_no_row_names_is_unreadable_and_counted",
+    ),
+    SessionExpired: (
+        "test_v2_diary_reads.py",
+        "test_a_session_the_diary_ended_is_reauth_and_stays_ended",
+    ),
+    diary_service.UnknownStudent: (
+        "test_v2_diary_reads.py",
+        "test_an_id_this_diary_does_not_list_reaches_nothing",
+    ),
 }
 
 

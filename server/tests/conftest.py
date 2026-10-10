@@ -463,6 +463,36 @@ def with_token():
 
 
 @pytest.fixture
+def diary_offline(monkeypatch) -> list[httpx.Request]:
+    """Both diaries' pooled clients, dropping every request as a connection
+    that failed, and recording it.
+
+    A v2 call that reaches a provider with no upstream of its test's own meets
+    ``UpstreamUnavailable`` here, never the real diary. The gate test and the
+    no-echo sweep call every served method with ``v2_tokens``' diary session,
+    and from 3b-7 a diary read asks the diary for the session's pupils.
+    """
+    from app.providers.netschool import client as nsclient
+    from app.providers.petersburg import client as pbclient
+
+    asked: list[httpx.Request] = []
+
+    def drop(request: httpx.Request) -> httpx.Response:
+        asked.append(request)
+        raise httpx.ConnectError("offline", request=request)
+
+    async def petersburg() -> httpx.AsyncClient:
+        return httpx.AsyncClient(base_url=pbclient.BASE_URL, transport=httpx.MockTransport(drop))
+
+    async def netschool() -> httpx.AsyncClient:
+        return httpx.AsyncClient(transport=httpx.MockTransport(drop))
+
+    monkeypatch.setattr(pbclient, "shared_client", petersburg)
+    monkeypatch.setattr(nsclient, "shared_client", netschool)
+    return asked
+
+
+@pytest.fixture
 async def v2_tokens(session, school_class) -> dict[str, str]:
     """A bearer for each caller the gate tells apart, in ``school_class``.
 
