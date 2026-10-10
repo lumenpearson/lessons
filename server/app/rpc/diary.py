@@ -569,12 +569,13 @@ def _updates(request: BatchUpdateCorrectionsRequest) -> list[diary_corrections.C
         form = validate(DiaryOverrideIn, sent, at=f"corrections[{index}].")
         try:
             overrides.check_correction(form.target, form.field, form.value)
-        except (
-            overrides.UnknownTarget,
-            overrides.UnsupportedField,
-            overrides.EmptyNotAllowed,
-        ) as error:
-            part, sentence = _REFUSED[type(error)]
+        except tuple(_REFUSED) as error:
+            # Walk the MRO rather than keying on `type(error)` alone, so that a
+            # subclass of one of these three — none exists today — would still
+            # find its base's entry instead of a `KeyError` nobody asked for.
+            part, sentence = next(
+                _REFUSED[base] for base in type(error).__mro__ if base in _REFUSED
+            )
             raise Refusal(
                 ErrorReason.VALIDATION_FAILED,
                 sentence,
