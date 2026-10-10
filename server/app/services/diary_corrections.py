@@ -75,9 +75,9 @@ def child_scope(provider: str | None, region: str | None) -> str:
 
     Those two are the only shapes. A child a diary lists by an id outside the
     provider's own numbering (``Student.id_space``) gets no scope at all —
-    :meth:`DiaryService.scope_of` answers ``None`` and the routes offer it no
-    corrections — because the number would then be the whole key, and nothing
-    says that numbering names one person across families.
+    :meth:`DiaryService.scope_of` answers ``None``, and ``DiaryService.child``
+    offers it no corrections — because the number would then be the whole key,
+    and nothing says that numbering names one person across families.
 
     Assumed and never observed: that a «Сетевой город» pupil id is unique per
     server rather than per school, and that two parents' accounts see one

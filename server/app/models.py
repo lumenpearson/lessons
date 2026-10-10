@@ -976,8 +976,9 @@ class DiaryOverride(Base):
     key is the diary's server (``login``, holding a scope) and the pupil's id
     on it (``student_id``), so everyone whose own diary lists the child —
     both parents, the pupil's own account — reads and writes one set: one row
-    per field, the last writer's, with no column saying who that was. The
-    routes decide who reaches a child, by asking the session's own diary.
+    per field, the last writer's, with no column saying who that was.
+    ``DiaryService.child`` decides who reaches a child, by asking the
+    session's own diary.
 
     ``target`` names the thing being corrected **semantically** rather than by
     position: a homework item by its upstream id when it has one and by (day,
