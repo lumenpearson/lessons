@@ -59,9 +59,9 @@ import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
-import com.lumenpearson.lessons.core.designsystem.theme.CardPadding
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
 import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
+import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealAnchor
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -387,12 +387,16 @@ private fun AcknowledgementStep(
             Column(
                 modifier = Modifier
                     .verticalScroll(rememberScrollState())
-                    // CardPadding, the same token (and the same value this
-                    // already was) StateHeroCard's own inner Column uses for
-                    // a card that holds prose rather than rows — this card is
-                    // inset once, by ScreenPadding, on the Surface above; this
-                    // is its own interior padding, a separate concern.
-                    .padding(CardPadding),
+                    // RowPadding (16 x 12), not CardPadding: the fix-round
+                    // review caught that CardPadding's uniform 20 dp kept the
+                    // prose at 16 + 20 = 36 dp, the exact defect decision 5
+                    // names — the audit's own comparison is against every
+                    // other group's row text, at 16 + 16 = 32, which is
+                    // where the crash-report row directly below this card
+                    // starts its own tile. RowPadding's horizontal half is
+                    // what makes that true; its 12 dp vertical is unrelated
+                    // and merely convenient.
+                    .padding(RowPadding),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 Text(

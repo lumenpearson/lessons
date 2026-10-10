@@ -1380,7 +1380,10 @@ private fun ToolbarActionButton(action: ToolbarAction) {
         modifier = Modifier.centreInRoot { centre = it },
         containerColor = scheme.primaryContainer,
         contentColor = scheme.onPrimaryContainer,
-        shape = MaterialTheme.shapes.large,
+        // Material's own FAB shape, not a theme role: this is a stock
+        // FloatingActionButton, and a Material component keeps its own
+        // token rather than being pointed at one of ours.
+        shape = FloatingActionButtonDefaults.shape,
         elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
     ) {
         Box {

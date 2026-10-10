@@ -47,6 +47,8 @@ import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsSans
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
+import com.lumenpearson.lessons.core.designsystem.theme.PillButtonHeight
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -54,9 +56,6 @@ import kotlin.math.round
 import kotlinx.coroutines.launch
 import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
 import com.lumenpearson.lessons.core.designsystem.theme.springSpec
-
-/** Height of a first-run action, straight from the Essentials onboarding. */
-internal val ActionHeight: Dp = 56.dp
 
 /**
  * The bottom edge of every first-run screen: a square way back, then the one
@@ -118,7 +117,7 @@ internal fun OnboardingActions(
                 enabled = enabled && !busy,
                 modifier = Modifier
                     .weight(1f)
-                    .height(ActionHeight),
+                    .height(PillButtonHeight),
             ) {
                 Text(
                     text = label,
@@ -174,8 +173,11 @@ private fun BackSquare(onBack: () -> Unit, enabled: Boolean = true) {
             onBack()
         },
         enabled = enabled,
-        modifier = Modifier.size(ActionHeight),
-        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.size(PillButtonHeight),
+        // Cell, not a Material role: a 56 dp standalone square tile, the
+        // same role the weekday tile and the month-grid cell have — Group
+        // (28 dp) would turn a 56 dp square into a circle.
+        shape = LessonsShapeTokens.Cell,
         contentPadding = PaddingValues(0.dp),
     ) {
         Icon(

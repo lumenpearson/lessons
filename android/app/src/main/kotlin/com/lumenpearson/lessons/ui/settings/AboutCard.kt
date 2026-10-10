@@ -23,7 +23,6 @@ import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -44,14 +43,15 @@ import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.appicon.AppIconImage
 import com.lumenpearson.lessons.appicon.rememberCurrentAppIcon
 import com.lumenpearson.lessons.core.designsystem.component.PillChip
+import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.text.correctedLine
-import com.lumenpearson.lessons.core.designsystem.theme.CardPadding
 import com.lumenpearson.lessons.core.designsystem.theme.InlineGap
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
+import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.data.legal.LegalDocument
 import com.lumenpearson.lessons.core.data.repository.ServerStatus
 import com.lumenpearson.lessons.ui.developer.RevealTaps
@@ -96,15 +96,23 @@ internal fun AboutCard(
     onVersionTapped: () -> Unit = {},
 ) {
     val taps = remember { RevealTaps() }
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = LessonsShapeTokens.Group,
-        color = MaterialTheme.colorScheme.surfaceBright,
+    // A RoundedCardContainer of one row — decision 5's own words, "a group
+    // with rows like every other group" — rather than a bespoke Surface:
+    // the shape is Group by the container's own default, not a second 28 dp
+    // literal, and the content's horizontal inset is RowPadding's 16, the
+    // same number every other group's row text sits behind its own clip at.
+    // Centred prose rather than icon-tile rows is still what this card
+    // shows — only the geometry moved.
+    RoundedCardContainer(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surfaceBright,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(BlockGap),
-            modifier = Modifier.padding(CardPadding),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(RowPadding),
         ) {
             Text(
                 text = correctedString(R.string.about_name_and_version, BuildConfig.VERSION_NAME),
@@ -503,10 +511,11 @@ private val BlockGap = 12.dp
 
 private val MarkSize = 96.dp
 
-private val PillGap = 8.dp
+private val PillGap = InlineGap
 
-/** Gap between two badges, in both directions of the flow. 8, not the 6 this
- *  was: on the grid, and the same gap `PillGap` already uses for a chip strip. */
+/** Gap between two badges, in both directions of the flow. The same `InlineGap`
+ *  `PillGap` reads one line above — both were 8 dp as literals already;
+ *  neither is now. */
 private val BadgeGap = InlineGap
 
 /** Gap between two lines of the facts block; tighter than [BlockGap]. 4, not
