@@ -34,11 +34,12 @@ view switcher (a full pill), the «Отмеченные» chip (a pill with inse
 
 The owner chose 1 to 4. The rest follow from the audit and were agreed with them.
 
-1. **Cards, groups, fields and the cards inside sheets are 24 dp:** `LessonsShapeTokens.Group`.
+1. **Cards, groups, fields and the cards inside sheets are 28 dp:** `LessonsShapeTokens.Group` and
+   `Hero`, equal to `extraLarge`. The owner chose 24; the guideline check below replaced it.
 2. **Standalone tiles and cells are 12 dp.** That covers the weekday tile, the month-grid cell and
-   the icon tiles of «Значок приложения». It is a new token, `LessonsShapeTokens.Cell`, equal to
-   Material's `small`.
-   - A row *inside* a group stays near-square (`Row`, 4 dp), because the group's 24 dp clip does its
+   the icon tiles of «Значок приложения». It is a new token, `LessonsShapeTokens.Cell`: Material's
+   medium, which this theme's own roles call `small`.
+   - A row *inside* a group stays near-square (`Row`, 4 dp), because the group's 28 dp clip does its
      rounding.
 3. **A list row's vertical padding is 12 dp.** Every row of a group is padded `RowPadding =
    16 × 12`, the clickable and non-clickable `GroupItem`, `GroupRow`, `GroupSliderItem` and
@@ -57,8 +58,11 @@ The owner chose 1 to 4. The rest follow from the audit and were agreed with them
    diary's extra clip goes, and «Задания» gains the tray.
 8. **Edges line up.** `SectionHeader`'s built-in 16 dp start inset is `ScreenPadding`, not a
    literal, and the `ScreenPadding - 16.dp` workaround at four call sites goes.
-9. **The radius scale is five values:** 4 (`Row`), 12 (`Cell`), 24 (`Group`), 28 (`extraLarge`,
-   the bottom sheet's own top corners alone) and full (`Pill`, `Tile`).
+9. **The radius scale is four values, all Material tokens:**
+   - 4: `Row`, extra small;
+   - 12: `Cell`, medium;
+   - 28: `Group` and `Hero`, extra large, the same as a sheet's and a dialog's own corners;
+   - full: `Pill` and `Tile`.
    - Material's `medium` (16) and `large` (20) are no longer read by the app. The class-code field
      moves from `large` to `Group`.
    - 0 dp stays where a month-grid run is flat inside, by design.
@@ -71,6 +75,56 @@ The owner chose 1 to 4. The rest follow from the audit and were agreed with them
       notes, and the hero;
     - `InlineGap` 8, between the items of a row or a chip strip, which is today's most common
       `spacedBy`.
+
+## Checked against the guidelines (the owner asked for this, then for work to start)
+
+The values were checked against Material 3 Expressive as this app ships it: the tokens in
+`androidx.compose.material3` 1.5.0-alpha24's `tokens/` sources. Material's own scale is 0, 4, 8,
+12, 16, 20, 28, 32, 48 and full. Its components use these values:
+
+- cards: medium, 12;
+- chips: small, 8, at 32 dp high;
+- text fields: extra small, 4;
+- dialogs and bottom sheets: extra large, 28;
+- the Medium button: 56 dp high, full or large corners, 24 dp side padding;
+- a list item: 12 dp top and bottom padding, 16 at the start and end, and 12 between the leading
+  element and the text. Its minimum height is 56 dp for one line, 72 for two and 88 for three;
+- an Expressive segmented list: items 2 dp apart, inner corners extra small (4);
+- touch targets: at least 48 × 48 dp.
+
+The users of a school diary are children from seven and their parents. Accessibility guidance for
+that audience is the same, only more pressing: large touch targets, text that scales with the
+system font size without clipping, and one predictable rhythm.
+
+**Kept as the owner chose:**
+- **Tiles and cells at 12.** That is Material's medium, the card radius.
+- **Rows at 12 dp top and bottom.** That is exactly Material's list item.
+- **Full-width buttons at 56.** That is Material's Medium button.
+
+**Changed: groups and cards go from 24 to 28 (`extraLarge`).**
+- 24 is on no Material scale. The theme already carries 28 for its sheets and dialogs. So a card
+  inside a sheet sat at 24 under a sheet edge at 28: two large radii side by side, where the
+  screenshot complained of exactly that.
+- With 28, the radius scale shrinks from five values to four: 4 (row), 12 (cell), 28 (container)
+  and full. Every one of them is a Material token.
+- The cost: every group and card on every screen becomes 4 dp rounder. The reference app,
+  Essentials, used 24, and this departs from it. Taking it back is one token.
+
+**Added:**
+- **A row is at least 56 dp tall, and never a fixed height** (`heightIn(min = …)`). A row grows
+  with the system font size instead of clipping, and it is always a touch target past 48 dp.
+- **The gap between a row's leading tile and its text is 12 dp**, Material's, instead of
+  `GroupRow`'s 14.
+- **A tappable chip keeps a 48 dp touch target** (`minimumInteractiveComponentSize`) whatever its
+  drawn height. Chips stay full pills, as the switcher's connected buttons are.
+- **Chip padding sits on the 4 dp grid:** 12 × 4 for a status chip and 16 × 8 for a tappable one,
+  where it was 10 × 4 and 14 × 8.
+- **Every inset and gap is a multiple of 4** (`InlineGap` 8, `CardPadding` 20). A literal off the
+  grid needs a reason in its comment.
+
+**Not now:** the wider screen margins Material asks for at medium and expanded widths (24 dp). That
+means a margin that depends on the window, and `ScreenPadding` is a constant read in places that
+are not composable. It is filed as its own issue.
 
 ## What holds it
 
