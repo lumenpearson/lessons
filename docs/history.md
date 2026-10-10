@@ -28,6 +28,145 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: days and substitutions over v2, one rule for the bot, v1 and v2 — stage 3b-6 of sub-project 3 (#273)
+
+Merged as #385 (`e88e1c8`, 9 October 2026), from `server-v2/3b-6`, on milestone 11. It closes
+#382 and #383, and refers to #273. The branch was cut from `main` at `801a350`, the merge of
+#380, and carries 9 commits before this close-out, to `93f9525`. Written on 9 October 2026.
+No revision goes with it: the schema stays at `0019`. This is stage 3b-6 of
+`docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the
+next. v1 answers as before, but for the race it answered with a 500; v2 now answers sixty-one
+methods.
+
+- **A day's mark is one write.** `special_days.put_day` holds the checks v1's `PUT /days` held
+  in its router — a schedule the day names is this class's and rings something, and a
+  shortened day names one — as facts each shell words. v1 calls it through `set_day`, v2
+  through `update_day`, and the bot's «🏖 Особые дни» for every mark it writes, where
+  `special_days.mark` asked none of the three. A class whose bells ring nothing can no longer
+  be marked shortened from the bot.
+- **A substitution's three questions are asked once**, in `services/substitutions.py`: whether
+  the day draws lessons, with the reason `timetable_edit.no_lessons_on` now answers beside its
+  sentence; whether it rings the number, of a new row only; and whether a lesson is underneath.
+  v1's `PUT /overrides` and the bot's «🔄 Замены» both ask them; the bot never asked the third.
+- **Two defects filed and fixed here:**
+  - #382: two phones writing one date's mark, or one lesson's substitution, at the same moment
+    — the second answered 500. Both writes insert inside a savepoint now, and the loser becomes
+    the change it would have been a moment later.
+  - #383: the bot cancelled a lesson the day's template does not have, which v1 refused; it
+    was stored, announced to every subscriber and drawn nowhere.
+- **Seven methods, `DayService` and `SubstitutionService` whole, all an editor's:**
+  - `GetDay`, every date's kind, a date nobody marked an ordinary day;
+  - `UpdateDay` (masked, with `allow_missing`): without it a date nobody marked is
+    `RESOURCE_NOT_FOUND`, and with it `DAY_KIND_NORMAL` on such a date writes nothing; v2
+    writes the four kinds v1 wrote;
+  - `ListSubstitutions` and `GetSubstitution`;
+  - `CreateSubstitution` (`201`), which refuses a lesson that already has one with
+    `RESOURCE_EXISTS`, where v1 upserted;
+  - `UpdateSubstitution` (masked), which skips the bell, so a row at a number that no longer
+    rings stays editable, and `DeleteSubstitution`, v1's `"clear"`.
+
+  Each write is announced to the class once committed, in v1's words and never to its author;
+  an update that changes nothing writes nothing and tells nobody.
+- **The error table gains six rows**, each read back on both paths by a named test:
+  `ScheduleNotInClass` and `ShortenedNeedsSchedule`, `VALIDATION_FAILED` on
+  `day.bell_schedule_id`; `NoLessonOnDay`, `NoBellForLesson` and `LessonNotOnTimetable`, their
+  own reasons, which leave `LATER`; and `SubstitutionExists`, `RESOURCE_EXISTS`. 3b-6 left
+  `STAGES` with them.
+- **`day.proto`, `errors.proto` and `substitution.proto`** say, in comments only, what
+  `allow_missing` and a masked field left unset mean, that a row at a number that no longer
+  rings stays editable, and that each write is announced; `errors.proto`'s `RESOURCE_NOT_FOUND`
+  names `"day"`.
+
+### Gates
+
+The full suite ran once, at `920bb87`, the head of the six code tasks. #383's fix (`e596114`)
+and the documents (`93f9525`) came after it, and their own files ran again. CI runs on the head
+the merge is made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `93f9525`.
+- **mypy**: no issues found in 238 source files, at `93f9525`.
+- **The server suite.**
+  - `pytest -q -n 4`, run alone from `server/` at `920bb87`, gave **2996 passed** in 1918 s
+    (261 warnings), four workers rather than `-n auto` to spare the machine's faulty RAM.
+  - `e596114` adds four tests, run with their files (242 passed over eight files). Collection
+    counts **3000**, the number the seven places the `handover` skill names now say.
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files, `day_connect.py`'s, `errors_pb.py`'s and
+  `substitution_connect.py`'s docstrings the only change.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its 1635 tests stand
+  from before.
+
+### What was deliberately left alone
+
+- **3b-7 and 3b-8**, each summarised in the 3b plan, and **3c**.
+- **v1's behaviour**, but for the race of #382: `PUT /days` still tells the class of a mark
+  every time it is set, sent twice or not, and `PUT /overrides` still upserts and tells the
+  class every time.
+- **v1's notice seams**, `edit._tell` and `requests._tell`, which build and close their bot
+  outside their guard (#377); v2's `notify_class` does not.
+- **The bot's own words and lines.** The bot keeps its journal lines and its notices for a
+  chat, and its own sentence for the bell; the other two refusals it says in v1's.
+- **A schedule on a day that is not shortened**, which v1 and v2 store as sent and the
+  resolver rings, and which the bot's screen never sends.
+- **`clock.window`** is still the homework's; 3b-7's diary windows need their own.
+- **#384, filed during 3b-6's task reviews and not fixed here**: a write that changes a row
+  another writer deletes at the same moment still answers 500 — a `StaleDataError` out of the
+  commit, in v1, the bot and v2 alike. It predates 3b-6, and #382 fixed only the
+  insert-against-insert race. The fix is cross-cutting: `invoke`, or each update service,
+  would answer `RESOURCE_NOT_FOUND`, and v1 and the bot would answer «not found».
+
+### What nobody has verified in this batch
+
+- **The seven methods against Postgres**: every v2 test ran on SQLite, the two new savepoints
+  among them, and the races of #382 were staged by a read that answers «none» once.
+- **A notice through Telegram itself**: the tests hand `telegram_send` a bot that records
+  what it was asked to send.
+- **The seven on Vercel** beyond the post-merge check, which asks five REST routes and one
+  Connect method once, without a token.
+- **The bot's new refusals through Telegram itself**: a cancellation of an added lesson and a
+  shortened day on bells that ring nothing were pressed by the tests' fakes only.
+- **A phone using any of them**: no APK calls v2 yet.
+- **Whether #384's race reaches the day's mark or a substitution**: it predates 3b-6 and is
+  not fixed here, so nothing here has asked whether `UpdateDay` or `UpdateSubstitution` meets
+  the same `StaleDataError` a concurrent delete would cause.
+
+### After #380's merge: the merge, the read of production, one issue filed, and the development machine's disk
+
+None of this is code in #385, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 9 October 2026.
+
+- **The merge, by the session**, after the five checks. #380 merged as `801a350` at 11:57:34
+  UTC on 9 October 2026, pinned to `ad842d1`. CI was green on that head: Contract, Server, What
+  changed and Vercel; Android was skipped. It closed #381.
+- **Production built the merge itself and was read at 12:25 UTC** (Task 9 Step 10 of 3b-5):
+  - `/api/v1/warmup` answered `ok`, schema `0019`, `v2` `true`;
+  - REST `GET /api/v2/class/homework`, `GET /api/v2/class/events`, `POST /api/v2/class/homework`
+    and `DELETE /api/v2/class/events/1` each answered `401` with `WWW-Authenticate: Bearer`,
+    Google's body and the reason `DEVICE_TOKEN_INVALID`;
+  - Connect `HomeworkService/ListHomework` and `EventService/ListEvents` answered `401`
+    `unauthenticated`;
+  - no `501`, so the merge is what runs.
+- **#382 and #383 were filed** while the 3b-6 task list was written, before any fix. #385
+  closes both.
+- **#384 was filed during 3b-6's task reviews**: «A write that changes a row another writer
+  deletes at the same moment answers 500». It is on milestone 11, under #273, and not fixed
+  here — it is a `StaleDataError` out of the commit, in v1, the bot and v2 alike, predating
+  3b-6; #382 fixed only the insert-against-insert race. The fix is cross-cutting: `invoke`, or
+  each update service, answers `RESOURCE_NOT_FOUND`, and v1 and the bot answer «not found».
+- **The development machine's disk, 9 October.** C: was short of space; the owner had its
+  caches moved to `F:\MovedFromC\…` behind junctions — Gradle's caches and wrapper, `.m2`,
+  `.cargo`, `.rustup`, the Android SDK, VS Code's data, CapCut, ms-playwright and pnpm-cache —
+  and C: went from 8.3 to 32.1 GB free. The Claude desktop app is an MSIX package, and a process
+  it starts cannot follow a junction under `AppData` to another volume (error 649), although
+  the owner's own programs follow it fine, so a Gradle build started from a Claude session
+  needs `ANDROID_HOME` set to `F:\MovedFromC\Users\lumen\AppData\Local\Android\Sdk`, and
+  `sdk.dir` in a worktree's `android/local.properties` likewise; this matters for the device
+  check before sub-project 4. Junctions under the profile root, such as `~\.gradle\caches`,
+  resolve inside Claude too.
+
 ## What the batch before added: homework and events over v2, and v2's first notices to the class — stage 3b-5 of sub-project 3 (#273)
 
 Merged as #380 (`801a350`, 9 October 2026), from `server-v2/3b-5`, on milestone 11. It closes
@@ -7445,3 +7584,19 @@ follow it fine, so a Gradle build started from a Claude session needs `ANDROID_H
 `F:\MovedFromC\Users\lumen\AppData\Local\Android\Sdk`, and `sdk.dir` in a worktree's
 `android/local.properties` likewise; this matters for the device check before sub-project 4.
 Junctions under the profile root, such as `~\.gradle\caches`, resolve inside Claude too.
+
+## Moved out of section 7 on 10 October 2026, after 3b-7
+
+Stage 3b-7 was built (#392), so `HANDOVER.md`'s section 7 points at 3b-8 instead. As the
+paragraph stood until then:
+
+**Next for the programme: stage 3b-7 of sub-project 3, from the 3b plan.** Stages 3a (#342),
+3b-1 (#350), 3b-2 (#356), 3b-3 (#372), 3b-4 (#376), 3b-5 (#380) and 3b-6 (#385) are merged,
+and v2 serves sixty-one methods. `docs/specs/2026-10-05-server-v2-3b-plan.md` summarises 3b-7
+and 3b-8. 3b-7 is the diary's registry as a table, its sessions and its reads, ten methods;
+its two open questions are the controller's before its task list is written, and its windows
+need their own, since `clock.window` is the homework's. By the owner's order of 8 October,
+sub-project 3 is finished first, 3c included, and everything recorded as unverified is checked
+on the development machine before sub-project 4 starts. By the owner's order of 9 October,
+3b-7 starts once #388 has merged, and the work goes on autonomously until 11:00 Moscow on 10
+October 2026.
