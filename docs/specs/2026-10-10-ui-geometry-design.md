@@ -147,3 +147,29 @@ are not composable. It is filed as its own issue.
 - **The widget.** Glance has its own corner handling and its own size ladder, and the widget was
   outside the owner's screenshot. It stays as it is and gets a look of its own later if asked.
 - **Typography and colour.** Unchanged.
+
+## How it is built (the owner asked for work to start without reviewing this)
+
+Four tasks on `android/ui-geometry`, each with its own commit and its own review. Every commit
+keeps `./gradlew test detekt assembleDebug` green.
+
+1. **The tokens and the guard.**
+   - `theme/Shape.kt` gains `Cell`, `RowPadding`, `RowMinHeight`, `RowLeadingGap`,
+     `PillButtonHeight`, `CardPadding` and `InlineGap`, and `Group` and `Hero` become 28.
+   - `RoundedCardContainer` and `SectionHeader` read the tokens instead of literals.
+   - A source-scan test lists today's offenders as a pending allowance, which Tasks 2 and 3 empty.
+2. **The design system's components.**
+   - `GroupItem` (both overloads), `GroupRow`, `GroupSliderItem` and `GroupSegmentedItem` share
+     `RowPadding`, `RowMinHeight` and `RowLeadingGap`.
+   - `GroupActionItem` is 56 dp.
+   - `PillChip`'s padding moves onto the grid, and a tappable chip gets its 48 dp target.
+   - `HomeworkRow`'s attachment pill becomes a `PillChip`.
+   - Tests: equal row heights, the minimum height, and the chip's touch target.
+3. **The screens.**
+   - «Календарь»'s tiles and cells become `Cell`, and `DayAccent`'s fallback is fixed.
+   - The diary's extra clip goes, and «Задания» gets the tray.
+   - «О приложении» becomes a group, and onboarding's card is inset once.
+   - The sheets' private corners and heights become tokens, and `CircleShape` pills become `Pill`.
+   - The class-code field becomes `Group`, and the `ScreenPadding - 16.dp` workaround goes.
+   - «Значок приложения»'s tiles are renamed and given `Cell`.
+4. **The documents.** `docs/design.md` and the honest list of what nobody has looked at on a device.
