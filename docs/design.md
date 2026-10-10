@@ -11,7 +11,7 @@ repository rather than invented again.
 The whole interface is three things:
 
 * a **page** — `surfaceContainer`, 16 dp margins;
-* a **group** — `RoundedCardContainer`: a 24 dp corner radius, a transparent background, 2 dp
+* a **group** — `RoundedCardContainer`: a 28 dp corner radius, a transparent background, 2 dp
   between rows. A group is a mask and nothing else. It has no fill of its own; it is the
   group that rounds the corners, not the rows;
 * a **row** — a rectangle on `surfaceBright` with a round coloured tile on the left.
@@ -49,7 +49,7 @@ rounds it by more than the button is rounded by, in the exact direction the clas
 fix. It also caps the radius at half the shorter side: larger than that is not a rounder
 rectangle but a malformed outline, with two corners of one edge overlapping, so a very short
 tray simply becomes a capsule. The picker used to be clipped at the call site with
-`LessonsShapeTokens.Group` — 24 dp, the radius of a *group of rows* — around buttons with
+`LessonsShapeTokens.Group` — then 24 dp, the radius of a *group of rows* — around buttons with
 4 dp of padding. Both `ConcentricShapeTest` and `WidgetInnerCornerTest` check this as
 arithmetic rather than on a screen, which is the only way either could be checked at all:
 Glance builds `RemoteViews` and there is no frame loop to draw them into.
@@ -80,7 +80,7 @@ does not apply.
 * **A row inside a group.** There is no inset to work from: `RoundedCardContainer` clips
   its rows rather than padding them, so the group's own mask is what rounds them and
   `GroupRow` is a rectangle, which its KDoc says outright. That is the grammar above
-  working as intended — the group's 24 dp is meant to be the only large radius the eye
+  working as intended — the group's 28 dp is meant to be the only large radius the eye
   picks up, and a row that rounded itself concentrically would put a second one where the
   design wants none.
 * **The widget's week strip.** `DayChipCorner` is a constant and deliberately not
@@ -91,6 +91,140 @@ does not apply.
   timeline row**, 2 dp on a bar 4 dp wide. Both are rounded by their own smaller dimension.
   A shape whose radius is half its height is a capsule, and a capsule has no corner to nest
   inside anything.
+
+## One scale for corners, rows and insets
+
+The owner asked for it on 10 October 2026, pointing at a screenshot of «Календарь»'s week view
+(«выровни скругления, элементы в списках и отступы по всему приложению»). On that screenshot
+four neighbours had four corners and four right edges:
+- the view switcher was a full pill;
+- the «Отмеченные» chip was a pill with insets of its own;
+- a weekday tile was 4 dp;
+- «Подробнее →» sat on an invisible button's edge.
+
+An audit found nine radii, nine horizontal insets, five shapes of «one row of a group» and two
+heights of a full-width button. The design is `docs/specs/2026-10-10-ui-geometry-design.md`.
+What it settled lives in `theme/Shape.kt`, and the rest of this section is why.
+
+**The corners are four values, and each is a Material 3 token.**
+
+| Value | Token | Used for |
+| --- | --- | --- |
+| 4 dp | `LessonsShapeTokens.Row` | a row inside a group, where the group's mask does the rounding |
+| 12 dp | `LessonsShapeTokens.Cell` | a tile or a cell standing on its own: a weekday, a month cell, an icon tile |
+| 28 dp | `LessonsShapeTokens.Group`, `Hero` | a group, a card, a field, and a card inside a sheet |
+| full | `LessonsShapeTokens.Pill`, `Tile` | a full-width button, a chip, the leading tile of a row |
+
+The owner chose 24 dp for groups, which was Essentials' radius. 24 is on no Material scale, and
+this theme already drew its sheets and dialogs at 28. A card inside a sheet therefore sat at 24
+under a sheet edge at 28: two large radii side by side, the very thing the screenshot showed.
+At 28 the scale has four values instead of five. Taking it back is one constant,
+`LargeContainerCorner`. Material's `medium` (16) and `large` (20) are no longer read by the
+app. `CircleShape` is kept for things that really are circles, such as an avatar or a dot.
+
+**A row is padded 16 × 12 and is at least 56 dp tall.** That is Material's list item exactly,
+and every row of a group uses it: `GroupItem` in both overloads, `GroupRow`, `GroupSliderItem`
+and `GroupSegmentedItem`. Before this, a clickable `GroupItem` was padded 16 × 8, and a
+non-clickable one fell back to `ListItem`'s own padding. The same content therefore measured
+two heights, depending on whether it could be pressed. The minimum is a `heightIn`, never a
+fixed height. Two things follow:
+- a row grows with the system font size instead of clipping its second line;
+- a row is always a touch target taller than 48 dp.
+
+The gap between a row's leading tile and its text is 12 dp, Material's, where `GroupRow`
+had 14.
+
+**A chip keeps a 48 dp touch target whatever it draws.** `PillChip` is padded 12 × 4 as a
+status and 16 × 8 when it can be pressed, both on the 4 dp grid (they were 10 × 4 and 14 × 8).
+A tappable one carries `minimumInteractiveComponentSize`. The people this app is for are
+children from seven and their parents, and a 32 dp chip is a small target for either.
+
+**Every inset and gap is a multiple of 4**, and the common ones have names:
+
+| Token | Value | What it is |
+| --- | --- | --- |
+| `ScreenPadding` | 16 dp | every screen's edge inset |
+| `GroupSpacing` | 16 dp | between two groups |
+| `GroupRowSpacing` | 2 dp | between two rows of a group |
+| `RowPadding` | 16 × 12 dp | a row's inner padding |
+| `RowMinHeight` | 56 dp | a row's minimum height |
+| `RowLeadingGap` | 12 dp | a row's leading tile to its text |
+| `PillButtonHeight` | 56 dp | a full-width pill button, Material's Medium button |
+| `CardPadding` | 20 dp | a card that holds text rather than rows: a sheet's note, the hero |
+| `InlineGap` | 8 dp | between the items of a row or of a chip strip |
+
+**Edges line up because there is one inset to line up with.**
+- `SectionHeader`'s start inset is `ScreenPadding`, where it was a literal. The four call
+  sites that wrote `ScreenPadding - 16.dp` to undo it are gone.
+- A header's action is measured by its text, not by its button. A `TextButton` pads its
+  content by 12 dp on each side, so a button flush with the edge draws its text 12 dp short
+  of the edge. «Подробнее →» is offset by exactly that padding, so the arrow ends where the
+  chips above it end.
+- Onboarding's acknowledgement card is inset once, by `ScreenPadding`. Its prose, padded
+  `RowPadding`, starts 32 dp from the edge, on the line where the row under the card starts.
+  It was 36 dp.
+- «О приложении» is a `RoundedCardContainer`, like every other group, instead of a bespoke card
+  with 20 dp and 28 dp of its own padding. Its content is one centred row padded `RowPadding`.
+  The prose is still centred; only the geometry moved.
+
+**`SegmentedPicker` has one skin.** The skin is its own concentric tray, 4 dp around
+Material's connected buttons. The diary's tabs used to clip that tray a second time, at 24 dp,
+which recreated the guessed-radius bug the component was rewritten to remove. «Задания» had no
+tray at all and now has the default one.
+
+### What holds it
+
+- `GeometryScaleTest` (in `:core:designsystem`'s tests) reads the source of `android/app` and
+  of the design system outside `theme/Shape.kt`. Like `StabilityPromiseTest`, it fails on
+  three things:
+  - a `RoundedCornerShape` with a literal dp, whether written on one line or several;
+  - a `CircleShape` given to a button or a chip;
+  - a private constant whose name ends in `Corner`.
+  Its allowance for corners is empty. Its allowance for `CircleShape` names the things that
+  really are circles: a dot, a disc, a badge. `@Preview` code is exempt. What it does not
+  catch is a Material role read by name. No screen reads `shapes.medium` or `shapes.large`
+  today, but nothing would stop a screen that started to.
+- `RowGeometryTest` holds the row rhythm:
+  - a clickable and a non-clickable `GroupItem` with the same content measure the same
+    height;
+  - every row type reaches `RowMinHeight`;
+  - a tappable chip's touch target is at least 48 × 48 dp.
+
+  For `GroupSliderItem` and `GroupSegmentedItem` the minimum pins today's behaviour and
+  guards nothing. Their controls (a 44 dp slider handle, 40 dp toggle and icon buttons) keep
+  them above 56 dp with or without the floor, and the tests' KDoc says so.
+- `WeekScreenEdgeAlignmentTest` checks that «Календарь»'s switcher, chips, weekday strip and
+  day panel action end on one right edge, the action measured by its text and arrow rather
+  than by its button. It composes a copy of the screen's column rather than `WeekScreen`
+  itself, so a change to the real screen's wiring can pass it.
+
+### What nobody has looked at on a device
+
+Robolectric measures sizes. It does not judge whether a screen looks right, and in its
+lightweight graphics mode text has almost no width. Everything above was measured in tests;
+none of it has been seen on a device. These are the screens to look at, on the emulator or a
+phone, in light and dark:
+- «Сегодня»;
+- «Календарь», with the week, month and agenda views;
+- «Задания»;
+- the diary;
+- «Оформление» and «Значок приложения»;
+- «О приложении»;
+- the first-run path.
+
+Three things are most likely to look different from what was meant:
+- every group is 4 dp rounder;
+- the 56 dp minimum makes the one-line rows of the denser settings pages taller;
+- the agenda's rows, the month banner and the selected and today cells of the month grid are now
+  `Cell`, at 12 dp.
+
+The widget is not part of this pass. Glance has its own corner arithmetic
+(`WidgetSizeClass.innerCorner()`, from a 24 dp surface), and the widget was not in the
+screenshot.
+
+**Not done: margins that widen with the window.** Material asks for 24 dp at medium and
+expanded widths. `ScreenPadding` is a constant, and it is read in places that are not
+composable, so a margin that depends on the window is a change of its own (#405).
 
 ## What came from where
 

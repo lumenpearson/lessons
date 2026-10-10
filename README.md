@@ -513,6 +513,15 @@ one of them is proved by a test rather than by a screen.
   image, the root `Dockerfile`: CI starts `python -m app.host` from the same two locks
   instead, on Linux, and the file is read by a test.
 
+**The geometry pass of 10 October 2026 is measured, not seen.** One corner scale, one row
+rhythm and one inset now run through every screen (`docs/design.md`, «One scale for corners,
+rows and insets»). Robolectric holds them as sizes, and a source scan refuses a raw corner
+literal. Nobody has yet looked at any screen after the change, on an emulator or on a phone.
+Three things are the likeliest to look different from what was meant:
+- every group is 4 dp rounder;
+- the denser settings pages are taller, from the 56 dp minimum row;
+- «Календарь» has 12 dp cells.
+
 **What does not exist at all.**
 
 * Attachments to homework. The `attachment_url` field is in the schema; there is no upload.
