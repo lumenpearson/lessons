@@ -1710,10 +1710,14 @@ class CorrectionKey(Message[_CorrectionKeyFields]):
 
     Attributes:
         target:
+            The target a read handed down, 1 to 300 characters.
+
             ```proto
             string target = 1;
             ```
         field:
+            1 to 40 characters.
+
             ```proto
             string field = 2;
             ```

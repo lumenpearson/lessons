@@ -159,7 +159,10 @@ class DiaryService(Protocol):
         who can have none: «no correction here» is what was asked for. At most
         200 a request, as BatchUpdateCorrections. A POST with a body, because a
         target is free text, and a value that must match byte for byte does not
-        travel in a URL.
+        travel in a URL. VALIDATION_FAILED, before the diary is asked anything:
+        on `corrections` past 200 keys, or naming the first one refused,
+        `corrections[i].target` or `.field` with i counted from 0, for an empty
+        or overlong key.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -729,7 +732,10 @@ class DiaryServiceClient(ConnectClient):
         who can have none: «no correction here» is what was asked for. At most
         200 a request, as BatchUpdateCorrections. A POST with a body, because a
         target is free text, and a value that must match byte for byte does not
-        travel in a URL.
+        travel in a URL. VALIDATION_FAILED, before the diary is asked anything:
+        on `corrections` past 200 keys, or naming the first one refused,
+        `corrections[i].target` or `.field` with i counted from 0, for an empty
+        or overlong key.
         """
         return await self.execute_unary(
             request=request,
@@ -899,7 +905,10 @@ class DiaryServiceSync(Protocol):
         who can have none: «no correction here» is what was asked for. At most
         200 a request, as BatchUpdateCorrections. A POST with a body, because a
         target is free text, and a value that must match byte for byte does not
-        travel in a URL.
+        travel in a URL. VALIDATION_FAILED, before the diary is asked anything:
+        on `corrections` past 200 keys, or naming the first one refused,
+        `corrections[i].target` or `.field` with i counted from 0, for an empty
+        or overlong key.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -1454,7 +1463,10 @@ class DiaryServiceClientSync(ConnectClientSync):
         who can have none: «no correction here» is what was asked for. At most
         200 a request, as BatchUpdateCorrections. A POST with a body, because a
         target is free text, and a value that must match byte for byte does not
-        travel in a URL.
+        travel in a URL. VALIDATION_FAILED, before the diary is asked anything:
+        on `corrections` past 200 keys, or naming the first one refused,
+        `corrections[i].target` or `.field` with i counted from 0, for an empty
+        or overlong key.
         """
         return self.execute_unary(
             request=request,
