@@ -325,7 +325,11 @@ async def test_a_session_the_diary_ended_is_reauth_and_stays_ended(
     v2, v2_tokens, petersburg, session
 ) -> None:
     """«Sign in again», and the row stays expired though the call is refused
-    (decision 4): the next call, on either transport, is the gate's to refuse."""
+    (decision 4): the next call, on either transport, is the gate's to
+    refuse — which needs a live session of its own for the Connect half,
+    since the REST call above has already expired the first one, and a
+    token already refused as unknown would prove nothing about HELD_BY's
+    promise that DIARY_REAUTH itself is read back on both transports."""
     petersburg.routes[CHILDREN] = lambda request: httpx.Response(401, json={})
     token = v2_tokens["diary"]
     ended = await v2.rest("DiaryService/ListStudents", token=token)
@@ -336,11 +340,34 @@ async def test_a_session_the_diary_ended_is_reauth_and_stays_ended(
         "Сессия дневника истекла — войдите заново",
     )
     async with SessionLocal() as fresh:
-        row = await fresh.scalar(select(DiarySession))
+        row = await fresh.scalar(
+            select(DiarySession).where(DiarySession.token_hash == hash_token(token))
+        )
         assert row.expired_at is not None
-    again = await v2.connect("DiaryService/ListStudents", token=token)
-    assert (again.reason, again.error) == ("DIARY_TOKEN_INVALID", "Diary session is not valid")
-    assert _asked(petersburg, CHILDREN) == 1
+
+    second_token = "v2-diary-token-second"
+    session.add(
+        DiarySession(
+            token_hash=hash_token(second_token),
+            upstream_token=seal("a-second-upstream-session"),
+            login="parent@example.com",
+            provider="petersburg",
+        )
+    )
+    await session.commit()
+    again = await v2.connect("DiaryService/ListStudents", token=second_token)
+    assert (again.status, again.code, again.reason, again.error) == (
+        401,
+        "UNAUTHENTICATED",
+        "DIARY_REAUTH",
+        "Сессия дневника истекла — войдите заново",
+    )
+    async with SessionLocal() as fresh:
+        row = await fresh.scalar(
+            select(DiarySession).where(DiarySession.token_hash == hash_token(second_token))
+        )
+        assert row.expired_at is not None
+    assert _asked(petersburg, CHILDREN) == 2
 
 
 async def test_a_credential_the_diary_rotated_is_kept_even_when_the_read_is_refused(
