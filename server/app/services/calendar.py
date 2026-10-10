@@ -24,6 +24,7 @@ from datetime import time as Time
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import watch
 from app.models import PersonalTask, SchoolClass, TaskPriority
 from app.schedule import ResolvedDay
 
@@ -71,6 +72,7 @@ async def ensure_calendar_token(session: AsyncSession, school_class: SchoolClass
         .where(SchoolClass.id == school_class.id, SchoolClass.calendar_token.is_(None))
         .values(calendar_token=secrets.token_urlsafe(24))
     )
+    watch.touch(session, school_class.id)
     await session.refresh(school_class, ["calendar_token"])
     # Not reachable: after that update the column holds somebody's token, ours
     # or the winner's, and a class deleted in between raises out of `refresh`

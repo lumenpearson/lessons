@@ -30,6 +30,7 @@ from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import watch
 from app.models import Subject, TimetableEntry
 
 #: Both columns are ``String(120)``; the shorter of the two is the limit.
@@ -289,4 +290,5 @@ async def sync_from_timetable(session: AsyncSession, class_id: int) -> int:
             )
             .values(subject_id=subject.id, subject_name=subject.name)
         )
+        watch.touch(session, class_id)
     return created

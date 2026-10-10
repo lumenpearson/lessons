@@ -9,7 +9,9 @@ text: a revision is opaque to every client, and to these tests too.
 
 from __future__ import annotations
 
+import ast
 from datetime import date, time
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -17,7 +19,8 @@ from sqlalchemy import select
 from sqlalchemy import update as sa_update
 
 from app import watch
-from app.db import SessionLocal
+from app.bot.handlers.timetable import timetable_apply
+from app.db import Base, SessionLocal
 from app.models import (
     AuditEntry,
     BellPeriod,
@@ -40,6 +43,9 @@ from app.models import (
     TimetableEntry,
     WeekParity,
 )
+from app.services import calendar, structure, timetable_edit
+
+APP = Path(__file__).resolve().parents[1] / "app"
 
 
 @pytest.fixture
@@ -302,3 +308,186 @@ async def test_attaching_twice_hears_each_change_once(bus, session, school_class
     session.add(_homework(school_class.id))
     await session.commit()
     assert bus.changes(school_class.id) == start + 1
+
+
+# ---- every bulk write on a window table touches the bus ---------------------
+
+#: The statements sqlalchemy builds that never pass through the unit of work.
+_BULK = {"update", "delete", "insert"}
+
+
+def _tables() -> dict[str, str]:
+    """Every mapped class's name and its table, the FSM storage's included."""
+    from app import fsm_storage, models  # noqa: F401 - both register mappers
+
+    return {mapper.class_.__name__: mapper.local_table.name for mapper in Base.registry.mappers}
+
+
+def _bulk_names(tree: ast.Module) -> tuple[set[str], set[str]]:
+    """The names a module calls sqlalchemy's bulk statements by, however it
+    imports them, and the names it calls sqlalchemy itself by."""
+    functions: set[str] = set()
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "sqlalchemy":
+            functions.update(
+                alias.asname or alias.name for alias in node.names if alias.name in _BULK
+            )
+        elif isinstance(node, ast.Import):
+            modules.update(
+                alias.asname or alias.name
+                for alias in node.names
+                if alias.name.split(".")[0] == "sqlalchemy"
+            )
+    return functions, modules
+
+
+def _is_bulk(call: ast.Call, functions: set[str], modules: set[str]) -> bool:
+    if isinstance(call.func, ast.Name):
+        return call.func.id in functions
+    if isinstance(call.func, ast.Attribute) and call.func.attr in _BULK:
+        root = call.func.value
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        return isinstance(root, ast.Name) and root.id in modules
+    return False
+
+
+def _on_a_window_table(call: ast.Call, tables: dict[str, str]) -> bool:
+    """A statement on a model the walk can name is judged by its table; any
+    other — a loop variable, an attribute — is taken to be a window table."""
+    first = call.args[0] if call.args else None
+    if isinstance(first, ast.Name) and first.id in tables:
+        return tables[first.id] in watch.WINDOW_TABLES
+    return True
+
+
+def _touches(scope: ast.AST) -> bool:
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "touch"
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "watch"
+        for node in ast.walk(scope)
+    )
+
+
+def bulk_writes(source: str, tables: dict[str, str]) -> list[tuple[str, int, bool]]:
+    """Each bulk statement on a window table in ``source``: the top-level
+    function or method it is built in, its line, and whether that function
+    touches the bus. A helper defined inside the function is the function's."""
+    tree = ast.parse(source)
+    functions, modules = _bulk_names(tree)
+    scopes: list[tuple[str, ast.AST]] = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            scopes.append((node.name, node))
+        elif isinstance(node, ast.ClassDef):
+            scopes += [
+                (f"{node.name}.{item.name}", item)
+                for item in node.body
+                if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef)
+            ]
+        else:
+            scopes.append(("<module>", node))
+    return [
+        (name, call.lineno, _touches(scope))
+        for name, scope in scopes
+        for call in ast.walk(scope)
+        if isinstance(call, ast.Call)
+        and _is_bulk(call, functions, modules)
+        and _on_a_window_table(call, tables)
+    ]
+
+
+def test_every_bulk_write_on_a_window_table_touches_the_bus() -> None:
+    """The design asks this of ``services/``; it is asked of all of ``app/``,
+    because the bus hears every shell, and the bot's «-» on a weekday was a
+    bare delete in a handler until this stage moved it into the service."""
+    tables = _tables()
+    found = {
+        path.relative_to(APP.parent).as_posix(): bulk_writes(path.read_text("utf-8"), tables)
+        for path in sorted(APP.rglob("*.py"))
+        if "contract" not in path.relative_to(APP).parts
+    }
+    untouched = [
+        f"{name} {scope}:{line}"
+        for name, writes in found.items()
+        for scope, line, touched in writes
+        if not touched
+    ]
+    assert untouched == [], (
+        "a bulk statement on a window table that the bus never hears of; call "
+        "watch.touch(session, class_id) in the same function: " + ", ".join(untouched)
+    )
+    # And the walk is not vacuous: it sees the writes this stage touched.
+    assert {"app/services/structure.py", "app/services/timetable_edit.py"} <= {
+        name for name, writes in found.items() if writes
+    }
+
+
+def test_the_walk_sees_an_untouched_bulk_write_however_it_is_spelled() -> None:
+    slips = """
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import update
+import sqlalchemy as sa
+
+
+async def direct(session, class_id):
+    await session.execute(sa_delete(Homework).where(Homework.class_id == class_id))
+
+
+async def looped(session, class_id):
+    for model in (Homework, DayEvent):
+        await session.execute(update(model).values(subject_name="x"))
+
+
+class Holder:
+    async def method(self, session):
+        await session.execute(sa.delete(TimetableEntry))
+
+
+async def elsewhere(session):
+    await session.execute(sa_delete(PersonalTask))
+
+
+async def kept(session, class_id):
+    await session.execute(sa_delete(Homework))
+    watch.touch(session, class_id)
+"""
+    writes = bulk_writes(slips, _tables())
+    assert [(scope, touched) for scope, _line, touched in writes] == [
+        ("direct", False),
+        ("looped", False),
+        ("Holder.method", False),
+        ("kept", True),
+    ]
+
+
+@pytest.mark.parametrize(
+    "write",
+    ["empty_a_weekday", "remove_a_lesson", "move_a_lesson", "mint_the_feed_secret", "bot_dash"],
+)
+async def test_a_write_made_of_bulk_statements_alone_wakes_the_class(
+    bus, session, school_class, FakeState, FakeMessage, write
+) -> None:
+    """Each path here writes a window table through bulk statements and
+    nothing else, so only its touch can wake anybody."""
+    class_id = school_class.id
+    start = bus.changes(class_id)
+    if write == "empty_a_weekday":
+        await structure.apply_timetable(session, school_class, {1: []}, [])
+    elif write == "remove_a_lesson":
+        assert await timetable_edit.remove_lesson(session, class_id, 1, 3) == 1
+    elif write == "move_a_lesson":
+        assert await timetable_edit.move_lesson(session, class_id, 1, 1, up=False) == 2
+    elif write == "mint_the_feed_secret":
+        assert await calendar.ensure_calendar_token(session, school_class)
+    else:
+        message = FakeMessage(text="-")
+        state = FakeState(data={"weekday": 1})
+        await timetable_apply(message, state, session, school_class, Role.ADMIN)
+        assert "очищено" in message.last
+    await session.commit()
+    assert bus.changes(class_id) == start + 1

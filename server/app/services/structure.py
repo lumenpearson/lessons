@@ -21,6 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import watch
 from app.db import rows_affected
 from app.models import (
     BellPeriod,
@@ -147,6 +148,7 @@ async def rename_subject(
         .values(subject_name=new_name, subject_id=subject.id)
     )
     moved += rows_affected(result)
+    watch.touch(session, class_id)
 
     # Homework and substitutions carry no link at all: a lesson keeps its name when a
     # subject is deleted, and that is the whole reason they store text.
@@ -271,6 +273,7 @@ async def write_bell_periods(
             )
 
     await session.execute(sa_delete(BellPeriod).where(BellPeriod.schedule_id == schedule.id))
+    watch.touch(session, schedule.class_id)
     for index, start, end in rows:
         session.add(
             BellPeriod(schedule_id=schedule.id, index=index, starts_at=start, ends_at=end)
@@ -336,6 +339,7 @@ async def apply_timetable(
                 TimetableEntry.weekday.in_(list(days)),
             )
         )
+        watch.touch(session, school_class.id)
 
     rung = (
         {index for index, _start, _end in bells}
