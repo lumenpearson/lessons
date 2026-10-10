@@ -1895,9 +1895,11 @@ unaffected.
   `VALIDATION_FAILED` on `corrections`. A `value` left out is stored as an empty string, on a
   field the diary may leave blank, where v1 refuses a body with none at all. `ResetCorrections`
   takes the named corrections off, up to 200, all or none, and answers the same whether or
-  not there was anything there; an empty batch or an empty reset succeeds, once the pupil
-  resolves, writing or taking off nothing. `ClearCorrections` takes every one of this child's
-  off, and none of another's. A pupil the
+  not there was anything there; an empty reset succeeds once the pupil resolves, taking off
+  nothing — even for a pupil who can have none. An empty batch succeeds the same way only for
+  a pupil corrections can be filed under: one who can have none is refused
+  `CORRECTIONS_UNAVAILABLE` even by a batch of none. `ClearCorrections` takes every one of
+  this child's off, and none of another's. A pupil the
   diary lists outside its own numbering can have none: its list is empty, a reset or a
   clear takes nothing off, and a write is `CORRECTIONS_UNAVAILABLE`, in v1's words — a
   request wrong twice over, a bad correction alongside an unknown pupil or alongside one who
