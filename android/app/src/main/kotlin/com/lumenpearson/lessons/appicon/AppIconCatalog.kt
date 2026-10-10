@@ -26,16 +26,21 @@ import com.lumenpearson.lessons.appicon.AppIconStyle.ONEUI
  * [key] is the first half of every name a variant has: its resources
  * (`ic_launcher_<style>_<palette>`), its alias (`.launcher.<style>_<palette>`)
  * and the generator's (android/logo/export_android.py).
+ *
+ * [flatGround] says the style's ground is one flat colour: a plate for the
+ * launcher's sake, which the app leaves out so the mark stands on the app's
+ * own surface. A ground with a gradient, a glow or glass is part of the look
+ * and is drawn. `AppIconGroundTest` holds the flag to the resources.
  */
-enum class AppIconStyle(val key: String, @param:StringRes val labelRes: Int) {
-    CLASSIC("classic", R.string.app_icon_style_classic),
-    EDGE("edge", R.string.app_icon_style_edge),
-    GLOW("glow", R.string.app_icon_style_glow),
-    DARK("dark", R.string.app_icon_style_dark),
-    GLASS("glass", R.string.app_icon_style_glass),
-    MATTE("matte", R.string.app_icon_style_matte),
-    ONEUI("oneui", R.string.app_icon_style_oneui),
-    AMOLED("amoled", R.string.app_icon_style_amoled),
+enum class AppIconStyle(val key: String, @param:StringRes val labelRes: Int, val flatGround: Boolean) {
+    CLASSIC("classic", R.string.app_icon_style_classic, flatGround = true),
+    EDGE("edge", R.string.app_icon_style_edge, flatGround = true),
+    GLOW("glow", R.string.app_icon_style_glow, flatGround = false),
+    DARK("dark", R.string.app_icon_style_dark, flatGround = false),
+    GLASS("glass", R.string.app_icon_style_glass, flatGround = false),
+    MATTE("matte", R.string.app_icon_style_matte, flatGround = false),
+    ONEUI("oneui", R.string.app_icon_style_oneui, flatGround = false),
+    AMOLED("amoled", R.string.app_icon_style_amoled, flatGround = true),
 }
 
 /**

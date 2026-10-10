@@ -16,14 +16,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.math.roundToInt
 
 /**
- * A launcher icon, drawn the way a launcher draws it. Both layers of the
- * adaptive icon are laid over its 108 dp canvas, the box shows the middle
- * 72 dp, and [shape] masks it.
+ * A launcher icon, drawn the way a launcher draws it, less a flat plate. The
+ * adaptive icon's layers are laid over its 108 dp canvas, the box shows the
+ * middle 72 dp, and [shape] masks it.
  *
- * It draws the whole icon, not its foreground on a plate of our choosing.
- * Essentials' picker drew the foreground on white, and «О приложении» drew
- * the old book on a colour, and both are wrong for every style with a ground of
- * its own: «Свечение», «Тёмная», «AMOLED», «Размытие» and «Матовое стекло».
+ * A ground of one flat colour ([AppIconStyle.flatGround]: white under
+ * «Классика» and «Край в край», black under «AMOLED») is there only because a
+ * launcher needs a full square. In the app it would be a tile on the app's own
+ * surface, so it is left out and the mark stands alone. Every other ground is
+ * part of the style and is drawn. Essentials' picker drew every foreground on
+ * white, which is wrong for «Свечение», «Тёмная», «Матовая», «Размытие» and
+ * «Матовое стекло».
  */
 @Composable
 fun AppIconImage(
@@ -41,8 +44,9 @@ fun AppIconImage(
         val bleed = (size.minDimension * BleedFraction).roundToInt()
         val right = size.width.roundToInt() + bleed
         val bottom = size.height.roundToInt() + bleed
+        val ground = layers.background.takeUnless { variant.style.flatGround }
         drawIntoCanvas { canvas ->
-            for (layer in listOfNotNull(layers.background, layers.foreground)) {
+            for (layer in listOfNotNull(ground, layers.foreground)) {
                 layer.setBounds(-bleed, -bleed, right, bottom)
                 layer.draw(canvas.nativeCanvas)
             }
