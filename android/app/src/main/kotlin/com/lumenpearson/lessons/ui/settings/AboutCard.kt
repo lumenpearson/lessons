@@ -64,7 +64,8 @@ import com.lumenpearson.lessons.ui.legal.rememberLegalOpener
  * The card at the very bottom of the about page: what this is, and who it is by.
  *
  * A port of Essentials' `AboutSection`, arranged as its own screenshot has it —
- * one card, everything centred, the links as pills two to a row.
+ * one card, everything centred — except that the links are pills one to a row
+ * rather than its two; [LinkPills] says why.
  *
  * Rebuilt rather than copied, because the reference has a row of defects worth
  * not inheriting. Its nine link buttons are nine copies of the same fifteen
@@ -303,6 +304,12 @@ private fun Badges(serverStatus: ServerStatus, build: BuildProvenance) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(BadgeGap, Alignment.CenterHorizontally),
         verticalArrangement = Arrangement.spacedBy(BadgeGap),
+        // Centred, not FlowRow's default top: the repository and commit
+        // badges are tappable, and a tappable PillChip is laid out in a 48 dp
+        // slot with its capsule in the middle of it. Top-aligned beside the
+        // static badges, which are only as tall as their text, those two drew
+        // their capsules 8 dp below the top of every other badge on the line.
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         ServerBadges(serverStatus)
 
@@ -513,9 +520,9 @@ private val MarkSize = 96.dp
 
 private val PillGap = InlineGap
 
-/** Gap between two badges, in both directions of the flow. The same `InlineGap`
- *  `PillGap` reads one line above — both were 8 dp as literals already;
- *  neither is now. */
+/** Gap between two badges, in both directions of the flow: `InlineGap`, 8 dp,
+ *  the same as `PillGap` one line above. It was 6 dp; 8 puts it on the 4 dp
+ *  grid and makes the badges and the link pills one rhythm. */
 private val BadgeGap = InlineGap
 
 /** Gap between two lines of the facts block; tighter than [BlockGap]. 4, not

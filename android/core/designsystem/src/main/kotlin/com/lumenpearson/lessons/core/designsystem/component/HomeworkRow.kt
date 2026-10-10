@@ -104,8 +104,9 @@ fun HomeworkRow(
                     // this row keeps its own icon size and labelLarge text, which
                     // PillChip does not expose, so it reads its exact geometry
                     // instead of becoming one, and the two cannot drift apart
-                    // since both files read the same declaration. Its 48 dp
-                    // touch target, when tappable, the same way PillChip's own.
+                    // since both files read the same declaration. When it is
+                    // tappable it takes a 48 dp touch target the way PillChip
+                    // does, as a slot its capsule is centred in.
                     modifier = Modifier
                         .then(if (onOpenAttachment != null) Modifier.minimumInteractiveComponentSize() else Modifier)
                         .clip(LessonsShapeTokens.Pill)

@@ -43,7 +43,8 @@ internal val StaticChipPadding = PaddingValues(horizontal = 12.dp, vertical = 4.
 
 /**
  * The smallest status carrier in the design system: "замена", "отменён", "сейчас",
- * and — with [onClick] — the day selector at the top of the week screen.
+ * and — with [onClick] — the calendar's filters and its year, the diary's
+ * pupils, and the choices in the sync and notification settings.
  *
  * Exists instead of `AssistChip`/`FilterChip` because most of these are pure
  * labels: a chip that invites a tap that does nothing is worse than a label, and
@@ -113,14 +114,21 @@ fun PillChip(
 ) {
     // Clipping before the click keeps the ripple inside the capsule; Surface's
     // own clip happens too late for a modifier handed in from outside.
-    // minimumInteractiveComponentSize raises the touch target to Material's
-    // 48 dp floor without changing what is drawn — a tappable chip stays as
-    // short as its text, the way the day selector's row of seven needs it to.
-    // `clickable` already does the same on its own in this Compose Foundation
-    // (`ClickableNode`'s own touch-bounds expansion, confirmed in
-    // `PillChipTouchTargetTest` by measuring with and without this line and
-    // seeing no difference), but the floor is asked for through the
-    // documented Material API rather than left to rely on that detail.
+    //
+    // minimumInteractiveComponentSize gives a tappable chip Material's 48 dp
+    // touch target, and it does that as layout, not only as touch: the chip
+    // reports at least 48 x 48 dp to whatever places it and centres its
+    // capsule in that slot. The capsule is not enlarged and draws exactly as
+    // before, but a row of tappable chips is 48 dp tall instead of 32, so
+    // chip rows read looser — a line of filters 16 dp taller, and wrapped
+    // lines that InlineGap spaced 8 dp apart now 24 apart, capsule to capsule.
+    // A static chip is never pressed, gets no slot and stays as short as its
+    // text, so a row that mixes the two has to line them up by their centres.
+    //
+    // `clickable`'s own hit testing already reaches 48 dp around a smaller
+    // node in this Compose, so the slot is not what makes the chip pressable;
+    // the target is asked for through the documented Material API rather
+    // than left to rest on that detail.
     val interaction = when (onClick) {
         null -> Modifier
         else -> Modifier
