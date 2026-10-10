@@ -16,21 +16,23 @@ Last updated: **11 October 2026**. **PRs #63 through #85, #128, #129, #133, #134
 is complete** with #396 (`80d1281`). **The four designs of sub-projects 3 to 6 are approved and
 on `main`**: the owner answered every question with its recommendation on 5 October (#301,
 #306, #307, #308), and #410 added a seventh sub-project and six deployment scenarios to the
-programme. **One pull request is open: this one, the one carrying this paragraph**, from
+programme. **One pull request is open: #413, the one carrying this paragraph**, from
 `android/ui-geometry` to `main`, on milestone 12, which closes #404: one geometry for the whole
 app. **The schema did not move**: the head is still `0019`, on production since 16:28 UTC on 6
 October, and `EXPECTED_REVISION` did not move either.
 
 The issues filed since #396 merged:
 - #402, closed by #403;
-- #404, this batch's own defect, open until this pull request merges and closes it;
+- #404, this batch's own defect, open until #413 merges and closes it;
 - #405, open in the backlog: margins of 24 dp at medium and expanded widths, which this batch
   left alone;
 - #406–#409, filed with #410's deployment plan: #406, #407 and #408 open on milestone 11, #409
   open in the backlog;
 - #411, open on milestone 11: the server suite has only ever run on SQLite. The
   live-verification gate filed it on the night of 10–11 October, and its own pull request, from
-  `checks/postgres-suite`, comes after this one.
+  `checks/postgres-suite`, comes after this one;
+- #412, in the backlog: the «Сетевой город» school search reads `addressString`, a key no live
+  server sends. The same gate found it by asking four regional servers, with no account.
 
 #395 closed with #396 and #397 with #399; #400 (backlog) and #401 (milestone 11), filed by 3c,
 are open. #352, #355, #357, #365, #368, #371, #375, #377, #378, #384 and #391 stay as the last
@@ -177,7 +179,7 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
 
 ## What the last session added: one geometry for the whole app — corners, list rows and insets (#404)
 
-Open as this pull request, from `android/ui-geometry` to `main`, on milestone 12. It closes
+Open as #413, from `android/ui-geometry` to `main`, on milestone 12. It closes
 #404. The branch was cut from `main` at `00fb20e`, the merge of #403, and merged with `main` at
 `1eb134e` (#410, documents only) as `be8f259`; it carries 21 commits before this close-out,
 that merge among them. Written on 11 October 2026. No revision goes with it and nothing under
@@ -275,7 +277,7 @@ BUILD SUCCESSFUL.
 
 ### After #396's merge: four more merges, production read, and the issues
 
-None of this is code in this pull request, and a close-out never gets a close-out of its own,
+None of this is code in #413, and a close-out never gets a close-out of its own,
 so it is written here. The source is the controller's notes of 10 and 11 October 2026.
 
 - **#396 merged by 3c's session** at 10:25:16 UTC on 10 October 2026 as `80d1281`, with CI all
@@ -303,7 +305,7 @@ so it is written here. The source is the controller's notes of 10 and 11 October
   October, answered `200` three times, in 0.21–0.28 s.
 - **#357 confirmed live** on 10 October, against a local server on PostgreSQL: `GetClass` over
   Connect GET answered `200` with no `Cache-Control`, and its REST twin `private, no-store`.
-- **Issues filed:** #404, closed by this pull request; #405 and #409, backlog; #406, #407, #408
+- **Issues filed:** #404, closed by #413; #405, #409 and #412, backlog; #406, #407, #408
   and #411, milestone 11. #402 closed with #403.
 
 Section 7's «Next for the programme» says what follows.
@@ -510,8 +512,8 @@ maps them. The
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
 | 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396 and #410 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408 and #411 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398 and #403 (merged) and this pull request (open); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387, #402 and #404 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405 and #409; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398 and #403 (merged) and #413 (open); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387, #402 and #404 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409 and #412; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
