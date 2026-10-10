@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,6 +47,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.ConcentricShape
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.RowLeadingGap
+import com.lumenpearson.lessons.core.designsystem.theme.RowMinHeight
 import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
@@ -230,6 +232,7 @@ fun <T> GroupSegmentedItem(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .heightIn(min = RowMinHeight)
             .background(MaterialTheme.colorScheme.rowContainer)
             .padding(top = RowPadding.calculateTopPadding(), bottom = RowPadding.calculateBottomPadding()),
     ) {

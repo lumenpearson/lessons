@@ -138,6 +138,55 @@ class RowMinimumHeightTest {
         assertAtLeastRowMinHeight(compose.onNodeWithTag(Tag).getUnclippedBoundsInRoot().height.value)
     }
 
+    /**
+     * Task 2's review named this the one Major gap: `GroupSliderItem` is on
+     * the design doc's own list of rows that share `RowMinHeight`, but its
+     * outer `Column` carried no floor at all. Latent today — a slider plus
+     * two 48 dp `IconButton`s is already well over 56 dp — which is exactly
+     * why only a measurement, not a reading of the source, would have caught
+     * its absence.
+     */
+    @Test
+    fun `a GroupSliderItem is at least 56 dp tall`() {
+        compose.setContent {
+            LessonsTheme {
+                RoundedCardContainer {
+                    GroupSliderItem(
+                        title = "Размытие",
+                        tone = accentTone(0),
+                        value = 0.5f,
+                        onValueChange = {},
+                        modifier = Modifier.testTag(Tag),
+                    )
+                }
+            }
+        }
+
+        assertAtLeastRowMinHeight(compose.onNodeWithTag(Tag).getUnclippedBoundsInRoot().height.value)
+    }
+
+    /** Same Major gap as [GroupSliderItem], same reason, same fix. */
+    @Test
+    fun `a GroupSegmentedItem is at least 56 dp tall`() {
+        compose.setContent {
+            LessonsTheme {
+                RoundedCardContainer {
+                    GroupSegmentedItem(
+                        title = "Вибрация",
+                        tone = accentTone(0),
+                        items = listOf("Нет", "Лёгкая"),
+                        selectedItem = "Нет",
+                        onItemSelected = {},
+                        labelProvider = { it },
+                        modifier = Modifier.testTag(Tag),
+                    )
+                }
+            }
+        }
+
+        assertAtLeastRowMinHeight(compose.onNodeWithTag(Tag).getUnclippedBoundsInRoot().height.value)
+    }
+
     private fun assertAtLeastRowMinHeight(measured: Float) {
         assertTrue(
             "A row must be at least ${RowMinHeight.value} dp tall; measured $measured dp.",

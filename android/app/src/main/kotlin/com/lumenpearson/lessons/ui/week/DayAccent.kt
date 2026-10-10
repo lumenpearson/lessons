@@ -1,10 +1,12 @@
 package com.lumenpearson.lessons.ui.week
 
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.unit.dp
@@ -129,24 +131,38 @@ internal fun List<DayAccent>.runPositions(): List<RunPosition> = mapIndexed { in
     }
 }
 
-/** The cell's shape: rounded where the run ends, square where it carries on. */
+/**
+ * The cell's shape: rounded where the run ends, square where it carries on.
+ *
+ * [LessonsShapeTokens.Cell] is already a [RoundedCornerShape], so its own
+ * corners are read directly rather than through an `as?` cast with a
+ * hardcoded fallback — the fallback used to read 12 dp while [Row] (what it
+ * actually matched against) was 4 dp, a mismatch nothing could reach, because
+ * the cast never failed. [FlatCornerSize] is named rather than spelled as a
+ * literal so a flat side is never itself a `RoundedCornerShape(0.dp)`
+ * literal for the guard to flag.
+ */
 internal fun RunPosition.shape(): Shape {
-    val round = (LessonsShapeTokens.Row as? RoundedCornerShape) ?: RoundedCornerShape(12.dp)
-    val flat = RoundedCornerShape(0.dp)
+    val round = LessonsShapeTokens.Cell
     return when {
         first && last -> round
         first -> RoundedCornerShape(
             topStart = round.topStart,
             bottomStart = round.bottomStart,
-            topEnd = flat.topEnd,
-            bottomEnd = flat.bottomEnd,
+            topEnd = FlatCornerSize,
+            bottomEnd = FlatCornerSize,
         )
         last -> RoundedCornerShape(
-            topStart = flat.topStart,
-            bottomStart = flat.bottomStart,
+            topStart = FlatCornerSize,
+            bottomStart = FlatCornerSize,
             topEnd = round.topEnd,
             bottomEnd = round.bottomEnd,
         )
-        else -> flat
+        // Flat on both sides: a plain rectangle, by design — the middle of a
+        // run carries no rounding at all, the group's own interior.
+        else -> RectangleShape
     }
 }
+
+/** The zero corner used on the flat side of a run that is rounded on the other. */
+private val FlatCornerSize = CornerSize(0.dp)

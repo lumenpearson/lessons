@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Tune
@@ -68,6 +67,7 @@ import com.lumenpearson.lessons.core.designsystem.state.formatLength
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.InlineGap
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -447,7 +447,8 @@ private fun RibbonRow(
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        // InlineGap, not the 6 dp this was: on the grid.
+        verticalArrangement = Arrangement.spacedBy(InlineGap),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.width(ClockColumnWidth)) {
@@ -515,14 +516,14 @@ private fun RibbonProgressLine(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(ProgressHeight)
-                    .clip(RoundedCornerShape(percent = 50))
+                    .clip(LessonsShapeTokens.Pill)
                     .background(content.copy(alpha = 0.18f)),
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(fraction.coerceIn(0f, 1f))
                         .height(ProgressHeight)
-                        .clip(RoundedCornerShape(percent = 50))
+                        .clip(LessonsShapeTokens.Pill)
                         .background(content),
                 )
             }
@@ -640,7 +641,10 @@ internal fun ribbonEdgeHeight(viewportHeight: Float, fullHeight: Float): Float {
 /** No more of the ribbon than this may be under a fade, at each end. */
 private const val EdgeShare = 0.12f
 private val ProgressHeight: Dp = 6.dp
-private val RowGap: Dp = 10.dp
+/** 12, not the 10 this was: on the grid, and the same rhythm as a row's own
+ *  top/bottom padding (line 448), so the gap between two cards reads as one
+ *  more step of it rather than an unrelated number. */
+private val RowGap: Dp = 12.dp
 private val GroupGap: Dp = 16.dp
 
 private const val SecondMillis = 1_000L

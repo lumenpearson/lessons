@@ -99,10 +99,10 @@ private fun WeekdayTile(
 
     Column(
         modifier = modifier
-            .clip(LessonsShapeTokens.Row)
+            .clip(LessonsShapeTokens.Cell)
             .background(container)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -141,7 +141,8 @@ private fun LoadDots(
     val dots = count.coerceAtMost(MaxLoadDots)
     Row(
         modifier = modifier.height(DotSize),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        // 4, not the 3 this was: on the grid.
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(dots) {

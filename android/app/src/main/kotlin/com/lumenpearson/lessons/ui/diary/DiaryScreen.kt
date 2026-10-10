@@ -55,7 +55,6 @@ import com.lumenpearson.lessons.core.designsystem.component.SkeletonGroup
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.GroupSpacing
-import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LocalBottomBarSpace
 import com.lumenpearson.lessons.core.designsystem.theme.ReportScrollOffset
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
@@ -64,7 +63,6 @@ import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
 import com.lumenpearson.lessons.core.designsystem.theme.statusBarSpace
-import androidx.compose.ui.draw.clip
 import com.lumenpearson.lessons.ui.common.syncedAtLabel
 
 /**
@@ -218,7 +216,12 @@ fun DiaryScreen(
                     labelProvider = { tab -> correctedString(tab.labelRes()) },
                     containerColor = MaterialTheme.colorScheme.rowContainer,
                     contentPadding = PaddingValues(4.dp),
-                    modifier = Modifier.clip(LessonsShapeTokens.Group),
+                    // No extra clip: the picker rounds its own tray from the
+                    // buttons inside it plus this padding. The 24 dp clip that
+                    // used to sit here disagreed with that derived radius —
+                    // the exact "radius picked in three places" bug
+                    // ConcentricShape exists to prevent, reintroduced on this
+                    // one screen.
                 )
             }
 

@@ -107,7 +107,6 @@ fun DebugSheet(
             } else {
                 null
             },
-            modifier = Modifier.padding(horizontal = ScreenPadding - 16.dp),
         )
 
         if (reports.isNotEmpty()) {

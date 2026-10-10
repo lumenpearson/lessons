@@ -3,6 +3,7 @@ package com.lumenpearson.lessons.core.designsystem.component
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,6 +27,19 @@ import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.emphasised
+
+/**
+ * A pill's two padding variants, on the 4 dp grid: 16 x 8 for a tappable pill
+ * (its touch target past 48 dp comes from [minimumInteractiveComponentSize]
+ * instead of this padding), 12 x 4 for a static one.
+ *
+ * `internal` rather than `private` so [HomeworkRow]'s attachment pill — which
+ * cannot call [PillChip] itself without changing its icon size and text style,
+ * both fixed here — reads the same two pairs instead of a third, hand-copied
+ * set that could drift from these the day either changes.
+ */
+internal val TappableChipPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+internal val StaticChipPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
 
 /**
  * The smallest status carrier in the design system: "замена", "отменён", "сейчас",
@@ -123,13 +137,7 @@ fun PillChip(
         border = border,
     ) {
         Row(
-            // On the 4 dp grid: 16 x 8 for a tappable chip, 12 x 4 for a
-            // static one — its touch target past 48 dp comes from
-            // minimumInteractiveComponentSize above, not from this padding.
-            modifier = Modifier.padding(
-                horizontal = if (onClick != null) 16.dp else 12.dp,
-                vertical = if (onClick != null) 8.dp else 4.dp,
-            ),
+            modifier = Modifier.padding(if (onClick != null) TappableChipPadding else StaticChipPadding),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {

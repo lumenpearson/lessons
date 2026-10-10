@@ -316,6 +316,16 @@ private suspend fun AwaitPointerEventScope.swallowRestOfGesture(pointer: Pointer
 
 private val OutlineWidth: Dp = 1.dp
 
+/**
+ * A reasoned exception to the four-value corner scale (#404's geometry pass),
+ * not an oversight: this outline wraps whatever text a correction target
+ * happens to be, from a single short word to a wrapped paragraph, and
+ * [LessonsShapeTokens.Cell]'s 12 dp reads as a near-pill around the smallest
+ * of those — a single two- or three-letter Russian word is not much wider
+ * than 12 dp is tall, so a corner meant to soften a rectangle would instead
+ * swallow it. 8 dp stays legible as "a rectangle with a touch of rounding"
+ * at every size this outline is actually asked to wrap.
+ */
 private val OutlineCorner: Dp = 8.dp
 
 /** Enough to see where the targets are, faint enough to read the page through. */

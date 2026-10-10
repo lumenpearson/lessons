@@ -27,9 +27,11 @@ import com.lumenpearson.lessons.core.designsystem.R
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import androidx.compose.foundation.layout.heightIn
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.RowLeadingGap
+import com.lumenpearson.lessons.core.designsystem.theme.RowMinHeight
 import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
@@ -94,6 +96,7 @@ fun GroupSliderItem(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .heightIn(min = RowMinHeight)
             .background(scheme.rowContainer)
             .padding(
                 start = RowPadding.calculateStartPadding(LayoutDirection.Ltr),

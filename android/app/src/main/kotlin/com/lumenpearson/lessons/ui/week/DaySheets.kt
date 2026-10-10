@@ -257,7 +257,6 @@ fun LessonSheet(
         SectionHeader(
             title = correctedString(R.string.schedule_homework),
             subtitle = date.asDayMonth(),
-            modifier = Modifier.padding(horizontal = ScreenPadding - 16.dp),
         )
         RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
             if (homework.isEmpty()) {
@@ -347,7 +346,6 @@ fun DaySheet(
         } else {
             SectionHeader(
                 title = pluralStringResource(R.plurals.lessons_count, lessons.size, lessons.size),
-                modifier = Modifier.padding(horizontal = ScreenPadding - 16.dp),
             )
             LessonGroup(
                 lessons = lessons,

@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.text.DataLine
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
+import com.lumenpearson.lessons.core.designsystem.theme.InlineGap
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 
@@ -69,7 +70,12 @@ fun SectionHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = ScreenPadding, end = 6.dp, top = 8.dp, bottom = 8.dp),
+            // Symmetric, on the grid: the owner's screenshot showed this
+            // header's action sitting short of the screen margin the three
+            // other elements in the same shot all land on exactly, because
+            // this used to be `end = 6.dp` — off the 4 dp grid, and 10 dp
+            // short of ScreenPadding on a side nothing else shortens.
+            .padding(horizontal = ScreenPadding, vertical = InlineGap),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {

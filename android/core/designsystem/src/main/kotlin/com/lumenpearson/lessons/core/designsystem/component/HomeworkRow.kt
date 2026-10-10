@@ -99,12 +99,13 @@ fun HomeworkRow(
             val attachment = item.attachmentUrl
             if (attachment != null) {
                 Row(
-                    // PillChip's own two padding variants (16 x 8 tappable, 12 x
-                    // 4 static) instead of a third, hand-rolled pill at 12 x 7 —
+                    // PillChip's own two padding tokens (TappableChipPadding,
+                    // StaticChipPadding) instead of a third, hand-rolled pill —
                     // this row keeps its own icon size and labelLarge text, which
-                    // PillChip does not expose, so it reads its exact parameters
-                    // instead of becoming one. Its 48 dp touch target, when
-                    // tappable, the same way PillChip's own.
+                    // PillChip does not expose, so it reads its exact geometry
+                    // instead of becoming one, and the two cannot drift apart
+                    // since both files read the same declaration. Its 48 dp
+                    // touch target, when tappable, the same way PillChip's own.
                     modifier = Modifier
                         .then(if (onOpenAttachment != null) Modifier.minimumInteractiveComponentSize() else Modifier)
                         .clip(LessonsShapeTokens.Pill)
@@ -116,10 +117,7 @@ fun HomeworkRow(
                             },
                         )
                         .background(tone.container)
-                        .padding(
-                            horizontal = if (onOpenAttachment != null) 16.dp else 12.dp,
-                            vertical = if (onOpenAttachment != null) 8.dp else 4.dp,
-                        ),
+                        .padding(if (onOpenAttachment != null) TappableChipPadding else StaticChipPadding),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {

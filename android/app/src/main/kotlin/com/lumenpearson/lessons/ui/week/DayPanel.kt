@@ -51,9 +51,7 @@ internal fun DayPanel(
     val lessons = schoolDay?.activeLessons.orEmpty()
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = ScreenPadding),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(GroupSpacing),
     ) {
         SectionHeader(
@@ -68,9 +66,18 @@ internal fun DayPanel(
             },
             actionLabel = schoolDay?.let { correctedString(R.string.schedule_day_details) },
             onActionClick = schoolDay?.let { { onOpenDay() } },
+            // An extra start-only inset, on top of SectionHeader's own
+            // ScreenPadding: the title lines up with the text inside the
+            // group's first row below (both end up 32 dp from the edge, its
+            // own ScreenPadding plus this one), while the action on the
+            // other end of the same row is left at ScreenPadding alone, so
+            // it shares a right edge with the switcher, the chips and the
+            // weekday strip above it — the four elements the owner's
+            // screenshot showed landing at four different insets.
+            modifier = Modifier.padding(start = ScreenPadding),
         )
 
-        DayChips(day = day, date = date)
+        DayChips(day = day, date = date, modifier = Modifier.padding(horizontal = ScreenPadding))
 
         when {
             // Three ways to be empty, and they were one until the cache learned
@@ -93,16 +100,19 @@ internal fun DayPanel(
                     },
                     yearLabel(SchoolYear.openingYearOf(date)),
                 ),
+                modifier = Modifier.padding(horizontal = ScreenPadding),
             )
 
             schoolDay == null -> EmptyState(
                 title = correctedString(R.string.week_no_data_title),
                 description = correctedString(R.string.week_no_data_description),
+                modifier = Modifier.padding(horizontal = ScreenPadding),
             )
 
             lessons.isEmpty() -> EmptyState(
                 title = correctedString(R.string.week_day_off_title),
                 description = schoolDay.offReason.asEmptyDescription(),
+                modifier = Modifier.padding(horizontal = ScreenPadding),
             )
 
             else -> LessonGroup(
@@ -110,6 +120,7 @@ internal fun DayPanel(
                 now = now,
                 showTeacher = showTeacher,
                 onLessonClick = onLessonClick,
+                modifier = Modifier.padding(horizontal = ScreenPadding),
             )
         }
 
@@ -117,6 +128,7 @@ internal fun DayPanel(
             day = schoolDay,
             showEvents = showEvents,
             showHomework = showHomework,
+            modifier = Modifier.padding(horizontal = ScreenPadding),
         )
     }
 }

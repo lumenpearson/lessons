@@ -44,6 +44,13 @@ import org.junit.Test
  * (`RoundedCornerShape(something(), 4.dp)`). Task 1's review caught both before
  * Tasks 2 and 3 could lean on a guard narrower than it looked.
  *
+ * The paren-depth tracker counts every literal `(`/`)` character, with no
+ * awareness of string-literal boundaries, so a call that put a parenthesis
+ * inside a string argument — `RoundedCornerShape(label = describe("("), 4.dp)` —
+ * would mis-measure its own span. Harmless for what this guard actually reads:
+ * a corner is always a `Dp` or a percentage, never a `String`, in both scanned
+ * trees today.
+ *
  * `@Preview` code is exempt, by the simplest approach that holds for this
  * codebase's previews: once a line carries `@Preview`, every line is skipped
  * until the function it precedes opens its first brace, and then every line is
@@ -51,12 +58,15 @@ import org.junit.Test
  * parsing Kotlin, which is enough for a preview body that never puts a brace
  * character inside a string literal, true of every preview here today.
  *
- * The [allowance] is **pending**, not a target it is comfortable with: it
- * exists only until Tasks 2 and 3 of #404 move each of today's sites onto a
- * token, and the test below that checks it against the source fails the day
- * a count in it no longer matches — so a fixed site has to be taken out of
- * the list by hand, rather than the list quietly going stale while the count
- * it was given keeps passing.
+ * The [allowance] held every 2026-10-10 audit finding as a pending count
+ * until Tasks 2 and 3 moved each onto a token; the test below that checks it
+ * against the source fails the day a count in it no longer matches, so a
+ * fixed site had to be taken out of the list by hand rather than the list
+ * quietly going stale while the count it was given kept passing. One entry
+ * is left, and it is not pending: `text/Corrections.kt`'s outline wraps text
+ * of every size a correction target can be, down to a single short word, and
+ * [LessonsShapeTokens.Cell]'s 12 dp reads as a near-pill around the smallest
+ * of those — see the reason written beside its own declaration.
  */
 class GeometryScaleTest {
 
@@ -391,19 +401,18 @@ class GeometryScaleTest {
         val cornerValLiteral = Regex("""\bval\s+\w*Corner\b[^=]*=\s*\d+(\.\d+)?\.dp""")
 
         /**
-         * Today's offenders, as `module-relative path to count`. Pending until
-         * Tasks 2 and 3 of #404 move each onto a token — see the class doc.
-         * Every entry here is a private `*Corner` constant or a raw
-         * `RoundedCornerShape(...)` literal the 2026-10-10 audit named.
+         * What is left once Task 3 of #404 moved every other 2026-10-10 audit
+         * finding onto a token: one entry, kept on purpose rather than pending.
+         * [Corrections.kt]'s outline wraps whatever text a correction target
+         * happens to be — a single short word as often as a wrapped paragraph
+         * — and [LessonsShapeTokens.Cell]'s 12 dp reads as a near-pill around
+         * the smallest of those, so 8 dp stays a literal; see the reasoning
+         * written beside its own declaration (`text/Corrections.kt`'s
+         * `OutlineCorner`). Every other site this map used to name — a `*Corner`
+         * constant or a raw `RoundedCornerShape(...)` literal — now reads a
+         * token instead.
          */
         val allowance: Map<String, Int> = mapOf(
-            "app/src/main/kotlin/com/lumenpearson/lessons/ui/day/DayRibbonView.kt" to 2,
-            "app/src/main/kotlin/com/lumenpearson/lessons/ui/onboarding/OnboardingHero.kt" to 1,
-            "app/src/main/kotlin/com/lumenpearson/lessons/ui/week/DayAccent.kt" to 2,
-            "app/src/main/kotlin/com/lumenpearson/lessons/ui/settings/AboutCard.kt" to 2,
-            "app/src/main/kotlin/com/lumenpearson/lessons/ui/settings/BugReportSheet.kt" to 2,
-            "app/src/main/kotlin/com/lumenpearson/lessons/ui/settings/UpdateSheet.kt" to 1,
-            "app/src/main/kotlin/com/lumenpearson/lessons/ui/translate/TranslationEditorSheet.kt" to 2,
             "core/designsystem/src/main/kotlin/com/lumenpearson/lessons/core/designsystem/text/Corrections.kt" to 1,
         )
     }

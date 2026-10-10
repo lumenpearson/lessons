@@ -50,10 +50,7 @@ internal fun RibbonSettingsSheet(
         onDismissRequest = onDismiss,
         title = correctedString(R.string.ribbon_settings),
     ) {
-        SectionHeader(
-            title = correctedString(R.string.ribbon_flow_title),
-            modifier = Modifier.padding(horizontal = ScreenPadding - 16.dp),
-        )
+        SectionHeader(title = correctedString(R.string.ribbon_flow_title))
         SegmentedPicker(
             items = RibbonFlow.entries,
             selectedItem = flow,
