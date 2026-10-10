@@ -52,17 +52,16 @@ import java.time.LocalDate
  * The week strip.
  *
  * When the days fit — every tile at least [WeekdayTileMinWidth] wide, with
- * [InlineGap] between them, inside the screen's padding — they share the
- * width equally, so the strip ends on the same edge as the switcher and the
- * chips above it whatever the language and however many days are drawn.
- * Five days fit any phone. Seven need 7 × 48 + 6 × 8 = 384 dp between the
- * margins, a window of 416, so on most phones a full week does not fit and
- * the strip scrolls as it always has: its last tile reaches the edge once it
- * is scrolled to its end, and the scroll-to below brings the selected day on
- * screen, which without it could not be seen at all. Where the overflow is a
- * sliver — 5 dp at 411 — a selection past the first day parks the strip at its
- * end, so its right edge is on the line and its first tile starts that far
- * into the left margin.
+ * [WeekdayTileGap] between them, inside the screen's padding — they share the
+ * width equally, so the strip starts and ends on the same margins as the
+ * switcher and the chips above it, whatever the language and however many
+ * days are drawn. Five days fit any phone. Seven need 7 × 48 + 6 × 4 = 360 dp
+ * between the margins, a window of 392, so a full week fits the 411 dp of
+ * most phones. Below that the strip scrolls as it always has, because a tile
+ * narrower than 48 dp would stop being its own touch target: its last tile
+ * reaches the edge once it is scrolled to its end, and the scroll-to below
+ * brings the selected day on screen, which without it could not be seen at
+ * all.
  *
  * The width comes from [onSizeChanged] rather than a `BoxWithConstraints`,
  * which is a `SubcomposeLayout` and cannot answer an intrinsic measurement —
@@ -81,7 +80,7 @@ internal fun WeekdaySelector(
     var widthPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
     val fits = widthPx > 0 && with(density) {
-        val needed = WeekdayTileMinWidth * days.size + InlineGap * (days.size - 1)
+        val needed = WeekdayTileMinWidth * days.size + WeekdayTileGap * (days.size - 1)
         needed.roundToPx() <= widthPx - (ScreenPadding * 2).roundToPx()
     }
 
@@ -98,7 +97,7 @@ internal fun WeekdaySelector(
                         isTraversalGroup = true
                         collectionInfo = CollectionInfo(rowCount = 1, columnCount = days.size)
                     },
-                horizontalArrangement = Arrangement.spacedBy(InlineGap),
+                horizontalArrangement = Arrangement.spacedBy(WeekdayTileGap),
             ) {
                 days.forEach { day ->
                     key(day.date) {
@@ -142,7 +141,7 @@ private fun ScrollingWeekStrip(
         state = listState,
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = ScreenPadding),
-        horizontalArrangement = Arrangement.spacedBy(InlineGap),
+        horizontalArrangement = Arrangement.spacedBy(WeekdayTileGap),
     ) {
         itemsIndexed(items = days, key = { _, day -> day.date.toString() }) { _, day ->
             WeekdayTile(
@@ -162,6 +161,16 @@ private fun ScrollingWeekStrip(
  * beside it rather than the tile.
  */
 private val WeekdayTileMinWidth: Dp = 48.dp
+
+/**
+ * The gap between two weekday tiles: 4 dp, the month grid's gap between two
+ * cells — its weekday header is spaced by 4, and each cell pads itself 2 dp on
+ * a side where its run ends — so the week and the month are drawn at one
+ * rhythm. Not [InlineGap]'s 8, the gap of a chip strip: the strip is a row of
+ * the calendar, and with 8 seven tiles needed a 416 dp window to fit, so the
+ * 411 dp week overflowed by 5 dp and sat that far into one margin or the other.
+ */
+private val WeekdayTileGap: Dp = 4.dp
 
 /**
  * One day of the strip: the weekday over the date, in a rounded tile.

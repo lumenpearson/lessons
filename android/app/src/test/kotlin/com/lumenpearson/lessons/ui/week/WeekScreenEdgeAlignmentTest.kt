@@ -59,13 +59,16 @@ import org.robolectric.annotation.GraphicsMode
  * the `ru` locale, at the two widths that decide whether a week fits: 360 dp,
  * the narrowest phone, and 411, the emulator's.
  *
- * Five days fit both widths and the strip fills them with equal tiles, so its
- * last tile is on the edge as drawn. Seven fit neither — 7 × 48 + 6 × 8 = 384 dp
- * between the margins wants a 416 dp window — so the strip scrolls, and its last
- * tile is on the edge once scrolled to its end, which is how it is measured.
- * The chips overflow in Russian at both widths and are measured the same way.
- * Against the content-sized strip that came before, the five-day weeks and the
- * seven at 411 end short and fail; the seven at 360 overflowed then too.
+ * A strip that fits fills the width with equal tiles, so it starts on the
+ * left margin and ends on the right one as drawn, and a drag moves nothing.
+ * Five days fit both widths. Seven fit 411 — 7 × 48 + 6 × 4 = 360 dp of tiles
+ * and gaps, 379 between the margins — and not 360, where the strip scrolls and
+ * its last tile is on the edge once scrolled to its end, which is how it is
+ * measured there. The chips overflow in Russian at both widths and are
+ * measured the same way. Against the content-sized strip that came before,
+ * the five-day weeks and the seven at 411 end short and fail, and the seven at
+ * 360 fails on a tile 44 dp wide; with the strip's gap at 8 dp, seven tiles
+ * overflow 411 by 5 dp and the first starts 5 dp into the left margin.
  *
  * [GraphicsMode.Mode.NATIVE], not Robolectric's `LEGACY` default: under
  * `LEGACY` Cyrillic text records at a pixel or so a letter
@@ -191,19 +194,51 @@ class WeekScreenEdgeAlignmentTest {
     private fun tile(date: LocalDate): SemanticsNodeInteraction =
         compose.onNode(hasText(date.dayOfMonth.toString()) and hasClickAction())
 
-    private fun assertOneRightEdge(lastDay: LocalDate) {
-        // The switcher has no node of its own; its last segment does, inside
+    /**
+     * The four right edges, and — when the strip [fits] — the
+     * strip on both margins as drawn, before anybody touches it, and still
+     * there after a drag, because a strip that fits does not scroll.
+     */
+    private fun assertEdges(lastDay: LocalDate, fits: Boolean) {
+        // The switcher has no node of its own; its end segments do, inside
         // the tray's inset.
+        val start = compose.onNodeWithText("Неделя").getUnclippedBoundsInRoot().left - SwitcherTrayInset
         val edge = compose.onNodeWithText("День").getUnclippedBoundsInRoot().right + SwitcherTrayInset
 
         dragToTheEnd(compose.onNodeWithText("С уроками"))
         val chips = compose.onNodeWithText("Сбросить").getUnclippedBoundsInRoot().right
 
-        // From the selected tile, which the scroll-to has put on screen. A
-        // strip that fits does not scroll, and the drag, ending far outside
-        // the tile, is not a press.
+        // Read only when it fits: a strip scrolled to Wednesday has not
+        // composed Monday at all, and asking for its tile would throw.
+        val firstAtRest = if (fits) tile(monday).getUnclippedBoundsInRoot() else null
+        if (firstAtRest != null) {
+            val lastAtRest = tile(lastDay).getUnclippedBoundsInRoot()
+            assertEquals(
+                "a strip that fits starts on the left margin, where the switcher does",
+                start.value,
+                firstAtRest.left.value,
+                Tolerance,
+            )
+            assertEquals(
+                "a strip that fits ends on the right margin as drawn, before any scroll",
+                edge.value,
+                lastAtRest.right.value,
+                Tolerance,
+            )
+        }
+
+        // From the selected tile, which the scroll-to has put on screen. The
+        // drag, ending far outside the tile, is not a press.
         dragToTheEnd(tile(wednesday))
         val last = tile(lastDay).getUnclippedBoundsInRoot()
+        if (firstAtRest != null) {
+            assertEquals(
+                "a strip that fits must not scroll",
+                firstAtRest.left.value,
+                tile(monday).getUnclippedBoundsInRoot().left.value,
+                Tolerance,
+            )
+        }
 
         // «Подробно» — R.string.schedule_day_details. Its node is the
         // TextButton's, whose box sits TextButtonEndPadding outside the label
@@ -232,32 +267,34 @@ class WeekScreenEdgeAlignmentTest {
 
     private val DpRect.width: Dp get() = right - left
 
+    /** 7 × 48 + 6 × 4 = 360 dp of tiles and 328 between the margins: it scrolls. */
     @Test
     @Config(qualifiers = "ru-rRU-w360dp-h1600dp")
-    fun `a week of seven shares one right edge at 360 dp`() {
+    fun `a week of seven scrolls at 360 dp, and its end shares the right edge`() {
         show(showWeekends = true)
-        assertOneRightEdge(lastDay = monday.plusDays(6))
+        assertEdges(lastDay = monday.plusDays(6), fits = false)
+    }
+
+    /** 360 dp of tiles and 379 between the margins: it fits, the owner's emulator's width. */
+    @Test
+    @Config(qualifiers = "ru-rRU-w411dp-h1600dp")
+    fun `a week of seven fits between both margins at 411 dp`() {
+        show(showWeekends = true)
+        assertEdges(lastDay = monday.plusDays(6), fits = true)
+    }
+
+    @Test
+    @Config(qualifiers = "ru-rRU-w360dp-h1600dp")
+    fun `a week of five fits between both margins at 360 dp`() {
+        show(showWeekends = false)
+        assertEdges(lastDay = monday.plusDays(4), fits = true)
     }
 
     @Test
     @Config(qualifiers = "ru-rRU-w411dp-h1600dp")
-    fun `a week of seven shares one right edge at 411 dp`() {
-        show(showWeekends = true)
-        assertOneRightEdge(lastDay = monday.plusDays(6))
-    }
-
-    @Test
-    @Config(qualifiers = "ru-rRU-w360dp-h1600dp")
-    fun `a week of five shares one right edge at 360 dp`() {
+    fun `a week of five fits between both margins at 411 dp`() {
         show(showWeekends = false)
-        assertOneRightEdge(lastDay = monday.plusDays(4))
-    }
-
-    @Test
-    @Config(qualifiers = "ru-rRU-w411dp-h1600dp")
-    fun `a week of five shares one right edge at 411 dp`() {
-        show(showWeekends = false)
-        assertOneRightEdge(lastDay = monday.plusDays(4))
+        assertEdges(lastDay = monday.plusDays(4), fits = true)
     }
 
     private companion object {
