@@ -988,9 +988,9 @@ with the host.
 
 ## Testing
 
-3240 tests on the server, 1684 on Android; `pytest -q -n auto` and `./gradlew test`, both
+3240 tests on the server, 1728 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
-`:core:designsystem` 161, `:widget` 126, `:app` 657 (#325).
+`:core:designsystem` 196, `:widget` 126, `:app` 666 (#325).
 
 The table below is the load-bearing part of that rather than the whole of it:
 
