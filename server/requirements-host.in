@@ -20,8 +20,10 @@
 # the image's Debian has.
 #
 # pyvoy is Envoy with the app inside it: HTTP/2 with prior knowledge,
-# trailers, gzip. The floor is the release the 5 October spike ran native gRPC
-# and a stream on (docs/specs/2026-10-03-one-contract-design.md).
-pyvoy>=1.2.0
+# trailers, gzip. The floor is the release app/host.py was written against:
+# the stdout and stderr defaults it overrides and the Envoy configuration it
+# corrects were both read from 1.3.0. The 5 October spike ran native gRPC and
+# a stream on 1.2.0 (docs/specs/2026-10-03-one-contract-design.md).
+pyvoy>=1.3.0
 # The fallback the same spike proved: `python -m app.host --server hypercorn`.
 hypercorn>=0.18.0

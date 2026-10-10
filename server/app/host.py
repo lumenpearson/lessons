@@ -114,6 +114,16 @@ def envoy_config(config: dict[str, Any]) -> dict[str, Any]:
     that Envoy adds no entry of its own, the app sees the connection's peer as
     the client and the header exactly as it arrived — which is what
     ``TRUSTED_PROXY_HOPS`` reads behind a proxy, as it does under uvicorn.
+
+    Two more settings of the manager would take the client from what the
+    caller sends again, and pyvoy 1.3.0 writes neither: an
+    ``xff_num_trusted_hops`` above nought, which trusts that many entries of
+    the header and is pinned to nought here, and an
+    ``original_ip_detection_extensions`` entry, which is refused rather than
+    removed, because an extension a later pyvoy wrote would be there for a
+    reason this module cannot know — and Envoy takes none beside
+    ``use_remote_address`` anyway. So a pyvoy that wrote either could not
+    start a host whose throttles a forged header walks past.
     """
     managers = [
         chain_filter["typed_config"]
@@ -127,9 +137,15 @@ def envoy_config(config: dict[str, Any]) -> dict[str, Any]:
             "pyvoy's Envoy configuration has no HTTP connection manager to correct: "
             "the client's address would be the caller's to choose"
         )
+    if any(manager.get("original_ip_detection_extensions") for manager in managers):
+        raise RuntimeError(
+            "pyvoy's Envoy configuration detects the client's address with an extension: "
+            "the client's address would be read from what the caller sends"
+        )
     for manager in managers:
         manager["use_remote_address"] = True
         manager["skip_xff_append"] = True
+        manager["xff_num_trusted_hops"] = 0
     return config
 
 

@@ -200,7 +200,47 @@ def test_envoy_takes_the_client_from_the_connection_on_every_listener() -> None:
     for manager in managers:
         assert manager["use_remote_address"] is True
         assert manager["skip_xff_append"] is True
+        assert manager["xff_num_trusted_hops"] == 0
         assert manager["generate_request_id"] is False
+
+
+def test_envoy_trusts_no_forwarded_hop_whatever_pyvoy_wrote() -> None:
+    """With ``use_remote_address``, a hop count above nought takes the client
+    from that many entries of ``X-Forwarded-For``: a later pyvoy that wrote
+    one would reopen #395 past the guard below."""
+    trusting = copy.deepcopy(PYVOY_CONFIG)
+    for listener in trusting["static_resources"]["listeners"]:
+        listener["filter_chains"][0]["filters"][0]["typed_config"]["xff_num_trusted_hops"] = 2
+    corrected = host.envoy_config(trusting)
+    hops = [
+        chain["filters"][0]["typed_config"]["xff_num_trusted_hops"]
+        for listener in corrected["static_resources"]["listeners"]
+        for chain in listener["filter_chains"]
+    ]
+    assert hops == [0, 0]
+
+
+def test_a_manager_that_detects_the_client_by_an_extension_is_refused() -> None:
+    """``original_ip_detection_extensions`` decides the client by a rule of its
+    own — a header, say — and Envoy takes none beside ``use_remote_address``:
+    refused at the door, on any one listener, rather than removed or served."""
+    detecting = copy.deepcopy(PYVOY_CONFIG)
+    manager = detecting["static_resources"]["listeners"][1]["filter_chains"][0]["filters"][0]
+    manager["typed_config"]["original_ip_detection_extensions"] = [
+        {
+            "name": "envoy.extensions.http.original_ip_detection.custom_header",
+            "typed_config": {
+                "@type": "type.googleapis.com/envoy.extensions.http.original_ip_detection"
+                ".custom_header.v3.CustomHeaderConfig",
+                "header_name": "x-real-ip",
+            },
+        }
+    ]
+    with pytest.raises(RuntimeError, match="client's address"):
+        host.envoy_config(detecting)
+    # An empty list detects nothing, and is no reason to refuse to start.
+    manager["typed_config"]["original_ip_detection_extensions"] = []
+    assert host.envoy_config(detecting) is detecting
 
 
 def test_envoy_is_matched_by_its_type_rather_than_its_name() -> None:
