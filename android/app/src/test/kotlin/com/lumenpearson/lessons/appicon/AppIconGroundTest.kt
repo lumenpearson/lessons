@@ -32,9 +32,9 @@ class AppIconGroundTest {
     }
 
     @Test
-    fun `the three plates the app leaves out are the three that are flat`() {
+    fun `the plates the app leaves out are the ones that are flat`() {
         assertEquals(
-            setOf(AppIconStyle.CLASSIC, AppIconStyle.EDGE, AppIconStyle.AMOLED),
+            setOf(AppIconStyle.CLASSIC, AppIconStyle.AMOLED),
             AppIconStyle.entries.filter { it.flatGround }.toSet(),
         )
         assertTrue(drawables.isDirectory)

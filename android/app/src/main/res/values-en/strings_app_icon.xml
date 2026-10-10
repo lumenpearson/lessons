@@ -1,12 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_icon_style_classic">Classic</string>
-    <string name="app_icon_style_edge">Edge to edge</string>
-    <string name="app_icon_style_glow">Glow</string>
-    <string name="app_icon_style_dark">Dark</string>
-    <string name="app_icon_style_glass">Frosted glass</string>
-    <string name="app_icon_style_matte">Matte</string>
-    <string name="app_icon_style_oneui">Blur</string>
     <string name="app_icon_style_amoled">AMOLED</string>
 
     <string name="app_icon_palette_rassvet">Dawn</string>

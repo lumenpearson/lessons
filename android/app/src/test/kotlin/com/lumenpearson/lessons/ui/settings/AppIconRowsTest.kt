@@ -12,7 +12,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.lumenpearson.lessons.R
-import com.lumenpearson.lessons.appicon.AppIconStyle
 import com.lumenpearson.lessons.appicon.AppIconVariant
 import com.lumenpearson.lessons.appicon.TestCatalog
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
@@ -127,12 +126,12 @@ class AppIconRowsTest {
 
     @Test
     fun `a trimmed catalog draws only the styles it still has`() {
-        show(variants = listOf(default, other))
+        // Without other's style rather than without a style the enum has and the catalog lacks:
+        // the enum may hold no more styles than the catalog does (#402).
+        show(variants = listOf(default), selected = default)
 
         compose.onNodeWithText(context.getString(default.style.labelRes)).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText(context.getString(other.style.labelRes)).performScrollTo().assertIsDisplayed()
-        val gone = AppIconStyle.entries.first { it != default.style && it != other.style }
-        compose.onNodeWithText(context.getString(gone.labelRes)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(other.style.labelRes)).assertDoesNotExist()
     }
 
     @Test

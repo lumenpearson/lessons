@@ -164,8 +164,9 @@ stopping on a single row. An action that happens immediately rather than saving 
 "refresh now" — sits as the last row of a group, as a filled full-width button
 (`GroupActionItem`), the way "Check for updates" does in Essentials.
 
-The app icon is carried over, and changed: «Значок приложения» under «Оформление» offers the
-sixty-four «Пятёрка» variants (`docs/specs/2026-10-09-app-icons-design.md`). It switches through an
+The app icon is carried over, and changed: «Значок приложения» under «Оформление» offers sixteen
+«Пятёрка» variants, «Классика» and «AMOLED» in eight palettes each. The owner kept those two styles
+on 10 October 2026, out of the sixty-four in `docs/specs/2026-10-09-app-icons-design.md`. It switches through an
 `activity-alias` as Essentials does, but `MainActivity` is never disabled, the enabled component is
 the only record of the choice, a tap selects and «Применить» applies, and a reconcile after every
 update and process start puts back exactly one launcher entry. Not carried over: the "ripple
@@ -643,12 +644,12 @@ documentation is quoted back at the user, so it moves when the decision does.
 The mark is the launcher icon in use, drawn the way a launcher draws it (`AppIconImage`). An adaptive
 icon is a 108 dp canvas of which only the central 72 dp is visible. Its layers are laid over the whole
 canvas, and the box shows the middle, the same crop the home screen makes. The foreground is never put
-on a colour of the app's choosing, because five of the eight styles have a ground of their own, and
-that ground is drawn. The ground of the other three, «Классика», «Край в край» and «AMOLED», is one
-flat colour (`AppIconStyle.flatGround`). It is there only because a launcher needs a full square, and
-in the app it would be a tile on the app's own surface, so the app leaves it out everywhere it draws
-the mark, the picker included. A tile for one of those three therefore shows the mark alone, not the
-square the launcher will draw. That was the owner's choice. `AppIconGroundTest` holds the flag against
+on a colour of the app's choosing: a style whose ground is part of its look would have that ground
+drawn. Both styles the app offers, «Классика» and «AMOLED», have a ground of one flat colour
+(`AppIconStyle.flatGround`). It is there only because a launcher needs a full square, and in the
+app it would be a tile on the app's own surface, so the app leaves it out everywhere it draws the
+mark, the picker included. A tile therefore shows the mark alone, not the square the launcher will
+draw. That was the owner's choice. `AppIconGroundTest` holds the flag against
 the generated grounds.
 
 The main thing not carried over from the original: nine link buttons there are nine copies of

@@ -18,8 +18,9 @@ and every icon's monochrome layer is one of two shared drawables: the classic di
     python android/logo/export_android.py              everything; needs Chrome and Pillow
     python android/logo/export_android.py --no-raster  vectors only; the WebP layers stay
 
-It writes all sixty-four. Once the owner has taken variants out of the app, the files of the
-ones taken out have to be deleted again after a run; AppIconCatalogTest names any it finds.
+It writes the sixteen the app offers, «Классика» and «AMOLED» in eight palettes each. A style
+put back into STYLES needs its catalog lines and aliases too; AppIconCatalogTest names whatever
+disagrees.
 """
 from __future__ import annotations
 
@@ -42,7 +43,10 @@ import clock as c  # noqa: E402
 
 RES = HERE.parent / "app" / "src" / "main" / "res"
 # The order of the picker's groups, and of the catalog in AppIconCatalog.kt.
-STYLES = ["classic", *bs.STYLES]
+# Only the styles the app offers: the owner kept «Классика» and «AMOLED» on 10 October 2026,
+# and a run writes nothing AppIconCatalog would have to be trimmed of again. build_styles.py
+# still draws all eight for the kit in android/pack/.
+STYLES = ["classic", "amoled"]
 MONO_CLASSIC = "ic_launcher_monochrome_classic"
 MONO_EDGE = "ic_launcher_monochrome_edge"
 SIZE = 432  # 108 dp at xxxhdpi's 4 px per dp; the system scales it down for every other density

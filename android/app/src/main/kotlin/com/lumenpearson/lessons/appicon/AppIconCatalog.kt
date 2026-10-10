@@ -13,12 +13,6 @@ import com.lumenpearson.lessons.appicon.AppIconPalette.RASSVET
 import com.lumenpearson.lessons.appicon.AppIconPalette.RASSVET_LIGHT
 import com.lumenpearson.lessons.appicon.AppIconStyle.AMOLED
 import com.lumenpearson.lessons.appicon.AppIconStyle.CLASSIC
-import com.lumenpearson.lessons.appicon.AppIconStyle.DARK
-import com.lumenpearson.lessons.appicon.AppIconStyle.EDGE
-import com.lumenpearson.lessons.appicon.AppIconStyle.GLASS
-import com.lumenpearson.lessons.appicon.AppIconStyle.GLOW
-import com.lumenpearson.lessons.appicon.AppIconStyle.MATTE
-import com.lumenpearson.lessons.appicon.AppIconStyle.ONEUI
 
 /**
  * One look of the mark, in the order «Значок приложения» shows its groups.
@@ -34,12 +28,6 @@ import com.lumenpearson.lessons.appicon.AppIconStyle.ONEUI
  */
 enum class AppIconStyle(val key: String, @param:StringRes val labelRes: Int, val flatGround: Boolean) {
     CLASSIC("classic", R.string.app_icon_style_classic, flatGround = true),
-    EDGE("edge", R.string.app_icon_style_edge, flatGround = true),
-    GLOW("glow", R.string.app_icon_style_glow, flatGround = false),
-    DARK("dark", R.string.app_icon_style_dark, flatGround = false),
-    GLASS("glass", R.string.app_icon_style_glass, flatGround = false),
-    MATTE("matte", R.string.app_icon_style_matte, flatGround = false),
-    ONEUI("oneui", R.string.app_icon_style_oneui, flatGround = false),
     AMOLED("amoled", R.string.app_icon_style_amoled, flatGround = true),
 }
 
@@ -91,54 +79,6 @@ object AppIconCatalog {
         AppIconVariant(CLASSIC, INDIGO_LIGHT, R.mipmap.ic_launcher_classic_indigo_light),
         AppIconVariant(CLASSIC, MYATA_LIGHT, R.mipmap.ic_launcher_classic_myata_light),
         AppIconVariant(CLASSIC, LAVANDA_LIGHT, R.mipmap.ic_launcher_classic_lavanda_light),
-        AppIconVariant(EDGE, RASSVET, R.mipmap.ic_launcher_edge_rassvet),
-        AppIconVariant(EDGE, INDIGO, R.mipmap.ic_launcher_edge_indigo),
-        AppIconVariant(EDGE, MYATA, R.mipmap.ic_launcher_edge_myata),
-        AppIconVariant(EDGE, LAVANDA, R.mipmap.ic_launcher_edge_lavanda),
-        AppIconVariant(EDGE, RASSVET_LIGHT, R.mipmap.ic_launcher_edge_rassvet_light),
-        AppIconVariant(EDGE, INDIGO_LIGHT, R.mipmap.ic_launcher_edge_indigo_light),
-        AppIconVariant(EDGE, MYATA_LIGHT, R.mipmap.ic_launcher_edge_myata_light),
-        AppIconVariant(EDGE, LAVANDA_LIGHT, R.mipmap.ic_launcher_edge_lavanda_light),
-        AppIconVariant(GLOW, RASSVET, R.mipmap.ic_launcher_glow_rassvet),
-        AppIconVariant(GLOW, INDIGO, R.mipmap.ic_launcher_glow_indigo),
-        AppIconVariant(GLOW, MYATA, R.mipmap.ic_launcher_glow_myata),
-        AppIconVariant(GLOW, LAVANDA, R.mipmap.ic_launcher_glow_lavanda),
-        AppIconVariant(GLOW, RASSVET_LIGHT, R.mipmap.ic_launcher_glow_rassvet_light),
-        AppIconVariant(GLOW, INDIGO_LIGHT, R.mipmap.ic_launcher_glow_indigo_light),
-        AppIconVariant(GLOW, MYATA_LIGHT, R.mipmap.ic_launcher_glow_myata_light),
-        AppIconVariant(GLOW, LAVANDA_LIGHT, R.mipmap.ic_launcher_glow_lavanda_light),
-        AppIconVariant(DARK, RASSVET, R.mipmap.ic_launcher_dark_rassvet),
-        AppIconVariant(DARK, INDIGO, R.mipmap.ic_launcher_dark_indigo),
-        AppIconVariant(DARK, MYATA, R.mipmap.ic_launcher_dark_myata),
-        AppIconVariant(DARK, LAVANDA, R.mipmap.ic_launcher_dark_lavanda),
-        AppIconVariant(DARK, RASSVET_LIGHT, R.mipmap.ic_launcher_dark_rassvet_light),
-        AppIconVariant(DARK, INDIGO_LIGHT, R.mipmap.ic_launcher_dark_indigo_light),
-        AppIconVariant(DARK, MYATA_LIGHT, R.mipmap.ic_launcher_dark_myata_light),
-        AppIconVariant(DARK, LAVANDA_LIGHT, R.mipmap.ic_launcher_dark_lavanda_light),
-        AppIconVariant(GLASS, RASSVET, R.mipmap.ic_launcher_glass_rassvet),
-        AppIconVariant(GLASS, INDIGO, R.mipmap.ic_launcher_glass_indigo),
-        AppIconVariant(GLASS, MYATA, R.mipmap.ic_launcher_glass_myata),
-        AppIconVariant(GLASS, LAVANDA, R.mipmap.ic_launcher_glass_lavanda),
-        AppIconVariant(GLASS, RASSVET_LIGHT, R.mipmap.ic_launcher_glass_rassvet_light),
-        AppIconVariant(GLASS, INDIGO_LIGHT, R.mipmap.ic_launcher_glass_indigo_light),
-        AppIconVariant(GLASS, MYATA_LIGHT, R.mipmap.ic_launcher_glass_myata_light),
-        AppIconVariant(GLASS, LAVANDA_LIGHT, R.mipmap.ic_launcher_glass_lavanda_light),
-        AppIconVariant(MATTE, RASSVET, R.mipmap.ic_launcher_matte_rassvet),
-        AppIconVariant(MATTE, INDIGO, R.mipmap.ic_launcher_matte_indigo),
-        AppIconVariant(MATTE, MYATA, R.mipmap.ic_launcher_matte_myata),
-        AppIconVariant(MATTE, LAVANDA, R.mipmap.ic_launcher_matte_lavanda),
-        AppIconVariant(MATTE, RASSVET_LIGHT, R.mipmap.ic_launcher_matte_rassvet_light),
-        AppIconVariant(MATTE, INDIGO_LIGHT, R.mipmap.ic_launcher_matte_indigo_light),
-        AppIconVariant(MATTE, MYATA_LIGHT, R.mipmap.ic_launcher_matte_myata_light),
-        AppIconVariant(MATTE, LAVANDA_LIGHT, R.mipmap.ic_launcher_matte_lavanda_light),
-        AppIconVariant(ONEUI, RASSVET, R.mipmap.ic_launcher_oneui_rassvet),
-        AppIconVariant(ONEUI, INDIGO, R.mipmap.ic_launcher_oneui_indigo),
-        AppIconVariant(ONEUI, MYATA, R.mipmap.ic_launcher_oneui_myata),
-        AppIconVariant(ONEUI, LAVANDA, R.mipmap.ic_launcher_oneui_lavanda),
-        AppIconVariant(ONEUI, RASSVET_LIGHT, R.mipmap.ic_launcher_oneui_rassvet_light),
-        AppIconVariant(ONEUI, INDIGO_LIGHT, R.mipmap.ic_launcher_oneui_indigo_light),
-        AppIconVariant(ONEUI, MYATA_LIGHT, R.mipmap.ic_launcher_oneui_myata_light),
-        AppIconVariant(ONEUI, LAVANDA_LIGHT, R.mipmap.ic_launcher_oneui_lavanda_light),
         AppIconVariant(AMOLED, RASSVET, R.mipmap.ic_launcher_amoled_rassvet),
         AppIconVariant(AMOLED, INDIGO, R.mipmap.ic_launcher_amoled_indigo),
         AppIconVariant(AMOLED, MYATA, R.mipmap.ic_launcher_amoled_myata),

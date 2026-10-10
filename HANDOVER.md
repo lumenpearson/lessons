@@ -1420,11 +1420,11 @@ production» has a **current value** for `deviceToken`; type one there from a ph
 a class, and leave the initial value empty so that it stays on that machine. The collection has
 never been run in Postman, so the first run is also its first test.
 
-**Choose which of the sixty-four launcher icons to keep (#388).** «Значок приложения» offers
-every «Пятёрка» variant, eight styles by eight palettes, because the owner asked to pick later.
-Once the keepers are named, a session takes the rest out: three deletions per variant — the
-catalog line, the alias and the four resources — and `AppIconCatalogTest` names any piece left
-behind.
+**The launcher icons were chosen (#388): done on 10 October 2026.** The owner kept «Классика» and
+«AMOLED», eight palettes each, and the other six styles were taken out: forty-eight catalog lines,
+aliases and 192 resources. `android/logo/export_android.py` now writes only the kept styles. A
+phone that had chosen a removed icon is moved back to «Классика · Мята» by the reconcile on the
+update. That has not yet been seen on a device.
 
 **Walk the launcher icon once on a device or an emulator.** An API 31 and an API 34 emulator
 are enough: switch the icon twice, press Home, open Recents, then tap the widget from a cold
