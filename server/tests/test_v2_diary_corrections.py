@@ -245,46 +245,65 @@ async def test_an_empty_batch_writes_nothing_and_an_empty_value_is_a_real_answer
     assert await _stored() == [(SCOPE, 4021, LESSON, "room", "")]
 
 
+#: A correction that always passes, paired below with one that does not, so
+#: the test pins the refused one's own index rather than "whichever is bad".
+_GOOD = CorrectionUpdate(target=LESSON, field="room", value="204")
+
+
 @pytest.mark.parametrize(
-    ("refused", "field", "error"),
+    ("batch", "field", "error"),
     [
         (
-            CorrectionUpdate(target="nonsense", field="text", value=""),
+            (_GOOD, CorrectionUpdate(target="nonsense", field="text", value="")),
             "corrections[1].target",
             wording.CORRECTION_TARGET_REFUSED_DETAIL,
         ),
         (
-            CorrectionUpdate(target="hw:id:007", field="text", value="x"),
+            (_GOOD, CorrectionUpdate(target="hw:id:007", field="text", value="x")),
             "corrections[1].target",
             wording.CORRECTION_TARGET_REFUSED_DETAIL,
         ),
         (
-            CorrectionUpdate(target="hw:id:77", field="room", value="x"),
+            (_GOOD, CorrectionUpdate(target="hw:id:77", field="room", value="x")),
             "corrections[1].field",
             wording.CORRECTION_FIELD_REFUSED_DETAIL,
         ),
         (
-            CorrectionUpdate(target="hw:id:77", field="text", value="  "),
+            (_GOOD, CorrectionUpdate(target="hw:id:77", field="text", value="  ")),
             "corrections[1].value",
             wording.CORRECTION_VALUE_EMPTY_DETAIL,
         ),
-        (CorrectionUpdate(target="", field="room", value="x"), "corrections[1].target", None),
         (
-            CorrectionUpdate(target=LESSON, field="room", value="x" * 4001),
+            (_GOOD, CorrectionUpdate(target="", field="room", value="x")),
+            "corrections[1].target",
+            None,
+        ),
+        (
+            (_GOOD, CorrectionUpdate(target=LESSON, field="room", value="x" * 4001)),
             "corrections[1].value",
             None,
+        ),
+        (
+            # The first refused correction ends the check (decision 5): the
+            # bad field at index 0 is reported, and the bad target waiting at
+            # index 1 — which would refuse on its own — is never looked at.
+            (
+                CorrectionUpdate(target="hw:id:77", field="room", value="x"),
+                CorrectionUpdate(target="nonsense", field="text", value=""),
+            ),
+            "corrections[0].field",
+            wording.CORRECTION_FIELD_REFUSED_DETAIL,
         ),
     ],
 )
 async def test_a_batch_refused_at_any_correction_writes_none_of_them(
-    v2, v2_tokens, petersburg, refused, field, error
+    v2, v2_tokens, petersburg, batch, field, error
 ) -> None:
     """Each correction is checked as v1 checks one, before anything is written
     and before the diary is asked anything, and the refusal names the first
     one refused by its index, from 0, and its part."""
     token = v2_tokens["diary"]
-    good = CorrectionUpdate(target=LESSON, field="room", value="204")
-    answer = await v2.both(BATCH, _batch(good, refused), token=token)
+    answer = await v2.both(BATCH, _batch(*batch), token=token)
     assert (answer.status, answer.code, answer.reason) == (
         400,
         "INVALID_ARGUMENT",
@@ -295,7 +314,9 @@ async def test_a_batch_refused_at_any_correction_writes_none_of_them(
     assert await _stored() == []
     if error is not None:
         assert (answer.error, answer.violations) == (error, [(field, error)])
-        # v1's words for the same correction.
+        # v1's words for the same correction — the one the index names.
+        index = int(field.removeprefix("corrections[").split("]")[0])
+        refused = batch[index]
         v1 = await v2.http.put(
             "/api/v1/diary/students/4021/overrides",
             headers=_auth(token),
@@ -395,6 +416,17 @@ async def test_more_than_two_hundred_corrections_are_refused_before_the_diary_is
         [("corrections", TOO_MANY_CORRECTIONS)],
     )
     assert petersburg.seen == []
+
+    # The cap first (Ruling 124): one of the 201 is itself invalid — an empty
+    # target at index 0 — and the cap's refusal on `corrections` still wins,
+    # never `corrections[0].target`.
+    one_bad = [CorrectionUpdate(target="", field="room", value="x"), *many[1:]]
+    also_refused = await v2.both(BATCH, _batch(*one_bad), token=token)
+    assert (also_refused.reason, also_refused.violations) == (
+        "VALIDATION_FAILED",
+        [("corrections", TOO_MANY_CORRECTIONS)],
+    )
+
     accepted = await v2.rest(BATCH, _batch(*many[:CORRECTIONS_MAX]), token=token)
     assert (accepted.status, len(accepted.message.corrections)) == (200, CORRECTIONS_MAX)
     async with SessionLocal() as fresh:

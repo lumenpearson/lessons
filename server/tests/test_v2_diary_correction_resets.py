@@ -189,7 +189,13 @@ async def test_a_key_v1_would_refuse_is_refused_on_its_field_before_the_diary_is
     for request, field in (
         (_reset((LESSON, "room"), ("", "room")), "corrections[1].target"),
         (_reset((LESSON, "room"), (LESSON, "f" * 41)), "corrections[1].field"),
-        (_reset(*[(LESSON, "room")] * (CORRECTIONS_MAX + 1)), "corrections"),
+        # The cap first (Ruling 124): one of the 201 keys is itself invalid —
+        # an empty target at index 0 — and the cap's refusal on `corrections`
+        # still wins, never `corrections[0].target`.
+        (
+            _reset(("", "room"), *[(LESSON, "room")] * CORRECTIONS_MAX),
+            "corrections",
+        ),
     ):
         refused = await v2.both(RESET, request, token=token)
         assert (refused.status, refused.reason) == (400, "VALIDATION_FAILED"), field
@@ -220,6 +226,10 @@ async def test_another_family_s_child_reaches_nothing_on_a_reset_or_a_clear(
     for name, request in (
         (RESET, _reset((LESSON, "room"), student_id=999)),
         (CLEAR, ClearCorrectionsRequest(student_id=999)),
+        # Ruling 133: an empty batch succeeds only once the pupil is
+        # resolved, so an empty reset for another family's id is still
+        # refused rather than trivially "nothing to take off".
+        (RESET, _reset(student_id=999)),
     ):
         refused = await v2.both(name, request, token=token)
         assert (refused.status, refused.reason, refused.metadata, refused.error) == (
