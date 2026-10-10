@@ -718,6 +718,38 @@ The same four values are read from the environment variables `LESSONS_KEYSTORE_F
 `LESSONS_KEYSTORE_PASSWORD`, `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD` — which is what
 CI uses.
 
+### The suite on PostgreSQL
+
+`pytest` runs on SQLite, and production runs on PostgreSQL. So everything the two databases
+disagree about was tested on the one nobody deploys:
+- a row lock: SQLite ignores `FOR UPDATE`;
+- a savepoint;
+- a cascade: SQLite has one only because `app/db.py` switches `PRAGMA foreign_keys` on;
+- how a timestamp compares;
+- how wide a `VARCHAR` really is.
+
+`LESSONS_TEST_DATABASE_URL` points the whole suite at a PostgreSQL server instead (#411):
+
+```bash
+docker run -d --name lessons-pg -e POSTGRES_USER=gate -e POSTGRES_PASSWORD=gate \
+  -e POSTGRES_DB=gate -p 127.0.0.1:55432:5432 postgres:18-alpine \
+  -c max_connections=300 -c fsync=off
+cd server
+LESSONS_TEST_DATABASE_URL=postgresql://gate:gate@127.0.0.1:55432/gate pytest -q -n 4
+```
+
+- **One database per xdist worker.** Each worker makes its own (`gate_gw0`, `gate_gw1`, … and
+  `gate_main` without xdist), so two workers never empty each other's tables mid-test.
+- **The schema is built once per worker.** Between tests every table is emptied with
+  `TRUNCATE … RESTART IDENTITY CASCADE`, which is much faster than building twenty-odd tables
+  again over a socket.
+- **The URL must name this machine:** `localhost`, `127.0.0.1` or `::1`. Anything else is
+  refused before a single import, because every test empties every table. A production DSN
+  pasted here by mistake would be wiped three thousand times.
+- **`fsync=off` belongs only on a throwaway server,** and that is the only kind this is for.
+- **CI does not run it.** It is a check to run before a change that touches how the database is
+  used, and before sub-project 4, not a gate.
+
 ## The v2 contract and Buf
 
 `proto/lessons/v2/` is the v2 contract ([api.md](api.md), «v2: the contract»). Buf checks it

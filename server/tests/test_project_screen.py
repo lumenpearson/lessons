@@ -140,9 +140,15 @@ async def test_the_numbers_are_the_deployment_s_and_reading_them_writes_nothing(
     assert [check.name for check in stats.checks] == ["v2"]
     assert stats.last_tick == now - timedelta(minutes=2)
     assert stats.tick_before == now - timedelta(minutes=7)
-    # SQLite: no alembic_version in the suite's database, and no catalogue.
+    # No alembic_version in the suite's database, whichever it is.
     assert (stats.revision, stats.expected_revision) == (None, EXPECTED_REVISION)
-    assert (stats.database_bytes, stats.connections) == (None, None)
+    if session.get_bind().dialect.name == "sqlite":
+        # No catalogue to ask.
+        assert (stats.database_bytes, stats.connections) == (None, None)
+    else:
+        # The suite on PostgreSQL (#411): the catalogue answers for real.
+        assert stats.database_bytes > 0
+        assert stats.connections >= 1
 
 
 async def test_on_postgres_the_size_and_the_connections_are_its_own_catalogue_s():

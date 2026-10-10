@@ -34,7 +34,65 @@ import pytest
 from sqlalchemy import event
 
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="lessons-tests-"))
-os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DIR / 'test.db'}"
+
+# The suite runs on SQLite, and production runs on PostgreSQL, so everything
+# the two disagree about — row locks, savepoints, cascades, how a timestamp
+# compares — was tested on the one nobody deploys. LESSONS_TEST_DATABASE_URL
+# names a PostgreSQL server for the whole run instead (docs/build.md, «The
+# suite on PostgreSQL»). Every test begins by emptying every table, so a URL
+# that reaches anything but this machine is refused before a single import:
+# a typo'd production DSN would otherwise be wiped once per test.
+_LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _postgres_for_this_worker(raw: str) -> str:
+    """This worker's own database on a local PostgreSQL, made if missing.
+
+    One database per xdist worker, because two workers truncating one set of
+    tables would empty each other's rows mid-test.
+    """
+    import asyncio
+
+    import asyncpg
+    from sqlalchemy.engine import make_url
+
+    url = make_url(raw)
+    if not url.drivername.startswith("postgresql"):
+        raise RuntimeError("LESSONS_TEST_DATABASE_URL must be a postgresql:// URL")
+    if url.host not in _LOCAL_HOSTS:
+        raise RuntimeError(
+            "LESSONS_TEST_DATABASE_URL must point at this machine (localhost, "
+            "127.0.0.1 or ::1): the suite empties every table before every test"
+        )
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+    name = f"{url.database}_{worker}"
+
+    async def create() -> None:
+        conn = await asyncpg.connect(
+            user=url.username,
+            password=url.password,
+            host=url.host,
+            port=url.port or 5432,
+            database=url.database,
+        )
+        try:
+            if not await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", name):
+                await conn.execute(f'CREATE DATABASE "{name}"')
+        finally:
+            await conn.close()
+
+    asyncio.run(create())
+    return url.set(drivername="postgresql+asyncpg", database=name).render_as_string(
+        hide_password=False
+    )
+
+
+_POSTGRES = os.environ.get("LESSONS_TEST_DATABASE_URL", "")
+os.environ["DATABASE_URL"] = (
+    _postgres_for_this_worker(_POSTGRES)
+    if _POSTGRES
+    else f"sqlite+aiosqlite:///{_TMP_DIR / 'test.db'}"
+)
 os.environ["RUN_BOT"] = "false"
 os.environ["BOT_TOKEN"] = ""
 os.environ["OWNER_IDS"] = "1000"
@@ -156,12 +214,36 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker(absent)
 
 
+# The tables the PostgreSQL run has built so far. A module imported later can
+# register one more (the FSM storage's table lives beside its storage, not in
+# models.py), so the set is compared before every test rather than assumed.
+_built_tables: frozenset[str] = frozenset()
+
+
 @pytest.fixture(autouse=True)
 async def fresh_database() -> AsyncIterator[None]:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+    global _built_tables
+    if engine.dialect.name == "postgresql" and _built_tables == frozenset(Base.metadata.tables):
+        # Building twenty-odd tables over a socket before each of three
+        # thousand tests is the slowest part of a run; emptying them is not.
+        # The lock timeout turns a session a previous test leaked, still
+        # holding a row, into that test's error rather than a run that hangs.
+        tables = ", ".join(f'"{table.name}"' for table in Base.metadata.sorted_tables)
+        async with engine.begin() as conn:
+            await conn.exec_driver_sql("SET LOCAL lock_timeout = '10s'")
+            await conn.exec_driver_sql(f"TRUNCATE {tables} RESTART IDENTITY CASCADE")
+    else:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+        _built_tables = frozenset(Base.metadata.tables)
     yield
+    if engine.dialect.name == "postgresql":
+        # Each test runs on an event loop of its own, and an asyncpg connection
+        # belongs to the loop that opened it: one pooled past its test is a
+        # «Future attached to a different loop» in the next. Closing the pool
+        # here, still on the test's loop, closes them properly.
+        await engine.dispose()
 
 
 @pytest.fixture
@@ -940,6 +1022,17 @@ async def settings_cache_cleared():
     get_settings.cache_clear()
 
 
+#: asyncpg's placeholder with the cast SQLAlchemy writes beside it
+#: (``$1::TIMESTAMP WITHOUT TIME ZONE``), which on SQLite is a bare ``?``.
+#: Folded to the ``?`` the rules below are written in, so they read one
+#: statement the same way on either database. The casts are named rather than
+#: matched as «capitals and spaces», which would swallow the ``WHERE`` after
+#: them.
+_PLACEHOLDER = re.compile(
+    r"\$\d+(?:::(?:TIMESTAMP WITH(?:OUT)? TIME ZONE|DOUBLE PRECISION|[A-Z]+(?:\(\d+\))?))?"
+)
+
+
 @pytest.fixture
 def statement_writes() -> Callable[[], contextlib.AbstractContextManager[list[str]]]:
     """``with statement_writes() as seen:`` — every INSERT, UPDATE and DELETE
@@ -956,7 +1049,7 @@ def statement_writes() -> Callable[[], contextlib.AbstractContextManager[list[st
 
         def record(conn, cursor, statement, parameters, context, executemany) -> None:
             if re.match(r"\s*(?:INSERT|UPDATE|DELETE)\b", statement, re.IGNORECASE):
-                seen.append(" ".join(statement.split()))
+                seen.append(_PLACEHOLDER.sub("?", " ".join(statement.split())))
 
         event.listen(engine.sync_engine, "before_cursor_execute", record)
         try:
