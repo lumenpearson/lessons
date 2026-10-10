@@ -105,7 +105,24 @@ ROWS = sorted(watch.WINDOW_TABLES - {"classes", "bell_periods"})
 
 
 def test_every_window_table_is_asked_here() -> None:
+    assert watch.WINDOW_TABLES == {
+        "classes",
+        "bot_users",
+        "bell_schedules",
+        "bell_periods",
+        "subjects",
+        "timetable_entries",
+        "terms",
+        "day_overrides",
+        "lesson_overrides",
+        "day_events",
+        "homework",
+    }
     assert {*ROWS, "classes", "bell_periods"} == watch.WINDOW_TABLES
+    # A phone's own row is left out on purpose: every call writes its
+    # last_seen_at, which would wake the whole class each quarter of an hour
+    # per phone (Ruling 149).
+    assert "device_tokens" not in watch.WINDOW_TABLES
 
 
 @pytest.mark.parametrize("table", ROWS)
@@ -223,11 +240,11 @@ async def test_a_savepoint_rolled_back_never_hides_what_the_commit_holds(
 ) -> None:
     class_id = school_class.id
     start = bus.changes(class_id)
-    nested = await session.begin_nested()
+    session.add(_row("day_events", class_id))
+    nested = await session.begin_nested()  # flushes the event into the outer transaction
     session.add(_homework(class_id))
     await session.flush()
     await nested.rollback()
-    session.add(_row("day_events", class_id))
     await session.commit()
     assert bus.changes(class_id) == start + 1
 

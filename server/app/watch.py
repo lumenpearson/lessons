@@ -103,8 +103,9 @@ def changes(class_id: int) -> int:
 
 
 def revision(class_id: int) -> str:
-    """What ``WatchClass`` sends: opaque to a client, equal only for the same
-    class in the same state in the same process."""
+    """What ``WatchClass`` sends: opaque to a client, meant to be compared
+    only against an earlier revision of the same class, in this process —
+    two different classes can share one string."""
     return f"{BOOT}.{changes(class_id)}"
 
 
