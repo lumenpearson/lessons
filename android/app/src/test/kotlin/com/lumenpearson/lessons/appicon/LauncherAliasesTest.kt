@@ -8,7 +8,7 @@ import org.junit.Test
  * Which components a switch and a reconcile change, and in what order.
  *
  * Over [TestCatalog] rather than the real catalog, so that this file says the
- * same whatever the owner keeps of the sixty-four, the default alone included:
+ * same whatever the owner keeps of the catalog, the default alone included:
  * the decisions need two icons besides the default, and a trimmed catalog may
  * not have them.
  */

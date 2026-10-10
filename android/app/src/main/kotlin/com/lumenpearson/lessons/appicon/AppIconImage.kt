@@ -21,12 +21,12 @@ import kotlin.math.roundToInt
  * middle 72 dp, and [shape] masks it.
  *
  * A ground of one flat colour ([AppIconStyle.flatGround]: white under
- * «Классика» and «Край в край», black under «AMOLED») is there only because a
- * launcher needs a full square. In the app it would be a tile on the app's own
- * surface, so it is left out and the mark stands alone. Every other ground is
- * part of the style and is drawn. Essentials' picker drew every foreground on
- * white, which is wrong for «Свечение», «Тёмная», «Матовая», «Размытие» and
- * «Матовое стекло».
+ * «Классика», black under «AMOLED») is there only because a launcher needs a
+ * full square. In the app it would be a tile on the app's own surface, so it is
+ * left out and the mark stands alone. A ground that is part of a style's look —
+ * a gradient, a glow, glass — would be drawn; none of the styles offered today
+ * has one, and Essentials' picker, which drew every foreground on white, would
+ * have been wrong for each that did.
  */
 @Composable
 fun AppIconImage(

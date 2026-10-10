@@ -6,12 +6,6 @@
       its hue first, so the two sit together when read.
     -->
     <string name="app_icon_style_classic">Классика</string>
-    <string name="app_icon_style_edge">Край в край</string>
-    <string name="app_icon_style_glow">Свечение</string>
-    <string name="app_icon_style_dark">Тёмная</string>
-    <string name="app_icon_style_glass">Матовое стекло</string>
-    <string name="app_icon_style_matte">Матовая</string>
-    <string name="app_icon_style_oneui">Размытие</string>
     <string name="app_icon_style_amoled">AMOLED</string>
 
     <string name="app_icon_palette_rassvet">Рассвет</string>

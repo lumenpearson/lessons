@@ -13,8 +13,8 @@ import org.robolectric.RuntimeEnvironment
  * What the JVM test cannot see: that each catalog line's `R.mipmap` id is the
  * resource its style and palette name, and that it loads.
  *
- * Sixty-four lines of `AppIconVariant(GLOW, MYATA, R.mipmap.ic_launcher_glow_myata)`
- * are sixty-four chances to pair a tile's name with another tile's picture, and
+ * Sixteen lines of `AppIconVariant(AMOLED, MYATA, R.mipmap.ic_launcher_amoled_myata)`
+ * are sixteen chances to pair a tile's name with another tile's picture, and
  * the compiler is satisfied by any id.
  */
 @RunWith(RobolectricTestRunner::class)
