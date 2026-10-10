@@ -239,6 +239,8 @@ def test_the_live_app_mounted_v2() -> None:
     route = next(r for r in main.app.routes if getattr(r, "path", None) == "/api/rpc")
     assert isinstance(route.app, _Services)  # type: ignore[attr-defined]
     assert main.app.state.v2_mounted is True
+    # The host's root answers native gRPC from this same object (app/host.py).
+    assert main.app.state.v2_services is route.app  # type: ignore[attr-defined]
     paths = {getattr(r, "path", None) for r in main.app.routes}
     assert "/api/v2/me" in paths and "/api/v2/class/scheduleWindows/{year}" in paths
 
@@ -250,6 +252,7 @@ async def test_warmup_says_whether_v2_is_mounted(v2, monkeypatch) -> None:
     fresh = FastAPI()
     assert main.mount_v2(fresh) is False
     assert fresh.state.v2_mounted is False
+    assert fresh.state.v2_services is None
 
 
 _FALLBACK_PROBE = """

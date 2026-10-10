@@ -273,10 +273,14 @@ def mount_v2(target: FastAPI) -> bool:
         # Read back by `/api/v1/warmup`: a fallback that only the log knew of
         # would be invisible to whatever pings it.
         target.state.v2_mounted = False
+        target.state.v2_services = None
         return False
     target.router.routes.extend(routes)
     target.mount("/api/rpc", services)
     target.state.v2_mounted = True
+    # The same services, for the host target to answer native gRPC at the
+    # root with (app/host.py): one set, so the two paths cannot differ.
+    target.state.v2_services = services
     return True
 
 

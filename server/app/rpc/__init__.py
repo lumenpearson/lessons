@@ -165,7 +165,10 @@ def _service_app(service: str, methods: list[Method]) -> Any:
     return application(adapter(), codecs=CODECS, compressions=COMPRESSIONS)
 
 
-def _is_native_grpc(scope: Scope) -> bool:
+def is_native_grpc(scope: Scope) -> bool:
+    """Whether a request is native gRPC — ``application/grpc`` or
+    ``application/grpc+…``, never gRPC-Web — as the guard below and the host's
+    root (``app/host.py``) both ask it."""
     for name, value in scope.get("headers", ()):
         if name.lower() == b"content-type":
             media = value.decode("latin-1").split(";", 1)[0].strip().lower()
@@ -219,7 +222,7 @@ class _Services:
             return
         # Not «is it 1.1»: ASGI makes `http_version` optional and reads a
         # missing one as "1.1", so only a scope that says 2 or 3 is let past.
-        if scope.get("http_version") not in ("2", "3") and _is_native_grpc(scope):
+        if scope.get("http_version") not in ("2", "3") and is_native_grpc(scope):
             await PlainTextResponse(GRPC_REFUSED, status_code=415)(scope, receive, send)
             return
         path = scope["path"].removeprefix(scope.get("root_path", ""))
