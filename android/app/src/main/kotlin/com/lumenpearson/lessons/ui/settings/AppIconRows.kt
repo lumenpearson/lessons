@@ -50,6 +50,7 @@ import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.ConcentricShape
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.PillButtonHeight
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -230,8 +231,16 @@ private fun AppIconTile(variant: AppIconVariant, selected: Boolean, onClick: () 
     // Cell, not CircleShape: this grid picks among icon variants, and the tile
     // around each one is a standalone cell — the same role the weekday tile
     // and the month-grid cell have — not itself a claim that the icon is round.
+    // The ring's own corner is ConcentricShape(Cell, RingGap), not Cell
+    // itself: a Cell border drawn RingGap outside a Cell clip is the exact
+    // wonky corner ConcentricShape's own KDoc describes — the border's
+    // radius has to grow by the gap to stay concentric with the clip inside it.
     val ring = if (selected) {
-        Modifier.border(RingWidth, MaterialTheme.colorScheme.primary, LessonsShapeTokens.Cell)
+        Modifier.border(
+            RingWidth,
+            MaterialTheme.colorScheme.primary,
+            ConcentricShape(inner = LessonsShapeTokens.Cell, inset = RingGap),
+        )
     } else {
         Modifier
     }

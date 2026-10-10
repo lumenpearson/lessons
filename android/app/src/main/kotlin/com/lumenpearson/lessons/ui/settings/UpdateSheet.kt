@@ -52,6 +52,7 @@ import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.CardPadding
+import com.lumenpearson.lessons.core.designsystem.theme.InlineGap
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.PillButtonHeight
@@ -410,7 +411,7 @@ internal fun SheetPill(
                 contentDescription = null,
                 modifier = Modifier.size(SheetPillIcon),
             )
-            Spacer(Modifier.width(SheetPillIconGap))
+            Spacer(Modifier.width(InlineGap))
         }
         Text(
             text = label,
@@ -515,15 +516,14 @@ internal val SheetBottomInset = 16.dp
 /** Between the blocks of a sheet: header, notes, buttons. */
 internal val SheetBlockGap = 12.dp
 
-/** Between two pills in a row; the same 8 dp as the about card's link pills. */
-internal val SheetPillGap = 8.dp
+/** Between two pills in a row; `InlineGap`, the same gap the about card's link
+ *  pills read, not an 8 dp literal of its own. */
+internal val SheetPillGap = InlineGap
 
 /** Narrower than Material's 24 dp default, so a label with a size in it has room. */
 private val SheetPillPadding = PaddingValues(horizontal = 16.dp)
 
 private val SheetPillIcon = 18.dp
-
-private val SheetPillIconGap = 8.dp
 
 /** `labelLarge`'s own size; the label never grows past it. */
 private val SheetPillFontMax = 14.sp

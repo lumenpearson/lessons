@@ -56,6 +56,8 @@ import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.RowLeadingGap
+import com.lumenpearson.lessons.core.designsystem.theme.RowPadding
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.rowContainer
@@ -147,16 +149,16 @@ private fun CreditRow(credit: Credit) {
                     LessonsHaptics.press(view)
                     expanded = !expanded
                 }
-                .padding(horizontal = RowPaddingHorizontal, vertical = RowPaddingVertical),
+                .padding(RowPadding),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(RowGap),
+                horizontalArrangement = Arrangement.spacedBy(RowLeadingGap),
             ) {
                 AccentIconTile(
                     icon = credit.icon,
                     tone = accentTone(credit.tone),
-                    size = TileSize,
+                    size = CreditTileSize,
                 )
                 Column(
                     modifier = Modifier.weight(1f),
@@ -193,7 +195,7 @@ private fun CreditRow(credit: Credit) {
 
             AnimatedVisibility(visible = expanded) {
                 Column(
-                    modifier = Modifier.padding(top = RowPaddingVertical),
+                    modifier = Modifier.padding(top = RowPadding.calculateTopPadding()),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
@@ -378,15 +380,13 @@ private val Credits = listOf(
     ),
 )
 
-/** Larger than a settings row's 40 dp: Essentials draws these at 56. */
-private val TileSize = 56.dp
-
-/** `GroupRow`'s own padding, so a credit row lines up with any other row. */
-private val RowPaddingHorizontal = 16.dp
-
-private val RowPaddingVertical = 12.dp
-
-private val RowGap = 14.dp
+/**
+ * Larger than a settings row's 40 dp: Essentials draws these at 56. Its own
+ * name, not the design system's `TileSize` (`AccentTile`'s 40 dp): the two
+ * never agreed and the collision was the same trap `AppIconRows`' own
+ * `TileSize` was renamed out of.
+ */
+private val CreditTileSize = 56.dp
 
 private val ChevronSize = 24.dp
 
