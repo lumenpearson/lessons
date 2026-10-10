@@ -28,6 +28,168 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the launcher icon chosen in the app, sixty-four «Пятёрка» variants behind activity-aliases (#388)
+
+Merged as #388 (`6c96003`, 9 October 2026), from `android/app-icons`, on milestone 12. It
+closes #386 and #387. The branch was cut from `main` at `e88e1c8`, the merge of #385, and carries
+19 commits before this close-out, to `7fc97d6`. Written on 9 October 2026. Nothing under
+`server/` changed and no revision goes with it: the schema stays at `0019`, and
+`EXPECTED_REVISION` did not move. The design is `docs/specs/2026-10-09-app-icons-design.md`,
+agreed with the owner before any of it was built, and the plan beside it,
+`docs/specs/2026-10-09-app-icons-plan.md`, has seven tasks, each implemented and reviewed before
+the next; then came a review of the whole branch, one wave of fixes, a scoped re-review and one
+commit that changed only the wording of comments.
+
+- **A new mark, «Пятёрка», in sixty-four variants**: eight styles by eight palettes.
+  «Значок приложения», a page reached from a row on «Оформление», chooses which one the launcher
+  shows. It has a preview under a circle and a rounded square, one group per style, tiles that
+  only select, and «Применить», which applies once.
+- **Each icon is an `<activity-alias>` of `MainActivity`, and exactly one is enabled.** Only
+  «Классика · Мята», the default, is enabled in the manifest. `MainActivity` is no longer a
+  launcher entry and is never disabled, because the widget and the alerts start it by class
+  name.
+- **The component state is the only record of the choice**, with no preference beside it.
+- **A switch is one ordered write of only the components that change.** `LauncherAliases`, pure
+  Kotlin, decides it. `PackageManagerComponents` writes it as one batch from Android 13, and
+  below 13 as enable-then-disable, with `DONT_KILL_APP`. `AppIconStore` runs every read and
+  write off the main thread behind one lock, and publishes the icon in use.
+- **A reconcile brings the launcher back to exactly one entry.** It runs on
+  `MY_PACKAGE_REPLACED` (`PackageReplacedReceiver`) and at every process start
+  (`LessonsApplication`, the fourth reason in its class KDoc): the default when none is on, and
+  the first non-default in catalog order when several are.
+- **Every place that shows the icon draws the one in use.** «О приложении», the first-run mark
+  and the row on «Оформление» draw it with `AppIconImage`, which draws both layers of the
+  adaptive icon. The splash screen no longer pins a drawable. The old book icon is gone, and the
+  application icon is the default.
+- **The logo's generators are in `android/logo/`**, moved from the owner's OneDrive design
+  folder, under `android/` rather than in a top-level folder, as the owner asked.
+  `export_android.py` rewrites the 256 icon resources: vectors for six styles, and 432 px WebP
+  for «Матовое стекло» and «Размытие». `android/pack/`, where the kit generators write their own
+  output, is git-ignored.
+- **Taking a variant out is three deletions**: the catalog line, the alias and the four
+  resources. `AppIconCatalogTest` names any piece left behind, a shared monochrome layer
+  included, and the other icon tests run on a synthetic catalog. With the real catalog cut to
+  the default alone, the icon tests gave 38 passed, 3 skipped by `assumeTrue`, and 0 failed.
+- **Two defects filed and fixed here**, both found inside the branch and never on `main`. Both
+  are `type:bug`, `area:android`, on milestone 12, sub-issues of #127, and on the board.
+  - #386: corrections to the app-icon page's strings never reached the export, because
+    `strings_app_icon.xml` was missing from `AppStringFiles`. `TranslationXmlTest` found it on
+    task 6's full gate; fixed in `8a7a176`.
+  - #387: a launcher-icon switch whose caller is cancelled left the app naming the old icon.
+    Task 4's review found it; fixed in `d082a2e`.
+
+### Gates
+
+- **Android.**
+  - `./gradlew test`: **1684** tests, 0 failed, at `b8a5a30`. It was 1635; only `:app` gained
+    tests, and it has 657. `7fc97d6` changed comments only, and `MarqueeClockTest` and
+    `AppIconScreenTest` were run again, green, there. The places the `handover` skill names that
+    carry an Android count — this file's cheat-sheet, the README, `docs/architecture.md` and the
+    `gates` skill — now say 1684.
+  - `./gradlew detekt`: no finding, no baseline change.
+  - `./gradlew assembleDebug assembleRelease`: BUILD SUCCESSFUL at `b8a5a30`.
+- **The server** was not run, because nothing under `server/` changed; its 3000 tests and mypy
+  over 238 modules stand from #385.
+- **CI on `b8a5a30`**, read while this was written: What changed, Server (API + bot), Android
+  and Vercel passed, and Contract (Buf) was skipped. `7fc97d6` and this close-out were not yet
+  on the remote branch; CI on the head the merge is made from is read before the merge.
+- **`CONTRIBUTING.md`'s count of the app's screens composed under Robolectric** says thirty-two
+  now, counted as it was first counted, by the files under `:app`'s tests that name a compose
+  rule. It said twenty, which was already ten short before `AppIconRowsTest` and
+  `AppIconScreenTest` made it thirty-two.
+
+### What was deliberately left alone
+
+- **Which variants to keep.** That is the owner's choice and the next thing; then they are
+  taken out, three deletions each.
+- **A «сейчас» mark on the tile of the icon in use.** The final review suggested it and it was
+  not built, because the design is silent and it would be new UI with new strings. It is in the
+  pull request as a suggestion.
+- **The splash after a start from the widget or an alert shows the application icon**
+  («Классика · Мята»), whatever was chosen. Only a start from the launcher follows the choice;
+  making the others follow would need a splash theme per variant.
+- **A switch that fails halfway below Android 13.** The page says «Не удалось сменить значок»
+  while the store names the icon the launcher shows, the one the next reconcile keeps. After a
+  failed switch away from the default, «Применить» therefore rests, and the duplicate entry
+  stays until the next process start.
+- **A switch back to the default, or between two non-default icons, that dies between its two
+  calls** is undone by the reconcile, which keeps the icon being left. The launcher still has
+  exactly one entry, and the window is milliseconds.
+- **Minors the reviews deferred, none blocking:**
+  - nothing ties `AliasPackage` to the Gradle namespace (a drift fails safely, as a refused
+    switch);
+  - a failed background reconcile leaves no log line;
+  - `PackageManagerComponentsTest` compares end states only;
+  - the receiver tests never reach `goAsync`/`finish()`;
+  - the `{ { DeveloperScreen } }` construct in `SettingsSectionScreen`, a ReturnCount
+    workaround;
+  - each `rememberCurrentAppIcon` call site refreshes on its own;
+  - `runCatching` in `AppIconViewModel` also swallows `CancellationException`, which is harmless
+    on a cleared ViewModel.
+- **3b-6's deferred minors still stand:** the `HTTP_422_UNPROCESSABLE_ENTITY` deprecation
+  warnings in `api/edit.py`; `put_day` deleting a mark on an explicit `kind=None`; two pragma
+  comments that overstate (`special_days.py`, `substitutions.py`); the
+  `SHORTENED_WITHOUT_BELLS` alert blaming the default for an old empty day schedule; `create()`
+  mapping any `IntegrityError` to `SubstitutionExists`; `Written.notice` typed `str | None`; and
+  the mask-before-lookup order in `UpdateSubstitution` and `UpdateDay`.
+
+### What nobody has verified in this batch
+
+Nothing in it ran on a device or an emulator. These need one, and `HANDOVER.md`'s section 5 carries them:
+
+- **any real launcher**: how Pixel Launcher, One UI and MIUI place, re-index and clip the icon
+  when the alias changes;
+- **themed (monochrome) icons** on Android 13 and later;
+- **the edge-to-edge styles** under a launcher mask smaller than the standard circle;
+- **whether the app stays open, and stays in Recents, after «Применить»** disables the alias it
+  was started through;
+- **whether «Значок приложения» stutters when it opens** on a low-end phone, since 64 tiles
+  inflate vector drawables on the main thread;
+- **whether the 112 dp preview is sharp** now that each drawn icon has its own drawable state;
+- **the lost home-screen shortcut** on an update from a build where `MainActivity` was the
+  launcher entry. This is expected; nothing has been released, so only development installs
+  meet it.
+
+### What only the owner can do
+
+Both are in `HANDOVER.md`'s section 7 too.
+
+- **Choose which of the sixty-four variants to keep.** Then a session takes the rest out.
+- **One pass on a device or an emulator** for the list above. An API 31 and an API 34 emulator
+  are enough: switch twice, press Home, open Recents, then tap the widget from a cold start.
+
+### After #385's merge: the merge, the read of production, and the development machine
+
+None of this is code in #388, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 9 October 2026.
+
+- **The merge, by the session.** #385 merged as `e88e1c8` at 15:46:16 UTC on 9 October 2026.
+  Before it, Contract, Server, What changed and Vercel had passed on `2534c13`, with Android
+  skipped, and `mergeable_state` was clean. It closed #382 and #383. #384 stays open, on
+  milestone 11.
+- **The read of production.** Vercel's status on the merge commit turned success at about
+  15:46:27 UTC. A read at 15:45:56 still saw `501 UNIMPLEMENTED`, which was the old code. The
+  read at 15:46:34 saw the new code:
+  - `/api/v1/warmup` answered `ok`, schema `0019`, `v2` `true`;
+  - REST `GET` and `PATCH ?allowMissing=true` on `/api/v2/class/days/2026-09-14`, `GET` and
+    `POST /api/v2/class/substitutions`, and `DELETE /api/v2/class/substitutions/1` each
+    answered `401` with `WWW-Authenticate: Bearer`, Google's body and the reason
+    `DEVICE_TOKEN_INVALID`;
+  - Connect `SubstitutionService/ListSubstitutions` answered `401` `unauthenticated`.
+- **The development machine.** After the moves the last close-out recorded, the owner cleared
+  temporary files, old VS Code and Discord versions and crash dumps; C: then had 32.1 GB free,
+  against 8.3 GB before the moves. A script that points Android Studio's system folder at F:
+  through `idea.properties` was handed to the owner, and whether they ran it is not confirmed.
+  A Gradle build from a Claude session still needs three things:
+  - `ANDROID_HOME` on F:;
+  - a worktree `android/local.properties` with `sdk.dir` on F:, which this batch wrote in its
+    own worktree and which is git-ignored;
+  - `JAVA_HOME` at JDK 21, because the user-level `JAVA_HOME` is JDK 17.
+- **The owner's standing order of this evening.** Once #388 has merged, finish sub-project 3:
+  3b-7, 3b-8 and 3c. Then its live tests, the gate before sub-project 4 that the owner set on
+  8 October. Then sub-project 4 and onwards, autonomously until 11:00 Moscow on 10 October
+  2026.
+
 ## What the batch before added: days and substitutions over v2, one rule for the bot, v1 and v2 — stage 3b-6 of sub-project 3 (#273)
 
 Merged as #385 (`e88e1c8`, 9 October 2026), from `server-v2/3b-6`, on milestone 11. It closes
