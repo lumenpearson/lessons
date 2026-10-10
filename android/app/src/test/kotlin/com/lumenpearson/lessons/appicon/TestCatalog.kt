@@ -4,10 +4,12 @@ package com.lumenpearson.lessons.appicon
  * A catalog for the tests of selection, order and layout, built from the
  * default's own resource.
  *
- * Not [AppIconCatalog]: the owner is about to take most of its sixty-four out,
- * and a test that took its second icon, or its second style, from the real
- * list would throw before it asserted anything the day only «Классика», or
- * only the default, is kept. Every variant here draws the default's icon,
+ * Not [AppIconCatalog]: the owner trims it to taste (sixty-four became sixteen
+ * on 10 October 2026), and a test that took its second icon, or its second
+ * style, from the real list would throw before it asserted anything the day
+ * only «Классика», or only the default, is kept. What it does need is one
+ * style besides the default's in [AppIconStyle] (#402): until the trim it
+ * took a third for [another], and two styles left it unable to start. Every variant here draws the default's icon,
  * which none of these tests looks at; the real catalog's pictures are
  * `AppIconResourcesTest`'s, and its agreement with the manifest and res/ is
  * `AppIconCatalogTest`'s.
@@ -22,8 +24,13 @@ internal object TestCatalog {
     /** A variant in a style other than the default's. */
     val other: AppIconVariant = default.copy(style = otherStyles[0])
 
-    /** A variant in a third style, after [other] in [variants]. */
-    val another: AppIconVariant = default.copy(style = otherStyles[1], palette = AppIconPalette.INDIGO)
+    /**
+     * A third icon, after [other] in [variants]: in a third style while there
+     * is one, and in [other]'s style and another palette when there is not.
+     */
+    val another: AppIconVariant =
+        (otherStyles.getOrNull(1)?.let { default.copy(style = it) } ?: other)
+            .copy(palette = AppIconPalette.INDIGO)
 
     /**
      * The default's style in five palettes, the default among them: a full row
