@@ -17,6 +17,11 @@ at all (``docs/specs/2026-10-05-server-v2-design.md``, decision 4). The one
 write that can meet a racing twin — one field two parents correct in the same
 instant — concedes inside a savepoint rather than by failing a commit.
 
+What a child with no scope may do, and which corrections are refused, were v1's
+routes'; they are :func:`listed`, :func:`correct`, :func:`reset` and
+:func:`clear` now, which v1's routes and v2's ``DiaryService`` both call, and
+which refuse with facts each shell words.
+
 Beside ``diary_overrides`` rather than inside ``services/diary.py``, which is
 the sessions: the two halves of one feature sit next to each other, and the
 session module no longer carries a second subject in its middle.
@@ -24,12 +29,16 @@ session module no longer carries a second subject in its middle.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
+
 from sqlalchemy import ColumnElement, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DiaryOverride
 from app.providers.diary.registry import PETERSBURG, Scope, row_for
+from app.services import diary_overrides as overrides
 
 #: What every scope starts with — upper case on purpose; see `child_scope`.
 SCOPE_PREFIX = "CHILD:"
@@ -231,3 +240,102 @@ async def drop_overrides(session: AsyncSession, scope: str, student_id: int) -> 
     for row in rows:
         await session.delete(row)
     return len(rows)
+
+
+# ---- the rules v1's routes held, for both shells ---------------------------
+#
+# ``scope`` is what ``DiaryService.child`` answers for the pupil, ``None`` for
+# a child who can have no corrections: one the diary lists by an id outside its
+# provider's own numbering (``DiaryService.scope_of``). Such a child's diary is
+# shown as it came; only a write is refused.
+
+
+class CorrectionsUnavailable(LookupError):
+    """A write for a child who can have no corrections (``scope`` ``None``).
+    v1 answers 422, v2 ``CORRECTIONS_UNAVAILABLE``."""
+
+
+@dataclass(frozen=True)
+class Correction:
+    """One correction being written: v1's ``DiaryOverrideIn``, v2's ``CorrectionUpdate``."""
+
+    target: str
+    field: str
+    value: str
+    original: str | None = None
+
+
+async def listed(session: AsyncSession, scope: str | None, student_id: int) -> list[DiaryOverride]:
+    """Every correction anybody who sees this child has made, by target and
+    then field; none for a child who can have none."""
+    if scope is None:
+        return []
+    return await list_overrides(session, scope, student_id)
+
+
+async def correct(
+    session: AsyncSession,
+    scope: str | None,
+    student_id: int,
+    corrections: Sequence[Correction],
+) -> list[DiaryOverride]:
+    """Writes or replaces each correction, in order, the last writer winning,
+    and answers each one's row as it stands once all are written: a target
+    and field named twice are one row, carrying the later value.
+
+    Refused before anything is written, in v1's order: a child who can have
+    none, then any correction the overlay would never apply
+    (``diary_overrides.check_correction``). Nothing is committed: the caller
+    commits the lot, so that it lands whole or not at all.
+
+    @raises CorrectionsUnavailable for a child who can have none.
+    @raises diary_overrides.UnknownTarget, UnsupportedField or EmptyNotAllowed.
+    """
+    if scope is None:
+        raise CorrectionsUnavailable
+    for correction in corrections:
+        overrides.check_correction(correction.target, correction.field, correction.value)
+    return [
+        await put_override(
+            session,
+            scope,
+            student_id,
+            correction.target,
+            correction.field,
+            correction.value,
+            correction.original,
+        )
+        for correction in corrections
+    ]
+
+
+async def reset(
+    session: AsyncSession,
+    scope: str | None,
+    student_id: int,
+    keys: Iterable[tuple[str, str]],
+) -> int:
+    """Takes each ``(target, field)`` correction off, for everyone who sees the
+    child. A key with nothing under it is no error — «no correction here» is
+    what was asked for — and a child who can have none has none to take off.
+    Nothing is committed.
+
+    @return how many were taken off.
+    """
+    if scope is None:
+        return 0
+    taken = 0
+    for target, field in keys:
+        taken += await drop_override(session, scope, student_id, target, field)
+    return taken
+
+
+async def clear(session: AsyncSession, scope: str | None, student_id: int) -> int:
+    """Takes every correction for this child off (:func:`drop_overrides`); none
+    for a child who can have none. Nothing is committed.
+
+    @return how many were taken off.
+    """
+    if scope is None:
+        return 0
+    return await drop_overrides(session, scope, student_id)
