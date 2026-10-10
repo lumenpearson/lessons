@@ -2,10 +2,11 @@
 
 A method missing here answers ``UNIMPLEMENTED`` on both transports, before
 any gate or scope, exactly as the generated ``Protocol``'s default does. 3a
-served ``WatchClass``'s refusal, ``GetMe``, ``GetDiaryCapabilities``,
-``CreateDevice`` and ``GetScheduleWindow``; 3b filled the rest in, one service
-at a time (``docs/specs/2026-10-05-server-v2-3b-plan.md``), and since 3b-8
-every unary method of the contract is here. ``WatchClass``'s stream is 3c's.
+served ``GetMe``, ``GetDiaryCapabilities``, ``CreateDevice`` and
+``GetScheduleWindow``; 3b filled the rest in, one service at a time
+(``docs/specs/2026-10-05-server-v2-3b-plan.md``), and since 3b-8 every unary
+method of the contract is here. ``WatchClass``, the one stream, is in
+:data:`STREAMS`, which ``call.stream`` serves (3c).
 
 Handler modules import ``Call`` only for their annotations, so that
 ``call.py``, which imports this table, is never imported back.
@@ -13,7 +14,7 @@ Handler modules import ``Call`` only for their annotations, so that
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any
 
 from app.rpc import (
@@ -116,5 +117,15 @@ HANDLERS: dict[str, Handler] = {
     "lessons.v2.SubstitutionService/UpdateSubstitution": substitution.update_substitution,
     "lessons.v2.TimetableService/GetTimetable": timetable.get_timetable,
     "lessons.v2.TimetableService/ImportTimetable": timetable.import_timetable,
+}
+
+#: A streaming handler: ``async def handler(call: Stream, request) ->
+#: AsyncGenerator[<Response>, None]``, served by ``call.stream`` rather than
+#: ``invoke``: the gate runs before its first message and again whenever it
+#: asks, and no session outlives one check (decision 13).
+StreamHandler = Callable[[Any, Any], AsyncGenerator[Any, None]]
+
+#: Keyed as ``HANDLERS`` is. ``WatchClass`` is the contract's one stream.
+STREAMS: dict[str, StreamHandler] = {
     "lessons.v2.WatchService/WatchClass": watch.watch_class,
 }

@@ -34,7 +34,7 @@ from connectrpc.errors import ConnectError
 from starlette.responses import PlainTextResponse, Response
 
 from app.api.deps import peer_host
-from app.rpc.call import invoke
+from app.rpc.call import invoke, stream
 from app.rpc.errors import INTERNAL_MESSAGE, connect_error, undecodable
 from app.rpc.methods import METHODS, Method
 
@@ -133,10 +133,11 @@ def _unary(method: Method) -> Callable[..., Awaitable[Any]]:
 
 
 def _server_stream(method: Method) -> Callable[..., Any]:
-    async def call(self: object, request: Any, ctx: Any) -> Any:
-        # A stream's handler answers once, today always with a refusal
-        # (`rpc/watch.py`); 3c's host yields from it instead.
-        yield await invoke(
+    def call(self: object, request: Any, ctx: Any) -> Any:
+        # The generator itself, not one wrapped in another: connectrpc closes
+        # what it is handed when the client goes, and a wrapper's close would
+        # not reach the stream inside it (`call.stream` says why that matters).
+        return stream(
             method,
             request,
             headers=list(ctx.request_headers.allitems()),
