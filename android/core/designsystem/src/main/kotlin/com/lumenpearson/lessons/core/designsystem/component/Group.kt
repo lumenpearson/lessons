@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -47,6 +46,7 @@ import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -82,19 +82,25 @@ private val RowPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
  * between them show the page through. That is what makes a group read as one
  * slab with soft ends rather than as a pile of separate cards, and it is why
  * neither the rows nor this container round their own corners.
+ *
+ * @param shape [LessonsShapeTokens.Group] by default — a [Shape] rather than a
+ *   bare corner radius, so a caller cannot re-derive the same 28 dp as its own
+ *   literal and drift from the token the day it changes, which is exactly how
+ *   this container's corner and the token's disagreed before the 2026-10-10
+ *   geometry pass.
  */
 @Composable
 fun RoundedCardContainer(
     modifier: Modifier = Modifier,
     spacing: Dp = GroupRowSpacing,
-    cornerRadius: Dp = 24.dp,
+    shape: Shape = LessonsShapeTokens.Group,
     containerColor: Color = Color.Transparent,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(cornerRadius))
+            .clip(shape)
             .background(containerColor),
         verticalArrangement = Arrangement.spacedBy(spacing),
         content = content,

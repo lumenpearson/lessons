@@ -21,6 +21,7 @@ import com.lumenpearson.lessons.core.designsystem.text.DataLine
 import com.lumenpearson.lessons.core.designsystem.text.MarqueeText
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 
 /**
  * The quiet label above a group.
@@ -68,7 +69,7 @@ fun SectionHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = ScreenPadding, end = 6.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
