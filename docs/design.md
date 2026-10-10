@@ -641,9 +641,15 @@ one has no Cyrillic, and twelve widget sizes because the launcher picks the near
 documentation is quoted back at the user, so it moves when the decision does.
 
 The mark is the launcher icon in use, drawn the way a launcher draws it (`AppIconImage`). An adaptive
-icon is a 108 dp canvas of which only the central 72 dp is visible, so both layers are laid over the
-whole canvas and the box shows the middle — the same crop the home screen makes. Both layers, not the
-foreground on a colour: five of the eight styles have a ground of their own.
+icon is a 108 dp canvas of which only the central 72 dp is visible. Its layers are laid over the whole
+canvas, and the box shows the middle, the same crop the home screen makes. The foreground is never put
+on a colour of the app's choosing, because five of the eight styles have a ground of their own, and
+that ground is drawn. The ground of the other three, «Классика», «Край в край» and «AMOLED», is one
+flat colour (`AppIconStyle.flatGround`). It is there only because a launcher needs a full square, and
+in the app it would be a tile on the app's own surface, so the app leaves it out everywhere it draws
+the mark, the picker included. A tile for one of those three therefore shows the mark alone, not the
+square the launcher will draw. That was the owner's choice. `AppIconGroundTest` holds the flag against
+the generated grounds.
 
 The main thing not carried over from the original: nine link buttons there are nine copies of
 the same fifteen lines differing in icon, caption and address — so `ActivityNotFoundException`
