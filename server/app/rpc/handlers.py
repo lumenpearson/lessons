@@ -3,8 +3,9 @@
 A method missing here answers ``UNIMPLEMENTED`` on both transports, before
 any gate or scope, exactly as the generated ``Protocol``'s default does. 3a
 served ``WatchClass``'s refusal, ``GetMe``, ``GetDiaryCapabilities``,
-``CreateDevice`` and ``GetScheduleWindow``; 3b fills the rest in, one service
-at a time (``docs/specs/2026-10-05-server-v2-3b-plan.md``).
+``CreateDevice`` and ``GetScheduleWindow``; 3b filled the rest in, one service
+at a time (``docs/specs/2026-10-05-server-v2-3b-plan.md``), and since 3b-8
+every unary method of the contract is here. ``WatchClass``'s stream is 3c's.
 
 Handler modules import ``Call`` only for their annotations, so that
 ``call.py``, which imports this table, is never imported back.
@@ -63,9 +64,12 @@ HANDLERS: dict[str, Handler] = {
     "lessons.v2.DayService/GetDay": day.get_day,
     "lessons.v2.DayService/UpdateDay": day.update_day,
     "lessons.v2.DeviceService/CreateDevice": device.create_device,
+    "lessons.v2.DiaryService/BatchUpdateCorrections": diary.batch_update_corrections,
+    "lessons.v2.DiaryService/ClearCorrections": diary.clear_corrections,
     "lessons.v2.DiaryService/CreateDiarySession": diary.create_diary_session,
     "lessons.v2.DiaryService/DeleteDiarySession": diary.delete_diary_session,
     "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+    "lessons.v2.DiaryService/ListCorrections": diary.list_corrections,
     "lessons.v2.DiaryService/ListDiaryHomework": diary.list_diary_homework,
     "lessons.v2.DiaryService/ListDiarySubjects": diary.list_diary_subjects,
     "lessons.v2.DiaryService/ListMarks": diary.list_marks,
@@ -74,6 +78,7 @@ HANDLERS: dict[str, Handler] = {
     "lessons.v2.DiaryService/ListStudents": diary.list_students,
     "lessons.v2.DiaryService/ListTeachers": diary.list_teachers,
     "lessons.v2.DiaryService/ListTurnstileEvents": diary.list_turnstile_events,
+    "lessons.v2.DiaryService/ResetCorrections": diary.reset_corrections,
     "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
     "lessons.v2.DirectoryService/ListSchools": directory.list_schools,
     "lessons.v2.EventService/CreateEvent": event.create_event,

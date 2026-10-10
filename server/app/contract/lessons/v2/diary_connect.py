@@ -132,27 +132,37 @@ class DiaryService(Protocol):
     async def list_corrections(self, request: ListCorrectionsRequest, ctx: RequestContext[ListCorrectionsRequest, ListCorrectionsResponse], /) -> ListCorrectionsResponse:
         """
         Every correction anybody who sees this pupil made, both parents' alike;
-        no row says whose.
+        no row says whose. By target, then field; none for a pupil who can have
+        none.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     async def batch_update_corrections(self, request: BatchUpdateCorrectionsRequest, ctx: RequestContext[BatchUpdateCorrectionsRequest, BatchUpdateCorrectionsResponse], /) -> BatchUpdateCorrectionsResponse:
         """
-        Writes or replaces corrections, all or none. Each target is the string a
-        read handed down, echoed back; the last writer wins, `original`
-        included. CORRECTIONS_UNAVAILABLE for a pupil who can have none.
-        VALIDATION_FAILED, naming `corrections[i].target`, `.field` or `.value`,
-        for a target this server would never produce, a field that cannot be
-        corrected, or an empty value where one is required.
+        Writes or replaces corrections, all or none, and answers each as it is
+        stored once all are written, in the order asked. Each target is the
+        string a read handed down, echoed back; the last writer wins, `original`
+        included, and a target and field named twice in one request keep the
+        later. At most 200 corrections a request. CORRECTIONS_UNAVAILABLE for a
+        pupil who can have none. VALIDATION_FAILED, before the diary is asked
+        anything: on `corrections` past 200, or naming the first correction
+        refused, `corrections[i].target`, `.field` or `.value` with i counted
+        from 0, for a target this server would never produce, a field that
+        cannot be corrected, or an empty value where one is required.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     async def reset_corrections(self, request: ResetCorrectionsRequest, ctx: RequestContext[ResetCorrectionsRequest, ResetCorrectionsResponse], /) -> ResetCorrectionsResponse:
         """
-        Takes the named corrections off, for everyone who sees the pupil. It
-        answers the same whether or not there was one: «no correction here» is
-        what was asked for. A POST with a body, because a target is free text,
-        and a value that must match byte for byte does not travel in a URL.
+        Takes the named corrections off, for everyone who sees the pupil, all or
+        none. It answers the same whether or not there was one, and for a pupil
+        who can have none: «no correction here» is what was asked for. At most
+        200 a request, as BatchUpdateCorrections. A POST with a body, because a
+        target is free text, and a value that must match byte for byte does not
+        travel in a URL. VALIDATION_FAILED, before the diary is asked anything:
+        on `corrections` past 200 keys, or naming the first one refused,
+        `corrections[i].target` or `.field` with i counted from 0, for an empty
+        or overlong key.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -660,7 +670,8 @@ class DiaryServiceClient(ConnectClient):
     ) -> ListCorrectionsResponse:
         """
         Every correction anybody who sees this pupil made, both parents' alike;
-        no row says whose.
+        no row says whose. By target, then field; none for a pupil who can have
+        none.
         """
         return await self.execute_unary(
             request=request,
@@ -684,12 +695,16 @@ class DiaryServiceClient(ConnectClient):
         timeout_ms: int | None = None,
     ) -> BatchUpdateCorrectionsResponse:
         """
-        Writes or replaces corrections, all or none. Each target is the string a
-        read handed down, echoed back; the last writer wins, `original`
-        included. CORRECTIONS_UNAVAILABLE for a pupil who can have none.
-        VALIDATION_FAILED, naming `corrections[i].target`, `.field` or `.value`,
-        for a target this server would never produce, a field that cannot be
-        corrected, or an empty value where one is required.
+        Writes or replaces corrections, all or none, and answers each as it is
+        stored once all are written, in the order asked. Each target is the
+        string a read handed down, echoed back; the last writer wins, `original`
+        included, and a target and field named twice in one request keep the
+        later. At most 200 corrections a request. CORRECTIONS_UNAVAILABLE for a
+        pupil who can have none. VALIDATION_FAILED, before the diary is asked
+        anything: on `corrections` past 200, or naming the first correction
+        refused, `corrections[i].target`, `.field` or `.value` with i counted
+        from 0, for a target this server would never produce, a field that
+        cannot be corrected, or an empty value where one is required.
         """
         return await self.execute_unary(
             request=request,
@@ -712,10 +727,15 @@ class DiaryServiceClient(ConnectClient):
         timeout_ms: int | None = None,
     ) -> ResetCorrectionsResponse:
         """
-        Takes the named corrections off, for everyone who sees the pupil. It
-        answers the same whether or not there was one: «no correction here» is
-        what was asked for. A POST with a body, because a target is free text,
-        and a value that must match byte for byte does not travel in a URL.
+        Takes the named corrections off, for everyone who sees the pupil, all or
+        none. It answers the same whether or not there was one, and for a pupil
+        who can have none: «no correction here» is what was asked for. At most
+        200 a request, as BatchUpdateCorrections. A POST with a body, because a
+        target is free text, and a value that must match byte for byte does not
+        travel in a URL. VALIDATION_FAILED, before the diary is asked anything:
+        on `corrections` past 200 keys, or naming the first one refused,
+        `corrections[i].target` or `.field` with i counted from 0, for an empty
+        or overlong key.
         """
         return await self.execute_unary(
             request=request,
@@ -858,27 +878,37 @@ class DiaryServiceSync(Protocol):
     def list_corrections(self, request: ListCorrectionsRequest, ctx: RequestContext[ListCorrectionsRequest, ListCorrectionsResponse], /) -> ListCorrectionsResponse:
         """
         Every correction anybody who sees this pupil made, both parents' alike;
-        no row says whose.
+        no row says whose. By target, then field; none for a pupil who can have
+        none.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     def batch_update_corrections(self, request: BatchUpdateCorrectionsRequest, ctx: RequestContext[BatchUpdateCorrectionsRequest, BatchUpdateCorrectionsResponse], /) -> BatchUpdateCorrectionsResponse:
         """
-        Writes or replaces corrections, all or none. Each target is the string a
-        read handed down, echoed back; the last writer wins, `original`
-        included. CORRECTIONS_UNAVAILABLE for a pupil who can have none.
-        VALIDATION_FAILED, naming `corrections[i].target`, `.field` or `.value`,
-        for a target this server would never produce, a field that cannot be
-        corrected, or an empty value where one is required.
+        Writes or replaces corrections, all or none, and answers each as it is
+        stored once all are written, in the order asked. Each target is the
+        string a read handed down, echoed back; the last writer wins, `original`
+        included, and a target and field named twice in one request keep the
+        later. At most 200 corrections a request. CORRECTIONS_UNAVAILABLE for a
+        pupil who can have none. VALIDATION_FAILED, before the diary is asked
+        anything: on `corrections` past 200, or naming the first correction
+        refused, `corrections[i].target`, `.field` or `.value` with i counted
+        from 0, for a target this server would never produce, a field that
+        cannot be corrected, or an empty value where one is required.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
     def reset_corrections(self, request: ResetCorrectionsRequest, ctx: RequestContext[ResetCorrectionsRequest, ResetCorrectionsResponse], /) -> ResetCorrectionsResponse:
         """
-        Takes the named corrections off, for everyone who sees the pupil. It
-        answers the same whether or not there was one: «no correction here» is
-        what was asked for. A POST with a body, because a target is free text,
-        and a value that must match byte for byte does not travel in a URL.
+        Takes the named corrections off, for everyone who sees the pupil, all or
+        none. It answers the same whether or not there was one, and for a pupil
+        who can have none: «no correction here» is what was asked for. At most
+        200 a request, as BatchUpdateCorrections. A POST with a body, because a
+        target is free text, and a value that must match byte for byte does not
+        travel in a URL. VALIDATION_FAILED, before the diary is asked anything:
+        on `corrections` past 200 keys, or naming the first one refused,
+        `corrections[i].target` or `.field` with i counted from 0, for an empty
+        or overlong key.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -1373,7 +1403,8 @@ class DiaryServiceClientSync(ConnectClientSync):
     ) -> ListCorrectionsResponse:
         """
         Every correction anybody who sees this pupil made, both parents' alike;
-        no row says whose.
+        no row says whose. By target, then field; none for a pupil who can have
+        none.
         """
         return self.execute_unary(
             request=request,
@@ -1396,12 +1427,16 @@ class DiaryServiceClientSync(ConnectClientSync):
         timeout_ms: int | None = None,
     ) -> BatchUpdateCorrectionsResponse:
         """
-        Writes or replaces corrections, all or none. Each target is the string a
-        read handed down, echoed back; the last writer wins, `original`
-        included. CORRECTIONS_UNAVAILABLE for a pupil who can have none.
-        VALIDATION_FAILED, naming `corrections[i].target`, `.field` or `.value`,
-        for a target this server would never produce, a field that cannot be
-        corrected, or an empty value where one is required.
+        Writes or replaces corrections, all or none, and answers each as it is
+        stored once all are written, in the order asked. Each target is the
+        string a read handed down, echoed back; the last writer wins, `original`
+        included, and a target and field named twice in one request keep the
+        later. At most 200 corrections a request. CORRECTIONS_UNAVAILABLE for a
+        pupil who can have none. VALIDATION_FAILED, before the diary is asked
+        anything: on `corrections` past 200, or naming the first correction
+        refused, `corrections[i].target`, `.field` or `.value` with i counted
+        from 0, for a target this server would never produce, a field that
+        cannot be corrected, or an empty value where one is required.
         """
         return self.execute_unary(
             request=request,
@@ -1423,10 +1458,15 @@ class DiaryServiceClientSync(ConnectClientSync):
         timeout_ms: int | None = None,
     ) -> ResetCorrectionsResponse:
         """
-        Takes the named corrections off, for everyone who sees the pupil. It
-        answers the same whether or not there was one: «no correction here» is
-        what was asked for. A POST with a body, because a target is free text,
-        and a value that must match byte for byte does not travel in a URL.
+        Takes the named corrections off, for everyone who sees the pupil, all or
+        none. It answers the same whether or not there was one, and for a pupil
+        who can have none: «no correction here» is what was asked for. At most
+        200 a request, as BatchUpdateCorrections. A POST with a body, because a
+        target is free text, and a value that must match byte for byte does not
+        travel in a URL. VALIDATION_FAILED, before the diary is asked anything:
+        on `corrections` past 200 keys, or naming the first one refused,
+        `corrections[i].target` or `.field` with i counted from 0, for an empty
+        or overlong key.
         """
         return self.execute_unary(
             request=request,

@@ -11,8 +11,10 @@ the pupil resolved from the session's own diary on every call, so an id of
 another family's child reaches nothing, and a feature the session's provider
 does not declare refused before the diary is asked anything. v1's
 ``POST /diary/login``, a password through this server, has no twin here
-(``docs/api.md``, «Not in v2, on purpose»). The corrections are 3b-8's
-(``docs/specs/2026-10-05-server-v2-3b-plan.md``).
+(``docs/api.md``, «Not in v2, on purpose»). 3b-8 serves the family's
+corrections through ``services/diary_corrections`` — v1's ``/overrides``
+rules, with a batch for v1's one at a time — written all or none by
+``invoke``'s one commit (``docs/specs/2026-10-05-server-v2-3b-plan.md``).
 """
 
 from __future__ import annotations
@@ -23,14 +25,20 @@ from typing import TYPE_CHECKING, Any
 
 from protobuf import Message
 
+from app import wording
 from app.contract.lessons.v2.diary_pb import (
     AttendanceDirection,
+    BatchUpdateCorrectionsRequest,
+    BatchUpdateCorrectionsResponse,
+    ClearCorrectionsRequest,
+    ClearCorrectionsResponse,
     CreateDiarySessionRequest,
     CreateDiarySessionResponse,
     DeleteDiarySessionRequest,
     DeleteDiarySessionResponse,
     DiaryAttendance,
     DiaryCapabilities,
+    DiaryCorrection,
     DiaryEdit,
     DiaryFeature,
     DiaryHomework,
@@ -44,6 +52,8 @@ from app.contract.lessons.v2.diary_pb import (
     DiaryTeacher,
     GetDiaryCapabilitiesRequest,
     GetDiaryCapabilitiesResponse,
+    ListCorrectionsRequest,
+    ListCorrectionsResponse,
     ListDiaryHomeworkRequest,
     ListDiaryHomeworkResponse,
     ListDiarySubjectsRequest,
@@ -62,18 +72,27 @@ from app.contract.lessons.v2.diary_pb import (
     ListTurnstileEventsResponse,
     MarkKind,
     ProviderCapabilities,
+    ResetCorrectionsRequest,
+    ResetCorrectionsResponse,
     SignInMethod,
 )
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.crypto import diary_enabled
+from app.models import DiaryOverride
 from app.models import DiarySession as DiarySessionRow
 from app.providers.diary.models import AcademicPeriod, Mark, Student
 from app.providers.diary.registry import NETSCHOOL, PETERSBURG, TABLE, Feature, row_for
 from app.rpc import dates, values
 from app.rpc.errors import Refusal, validate
-from app.schemas import NetSchoolSessionIn, PetersburgSessionIn
+from app.schemas import (
+    DiaryOverrideIn,
+    DiaryResetIn,
+    NetSchoolSessionIn,
+    PetersburgSessionIn,
+)
 from app.security import DIARY_FAILURES_BUCKET, DIARY_OPENED_BUCKET
 from app.services import diary as diary_service
+from app.services import diary_corrections
 from app.services import diary_overrides as overrides
 
 if TYPE_CHECKING:
@@ -495,3 +514,158 @@ async def list_marks(call: Call, request: ListMarksRequest) -> ListMarksResponse
     student = await svc.student(request.student_id)
     found = await svc.marks(student.education_id, start, end)
     return ListMarksResponse(marks=[_mark(mark) for mark in found])
+
+
+# ---- the family's corrections ---------------------------------------------
+
+#: The most corrections one request may carry, written or taken off. A request
+#: is one transaction, which keeps every row it writes locked until it commits
+#: — on SQLite, the whole file — and a family has a handful of corrections:
+#: past this many a request is refused rather than let hold its locks for long
+#: (the 3b plan, Ruling 124).
+CORRECTIONS_MAX = 200
+
+#: A request past :data:`CORRECTIONS_MAX`. v2's own sentence, naming the field.
+TOO_MANY_CORRECTIONS = f"at most {CORRECTIONS_MAX} corrections a request"
+
+#: Where each of the overlay's refusals falls in a correction, and v1's sentence
+#: for it (``diary_overrides.check_correction``). The handler's, not the error
+#: table's: a row of the table is handed the exception alone, and only the
+#: handler knows which correction of the request it was.
+_REFUSED: dict[type[ValueError], tuple[str, str]] = {
+    overrides.UnknownTarget: ("target", wording.CORRECTION_TARGET_REFUSED_DETAIL),
+    overrides.UnsupportedField: ("field", wording.CORRECTION_FIELD_REFUSED_DETAIL),
+    overrides.EmptyNotAllowed: ("value", wording.CORRECTION_VALUE_EMPTY_DETAIL),
+}
+
+
+def _capped(count: int) -> None:
+    """``VALIDATION_FAILED`` on ``corrections`` past :data:`CORRECTIONS_MAX`,
+    before any correction is read."""
+    if count > CORRECTIONS_MAX:
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED,
+            TOO_MANY_CORRECTIONS,
+            violations=[("corrections", TOO_MANY_CORRECTIONS)],
+        )
+
+
+def _updates(request: BatchUpdateCorrectionsRequest) -> list[diary_corrections.Correction]:
+    """The corrections asked for, each validated with v1's own schema and then
+    by the overlay's rules, in order (decision 5): the first refused names its
+    index, counted from 0, and its part — ``corrections[2].value`` — and never
+    what was sent. Nothing here asks the diary anything, so a request v2 can
+    judge on its own is refused without an upstream call."""
+    _capped(len(request.corrections))
+    found: list[diary_corrections.Correction] = []
+    for index, update in enumerate(request.corrections):
+        sent: dict[str, Any] = {
+            "target": update.target,
+            "field": update.field,
+            "value": update.value,
+        }
+        if update.has_field("original"):
+            sent["original"] = update.original
+        form = validate(DiaryOverrideIn, sent, at=f"corrections[{index}].")
+        try:
+            overrides.check_correction(form.target, form.field, form.value)
+        except tuple(_REFUSED) as error:
+            # Walk the MRO rather than keying on `type(error)` alone, so that a
+            # subclass of one of these three — none exists today — would still
+            # find its base's entry instead of a `KeyError` nobody asked for.
+            part, sentence = next(
+                _REFUSED[base] for base in type(error).__mro__ if base in _REFUSED
+            )
+            raise Refusal(
+                ErrorReason.VALIDATION_FAILED,
+                sentence,
+                violations=[(f"corrections[{index}].{part}", sentence)],
+            ) from None
+        found.append(
+            diary_corrections.Correction(form.target, form.field, form.value, form.original)
+        )
+    return found
+
+
+def _correction(row: DiaryOverride) -> DiaryCorrection:
+    """v1's ``DiaryOverrideOut``, field for field: ``original_when_written`` is
+    what the diary said when the correction was written, apart on purpose from
+    a read's ``original``, which is what it says now."""
+    return DiaryCorrection(
+        target=row.target,
+        field=row.field,
+        value=row.value,
+        original_when_written=row.original,
+        updated_at=values.instant(row.updated_at),
+    )
+
+
+async def list_corrections(call: Call, request: ListCorrectionsRequest) -> ListCorrectionsResponse:
+    """Every correction anybody who sees this pupil made, both parents' alike,
+    as v1's ``GET /overrides``: by target, then field, and none for a pupil who
+    can have none. Writes nothing but a credential the diary rotated, and when
+    the session was last used."""
+    svc = _service(call)
+    student, scope = await svc.child(request.student_id)
+    found = await diary_corrections.listed(call.session, scope, student.id)
+    return ListCorrectionsResponse(corrections=[_correction(row) for row in found])
+
+
+async def batch_update_corrections(
+    call: Call, request: BatchUpdateCorrectionsRequest
+) -> BatchUpdateCorrectionsResponse:
+    """Writes or replaces corrections, all or none, as v1's ``PUT /overrides``
+    writes one: ``invoke`` commits them together, or rolls every one back.
+
+    In this order: each correction, checked as v1 checks one (:func:`_updates`);
+    the pupil, from the session's own diary; the pupil's scope,
+    ``CORRECTIONS_UNAVAILABLE`` for one who can have none; then the writes. No
+    read of the diary comes after the first write, so the session's own
+    telemetry, which ``DiaryService`` commits as it reads, can never commit
+    half a batch. The answer is each correction asked for, in order, as stored
+    once all are written."""
+    updates = _updates(request)
+    svc = _service(call)
+    student, scope = await svc.child(request.student_id)
+    stored = await diary_corrections.correct(call.session, scope, student.id, updates)
+    return BatchUpdateCorrectionsResponse(corrections=[_correction(row) for row in stored])
+
+
+def _keys(request: ResetCorrectionsRequest) -> list[tuple[str, str]]:
+    """The corrections to take off, each validated with v1's own schema,
+    ``DiaryResetIn``: a target and a field, and nothing of their shape — a key
+    that names nothing takes nothing off. The first refused names its index,
+    from 0, and its part, and never what was sent."""
+    _capped(len(request.corrections))
+    keys: list[tuple[str, str]] = []
+    for index, key in enumerate(request.corrections):
+        form = validate(
+            DiaryResetIn, {"target": key.target, "field": key.field}, at=f"corrections[{index}]."
+        )
+        keys.append((form.target, form.field))
+    return keys
+
+
+async def reset_corrections(
+    call: Call, request: ResetCorrectionsRequest
+) -> ResetCorrectionsResponse:
+    """Takes the named corrections off, for everyone who sees the pupil, as
+    v1's ``POST /overrides/reset`` takes one off, all or none: the same answer
+    whether or not there was one, and for a pupil who can have none. The keys
+    are checked before the diary is asked anything."""
+    keys = _keys(request)
+    svc = _service(call)
+    student, scope = await svc.child(request.student_id)
+    await diary_corrections.reset(call.session, scope, student.id, keys)
+    return ResetCorrectionsResponse()
+
+
+async def clear_corrections(
+    call: Call, request: ClearCorrectionsRequest
+) -> ClearCorrectionsResponse:
+    """Takes every correction for this pupil off, and nothing of any other's,
+    as v1's ``DELETE /overrides/all``: nothing for a pupil who can have none."""
+    svc = _service(call)
+    student, scope = await svc.child(request.student_id)
+    await diary_corrections.clear(call.session, scope, student.id)
+    return ClearCorrectionsResponse()

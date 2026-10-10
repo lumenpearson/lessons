@@ -61,7 +61,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3094 tests in about four minutes, and **the exact command
+- **`pytest -q -n auto`** — 3142 tests in about four minutes, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
   `from tests.test_api import …` in a test file passes locally and fails at
@@ -195,7 +195,7 @@ Server modules:
   claim; `rpc/call.py` names those a v2 call meets — or because only the bot or the tick
   calls it, as `linking.link_device` and `calendar.rotate_calendar_token`; v2 calls none of
   those until its commit moves out, as 3b-4 moved the tasks', the ticks', the link code's and
-  the feed secret's, as 3b-7 moved a diary session's opening and closing, and as 3b-8 moves
+  the feed secret's, as 3b-7 moved a diary session's opening and closing, and as 3b-8 moved
   the diary corrections'.
   `services/manage/` is running a class, one module per screen named like the shells'
   (`subjects`, `bells`, `devices`, `classes`, `requests`, `journal`, `terms`, `timetable`,
@@ -224,10 +224,14 @@ Server modules:
   its notice), `diary.py`'s `register` (a phone's session kept and counted on both diary
   limiters, refusing with facts), `target`, `sealed_form`, `window` (a diary read's days,
   from the diary's own today) and `DiaryService`'s `student`, `child` and reads of one pupil,
+  `diary_corrections.py`'s `listed`, `correct`, `reset` and `clear` (what a child with no scope
+  may do, every correction checked before any is written, nothing committed, over
+  `diary_overrides.check_correction`),
   `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
   `feed_url`, and `audit.py`'s `older_than` (a page keyed on its last line); the limiters
   are `security.py`'s, one instance each, and the sentences both versions answer with (the
-  join's four, the diary's «disabled», its sessions' three and its unknown pupil, and the
+  join's four, the diary's «disabled», its sessions' three, its unknown pupil and its
+  corrections' four, and the
   subjects', the devices', the bells', the
   import's, the zone's, the access requests', the directory's, the tasks', the ticks', the
   homework's, the events', the days' and the substitutions' refusals, and the notices to the

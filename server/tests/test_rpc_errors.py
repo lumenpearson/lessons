@@ -37,6 +37,7 @@ from app.security import Throttled
 from app.services import access as access_service
 from app.services import clock, join, quota, window
 from app.services import diary as diary_service
+from app.services import diary_corrections as diary_corrections_service
 from app.services import directory as directory_service
 from app.services import homework as homework_service
 from app.services import schools as schools_service
@@ -55,17 +56,18 @@ ERRORS_PROTO = SERVER.parent / "proto" / "lessons" / "v2" / "errors.proto"
 API_DOC = SERVER.parent / "docs" / "api.md"
 RPC = SERVER / "app" / "rpc"
 
-#: The stages of 3b still to come. A stage leaves this set in the commit that
-#: produces the last reason it brings, and a reason still listed under it in
-#: ``LATER`` then fails below
-#: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
-STAGES = {"3b-8"}
+#: The stages still to come that bring a reason. A stage leaves this set in
+#: the commit that produces the last reason it brings, and a reason still
+#: listed under it in ``LATER`` then fails below
+#: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2). Empty since
+#: 3b-8, whose ``CORRECTIONS_UNAVAILABLE`` was the last reason of
+#: ``errors.proto`` that nothing produced; a stage that adds one names itself
+#: here first.
+STAGES: set[str] = set()
 
 #: The reasons no served method produces yet, and the stage that brings each.
 #: A reason leaves this table in the commit whose handler raises it.
-LATER = {
-    "CORRECTIONS_UNAVAILABLE": "3b-8",
-}
+LATER: dict[str, str] = {}
 
 
 #: Each row of ``errors.TABLE`` and the test that raises its exception through
@@ -243,6 +245,10 @@ HELD_BY: dict[type[Exception], tuple[str, str] | str] = {
     diary_service.UnknownStudent: (
         "test_v2_diary_reads.py",
         "test_an_id_this_diary_does_not_list_reaches_nothing",
+    ),
+    diary_corrections_service.CorrectionsUnavailable: (
+        "test_v2_diary_corrections.py",
+        "test_a_pupil_the_diary_lists_outside_its_numbering_can_have_none_written",
     ),
 }
 

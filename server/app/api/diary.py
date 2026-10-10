@@ -691,11 +691,10 @@ async def list_overrides(
     session: FromDishka[AsyncSession],
 ) -> list[DiaryOverrideOut]:
     """Every correction anybody who sees this child has made for them —
-    this account's and, say, the other parent's alike; no row says whose."""
+    this account's and, say, the other parent's alike; no row says whose. None
+    for a child who can have none (`diary_corrections.listed`)."""
     _, scope = await _child(svc, student_id)
-    if scope is None:
-        return []
-    found = await diary_corrections.list_overrides(session, scope, student_id)
+    found = await diary_corrections.listed(session, scope, student_id)
     return [DiaryOverrideOut.of(item) for item in found]
 
 
@@ -722,43 +721,30 @@ async def put_override(
     A child that can have no corrections is a ``422``, the status the app
     already reads on this route as «Это поле нельзя исправить» — true of every
     field of that child.
+
+    The rules and their order are `services/diary_corrections.correct`'s,
+    which v2's ``BatchUpdateCorrections`` calls too; this words its facts.
     """
     _, scope = await _child(svc, student_id)
-    if scope is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Для этого ученика правки недоступны",
-        )
-    try:
-        overrides.check(payload.target, payload.field)
-    except overrides.UnknownTarget as failure:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Эту запись нельзя исправить",
-        ) from failure
-    except overrides.UnsupportedField as failure:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Это поле нельзя исправить",
-        ) from failure
-    try:
-        overrides.check_value(payload.field, payload.value)
-    except overrides.EmptyNotAllowed as failure:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Это поле не может быть пустым",
-        ) from failure
-
-    stored = await diary_corrections.put_override(
-        session,
-        scope=scope,
-        student_id=student_id,
-        target=payload.target,
-        field=payload.field,
-        value=payload.value,
-        original=payload.original,
+    correction = diary_corrections.Correction(
+        payload.target, payload.field, payload.value, payload.original
     )
-    return DiaryOverrideOut.of(stored)
+    try:
+        (stored,) = await diary_corrections.correct(session, scope, student_id, [correction])
+    except diary_corrections.CorrectionsUnavailable:
+        detail = wording.CORRECTIONS_UNAVAILABLE_DETAIL
+    except overrides.UnknownTarget:
+        detail = wording.CORRECTION_TARGET_REFUSED_DETAIL
+    except overrides.UnsupportedField:
+        detail = wording.CORRECTION_FIELD_REFUSED_DETAIL
+    except overrides.EmptyNotAllowed:
+        detail = wording.CORRECTION_VALUE_EMPTY_DETAIL
+    else:
+        # The service leaves the commit to its caller, and a correction
+        # answered before it is kept would be gone from the next read.
+        await session.commit()
+        return DiaryOverrideOut.of(stored)
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
 
 
 @router.post(
@@ -784,10 +770,8 @@ async def reset_override(
     It takes the correction off for everyone who sees the child.
     """
     _, scope = await _child(svc, student_id)
-    if scope is not None:
-        await diary_corrections.drop_override(
-            session, scope, student_id, payload.target, payload.field
-        )
+    await diary_corrections.reset(session, scope, student_id, [(payload.target, payload.field)])
+    await session.commit()
 
 
 @router.delete(
@@ -804,5 +788,5 @@ async def reset_all_overrides(
     who sees the child — and nothing of any other child's. The diary answers
     for itself again."""
     _, scope = await _child(svc, student_id)
-    if scope is not None:
-        await diary_corrections.drop_overrides(session, scope, student_id)
+    await diary_corrections.clear(session, scope, student_id)
+    await session.commit()

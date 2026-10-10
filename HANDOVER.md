@@ -10,21 +10,21 @@ Last updated: **10 October 2026**. **PRs #63 through #85, #128, #129, #133, #134
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
 #313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363, #366, #372,
-#376, #379, #380, #385 and #388 are merged**, and #344's commit went in with #366 although
-GitHub marks it closed rather than merged; `main` is at `6c96003`, the merge of #388, at 22:04
-UTC on 9 October 2026. **The four designs of sub-projects 3 to 6 are approved and on `main`**:
-the owner answered every question with its recommendation on 5 October (#301, #306, #307,
-#308). **One pull request is open: #392, the one carrying this paragraph**, from
-`server-v2/3b-7` to `main`, on milestone 11, which closes #389 and #390, and refers to #273 and
-#391: v2 is served beside v1, seventy-one methods of it now. **The schema did not move**: the
+#376, #379, #380, #385, #388 and #392 are merged**, and #344's commit went in with #366
+although GitHub marks it closed rather than merged; `main` is at `11ee629`, the merge of #392,
+at 01:53 UTC on 10 October 2026. **The four designs of sub-projects 3 to 6 are approved and on
+`main`**: the owner answered every question with its recommendation on 5 October (#301, #306,
+#307, #308). **One pull request is open: #394, the one carrying this paragraph**, from
+`server-v2/3b-8` to `main`, on milestone 11, which closes #393, and refers to #273 and #391: v2
+now serves every unary method of the contract, seventy-five. **The schema did not move**: the
 head is still `0019`, on production since 16:28 UTC on 6 October, and `EXPECTED_REVISION` did
-not move either. The issues filed since #388 merged are #389 and #390, closed by #392, and
-#391, not fixed here; #352, #355, #357, #365, #368, #371, #375, #377, #378 and #384 stay as the
-last close-out left them; #386 and #387 are closed. #365's diary reads are to move onto the
-phone after sub-project 3. #118, what Preview is for, was closed by #350.
+not move either. The issues filed since #392 merged are #393, closed by #394; #352, #355,
+#357, #365, #368, #371, #375, #377, #378, #384 and #391 stay as the last close-out left them;
+#389 and #390 are closed. #365's diary reads are to move onto the phone after sub-project 3.
+#118, what Preview is for, was closed by #350.
 
-The section «What the last session added» below is #392's batch, and «What the session before
-it added» is #388's.
+The section «What the last session added» below is #394's batch, and «What the session before
+it added» is #392's.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -159,9 +159,122 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: the diary's registry as a table, its sessions and its reads over v2 — stage 3b-7 of sub-project 3 (#273)
+## What the last session added: the diary's corrections over v2, a batch at a time and all or none — stage 3b-8 of sub-project 3 (#273)
 
-Open as #392, from `server-v2/3b-7` to `main`, on milestone 11, and on project 6. It closes
+Open as #394, from `server-v2/3b-8` to `main`, on milestone 11, and on project 6. It closes
+#393, and refers to #273 and #391. The branch was cut from `main` at `11ee629`, the merge of
+#392, and carries 11 commits before this close-out, to `9f6e02a`. Written on 10 October 2026.
+No revision goes with it: the schema stays at `0019`. This is stage 3b-8 of
+`docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the
+next — Tasks 1 to 4 were each approved first time — then a review of the whole branch found
+nothing Critical, one Important test gap, and one fix wave of five changes. v1 answers as
+before, but for the defect; v2 now answers every unary method of the contract, seventy-five.
+
+- **The corrections are written by whoever calls.** `services/diary_corrections`'
+  `put_override`, `drop_override` and `drop_overrides` commit no longer; v1's three write
+  routes commit after the call, and v2's `invoke` once for a whole request. Two parents
+  correcting one field at once land on one row inside a savepoint, where the old retry rolled
+  the caller's transaction back and committed itself; a test pins that such a lost race keeps
+  the batch's earlier writes.
+- **v1's rules for corrections are `services/`'s**: `listed`, `correct`, `reset` and `clear`,
+  over `diary_overrides.check_correction`. A child the diary lists outside its own numbering
+  is refused a write and given none to list or take off; every correction of a request is
+  checked before any is written, in v1's order; v1's four sentences are `app/wording.py`'s.
+- **One defect filed and fixed here:** #393, a target whose number was spelled any way but the
+  read path's own — `hw:id:007`, a superscript or an Arabic-Indic digit — was stored and
+  matched by nothing for ever; it is refused now, by v1 and v2 alike.
+- **Four methods, and with them every unary method of the contract, seventy-five:**
+  - `ListCorrections`, v1's `GET /overrides`;
+  - `BatchUpdateCorrections`, up to 200 a request, all or none, each correction refused by
+    its index and its part before the diary is asked anything, a key named twice keeping the
+    later, and `CORRECTIONS_UNAVAILABLE` for a pupil who can have none;
+  - `ResetCorrections`, up to 200, all or none, the same answer whether or not there was
+    anything to take off, and `ClearCorrections`.
+- **The error table gains one row**, `CORRECTIONS_UNAVAILABLE` in v1's words, read back on both
+  paths by a named test. It was the last reason nothing produced: `LATER` and `STAGES` are
+  empty.
+- **`diary.proto`** says, in comments only, the order of a batch's checks, the cap, where a
+  refused correction's index counts from, a key named twice, what a pupil who can have none
+  gets, and `CorrectionKey`'s limits.
+
+### Gates
+
+The full suite ran twice, alone with `-n 4`: at `1c0a362`, the head of the four code tasks,
+and at `f2bfea1`, after the final review's fix wave — the documents (`9f6e02a`) came after the
+second, and their own files ran again. CI runs on the head the merge is made from, and the
+merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `9f6e02a`.
+- **mypy**: no issues found in 238 source files, at `9f6e02a`.
+- **The server suite.**
+  - `pytest -q -n 4`, run alone from `server/` at `1c0a362`, the head of the four code tasks,
+    gave **3140 passed** in 1960.27 s (545 warnings).
+  - After the final review's one fix wave, the same run at `f2bfea1` gave **3142 passed** in
+    2098.58 s (549 warnings). The seven places the `handover` skill names say 3142.
+  - The documents' own files (`9f6e02a`) ran again, focused: **226 passed**.
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files, `diary_connect.py`'s and `diary_pb.py`'s
+  docstrings the only change; a reviewer regenerated the contract independently and found no
+  difference.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its count stands from
+  #388.
+
+### What was deliberately left alone
+
+- **3c**, the host target and `WatchClass`'s streaming beta.
+- **v1's behaviour**, but for #393: `PUT /overrides` and `POST /overrides/reset` are served
+  by the router's own route class, so a body their schema refuses still gets FastAPI's
+  default `422`, repeating the value as `input`; a correction is a family's own text, not a
+  credential, so v1 stays as it is, and v2 never repeats it.
+- **A feature for corrections**: none is declared or asked for, since every provider has
+  the schedule and the homework they lie over.
+- **Smaller test-coverage notes**: no `Cache-Control` assertion on the batch POST
+  (Ruling 135); a key named twice in a reset tested at service level only; a negative number
+  in a target refused by the regex but not pinned by a test; a NetSchool-scoped batch and
+  `ListDiaryHomework`'s read-back not tested over v2, both reusing code v1's per-child tests
+  cover; two read-side copies of the «no scope» rule; `test_corrections_per_child_revision`'s
+  own-engine harness, which carries no savepoint listener, cannot detect a missing caller
+  commit on an insert.
+
+### What nobody has verified in this batch
+
+- **The four methods against PostgreSQL**: every test ran on SQLite, the race staged by a
+  read that answers «none» once.
+- **The four on Vercel** beyond the post-merge read, without a token.
+- **Behaviour against a real diary**: the corrections are laid over reads every test fakes.
+
+### After #392's merge: the merge, and production read
+
+None of this is code in #394, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 10 October 2026.
+
+- **The merge, by this session.** #392 «Serve the diary over v2: its registry as a table, its
+  sessions and its reads — stage 3b-7» merged at 01:53:14 UTC on 10 October 2026 as
+  `11ee6291c1c3410b6b2918e43915e40b6263a145`, pinned to `a434c9c`, after the five checks:
+  Server (API + bot), Contract (Buf), What changed and Vercel green on `a434c9c`, Android
+  skipped; `mergeable_state` clean; milestone 11; no review waiting. It closed #389 and #390.
+  #391 (deprecation warnings) stays open in the backlog; #393, this batch's defect, was filed
+  for 3b-8 after #392 opened, so #392's own close-out did not name it.
+- **Production.** Vercel's status on the merge commit turned success by 01:53:24 UTC; read at
+  01:53:24:
+  - `/api/v1/warmup` `{"status":"ok","api_version":1,"schema":"0019","v2":true}`;
+  - `GET /api/v2/diary/capabilities` `200`, `Cache-Control: private, no-store`, `enabled`
+    true, petersburg `SIGN_IN_METHOD_PASSWORD` and seven features, netschool the same way in,
+    its sixteen regions, and four features — the table, so the new code runs;
+  - `POST /api/v2/diary/sessions` with `{}` `400` `VALIDATION_FAILED` on `credential`;
+  - `DELETE /api/v2/diary/sessions/current`, `GET /api/v2/diary/students`,
+    `…/students/1/scheduleDays` and `…/students/1/turnstileEvents` each `401` with
+    `WWW-Authenticate: Bearer`, Google's body, reason `DIARY_TOKEN_INVALID`;
+  - Connect `DiaryService/ListStudents` `401` `unauthenticated`; `CreateDiarySession` `400`
+    `invalid_argument`;
+  - no `501`.
+
+## What the session before it added: the diary's registry as a table, its sessions and its reads over v2 — stage 3b-7 of sub-project 3 (#273)
+
+Merged as #392 (`11ee629`, 10 October 2026), from `server-v2/3b-7`, on milestone 11. It closes
 #389 and #390, and refers to #273 and #391. The branch was cut from `main` at `6c96003`, the
 merge of #388, and carries 14 commits before this close-out, to `ac167a2`. Written on 10
 October 2026. No revision goes with it: the schema stays at `0019`. This is stage 3b-7 of
@@ -292,168 +405,6 @@ written here. The source is the controller's notes of 9 and 10 October 2026.
   (3b-7, 3b-8, 3c), then its live tests, then sub-project 4 and onwards, autonomously until
   11:00 Moscow on 10 October 2026 — that is what this batch and the next are.
 
-## What the session before it added: the launcher icon chosen in the app, sixty-four «Пятёрка» variants behind activity-aliases (#388)
-
-Merged as #388 (`6c96003`, 9 October 2026), from `android/app-icons`, on milestone 12. It
-closes #386 and #387. The branch was cut from `main` at `e88e1c8`, the merge of #385, and carries
-19 commits before this close-out, to `7fc97d6`. Written on 9 October 2026. Nothing under
-`server/` changed and no revision goes with it: the schema stays at `0019`, and
-`EXPECTED_REVISION` did not move. The design is `docs/specs/2026-10-09-app-icons-design.md`,
-agreed with the owner before any of it was built, and the plan beside it,
-`docs/specs/2026-10-09-app-icons-plan.md`, has seven tasks, each implemented and reviewed before
-the next; then came a review of the whole branch, one wave of fixes, a scoped re-review and one
-commit that changed only the wording of comments.
-
-- **A new mark, «Пятёрка», in sixty-four variants**: eight styles by eight palettes.
-  «Значок приложения», a page reached from a row on «Оформление», chooses which one the launcher
-  shows. It has a preview under a circle and a rounded square, one group per style, tiles that
-  only select, and «Применить», which applies once.
-- **Each icon is an `<activity-alias>` of `MainActivity`, and exactly one is enabled.** Only
-  «Классика · Мята», the default, is enabled in the manifest. `MainActivity` is no longer a
-  launcher entry and is never disabled, because the widget and the alerts start it by class
-  name.
-- **The component state is the only record of the choice**, with no preference beside it.
-- **A switch is one ordered write of only the components that change.** `LauncherAliases`, pure
-  Kotlin, decides it. `PackageManagerComponents` writes it as one batch from Android 13, and
-  below 13 as enable-then-disable, with `DONT_KILL_APP`. `AppIconStore` runs every read and
-  write off the main thread behind one lock, and publishes the icon in use.
-- **A reconcile brings the launcher back to exactly one entry.** It runs on
-  `MY_PACKAGE_REPLACED` (`PackageReplacedReceiver`) and at every process start
-  (`LessonsApplication`, the fourth reason in its class KDoc): the default when none is on, and
-  the first non-default in catalog order when several are.
-- **Every place that shows the icon draws the one in use.** «О приложении», the first-run mark
-  and the row on «Оформление» draw it with `AppIconImage`, which draws both layers of the
-  adaptive icon. The splash screen no longer pins a drawable. The old book icon is gone, and the
-  application icon is the default.
-- **The logo's generators are in `android/logo/`**, moved from the owner's OneDrive design
-  folder, under `android/` rather than in a top-level folder, as the owner asked.
-  `export_android.py` rewrites the 256 icon resources: vectors for six styles, and 432 px WebP
-  for «Матовое стекло» and «Размытие». `android/pack/`, where the kit generators write their own
-  output, is git-ignored.
-- **Taking a variant out is three deletions**: the catalog line, the alias and the four
-  resources. `AppIconCatalogTest` names any piece left behind, a shared monochrome layer
-  included, and the other icon tests run on a synthetic catalog. With the real catalog cut to
-  the default alone, the icon tests gave 38 passed, 3 skipped by `assumeTrue`, and 0 failed.
-- **Two defects filed and fixed here**, both found inside the branch and never on `main`. Both
-  are `type:bug`, `area:android`, on milestone 12, sub-issues of #127, and on the board.
-  - #386: corrections to the app-icon page's strings never reached the export, because
-    `strings_app_icon.xml` was missing from `AppStringFiles`. `TranslationXmlTest` found it on
-    task 6's full gate; fixed in `8a7a176`.
-  - #387: a launcher-icon switch whose caller is cancelled left the app naming the old icon.
-    Task 4's review found it; fixed in `d082a2e`.
-
-### Gates
-
-- **Android.**
-  - `./gradlew test`: **1684** tests, 0 failed, at `b8a5a30`. It was 1635; only `:app` gained
-    tests, and it has 657. `7fc97d6` changed comments only, and `MarqueeClockTest` and
-    `AppIconScreenTest` were run again, green, there. The places the `handover` skill names that
-    carry an Android count — this file's cheat-sheet, the README, `docs/architecture.md` and the
-    `gates` skill — now say 1684.
-  - `./gradlew detekt`: no finding, no baseline change.
-  - `./gradlew assembleDebug assembleRelease`: BUILD SUCCESSFUL at `b8a5a30`.
-- **The server** was not run, because nothing under `server/` changed; its 3000 tests and mypy
-  over 238 modules stand from #385.
-- **CI on `b8a5a30`**, read while this was written: What changed, Server (API + bot), Android
-  and Vercel passed, and Contract (Buf) was skipped. `7fc97d6` and this close-out were not yet
-  on the remote branch; CI on the head the merge is made from is read before the merge.
-- **`CONTRIBUTING.md`'s count of the app's screens composed under Robolectric** says thirty-two
-  now, counted as it was first counted, by the files under `:app`'s tests that name a compose
-  rule. It said twenty, which was already ten short before `AppIconRowsTest` and
-  `AppIconScreenTest` made it thirty-two.
-
-### What was deliberately left alone
-
-- **Which variants to keep.** That is the owner's choice and the next thing; then they are
-  taken out, three deletions each.
-- **A «сейчас» mark on the tile of the icon in use.** The final review suggested it and it was
-  not built, because the design is silent and it would be new UI with new strings. It is in the
-  pull request as a suggestion.
-- **The splash after a start from the widget or an alert shows the application icon**
-  («Классика · Мята»), whatever was chosen. Only a start from the launcher follows the choice;
-  making the others follow would need a splash theme per variant.
-- **A switch that fails halfway below Android 13.** The page says «Не удалось сменить значок»
-  while the store names the icon the launcher shows, the one the next reconcile keeps. After a
-  failed switch away from the default, «Применить» therefore rests, and the duplicate entry
-  stays until the next process start.
-- **A switch back to the default, or between two non-default icons, that dies between its two
-  calls** is undone by the reconcile, which keeps the icon being left. The launcher still has
-  exactly one entry, and the window is milliseconds.
-- **Minors the reviews deferred, none blocking:**
-  - nothing ties `AliasPackage` to the Gradle namespace (a drift fails safely, as a refused
-    switch);
-  - a failed background reconcile leaves no log line;
-  - `PackageManagerComponentsTest` compares end states only;
-  - the receiver tests never reach `goAsync`/`finish()`;
-  - the `{ { DeveloperScreen } }` construct in `SettingsSectionScreen`, a ReturnCount
-    workaround;
-  - each `rememberCurrentAppIcon` call site refreshes on its own;
-  - `runCatching` in `AppIconViewModel` also swallows `CancellationException`, which is harmless
-    on a cleared ViewModel.
-- **3b-6's deferred minors still stand:** the `HTTP_422_UNPROCESSABLE_ENTITY` deprecation
-  warnings in `api/edit.py`; `put_day` deleting a mark on an explicit `kind=None`; two pragma
-  comments that overstate (`special_days.py`, `substitutions.py`); the
-  `SHORTENED_WITHOUT_BELLS` alert blaming the default for an old empty day schedule; `create()`
-  mapping any `IntegrityError` to `SubstitutionExists`; `Written.notice` typed `str | None`; and
-  the mask-before-lookup order in `UpdateSubstitution` and `UpdateDay`.
-
-### What nobody has verified in this batch
-
-Nothing in it ran on a device or an emulator. These need one, and section 5 carries them:
-
-- **any real launcher**: how Pixel Launcher, One UI and MIUI place, re-index and clip the icon
-  when the alias changes;
-- **themed (monochrome) icons** on Android 13 and later;
-- **the edge-to-edge styles** under a launcher mask smaller than the standard circle;
-- **whether the app stays open, and stays in Recents, after «Применить»** disables the alias it
-  was started through;
-- **whether «Значок приложения» stutters when it opens** on a low-end phone, since 64 tiles
-  inflate vector drawables on the main thread;
-- **whether the 112 dp preview is sharp** now that each drawn icon has its own drawable state;
-- **the lost home-screen shortcut** on an update from a build where `MainActivity` was the
-  launcher entry. This is expected; nothing has been released, so only development installs
-  meet it.
-
-### What only the owner can do
-
-Both are in section 7 too.
-
-- **Choose which of the sixty-four variants to keep.** Then a session takes the rest out.
-- **One pass on a device or an emulator** for the list above. An API 31 and an API 34 emulator
-  are enough: switch twice, press Home, open Recents, then tap the widget from a cold start.
-
-### After #385's merge: the merge, the read of production, and the development machine
-
-None of this is code in #388, and a close-out never gets a close-out of its own, so it is
-written here. The source is the controller's notes of 9 October 2026.
-
-- **The merge, by the session.** #385 merged as `e88e1c8` at 15:46:16 UTC on 9 October 2026.
-  Before it, Contract, Server, What changed and Vercel had passed on `2534c13`, with Android
-  skipped, and `mergeable_state` was clean. It closed #382 and #383. #384 stays open, on
-  milestone 11.
-- **The read of production.** Vercel's status on the merge commit turned success at about
-  15:46:27 UTC. A read at 15:45:56 still saw `501 UNIMPLEMENTED`, which was the old code. The
-  read at 15:46:34 saw the new code:
-  - `/api/v1/warmup` answered `ok`, schema `0019`, `v2` `true`;
-  - REST `GET` and `PATCH ?allowMissing=true` on `/api/v2/class/days/2026-09-14`, `GET` and
-    `POST /api/v2/class/substitutions`, and `DELETE /api/v2/class/substitutions/1` each
-    answered `401` with `WWW-Authenticate: Bearer`, Google's body and the reason
-    `DEVICE_TOKEN_INVALID`;
-  - Connect `SubstitutionService/ListSubstitutions` answered `401` `unauthenticated`.
-- **The development machine.** After the moves the last close-out recorded, the owner cleared
-  temporary files, old VS Code and Discord versions and crash dumps; C: then had 32.1 GB free,
-  against 8.3 GB before the moves. A script that points Android Studio's system folder at F:
-  through `idea.properties` was handed to the owner, and whether they ran it is not confirmed.
-  A Gradle build from a Claude session still needs three things:
-  - `ANDROID_HOME` on F:;
-  - a worktree `android/local.properties` with `sdk.dir` on F:, which this batch wrote in its
-    own worktree and which is git-ignored;
-  - `JAVA_HOME` at JDK 21, because the user-level `JAVA_HOME` is JDK 17.
-- **The owner's standing order of this evening.** Once #388 has merged, finish sub-project 3:
-  3b-7, 3b-8 and 3c. Then its live tests, the gate before sub-project 4 that the owner set on
-  8 October. Then sub-project 4 and onwards, autonomously until 11:00 Moscow on 10 October
-  2026.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -476,7 +427,7 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380 and #385 (merged) and #392 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385 and #392 (merged) and #394 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390 and #393 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363 and #388 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -548,9 +499,9 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   (#304). The form breakout now treats «  /week» as a command because aiogram's `Command`
   filter does, after `text.split()`; its clients are not known to keep plain spaces there, but
   a no-break space is whitespace to `str.split`, and nobody has sent one.
-- **v2 as #342, #350, #356, #372, #376, #380, #385 and #392 serve it has been asked little
-  outside the test client** (stages 3a, 3b-1, 3b-2, 3b-3, 3b-4, 3b-5, 3b-6 and 3b-7; their
-  sections above, or in `docs/history.md`, have the detail):
+- **v2 as #342, #350, #356, #372, #376, #380, #385, #392 and #394 serve it has been asked
+  little outside the test client** (stages 3a, 3b-1, 3b-2, 3b-3, 3b-4, 3b-5, 3b-6, 3b-7 and
+  3b-8; their sections above, or in `docs/history.md`, have the detail):
   - **on production, only after #342's promote**: on 5 October `/api/v1/warmup` reported
     `status` `ok`, schema `0017` and `"v2": true`; REST `/api/v2/diary/capabilities` answered
     `200` with `private, no-store`; Connect answered `200` in JSON and in binary; native gRPC
@@ -577,15 +528,18 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     /class/substitutions`, and `DELETE /class/substitutions/1` answered `401`
     `DEVICE_TOKEN_INVALID`, and Connect `SubstitutionService/ListSubstitutions` `401`
     `unauthenticated`; the ten of 3b-7 are asked after #392's merge, once, without a token;
-  - **the sixty-seven methods of 3b-1 to 3b-7 against Postgres**: every v2 test ran on SQLite,
+    the four of 3b-8 are asked after #394's merge, once, without a token;
+  - **the seventy-one methods of 3b-1 to 3b-8 against Postgres**: every v2 test ran on SQLite,
     the journal's keyset, the import's bulk delete and insert, the bells' bulk delete, the
     class's cascade, the directory's allowance, the link code's and the tick's savepoints,
     the homework's unique pair and its savepoints, the day's mark's and the substitutions'
-    savepoints, and the diary limiters' counting under both versions among them;
+    savepoints, the diary limiters' counting under both versions among them, a batch of
+    corrections, whose rows stay locked until its one commit, and `put_override`'s savepoint;
   - **the diary over v2 against a real diary**: every 3b-7 test drives Petersburg's or
     «Сетевой город»'s fake upstream, or none; no session has been registered over v2, and
     «Сетевой город»'s week walk, periods and adoption have never met a live server through
-    either version;
+    either version; and no correction has been written, reset or cleared over v2 from a
+    phone;
   - **v2's notices to the class through Telegram itself**: the tests hand `telegram_send` a
     bot that records what it was asked to send;
   - **the bot committing before it speaks, through Telegram itself**, for a task, a tick and
@@ -1062,9 +1016,12 @@ school's own and there would be nothing to take it off with, and that is the sur
 reads more often. There is a comment about this in `app/bot/handlers/diary.py`; if the bot
 ever gets buttons on a lesson, apply them **and** mark them, but do not apply them silently.
 
-Corrections live on the account's login rather than on the diary's session: the session dies
-every few days, and a correction that went with it would disappear by itself before anybody
-pressed "reset".
+Corrections belong to the child — the diary's server and the pupil's id on it — not to the
+diary's session, which dies every few days and would take them with it before anybody
+pressed "reset", and not to the login, which nothing upstream vouches for (#165). A child
+the diary lists outside its own numbering can have none. Over v2 a batch of them is written
+all or none, and every correction is checked before the first is written; a number in a
+target must be spelled as the server spells it (#393).
 
 The diary's `422` means two different things: on a read, a bad date range; on a correction, a
 refusal. The caller tells them apart (`DiaryFailure.of(failure, unprocessable)`), because
@@ -1422,15 +1379,15 @@ behind.
 are enough: switch the icon twice, press Home, open Recents, then tap the widget from a cold
 start. Section 5 has the list it starts on.
 
-**Next for the programme: stage 3b-8 of sub-project 3, from the 3b plan.** Stages 3a (#342),
-3b-1 (#350), 3b-2 (#356), 3b-3 (#372), 3b-4 (#376), 3b-5 (#380), 3b-6 (#385) and 3b-7 (#392)
-are merged, and v2 serves seventy-one methods. `docs/specs/2026-10-05-server-v2-3b-plan.md`
-summarises 3b-8, the diary's four correction methods: its corrections stop committing inside
-themselves, the target and the field move beside the services, and the scope is read from the
-3b-7 row; its two open questions, a cap on a batch and a reset of nothing, are the
-controller's before its task list is written. With 3b-8, `STAGES` is empty. By the owner's
-order of 8 October, sub-project 3 is finished first, 3c included, and everything recorded as
-unverified is checked on the development machine before sub-project 4 starts.
+**Next for the programme: stage 3c of sub-project 3.** Stages 3a (#342), 3b-1 (#350), 3b-2
+(#356), 3b-3 (#372), 3b-4 (#376), 3b-5 (#380), 3b-6 (#385), 3b-7 (#392) and 3b-8 (#394) are
+merged, and v2 serves every unary method of the contract, seventy-five, beside
+`WatchClass`'s refusal. 3c is the host target and `WatchClass`'s streaming beta (the
+design's decision 13), and its task list is not written yet. `STAGES` in
+`test_rpc_errors.py` is empty: a stage that brings an `ErrorReason` names itself there
+first. By the owner's order of 8 October, sub-project 3 is finished first, 3c included, and
+everything recorded as unverified is checked on the development machine before sub-project 4
+starts.
 
 **Decide whether changing an event's kind should recompute whether it covers the lesson.**
 Today an `UpdateEvent` that turns a trip into a canteen break keeps the trip's «covers the
@@ -1686,7 +1643,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3094 tests, ~12 min alone on Windows
+cd server  && pytest -q -n auto                          # 3142 tests, ~12 min alone on Windows
 cd server  && python -m mypy                             # clean, 238 modules
 cd android && ./gradlew test                             # 1684 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

@@ -331,6 +331,18 @@ DIARY_SESSION_REFUSED_DETAIL = "Дневник не принял эту сесс
 #: v1's 404 and v2's ``RESOURCE_NOT_FOUND`` alike.
 UNKNOWN_STUDENT_DETAIL = "Unknown student"
 
+#: ``services/diary_corrections.correct``'s refusals, as v1's
+#: ``PUT /diary/students/{id}/overrides`` and v2's ``BatchUpdateCorrections``
+#: word them: a child who can have no corrections (v2's
+#: ``CORRECTIONS_UNAVAILABLE``), and a target, a field or an empty value the
+#: overlay would never apply (v2's ``VALIDATION_FAILED``, on that part of the
+#: correction). The app reads each of v1's 422s on that route as «Это поле
+#: нельзя исправить».
+CORRECTIONS_UNAVAILABLE_DETAIL = "Для этого ученика правки недоступны"
+CORRECTION_TARGET_REFUSED_DETAIL = "Эту запись нельзя исправить"
+CORRECTION_FIELD_REFUSED_DETAIL = "Это поле нельзя исправить"
+CORRECTION_VALUE_EMPTY_DETAIL = "Это поле не может быть пустым"
+
 #: v1's ``POST /join`` and v2's ``CreateDevice``, for each refusal of
 #: ``services/join.py``: too many wrong codes, a code that names nothing, a
 #: class that takes personal codes only, and a class at its phone limit.

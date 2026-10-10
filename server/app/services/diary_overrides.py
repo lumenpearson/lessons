@@ -177,7 +177,7 @@ def kind_of(target: str) -> str:
             raise UnknownTarget(target)
         _, first, rest_of = parts
         if first == "id":
-            if not rest_of.isdigit():
+            if _NUMBER.fullmatch(rest_of) is None:
                 raise UnknownTarget(target)
         elif not _is_iso_date(first) or not rest_of:
             raise UnknownTarget(target)
@@ -190,7 +190,7 @@ def kind_of(target: str) -> str:
     _, day, number, subject = parts
     if not _is_iso_date(day) or not subject:
         raise UnknownTarget(target)
-    if number and not (number.startswith("n") and number[1:].isdigit()):
+    if number and not (number.startswith("n") and _NUMBER.fullmatch(number[1:])):
         raise UnknownTarget(target)
     return kind
 
@@ -203,6 +203,16 @@ def kind_of(target: str) -> str:
 #: of those forms would be stored and then matched by nothing for ever, which
 #: is exactly the row [check] exists to refuse.
 _ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+#: The one spelling of a number a target may carry: an upstream id or a
+#: lesson number, as ``str()`` writes an ``int`` — [homework_target] and
+#: [lesson_target] write no other.
+#:
+#: ``str.isdigit`` is too generous, as ``fromisoformat`` is for a date: it
+#: takes «007», which ``str()`` never writes, and «²» or «٣», which are digits
+#: to Unicode and to nothing here. A target carrying one was stored and then
+#: matched by nothing for ever (#393).
+_NUMBER = re.compile(r"0|[1-9][0-9]*")
 
 
 def _is_iso_date(value: str) -> bool:
@@ -251,6 +261,18 @@ def check_value(field: str, value: str) -> None:
     if value.strip() or field in NULLABLE_FIELDS:
         return
     raise EmptyNotAllowed(field)
+
+
+def check_correction(target: str, field: str, value: str) -> None:
+    """Refuses a correction this module would not apply, before anything is
+    written: its target and its field first (:func:`check`), then its value
+    (:func:`check_value`) — v1's order, which v2 keeps, so that a correction
+    wrong twice over is refused for the same part by both.
+
+    @raises UnknownTarget, UnsupportedField or EmptyNotAllowed.
+    """
+    check(target, field)
+    check_value(field, value)
 
 
 def _applied(value: str, field: str) -> str | None:

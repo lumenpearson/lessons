@@ -4,7 +4,7 @@ Version `1`. Base path `/api/v1`. Every change since the first release is
 additive - new endpoints, new optional fields - so the version has not moved
 and a client built against the original `/bundle` keeps working unchanged.
 A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
-seventy-one of its methods so far: «v2: the contract», at the end of this page.
+every one of its seventy-five unary methods: «v2: the contract», at the end of this page.
 
 There is no user account and no password. A device holds a bearer token; a
 device that has been **linked** to a Telegram account through the bot acts
@@ -1314,7 +1314,9 @@ A lesson and an assignment arrive with a key and a list of corrections:
 
 `target` is **built by the server alone**, and the client hands it back verbatim. Two
 implementations of a key that has to match byte for byte agree exactly until the first
-lesson with no number.
+lesson with no number. A target the server would never build is refused with `422`, a
+number in it spelled any way but the server's own (`hw:id:007`, a superscript digit)
+included: nothing would ever lay such a correction over anything (#393).
 
 `original` is what the diary says **now**, not what it said when the correction was written.
 `changed_upstream` is raised when those two have diverged: a teacher who has finally filled
@@ -1413,7 +1415,7 @@ where they are visible as corrections and are reversible.
 | `403` | on `/diary/session` only: the account has no pupil | say so; signing in again will not change it |
 | `404` | this account has no such child | — |
 | `409` | on `/diary/session` only: the diary will not take this session from this server | say it is not the password; do not retry by itself |
-| `422` | on reads, the date range is inverted or wider than 62 days; on `PUT .../overrides`, the correction was refused: an unknown `target`, an uncorrectable field, or an empty value where empty is not allowed; on `/login` and `/session`, a body or a region this server will not sign in with | on a read, fix the range; on a correction, show `detail` |
+| `422` | on reads, the date range is inverted or wider than 62 days; on `PUT .../overrides`, the correction was refused: an unknown `target` — a number in it spelled any way but the server's own included (#393) — an uncorrectable field, or an empty value where empty is not allowed; on `/login` and `/session`, a body or a region this server will not sign in with | on a read, fix the range; on a correction, show `detail` |
 | `429` | on `/diary/login` and `/diary/session` together, ten counted failures or twenty sessions opened from this address inside fifteen minutes | wait out `Retry-After`, and do not blame the password |
 | `502` | the diary answered incomprehensibly | say that the service has changed |
 | `503` + `X-Diary-Unavailable: disabled` | this deployment has no `DIARY_SECRET`; the diary is off here. A request with a diary token gets this too, before the token is looked at, and its session is kept for when the key is back (#302) | say it is off on this server; nothing typed will help; keep the token |
@@ -1598,21 +1600,22 @@ Postgres, which has been checked on SQLite only. Nothing here has been asked of 
 
 ## v2: the contract
 
-**Served beside v1, seventy-one methods so far.** Everything above this section is v1, and
-v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
-checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
-[the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
-([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
-Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+**Served beside v1, seventy-five methods: every unary one.** Everything above this section
+is v1, and v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the
+repository, checked by Buf, with its Python generated into `server/app/contract/`.
+Sub-project 3 of [the programme](specs/2026-10-03-one-contract-design.md) serves it in three
+stages ([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull
+requests. Served: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
 `ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
 methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
 eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
 `DirectoryService` methods (3b-3); the other eleven `MeService` methods, a phone's own
 (3b-4); the five `HomeworkService` methods and the five `EventService` methods (3b-5); the
-two `DayService` methods and the five `SubstitutionService` methods (3b-6); and ten
-`DiaryService` methods, a diary session's two and its eight reads (3b-7).
-Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
-credential. No APK calls v2 yet. The proto files are
+two `DayService` methods and the five `SubstitutionService` methods (3b-6); ten
+`DiaryService` methods, a diary session's two and its eight reads (3b-7); and its four
+corrections (3b-8). A method a deployment does not serve answers `UNIMPLEMENTED` before it
+asks for any credential; `WatchClass`, the one stream, answers as the next section says.
+No APK calls v2 yet. The proto files are
 the reference: every service, method, message and field there carries the comment that says
 what it means and what v1 sent in its place. This section says only what a file cannot.
 
@@ -1876,10 +1879,37 @@ unaffected.
   the field at fault, before the diary is asked anything, in the words every list of v2 uses.
   `ListScheduleDays` lists each day that has lessons once, in date order.
 - **The family's corrections are laid over as v1 lays them**: this child's, in this diary,
-  over the lessons and the homework and never over a mark. Writing them is 3b-8's.
-- **When the diary ends a session**, a read is `DIARY_REAUTH`, and the session stays ended
-  whatever the call does; a session the diary rotated is kept, even by a read that is
-  refused. A session opened with a diary this deployment does not know, which a later
+  over the lessons and the homework and never over a mark. No class is told: a correction is
+  a family's own, never the class's.
+- **And written as v1 writes them, a batch at a time.** `ListCorrections` is v1's
+  `GET /overrides`, by target and then field, and carries `Cache-Control: private, no-store`
+  as every diary `GET` does; none of the three writes below carries the header, a correction
+  being no credential. `BatchUpdateCorrections` writes or replaces up
+  to 200 at once, all or none, in one commit: the last writer wins, `original` included, a
+  target and field named twice in one request keep the later, and the answer is each
+  correction asked for, in order, as stored — both entries of a repeated key alike, each with
+  the value that won. Each is checked as v1 checks one, before anything is written and before
+  the diary is asked anything: a target this server would never build, a field that cannot
+  be corrected or an empty text is `VALIDATION_FAILED` naming the first one refused and its
+  part, `corrections[2].target` (counted from 0), in v1's Russian; more than 200 is
+  `VALIDATION_FAILED` on `corrections`. A `value` left out is stored as an empty string, on a
+  field the diary may leave blank, where v1 refuses a body with none at all. `ResetCorrections`
+  takes the named corrections off, up to 200, all or none, and answers the same whether or
+  not there was anything there; an empty reset succeeds once the pupil resolves, taking off
+  nothing — even for a pupil who can have none. An empty batch succeeds the same way only for
+  a pupil corrections can be filed under: one who can have none is refused
+  `CORRECTIONS_UNAVAILABLE` even by a batch of none. `ClearCorrections` takes every one of
+  this child's off, and none of another's. A pupil the
+  diary lists outside its own numbering can have none: its list is empty, a reset or a
+  clear takes nothing off, and a write is `CORRECTIONS_UNAVAILABLE`, in v1's words — a
+  request wrong twice over, a bad correction alongside an unknown pupil or alongside one who
+  can have none, is `VALIDATION_FAILED` here either way, where v1 answers `404` for the
+  former and `422` «правки недоступны» for the latter.
+- **When the diary ends a session**, a read or a correction is `DIARY_REAUTH`, and the
+  session stays ended whatever the call does; a session the diary rotated is kept, even by a
+  call that is refused. The same answer meets a session whose region no longer names a server
+  this registry serves: expired rather than asked anything further. A session opened with a
+  diary this deployment does not know, which a later
   release added, is `DIARY_TOKEN_INVALID`, left for the release that knows it, and never
   sent to another diary.
 

@@ -36817,6 +36817,3180 @@ A `501` with `UNIMPLEMENTED` means production still runs the code from before th
 - **A cap on a batch.** Recommended: 200 corrections, past which the request is `VALIDATION_FAILED` on `corrections`, so that one request cannot hold the table's lock for long.
 - **`ResetCorrections` on a target with no correction.** Recommended: success, as the proto says.
 
+### 3b-8 task list
+
+**Status:** written on 10 October 2026 against `1c05d1f`, the head of `server-v2/3b-7` before its review fixes and its merge, in the worktree `continue-previous-session-991230`. Stage 3b-7's code tasks are done there: the diary's registry is a table whose rows carry the correction `scope`, `services/diary.py` holds v1's session and read rules, `corrections` among them, and the ten diary methods are served. The server tree 3b-8 starts from is `main` once 3b-7's pull request has merged, and it may differ from `1c05d1f` in small ways: while this list was written, the worktree carried uncommitted review fixes to `rpc/diary.py`'s and `api/diary.py`'s imports (the diary's two bucket names, `NETSCHOOL` beside `PETERSBURG`), `services/diary.py`'s `SessionRefused.message`, `security.py` and two tests. An implementer reads each anchor below as it stands and applies the same change to it, anchor by anchor; the import blocks of `rpc/diary.py` (Tasks 3 and 4) are the ones most likely to have moved. Every code step was applied in order to a copy of `1c05d1f`'s tree, with 3b-7's Task 6 documents laid over it as that list writes them, and checked («What was verified», below). Where it differs from the 3b-8 summary above, this list is the one to follow; «Defects in the summary» says where and why.
+
+**Branch:** `server-v2/3b-8`, cut from `origin/main` once 3b-7's pull request has merged. It is its own pull request, on milestone 11, referring to #273.
+
+**Filed before Task 1:** the defect this list found, #393 («Defects found while writing this list»). 3b-8 fixes it, in Task 2.
+
+**Scope.** The four corrections methods of `DiaryService`, and what they need first:
+- `services/diary_corrections.put_override`, `drop_override` and `drop_overrides` stop committing; the race two writers can run for one field concedes inside a savepoint; v1's three write routes commit after the call (Task 1);
+- the rules v1's routes held move beside the services: what a child with no scope may do, and every correction checked before any is written, in v1's order, as `diary_corrections.listed`, `correct`, `reset` and `clear` over `diary_overrides.check_correction`; v1's four sentences move to `app/wording.py`; and a target whose number is spelled any way but the read path's own is refused (Task 2, #393);
+- `ListCorrections` and `BatchUpdateCorrections`, with `CORRECTIONS_UNAVAILABLE`, which empties `LATER` and `STAGES` (Task 3); `ResetCorrections` and `ClearCorrections`, and what `diary.proto` says of the four (Task 4).
+
+No revision. A comment-only change to the contract: `diary.proto`, in Task 4. With 3b-8, every unary method of `lessons.v2` is served; `WatchClass`'s stream is 3c's.
+
+| Task | Title | Tests added | Suite after | mypy after |
+| --- | --- | --- | --- | --- |
+| 1 | The corrections stop committing, and v1's routes commit | 3 | 3093 | 238 |
+| 2 | v1's rules for corrections, in `services/`, and a number spelled another way is no target | 12 | 3105 | 238 |
+| 3 | `ListCorrections` and `BatchUpdateCorrections`, and 3b-8 leaves `STAGES` | 16 + 4 | 3125 | 238 |
+| 4 | `ResetCorrections` and `ClearCorrections`, what `diary.proto` says of the four, and the batch's one full run | 7 + 4 | 3136 | 238 |
+| 5 | The documents, the counts, the HANDOVER close-out, and production after the merge | — | 3136 | 238 |
+
+**Counts.**
+- Tests: 3 + 12 + 20 + 11 = **46**, so the suite goes from **3090** at `1c05d1f` to **3136**. Each «+ N» counts the cases the served methods add by themselves: `test_v2_reads.py`'s gate test and `test_v2_no_echo.py`'s sweep are each parametrized over `rpc/handlers.HANDLERS`, so every method served adds one case to each, eight in all. Counted with `pytest --collect-only -q` on the copy: 3090 at the base, then 3093, 3105, 3125 and 3136. If 3b-7's review fixes move the base, shift every total by the difference; Task 4's full run is the truth.
+- mypy: **238** throughout, as at `1c05d1f`: no module is added under `app/`, since every handler goes into `rpc/diary.py`, 3a's (Ruling 16). If mypy on the branch's first commit prints another number, shift every N by the difference.
+
+**Commands.** As 3b-7's:
+- `WT` is `/c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230`, and its venv is `$WT/server/.venv`, made in that tree, which the #312 guard asks for.
+- `pytest` is `$WT/server/.venv/Scripts/pytest.exe`, run from `$WT/server`, bare, as CI runs it; a task's gate adds `-p no:xdist` and names its files. Before any run, `tasklist | grep -i pytest` must print nothing: one test process at a time on this machine. The full suite runs once, alone, at the end of Task 4, as `pytest -q -n 4`, and the controller runs it.
+- `ruff` and `mypy` are `$WT/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations` and `… -m mypy`, from `$WT/server`.
+- `buf` is `/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe` (1.73.0), run from `$WT`; `buf breaking` runs from `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b8.sh` (written in Task 4), because the shell refuses `.git#ref` on a command line.
+- Commit messages are `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b8-t<N>.txt`, written with the Write tool and committed with `git commit -F`. They carry no trailer lines (Ruling 102).
+- The shell refuses a compound command that `cd`s to a computed path, so every command below spells its paths out. One heavy job at a time: never two test processes at once, and never the suite beside Gradle.
+- The files of this checkout are CRLF on disk and LF in Git, as `core.autocrlf` leaves them; the code below is LF, and the Edit tool matches either. A file a step writes whole is written LF.
+
+#393 and `#PR` are numbers the controller obtains before Task 1 and at Task 5 Step 7, and #392 is 3b-7's pull request, which the controller hands over with `[AFTER-3b7]`; wherever #393 stands below — in a comment, a docstring, a test, a commit message or a document — it is written as the number the controller filed. `[AFTER-3b7]` is the slot in Task 5 Step 8 for what the controller hands over about 3b-7's merge.
+
+### Rulings for 3b-8
+
+Numbered after the plan's own 1 to 17, 3b-2's 18 to 33, 3b-3's 34 to 51, 3b-4's 52 to 67, 3b-5's 68 to 86, 3b-6's 87 to 103 and 3b-7's 104 to 123, which still hold.
+
+124. **Open question 1: a request carries at most 200 corrections; past that it is `VALIDATION_FAILED` on `corrections`** (the controller's ruling). `rpc/diary.CORRECTIONS_MAX` is 200 and `TOO_MANY_CORRECTIONS` its sentence, v2's own and English, naming the field. It is checked before any correction is read, so a request past it is refused whole, before anything else is checked or the diary is asked anything. The same cap holds `ResetCorrections`' list, which is the same shape and holds the same lock (this list's ruling): one request is one transaction, and on Postgres every row it writes or deletes stays locked until `invoke` commits. Cost if wrong: a client that resets more than 200 named corrections at once splits the request, or clears.
+125. **Open question 2: `ResetCorrections` on a target with no correction is success** (the controller's ruling), as v1's `POST /overrides/reset` answers `204`; so is a reset or a clear for a pupil who can have none (Ruling 130), and a key named twice in one reset.
+126. **The commits** (the controller's ruling, 3b-4's of 9 October, Ruling 52). `put_override`, `drop_override` and `drop_overrides` leave the commit to their caller, so that one implementation serves v1 and v2's handlers, which never commit. `put_override` flushes and refreshes the row it answers with, because every caller renders it and the database sets `updated_at`; the deletes flush with the next read or the commit. Its retry, which relied on a failing commit — two parents correcting one field at once, the other's row landing between this write's check and its insert — moves into `session.begin_nested()`, as `homework.upsert` and 3b-4's link code and tick did: only the savepoint is rolled back, and the caller's transaction, with the corrections written before this one, goes on. Every caller was found by grep: v1's `PUT /overrides`, `POST /overrides/reset` and `DELETE /overrides/all` commit after the call and before they answer; the bot has no corrections; one migration test, `test_corrections_per_child_revision.py`'s window test, makes the caller's commit (Task 1 says why). `test_diary_api.py` and `test_diary_corrections_per_child.py`, unedited, guard the routes' commits: without them eleven of their tests fail, each write being read back by a request of its own.
+127. **All or none is `invoke`'s one commit** (the controller's ruling), and every refusal a request can meet on its own is met before the first write, and before the diary is asked anything: the cap; each correction's shape, by v1's own `DiaryOverrideIn` (`DiaryResetIn` for a reset); each correction's target, field and value by the overlay's rules; then the pupil, from the session's own diary; then its scope; then the writes. No read of the diary comes after the first write, so `DiaryService._remember_token`, which commits the session's telemetry as it reads, runs in `child` and can never commit half a batch. Cost, as Ruling 112's: a request with a bad correction for an unknown pupil is `VALIDATION_FAILED` in v2 and `404` in v1.
+128. **No class notices** (the controller's ruling): the diary is a family's, not the class's. No handler of 3b-8 registers an effect, and `test_announcements.py`'s `ANNOUNCED_HERE` does not grow.
+129. **The overlay's three refusals are the handler's, not rows of `errors.TABLE`.** A row is handed the exception alone (`refusal_of(error)`), and the service checks one correction at a time, so only the handler knows which correction of the request it was (the summary's «the handler adds the index»). `rpc/diary._REFUSED` maps `UnknownTarget`, `UnsupportedField` and `EmptyNotAllowed` to the part they fall on and v1's sentence, and the handler raises `VALIDATION_FAILED` with one violation, `corrections[i].target`, `.field` or `.value`, `i` counted from 0 — protobuf's and `google.rpc.BadRequest`'s convention, which `diary.proto` now states. The first refused correction, in request order, ends the check; a schema violation names every field of that one correction pydantic refuses. None of the three gains a `HELD_BY` row, and each is read back on both transports by `test_a_batch_refused_at_any_correction_writes_none_of_them`. Cost if wrong: a client with several bad corrections learns of one per round trip, and a client builds none of them: it echoes targets it was handed.
+130. **`CORRECTIONS_UNAVAILABLE` is a fact, `diary_corrections.CorrectionsUnavailable`**, raised by `correct` for a pupil with no scope — one the diary lists outside its provider's own numbering, for whom `DiaryService.scope_of` answers `None` — before any correction is looked at, in v1's order. The error table's one new row words it with v1's sentence, «Для этого ученика правки недоступны», and `HELD_BY` names `test_a_pupil_the_diary_lists_outside_its_numbering_can_have_none_written`. Only a write is refused: `ListCorrections` answers none, and `ResetCorrections` and `ClearCorrections` succeed with nothing taken off, as v1 answers `[]` and `204`, and as the proto says of the write alone.
+131. **`UnknownDiaryServer` gets no row.** It never reaches a handler: `DiaryService.scope_of` catches it, expires the session and raises `SessionExpired`, which 3b-7's row words as `DIARY_REAUTH`, as v1 answers `401` with `X-Diary-Reauth`. `test_a_session_whose_region_names_no_server_is_sent_to_sign_in_again` holds it over v2.
+132. **A target and field named twice in one batch** are written in order, and the later wins, as across requests (the proto's «the last writer wins»). The answer is every correction asked for, in request order, each as stored once the whole batch is written, so both entries carry the later value. Cost if wrong: a client that expected a refusal; nothing is lost that the client did not overwrite itself.
+133. **An empty batch, or an empty reset, succeeds and writes nothing**, after the pupil is resolved, so that another family's id is still `RESOURCE_NOT_FOUND` on every method that names one; an empty batch for a pupil who can have none is `CORRECTIONS_UNAVAILABLE`, as every write for one is. An empty `value` is a correction, stored, on a field the diary may leave blank (`room`, `teacher`, `topic`, a lesson's `homework`), as v1 stores it; on a homework's `text` it is refused. `test_an_empty_batch_writes_nothing_and_an_empty_value_is_a_real_answer` holds both. Cost: one call to the diary for nothing.
+134. **The answers are v1's.** `DiaryCorrection` is `DiaryOverrideOut` field for field: `original_when_written`, unset where v1 wrote `null`, and `updated_at` through `values.instant`, the naive column read as UTC. `ListCorrections` keeps v1's order, by target and then field.
+135. **No `Cache-Control` on the three POSTs.** `ListCorrections` is a diary `GET`, so REST answers it `private, no-store` already (`rest._answer`). No POST of v2 carries the header unless its answer is a credential (`rest.NO_STORE_CREDENTIAL`), and a correction is none; a cache keeps a POST's answer only when told to. Cost if wrong: one entry in a set.
+136. **No feature gate.** The corrections lie over the schedule and the homework, which every row of the registry declares, and the proto names no `DiaryFeature` for them. Cost if wrong: a provider added without either would store corrections nothing lays over; its row is where that would be said.
+137. **A target's number is the read path's own spelling** (#393): `diary_overrides._NUMBER`, `0|[1-9][0-9]*` in ASCII, replaces `str.isdigit` in `kind_of`, so «007», «²» and «٣» are refused as `UnknownTarget` by v1 and v2 alike. A negative number stays refused, as it was: the read path writes `str(int)`, and no diary has sent a negative id or lesson number.
+138. **`diary.proto` changes in comments only**, on `ListCorrections`, `BatchUpdateCorrections` and `ResetCorrections`: the order, the cap, the index's base, a key named twice, and the pupil who can have none. `buf generate` changes `diary_connect.py` alone, its docstrings.
+139. **The sentences.** v1's four, «Для этого ученика правки недоступны», «Эту запись нельзя исправить», «Это поле нельзя исправить» and «Это поле не может быть пустым», move to `app/wording.py`, which v1's route and v2's handler and row read; v2's own sentence is `TOO_MANY_CORRECTIONS`.
+140. **3b-8 leaves `STAGES` in Task 3**, the commit that produces its one reason, `CORRECTIONS_UNAVAILABLE`. `LATER` and `STAGES` end empty and stay as the test's structure, with comments saying so, for any later stage that brings a reason of its own: every `ErrorReason` of `errors.proto` is then produced.
+141. **Handler module**: `rpc/diary.py` grows (Ruling 16); no module is added, and mypy stays at 238.
+142. **Process, as Ruling 123 has it.** Each task's gate is its named test files with `-p no:xdist`, then ruff and mypy; the full suite runs once, alone, with `-n 4`, at the end of Task 4, the last code task, and the controller runs it. Commit messages carry no trailer line.
+
+### What 3b-1 to 3b-7 left that every task here uses
+
+- **`v2_tokens["diary"]`**: a live Petersburg session whose sealed credential is `an-upstream-session`, never used; a call made with it writes `last_used_at` once, which `ALLOWED_WRITES` allows.
+- **`FakeUpstream`** (`conftest.py`): a recorder of the paths it is asked, answering `{"data": …}` for a route and `404` otherwise; each test installs it on Petersburg's `shared_client`, and a «Сетевой город» answer is a handler of the test's own.
+- **`DiaryService.child`** (3b-7): the pupil from the session's own diary, and the scope its corrections are filed under, `None` for a pupil listed by a plain id (`Student.id_space`); an unknown id is `UnknownStudent`, which 3b-7's row words as `RESOURCE_NOT_FOUND`.
+- **The statement listener** (`statement_writes`, `unexpected_writes`): `ListCorrections` writes the session's `last_used_at` and nothing else.
+- **`v2.both`, `v2.rest` and `v2.connect`**: a write's success is asked once per transport (Ruling 17), and the refusals and the idempotent resets and clears through `both`.
+- **`diary_offline`**: the gate test and the no-echo sweep call the four methods with `v2_tokens`' diary session, and each meets `DIARY_UNAVAILABLE` there, asking the diary for the pupil, never the real diary.
+
+### Review Focus (3b-8)
+
+The five inputs most likely to bite a person using 3b-8 that the generic tests do not reach, each with the test that pins it and the task that owns it.
+
+1. **A batch that fails after its first write** — a dropped connection, a constraint — must leave nothing behind, and a refused correction must stop every one before it: `test_a_batch_that_fails_while_writing_keeps_nothing` (Task 3), `test_a_reset_that_fails_midway_takes_nothing_off` (Task 4) and `test_each_correction_is_checked_before_any_is_written` (Task 2).
+2. **Two parents correcting one field at once, or one key twice in one batch**: one row, the later value, and no commit but the caller's: `test_two_writers_racing_for_one_field_land_on_one_row_and_commit_nothing` (Task 1), `test_a_batch_is_written_in_order_and_a_key_named_twice_keeps_the_later` (Task 2) and `test_a_batch_is_written_whole_and_read_back_by_v1_and_by_the_lessons` (Task 3).
+3. **A pupil listed outside the diary's numbering, and another family's child**: none written, none listed, nothing of anybody else's reached: `test_a_pupil_the_diary_lists_outside_its_numbering_can_have_none_written` and `test_another_family_s_child_reaches_nothing` (Task 3), `test_a_pupil_who_can_have_none_has_nothing_to_reset_or_clear` and `test_another_family_s_child_reaches_nothing_on_a_reset_or_a_clear` (Task 4), and `test_a_child_who_can_have_none_is_refused_a_write_and_given_nothing_else` (Task 2).
+4. **A target the read path never built, and what was sent in it**: a hand-made key, a number spelled another way (#393), a field outside the set, an empty text — refused before the diary is asked, and never repeated back. The no-echo sweep cannot reach these: it sends `corrections` as an object or a string, which the decoder refuses before any handler. `test_a_number_the_read_path_never_writes_is_no_target` (Task 2), `test_a_batch_refused_at_any_correction_writes_none_of_them` and `test_a_refused_correction_never_repeats_what_was_sent` (Task 3).
+5. **A batch too big, and a session the allow-list can no longer place**: `test_more_than_two_hundred_corrections_are_refused_before_the_diary_is_asked` (Task 3), `test_a_key_v1_would_refuse_is_refused_on_its_field_before_the_diary_is_asked` (Task 4) and `test_a_session_whose_region_names_no_server_is_sent_to_sign_in_again` (Task 3).
+
+### Defects in the summary, and how this list resolves them
+
+- **«`put_override` and `drop_override` commit inside themselves (lines 166, 180, 193 and 212), and so does `drop_overrides` (227)»**: at `1c05d1f` they are lines 162, 176 and 189, 208, and 223; 3b-7's Task 1 rewrote `child_scope` above them.
+- **«A retry that relied on a failing commit moves into a savepoint … and a test of a write behind one makes a write of its own first, because SQLite commits a savepoint that opens the transaction when it is released (#373)»**: #373 is fixed. `app/db.py` begins the transaction a savepoint assumes, so its release commits nothing and a rollback after it undoes it, as on Postgres (`tests/test_sqlite_transactions.py`). The tests here need no write of their own first; what they mind is the lock a begun transaction keeps (`CLAUDE.md`), so the race test's other writer commits before this write's savepoint begins its transaction.
+- **«`diary_overrides.UnknownTarget`, `UnsupportedField` and `EmptyNotAllowed` → `VALIDATION_FAILED` …», under «Error-table rows»**: they live in `services/diary_overrides.py`, and a row of `errors.TABLE` is handed the exception alone, which knows no index. They are the handler's refusals, worded by `rpc/diary._REFUSED`, and `HELD_BY` does not name them (Ruling 129).
+- **«A pupil `child_scope` cannot scope → `CORRECTIONS_UNAVAILABLE`»**: `child_scope` scopes every pupil of a diary the deployment knows. What has no scope is a pupil the diary lists outside its provider's numbering, for whom `DiaryService.scope_of` answers `None`; and only a write is refused for one — v1 lists none and answers a reset `204`, and the proto says `CORRECTIONS_UNAVAILABLE` of `BatchUpdateCorrections` alone. The fact is new, `diary_corrections.CorrectionsUnavailable`, raised by `correct` (Ruling 130).
+- **«`diary_corrections.UnknownDiaryServer` → `CORRECTIONS_UNAVAILABLE`»**: it never reaches a handler. `scope_of` expires such a session and raises `SessionExpired`: `DIARY_REAUTH`, as v1's `401` says «войдите заново» (Ruling 131).
+- **«The routers' rules … move beside the services: the target, the field, and the scope through the 3b-7 row's correction scope»**: the scope has been read through the row since 3b-7 (`child_scope` reads `Row.scope`, and `DiaryService.child` hands it to every route). What moves is what a missing scope means for each of the four, the target, field and value checks in v1's order as one `diary_overrides.check_correction`, and v1's four sentences (Ruling 139).
+- **«What v2 does not repeat»** names v1's one correction per `PUT`; v1's `DELETE /overrides/all` is `ClearCorrections`, a `POST` with an empty body.
+- **The summary is silent on** the reset's cap (Ruling 124), the order of a request's checks (127), the index's base (129), a key named twice (132), an empty batch (133), the answers' shape and order (134), the cache (135), the feature (136) and the target's number (#393, 137).
+
+### Defects found while writing this list
+
+The controller files it, with `type:bug`, its `area:` label, a `status:`, milestone 11, where its fix lands, and an item on project 6, as the `github-pr` skill says, and writes its number into this list in place of the placeholder.
+
+**#393.** Title: «A correction whose target spells its number another way — `hw:id:007`, `n²` — is stored and never laid over anything». Labels `type:bug`, `area:server`, `status:now`; milestone 11. Where: `server/app/services/diary_overrides.py:180` and `:193` (`kind_of` checks a homework id and a lesson number with `str.isdigit`). The fix lands in 3b-8's Task 2. Body, written to `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\issue-3b8-e1.md`:
+```markdown
+`server/app/services/diary_overrides.py`: `kind_of` (lines 180 and 193) checks a homework
+item's upstream id and a lesson's number with `str.isdigit`. The read path writes both as
+`str()` writes an `int` (`homework_target`, `lesson_target`), so every number in a target it
+hands down is spelled as in `hw:id:7` or `n1`. `isdigit` also takes `007` and `01`, and every
+character Unicode calls a digit — `²`, `٣`, `١`. The module's own comment on `_ISO_DAY` gives
+the reason such a check must be exact, for a date: a target in a spelling the read path never
+writes «would be stored and then matched by nothing for ever, which is exactly the row
+[check] exists to refuse».
+
+**Failure scenario:** a client that builds a target instead of echoing one — an older APK, a
+third-party client of `/api/v1/diary`, or v2's `BatchUpdateCorrections` from stage 3b-8 —
+sends `hw:id:007` for homework 7, or a lesson number in another script. `PUT
+/api/v1/diary/students/{id}/overrides` answers `200` and stores the row. No read ever lays it
+over anything; it shows only in `GET /overrides`, where it looks like a correction somebody
+made and changes nothing. Probed on 10 October 2026 at `1c05d1f`: `hw:id:007`, `hw:id:²` and
+`lesson:2026-09-15:n01:Алгебра` were each answered `200` and stored.
+
+Fixed in stage 3b-8 of sub-project 3 (#273), where the correction rules move into
+`services/`: a number in a target must be ASCII digits without a leading zero, as the read
+path writes it, and anything else is refused as an unknown target by v1 and v2 alike.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && gh issue create --repo lumenpearson/lessons --title "A correction whose target spells its number another way — hw:id:007, n² — is stored and never laid over anything" --body-file C:/Users/lumen/.claude/jobs/c9e2d980/tmp/issue-3b8-e1.md --label type:bug --label area:server --label status:now --milestone "v0.10.0 — One contract: REST v2, Connect and native gRPC, build console"
+```
+
+**Not filed, and said here so that they are not lost:**
+- `services/diary_corrections.py`'s module docstring at `1c05d1f` says which children a session reaches «is decided in the routes, by `_student`»; since 3b-7 it is `DiaryService.child`. Task 1 rewrites the sentence.
+- `HANDOVER.md`'s section 6, «Corrections over the diary», says corrections «live on the account's login rather than on the diary's session»; since #165 they live on the child. Task 5 Step 8 rewrites the paragraph.
+- v1's `PUT /overrides` and `POST /overrides/reset` are served by the router's own route class, not `_NoEchoRoute`, so a body their schema refuses gets FastAPI's default `422`, which repeats the value as `input` — read from the code, as 3b-7's #390 found it for `/login`, and not probed here. A correction is a family's own text about a lesson, not a credential, so this list leaves v1 as it is; v2 never repeats it. The controller may file it if v1 is to keep the no-echo rule too.
+
+### What was verified while writing this list, and what was not
+
+**Read, at `1c05d1f`'s code** (the worktree's committed tree on `server-v2/3b-7`; its uncommitted review fixes were read, not used): `services/diary_corrections.py` whole, `services/diary_overrides.py` whole, `services/diary.py`'s `corrections`, `DiaryService.child`, `scope_of`, `_call`, `_remember_token` and `_expire`; `api/diary.py`'s four correction routes, `_child` and `_guard`; `schemas/diary.py`'s `DiaryOverrideIn`, `DiaryResetIn` and `DiaryOverrideOut`; `models.DiaryOverride`; `providers/diary/registry.py`'s `Row.scope`; `app/db.py`'s savepoint listener (#373); `di.py`'s session provider; `wording.py`'s shared sentences; `rpc/` (`diary.py`, `errors.py`, `call.py`, `handlers.py`, `values.py`) and `rest/__init__.py`'s `_answer`; `proto/lessons/v2/diary.proto` and `errors.proto`; and the tests that read any of them: `conftest.py` (the v2 harness, `v2_tokens`, `FakeUpstream`, `diary_offline`, the statement listener), `test_v2_reads.py`, `test_v2_no_echo.py`, `test_rpc_errors.py`, `test_rpc_call.py`, `test_rpc_mount.py`, `test_contract.py`'s rows, `test_contract_mirror.py`'s, `test_diary_api.py`'s corrections, `test_diary_corrections_per_child.py`, `test_corrections_per_child_revision.py`'s window test, `test_v2_diary_days.py` and `test_v2_diary_reads.py`. Every caller of the three committing functions was found by grep: v1's three routes and that one migration test; the bot and the scripts call none. The documents Task 5 edits were read as 3b-7's Task 6 writes them, `HANDOVER.md` at `1c05d1f`, and the `handover` skill whole; the Android app's reading of a correction's `422` (`DiaryFailure.Rejected`, «Это поле нельзя исправить.») was read to word the sentences' comment.
+
+**Probed**, with the copy's venv:
+- protobuf-py: `CorrectionUpdate().has_field("original")` is false and `CorrectionUpdate(original="").has_field("original")` true, so an empty `original` is told from none; `BatchUpdateCorrectionsRequest().corrections` is an empty list; `{"corrections": {"target": "x"}}` does not decode, and over both transports it is `REQUEST_UNDECODABLE` — which is why the no-echo sweep never reaches a correction's own checks, and Task 3 has a test that does.
+- With `diary_offline`, an empty request of each of the four, with the diary token, is `503` `DIARY_UNAVAILABLE` on both transports, asking the diary for the pupil.
+- #393, at `1c05d1f`: `diary_overrides.check` accepted `hw:id:007`, `hw:id:²`, `hw:id:٣`, `lesson:2026-09-15:n01:Алгебра`, `…:n²:…` and `…:n١:…`, while `homework_target` and `lesson_target` write `hw:id:7` and `n1`; over v1, `PUT /overrides` answered `200` for three of them and stored all three. A date in Arabic-Indic digits was already refused, by `fromisoformat`.
+- The routes' commits: with Task 1's services and without Step 3, eleven tests of `test_diary_api.py` and `test_diary_corrections_per_child.py` failed; without the reset route's commit alone, two.
+
+**Applied and run, in a scratch copy** (`git -c core.autocrlf=false archive` of `1c05d1f`, without `android/`, made a git repository of its own, with 3b-7's Task 6 documents applied over it by that list's own renderer; never the worktree):
+- **The venv.** One made by `uv` on Python 3.12 from `requirements.txt` and `-e ".[dev]"`, installed editable from the copy, so the #312 guard took it; it sits beside the copy, as 3b-7's did. At the base, `pytest --collect-only -q` counted **3090**, `mypy` printed `Success: no issues found in 238 source files`, and ruff was clean.
+- **How the code got in.** The code was written in the copy, one commit per task, and every code block of this list is rendered from those commits by a script: a file a step writes whole is the commit's file, and every «replace» is cut from the commit's diff, its anchor grown until it is found exactly once in the file as it stands at that step. The same script then applied the rendered steps, in order, to a branch at the base — each task's Red step, its run, its Green steps, its run — and the branch it built was compared with the commits it was rendered from: after every task, `git diff --stat` against that task's commit printed nothing, and after Task 5 against the last commit nothing either. The first run, of all five tasks, made the renderer grow every anchor to two lines with a word in them, since one of Task 1's had been unique by its blank lines alone; Task 3 then gained `test_an_empty_batch_writes_nothing_and_an_empty_value_is_a_real_answer` and its comment on the cap its wording, and a second run applied Tasks 3 to 5 again from Task 2's commit, with the same result.
+- **Red and green**, each the step's own command with `-p no:xdist` on the copy's venv: Task 1's Red `3 failed, 8 passed` and its Green 111 passed; Task 2's Red `11 failed, 4 passed` and its Green 188 passed; Task 3's Red the collection error `ImportError: cannot import name 'CORRECTIONS_MAX'`, with `2 failed, 13 passed` for `test_rpc_errors.py` alone, and its Green 478 passed; Task 4's Red `7 failed` and its Green 456 passed.
+- **After each task**, `ruff check app tests scripts migrations` printed `All checks passed!`; every new file is as `ruff format` writes it, and no modified file gained a difference from `ruff format` it did not have before; `pytest --collect-only -q` counted 3093, 3105, 3125 and 3136; `mypy` printed `Success: no issues found in 238 source files` after each.
+- **The contract**: after Task 4's comments, `buf lint` printed nothing, `buf generate` changed `diary_connect.py` alone, in the docstrings of `list_corrections`, `batch_update_corrections` and `reset_corrections`, and `buf breaking` against the copy's own commit of the base printed nothing.
+- **Task 5**: `docs3b8.py` printed thirteen `missing` lines and seven `still says` lines before Steps 2 to 4, and `the documents say what 3b-8 serves` after them; Step 5's eight files gave 226 passed; the counts script, pointed at the copy and given `3000 3136 238 238` (the copy carries 3b-7's documents without 3b-7's own counts), printed `written` and changed the seven places, and was undone there.
+
+**Not run:**
+- the full suite, in the copy or the worktree;
+- `buf breaking` against `origin/main`, which the copy has not: it ran against the copy's own commit of the same tree;
+- anything on Postgres or Vercel, a real diary, or a phone;
+- Task 5's HANDOVER edits, which wait for facts that exist only at the merge, and the head scan of Step 5, which reads the worktree.
+
+The run at each task's gate is the truth.
+
+### File map (3b-8)
+
+| File | Task | What it holds |
+| --- | --- | --- |
+| `server/app/services/diary_corrections.py` | 1, 2 | no commits; `put_override`'s race in a savepoint; `CorrectionsUnavailable`, `Correction`, `listed`, `correct`, `reset`, `clear` |
+| `server/app/services/diary_overrides.py` | 2 | `_NUMBER` in `kind_of` (#393); `check_correction` |
+| `server/app/wording.py` | 2 | the corrections' four sentences |
+| `server/app/api/diary.py` | 1, 2 | v1's three write routes committing; then all four over the moved rules |
+| `server/app/rpc/diary.py` | 3, 4 | `CORRECTIONS_MAX`, `TOO_MANY_CORRECTIONS`, `_REFUSED`, `_capped`, `_updates`, `_keys`, `_correction`; the four handlers |
+| `server/app/rpc/errors.py` | 3 | the `CorrectionsUnavailable` row |
+| `server/app/rpc/handlers.py` | 3, 4 | `HANDLERS`, and its docstring |
+| `proto/lessons/v2/diary.proto`, `server/app/contract/**` | 4 | three comments, regenerated |
+| `server/tests/test_services_diary_corrections.py` | 1, 2 | the services leave the commit; the moved rules; #393 |
+| `server/tests/test_corrections_per_child_revision.py` | 1 | the window test makes the caller's commit |
+| `server/tests/test_v2_diary_corrections.py` | 3 | `ListCorrections`, `BatchUpdateCorrections` |
+| `server/tests/test_rpc_errors.py` | 3 | `HELD_BY`, `LATER` and `STAGES` |
+| `server/tests/test_v2_diary_correction_resets.py` | 4 | `ResetCorrections`, `ClearCorrections` |
+| documents | 5 | `docs/api.md`, `docs/README.md`, `README.md`, `docs/architecture.md`, `CLAUDE.md`, the counts in the seven places; `HANDOVER.md` and `docs/history.md` |
+
+---
+
+### 3b-8 Task 1: The corrections stop committing, and v1's routes commit
+
+Decision 4; Rulings 126 and 127. v1's answers stay as they were: `test_diary_api.py` and `test_diary_corrections_per_child.py` are the proof and are not edited. One test of revision `0017` is, because what it asserted was the service's own commit (Step 1 says why).
+
+**Files:**
+- Create: `server/tests/test_services_diary_corrections.py`
+- Modify: `server/app/services/diary_corrections.py`, `server/app/api/diary.py`, `server/tests/test_corrections_per_child_revision.py`
+
+**Interfaces:**
+- Consumes: `AsyncSession.begin_nested()`, as `homework.upsert` and `linking.issue_link_code` use it, and `app/db.py`'s savepoint listener, which begins the transaction a savepoint assumes (#373).
+- Produces, every signature unchanged:
+  - `diary_corrections.put_override(session, scope, student_id, target, field, value, original) -> DiaryOverride`, flushed and refreshed, not committed; a racing twin concedes in a savepoint;
+  - `diary_corrections.drop_override(session, scope, student_id, target, field) -> bool` and `drop_overrides(session, scope, student_id) -> int`, not committed;
+  - v1's `PUT /overrides`, `POST /overrides/reset` and `DELETE /overrides/all`, committing after the call.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_services_diary_corrections.py`:
+```python
+"""The diary's corrections in ``services/``: written by whoever calls, under one set of rules.
+
+``services/diary_corrections`` committed inside itself, which v2 cannot use:
+``BatchUpdateCorrections`` lands whole or not at all, and only ``invoke``
+commits, once (``docs/specs/2026-10-05-server-v2-design.md``, decision 4). Its
+writes now leave the commit to their caller — v1's routes commit after the
+call — and the one retry that relied on a failing commit, two writers racing
+for one field, concedes inside a savepoint instead. ``test_diary_api.py`` and
+``test_diary_corrections_per_child.py``, untouched, are the proof that v1's
+answers did not move: each of their writes is read back by a request of its
+own, which sees only what was committed.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from sqlalchemy import func, select
+
+from app.db import SessionLocal
+from app.models import DiaryOverride
+from app.services import diary_corrections as service
+
+SCOPE = "CHILD:petersburg"
+TARGET = "lesson:2026-09-15:n1:Алгебра"
+
+
+async def _committed(statement: Any) -> Any:
+    """What a session of its own reads: only what is committed."""
+    async with SessionLocal() as fresh:
+        return await fresh.scalar(statement)
+
+
+async def test_a_correction_written_or_replaced_is_the_caller_s_to_commit(session) -> None:
+    written = await service.put_override(session, SCOPE, 4021, TARGET, "room", "204", "12")
+    # Flushed and read back, so that the caller can answer with it.
+    assert written.id is not None and written.updated_at is not None
+    await session.rollback()
+    assert await _committed(select(func.count()).select_from(DiaryOverride)) == 0
+
+    kept = await service.put_override(session, SCOPE, 4021, TARGET, "room", "204", "12")
+    await session.commit()
+    kept_id = kept.id
+    replaced = await service.put_override(session, SCOPE, 4021, TARGET, "room", "301", None)
+    assert (replaced.id, replaced.value, replaced.original) == (kept_id, "301", None)
+    await session.rollback()
+    assert await _committed(select(DiaryOverride.value)) == "204"
+
+
+async def test_a_reset_and_a_clear_are_the_caller_s_to_commit(session) -> None:
+    for field, value in (("room", "204"), ("teacher", "Иванова И. И.")):
+        await service.put_override(session, SCOPE, 4021, TARGET, field, value, None)
+    await session.commit()
+    stored = select(func.count()).select_from(DiaryOverride)
+
+    assert await service.drop_override(session, SCOPE, 4021, TARGET, "room") is True
+    await session.rollback()
+    assert await _committed(stored) == 2
+
+    assert await service.drop_overrides(session, SCOPE, 4021) == 2
+    await session.rollback()
+    assert await _committed(stored) == 2
+
+    assert await service.drop_overrides(session, SCOPE, 4021) == 2
+    await session.commit()
+    assert await _committed(stored) == 0
+
+
+async def test_two_writers_racing_for_one_field_land_on_one_row_and_commit_nothing(
+    session, monkeypatch
+) -> None:
+    """Both parents correct one room in the same instant. The other's row lands
+    between this write's check and its insert; the unique constraint catches
+    the insert inside its savepoint, this write becomes the update it would
+    have been a moment later, and nothing is committed until the caller
+    commits: the old retry rolled the caller's whole transaction back, and
+    committed twice itself."""
+    checks: list[object] = []
+    check = session.scalar
+
+    async def checked_then_taken(statement, *args, **kwargs):
+        found = await check(statement, *args, **kwargs)
+        checks.append(found)
+        if len(checks) == 1:
+            # The other parent's write, between this one's check and its insert.
+            async with SessionLocal() as other:
+                other.add(
+                    DiaryOverride(
+                        login=SCOPE,
+                        student_id=4021,
+                        target=TARGET,
+                        field="room",
+                        value="204",
+                        original="12",
+                    )
+                )
+                await other.commit()
+        return found
+
+    commits: list[str] = []
+    commit = session.commit
+
+    async def counted() -> None:
+        commits.append("commit")
+        await commit()
+
+    monkeypatch.setattr(session, "scalar", checked_then_taken)
+    monkeypatch.setattr(session, "commit", counted)
+
+    written = await service.put_override(session, SCOPE, 4021, TARGET, "room", "301", "12")
+    assert written.value == "301"
+    assert checks[0] is None and checks[1] is not None
+    assert commits == []
+    assert await _committed(select(DiaryOverride.value)) == "204"
+    await session.commit()
+    async with SessionLocal() as fresh:
+        assert list(await fresh.scalars(select(DiaryOverride.value))) == ["301"]
+```
+  Then, in `server/tests/test_corrections_per_child_revision.py`, the window test of revision `0017` writes and resets through the service in a session of its own, and read the service's commit: with the commit gone, both writes would roll back with the session and the test would pass for nothing. It makes the caller's commit, as v1's route does; it passes on both sides of this task:
+  Replace:
+```python
+        await service.put_override(session, PETERSBURG, 4021, LESSON, "room", "301", "12")
+        return await service.drop_overrides(session, PETERSBURG, 4021)
+```
+  with:
+```python
+        await service.put_override(session, PETERSBURG, 4021, LESSON, "room", "301", "12")
+        dropped = await service.drop_overrides(session, PETERSBURG, 4021)
+        # The caller's commit, as v1's route makes it: the service leaves it.
+        await session.commit()
+        return dropped
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_diary_corrections.py tests/test_corrections_per_child_revision.py
+```
+Expected: `3 failed, 8 passed`. The three new tests fail on their first read from a session of their own, which sees what the service committed: `assert 1 == 0` for the correction written and rolled back, `assert 1 == 2` for the reset rolled back, and `AssertionError: assert ['commit', 'commit'] == []` for the race, whose old retry committed twice. The eight tests of `test_corrections_per_child_revision.py` pass. Keep this output: the task's report quotes it as the evidence that the tests failed before the code.
+
+- [ ] **Step 2: `services/diary_corrections.py` commits nothing.** Its docstring says so, and corrects the door a session's children go through, which 3b-7 moved:
+  1. Replace:
+```python
+which nothing upstream vouches for (#165). So they are shared by everyone whose
+own diary lists the child. Which children a session reaches is decided in the
+routes, by `_student`: the session's own diary is asked for its pupils on
+every call, and an id it does not list is a 404 before any row here is read or
+written.
+```
+     with:
+```python
+which nothing upstream vouches for (#165). So they are shared by everyone whose
+own diary lists the child. Which children a session reaches is decided by
+``DiaryService.child``, before any row here is read or written: the session's
+own diary is asked for its pupils on every call, and an id it does not list
+reaches nothing.
+
+Nothing here commits. v1's routes commit after the call, and v2's ``invoke``
+once for the whole request, so that a batch of corrections lands whole or not
+at all (``docs/specs/2026-10-05-server-v2-design.md``, decision 4). The one
+write that can meet a racing twin — one field two parents correct in the same
+instant — concedes inside a savepoint rather than by failing a commit.
+```
+  2. Replace:
+```python
+    correction per field per child, and no column says whose it was.
+    """
+    one = (
+        *_of_child(scope, student_id),
+        DiaryOverride.target == target,
+        DiaryOverride.field == field,
+    )
+    row = await session.scalar(select(DiaryOverride).where(*one))
+    if row is not None:
+        row.value = value
+        row.original = original
+        await session.commit()
+        await session.refresh(row)
+        return row
+
+    row = DiaryOverride(
+        login=scope,
+        student_id=student_id,
+        target=target,
+        field=field,
+        value=value,
+        original=original,
+    )
+    session.add(row)
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Select-then-insert has a gap, and two adults who both see the child —
+        # or one device double-tapping through a retry — fall into it. The
+        # unique constraint catches it, which is the constraint doing its job;
+        # what it must not do is become a 500 on the way out: the answer to
+        # both writes is the row that is now there, carrying the later value.
+        await session.rollback()
+        row = await session.scalar(select(DiaryOverride).where(*one))
+        if row is None:
+            raise
+        row.value = value
+        row.original = original
+        await session.commit()
+    await session.refresh(row)
+    return row
+
+
+async def drop_override(
+    session: AsyncSession, scope: str, student_id: int, target: str, field: str
+) -> bool:
+    """Resets one field. @return whether there was anything to reset."""
+    row = await session.scalar(
+```
+     with:
+```python
+    correction per field per child, and no column says whose it was.
+
+    Nothing is committed. The row is flushed and read back, because every
+    caller answers with it, and the database sets its stamps.
+    """
+    one = (
+        *_of_child(scope, student_id),
+        DiaryOverride.target == target,
+        DiaryOverride.field == field,
+    )
+    row = await session.scalar(select(DiaryOverride).where(*one))
+    if row is None:
+        fresh = DiaryOverride(
+            login=scope,
+            student_id=student_id,
+            target=target,
+            field=field,
+            value=value,
+            original=original,
+        )
+        try:
+            async with session.begin_nested():
+                session.add(fresh)
+                await session.flush()
+        except IntegrityError:
+            # Select-then-insert has a gap, and two adults who both see the
+            # child — or one device double-tapping through a retry — fall into
+            # it. The unique constraint catches it, which is the constraint
+            # doing its job; what it must not do is become a 500 on the way
+            # out: the answer to both writes is the row that is now there,
+            # carrying the later value. Only the savepoint is rolled back, so
+            # the caller's transaction, and what it wrote before this, go on.
+            row = await session.scalar(select(DiaryOverride).where(*one))
+            if row is None:
+                raise
+        else:
+            await session.refresh(fresh)
+            return fresh
+    row.value = value
+    row.original = original
+    await session.flush()
+    await session.refresh(row)
+    return row
+
+
+async def drop_override(
+    session: AsyncSession, scope: str, student_id: int, target: str, field: str
+) -> bool:
+    """Resets one field. Nothing is committed.
+
+    @return whether there was anything to reset.
+    """
+    row = await session.scalar(
+```
+  3. Replace:
+```python
+    await session.delete(row)
+    await session.commit()
+    return True
+
+
+async def drop_overrides(session: AsyncSession, scope: str, student_id: int) -> int:
+    """Resets everything for one child, for everyone who sees that child — the
+    corrections are the child's, not the account's — and never beyond it: the
+    rows go through `list_overrides`, whose WHERE carries ``student_id``.
+
+    @return how many were dropped.
+    """
+    rows = await list_overrides(session, scope, student_id)
+    for row in rows:
+        await session.delete(row)
+    if rows:
+        await session.commit()
+    return len(rows)
+```
+     with:
+```python
+    await session.delete(row)
+    return True
+
+
+async def drop_overrides(session: AsyncSession, scope: str, student_id: int) -> int:
+    """Resets everything for one child, for everyone who sees that child — the
+    corrections are the child's, not the account's — and never beyond it: the
+    rows go through `list_overrides`, whose WHERE carries ``student_id``.
+    Nothing is committed.
+
+    @return how many were dropped.
+    """
+    rows = await list_overrides(session, scope, student_id)
+    for row in rows:
+        await session.delete(row)
+    return len(rows)
+```
+
+- [ ] **Step 3: v1's routes commit after the call.** In `server/app/api/diary.py`:
+  1. Replace:
+```python
+        original=payload.original,
+    )
+    return DiaryOverrideOut.of(stored)
+```
+     with:
+```python
+        original=payload.original,
+    )
+    # The service leaves the commit to its caller, and a correction answered
+    # before it is kept would be gone from the next read.
+    await session.commit()
+    return DiaryOverrideOut.of(stored)
+```
+  2. Replace:
+```python
+        await diary_corrections.drop_override(
+            session, scope, student_id, payload.target, payload.field
+        )
+
+
+@router.delete(
+```
+     with:
+```python
+        await diary_corrections.drop_override(
+            session, scope, student_id, payload.target, payload.field
+        )
+        await session.commit()
+
+
+@router.delete(
+```
+  3. Replace:
+```python
+    if scope is not None:
+        await diary_corrections.drop_overrides(session, scope, student_id)
+```
+     with:
+```python
+    if scope is not None:
+        await diary_corrections.drop_overrides(session, scope, student_id)
+        await session.commit()
+```
+
+- [ ] **Step 4: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_diary_corrections.py tests/test_corrections_per_child_revision.py tests/test_diary_api.py tests/test_diary_corrections_per_child.py tests/test_services_diary.py tests/test_v2_diary_days.py
+```
+Expected: all pass, 111 tests.
+- `test_services_diary_corrections.py` has 3.
+- `test_diary_api.py` and `test_diary_corrections_per_child.py` read every write back from a request of their own, which sees only what was committed: with Step 2 and without Step 3, eleven of them fail, and without the reset route's commit alone, two (probed). They are what holds the routes' commits.
+- `test_services_diary.py` and `test_v2_diary_days.py` read the corrections through `services/diary.corrections`, which only reads.
+
+- [ ] **Step 5: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`.
+
+- [ ] **Step 6: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b8-t1.txt`:
+```text
+Leave the diary corrections' commits to whoever writes them
+
+services/diary_corrections.put_override, drop_override and
+drop_overrides committed inside themselves, which v2 cannot use:
+BatchUpdateCorrections is to land whole or not at all, and only invoke
+commits. They stop, as 3b-4's six services did, and v1's PUT
+/overrides, POST /overrides/reset and DELETE /overrides/all commit
+after the call, before they answer. put_override flushes and reads its
+row back, since every caller answers with the stamps the database sets.
+Its retry, for two parents correcting one field in the same instant,
+relied on its commit failing; it now concedes inside a savepoint, so
+only the savepoint is rolled back and the caller's transaction goes on.
+The window test of revision 0017 makes the caller's commit, which it
+used to read from the service.
+
+Not covered: the race on Postgres; it is injected on SQLite, between
+the check and the insert.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/services/diary_corrections.py server/app/api/diary.py server/tests/test_services_diary_corrections.py server/tests/test_corrections_per_child_revision.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b8-t1.txt
+```
+
+---
+
+### 3b-8 Task 2: v1's rules for corrections, in `services/`, and a number spelled another way is no target
+
+Decision 2; Rulings 130, 137 and 139; #393. v1's answers stay as they were, but for #393: `test_diary_api.py`, `test_diary_corrections_per_child.py` and `test_diary_overrides.py` are the proof and are not edited.
+
+**Files:**
+- Modify: `server/app/services/diary_overrides.py`, `server/app/services/diary_corrections.py`, `server/app/wording.py`, `server/app/api/diary.py`, `server/tests/test_services_diary_corrections.py`
+
+**Interfaces:**
+- Consumes: Task 1's `put_override`, `drop_override`, `drop_overrides` and `list_overrides`; `diary_overrides.check` and `check_value`; the scope `DiaryService.child` answers, `None` for a pupil who can have no corrections.
+- Produces:
+  - `diary_overrides.check_correction(target, field, value) -> None`, raising `UnknownTarget`, `UnsupportedField` or `EmptyNotAllowed`, the target and field before the value; `diary_overrides._NUMBER`, which `kind_of` reads (#393);
+  - `diary_corrections.CorrectionsUnavailable(LookupError)`; `Correction(target, field, value, original=None)`, frozen;
+  - `diary_corrections.listed(session, scope, student_id) -> list[DiaryOverride]`, `correct(session, scope, student_id, corrections: Sequence[Correction]) -> list[DiaryOverride]`, `reset(session, scope, student_id, keys: Iterable[tuple[str, str]]) -> int` and `clear(session, scope, student_id) -> int`, with `scope: str | None` in each, none of them committing;
+  - `wording.CORRECTIONS_UNAVAILABLE_DETAIL`, `CORRECTION_TARGET_REFUSED_DETAIL`, `CORRECTION_FIELD_REFUSED_DETAIL` and `CORRECTION_VALUE_EMPTY_DETAIL`, v1's four sentences, which v1's `PUT /overrides` now reads.
+
+- [ ] **Step 1: Red.** In `server/tests/test_services_diary_corrections.py`, the docstring and the imports, then the tests of the moved rules, of #393, and of v1's words, at the end of the file:
+  1. Replace:
+```python
+call — and the one retry that relied on a failing commit, two writers racing
+for one field, concedes inside a savepoint instead. ``test_diary_api.py`` and
+``test_diary_corrections_per_child.py``, untouched, are the proof that v1's
+answers did not move: each of their writes is read back by a request of its
+own, which sees only what was committed.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from sqlalchemy import func, select
+
+from app.db import SessionLocal
+from app.models import DiaryOverride
+from app.services import diary_corrections as service
+
+SCOPE = "CHILD:petersburg"
+TARGET = "lesson:2026-09-15:n1:Алгебра"
+```
+     with:
+```python
+call — and the one retry that relied on a failing commit, two writers racing
+for one field, concedes inside a savepoint instead. The rules v1's routes held
+are the service's too: what a child with no scope may do, and which
+corrections are refused, in v1's order (decision 2). ``test_diary_api.py`` and
+``test_diary_corrections_per_child.py``, untouched, are the proof that v1's
+answers did not move: each of their writes is read back by a request of its
+own, which sees only what was committed.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+from typing import Any
+
+import httpx
+import pytest
+from sqlalchemy import func, select
+
+from app import wording
+from app.crypto import seal
+from app.db import SessionLocal
+from app.models import DiaryOverride, DiarySession
+from app.providers.diary.models import DiaryLesson, HomeworkItem
+from app.providers.petersburg import client as pbclient
+from app.security import hash_token
+from app.services import diary_corrections as service
+from app.services import diary_overrides as overrides
+
+SCOPE = "CHILD:petersburg"
+TARGET = "lesson:2026-09-15:n1:Алгебра"
+CHILDREN = "/api/journal/person/related-child-list"
+```
+  2. Replace:
+```python
+    async with SessionLocal() as fresh:
+        assert list(await fresh.scalars(select(DiaryOverride.value))) == ["301"]
+```
+     with:
+```python
+    async with SessionLocal() as fresh:
+        assert list(await fresh.scalars(select(DiaryOverride.value))) == ["301"]
+
+
+# ---- the rules v1's routes held ---------------------------------------------
+
+
+async def test_a_child_who_can_have_none_is_refused_a_write_and_given_nothing_else(
+    session,
+) -> None:
+    """``scope`` ``None``: a child the diary lists outside its own numbering. Its
+    diary is shown as it came; only a write is refused — and refused for the
+    child before the correction is looked at, in v1's order."""
+    await service.put_override(session, SCOPE, 4021, TARGET, "room", "204", None)
+    await session.commit()
+    with pytest.raises(service.CorrectionsUnavailable):
+        await service.correct(session, None, 4021, [service.Correction("nonsense", "text", "")])
+    assert await service.listed(session, None, 4021) == []
+    assert await service.reset(session, None, 4021, [(TARGET, "room")]) == 0
+    assert await service.clear(session, None, 4021) == 0
+    await session.commit()
+    assert await _committed(select(DiaryOverride.value)) == "204"
+
+
+async def test_each_correction_is_checked_before_any_is_written(session) -> None:
+    """The target and the field before the value, as v1 checks them, and every
+    correction before the first is written."""
+    good = service.Correction(TARGET, "room", "204", "12")
+    for refused, error in (
+        (service.Correction("nonsense", "text", ""), overrides.UnknownTarget),
+        (service.Correction("hw:id:77", "room", "204"), overrides.UnsupportedField),
+        (service.Correction("hw:id:77", "text", "   "), overrides.EmptyNotAllowed),
+    ):
+        with pytest.raises(error):
+            await service.correct(session, SCOPE, 4021, [good, refused])
+        assert await session.scalar(select(func.count()).select_from(DiaryOverride)) == 0
+
+
+async def test_a_batch_is_written_in_order_and_a_key_named_twice_keeps_the_later(
+    session,
+) -> None:
+    rows = await service.correct(
+        session,
+        SCOPE,
+        4021,
+        [
+            service.Correction(TARGET, "room", "204", "12"),
+            service.Correction("hw:id:77", "text", "§ 3, задачи 1–5", "§ 3"),
+            service.Correction(TARGET, "room", "301", "12"),
+        ],
+    )
+    # Each as it stands once all are written: the repeated key is one row.
+    assert [(row.target, row.field, row.value) for row in rows] == [
+        (TARGET, "room", "301"),
+        ("hw:id:77", "text", "§ 3, задачи 1–5"),
+        (TARGET, "room", "301"),
+    ]
+    assert rows[0] is rows[2]
+    await session.commit()
+    listed = await service.listed(session, SCOPE, 4021)
+    assert [(row.target, row.field, row.value) for row in listed] == [
+        ("hw:id:77", "text", "§ 3, задачи 1–5"),
+        (TARGET, "room", "301"),
+    ]
+
+
+async def test_a_reset_counts_what_it_took_off_and_a_key_with_nothing_is_no_error(
+    session,
+) -> None:
+    await service.correct(
+        session,
+        SCOPE,
+        4021,
+        [
+            service.Correction(TARGET, "room", "204"),
+            service.Correction(TARGET, "teacher", "Иванова И. И."),
+        ],
+    )
+    await service.correct(session, SCOPE, 5, [service.Correction(TARGET, "room", "999")])
+    await session.commit()
+    keys = [(TARGET, "room"), (TARGET, "topic"), (TARGET, "room")]
+    assert await service.reset(session, SCOPE, 4021, keys) == 1
+    await session.commit()
+    assert [row.field for row in await service.listed(session, SCOPE, 4021)] == ["teacher"]
+    assert await service.clear(session, SCOPE, 4021) == 1
+    await session.commit()
+    assert await service.listed(session, SCOPE, 4021) == []
+    assert [row.value for row in await service.listed(session, SCOPE, 5)] == ["999"]
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "hw:id:007",
+        "hw:id:²",
+        "hw:id:٣",
+        "lesson:2026-09-15:n01:Алгебра",
+        "lesson:2026-09-15:n²:Алгебра",
+        "lesson:2026-09-15:n١:Алгебра",
+    ],
+)
+def test_a_number_the_read_path_never_writes_is_no_target(target) -> None:
+    """#393. ``str.isdigit`` took each of these, so each was stored and then
+    matched by nothing for ever: the read path writes an id and a lesson
+    number as ``str()`` writes an ``int``, and nothing else."""
+    field = "text" if target.startswith("hw:") else "room"
+    with pytest.raises(overrides.UnknownTarget):
+        overrides.check(target, field)
+
+
+def test_every_number_the_read_path_writes_is_a_target() -> None:
+    day = date(2026, 9, 15)
+    for item_id in (0, 7, 10, 90210):
+        item = HomeworkItem(id=item_id, due_date=day, subject="Алгебра", text="№ 1")
+        overrides.check(overrides.homework_target(item), "text")
+    for number in (None, 0, 1, 10):
+        lesson = DiaryLesson(date=day, number=number, subject="Алгебра")
+        overrides.check(overrides.lesson_target(lesson), "room")
+
+
+async def test_v1_words_each_refusal_in_the_sentences_v2_shares(
+    v2, session, FakeUpstream, monkeypatch
+) -> None:
+    """v1's four 422s, now ``app/wording.py``'s, and a write v1 commits before
+    it answers: a request of its own reads it, and then reads it gone."""
+    fake = FakeUpstream(
+        {
+            CHILDREN: {
+                "items": [
+                    {
+                        "identity": {"id": 4021},
+                        "firstname": "Пётр",
+                        "surname": "Иванов",
+                        "educations": [{"education_id": 90210, "group_id": 771}],
+                    },
+                    {
+                        "id": 7,
+                        "firstname": "Анна",
+                        "surname": "Иванова",
+                        "educations": [{"education_id": 90777, "group_id": 772}],
+                    },
+                ]
+            }
+        }
+    )
+
+    async def shared() -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=pbclient.BASE_URL, transport=httpx.MockTransport(fake.handler)
+        )
+
+    monkeypatch.setattr(pbclient, "shared_client", shared)
+    session.add(
+        DiarySession(
+            token_hash=hash_token("v1-corrections"),
+            upstream_token=seal("a-jwt"),
+            login="parent@example.com",
+            provider="petersburg",
+        )
+    )
+    await session.commit()
+    headers = {"Authorization": "Bearer v1-corrections"}
+
+    async def put(student: int, target: str, field: str, value: str) -> httpx.Response:
+        return await v2.http.put(
+            f"/api/v1/diary/students/{student}/overrides",
+            headers=headers,
+            json={"target": target, "field": field, "value": value},
+        )
+
+    for answer, detail in (
+        (await put(7, TARGET, "room", "204"), wording.CORRECTIONS_UNAVAILABLE_DETAIL),
+        (await put(4021, "hw:id:007", "text", "x"), wording.CORRECTION_TARGET_REFUSED_DETAIL),
+        (await put(4021, "hw:id:77", "room", "x"), wording.CORRECTION_FIELD_REFUSED_DETAIL),
+        (await put(4021, "hw:id:77", "text", " "), wording.CORRECTION_VALUE_EMPTY_DETAIL),
+    ):
+        assert (answer.status_code, answer.json()["detail"]) == (422, detail)
+    assert (await put(4021, TARGET, "room", "204")).status_code == 200
+    assert await _committed(select(DiaryOverride.value)) == "204"
+    reset = await v2.http.post(
+        "/api/v1/diary/students/4021/overrides/reset",
+        headers=headers,
+        json={"target": TARGET, "field": "room"},
+    )
+    assert reset.status_code == 204
+    assert await _committed(select(func.count()).select_from(DiaryOverride)) == 0
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_diary_corrections.py
+```
+Expected: `11 failed, 4 passed`. Four fail on `AttributeError: module 'app.services.diary_corrections' has no attribute` `CorrectionsUnavailable`, `Correction` or `correct`; the six cases of `test_a_number_the_read_path_never_writes_is_no_target` on `Failed: DID NOT RAISE UnknownTarget`, which is #393 itself; and `test_v1_words_each_refusal_in_the_sentences_v2_shares` on `module 'app.wording' has no attribute 'CORRECTIONS_UNAVAILABLE_DETAIL'`. Task 1's three pass, and so does `test_every_number_the_read_path_writes_is_a_target`, which holds that the fix refuses nothing the read path writes. Keep this output as the evidence.
+
+- [ ] **Step 2: The overlay's check, whole, and a number in the read path's own spelling.** In `server/app/services/diary_overrides.py`:
+  1. Replace:
+```python
+        if first == "id":
+            if not rest_of.isdigit():
+                raise UnknownTarget(target)
+```
+     with:
+```python
+        if first == "id":
+            if _NUMBER.fullmatch(rest_of) is None:
+                raise UnknownTarget(target)
+```
+  2. Replace:
+```python
+        raise UnknownTarget(target)
+    if number and not (number.startswith("n") and number[1:].isdigit()):
+        raise UnknownTarget(target)
+```
+     with:
+```python
+        raise UnknownTarget(target)
+    if number and not (number.startswith("n") and _NUMBER.fullmatch(number[1:])):
+        raise UnknownTarget(target)
+```
+  3. Replace:
+```python
+_ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _is_iso_date(value: str) -> bool:
+```
+     with:
+```python
+_ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+#: The one spelling of a number a target may carry: an upstream id or a
+#: lesson number, as ``str()`` writes an ``int`` — [homework_target] and
+#: [lesson_target] write no other.
+#:
+#: ``str.isdigit`` is too generous, as ``fromisoformat`` is for a date: it
+#: takes «007», which ``str()`` never writes, and «²» or «٣», which are digits
+#: to Unicode and to nothing here. A target carrying one was stored and then
+#: matched by nothing for ever (#393).
+_NUMBER = re.compile(r"0|[1-9][0-9]*")
+
+
+def _is_iso_date(value: str) -> bool:
+```
+  4. Replace:
+```python
+def _applied(value: str, field: str) -> str | None:
+    return (value or None) if field in NULLABLE_FIELDS else value
+```
+     with:
+```python
+def check_correction(target: str, field: str, value: str) -> None:
+    """Refuses a correction this module would not apply, before anything is
+    written: its target and its field first (:func:`check`), then its value
+    (:func:`check_value`) — v1's order, which v2 keeps, so that a correction
+    wrong twice over is refused for the same part by both.
+
+    @raises UnknownTarget, UnsupportedField or EmptyNotAllowed.
+    """
+    check(target, field)
+    check_value(field, value)
+
+
+def _applied(value: str, field: str) -> str | None:
+    return (value or None) if field in NULLABLE_FIELDS else value
+```
+
+- [ ] **Step 3: The rules v1's routes held, beside the store.** In `server/app/services/diary_corrections.py`:
+  1. Replace:
+```python
+Beside ``diary_overrides`` rather than inside ``services/diary.py``, which is
+the sessions: the two halves of one feature sit next to each other, and the
+session module no longer carries a second subject in its middle.
+"""
+
+from __future__ import annotations
+
+from sqlalchemy import ColumnElement, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import DiaryOverride
+from app.providers.diary.registry import PETERSBURG, Scope, row_for
+```
+     with:
+```python
+What a child with no scope may do, and which corrections are refused, were v1's
+routes'; they are :func:`listed`, :func:`correct`, :func:`reset` and
+:func:`clear` now, which v1's routes and v2's ``DiaryService`` both call, and
+which refuse with facts each shell words.
+
+Beside ``diary_overrides`` rather than inside ``services/diary.py``, which is
+the sessions: the two halves of one feature sit next to each other, and the
+session module no longer carries a second subject in its middle.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
+
+from sqlalchemy import ColumnElement, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import DiaryOverride
+from app.providers.diary.registry import PETERSBURG, Scope, row_for
+from app.services import diary_overrides as overrides
+```
+  2. Replace:
+```python
+        await session.delete(row)
+    return len(rows)
+```
+     with:
+```python
+        await session.delete(row)
+    return len(rows)
+
+
+# ---- the rules v1's routes held, for both shells ---------------------------
+#
+# ``scope`` is what ``DiaryService.child`` answers for the pupil, ``None`` for
+# a child who can have no corrections: one the diary lists by an id outside its
+# provider's own numbering (``DiaryService.scope_of``). Such a child's diary is
+# shown as it came; only a write is refused.
+
+
+class CorrectionsUnavailable(LookupError):
+    """A write for a child who can have no corrections (``scope`` ``None``).
+    v1 answers 422, v2 ``CORRECTIONS_UNAVAILABLE``."""
+
+
+@dataclass(frozen=True)
+class Correction:
+    """One correction being written: v1's ``DiaryOverrideIn``, v2's ``CorrectionUpdate``."""
+
+    target: str
+    field: str
+    value: str
+    original: str | None = None
+
+
+async def listed(session: AsyncSession, scope: str | None, student_id: int) -> list[DiaryOverride]:
+    """Every correction anybody who sees this child has made, by target and
+    then field; none for a child who can have none."""
+    if scope is None:
+        return []
+    return await list_overrides(session, scope, student_id)
+
+
+async def correct(
+    session: AsyncSession,
+    scope: str | None,
+    student_id: int,
+    corrections: Sequence[Correction],
+) -> list[DiaryOverride]:
+    """Writes or replaces each correction, in order, the last writer winning,
+    and answers each one's row as it stands once all are written: a target
+    and field named twice are one row, carrying the later value.
+
+    Refused before anything is written, in v1's order: a child who can have
+    none, then any correction the overlay would never apply
+    (``diary_overrides.check_correction``). Nothing is committed: the caller
+    commits the lot, so that it lands whole or not at all.
+
+    @raises CorrectionsUnavailable for a child who can have none.
+    @raises diary_overrides.UnknownTarget, UnsupportedField or EmptyNotAllowed.
+    """
+    if scope is None:
+        raise CorrectionsUnavailable
+    for correction in corrections:
+        overrides.check_correction(correction.target, correction.field, correction.value)
+    return [
+        await put_override(
+            session,
+            scope,
+            student_id,
+            correction.target,
+            correction.field,
+            correction.value,
+            correction.original,
+        )
+        for correction in corrections
+    ]
+
+
+async def reset(
+    session: AsyncSession,
+    scope: str | None,
+    student_id: int,
+    keys: Iterable[tuple[str, str]],
+) -> int:
+    """Takes each ``(target, field)`` correction off, for everyone who sees the
+    child. A key with nothing under it is no error — «no correction here» is
+    what was asked for — and a child who can have none has none to take off.
+    Nothing is committed.
+
+    @return how many were taken off.
+    """
+    if scope is None:
+        return 0
+    taken = 0
+    for target, field in keys:
+        taken += await drop_override(session, scope, student_id, target, field)
+    return taken
+
+
+async def clear(session: AsyncSession, scope: str | None, student_id: int) -> int:
+    """Takes every correction for this child off (:func:`drop_overrides`); none
+    for a child who can have none. Nothing is committed.
+
+    @return how many were taken off.
+    """
+    if scope is None:
+        return 0
+    return await drop_overrides(session, scope, student_id)
+```
+
+- [ ] **Step 4: The sentences both versions say.** In `server/app/wording.py`:
+  Replace:
+```python
+UNKNOWN_STUDENT_DETAIL = "Unknown student"
+
+#: v1's ``POST /join`` and v2's ``CreateDevice``, for each refusal of
+#: ``services/join.py``: too many wrong codes, a code that names nothing, a
+```
+  with:
+```python
+UNKNOWN_STUDENT_DETAIL = "Unknown student"
+
+#: ``services/diary_corrections.correct``'s refusals, as v1's
+#: ``PUT /diary/students/{id}/overrides`` and v2's ``BatchUpdateCorrections``
+#: word them: a child who can have no corrections (v2's
+#: ``CORRECTIONS_UNAVAILABLE``), and a target, a field or an empty value the
+#: overlay would never apply (v2's ``VALIDATION_FAILED``, on that part of the
+#: correction). The app reads each of v1's 422s on that route as «Это поле
+#: нельзя исправить».
+CORRECTIONS_UNAVAILABLE_DETAIL = "Для этого ученика правки недоступны"
+CORRECTION_TARGET_REFUSED_DETAIL = "Эту запись нельзя исправить"
+CORRECTION_FIELD_REFUSED_DETAIL = "Это поле нельзя исправить"
+CORRECTION_VALUE_EMPTY_DETAIL = "Это поле не может быть пустым"
+
+#: v1's ``POST /join`` and v2's ``CreateDevice``, for each refusal of
+#: ``services/join.py``: too many wrong codes, a code that names nothing, a
+```
+
+- [ ] **Step 5: v1 over the moved rules.** In `server/app/api/diary.py`:
+  1. Replace:
+```python
+    """Every correction anybody who sees this child has made for them —
+    this account's and, say, the other parent's alike; no row says whose."""
+    _, scope = await _child(svc, student_id)
+    if scope is None:
+        return []
+    found = await diary_corrections.list_overrides(session, scope, student_id)
+    return [DiaryOverrideOut.of(item) for item in found]
+```
+     with:
+```python
+    """Every correction anybody who sees this child has made for them —
+    this account's and, say, the other parent's alike; no row says whose. None
+    for a child who can have none (`diary_corrections.listed`)."""
+    _, scope = await _child(svc, student_id)
+    found = await diary_corrections.listed(session, scope, student_id)
+    return [DiaryOverrideOut.of(item) for item in found]
+```
+  2. Replace:
+```python
+    field of that child.
+    """
+    _, scope = await _child(svc, student_id)
+    if scope is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Для этого ученика правки недоступны",
+        )
+    try:
+        overrides.check(payload.target, payload.field)
+    except overrides.UnknownTarget as failure:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Эту запись нельзя исправить",
+        ) from failure
+    except overrides.UnsupportedField as failure:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Это поле нельзя исправить",
+        ) from failure
+    try:
+        overrides.check_value(payload.field, payload.value)
+    except overrides.EmptyNotAllowed as failure:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Это поле не может быть пустым",
+        ) from failure
+
+    stored = await diary_corrections.put_override(
+        session,
+        scope=scope,
+        student_id=student_id,
+        target=payload.target,
+        field=payload.field,
+        value=payload.value,
+        original=payload.original,
+    )
+    # The service leaves the commit to its caller, and a correction answered
+    # before it is kept would be gone from the next read.
+    await session.commit()
+    return DiaryOverrideOut.of(stored)
+```
+     with:
+```python
+    field of that child.
+
+    The rules and their order are `services/diary_corrections.correct`'s,
+    which v2's ``BatchUpdateCorrections`` calls too; this words its facts.
+    """
+    _, scope = await _child(svc, student_id)
+    correction = diary_corrections.Correction(
+        payload.target, payload.field, payload.value, payload.original
+    )
+    try:
+        (stored,) = await diary_corrections.correct(session, scope, student_id, [correction])
+    except diary_corrections.CorrectionsUnavailable:
+        detail = wording.CORRECTIONS_UNAVAILABLE_DETAIL
+    except overrides.UnknownTarget:
+        detail = wording.CORRECTION_TARGET_REFUSED_DETAIL
+    except overrides.UnsupportedField:
+        detail = wording.CORRECTION_FIELD_REFUSED_DETAIL
+    except overrides.EmptyNotAllowed:
+        detail = wording.CORRECTION_VALUE_EMPTY_DETAIL
+    else:
+        # The service leaves the commit to its caller, and a correction
+        # answered before it is kept would be gone from the next read.
+        await session.commit()
+        return DiaryOverrideOut.of(stored)
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+```
+  3. Replace:
+```python
+    _, scope = await _child(svc, student_id)
+    if scope is not None:
+        await diary_corrections.drop_override(
+            session, scope, student_id, payload.target, payload.field
+        )
+        await session.commit()
+```
+     with:
+```python
+    _, scope = await _child(svc, student_id)
+    await diary_corrections.reset(session, scope, student_id, [(payload.target, payload.field)])
+    await session.commit()
+```
+  4. Replace:
+```python
+    _, scope = await _child(svc, student_id)
+    if scope is not None:
+        await diary_corrections.drop_overrides(session, scope, student_id)
+        await session.commit()
+```
+     with:
+```python
+    _, scope = await _child(svc, student_id)
+    await diary_corrections.clear(session, scope, student_id)
+    await session.commit()
+```
+
+- [ ] **Step 6: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_services_diary_corrections.py tests/test_diary_overrides.py tests/test_diary_api.py tests/test_diary_corrections_per_child.py tests/test_corrections_per_child_revision.py tests/test_services_diary.py tests/test_v2_diary_days.py tests/test_service_layering.py tests/test_cold_start.py
+```
+Expected: all pass, 188 tests.
+- `test_services_diary_corrections.py` has 15: Task 1's three and this task's twelve.
+- `test_diary_api.py`'s `test_a_correction_the_read_path_could_never_apply_is_refused`, `test_a_homework_text_cannot_be_emptied` and `test_a_well_prefixed_but_malformed_target_is_refused`, and `test_diary_corrections_per_child.py`'s `test_a_child_found_by_a_plain_id_gets_no_corrections_at_all`, which reads «Для этого ученика правки недоступны» back, hold v1's refusals through `correct`; `test_diary_overrides.py` holds every target shape the read path writes as accepted.
+- `test_service_layering.py` walks `services/` again: `diary_corrections` now imports `diary_overrides`, and neither reaches a shell. `test_cold_start.py` holds that nothing new lands on a request's cold path.
+
+- [ ] **Step 7: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`.
+
+- [ ] **Step 8: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b8-t2.txt`:
+```text
+Move v1's rules for the diary corrections beside the services, for v2 to share
+
+What v1's /overrides routes decided for themselves — what a child with
+no scope may do, and which corrections are refused, in which order — is
+services/diary_corrections' now: listed, correct, reset and clear, over
+diary_overrides.check_correction, refusing with facts each shell words.
+correct checks every correction before it writes any, so a batch is
+refused whole. A child the diary lists outside its own numbering is
+refused a write (CorrectionsUnavailable) and given an empty list and
+nothing to take off, as v1 answered. v1's four sentences live in
+app/wording.py, and v1's routes answer as before.
+
+A target whose number is spelled any way but the read path's own —
+hw:id:007, a superscript or an Arabic-Indic digit — was taken by
+str.isdigit, stored, and matched by nothing for ever (#393). A number
+must now be ASCII digits without a leading zero, as str() writes it.
+
+Not covered: a diary that numbers a pupil or a lesson below zero, which
+none has, stays refused as before.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/services/diary_overrides.py server/app/services/diary_corrections.py server/app/wording.py server/app/api/diary.py server/tests/test_services_diary_corrections.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b8-t2.txt
+```
+
+---
+
+### 3b-8 Task 3: `ListCorrections` and `BatchUpdateCorrections`, and 3b-8 leaves `STAGES`
+
+Decisions 4, 5, 10 and 14; Rulings 124, 127, 129 to 135, 140 and 141.
+
+**Files:**
+- Create: `server/tests/test_v2_diary_corrections.py`
+- Modify: `server/app/rpc/diary.py`, `server/app/rpc/errors.py`, `server/app/rpc/handlers.py`, `server/tests/test_rpc_errors.py`
+
+**Interfaces:**
+- Consumes: Task 2's `listed`, `correct`, `Correction` and `CorrectionsUnavailable`, `diary_overrides.check_correction` and its three refusals, and the wording's four sentences; v1's `DiaryOverrideIn`; `rpc/errors.validate(…, at=)`; 3b-7's `_service(call)` and `DiaryService.child`; `values.instant`.
+- Produces:
+  - `rpc/diary.list_corrections` and `batch_update_corrections`; `CORRECTIONS_MAX` (200) and `TOO_MANY_CORRECTIONS`; the helpers `_REFUSED`, `_capped(count)`, `_updates(request) -> list[diary_corrections.Correction]` and `_correction(row) -> DiaryCorrection`;
+  - `errors.TABLE`'s row for `diary_corrections_service.CorrectionsUnavailable`, `CORRECTIONS_UNAVAILABLE` in v1's words;
+  - `test_rpc_errors.STAGES` and `LATER`, empty, and `HELD_BY`'s row naming `test_a_pupil_the_diary_lists_outside_its_numbering_can_have_none_written`.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_diary_corrections.py`:
+```python
+"""``ListCorrections`` and ``BatchUpdateCorrections``: v1's ``GET`` and ``PUT /overrides`` over v2.
+
+Through ``services/diary_corrections``, so both versions keep one set of
+corrections per child, refuse the same ones in the same words and answer the
+same rows (``docs/specs/2026-10-05-server-v2-design.md``, decisions 2, 5 and
+14). A batch lands whole or not at all, by ``invoke``'s one commit; its
+success is asked once per transport (the 3b plan, Ruling 17), and its
+refusals, which write nothing, through ``both``. Nothing here reaches a real
+diary: Petersburg's pooled client and «Сетевой город»'s are each replaced by
+one over ``httpx.MockTransport``.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from typing import Any
+
+import httpx
+import pytest
+from sqlalchemy import func, select
+
+from app import wording
+from app.contract.lessons.v2.diary_pb import (
+    BatchUpdateCorrectionsRequest,
+    CorrectionUpdate,
+    ListCorrectionsRequest,
+    ListScheduleDaysRequest,
+)
+from app.db import SessionLocal
+from app.models import DiaryOverride, DiarySession
+from app.providers.diary import http as diary_http
+from app.providers.netschool import client as nsclient
+from app.providers.petersburg import client as pbclient
+from app.providers.petersburg import provider as pbprovider
+from app.rpc import values
+from app.rpc.diary import CORRECTIONS_MAX, TOO_MANY_CORRECTIONS
+from app.services import diary_corrections
+
+LIST = "DiaryService/ListCorrections"
+BATCH = "DiaryService/BatchUpdateCorrections"
+SCOPE = "CHILD:petersburg"
+CHILDREN = "/api/journal/person/related-child-list"
+SCHEDULE = "/api/journal/schedule/list-by-education"
+LESSON = "lesson:2026-09-15:n1:Алгебра"
+SECRET = "Pa55w0rd-s3cr3t-Hunter2"
+PUPILS = [
+    {
+        "identity": {"id": 4021},
+        "firstname": "Пётр",
+        "surname": "Иванов",
+        "educations": [{"education_id": 90210, "group_id": 771, "group_name": "9А"}],
+    },
+    # Listed by a plain id, outside the diary's own numbering: a child who can
+    # have no corrections at all.
+    {
+        "id": 7,
+        "firstname": "Анна",
+        "surname": "Иванова",
+        "educations": [{"education_id": 90777, "group_id": 772, "group_name": "5Б"}],
+    },
+]
+
+
+@pytest.fixture
+def petersburg(monkeypatch, FakeUpstream):
+    """Petersburg's upstream on 14 September 2026: two pupils, and one lesson."""
+    fake = FakeUpstream(
+        {
+            CHILDREN: {"items": PUPILS},
+            SCHEDULE: {
+                "items": [
+                    {"date": "15.09.2026", "subject_name": "Алгебра", "number": 1, "office": "12"}
+                ]
+            },
+        }
+    )
+
+    async def shared() -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=pbclient.BASE_URL, transport=httpx.MockTransport(fake.handler)
+        )
+
+    monkeypatch.setattr(pbclient, "shared_client", shared)
+    monkeypatch.setattr(pbprovider, "today", lambda: date(2026, 9, 14))
+    return fake
+
+
+@pytest.fixture
+def netschool(monkeypatch) -> None:
+    """«Сетевой город»'s regional server: the bootstrap's four answers."""
+    answers: dict[str, Any] = {
+        "/webapi/student/diary/init": {
+            "students": [{"studentId": 11, "nickName": "Иванов Иван", "classId": 3}]
+        },
+        "/webapi/years/current": {"id": 2026, "startDate": "2026-09-01", "endDate": "2027-05-31"},
+        "/webapi/context": {"organizationName": "Гимназия № 7"},
+        "/webapi/grade/assignment/types": [{"id": 3, "name": "Домашнее задание"}],
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        found = answers.get(request.url.path)
+        return httpx.Response(404, json={}) if found is None else httpx.Response(200, json=found)
+
+    async def shared() -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            transport=httpx.MockTransport(handler), cookies=diary_http.NoCookieJar()
+        )
+
+    monkeypatch.setattr(nsclient, "shared_client", shared)
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _batch(*corrections: CorrectionUpdate, student_id: int = 4021) -> BatchUpdateCorrectionsRequest:
+    return BatchUpdateCorrectionsRequest(student_id=student_id, corrections=list(corrections))
+
+
+async def _correct(
+    session, target: str, field: str, value: str, *, original: str | None = None, student_id=4021
+) -> None:
+    session.add(
+        DiaryOverride(
+            login=SCOPE,
+            student_id=student_id,
+            target=target,
+            field=field,
+            value=value,
+            original=original,
+        )
+    )
+    await session.commit()
+
+
+async def _stored() -> list[tuple[str, int, str, str, str]]:
+    """Every correction, as a session of its own reads it: only what is committed."""
+    async with SessionLocal() as fresh:
+        rows = await fresh.scalars(select(DiaryOverride).order_by(DiaryOverride.id))
+        return [(row.login, row.student_id, row.target, row.field, row.value) for row in rows]
+
+
+async def test_the_corrections_are_v1_s_in_v2_s_shape(v2, v2_tokens, session, petersburg) -> None:
+    await _correct(session, LESSON, "room", "204", original="12")
+    await _correct(session, "hw:id:77", "text", "§ 3, задачи 1–5")
+    await _correct(session, LESSON, "room", "чужой ребёнок", student_id=5)
+    token = v2_tokens["diary"]
+    answer = await v2.both(LIST, ListCorrectionsRequest(student_id=4021), token=token)
+    v1 = (await v2.http.get("/api/v1/diary/students/4021/overrides", headers=_auth(token))).json()
+    listed = answer.message.corrections
+    assert (
+        [
+            (
+                item.target,
+                item.field,
+                item.value,
+                item.original_when_written if item.has_field("original_when_written") else None,
+            )
+            for item in listed
+        ]
+        == [(row["target"], row["field"], row["value"], row["original_when_written"]) for row in v1]
+        == [("hw:id:77", "text", "§ 3, задачи 1–5", None), (LESSON, "room", "204", "12")]
+    )
+    # An instant: v1's naive stamp, which is UTC.
+    assert [item.updated_at for item in listed] == [
+        values.instant(datetime.fromisoformat(row["updated_at"])) for row in v1
+    ]
+    assert answer.headers["cache-control"] == "private, no-store"
+
+
+async def test_a_batch_is_written_whole_and_read_back_by_v1_and_by_the_lessons(
+    v2, v2_tokens, petersburg
+) -> None:
+    token = v2_tokens["diary"]
+    rest = await v2.rest(
+        BATCH,
+        _batch(
+            CorrectionUpdate(target=LESSON, field="room", value="204", original="12"),
+            CorrectionUpdate(target="hw:id:77", field="text", value="§ 3, задачи 1–5"),
+        ),
+        token=token,
+    )
+    assert rest.status == 200
+    made = rest.message.corrections
+    assert [(item.target, item.field, item.value) for item in made] == [
+        (LESSON, "room", "204"),
+        ("hw:id:77", "text", "§ 3, задачи 1–5"),
+    ]
+    assert made[0].original_when_written == "12"
+    assert not made[1].has_field("original_when_written")
+    # The last writer wins, `original` included, and a key named twice in one
+    # batch keeps the later: both entries are the one row, as stored.
+    connect = await v2.connect(
+        BATCH,
+        _batch(
+            CorrectionUpdate(target=LESSON, field="room", value="301"),
+            CorrectionUpdate(target=LESSON, field="room", value="302", original="12"),
+        ),
+        token=token,
+    )
+    assert connect.status == 200
+    assert [(item.value, item.original_when_written) for item in connect.message.corrections] == [
+        ("302", "12"),
+        ("302", "12"),
+    ]
+    assert await _stored() == [
+        (SCOPE, 4021, LESSON, "room", "302"),
+        (SCOPE, 4021, "hw:id:77", "text", "§ 3, задачи 1–5"),
+    ]
+    v1 = (await v2.http.get("/api/v1/diary/students/4021/overrides", headers=_auth(token))).json()
+    assert [row["value"] for row in v1] == ["§ 3, задачи 1–5", "302"]
+    days = (
+        await v2.rest(
+            "DiaryService/ListScheduleDays",
+            ListScheduleDaysRequest(
+                student_id=4021, start_date="2026-09-15", end_date="2026-09-15"
+            ),
+            token=token,
+        )
+    ).message.schedule_days
+    assert (days[0].lessons[0].room, days[0].lessons[0].edits[0].original) == ("302", "12")
+
+
+async def test_an_empty_batch_writes_nothing_and_an_empty_value_is_a_real_answer(
+    v2, v2_tokens, petersburg
+) -> None:
+    """A batch of none still asks who the pupil is: another family's id is
+    nobody's, and a pupil who can have none is refused a write of nothing too.
+    An empty value on a field the diary may leave blank is stored, as v1 stores
+    it: «there is nothing here» is a correction."""
+    token = v2_tokens["diary"]
+    empty = await v2.both(BATCH, _batch(), token=token)
+    assert (empty.status, list(empty.message.corrections)) == (200, [])
+    assert (await v2.both(BATCH, _batch(student_id=999), token=token)).reason == (
+        "RESOURCE_NOT_FOUND"
+    )
+    assert (await v2.both(BATCH, _batch(student_id=7), token=token)).reason == (
+        "CORRECTIONS_UNAVAILABLE"
+    )
+    assert await _stored() == []
+    blank = await v2.rest(
+        BATCH, _batch(CorrectionUpdate(target=LESSON, field="room", value="")), token=token
+    )
+    assert (blank.status, blank.message.corrections[0].value) == (200, "")
+    assert await _stored() == [(SCOPE, 4021, LESSON, "room", "")]
+
+
+@pytest.mark.parametrize(
+    ("refused", "field", "error"),
+    [
+        (
+            CorrectionUpdate(target="nonsense", field="text", value=""),
+            "corrections[1].target",
+            wording.CORRECTION_TARGET_REFUSED_DETAIL,
+        ),
+        (
+            CorrectionUpdate(target="hw:id:007", field="text", value="x"),
+            "corrections[1].target",
+            wording.CORRECTION_TARGET_REFUSED_DETAIL,
+        ),
+        (
+            CorrectionUpdate(target="hw:id:77", field="room", value="x"),
+            "corrections[1].field",
+            wording.CORRECTION_FIELD_REFUSED_DETAIL,
+        ),
+        (
+            CorrectionUpdate(target="hw:id:77", field="text", value="  "),
+            "corrections[1].value",
+            wording.CORRECTION_VALUE_EMPTY_DETAIL,
+        ),
+        (CorrectionUpdate(target="", field="room", value="x"), "corrections[1].target", None),
+        (
+            CorrectionUpdate(target=LESSON, field="room", value="x" * 4001),
+            "corrections[1].value",
+            None,
+        ),
+    ],
+)
+async def test_a_batch_refused_at_any_correction_writes_none_of_them(
+    v2, v2_tokens, petersburg, refused, field, error
+) -> None:
+    """Each correction is checked as v1 checks one, before anything is written
+    and before the diary is asked anything, and the refusal names the first
+    one refused by its index, from 0, and its part."""
+    token = v2_tokens["diary"]
+    good = CorrectionUpdate(target=LESSON, field="room", value="204")
+    answer = await v2.both(BATCH, _batch(good, refused), token=token)
+    assert (answer.status, answer.code, answer.reason) == (
+        400,
+        "INVALID_ARGUMENT",
+        "VALIDATION_FAILED",
+    )
+    assert [name for name, _ in answer.violations] == [field]
+    assert petersburg.seen == []
+    assert await _stored() == []
+    if error is not None:
+        assert (answer.error, answer.violations) == (error, [(field, error)])
+        # v1's words for the same correction.
+        v1 = await v2.http.put(
+            "/api/v1/diary/students/4021/overrides",
+            headers=_auth(token),
+            json={"target": refused.target, "field": refused.field, "value": refused.value},
+        )
+        assert (v1.status_code, v1.json()["detail"]) == (422, error)
+
+
+async def test_a_batch_that_fails_while_writing_keeps_nothing(
+    v2, v2_tokens, session, petersburg, monkeypatch
+) -> None:
+    """All or none: the second write fails after the first replaced a
+    correction, and ``invoke``'s one rollback takes the first back with it."""
+    await _correct(session, LESSON, "room", "204")
+    put = diary_corrections.put_override
+    calls: list[object] = []
+
+    async def fails_the_second(*args: Any, **kwargs: Any) -> DiaryOverride:
+        calls.append(args)
+        if len(calls) == 2:
+            raise RuntimeError("the connection went away")
+        return await put(*args, **kwargs)
+
+    monkeypatch.setattr(diary_corrections, "put_override", fails_the_second)
+    request = _batch(
+        CorrectionUpdate(target=LESSON, field="room", value="301"),
+        CorrectionUpdate(target="hw:id:77", field="text", value="§ 3"),
+    )
+    for call in (v2.rest, v2.connect):
+        calls.clear()
+        failed = await call(BATCH, request, token=v2_tokens["diary"])
+        assert (failed.status, failed.code) == (500, "INTERNAL")
+        assert await _stored() == [(SCOPE, 4021, LESSON, "room", "204")]
+
+
+async def test_a_pupil_the_diary_lists_outside_its_numbering_can_have_none_written(
+    v2, v2_tokens, session, petersburg
+) -> None:
+    """Its list is empty and a write is ``CORRECTIONS_UNAVAILABLE``, in v1's
+    words; and its plain 7 reaches nothing of the person whose id is 7."""
+    await _correct(session, LESSON, "room", "204", student_id=7)
+    token = v2_tokens["diary"]
+    refused = await v2.both(
+        BATCH,
+        _batch(CorrectionUpdate(target=LESSON, field="room", value="999"), student_id=7),
+        token=token,
+    )
+    v1 = await v2.http.put(
+        "/api/v1/diary/students/7/overrides",
+        headers=_auth(token),
+        json={"target": LESSON, "field": "room", "value": "999"},
+    )
+    assert (refused.status, refused.code, refused.reason, refused.metadata, refused.error) == (
+        400,
+        "FAILED_PRECONDITION",
+        "CORRECTIONS_UNAVAILABLE",
+        {},
+        v1.json()["detail"],
+    )
+    assert refused.error == wording.CORRECTIONS_UNAVAILABLE_DETAIL
+    listed = await v2.both(LIST, ListCorrectionsRequest(student_id=7), token=token)
+    assert list(listed.message.corrections) == []
+    assert await _stored() == [(SCOPE, 7, LESSON, "room", "204")]
+
+
+async def test_another_family_s_child_reaches_nothing(v2, v2_tokens, session, petersburg) -> None:
+    await _correct(session, LESSON, "room", "204", student_id=999)
+    token = v2_tokens["diary"]
+    for name, request in (
+        (LIST, ListCorrectionsRequest(student_id=999)),
+        (BATCH, _batch(CorrectionUpdate(target=LESSON, field="room", value="666"), student_id=999)),
+    ):
+        refused = await v2.both(name, request, token=token)
+        assert (refused.status, refused.reason, refused.metadata, refused.error) == (
+            404,
+            "RESOURCE_NOT_FOUND",
+            {"resource": "student"},
+            wording.UNKNOWN_STUDENT_DETAIL,
+        ), name
+    assert await _stored() == [(SCOPE, 999, LESSON, "room", "204")]
+    assert {request.url.path for request in petersburg.seen} == {CHILDREN}
+
+
+async def test_more_than_two_hundred_corrections_are_refused_before_the_diary_is_asked(
+    v2, v2_tokens, petersburg
+) -> None:
+    token = v2_tokens["diary"]
+    many = [
+        CorrectionUpdate(target=f"hw:id:{number}", field="text", value="§ 1")
+        for number in range(1, CORRECTIONS_MAX + 2)
+    ]
+    refused = await v2.both(BATCH, _batch(*many), token=token)
+    assert (refused.status, refused.reason, refused.error, refused.violations) == (
+        400,
+        "VALIDATION_FAILED",
+        TOO_MANY_CORRECTIONS,
+        [("corrections", TOO_MANY_CORRECTIONS)],
+    )
+    assert petersburg.seen == []
+    accepted = await v2.rest(BATCH, _batch(*many[:CORRECTIONS_MAX]), token=token)
+    assert (accepted.status, len(accepted.message.corrections)) == (200, CORRECTIONS_MAX)
+    async with SessionLocal() as fresh:
+        count = await fresh.scalar(select(func.count()).select_from(DiaryOverride))
+    assert count == CORRECTIONS_MAX
+
+
+async def test_a_refused_correction_never_repeats_what_was_sent(v2, v2_tokens, petersburg) -> None:
+    """The no-echo sweep sends ``corrections`` as an object or a string, which
+    the decoder refuses before any handler; these reach the handler's own
+    checks, part by part, and are refused without the value."""
+    token = v2_tokens["diary"]
+    for refused in (
+        CorrectionUpdate(target=SECRET, field="text", value="x"),
+        CorrectionUpdate(target=f"lesson:{SECRET}", field="room", value="x"),
+        CorrectionUpdate(target=SECRET * 14, field="text", value="x"),
+        CorrectionUpdate(target="hw:id:77", field=SECRET, value="x"),
+        CorrectionUpdate(target="hw:id:77", field=SECRET * 2, value="x"),
+        CorrectionUpdate(target="hw:id:77", field="text", value=SECRET * 200),
+        CorrectionUpdate(target="hw:id:77", field="text", value="x", original=SECRET * 200),
+    ):
+        for answer in (
+            await v2.rest(BATCH, _batch(refused), token=token),
+            await v2.connect(BATCH, _batch(refused), token=token),
+        ):
+            assert (answer.status, answer.reason) == (400, "VALIDATION_FAILED")
+            assert SECRET not in answer.body.decode()
+    assert await _stored() == []
+
+
+async def test_a_session_whose_region_names_no_server_is_sent_to_sign_in_again(
+    v2, session, netschool
+) -> None:
+    """The summary's ``UnknownDiaryServer`` row: it never reaches a handler.
+    ``DiaryService.scope_of`` expires a «Сетевой город» session the allow-list
+    cannot place, as v1 does, and v2 says «sign in again» through the row for
+    ``SessionExpired``; the next call is the gate's to refuse."""
+    registered = await v2.http.post(
+        "/api/v1/diary/session",
+        json={
+            "provider": "netschool",
+            "login": "ivanova",
+            "region": "zabaikalsky",
+            "school_id": 42,
+            "credential": {"at": "at-zab-mother-001", "cookies": {"NSSESSIONID": "sess-zab"}},
+        },
+    )
+    assert registered.status_code == 200, registered.text
+    token = registered.json()["token"]
+    row = await session.scalar(select(DiarySession).where(DiarySession.provider == "netschool"))
+    row.region = "atlantis"
+    await session.commit()
+    ended = await v2.rest(LIST, ListCorrectionsRequest(student_id=11), token=token)
+    assert (ended.status, ended.reason, ended.error) == (
+        401,
+        "DIARY_REAUTH",
+        "Сессия дневника истекла — войдите заново",
+    )
+    async with SessionLocal() as fresh:
+        assert (await fresh.get(DiarySession, row.id)).expired_at is not None
+    again = await v2.connect(
+        BATCH,
+        _batch(CorrectionUpdate(target="hw:id:77", field="text", value="§ 3"), student_id=11),
+        token=token,
+    )
+    assert again.reason == "DIARY_TOKEN_INVALID"
+    assert await _stored() == []
+
+
+async def test_listing_the_corrections_writes_nothing_but_the_session_s_last_use(
+    v2, v2_tokens, session, petersburg, statement_writes, unexpected_writes
+) -> None:
+    await _correct(session, LESSON, "room", "204")
+    with statement_writes() as seen:
+        answer = await v2.both(
+            LIST, ListCorrectionsRequest(student_id=4021), token=v2_tokens["diary"]
+        )
+        assert answer.status == 200
+    assert seen, "the session's last use is written once in fifteen minutes"
+    assert unexpected_writes(seen) == []
+```
+  Then, in `server/tests/test_rpc_errors.py`, name the test that reads the new row back, and let no reason wait any more (Ruling 140):
+  1. Replace:
+```python
+from app.services import diary as diary_service
+from app.services import directory as directory_service
+```
+     with:
+```python
+from app.services import diary as diary_service
+from app.services import diary_corrections as diary_corrections_service
+from app.services import directory as directory_service
+```
+  2. Replace:
+```python
+#: The stages of 3b still to come. A stage leaves this set in the commit that
+#: produces the last reason it brings, and a reason still listed under it in
+#: ``LATER`` then fails below
+#: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2).
+STAGES = {"3b-8"}
+
+#: The reasons no served method produces yet, and the stage that brings each.
+#: A reason leaves this table in the commit whose handler raises it.
+LATER = {
+    "CORRECTIONS_UNAVAILABLE": "3b-8",
+}
+```
+     with:
+```python
+#: The stages still to come that bring a reason. A stage leaves this set in
+#: the commit that produces the last reason it brings, and a reason still
+#: listed under it in ``LATER`` then fails below
+#: (``docs/specs/2026-10-05-server-v2-3b-plan.md``, Ruling 2). Empty since
+#: 3b-8, whose ``CORRECTIONS_UNAVAILABLE`` was the last reason of
+#: ``errors.proto`` that nothing produced; a stage that adds one names itself
+#: here first.
+STAGES: set[str] = set()
+
+#: The reasons no served method produces yet, and the stage that brings each.
+#: A reason leaves this table in the commit whose handler raises it.
+LATER: dict[str, str] = {}
+```
+  3. Replace:
+```python
+        "test_v2_diary_reads.py",
+        "test_an_id_this_diary_does_not_list_reaches_nothing",
+    ),
+}
+```
+     with:
+```python
+        "test_v2_diary_reads.py",
+        "test_an_id_this_diary_does_not_list_reaches_nothing",
+    ),
+    diary_corrections_service.CorrectionsUnavailable: (
+        "test_v2_diary_corrections.py",
+        "test_a_pupil_the_diary_lists_outside_its_numbering_can_have_none_written",
+    ),
+}
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_diary_corrections.py tests/test_rpc_errors.py
+```
+Expected: a collection error, `ImportError: cannot import name 'CORRECTIONS_MAX' from 'app.rpc.diary'`. Then `test_rpc_errors.py` alone:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_rpc_errors.py
+```
+Expected: `2 failed, 13 passed`: `test_every_reason_is_produced_or_waits_for_a_later_stage` fails on «a reason nothing produces and nothing awaits», `{'CORRECTIONS_UNAVAILABLE'}`, and `test_every_row_of_the_table_names_the_test_that_reads_it_back` on the row `HELD_BY` names that the table has not yet. Keep both outputs as the evidence.
+
+- [ ] **Step 2: The table's row.** In `server/app/rpc/errors.py`:
+  1. Replace:
+```python
+from app.services import diary as diary_service
+from app.services import directory as directory_service
+```
+     with:
+```python
+from app.services import diary as diary_service
+from app.services import diary_corrections as diary_corrections_service
+from app.services import directory as directory_service
+```
+  2. Replace:
+```python
+#: Every service and provider exception a v2 method can meet, and its refusal.
+#: Matched along the exception's MRO, so a subclass is worded by its own row
+```
+     with:
+```python
+def _corrections_unavailable(_error: diary_corrections_service.CorrectionsUnavailable) -> Refusal:
+    # Only a write meets it: a pupil the diary lists outside its own numbering
+    # has an empty list, and nothing to reset or clear.
+    return Refusal(ErrorReason.CORRECTIONS_UNAVAILABLE, wording.CORRECTIONS_UNAVAILABLE_DETAIL)
+
+
+#: Every service and provider exception a v2 method can meet, and its refusal.
+#: Matched along the exception's MRO, so a subclass is worded by its own row
+```
+  3. Replace:
+```python
+    DiaryError: _diary_unreadable,
+    diary_service.UnknownStudent: _unknown_student,
+}
+```
+     with:
+```python
+    DiaryError: _diary_unreadable,
+    diary_service.UnknownStudent: _unknown_student,
+    diary_corrections_service.CorrectionsUnavailable: _corrections_unavailable,
+}
+```
+
+- [ ] **Step 3: The two methods.** In `server/app/rpc/diary.py`, the docstring, the imports, and the corrections at the end of the file. If 3b-7's review fixes have changed the import block — the diary's two bucket names from `app.security`, `NETSCHOOL` beside `PETERSBURG` — keep their lines and add these beside them:
+  1. Replace:
+```python
+``POST /diary/login``, a password through this server, has no twin here
+(``docs/api.md``, «Not in v2, on purpose»). The corrections are 3b-8's
+(``docs/specs/2026-10-05-server-v2-3b-plan.md``).
+"""
+```
+     with:
+```python
+``POST /diary/login``, a password through this server, has no twin here
+(``docs/api.md``, «Not in v2, on purpose»). 3b-8 serves the family's
+corrections through ``services/diary_corrections`` — v1's ``/overrides``
+rules, with a batch for v1's one at a time — written all or none by
+``invoke``'s one commit (``docs/specs/2026-10-05-server-v2-3b-plan.md``).
+"""
+```
+  2. Replace:
+```python
+from app.contract.lessons.v2.diary_pb import (
+    AttendanceDirection,
+    CreateDiarySessionRequest,
+    CreateDiarySessionResponse,
+    DeleteDiarySessionRequest,
+    DeleteDiarySessionResponse,
+    DiaryAttendance,
+    DiaryCapabilities,
+    DiaryEdit,
+```
+     with:
+```python
+from app import wording
+from app.contract.lessons.v2.diary_pb import (
+    AttendanceDirection,
+    BatchUpdateCorrectionsRequest,
+    BatchUpdateCorrectionsResponse,
+    CreateDiarySessionRequest,
+    CreateDiarySessionResponse,
+    DeleteDiarySessionRequest,
+    DeleteDiarySessionResponse,
+    DiaryAttendance,
+    DiaryCapabilities,
+    DiaryCorrection,
+    DiaryEdit,
+```
+  3. Replace:
+```python
+    GetDiaryCapabilitiesResponse,
+    ListDiaryHomeworkRequest,
+```
+     with:
+```python
+    GetDiaryCapabilitiesResponse,
+    ListCorrectionsRequest,
+    ListCorrectionsResponse,
+    ListDiaryHomeworkRequest,
+```
+  4. Replace:
+```python
+from app.crypto import diary_enabled
+from app.models import DiarySession as DiarySessionRow
+from app.providers.diary.models import AcademicPeriod, Mark, Student
+from app.providers.diary.registry import PETERSBURG, TABLE, Feature, row_for
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.schemas import NetSchoolSessionIn, PetersburgSessionIn
+from app.services import diary as diary_service
+from app.services import diary_overrides as overrides
+```
+     with:
+```python
+from app.crypto import diary_enabled
+from app.models import DiaryOverride
+from app.models import DiarySession as DiarySessionRow
+from app.providers.diary.models import AcademicPeriod, Mark, Student
+from app.providers.diary.registry import PETERSBURG, TABLE, Feature, row_for
+from app.rpc import dates, values
+from app.rpc.errors import Refusal, validate
+from app.schemas import DiaryOverrideIn, NetSchoolSessionIn, PetersburgSessionIn
+from app.services import diary as diary_service
+from app.services import diary_corrections
+from app.services import diary_overrides as overrides
+```
+  5. Replace:
+```python
+    found = await svc.marks(student.education_id, start, end)
+    return ListMarksResponse(marks=[_mark(mark) for mark in found])
+```
+     with:
+```python
+    found = await svc.marks(student.education_id, start, end)
+    return ListMarksResponse(marks=[_mark(mark) for mark in found])
+
+
+# ---- the family's corrections ---------------------------------------------
+
+#: The most corrections one request may carry, written or taken off. A request
+#: is one transaction, which keeps every row it writes locked until it commits
+#: — on SQLite, the whole file — and a family has a handful of corrections:
+#: past this many a request is refused rather than let hold its locks for long
+#: (the 3b plan, Ruling 124).
+CORRECTIONS_MAX = 200
+
+#: A request past :data:`CORRECTIONS_MAX`. v2's own sentence, naming the field.
+TOO_MANY_CORRECTIONS = f"at most {CORRECTIONS_MAX} corrections a request"
+
+#: Where each of the overlay's refusals falls in a correction, and v1's sentence
+#: for it (``diary_overrides.check_correction``). The handler's, not the error
+#: table's: a row of the table is handed the exception alone, and only the
+#: handler knows which correction of the request it was.
+_REFUSED: dict[type[ValueError], tuple[str, str]] = {
+    overrides.UnknownTarget: ("target", wording.CORRECTION_TARGET_REFUSED_DETAIL),
+    overrides.UnsupportedField: ("field", wording.CORRECTION_FIELD_REFUSED_DETAIL),
+    overrides.EmptyNotAllowed: ("value", wording.CORRECTION_VALUE_EMPTY_DETAIL),
+}
+
+
+def _capped(count: int) -> None:
+    """``VALIDATION_FAILED`` on ``corrections`` past :data:`CORRECTIONS_MAX`,
+    before any correction is read."""
+    if count > CORRECTIONS_MAX:
+        raise Refusal(
+            ErrorReason.VALIDATION_FAILED,
+            TOO_MANY_CORRECTIONS,
+            violations=[("corrections", TOO_MANY_CORRECTIONS)],
+        )
+
+
+def _updates(request: BatchUpdateCorrectionsRequest) -> list[diary_corrections.Correction]:
+    """The corrections asked for, each validated with v1's own schema and then
+    by the overlay's rules, in order (decision 5): the first refused names its
+    index, counted from 0, and its part — ``corrections[2].value`` — and never
+    what was sent. Nothing here asks the diary anything, so a request v2 can
+    judge on its own is refused without an upstream call."""
+    _capped(len(request.corrections))
+    found: list[diary_corrections.Correction] = []
+    for index, update in enumerate(request.corrections):
+        sent: dict[str, Any] = {
+            "target": update.target,
+            "field": update.field,
+            "value": update.value,
+        }
+        if update.has_field("original"):
+            sent["original"] = update.original
+        form = validate(DiaryOverrideIn, sent, at=f"corrections[{index}].")
+        try:
+            overrides.check_correction(form.target, form.field, form.value)
+        except (
+            overrides.UnknownTarget,
+            overrides.UnsupportedField,
+            overrides.EmptyNotAllowed,
+        ) as error:
+            part, sentence = _REFUSED[type(error)]
+            raise Refusal(
+                ErrorReason.VALIDATION_FAILED,
+                sentence,
+                violations=[(f"corrections[{index}].{part}", sentence)],
+            ) from None
+        found.append(
+            diary_corrections.Correction(form.target, form.field, form.value, form.original)
+        )
+    return found
+
+
+def _correction(row: DiaryOverride) -> DiaryCorrection:
+    """v1's ``DiaryOverrideOut``, field for field: ``original_when_written`` is
+    what the diary said when the correction was written, apart on purpose from
+    a read's ``original``, which is what it says now."""
+    return DiaryCorrection(
+        target=row.target,
+        field=row.field,
+        value=row.value,
+        original_when_written=row.original,
+        updated_at=values.instant(row.updated_at),
+    )
+
+
+async def list_corrections(call: Call, request: ListCorrectionsRequest) -> ListCorrectionsResponse:
+    """Every correction anybody who sees this pupil made, both parents' alike,
+    as v1's ``GET /overrides``: by target, then field, and none for a pupil who
+    can have none. Writes nothing but a credential the diary rotated, and when
+    the session was last used."""
+    svc = _service(call)
+    student, scope = await svc.child(request.student_id)
+    found = await diary_corrections.listed(call.session, scope, student.id)
+    return ListCorrectionsResponse(corrections=[_correction(row) for row in found])
+
+
+async def batch_update_corrections(
+    call: Call, request: BatchUpdateCorrectionsRequest
+) -> BatchUpdateCorrectionsResponse:
+    """Writes or replaces corrections, all or none, as v1's ``PUT /overrides``
+    writes one: ``invoke`` commits them together, or rolls every one back.
+
+    In this order: each correction, checked as v1 checks one (:func:`_updates`);
+    the pupil, from the session's own diary; the pupil's scope,
+    ``CORRECTIONS_UNAVAILABLE`` for one who can have none; then the writes. No
+    read of the diary comes after the first write, so the session's own
+    telemetry, which ``DiaryService`` commits as it reads, can never commit
+    half a batch. The answer is each correction asked for, in order, as stored
+    once all are written."""
+    updates = _updates(request)
+    svc = _service(call)
+    student, scope = await svc.child(request.student_id)
+    stored = await diary_corrections.correct(call.session, scope, student.id, updates)
+    return BatchUpdateCorrectionsResponse(corrections=[_correction(row) for row in stored])
+```
+
+- [ ] **Step 4: Serve them.** In `server/app/rpc/handlers.py`'s `HANDLERS`:
+  Replace:
+```python
+    "lessons.v2.DeviceService/CreateDevice": device.create_device,
+    "lessons.v2.DiaryService/CreateDiarySession": diary.create_diary_session,
+    "lessons.v2.DiaryService/DeleteDiarySession": diary.delete_diary_session,
+    "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+    "lessons.v2.DiaryService/ListDiaryHomework": diary.list_diary_homework,
+```
+  with:
+```python
+    "lessons.v2.DeviceService/CreateDevice": device.create_device,
+    "lessons.v2.DiaryService/BatchUpdateCorrections": diary.batch_update_corrections,
+    "lessons.v2.DiaryService/CreateDiarySession": diary.create_diary_session,
+    "lessons.v2.DiaryService/DeleteDiarySession": diary.delete_diary_session,
+    "lessons.v2.DiaryService/GetDiaryCapabilities": diary.get_diary_capabilities,
+    "lessons.v2.DiaryService/ListCorrections": diary.list_corrections,
+    "lessons.v2.DiaryService/ListDiaryHomework": diary.list_diary_homework,
+```
+
+- [ ] **Step 5: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_diary_corrections.py tests/test_rpc_errors.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rest.py tests/test_contract.py tests/test_contract_mirror.py tests/test_rpc_call.py tests/test_rpc_gate.py tests/test_rpc_mount.py tests/test_service_layering.py tests/test_announcements.py tests/test_diary_api.py tests/test_v2_diary_days.py tests/test_v2_diary_reads.py tests/test_cold_start.py
+```
+Expected: all pass, 478 tests.
+- `test_v2_diary_corrections.py` has 16, each against v1's own answer for the same session where v1 has one; `test_rpc_errors.py` reads the new row by its test, and `LATER` and `STAGES` empty.
+- The gate test and the no-echo sweep each gain two cases. With `diary_offline`, an empty request of either method asks the diary for the pupil and meets `DIARY_UNAVAILABLE`; no token, and a device token, are `DIARY_TOKEN_INVALID`. The sweep's secret in `studentId`, in the path, or in `corrections` as an object or a string is refused by the decoder with its fixed sentence; what reaches the handler's own checks is `test_a_refused_correction_never_repeats_what_was_sent`'s.
+- `test_contract_mirror.py` holds `DiaryCorrection` and `CorrectionUpdate` level with v1's schemas, unchanged; `test_announcements.py` names no new call site (Ruling 128).
+
+`HANDLERS` now holds every method of `DiaryService` but `ResetCorrections` and `ClearCorrections`, and v2 answers seventy-three methods, beside `WatchClass`'s refusal.
+
+- [ ] **Step 6: Gates.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`.
+
+- [ ] **Step 7: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b8-t3.txt`:
+```text
+Serve the diary corrections' list and batch over v2, written all or none
+
+ListCorrections is v1's GET /overrides, by target and then field, and
+none for a pupil the diary lists outside its own numbering.
+BatchUpdateCorrections writes or replaces up to 200 corrections through
+services/diary_corrections.correct, and invoke's one commit makes the
+batch land whole or not at all. Every refusal a request can meet on its
+own comes before the first write and before the diary is asked anything:
+past 200 it is VALIDATION_FAILED on corrections, and each correction is
+checked by v1's own schema and then by the overlay's rules, the first
+refused named by its index and its part, corrections[i].target, .field
+or .value, in v1's Russian and never with what was sent. A pupil who can
+have none is CORRECTIONS_UNAVAILABLE, the table's one new row, in v1's
+words. A key named twice keeps the later, and the answer is each
+correction asked for, in order, as stored.
+
+CORRECTIONS_UNAVAILABLE was the last reason of errors.proto nothing
+produced, so LATER and STAGES are empty.
+
+Not covered: the batch against Postgres, where its rows stay locked until
+the commit; every test runs on SQLite.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add server/app/rpc/diary.py server/app/rpc/errors.py server/app/rpc/handlers.py server/tests/test_v2_diary_corrections.py server/tests/test_rpc_errors.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b8-t3.txt
+```
+
+---
+
+### 3b-8 Task 4: `ResetCorrections` and `ClearCorrections`, what `diary.proto` says of the four, and the batch's one full run
+
+Decisions 4 and 14; Rulings 124, 125, 127, 130, 133, 138 and 142.
+
+**Files:**
+- Create: `server/tests/test_v2_diary_correction_resets.py`
+- Modify: `server/app/rpc/diary.py`, `server/app/rpc/handlers.py` (and its docstring), `proto/lessons/v2/diary.proto` (three comments) and `server/app/contract/**` (regenerated)
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b8.sh`
+
+**Interfaces:**
+- Consumes: Task 2's `reset` and `clear`; Task 3's `_capped`, `CORRECTIONS_MAX` and `TOO_MANY_CORRECTIONS`; v1's `DiaryResetIn`; 3b-7's `_service(call)` and `DiaryService.child`.
+- Produces: `rpc/diary.reset_corrections` and `clear_corrections`, and the helper `_keys(request) -> list[tuple[str, str]]`; `HANDLERS` with every method of the contract.
+
+- [ ] **Step 1: Red.** Create `server/tests/test_v2_diary_correction_resets.py`:
+```python
+"""``ResetCorrections`` and ``ClearCorrections``: v1's two ways of taking corrections off, over v2.
+
+v1's ``POST /overrides/reset`` and ``DELETE /overrides/all``, through
+``services/diary_corrections``, so a correction taken off by either version is
+off for everyone who sees the child, and for nobody else
+(``docs/specs/2026-10-05-server-v2-design.md``, decisions 2 and 14). Both
+answer the same whether or not there was anything to take off, so each is
+asked through ``both``. Nothing here reaches a real diary: Petersburg's pooled
+client is replaced by one over ``httpx.MockTransport``.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+from typing import Any
+
+import httpx
+import pytest
+from sqlalchemy import select
+
+from app import wording
+from app.contract.lessons.v2.diary_pb import (
+    ClearCorrectionsRequest,
+    ClearCorrectionsResponse,
+    CorrectionKey,
+    ListScheduleDaysRequest,
+    ResetCorrectionsRequest,
+    ResetCorrectionsResponse,
+)
+from app.db import SessionLocal
+from app.models import DiaryOverride
+from app.providers.petersburg import client as pbclient
+from app.providers.petersburg import provider as pbprovider
+from app.rpc.diary import CORRECTIONS_MAX, TOO_MANY_CORRECTIONS
+from app.services import diary_corrections
+
+RESET = "DiaryService/ResetCorrections"
+CLEAR = "DiaryService/ClearCorrections"
+SCOPE = "CHILD:petersburg"
+CHILDREN = "/api/journal/person/related-child-list"
+SCHEDULE = "/api/journal/schedule/list-by-education"
+LESSON = "lesson:2026-09-15:n1:Алгебра"
+PUPILS = [
+    {
+        "identity": {"id": 4021},
+        "firstname": "Пётр",
+        "surname": "Иванов",
+        "educations": [{"education_id": 90210, "group_id": 771, "group_name": "9А"}],
+    },
+    # Listed by a plain id, outside the diary's own numbering: a child who can
+    # have no corrections at all.
+    {
+        "id": 7,
+        "firstname": "Анна",
+        "surname": "Иванова",
+        "educations": [{"education_id": 90777, "group_id": 772, "group_name": "5Б"}],
+    },
+]
+
+
+@pytest.fixture
+def petersburg(monkeypatch, FakeUpstream):
+    """Petersburg's upstream on 14 September 2026: two pupils, and one lesson."""
+    fake = FakeUpstream(
+        {
+            CHILDREN: {"items": PUPILS},
+            SCHEDULE: {
+                "items": [
+                    {"date": "15.09.2026", "subject_name": "Алгебра", "number": 1, "office": "12"}
+                ]
+            },
+        }
+    )
+
+    async def shared() -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=pbclient.BASE_URL, transport=httpx.MockTransport(fake.handler)
+        )
+
+    monkeypatch.setattr(pbclient, "shared_client", shared)
+    monkeypatch.setattr(pbprovider, "today", lambda: date(2026, 9, 14))
+    return fake
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _reset(*keys: tuple[str, str], student_id: int = 4021) -> ResetCorrectionsRequest:
+    return ResetCorrectionsRequest(
+        student_id=student_id,
+        corrections=[CorrectionKey(target=target, field=field) for target, field in keys],
+    )
+
+
+async def _correct(
+    session,
+    target: str,
+    field: str,
+    value: str,
+    *,
+    student_id: int = 4021,
+    scope: str = SCOPE,
+) -> None:
+    session.add(
+        DiaryOverride(login=scope, student_id=student_id, target=target, field=field, value=value)
+    )
+    await session.commit()
+
+
+async def _stored() -> list[tuple[str, int, str, str, str]]:
+    """Every correction, as a session of its own reads it: only what is committed."""
+    async with SessionLocal() as fresh:
+        rows = await fresh.scalars(select(DiaryOverride).order_by(DiaryOverride.id))
+        return [(row.login, row.student_id, row.target, row.field, row.value) for row in rows]
+
+
+async def test_a_reset_takes_the_named_corrections_off_and_nothing_else(
+    v2, v2_tokens, session, petersburg
+) -> None:
+    await _correct(session, LESSON, "room", "204")
+    await _correct(session, LESSON, "teacher", "Иванова И. И.")
+    await _correct(session, "hw:id:77", "text", "§ 3, задачи 1–5")
+    token = v2_tokens["diary"]
+    answer = await v2.both(RESET, _reset((LESSON, "room"), ("hw:id:77", "text")), token=token)
+    assert (answer.status, answer.message) == (200, ResetCorrectionsResponse())
+    assert await _stored() == [(SCOPE, 4021, LESSON, "teacher", "Иванова И. И.")]
+    v1 = (await v2.http.get("/api/v1/diary/students/4021/overrides", headers=_auth(token))).json()
+    assert [row["field"] for row in v1] == ["teacher"]
+    days = (
+        await v2.rest(
+            "DiaryService/ListScheduleDays",
+            ListScheduleDaysRequest(
+                student_id=4021, start_date="2026-09-15", end_date="2026-09-15"
+            ),
+            token=token,
+        )
+    ).message.schedule_days
+    # The diary answers for the room again; the teacher stays corrected.
+    lesson = days[0].lessons[0]
+    assert (lesson.room, lesson.teacher, [edit.field for edit in lesson.edits]) == (
+        "12",
+        "Иванова И. И.",
+        ["teacher"],
+    )
+
+
+async def test_resetting_what_was_never_corrected_answers_the_same(
+    v2, v2_tokens, petersburg
+) -> None:
+    """«No correction here» is what was asked for: no error, and nothing to
+    tell a retry from the first call by."""
+    token = v2_tokens["diary"]
+    for request in (_reset((LESSON, "topic")), _reset()):
+        answer = await v2.both(RESET, request, token=token)
+        assert (answer.status, answer.message) == (200, ResetCorrectionsResponse())
+    v1 = await v2.http.post(
+        "/api/v1/diary/students/4021/overrides/reset",
+        headers=_auth(token),
+        json={"target": LESSON, "field": "topic"},
+    )
+    assert v1.status_code == 204
+
+
+async def test_clearing_takes_every_correction_of_this_child_and_none_of_another_s(
+    v2, v2_tokens, session, petersburg
+) -> None:
+    await _correct(session, LESSON, "room", "204")
+    await _correct(session, "hw:id:77", "text", "§ 3")
+    await _correct(session, LESSON, "room", "305", student_id=4022)
+    await _correct(
+        session, LESSON, "room", "чужой дневник", scope="CHILD:netschool:region.zabedu.ru"
+    )
+    answer = await v2.both(
+        CLEAR, ClearCorrectionsRequest(student_id=4021), token=v2_tokens["diary"]
+    )
+    assert (answer.status, answer.message) == (200, ClearCorrectionsResponse())
+    assert await _stored() == [
+        (SCOPE, 4022, LESSON, "room", "305"),
+        ("CHILD:netschool:region.zabedu.ru", 4021, LESSON, "room", "чужой дневник"),
+    ]
+
+
+async def test_a_key_v1_would_refuse_is_refused_on_its_field_before_the_diary_is_asked(
+    v2, v2_tokens, session, petersburg
+) -> None:
+    await _correct(session, LESSON, "room", "204")
+    token = v2_tokens["diary"]
+    for request, field in (
+        (_reset((LESSON, "room"), ("", "room")), "corrections[1].target"),
+        (_reset((LESSON, "room"), (LESSON, "f" * 41)), "corrections[1].field"),
+        (_reset(*[(LESSON, "room")] * (CORRECTIONS_MAX + 1)), "corrections"),
+    ):
+        refused = await v2.both(RESET, request, token=token)
+        assert (refused.status, refused.reason) == (400, "VALIDATION_FAILED"), field
+        assert [name for name, _ in refused.violations] == [field]
+    assert refused.error == TOO_MANY_CORRECTIONS
+    assert petersburg.seen == []
+    assert await _stored() == [(SCOPE, 4021, LESSON, "room", "204")]
+
+
+async def test_a_pupil_who_can_have_none_has_nothing_to_reset_or_clear(
+    v2, v2_tokens, session, petersburg
+) -> None:
+    """Its plain 7 reaches nothing of the person whose id is 7, and both
+    answer as for a pupil with nothing corrected."""
+    await _correct(session, LESSON, "room", "204", student_id=7)
+    token = v2_tokens["diary"]
+    reset = await v2.both(RESET, _reset((LESSON, "room"), student_id=7), token=token)
+    cleared = await v2.both(CLEAR, ClearCorrectionsRequest(student_id=7), token=token)
+    assert (reset.status, cleared.status) == (200, 200)
+    assert await _stored() == [(SCOPE, 7, LESSON, "room", "204")]
+
+
+async def test_another_family_s_child_reaches_nothing_on_a_reset_or_a_clear(
+    v2, v2_tokens, session, petersburg
+) -> None:
+    await _correct(session, LESSON, "room", "204", student_id=999)
+    token = v2_tokens["diary"]
+    for name, request in (
+        (RESET, _reset((LESSON, "room"), student_id=999)),
+        (CLEAR, ClearCorrectionsRequest(student_id=999)),
+    ):
+        refused = await v2.both(name, request, token=token)
+        assert (refused.status, refused.reason, refused.metadata, refused.error) == (
+            404,
+            "RESOURCE_NOT_FOUND",
+            {"resource": "student"},
+            wording.UNKNOWN_STUDENT_DETAIL,
+        ), name
+    v1 = await v2.http.delete("/api/v1/diary/students/999/overrides/all", headers=_auth(token))
+    assert v1.status_code == 404
+    assert await _stored() == [(SCOPE, 999, LESSON, "room", "204")]
+
+
+async def test_a_reset_that_fails_midway_takes_nothing_off(
+    v2, v2_tokens, session, petersburg, monkeypatch
+) -> None:
+    """All or none, as a batch is written: the second key fails once the
+    first is taken off in the database — its own read flushes the first delete
+    — and ``invoke``'s one rollback puts the first back."""
+    await _correct(session, LESSON, "room", "204")
+    await _correct(session, LESSON, "teacher", "Иванова И. И.")
+    drop = diary_corrections.drop_override
+    calls: list[object] = []
+
+    async def fails_the_second(*args: Any, **kwargs: Any) -> bool:
+        taken = await drop(*args, **kwargs)
+        calls.append(args)
+        if len(calls) == 2:
+            raise RuntimeError("the connection went away")
+        return taken
+
+    monkeypatch.setattr(diary_corrections, "drop_override", fails_the_second)
+    request = _reset((LESSON, "room"), (LESSON, "teacher"))
+    for call in (v2.rest, v2.connect):
+        calls.clear()
+        failed = await call(RESET, request, token=v2_tokens["diary"])
+        assert (failed.status, failed.code) == (500, "INTERNAL")
+        assert [field for _, _, _, field, _ in await _stored()] == ["room", "teacher"]
+```
+Run:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_diary_correction_resets.py
+```
+Expected: `7 failed`: every test of the file meets `501` (`UNIMPLEMENTED`), since nobody serves the two methods yet. Keep this output as the evidence.
+
+- [ ] **Step 2: The two methods.** In `server/app/rpc/diary.py`, the imports and, at the end of the file, the keys and the two handlers. If 3b-7's review fixes put `from app.security import …` between the `app.schemas` and `app.services` lines, the third replacement is the `app.schemas` line alone:
+  1. Replace:
+```python
+    BatchUpdateCorrectionsResponse,
+    CreateDiarySessionRequest,
+```
+     with:
+```python
+    BatchUpdateCorrectionsResponse,
+    ClearCorrectionsRequest,
+    ClearCorrectionsResponse,
+    CreateDiarySessionRequest,
+```
+  2. Replace:
+```python
+    ProviderCapabilities,
+    SignInMethod,
+```
+     with:
+```python
+    ProviderCapabilities,
+    ResetCorrectionsRequest,
+    ResetCorrectionsResponse,
+    SignInMethod,
+```
+  3. Replace:
+```python
+from app.rpc.errors import Refusal, validate
+from app.schemas import DiaryOverrideIn, NetSchoolSessionIn, PetersburgSessionIn
+from app.services import diary as diary_service
+```
+     with:
+```python
+from app.rpc.errors import Refusal, validate
+from app.schemas import (
+    DiaryOverrideIn,
+    DiaryResetIn,
+    NetSchoolSessionIn,
+    PetersburgSessionIn,
+)
+from app.services import diary as diary_service
+```
+  4. Replace:
+```python
+    stored = await diary_corrections.correct(call.session, scope, student.id, updates)
+    return BatchUpdateCorrectionsResponse(corrections=[_correction(row) for row in stored])
+```
+     with:
+```python
+    stored = await diary_corrections.correct(call.session, scope, student.id, updates)
+    return BatchUpdateCorrectionsResponse(corrections=[_correction(row) for row in stored])
+
+
+def _keys(request: ResetCorrectionsRequest) -> list[tuple[str, str]]:
+    """The corrections to take off, each validated with v1's own schema,
+    ``DiaryResetIn``: a target and a field, and nothing of their shape — a key
+    that names nothing takes nothing off. The first refused names its index,
+    from 0, and its part, and never what was sent."""
+    _capped(len(request.corrections))
+    keys: list[tuple[str, str]] = []
+    for index, key in enumerate(request.corrections):
+        form = validate(
+            DiaryResetIn, {"target": key.target, "field": key.field}, at=f"corrections[{index}]."
+        )
+        keys.append((form.target, form.field))
+    return keys
+
+
+async def reset_corrections(
+    call: Call, request: ResetCorrectionsRequest
+) -> ResetCorrectionsResponse:
+    """Takes the named corrections off, for everyone who sees the pupil, as
+    v1's ``POST /overrides/reset`` takes one off, all or none: the same answer
+    whether or not there was one, and for a pupil who can have none. The keys
+    are checked before the diary is asked anything."""
+    keys = _keys(request)
+    svc = _service(call)
+    student, scope = await svc.child(request.student_id)
+    await diary_corrections.reset(call.session, scope, student.id, keys)
+    return ResetCorrectionsResponse()
+
+
+async def clear_corrections(
+    call: Call, request: ClearCorrectionsRequest
+) -> ClearCorrectionsResponse:
+    """Takes every correction for this pupil off, and nothing of any other's,
+    as v1's ``DELETE /overrides/all``: nothing for a pupil who can have none."""
+    svc = _service(call)
+    student, scope = await svc.child(request.student_id)
+    await diary_corrections.clear(call.session, scope, student.id)
+    return ClearCorrectionsResponse()
+```
+
+- [ ] **Step 3: Serve them.** In `server/app/rpc/handlers.py`, whose docstring says that 3b is done:
+  1. Replace:
+```python
+served ``WatchClass``'s refusal, ``GetMe``, ``GetDiaryCapabilities``,
+``CreateDevice`` and ``GetScheduleWindow``; 3b fills the rest in, one service
+at a time (``docs/specs/2026-10-05-server-v2-3b-plan.md``).
+```
+     with:
+```python
+served ``WatchClass``'s refusal, ``GetMe``, ``GetDiaryCapabilities``,
+``CreateDevice`` and ``GetScheduleWindow``; 3b filled the rest in, one service
+at a time (``docs/specs/2026-10-05-server-v2-3b-plan.md``), and since 3b-8
+every unary method of the contract is here. ``WatchClass``'s stream is 3c's.
+```
+  2. Replace:
+```python
+    "lessons.v2.DiaryService/BatchUpdateCorrections": diary.batch_update_corrections,
+    "lessons.v2.DiaryService/CreateDiarySession": diary.create_diary_session,
+```
+     with:
+```python
+    "lessons.v2.DiaryService/BatchUpdateCorrections": diary.batch_update_corrections,
+    "lessons.v2.DiaryService/ClearCorrections": diary.clear_corrections,
+    "lessons.v2.DiaryService/CreateDiarySession": diary.create_diary_session,
+```
+  3. Replace:
+```python
+    "lessons.v2.DiaryService/ListTurnstileEvents": diary.list_turnstile_events,
+    "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
+```
+     with:
+```python
+    "lessons.v2.DiaryService/ListTurnstileEvents": diary.list_turnstile_events,
+    "lessons.v2.DiaryService/ResetCorrections": diary.reset_corrections,
+    "lessons.v2.DirectoryService/ListSchoolRegions": directory.list_school_regions,
+```
+
+- [ ] **Step 4: What `diary.proto` says of them** (Rulings 124, 129, 130, 132 and 138). In `proto/lessons/v2/diary.proto`, the comments on `ListCorrections`, `BatchUpdateCorrections` and `ResetCorrections`:
+  Replace:
+```protobuf
+  // Every correction anybody who sees this pupil made, both parents' alike;
+  // no row says whose.
+  rpc ListCorrections(ListCorrectionsRequest) returns (ListCorrectionsResponse) {
+    option (google.api.http) = {get: "/v2/diary/students/{student_id}/corrections"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // Writes or replaces corrections, all or none. Each target is the string a
+  // read handed down, echoed back; the last writer wins, `original`
+  // included. CORRECTIONS_UNAVAILABLE for a pupil who can have none.
+  // VALIDATION_FAILED, naming `corrections[i].target`, `.field` or `.value`,
+  // for a target this server would never produce, a field that cannot be
+  // corrected, or an empty value where one is required.
+  rpc BatchUpdateCorrections(BatchUpdateCorrectionsRequest) returns (BatchUpdateCorrectionsResponse) {
+    option (google.api.http) = {
+      post: "/v2/diary/students/{student_id}/corrections:batchUpdate"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // Takes the named corrections off, for everyone who sees the pupil. It
+  // answers the same whether or not there was one: «no correction here» is
+  // what was asked for. A POST with a body, because a target is free text,
+  // and a value that must match byte for byte does not travel in a URL.
+  rpc ResetCorrections(ResetCorrectionsRequest) returns (ResetCorrectionsResponse) {
+```
+  with:
+```protobuf
+  // Every correction anybody who sees this pupil made, both parents' alike;
+  // no row says whose. By target, then field; none for a pupil who can have
+  // none.
+  rpc ListCorrections(ListCorrectionsRequest) returns (ListCorrectionsResponse) {
+    option (google.api.http) = {get: "/v2/diary/students/{student_id}/corrections"};
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // Writes or replaces corrections, all or none, and answers each as it is
+  // stored once all are written, in the order asked. Each target is the
+  // string a read handed down, echoed back; the last writer wins, `original`
+  // included, and a target and field named twice in one request keep the
+  // later. At most 200 corrections a request. CORRECTIONS_UNAVAILABLE for a
+  // pupil who can have none. VALIDATION_FAILED, before the diary is asked
+  // anything: on `corrections` past 200, or naming the first correction
+  // refused, `corrections[i].target`, `.field` or `.value` with i counted
+  // from 0, for a target this server would never produce, a field that
+  // cannot be corrected, or an empty value where one is required.
+  rpc BatchUpdateCorrections(BatchUpdateCorrectionsRequest) returns (BatchUpdateCorrectionsResponse) {
+    option (google.api.http) = {
+      post: "/v2/diary/students/{student_id}/corrections:batchUpdate"
+      body: "*"
+    };
+    option (lessons.v2.auth) = AUTH_KIND_DIARY;
+  }
+  // Takes the named corrections off, for everyone who sees the pupil, all or
+  // none. It answers the same whether or not there was one, and for a pupil
+  // who can have none: «no correction here» is what was asked for. At most
+  // 200 a request, as BatchUpdateCorrections. A POST with a body, because a
+  // target is free text, and a value that must match byte for byte does not
+  // travel in a URL.
+  rpc ResetCorrections(ResetCorrectionsRequest) returns (ResetCorrectionsResponse) {
+```
+
+  Then, from `$WT`:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe lint && /c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe generate && git status --short server/app/contract
+```
+  Expected: `buf lint` prints nothing; `buf generate` rewrites `server/app/contract/` whole, and `git status` names one file, `server/app/contract/lessons/v2/diary_connect.py`, whose docstrings of `list_corrections`, `batch_update_corrections` and `reset_corrections` change. Then write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\breaking3b8.sh`:
+```bash
+#!/bin/bash
+# buf breaking for 3b-8, from a file: the shell refuses `.git#ref` on a command line.
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 || exit 2
+git fetch origin main || exit 2
+/c/Users/lumen/AppData/Local/Temp/contract-plan-scratch/bin/buf.exe breaking --against ".git#ref=origin/main"
+echo "exit=$?"
+```
+  and run it:
+```bash
+bash C:/Users/lumen/.claude/jobs/c9e2d980/tmp/breaking3b8.sh
+```
+  Expected: `exit=0`; a comment breaks nothing.
+
+- [ ] **Step 5: Green.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_v2_diary_correction_resets.py tests/test_v2_diary_corrections.py tests/test_services_diary_corrections.py tests/test_v2_reads.py tests/test_v2_no_echo.py tests/test_rpc_errors.py tests/test_rest.py tests/test_contract.py tests/test_contract_json.py tests/test_contract_mirror.py tests/test_rpc_call.py tests/test_rpc_mount.py tests/test_service_layering.py tests/test_cold_start.py tests/test_diary_api.py
+```
+Expected: all pass, 456 tests.
+- `test_v2_diary_correction_resets.py` has 7, against v1's own answer where v1 has one.
+- The gate test and the no-echo sweep each gain two cases, as Task 3's did: an empty request meets `DIARY_UNAVAILABLE` asking for the pupil, and the sweep's secret is refused by the decoder before any handler, its fixed sentence quoting nothing.
+- `test_contract.py` reads the regenerated file's bindings, unchanged; `test_rpc_mount.py` and `test_rpc_call.py` take a method out of `HANDLERS` for their unserved cases, so they hold now that every unary method is served.
+
+`HANDLERS` now holds every method of the contract, and v2 answers seventy-five methods, beside `WatchClass`'s refusal.
+
+- [ ] **Step 6: Gates, and the batch's one full run.** ruff: `All checks passed!`. mypy: `Success: no issues found in 238 source files`. Then the controller runs the full suite once, alone — nothing else running, no Gradle, no second test process:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -n 4
+```
+Expected: `3136 passed`, and its time, which Task 5 writes down. If the count is not 3136, find the test file that moved before anything else; a base other than 3090 moves it by the same difference.
+
+- [ ] **Step 7: Commit.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b8-t4.txt`:
+```text
+Serve the diary corrections' reset and clear over v2, and with them every unary method
+
+ResetCorrections takes the named corrections off, for everyone who sees
+the pupil, as v1's POST /overrides/reset takes one off: up to 200 a
+request, all or none, each key checked by v1's own schema before the
+diary is asked anything, and the same answer whether or not there was
+anything to take off. ClearCorrections is v1's DELETE /overrides/all:
+every correction of this pupil, and none of another's. A pupil who can
+have none has nothing to take off, and both succeed.
+
+diary.proto's comments say what the four now promise: the order, the
+cap, where the index of a refused correction counts from, a key named
+twice, and the pupil who can have none. Only diary_connect.py's
+docstrings are regenerated.
+
+With these, v2 serves every unary method of the contract: seventy-five,
+beside WatchClass's refusal, whose stream is 3c's.
+
+Not covered: the corrections against a real diary or Postgres; every
+test drives Petersburg's fake upstream on SQLite.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add proto/lessons/v2/diary.proto server/app/contract server/app/rpc/diary.py server/app/rpc/handlers.py server/tests/test_v2_diary_correction_resets.py && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b8-t4.txt
+```
+
+---
+
+### 3b-8 Task 5: The documents, the counts, the HANDOVER close-out, and production after the merge
+
+**Files:**
+- Modify: `docs/api.md`, `docs/README.md`, `README.md`, `docs/architecture.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.claude/skills/gates/SKILL.md`, `.claude/agents/server-tests.md`, `HANDOVER.md`, `docs/history.md`
+- Scratch, never committed: `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b8.py`. 3b-3's `counts3b2_3b3.py` and `scan_heads_3b3.py`, in the same folder, whose root is this worktree already, are used again as they are.
+
+**Interfaces:**
+- Consumes:
+  - Tasks 1 to 4, and the numbers of Task 4's full run;
+  - the documents as 3b-7's merge leaves them: «seventy-one methods», the counts of 3b-7's run (3090, unless its review moved them) and 238, and `HANDOVER.md` with its two batch sections, 3b-7's and #388's;
+  - what followed 3b-7's merge, which the controller hands over at Step 8 for the slot `[AFTER-3b7]`, 3b-7's pull request number #392 among it;
+  - this pull request's number, `#PR`, which exists only once the controller opens it (Step 7), and #393.
+- Produces: documents that are true at the moment the pull request merges, and the post-merge read.
+
+The anchors below are the documents as 3b-7's Task 6 writes them, applied to `1c05d1f`'s. If a line has moved, read it as it stands and apply the same change to it. #393 in the text below is written as the number the controller filed.
+
+- [ ] **Step 1: Red: the documents still describe 3b-7.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\docs3b8.py`:
+```python
+"""Which documents do not yet say what 3b-8 serves (3b-8, Task 5)."""
+
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(
+    "C:/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230"
+)
+SAID = {
+    "docs/api.md": [
+        "every one of its seventy-five unary methods",
+        "**Served beside v1, seventy-five methods: every unary one.**",
+        "`DiaryService` methods, a diary session's two and its eight reads (3b-7); and its four\n"
+        "corrections (3b-8).",
+        "- **And written as v1 writes them, a batch at a time.**",
+        "`corrections[2].target` (counted from 0)",
+        "(`hw:id:007`, a superscript digit)",
+    ],
+    "docs/README.md": ["served beside v1, every unary method of it"],
+    "README.md": [
+        "| v2 over REST and Connect | seventy-five methods served beside v1, every unary one:",
+        "the family's corrections over the diary, a batch at a time, all or none (3b-8)",
+    ],
+    "docs/architecture.md": ["v2 a batch at a time through one `correct`"],
+    "CLAUDE.md": [
+        "and as 3b-8 moved\n  the diary corrections'",
+        "`diary_corrections.py`'s `listed`, `correct`, `reset` and `clear`",
+        "its unknown pupil and its\n  corrections' four",
+    ],
+}
+STALE = re.compile(
+    r"seventy-one (?:of its )?methods|Writing them is 3b-8's|as 3b-8 moves|"
+    r"Every other method answers `UNIMPLEMENTED` until its stage"
+)
+
+problems = []
+for name, phrases in SAID.items():
+    text = (ROOT / name).read_bytes().decode("utf-8").replace("\r\n", "\n")
+    problems += [f"{name}: missing {phrase!r}" for phrase in phrases if phrase not in text]
+    problems += [f"{name}: still says {match.group(0)!r}" for match in STALE.finditer(text)]
+print("\n".join(problems) or "the documents say what 3b-8 serves")
+sys.exit(1 if problems else 0)
+```
+and run it:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b8.py
+```
+Expected: exit 1, with thirteen `missing` lines — the phrases of the five documents — and seven `still says` lines: `docs/api.md` four times, and `docs/README.md`, `README.md` and `CLAUDE.md` once each. Keep this output as the evidence.
+
+- [ ] **Step 2: `docs/api.md`**: the count twice, the methods served, a bullet on writing the corrections under «The diary», and v1's target check (#393).
+  1. Replace:
+```markdown
+A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
+seventy-one of its methods so far: «v2: the contract», at the end of this page.
+```
+     with:
+```markdown
+A second version, v2, is a proto contract served beside v1 under `/api/v2` and `/api/rpc`,
+every one of its seventy-five unary methods: «v2: the contract», at the end of this page.
+```
+  2. Replace:
+```markdown
+implementations of a key that has to match byte for byte agree exactly until the first
+lesson with no number.
+```
+     with:
+```markdown
+implementations of a key that has to match byte for byte agree exactly until the first
+lesson with no number. A target the server would never build is refused with `422`, a
+number in it spelled any way but the server's own (`hw:id:007`, a superscript digit)
+included: nothing would ever lay such a correction over anything (#393).
+```
+  3. Replace:
+```markdown
+**Served beside v1, seventy-one methods so far.** Everything above this section is v1, and
+v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the repository,
+checked by Buf, with its Python generated into `server/app/contract/`. Sub-project 3 of
+[the programme](specs/2026-10-03-one-contract-design.md) serves it in three stages
+([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull requests.
+Served so far: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+`ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
+`DirectoryService` methods (3b-3); the other eleven `MeService` methods, a phone's own
+(3b-4); the five `HomeworkService` methods and the five `EventService` methods (3b-5); the
+two `DayService` methods and the five `SubstitutionService` methods (3b-6); and ten
+`DiaryService` methods, a diary session's two and its eight reads (3b-7).
+Every other method answers `UNIMPLEMENTED` until its stage, before it asks for any
+credential. No APK calls v2 yet. The proto files are
+the reference: every service, method, message and field there carries the comment that says
+```
+     with:
+```markdown
+**Served beside v1, seventy-five methods: every unary one.** Everything above this section
+is v1, and v1 is unchanged. v2 is the contract in `proto/lessons/v2/` at the root of the
+repository, checked by Buf, with its Python generated into `server/app/contract/`.
+Sub-project 3 of [the programme](specs/2026-10-03-one-contract-design.md) serves it in three
+stages ([its design](specs/2026-10-05-server-v2-design.md)), the second in eight pull
+requests. Served: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a);
+`ListAuditEntries`, the three `ClassDeviceService` methods and the five `SubjectService`
+methods (3b-1); the five `BellService` methods, the two `TimetableService` methods and the
+eight `ClassService` methods (3b-2); the three `AccessRequestService` methods and the two
+`DirectoryService` methods (3b-3); the other eleven `MeService` methods, a phone's own
+(3b-4); the five `HomeworkService` methods and the five `EventService` methods (3b-5); the
+two `DayService` methods and the five `SubstitutionService` methods (3b-6); ten
+`DiaryService` methods, a diary session's two and its eight reads (3b-7); and its four
+corrections (3b-8). A method a deployment does not serve answers `UNIMPLEMENTED` before it
+asks for any credential; `WatchClass`, the one stream, answers as the next section says.
+No APK calls v2 yet. The proto files are
+the reference: every service, method, message and field there carries the comment that says
+```
+  4. Replace:
+```markdown
+- **The family's corrections are laid over as v1 lays them**: this child's, in this diary,
+  over the lessons and the homework and never over a mark. Writing them is 3b-8's.
+- **When the diary ends a session**, a read is `DIARY_REAUTH`, and the session stays ended
+```
+     with:
+```markdown
+- **The family's corrections are laid over as v1 lays them**: this child's, in this diary,
+  over the lessons and the homework and never over a mark.
+- **And written as v1 writes them, a batch at a time.** `ListCorrections` is v1's
+  `GET /overrides`, by target and then field. `BatchUpdateCorrections` writes or replaces up
+  to 200 at once, all or none: the last writer wins, `original` included, a target and field
+  named twice in one request keep the later, and the answer is each correction asked for, in
+  order, as stored. Each is checked as v1 checks one, before anything is written and before
+  the diary is asked anything: a target this server would never build, a field that cannot
+  be corrected or an empty text is `VALIDATION_FAILED` naming the first one refused and its
+  part, `corrections[2].target` (counted from 0), in v1's Russian; more than 200 is
+  `VALIDATION_FAILED` on `corrections`. `ResetCorrections` takes the named corrections off,
+  up to 200, all or none, and answers the same whether or not there was anything there;
+  `ClearCorrections` takes every one of this child's off, and none of another's. A pupil the
+  diary lists outside its own numbering can have none: its list is empty, a reset or a
+  clear takes nothing off, and a write is `CORRECTIONS_UNAVAILABLE`, in v1's words.
+- **When the diary ends a session**, a read is `DIARY_REAUTH`, and the session stays ended
+```
+
+- [ ] **Step 3: `docs/README.md`, `README.md` and `docs/architecture.md`.**
+  In `docs/README.md`'s row for `api.md`:
+  Replace:
+```markdown
+| [deploy.md](deploy.md) | Vercel plus Neon or your own server, the webhook, migrations, why the server has no clock of its own, and what tells the owner when something is wrong |
+| [api.md](api.md) | the whole `/api/v1` contract, and at its end the v2 contract, served beside v1, seventy-one methods so far: reads, writes, class management, the electronic diary — Петербург and «Сетевой город» behind one contract, signed into by this server or registered from a session the client opened itself — and the anonymous school directory |
+| [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the three homes a phone can have and the first run's state, the developer mode, why its gate is not a lock, and its request console, the service layer, the diary on both sides — the server's providers and the phone's sign-in, `diary.db` and import — the tests |
+```
+  with:
+```markdown
+| [deploy.md](deploy.md) | Vercel plus Neon or your own server, the webhook, migrations, why the server has no clock of its own, and what tells the owner when something is wrong |
+| [api.md](api.md) | the whole `/api/v1` contract, and at its end the v2 contract, served beside v1, every unary method of it: reads, writes, class management, the electronic diary — Петербург and «Сетевой город» behind one contract, signed into by this server or registered from a session the client opened itself — and the anonymous school directory |
+| [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the three homes a phone can have and the first run's state, the developer mode, why its gate is not a lock, and its request console, the service layer, the diary on both sides — the server's providers and the phone's sign-in, `diary.db` and import — the tests |
+```
+  In `README.md`'s «Honest status», the row for v2:
+  Replace:
+```markdown
+| buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
+| v2 over REST and Connect | seventy-one methods served beside v1: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), the homework and the events, whose notices to the class go out after the commit (3b-5), the days and the substitutions, told to the class the same way (3b-6), and a diary session and the reads of one pupil, with what each diary has declared from the registry's table (3b-7), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+| Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter; none of it has run in production yet |
+```
+  with:
+```markdown
+| buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
+| v2 over REST and Connect | seventy-five methods served beside v1, every unary one: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), the homework and the events, whose notices to the class go out after the commit (3b-5), the days and the substitutions, told to the class the same way (3b-6), a diary session and the reads of one pupil, with what each diary has declared from the registry's table (3b-7), and the family's corrections over the diary, a batch at a time, all or none (3b-8), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
+| Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter; none of it has run in production yet |
+```
+  In `docs/architecture.md`, under «v2: one invoke behind two transports»:
+  Replace:
+```markdown
+diary's: a phone's session registered and counted, the days a diary read covers and the reads
+of one pupil — and the
+limiters into `security.py`, one instance each, so a caller cannot double its attempts by
+```
+  with:
+```markdown
+diary's: a phone's session registered and counted, the days a diary read covers and the reads
+of one pupil, and the corrections a family lays over it, which v1 writes one at a time and
+v2 a batch at a time through one `correct` — and the
+limiters into `security.py`, one instance each, so a caller cannot double its attempts by
+```
+
+- [ ] **Step 4: `CLAUDE.md`**, its `services/` bullet: `diary_corrections` no longer commits, and its rules and sentences are the ones both versions share.
+  1. Replace:
+```markdown
+  those until its commit moves out, as 3b-4 moved the tasks', the ticks', the link code's and
+  the feed secret's, as 3b-7 moved a diary session's opening and closing, and as 3b-8 moves
+  the diary corrections'.
+```
+     with:
+```markdown
+  those until its commit moves out, as 3b-4 moved the tasks', the ticks', the link code's and
+  the feed secret's, as 3b-7 moved a diary session's opening and closing, and as 3b-8 moved
+  the diary corrections'.
+```
+  2. Replace:
+```markdown
+  from the diary's own today) and `DiaryService`'s `student`, `child` and reads of one pupil,
+  `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
+  `feed_url`, and `audit.py`'s `older_than` (a page keyed on its last line); the limiters
+  are `security.py`'s, one instance each, and the sentences both versions answer with (the
+  join's four, the diary's «disabled», its sessions' three and its unknown pupil, and the
+  subjects', the devices', the bells', the
+```
+     with:
+```markdown
+  from the diary's own today) and `DiaryService`'s `student`, `child` and reads of one pupil,
+  `diary_corrections.py`'s `listed`, `correct`, `reset` and `clear` (what a child with no scope
+  may do, every correction checked before any is written, nothing committed),
+  `linking.py`'s `link_code_for`, `deep_link` and `unlink_self`, `calendar.py`'s
+  `feed_url`, and `audit.py`'s `older_than` (a page keyed on its last line); the limiters
+  are `security.py`'s, one instance each, and the sentences both versions answer with (the
+  join's four, the diary's «disabled», its sessions' three, its unknown pupil and its
+  corrections' four, and the
+  subjects', the devices', the bells', the
+```
+
+- [ ] **Step 5: Green: the documents, and what the tests read of them.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/docs3b8.py
+```
+Expected: `the documents say what 3b-8 serves`, exit 0. Then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/pytest.exe -q -p no:xdist tests/test_rpc_errors.py tests/test_schema_version.py tests/test_ci_paths.py tests/test_contract.py tests/test_rest.py tests/test_api_docs.py tests/test_bot_commands.py tests/test_rpc_call.py
+```
+Expected: all pass, 226 tests. `test_rpc_errors.py` reads `docs/api.md`'s status table, `test_schema_version.py` every document that names the schema, this plan included, and `test_bot_commands.py` `docs/bot.md`'s commands. Then 3b-3's head scan:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/scan_heads_3b3.py
+```
+Expected: the last line names `0019` alone, and no line names `docs/specs/`.
+
+- [ ] **Step 6: The gates, and their numbers everywhere.**
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe -m ruff check app tests scripts migrations && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe -m mypy
+```
+Expected: `All checks passed!`, and `Success: no issues found in 238 source files`. The suite is not run again: Task 4's run is the batch's one, and nothing but documents has changed since it, whose tests Step 5 ran. Then 3b-3's script, which takes the four numbers, the old count first — the one `CLAUDE.md`'s «Commands» says after 3b-7's merge (`grep -n "tests in about four minutes" CLAUDE.md`):
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server && /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230/server/.venv/Scripts/python.exe C:/Users/lumen/.claude/jobs/c9e2d980/tmp/counts3b2_3b3.py OLD_TESTS NEW_TESTS 238 238
+```
+(with `OLD_TESTS` as read, `3090` if 3b-7's review moved nothing, and Task 4's count for `NEW_TESTS`, `3136` if nothing else moved). Expected: `written`. These are the seven places the `handover` skill names; with the module count unchanged, the script finds each and writes the same number back. The batch sections' own counts in `HANDOVER.md` are records of their commits, and they stay.
+
+- [ ] **Step 7: Commit the documents, and the controller opens the pull request.** Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b8-t5.txt`:
+```text
+Describe v2 as every unary method served, and the counts from the run
+
+docs/api.md's «v2: the contract» counts seventy-five methods, every
+unary one, and names 3b-8's four; under «The diary» a bullet says how
+the corrections are written over v2: a batch of up to 200, all or none,
+each correction checked as v1 checks one before anything is written and
+named by its index when refused, a key named twice keeping the later,
+the resets answering the same whether or not there was anything there,
+and a pupil who can have none. The v1 section says a target's number
+must be spelled as the server spells it (#393). docs/architecture.md
+names the corrections among the rules v1 and v2 share; CLAUDE.md says
+diary_corrections commits no longer and names its four rules and its
+four sentences. The counts are the run's own, in the seven places that
+carry them.
+
+Not covered: HANDOVER.md's close-out, written once the pull request has
+a number.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add docs/api.md docs/README.md README.md docs/architecture.md CLAUDE.md CONTRIBUTING.md .claude/skills/gates/SKILL.md .claude/agents/server-tests.md HANDOVER.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b8-t5.txt
+```
+The controller pushes and opens the pull request (the `github-pr` skill), from `server-v2/3b-8` to `main`, on milestone 11, with its board item filled as the skill says. Its body says `Closes #393`, with its number, refers to #273, and says that no revision goes with it and that `diary.proto` changes in comments only. Write the number it gets down as `#PR`.
+
+- [ ] **Step 8: The HANDOVER close-out** (the `handover` skill, «What goes stale mechanically»). Write it while the pull request is open. Read `HANDOVER.md`'s batch sections first: after 3b-7's merge they are 3b-7's and #388's, unless the `[AFTER-3b7]` facts name a batch closed out since.
+  1. **The chain of batch sections.**
+     - The section titled «## What the session before it added: the launcher icon chosen in the app, sixty-four «Пятёрка» variants behind activity-aliases (#388)», with all its subsections, moves verbatim to the top of `docs/history.md`, directly under the `---` that closes the file's introduction, retitled «## What the batch before added: …»; its subsections keep their titles. A sentence in it that says «section 5» or «above» now names `HANDOVER.md`, as the skill says.
+     - The section titled «## What the last session added: the diary's registry as a table, its sessions and its reads over v2 — stage 3b-7 of sub-project 3 (#273)» becomes «## What the session before it added: …», with its subsections. Its first sentence, which names #392 as open, becomes «Merged as #392 (`[SHA]`, <date>), from `server-v2/3b-7`, on milestone 11.», with the SHA and the date read from `gh pr view PR7`.
+  2. **The new section**, above it, with the run's numbers, the real SHAs and the numbers in place of the bracketed words and the placeholders:
+```markdown
+## What the last session added: the diary's corrections over v2, a batch at a time and all or none — stage 3b-8 of sub-project 3 (#273)
+
+Open as #PR, from `server-v2/3b-8` to `main`, on milestone 11, and on project 6. It closes
+#393, and refers to #273. The branch was cut from `main` at `[short SHA]`, the merge of #392,
+and carries [the number of] commits before this close-out, to `[short SHA]`. Written on
+[date]. No revision goes with it: the schema stays at `0019`. This is stage 3b-8 of
+`docs/specs/2026-10-05-server-v2-design.md`, built by the task list for it in
+`docs/specs/2026-10-05-server-v2-3b-plan.md`, one task at a time, each reviewed before the
+next. v1 answers as before, but for the defect; v2 now answers every unary method of the
+contract, seventy-five.
+
+- **The corrections are written by whoever calls.** `services/diary_corrections`'
+  `put_override`, `drop_override` and `drop_overrides` commit no longer; v1's three write
+  routes commit after the call, and v2's `invoke` once for a whole request. Two parents
+  correcting one field at once land on one row inside a savepoint, where the old retry rolled
+  the caller's transaction back and committed itself.
+- **v1's rules for corrections are `services/`'s**: `listed`, `correct`, `reset` and `clear`,
+  over `diary_overrides.check_correction`. A child the diary lists outside its own numbering
+  is refused a write and given none to list or take off; every correction of a request is
+  checked before any is written, in v1's order; v1's four sentences are `app/wording.py`'s.
+- **One defect filed and fixed here:** #393, a target whose number was spelled any way but the
+  read path's own — `hw:id:007`, a superscript or an Arabic-Indic digit — was stored and
+  matched by nothing for ever; it is refused now, by v1 and v2 alike.
+- **Four methods, and with them every unary method of the contract:**
+  - `ListCorrections`, v1's `GET /overrides`;
+  - `BatchUpdateCorrections`, up to 200 a request, all or none, each correction refused by
+    its index and its part before the diary is asked anything, a key named twice keeping the
+    later, and `CORRECTIONS_UNAVAILABLE` for a pupil who can have none;
+  - `ResetCorrections`, up to 200, all or none, the same answer whether or not there was
+    anything to take off, and `ClearCorrections`.
+- **The error table gains one row**, `CORRECTIONS_UNAVAILABLE` in v1's words, read back on both
+  paths by a named test. It was the last reason nothing produced: `LATER` and `STAGES` are
+  empty.
+- **`diary.proto`** says, in comments only, the order of a batch's checks, the cap, where a
+  refused correction's index counts from, a key named twice, and what a pupil who can have
+  none gets.
+
+### Gates
+
+The full suite ran once, at `[short SHA]`, the head of the four code tasks; the documents
+(`[short SHA]`) came after it, and their own files ran again. CI runs on the head the merge is
+made from, and the merge waits for it to be green.
+
+- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `[short SHA]`.
+- **mypy**: no issues found in [the number] source files, at `[short SHA]`.
+- **The server suite.** `pytest -q -n 4`, run alone from `server/` at `[short SHA]`, gave
+  **[the number] passed** in [the time]. The seven places the `handover` skill names say
+  [the number].
+- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
+  `buf generate` reproduces the committed files, `diary_connect.py`'s docstrings the only
+  change.
+- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
+  changed.
+- **Android** was not run, because nothing under `android/` changed; its count stands from
+  the last batch that ran it.
+
+### What was deliberately left alone
+
+- **3c**, the host target and `WatchClass`'s streaming beta.
+- **v1's behaviour**, but for #393: one correction a `PUT`, and a body its schema refuses
+  answered with FastAPI's default `422`, which repeats the value; a correction is no
+  credential, and v2 repeats nothing.
+- **A feature for corrections**: none is declared or asked for, since every provider has
+  the schedule and the homework they lie over.
+- **A negative id or lesson number in a target**, refused as before: no diary sends one.
+
+### What nobody has verified in this batch
+
+- **The four methods against a real diary**: every test drives Petersburg's fake upstream,
+  or none; no correction has been written over v2 from a phone.
+- **The four against Postgres**: every v2 test ran on SQLite, a batch's all-or-none, the
+  savepoint of two writers racing for one field, and the lock a batch holds until its commit
+  among them.
+- **The four on Vercel** beyond the post-merge check, which asks each route and each Connect
+  method once, without a token.
+
+### After #392's merge: [the controller's title for it]
+
+None of this is code in #PR, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of [date].
+
+[AFTER-3b7: the controller's facts, handed over at this step and written in the shape of the
+last close-out's «After …'s merge», one bullet each: 3b-7's merge and its CI; whether Vercel
+built production from it or the owner had to promote it; what production answered after it,
+the ten diary routes included; what the monitoring said meanwhile, #365 included; and anything
+the owner did or decided since the last close-out. Nothing here is guessed: what the controller
+does not hand over is left out, and if it hands over nothing, this subsection is left out whole
+and the report says so.]
+```
+  3. **The opening paragraph**, in the shape the last close-out left it:
+     - «Last updated:» is the day of writing. The merged list gains #392 (read it back with `gh pr view PR7` first); `main` is at its merge, or at whatever `git log -1 origin/main` says is newer.
+     - The sentence on the designs stays.
+     - The open pull requests are read from `gh pr list --state open`, not assumed. #PR is one, «the one carrying this paragraph», from `server-v2/3b-8`, on milestone 11, which closes #393 and refers to #273: v2 now serves every unary method of the contract, seventy-five.
+     - The schema did not move: still `0019`, on production since 16:28 UTC on 6 October, and `EXPECTED_REVISION` did not move either.
+     - The issues filed since 3b-7 merged are named: #393, closed by #PR, and any the `[AFTER-3b7]` facts add. The others stay as the last close-out left them, unless those facts say otherwise.
+     - «The section «What the last session added» below is …» names #PR, and the batch before it, #392.
+     - It still ends: «The SHA of its own merge is for the next close-out to write.»
+     - The bold paragraph on the code's revision and production's stays as it is: no revision moved.
+  4. **The milestone table**: milestone 11's row gains #PR as open, and #393 among its issues; #392 is recorded as merged there, unless 3b-7's own close-out already says so.
+  5. **Section 5**, the bullet «v2 as … serve it has been asked little outside the test client»:
+     - its head gains #PR, and the stages «… and 3b-8»;
+     - the sub-item on production gains, at its end: «the four of 3b-8 are asked after #PR's merge, once, without a token;»;
+     - «**the sixty-seven methods of 3b-1 to 3b-7 against Postgres**: …» becomes «**the seventy-one methods of 3b-1 to 3b-8 against Postgres**: …», keeping its list and adding «a batch of corrections, whose rows stay locked until its one commit, and `put_override`'s savepoint» to it;
+     - the sub-item «**the diary over v2 against a real diary**» gains, at its end: «and no correction has been written, reset or cleared over v2 from a phone;».
+  6. **Section 6**, «Corrections over the diary»: its paragraph «Corrections live on the account's login rather than on the diary's session …» has been untrue since #165. Replace it with:
+```markdown
+Corrections belong to the child — the diary's server and the pupil's id on it — not to the
+diary's session, which dies every few days and would take them with it before anybody
+pressed "reset", and not to the login, which nothing upstream vouches for (#165). A child
+the diary lists outside its own numbering can have none. Over v2 a batch of them is written
+all or none, and every correction is checked before the first is written; a number in a
+target must be spelled as the server spells it (#393).
+```
+  7. **Section 7**: replace the paragraph that begins «**Next for the programme: stage 3b-8 of sub-project 3, from the 3b plan.**», up to and including its last sentence, with:
+```markdown
+**Next for the programme: stage 3c of sub-project 3.** Stages 3a (#342), 3b-1 (#350), 3b-2
+(#356), 3b-3 (#372), 3b-4 (#376), 3b-5 (#380), 3b-6 (#385), 3b-7 (#392) and 3b-8 (#PR) are
+merged, and v2 serves every unary method of the contract, seventy-five, beside
+`WatchClass`'s refusal. 3c is the host target and `WatchClass`'s streaming beta (the
+design's decision 13), and its task list is not written yet. `STAGES` in
+`test_rpc_errors.py` is empty: a stage that brings an `ErrorReason` names itself there
+first. By the owner's order of 8 October, sub-project 3 is finished first, 3c included, and
+everything recorded as unverified is checked on the development machine before sub-project 4
+starts.
+```
+     Read section 7 for anything the owner did since the last close-out (the `[AFTER-3b7]` facts say), and move what they did to «## Moved out of section 7 on [date]» in `docs/history.md`, as the skill says.
+  8. The cheat-sheet's counts under «How to continue» were written by Step 6.
+
+  Write `C:\Users\lumen\.claude\jobs\c9e2d980\tmp\commit-3b8-handover.txt`, with the placeholders replaced by their numbers:
+```text
+Hand over stage 3b-8: the diary's corrections over v2, a batch at a time and all or none
+
+HANDOVER.md's close-out is written while the pull request is open, so
+the file is true when it merges. It describes 3b-8: the corrections'
+writes leaving the commit to their callers, v1's rules for them in
+services/, the defect filed and fixed (#393), the four methods with
+which v2 serves every unary method, the error table's last row, the
+comments in diary.proto, what is left alone and unverified, and what
+followed 3b-7's merge. The batch before becomes the session before, its
+merge recorded, and the one before that moves to docs/history.md.
+Section 5 asks the same of Postgres for eight stages and adds the
+corrections over v2 from a phone; section 6 says, as it has not since
+#165, that a correction belongs to the child; section 7 names 3c as
+next.
+
+Not covered: production after this pull request's merge; the next
+close-out records it.
+```
+then:
+```bash
+cd /c/Users/lumen/StudioProjects/lessons/.claude/worktrees/continue-previous-session-991230 && git add HANDOVER.md docs/history.md && git commit -F C:/Users/lumen/.claude/jobs/c9e2d980/tmp/commit-3b8-handover.txt
+```
+and push.
+
+- [ ] **Step 9: The merge** is the controller's, under the `github-pr` skill's five checks:
+  1. CI is green on the exact head, the «Contract» job included, since `proto/` changed;
+  2. `mergeable_state` is clean;
+  3. the gates ran locally before the push;
+  4. a milestone is attached;
+  5. no review is waiting.
+
+  No revision has to go on first: 3b-8 has none.
+
+- [ ] **Step 10: After the merge, read production.** A merge to `main` has not always deployed production by itself (#349).
+```bash
+curl -s https://lessons-ruddy-zeta.vercel.app/api/v1/warmup; echo
+curl -s -i https://lessons-ruddy-zeta.vercel.app/api/v2/diary/students/1/corrections
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" "https://lessons-ruddy-zeta.vercel.app/api/v2/diary/students/1/corrections:batchUpdate"
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" "https://lessons-ruddy-zeta.vercel.app/api/v2/diary/students/1/corrections:reset"
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" "https://lessons-ruddy-zeta.vercel.app/api/v2/diary/students/1/corrections:clear"
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.DiaryService/ListCorrections
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.DiaryService/BatchUpdateCorrections
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.DiaryService/ResetCorrections
+curl -s -i -X POST -H "Content-Type: application/json" --data "{}" https://lessons-ruddy-zeta.vercel.app/api/rpc/lessons.v2.DiaryService/ClearCorrections
+```
+Expected:
+- `/api/v1/warmup` reports `status` `ok`, `schema` `0019` and `v2` `true`.
+- The four REST routes answer `401`, with `WWW-Authenticate: Bearer`, Google's body and the reason `DIARY_TOKEN_INVALID`. The gate refuses each before any handler runs, so no diary is asked and nothing is written. If the diary were off on production, each would be `503` `DIARY_DISABLED` instead, which is a fact about its `DIARY_SECRET` to write down, not a failure of the merge.
+- The four Connect methods answer `401`, with `"code":"unauthenticated"`.
+
+A `501` with `UNIMPLEMENTED`, on any of the eight, means production still runs the code from before the merge: ask the owner to promote or redeploy the merge, then read again. Write what was seen into the controller's notes for the next close-out.
+
+### Self-review (3b-8)
+
+- **Against the 3b-8 summary.** Every method is served by a task: `ListCorrections` and `BatchUpdateCorrections` (3), `ResetCorrections` and `ClearCorrections` (4). The commits leave `put_override`, `drop_override` and `drop_overrides`, v1's routes commit, and the retry moves into a savepoint (1). The routers' rules move beside the services: the target, the field and the value as one `check_correction`, and what a missing scope means for each of the four, the scope itself being read through 3b-7's row already (2). The summary's rows are here as the code allows: the overlay's three refusals as the handler's, naming `corrections[i]` (3, Ruling 129); a pupil with no scope as `CORRECTIONS_UNAVAILABLE`, a new fact and the table's one new row (2, 3, Ruling 130); `UnknownDiaryServer` as the `DIARY_REAUTH` it already is (3, Ruling 131). `CORRECTIONS_UNAVAILABLE` leaves `LATER` and `STAGES` is empty (3). No effects (Ruling 128). «What v2 does not repeat»: a batch for v1's one `PUT`, and the last writer wins, `original` included.
+- **The controller's rulings.** Open question 1, a cap of 200, `VALIDATION_FAILED` on `corrections`, extended to the reset's list (124, Task 3's `test_more_than_two_hundred_corrections_are_refused_before_the_diary_is_asked`, Task 4's `test_a_key_v1_would_refuse_is_refused_on_its_field_before_the_diary_is_asked`); open question 2, a reset of nothing is success (125, Task 4's `test_resetting_what_was_never_corrected_answers_the_same`); the commits out of `services/`, v1's routes committing and the retry in a savepoint (126, Task 1); all or none through `invoke`'s one commit (127, Task 3's `test_a_batch_that_fails_while_writing_keeps_nothing` and Task 4's `test_a_reset_that_fails_midway_takes_nothing_off`); no class notices (128).
+- **Placeholders.** Every code step is the code, rendered from the copy's own commits, which were applied in order, linted, formatted and type-checked. The bracketed words left are the facts that exist only later: #393, `#PR` and #392, the SHAs, dates, times and counts of the real run, and `[AFTER-3b7]`.
+- **Types across tasks.** `put_override` answers a `DiaryOverride`, flushed and refreshed (1), which `correct` collects (2) and `_correction` reads, `updated_at` through `values.instant` (3). `correct` takes `Sequence[Correction]`, which v1's route builds from `DiaryOverrideIn` and `_updates` from `CorrectionUpdate` through the same schema (2, 3); `reset` takes `(target, field)` pairs, which v1's route and `_keys` build (2, 4). Each of the four takes `scope: str | None`, `DiaryService.child`'s second answer, and `student.id`. `CorrectionsUnavailable` is raised by `correct` and worded by v1's route and by `errors.TABLE` (2, 3). `check_correction` raises `UnknownTarget`, `UnsupportedField` and `EmptyNotAllowed`, which v1's route and `rpc/diary._REFUSED` word (2, 3). `CORRECTIONS_MAX` and `TOO_MANY_CORRECTIONS` are defined in Task 3 and read by `_keys` (4) and both test files.
+- **Review Focus.** Each of its five lines names tests that exist in the task it names: Task 1's `test_two_writers_racing_for_one_field_land_on_one_row_and_commit_nothing`; Task 2's `test_each_correction_is_checked_before_any_is_written`, `test_a_batch_is_written_in_order_and_a_key_named_twice_keeps_the_later`, `test_a_child_who_can_have_none_is_refused_a_write_and_given_nothing_else` and `test_a_number_the_read_path_never_writes_is_no_target`; Task 3's `test_a_batch_that_fails_while_writing_keeps_nothing`, `test_a_batch_is_written_whole_and_read_back_by_v1_and_by_the_lessons`, `test_a_pupil_the_diary_lists_outside_its_numbering_can_have_none_written`, `test_another_family_s_child_reaches_nothing`, `test_a_batch_refused_at_any_correction_writes_none_of_them`, `test_a_refused_correction_never_repeats_what_was_sent`, `test_more_than_two_hundred_corrections_are_refused_before_the_diary_is_asked` and `test_a_session_whose_region_names_no_server_is_sent_to_sign_in_again`; Task 4's `test_a_reset_that_fails_midway_takes_nothing_off`, `test_a_pupil_who_can_have_none_has_nothing_to_reset_or_clear`, `test_another_family_s_child_reaches_nothing_on_a_reset_or_a_clear` and `test_a_key_v1_would_refuse_is_refused_on_its_field_before_the_diary_is_asked`.
+- **`HELD_BY`.** Its one new row names a function defined at the top level of its file, letter for letter: `diary_corrections_service.CorrectionsUnavailable` → `test_v2_diary_corrections.py`'s `test_a_pupil_the_diary_lists_outside_its_numbering_can_have_none_written` (Task 3), which raises it through `BatchUpdateCorrections` and reads the refusal back on both transports, against v1's own answer.
+- **The head test's three shapes** appear nowhere in this list: no «head is» or «expects» before a backticked revision, and no line with `/warmup`'s quoted JSON.
+
 ---
 
 ## Self-review

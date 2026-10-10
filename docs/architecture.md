@@ -129,7 +129,8 @@ toggled, then the homework's and the events' writes, each with its line in the j
 its notice, and the window a list of the class's days covers, then a day's mark and a
 substitution's three questions, each one write the bot makes through too, then the
 diary's: a phone's session registered and counted, the days a diary read covers and the reads
-of one pupil — and the
+of one pupil, and the corrections a family lays over it, which v1 writes one at a time and
+v2 a batch at a time through one `correct` — and the
 limiters into `security.py`, one instance each, so a caller cannot double its attempts by
 alternating versions. `main.mount_v2` catches a v2 that will not import and answers `503`
 under its two prefixes, so v1 and the webhook never go down with it.
@@ -143,10 +144,12 @@ substitution written over v2 is announced to the class's subscribers through
 author, and `tests/test_announcements.py` finds those call sites as it finds v1's. Apart from
 the few writes `rpc/call.py` names, which commit inside themselves on
 purpose, a service a v2 handler calls leaves the commit to its caller: 3b-4 stopped the
-tasks', the ticks', the link code's and the feed secret's services committing, so v1's
-routers commit after the call and the bot's handlers before they tell Telegram, and the two
-retries that leaned on a failing commit, a link code drawn twice and a racing tick, concede
-inside a savepoint.
+tasks', the ticks', the link code's and the feed secret's services committing, and 3b-8 the
+diary's corrections', so v1's routers commit after the call and the bot's handlers before
+they tell Telegram, and the retries that leaned on a failing commit — a link code drawn
+twice, a racing tick, and two parents correcting one field of a diary's lesson at once —
+concede inside a savepoint, each only its own write, so a correction's race never undoes the
+batch's earlier ones.
 
 ### The tick checks the deployment, and tells its owner
 
@@ -956,7 +959,7 @@ with the host.
 
 ## Testing
 
-3094 tests on the server, 1684 on Android; `pytest -q -n auto` and `./gradlew test`, both
+3142 tests on the server, 1684 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 161, `:widget` 126, `:app` 657 (#325).
 
