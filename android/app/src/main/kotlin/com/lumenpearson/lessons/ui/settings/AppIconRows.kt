@@ -50,6 +50,8 @@ import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
+import com.lumenpearson.lessons.core.designsystem.theme.PillButtonHeight
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import kotlin.math.PI
 import kotlin.math.abs
@@ -212,7 +214,7 @@ private fun AppIconTiles(
                         AppIconTile(variant = variant, selected = variant == selected, onClick = { onSelect(variant) })
                     }
                     // A short last row keeps the columns of the full one above it.
-                    repeat(TilesPerRow - row.size) { Spacer(Modifier.size(TileSize)) }
+                    repeat(TilesPerRow - row.size) { Spacer(Modifier.size(IconPreviewSize)) }
                 }
             }
         }
@@ -225,13 +227,20 @@ private fun AppIconTile(variant: AppIconVariant, selected: Boolean, onClick: () 
     val label = variantLabel(variant)
     // The ring sits in a gap every tile has, so the chosen icon does not shrink
     // when it is chosen; Essentials pads the selected tile alone, and it jumps.
-    val ring = if (selected) Modifier.border(RingWidth, MaterialTheme.colorScheme.primary, CircleShape) else Modifier
+    // Cell, not CircleShape: this grid picks among icon variants, and the tile
+    // around each one is a standalone cell — the same role the weekday tile
+    // and the month-grid cell have — not itself a claim that the icon is round.
+    val ring = if (selected) {
+        Modifier.border(RingWidth, MaterialTheme.colorScheme.primary, LessonsShapeTokens.Cell)
+    } else {
+        Modifier
+    }
     Box(
         modifier = Modifier
-            .size(TileSize)
+            .size(IconPreviewSize)
             .then(ring)
             .padding(RingGap)
-            .clip(CircleShape)
+            .clip(LessonsShapeTokens.Cell)
             .selectable(
                 selected = selected,
                 role = Role.RadioButton,
@@ -242,7 +251,7 @@ private fun AppIconTile(variant: AppIconVariant, selected: Boolean, onClick: () 
             )
             .semantics { contentDescription = label },
     ) {
-        AppIconImage(variant = variant, shape = CircleShape, modifier = Modifier.fillMaxSize())
+        AppIconImage(variant = variant, shape = LessonsShapeTokens.Cell, modifier = Modifier.fillMaxSize())
     }
 }
 
@@ -258,7 +267,7 @@ private fun ApplyBlock(enabled: Boolean, onApply: () -> Unit) {
             enabled = enabled,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(ApplyHeight),
+                .height(PillButtonHeight),
         ) {
             Text(text = correctedString(R.string.app_icon_apply))
         }
@@ -294,14 +303,16 @@ private const val SquircleSteps = 120
 /** 2 / n for the superellipse of degree n = 5. */
 private const val SquircleExponent = 0.4
 
-private val TileSize = 56.dp
+/** The picker grid's own tile, distinct from the design system's `TileSize` (the 40 dp
+ *  circular accent tile in front of a row) — the two share no role and used to share a
+ *  name by coincidence. */
+private val IconPreviewSize = 56.dp
 private val RingWidth = 2.5.dp
 private val RingGap = 4.dp
 private val TileGap = 12.dp
 private val PreviewSize = 112.dp
 private val PreviewGap = 16.dp
 private val CaptionGap = 8.dp
-private val ApplyHeight = 52.dp
 private val HintGap = 8.dp
 private val HintInset = 16.dp
 private val LinkIconSize = 32.dp

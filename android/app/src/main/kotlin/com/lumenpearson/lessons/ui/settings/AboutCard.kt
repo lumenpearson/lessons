@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Gavel
@@ -50,6 +49,9 @@ import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.text.correctedLine
+import com.lumenpearson.lessons.core.designsystem.theme.CardPadding
+import com.lumenpearson.lessons.core.designsystem.theme.InlineGap
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.data.legal.LegalDocument
 import com.lumenpearson.lessons.core.data.repository.ServerStatus
 import com.lumenpearson.lessons.ui.developer.RevealTaps
@@ -96,13 +98,13 @@ internal fun AboutCard(
     val taps = remember { RevealTaps() }
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(CardCorner),
+        shape = LessonsShapeTokens.Group,
         color = MaterialTheme.colorScheme.surfaceBright,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(BlockGap),
-            modifier = Modifier.padding(horizontal = CardPadding, vertical = CardPaddingTall),
+            modifier = Modifier.padding(CardPadding),
         ) {
             Text(
                 text = correctedString(R.string.about_name_and_version, BuildConfig.VERSION_NAME),
@@ -159,7 +161,7 @@ internal fun AboutCard(
 private fun AppMark() {
     AppIconImage(
         variant = rememberCurrentAppIcon(),
-        shape = RoundedCornerShape(MarkCorner),
+        shape = LessonsShapeTokens.Group,
         modifier = Modifier.size(MarkSize),
     )
 }
@@ -497,27 +499,19 @@ private fun LinkPill(
     }
 }
 
-/** Radius of the card. The page's other cards use the same one. */
-private val CardCorner = 24.dp
-
-private val CardPadding = 20.dp
-
-/** Taller than it is wide: the block is a column of centred lines, not a row. */
-private val CardPaddingTall = 28.dp
-
 private val BlockGap = 12.dp
 
 private val MarkSize = 96.dp
 
-private val MarkCorner = 24.dp
-
 private val PillGap = 8.dp
 
-/** Gap between two badges, in both directions of the flow. */
-private val BadgeGap = 6.dp
+/** Gap between two badges, in both directions of the flow. 8, not the 6 this
+ *  was: on the grid, and the same gap `PillGap` already uses for a chip strip. */
+private val BadgeGap = InlineGap
 
-/** Gap between two lines of the facts block; tighter than [BlockGap]. */
-private val FactGap = 6.dp
+/** Gap between two lines of the facts block; tighter than [BlockGap]. 4, not
+ *  the 6 this was: on the grid, and still clearly tighter than 12. */
+private val FactGap = 4.dp
 
 /** The facts block, in the order they are drawn. */
 private val Facts = listOf(

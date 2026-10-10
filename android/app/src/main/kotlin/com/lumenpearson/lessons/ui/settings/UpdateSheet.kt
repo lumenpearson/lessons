@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudOff
@@ -53,7 +51,10 @@ import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
+import com.lumenpearson.lessons.core.designsystem.theme.CardPadding
+import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
+import com.lumenpearson.lessons.core.designsystem.theme.PillButtonHeight
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
 import com.lumenpearson.lessons.core.designsystem.theme.errorTone
@@ -343,11 +344,11 @@ private fun NotesSection(label: String, notes: String) {
             modifier = Modifier.fillMaxWidth(),
         )
         Surface(
-            shape = RoundedCornerShape(NotesCorner),
+            shape = LessonsShapeTokens.Group,
             color = MaterialTheme.colorScheme.surfaceBright,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Box(modifier = Modifier.padding(NotesPadding)) {
+            Box(modifier = Modifier.padding(CardPadding)) {
                 if (notes.isBlank()) {
                     Text(
                         text = correctedString(R.string.update_sheet_no_notes),
@@ -390,7 +391,7 @@ internal fun SheetPill(
     var centre by remember { mutableStateOf(Offset.Unspecified) }
 
     val pillModifier = modifier
-        .height(SheetPillHeight)
+        .height(PillButtonHeight)
         .onGloballyPositioned { coordinates ->
             val corner = coordinates.positionOnScreen()
             centre = Offset(
@@ -434,7 +435,7 @@ internal fun SheetPill(
         Button(
             onClick = press,
             modifier = pillModifier,
-            shape = CircleShape,
+            shape = LessonsShapeTokens.Pill,
             contentPadding = SheetPillPadding,
             content = content,
         )
@@ -442,7 +443,7 @@ internal fun SheetPill(
         OutlinedButton(
             onClick = press,
             modifier = pillModifier,
-            shape = CircleShape,
+            shape = LessonsShapeTokens.Pill,
             contentPadding = SheetPillPadding,
             content = content,
         )
@@ -517,9 +518,6 @@ internal val SheetBlockGap = 12.dp
 /** Between two pills in a row; the same 8 dp as the about card's link pills. */
 internal val SheetPillGap = 8.dp
 
-/** Essentials' pill height. */
-private val SheetPillHeight = 56.dp
-
 /** Narrower than Material's 24 dp default, so a label with a size in it has room. */
 private val SheetPillPadding = PaddingValues(horizontal = 16.dp)
 
@@ -543,11 +541,6 @@ private val HeaderGap = 8.dp
 private val HeaderTop = 8.dp
 
 private val NotesLabelGap = 8.dp
-
-/** Larger than the 24 dp of a group: the card is alone on the sheet and has no rows to mask. */
-private val NotesCorner = 28.dp
-
-private val NotesPadding = 20.dp
 
 /** Breathing room around the spinner, so the sheet is not a sliver while it waits. */
 private val CheckingInset = 24.dp
