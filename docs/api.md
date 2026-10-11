@@ -1766,8 +1766,11 @@ page answers differently there but three things.
   `UpdateHomework` takes `attachment_url` away when it is masked and left unset, and refuses
   `due_date`, `subject` or `text` so; `UpdateEvent` takes `location` away, puts
   `covers_lesson` back to what the kind means and makes `kind` an event, and refuses `date`,
-  `starts_at`, `ends_at` or `title`. An update of either that changes nothing writes nothing
-  and tells nobody.
+  `starts_at`, `ends_at` or `title`. A `kind` that changes while the update leaves
+  `covers_lesson` alone carries it along when it was what the old kind means, so a trip
+  nobody set apart, turned into a canteen break, stops replacing the lessons, as a break
+  created so would; one somebody set apart from its kind keeps it (#423). An update of
+  either that changes nothing writes nothing and tells nobody.
   `UpdateDay` clears `note` and `bell_schedule_id` when they are masked and left unset — the
   schedule refused on a shortened day, which would ring the default — and refuses `kind` so;
   `UpdateSubstitution` clears `subject`, `room`, `teacher` and `note`, and refuses `action`.

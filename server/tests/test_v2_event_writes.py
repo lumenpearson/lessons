@@ -22,6 +22,7 @@ from protobuf.wkt import FieldMask
 from sqlalchemy import func, select
 
 from app import wording
+from app.contract.lessons.v2.common_pb import EventKind as ProtoKind
 from app.contract.lessons.v2.event_pb import (
     DeleteEventRequest,
     Event,
@@ -170,6 +171,27 @@ async def test_a_masked_field_left_out_clears_the_place_and_gives_the_lessons_ba
     assert bounded.violations == [("event.date", clock.DATE_OUT_OF_BOUNDS)]
     columns = await _columns(row.id)
     assert (columns.title, columns.location, columns.covers_lesson) == ("Экскурсия", None, True)
+
+
+async def test_a_kind_masked_alone_carries_the_lessons_along_with_it(
+    v2, v2_tokens, session, school_class
+) -> None:
+    """#423: ``covers_lesson`` follows the kind while it is what the old kind
+    means, so an event changed into a break reads as one created a break
+    would, and the other way round."""
+    trip = await _event(session, school_class)
+    canteen = await _event(
+        session, school_class, title="Обед", kind=EventKind.CANTEEN, covers_lesson=False
+    )
+    editor = v2_tokens["editor"]
+    rest = await v2.rest(UPDATE, _update(trip.id, "kind", kind=ProtoKind.CANTEEN), token=editor)
+    connect = await v2.connect(
+        UPDATE, _update(canteen.id, "kind", kind=ProtoKind.TRIP), token=editor
+    )
+    assert (rest.status, rest.message.event.covers_lesson) == (200, False)
+    assert (connect.status, connect.message.event.covers_lesson) == (200, True)
+    assert (await _columns(trip.id))[4:] == (EventKind.CANTEEN, "Эрмитаж", False)
+    assert (await _columns(canteen.id))[4:] == (EventKind.TRIP, "Эрмитаж", True)
 
 
 async def test_an_update_that_changes_nothing_writes_nothing_and_tells_nobody(

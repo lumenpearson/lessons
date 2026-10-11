@@ -177,9 +177,11 @@ async def update_event(call: Call, request: UpdateEventRequest) -> UpdateEventRe
     takes the place away, and a masked ``covers_lesson`` left unset puts it
     back to what the kind means; a masked date, time or title left unset is
     refused on its field, and a masked kind left unset is an event, as on a
-    create. One time moved is held against the one that stays. Announced once
-    committed, once, on the day the event is on afterwards; an update that
-    changes nothing writes nothing and tells nobody.
+    create. A kind changed without ``covers_lesson`` carries it along while it
+    is what the old kind means (#423, ``events_service.update``). One time
+    moved is held against the one that stays. Announced once committed,
+    once, on the day the event is on afterwards; an update that changes
+    nothing writes nothing and tells nobody.
     """
     editor, school_class = call.device_and_class()
     sent = request.event if request.event is not None else Event()
