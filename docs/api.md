@@ -1892,7 +1892,7 @@ page answers differently there but three things.
 - **What a provider has is said before a password is typed.** `GetDiaryCapabilities` lists,
   for every provider of the server's registry, the regions it signs in to, the ways in a
   phone may draw a form for (`SIGN_IN_METHOD_PASSWORD`, for both today) and the data the
-  provider has: Петербург the schedule, the homework, the marks, the periods, the subjects,
+  provider has: Petersburg the schedule, the homework, the marks, the periods, the subjects,
   the teachers and the turnstile; «Сетевой город» the first four, because its diary has
   none of the other three and is never asked them. With the diary off, `enabled` is false
   and no provider offers a way in or any data; the regions are v1's answer either way.
