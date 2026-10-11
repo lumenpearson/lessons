@@ -616,6 +616,23 @@ def diary_offline(monkeypatch) -> list[httpx.Request]:
     return asked
 
 
+@pytest.fixture(autouse=True)
+def region_probes_answered(monkeypatch) -> None:
+    """The self-check's probe of each «Сетевой город» region in use
+    (services/health.py, #406), answered here and never by a region's server:
+    a tick test holding a session or a binding would otherwise ask a real one.
+    A test that wants another answer replaces the seam again."""
+    from app.services import health
+
+    def client(proxy: str | None, timeout: float) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+            timeout=timeout,
+        )
+
+    monkeypatch.setattr(health, "_route_client", client, raising=False)
+
+
 @pytest.fixture
 async def v2_tokens(session, school_class) -> dict[str, str]:
     """A bearer for each caller the gate tells apart, in ``school_class``.

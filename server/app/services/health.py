@@ -4,15 +4,21 @@ Nothing inside a serverless deployment notices that it is broken. On 5 October
 a merge did not deploy for half an hour (#349) and the diary's proxy answered
 nothing for forty minutes, and the owner found each one by asking. So the tick,
 the one thing that arrives from outside every five minutes, asks four
-questions after its digests and sweeps and before the diary keep-alive
+questions, and one per «Сетевой город» region in use, after its digests and
+sweeps and before the diary keep-alive
 (``docs/specs/2026-10-05-monitoring-design.md``):
 
 - ``schema``: is the database at the revision this code expects?
 - ``v2``: did v2 load, or does ``main.mount_v2`` answer 503 for it?
 - ``diary_proxy``: does a ``HEAD`` of the Petersburg diary through
-  ``DIARY_PROXY_URL`` get any answer at all within five seconds?
+  ``DIARY_PROXY_URL`` get any answer at all within five seconds? ``unknown``
+  while ``DIARY_EGRESS`` sends nothing through it (direct or relay): whether
+  the tunnel answers is nobody's business on a tick that never uses it.
 - ``deploy``: is production running ``main``'s head, or did ``main`` move less
   than fifteen minutes ago?
+- ``diary_region:<key>``: does a region a class is bound to or a live session
+  is on answer a probe sent by its own route - the proxy or direct - and not
+  refuse this address (#406)?
 
 Each ends ``ok``, ``failing`` or ``unknown``. Unknown is a check that could not
 run - GitHub not answering, a deployment that is not production, a proxy
@@ -39,18 +45,23 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from html import escape
+from typing import TYPE_CHECKING
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import telegram_send
-from app.config import Settings, deployment
+from app.config import DiaryEgress, Settings, deployment
 from app.db import EXPECTED_REVISION, current_revision, rows_affected
-from app.models import HealthCheck
+from app.models import DiarySession, HealthCheck, SchoolClass
+from app.providers.diary.registry import NETSCHOOL, proxy_for, row_for
 from app.providers.petersburg.client import BASE_URL as DIARY_ORIGIN
 from app.wording import cut, duration
+
+if TYPE_CHECKING:
+    from app.providers.netschool.regions import Region
 
 log = logging.getLogger(__name__)
 
@@ -103,6 +114,44 @@ WORDS: dict[str, tuple[str, str]] = {
     ),
 }
 
+#: A «Сетевой город» region's check is this and its allow-list key: one row per
+#: region in use (#406), at most 24 characters in a column of 32.
+REGION_CHECK = "diary_region:"
+
+#: What the owner can do about a region that stops answering, by the route the
+#: failing probe took (the owner's decision of 11 October 2026).
+HINT_PROXIED = (
+    "Регион мог закрыть доступ с адреса прокси — переведите его на прямой маршрут "
+    "(via_proxy в regions.py)."
+)
+HINT_DIRECT = (
+    "Регион мог закрыть доступ с адреса сервера — проверьте его через прокси и, "
+    "если отвечает, включите via_proxy в regions.py."
+)
+
+
+def region_check(key: str) -> str:
+    return f"{REGION_CHECK}{key}"
+
+
+def region_title(name: str) -> str:
+    """«Сетевой город» and the region's title, for a region's row; the bare key
+    for one the allow-list no longer holds."""
+    from app.providers.netschool import regions
+
+    key = name.removeprefix(REGION_CHECK)
+    known = regions.get(key)
+    return f"«Сетевой город» · {known.title if known is not None else key}"
+
+
+def words(name: str) -> tuple[str, str]:
+    """What the owner is told when a check goes down and when it comes back."""
+    if name in WORDS:
+        return WORDS[name]
+    title = escape(region_title(name))
+    return f"{title}: сервер региона недоступен", f"{title}: сервер региона снова доступен"
+
+
 #: A sender: each ``(telegram_id, text)`` in, whether each was delivered out.
 Sender = Callable[[Sequence[tuple[int, str]]], Awaitable[list[bool]]]
 
@@ -125,6 +174,11 @@ class Result:
     #: rule). Never written to ``health_checks`` - only ``status``, ``reason``
     #: and ``round_trip_ms`` are.
     timed_out: bool = False
+    #: What the owner can do, for a check whose remedy depends on how it
+    #: failed: a region's check sets it from the route its probe took, never
+    #: from the reason's wording, which is free to change. Never written to
+    #: ``health_checks``.
+    hint: str = ""
 
 
 @dataclass(frozen=True)
@@ -194,14 +248,15 @@ def decide(previous: Previous | None, result: Result, now: datetime) -> Step:
     return Step(OK, since)
 
 
-def message(name: str, step: Step, reason: str) -> str:
+def message(name: str, step: Step, reason: str, hint: str = "") -> str:
     """The owner's message for ``step``, or ``""`` when there is none.
 
     HTML, as the bot sends everything: the reason is built from facts by the
     check, and escaped all the same, because everything that goes into a
-    message is.
+    message is. ``hint`` says what the owner can do, and is read only for
+    «down» and «reminder» - never for «up», which says nothing of it.
     """
-    down, back = WORDS[name]
+    down, back = words(name)
     minutes = max(1, round(step.lasted.total_seconds() / 60)) if step.lasted else 0
     if step.alert == "up":
         return f"🟢 {back}, простой {duration(minutes)}"
@@ -211,6 +266,8 @@ def message(name: str, step: Step, reason: str) -> str:
         text = f"🔴 {down}"
     else:
         return ""
+    if hint:
+        text += f"\n{escape(hint)}"
     if reason:
         text += f"\n<code>{escape(cut(reason, REASON_MAX))}</code>"
     return text
@@ -271,13 +328,20 @@ async def check_diary_proxy(
 
     Any HTTP status is ``ok``: it means the tunnel and the diary both
     answered, which is all this asks. Only when the setting is set; empty is
-    a route, not a fault (``config.py``).
+    a route, not a fault (``config.py``). ``unknown`` too when ``DIARY_EGRESS``
+    sends nothing through it (direct or relay, #406): whether the proxy
+    answers is nobody's business this tick when no diary call takes it.
     """
     if not settings.diary_proxy_url.strip():
-        return Result(UNKNOWN, "DIARY_PROXY_URL is empty: the diary is called directly")
+        return Result(UNKNOWN, "DIARY_PROXY_URL is empty: no diary goes through a proxy")
     proxy = settings.diary_proxy
     if proxy is None:
-        return Result(UNKNOWN, "DIARY_PROXY_URL is unusable: the diary is called directly")
+        return Result(UNKNOWN, "DIARY_PROXY_URL is unusable: no diary goes through a proxy")
+    if settings.diary_egress_value is not DiaryEgress.PROXY:
+        # DIARY_EGRESS said direct or relay: the proxy carries nothing, so
+        # whether it answers is nobody's business this tick (#406).
+        said = settings.diary_egress_asked
+        return Result(UNKNOWN, f"DIARY_EGRESS is {said}: no diary goes through the proxy")
     loop = asyncio.get_running_loop()
     started = loop.time()
     try:
@@ -299,6 +363,90 @@ async def check_diary_proxy(
         return Result(FAILING, f"no answer through the proxy: {type(failure).__name__}")
     round_trip = round((loop.time() - started) * 1000)
     return Result(OK, f"HTTP {response.status_code}", round_trip_ms=round_trip)
+
+
+def _route_client(proxy: str | None, timeout: float) -> httpx.AsyncClient:
+    """A client of its own for one region's probe, direct or through the proxy:
+    not the diary's pool, which a probe must not hold. The seam the tests and
+    conftest replace."""
+    return httpx.AsyncClient(proxy=proxy, timeout=timeout, follow_redirects=False)
+
+
+async def regions_in_use(session: AsyncSession) -> list[Region]:
+    """The «Сетевой город» regions this deployment calls, by key: each a class is
+    bound to (`classes.diary_region`) and each a live session is on, that the
+    allow-list still serves with a password - sixteen at most. A region nobody
+    uses is not probed: an alert about a server no family reaches is noise."""
+    from app.providers.netschool import regions
+
+    bound = set(
+        await session.scalars(
+            select(SchoolClass.diary_region).where(SchoolClass.diary_provider == NETSCHOOL)
+        )
+    )
+    live = set(
+        await session.scalars(
+            select(DiarySession.region).where(
+                DiarySession.provider == NETSCHOOL, DiarySession.expired_at.is_(None)
+            )
+        )
+    )
+    row = row_for(NETSCHOOL)
+    keys = sorted(
+        key
+        for key in bound | live
+        if key is not None and row is not None and row.served_region(key)
+    )
+    found = (regions.get(key) for key in keys)
+    return [region for region in found if region is not None]
+
+
+async def check_diary_region(
+    region: Region, settings: Settings, *, timeout: float = CHECK_TIMEOUT_SECONDS
+) -> Result:
+    """One ``GET /webapi/logindata`` of a region's server, by its calls' route.
+
+    ``ok`` for any answer but a refusal: the route and the server both
+    answered. ``failing`` for no answer, and for a 403 or a WAF's page - the
+    client's own reading (`netschool.client.looks_refused`) - because a region
+    refusing this address is a route that does not work, whatever it would say
+    to anyone else. Sent with the diary client's own headers and user agent, so
+    the region sees what a family's call looks like. The reason names the
+    route, and never the proxy's address; the hint says what the owner can do.
+    """
+    from app.providers.diary.http import USER_AGENT
+    from app.providers.netschool.client import HEADERS, PROBE, looks_refused
+
+    proxy = proxy_for(NETSCHOOL, region.key, settings)
+    way = "through the proxy" if proxy else "directly"
+    hint = HINT_PROXIED if proxy else HINT_DIRECT
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    try:
+        headers = {"user-agent": USER_AGENT, **HEADERS}
+        async with _route_client(proxy, timeout) as client:
+            response = await asyncio.wait_for(
+                client.get(f"{region.origin}{PROBE}", headers=headers), timeout
+            )
+    except (httpx.TimeoutException, TimeoutError) as failure:
+        return Result(
+            FAILING, f"no answer {way}: {type(failure).__name__}", timed_out=True, hint=hint
+        )
+    except httpx.HTTPError as failure:
+        return Result(FAILING, f"no answer {way}: {type(failure).__name__}", hint=hint)
+    round_trip = round((loop.time() - started) * 1000)
+    if looks_refused(response):
+        return Result(
+            FAILING,
+            f"refused {way}: HTTP {response.status_code}",
+            round_trip_ms=round_trip,
+            hint=hint,
+        )
+    return Result(OK, f"HTTP {response.status_code} {way}", round_trip_ms=round_trip)
+
+
+def _region_probe(region: Region, settings: Settings) -> Callable[[float], Awaitable[Result]]:
+    return lambda timeout: check_diary_region(region, settings, timeout=timeout)
 
 
 class _Unreadable(Exception):
@@ -478,7 +626,10 @@ async def _within(deadline: float, check: Callable[[float], Awaitable[Result]]) 
 
 async def _results(
     session: AsyncSession, settings: Settings, *, v2_mounted: bool, deadline: float, now: datetime
-) -> dict[str, Result]:
+) -> tuple[dict[str, Result], list[str] | None]:
+    """The four fixed checks plus one per region in use, and the region names
+    - ``None`` when :func:`regions_in_use` itself could not be read, which
+    then touches no ``diary_region:`` row at all (Ruling 11)."""
     try:
         schema = await check_schema(session)
     except Exception as failure:  # noqa: BLE001 - see _within
@@ -492,11 +643,39 @@ async def _results(
     except Exception as failure:  # noqa: BLE001 - see _within
         log.exception("a health check raised")
         v2 = Result(UNKNOWN, f"the check raised {type(failure).__name__}")
-    proxy, deploy = await asyncio.gather(
-        _within(deadline, lambda timeout: check_diary_proxy(settings, timeout=timeout)),
-        _within(deadline, lambda timeout: check_deploy(settings, now, timeout=timeout)),
+    try:
+        regions = await regions_in_use(session)
+    except Exception:  # noqa: BLE001 - see _within
+        await session.rollback()
+        log.exception("could not read the regions in use")
+        regions = None
+
+    network: list[Callable[[float], Awaitable[Result]]] = [
+        lambda timeout: check_diary_proxy(settings, timeout=timeout),
+        lambda timeout: check_deploy(settings, now, timeout=timeout),
+    ]
+    if regions is not None:
+        network += [_region_probe(region, settings) for region in regions]
+    proxy, deploy, *region_results = await asyncio.gather(
+        *(_within(deadline, check) for check in network)
     )
-    return {"schema": schema, "v2": v2, "diary_proxy": proxy, "deploy": deploy}
+
+    results = {"schema": schema, "v2": v2, "diary_proxy": proxy, "deploy": deploy}
+    region_names: list[str] | None = None
+    if regions is not None:
+        region_names = [region_check(region.key) for region in regions]
+        for region, result in zip(regions, region_results, strict=True):
+            if (
+                result.status == FAILING
+                and proxy.status == FAILING
+                and proxy_for(NETSCHOOL, region.key, settings) is not None
+            ):
+                # The region's own route is the proxy, and the proxy is
+                # itself down: a region behind a dead tunnel saying nothing
+                # is not news (Ruling 13).
+                result = Result(UNKNOWN, "the proxy itself does not answer (diary_proxy)")
+            results[region_check(region.key)] = result
+    return results, region_names
 
 
 async def run(
@@ -521,13 +700,14 @@ async def run(
     checks_deadline = start + HEALTH_HARD_STOP_SECONDS - SEND_RESERVE_SECONDS
     send_deadline = start + HEALTH_HARD_STOP_SECONDS
     now = _now()
-    results = await _results(
+    results, region_names = await _results(
         session, settings, v2_mounted=v2_mounted, deadline=checks_deadline, now=now
     )
+    names = [*CHECKS, *region_names] if region_names is not None else list(CHECKS)
 
     stored = {row.name: row for row in await session.scalars(select(HealthCheck))}
     alerts: list[_Alert] = []
-    for name in CHECKS:
+    for name in names:
         result = results[name]
         row = stored.get(name)
         previous = None if row is None else Previous(row.status, row.since, row.last_alert_at)
@@ -546,22 +726,33 @@ async def run(
             log.warning("health check %s is failing: %s", name, result.reason)
         if step.alert is not None:
             expected = None if previous is None else previous.last_alert_at
+            hint = result.hint if step.alert in ("down", "reminder") else ""
             alerts.append(
                 _Alert(
                     name=name,
                     kind=step.alert,
-                    text=message(name, step, result.reason),
+                    text=message(name, step, result.reason, hint),
                     expected=expected,
                     claimed=None if step.alert == "up" else now,
                 )
             )
+    if region_names is not None:
+        # A region no longer bound and no longer signed in to loses its row:
+        # an alert about a server no family reaches would be noise, and the
+        # screen keeps showing a region nobody can confirm is still there.
+        await session.execute(
+            delete(HealthCheck).where(
+                HealthCheck.name.startswith(REGION_CHECK, autoescape=True),
+                HealthCheck.name.not_in(region_names),
+            )
+        )
     await session.commit()
 
     owners = settings.owner_id_list
     if owners:
         for alert in alerts:
             await _tell(session, alert, owners, send or telegram_send.send, send_deadline)
-    return {name: results[name].status for name in CHECKS}
+    return {name: results[name].status for name in names}
 
 
 async def _tell(

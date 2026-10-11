@@ -184,8 +184,8 @@ async def tick(
     # budget: a failing check, a slow GitHub or a Telegram that refuses the
     # owner's alert must not fail the tick that reports it, nor cost the digests
     # and sweeps above. It runs before the keep-alive, because the keep-alive
-    # calls the regional «Сетевой город» servers - directly, not through the
-    # Petersburg diary's proxy (#367) - and when one hangs it holds the
+    # calls the regional «Сетевой город» servers - each by its route, directly
+    # or through the proxy (#367, #406) - and when one hangs it holds the
     # request until its own hard stop; after it, the checks would have no time
     # left in the tick that most needs them. Its answer is in
     # `health_checks` and the owner's chat, not in the tick's body, so the
