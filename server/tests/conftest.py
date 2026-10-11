@@ -630,7 +630,7 @@ def region_probes_answered(monkeypatch) -> None:
             timeout=timeout,
         )
 
-    monkeypatch.setattr(health, "_route_client", client, raising=False)
+    monkeypatch.setattr(health, "_route_client", client)
 
 
 @pytest.fixture
