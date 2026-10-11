@@ -53,11 +53,9 @@ class AppSettingsTest {
      * here because a default that quietly dropped a tab would look like a
      * rendering bug rather than like a default.
      *
-     * The mapping that writes this field into the preferences file and reads it
-     * back is `LessonsPreferences.toSettings`, which is private to a class that
-     * needs a `Context`; this module has no Robolectric, so there is no seam to
-     * pin the round trip through. What can be checked without one is checked in
-     * `:core:model`, where `HomeTab.order` is the whole of the repair.
+     * The round trip through the preferences file — this field among every
+     * other — is `SettingsRoundTripTest`'s, over the store's in-memory double;
+     * what `HomeTab.order` repairs on the way back is checked in `:core:model`.
      */
     @Test
     fun `the default tab order is every tab, as declared`() {
