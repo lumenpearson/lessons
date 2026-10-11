@@ -973,8 +973,9 @@ inside its allowance for timings.
 The privacy policy names Sentry, in «Третьи стороны» and in «Чего сервер не хранит», since
 its edition 4 (#425): what leaves, what never does, and that this operator's Sentry data is
 kept in Germany (the organisation's region is `de.sentry.io`). A deployment without
-`SENTRY_DSN` — this one after step 3, or a fork — deletes that point as the `[SENTRY]` comment
-above it says, and raises the edition.
+`SENTRY_DSN` — this one after step 3, or a fork — deletes that point and rewords the sentence
+in «Чего сервер не хранит» to say the server sends nothing, as the `[SENTRY]` comment above the
+point says, and raises the edition.
 
 ### Where the graphs are
 

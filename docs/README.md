@@ -15,7 +15,7 @@ neighbour — if the answer is not here it is in the code, and there is usually 
 | are deploying the server | [deploy.md](deploy.md) |
 | are writing code | [architecture.md](architecture.md), then [CLAUDE.md](../CLAUDE.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) |
 | are writing a client for the API | [api.md](api.md) |
-| want to connect a diary other than Петербург's | [diaries.md](diaries.md) |
+| want to connect a diary other than Petersburg's | [diaries.md](diaries.md) |
 | are picking up the work | [HANDOVER.md](../HANDOVER.md), then [history.md](history.md) for every batch before its last two |
 
 ## Every document
@@ -27,7 +27,7 @@ neighbour — if the answer is not here it is in the code, and there is usually 
 | [widget.md](widget.md) | twelve sizes, seven states, the three sentences it draws when it has nothing to draw, the update schedule, why not a tick once a minute |
 | [build.md](build.md) | standing the project up from a clone and how much of `server/.env` each step needs, the eight secrets and one variable Actions holds and what reads them, building the APK in Actions and locally, signing with your own key, the GitHub OAuth App and getting its client id into a build (which the sign-in, the bug report and the developer mode all need), the v2 contract and Buf (fetching the binary, linting, generating, breaking changes, the rate limit), where the terms and the privacy policy link to and what a fork must change, a release from a tag, the one check `main` requires and why it is not the gates' own, Actions minutes and where they go, the bundled typeface, pointing the app at a server, what an `http://` server carries |
 | [deploy.md](deploy.md) | Vercel plus Neon, your own server, or the host target — the whole app over HTTP/2, with native gRPC and the streaming beta — the webhook, migrations, why the server has no clock of its own, and what tells the owner when something is wrong |
-| [api.md](api.md) | the whole `/api/v1` contract, and at its end the v2 contract, served beside v1, every unary method of it: reads, writes, class management, the electronic diary — Петербург and «Сетевой город» behind one contract, signed into by this server or registered from a session the client opened itself — and the anonymous school directory |
+| [api.md](api.md) | the whole `/api/v1` contract, and at its end the v2 contract, served beside v1, every unary method of it: reads, writes, class management, the electronic diary — Petersburg and «Сетевой город» behind one contract, signed into by this server or registered from a session the client opened itself — and the anonymous school directory |
 | [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the three homes a phone can have and the first run's state, the developer mode, why its gate is not a lock, and its request console, the service layer, the diary on both sides — the server's providers and the phone's sign-in, `diary.db` and import — the tests |
 | [design.md](design.md) | the design system: what was taken from Essentials, what was fixed, and the reasoning behind every visible decision in the interface |
 | [diaries.md](diaries.md) | which electronic diary every region of Russia runs in September 2026, how a client signs in to each platform, and what that means for a second provider; **not about this project's own code** — the survey a future provider is written from — except for one section, the region catalog the server and the app read, which is generated from this survey |
