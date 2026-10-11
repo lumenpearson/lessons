@@ -13,8 +13,8 @@ import kotlinx.serialization.SerializationException
  * developer mode's gate.
  *
  * Reads the token from [GithubPreferences] on every call and clears it on a
- * `401`, as the other three do; any other refusal decides nothing (see
- * [repositoryPermissions]).
+ * `401`, as the issues and the pull requests do; any other refusal decides
+ * nothing (see [repositoryPermissions]).
  */
 internal class GithubPermissions(
     private val preferences: GithubPreferences,

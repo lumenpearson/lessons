@@ -12,7 +12,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
  * An issue filed as the signed-in account, labelled as sent from the app.
  *
  * Reads the token from [GithubPreferences] on every call, and clears it on a
- * `401` itself, as each of [GithubRepositoryImpl]'s collaborators does.
+ * `401` itself, as [GithubPullRequests] and [GithubPermissions] do.
  */
 internal class GithubIssues(
     private val preferences: GithubPreferences,

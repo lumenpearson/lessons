@@ -22,10 +22,12 @@ import kotlinx.coroutines.withContext
  *
  * Its four concerns are four classes — [GithubDeviceFlow], [GithubPullRequests],
  * [GithubIssues] and [GithubPermissions] — and this one hands them out behind
- * the interface. They share [GithubPreferences] rather than a token: none of
- * them holds one, every call reads it, and whichever of them meets a `401`
- * clears it, so a token GitHub stopped honouring is forgotten wherever it is
- * found. They share one lazy user agent too, which is asked for once.
+ * the interface. They share [GithubPreferences] rather than a token, and none
+ * of them holds one: [GithubDeviceFlow] writes it there and never reads it,
+ * the other three read it there when they are called, and a `401` answering
+ * the issue, the permissions read or one of the pull request's reads clears
+ * it, so a token GitHub stopped honouring is forgotten where it is found. They
+ * share one lazy user agent too, which is asked for once.
  *
  * Internal because the container hands out the interface; there is nothing to
  * do with the class itself except build a second one, and the polling job

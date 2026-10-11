@@ -16,9 +16,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
  * account: the fork, a branch cut from upstream, the files patched, the pull
  * request opened.
  *
- * [get] is this class's own, because only these helpers read a body by URL;
- * like every call here it reads the token from [GithubPreferences], and a
- * `401` clears it.
+ * [get] is this class's own, because only these helpers read a body by URL.
+ * [openTranslationPullRequest] reads the token from [GithubPreferences] once
+ * and hands it to every request after it, [get] included. Only a `401` that
+ * [get] receives clears it; one answering the fork's request, the branch, a
+ * file's write or the pull request itself does not.
  */
 internal class GithubPullRequests(
     private val preferences: GithubPreferences,
