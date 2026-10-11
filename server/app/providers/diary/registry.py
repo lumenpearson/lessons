@@ -4,9 +4,10 @@
 decision 12): one :class:`Row` per provider — its key, where its implementation
 lives, what a class's binding to it needs, the ways in a phone may draw a form
 for, the data it has, how a child's corrections are scoped, whether the tick
-keeps its sessions open, and how what a phone hands over is sealed. Every
-question asked of a provider key reads its row, so a provider is added by a row
-and its module, and no ``if`` on a key has to learn about it.
+keeps its sessions open, and how what a phone hands over is sealed, and
+whether its calls go through the deployment's proxy (#406). Every question
+asked of a provider key reads its row, so a provider is added by a row and its
+module, and no ``if`` on a key has to learn about it.
 
 A row names its implementation, and a regional provider its allow-list, as a
 module path imported on first use — so neither Petersburg's client nor «Сетевой
@@ -28,6 +29,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
+from app.config import DiaryEgress, Settings, get_settings
 from app.providers.diary.base import DiaryProvider
 
 if TYPE_CHECKING:
@@ -112,6 +114,11 @@ class Row:
     #: JSON of everything handed, as «Сетевой город»'s ``at``, cookies, ``ver``
     #: and ``time_out`` are.
     bare_field: str | None
+    #: For a provider that is one server, whether its calls go through the
+    #: deployment's proxy when ``DIARY_EGRESS`` is ``proxy`` (#406): Petersburg's
+    #: city diary drops connections from abroad (#235). A regional provider's
+    #: regions each say it (``Region.via_proxy``), and this is not read for one.
+    via_proxy: bool
 
     def provider(self) -> DiaryProvider:
         """The implementation, imported on the first call for it."""
@@ -144,6 +151,17 @@ class Row:
         known = allow.get(region) if allow is not None else None
         return urlsplit(known.origin).netloc.lower() if known is not None else None
 
+    def proxied(self, region: str | None) -> bool:
+        """Whether this provider's server for ``region`` is one the proxy
+        carries: the row's own flag for a provider that is one server, the
+        region's for a regional one, and never for a region the allow-list
+        does not hold."""
+        allow = self._allow_list()
+        if allow is None:
+            return self.via_proxy
+        known = allow.get(region)
+        return known is not None and known.via_proxy
+
 
 TABLE: tuple[Row, ...] = (
     Row(
@@ -166,6 +184,7 @@ TABLE: tuple[Row, ...] = (
         scope=Scope.PROVIDER,
         kept_alive=False,
         bare_field="token",
+        via_proxy=True,
     ),
     Row(
         key=NETSCHOOL,
@@ -180,6 +199,7 @@ TABLE: tuple[Row, ...] = (
         scope=Scope.REGIONAL_SERVER,
         kept_alive=True,
         bare_field=None,
+        via_proxy=False,  # Its regions say, each (regions.Region.via_proxy).
     ),
 )
 
@@ -207,6 +227,31 @@ def provider_for(key: str | None) -> DiaryProvider | None:
 def kept_alive() -> tuple[str, ...]:
     """The keys whose live sessions the tick pings."""
     return tuple(row.key for row in TABLE if row.kept_alive)
+
+
+def route(
+    key: str | None, region: str | None = None, settings: Settings | None = None
+) -> DiaryEgress:
+    """How this deployment reaches ``key``'s server for ``region`` (#406):
+    through the proxy where ``DIARY_EGRESS`` takes effect as ``proxy`` and the
+    row says the proxy carries that server, directly everywhere else. Never
+    ``RELAY``: the relay is not built (#408). Reads the row, the region and the
+    setting, and imports no client."""
+    settings = settings or get_settings()
+    if settings.diary_egress_value is not DiaryEgress.PROXY:
+        return DiaryEgress.DIRECT
+    row = row_for(key)
+    if row is not None and row.proxied(region):
+        return DiaryEgress.PROXY
+    return DiaryEgress.DIRECT
+
+
+def proxy_for(
+    key: str | None, region: str | None = None, settings: Settings | None = None
+) -> str | None:
+    """``DIARY_PROXY_URL`` where :func:`route` says the proxy, else ``None``."""
+    settings = settings or get_settings()
+    return settings.diary_proxy if route(key, region, settings) is DiaryEgress.PROXY else None
 
 
 @dataclass(frozen=True)

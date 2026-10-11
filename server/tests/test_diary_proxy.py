@@ -82,7 +82,9 @@ async def test_the_diary_goes_through_the_proxy_when_one_is_set(fresh_client):
 
 
 async def test_the_diary_goes_direct_without_one(fresh_client):
-    fresh_client.delenv("DIARY_PROXY_URL", raising=False)
+    # Empty rather than removed: Settings reads server/.env too, and a value
+    # there would stand where the environment says nothing (#419).
+    fresh_client.setenv("DIARY_PROXY_URL", "")
     get_settings.cache_clear()
     client = await petersburg.shared_client()
     assert _pool_of(client) == "AsyncConnectionPool"

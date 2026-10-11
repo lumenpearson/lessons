@@ -460,3 +460,11 @@ def test_vercel_never_streams_whatever_it_is_told():
     """There is no flag that could claim a stream on Vercel (decision 7)."""
     assert deployed(LESSONS_STREAMING="true").streaming_enabled is False
     assert hosted(LESSONS_STREAMING="true").streaming_enabled is True
+
+
+@pytest.mark.parametrize("egress", ["", "proxy", "direct", "relay", "sideways"])
+def test_the_egress_is_never_a_reason_to_refuse_a_deployment(egress):
+    """#406: optional, as CLAUDE.md says every such setting is. Read, and refused never."""
+    settings = deployed(DIARY_EGRESS=egress, DIARY_PROXY_URL="")
+    assert settings.diary_egress == egress
+    assert settings.deployment_problems() == []

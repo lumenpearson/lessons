@@ -6,6 +6,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from functools import lru_cache
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -27,6 +28,22 @@ LOCAL_DATABASE_URL = "sqlite+aiosqlite:///./lessons.db"
 #: sufficient length works — and «sufficient» has to be stated somewhere both
 #: the cipher and the startup log can read it.
 MIN_DIARY_SECRET_LENGTH = 32
+
+
+class DiaryEgress(StrEnum):
+    """How a deployment reaches a diary's own server: ``DIARY_EGRESS``'s words
+    (docs/specs/2026-10-10-deployment-scenarios-design.md, «How a scenario is
+    chosen»). v2's ``DiaryEgress`` by its value's name without the prefix, which
+    ``test_diary_registry.py`` holds level with the proto."""
+
+    #: From wherever the server runs, with nothing in between.
+    DIRECT = "direct"
+    #: Through ``DIARY_PROXY_URL``, for the servers the route table marks
+    #: (``providers/diary/registry.route``).
+    PROXY = "proxy"
+    #: The phone fetches the diary and hands it over (#408). Not built: read as
+    #: direct, and never reported.
+    RELAY = "relay"
 
 
 class DeploymentNotConfigured(RuntimeError):
@@ -133,7 +150,9 @@ class Settings(BaseSettings):
     # confidently with last year's schools and nothing would say which it was.
     dadata_token: str = ""
 
-    # An HTTP proxy for the Petersburg diary's requests, and only theirs (#334).
+    # An HTTP proxy for the diaries' requests that DIARY_EGRESS sends there
+    # (#334, #406): Petersburg's, and those of the «Сетевой город» regions known
+    # to answer from it.
     # The city's network drops connections from outside Russia (#235), and the
     # whole server cannot move there, because Telegram is blocked from Russian
     # data centres. So the API stays where it is and this one upstream goes
@@ -144,6 +163,17 @@ class Settings(BaseSettings):
     # never logged, and the startup line names the setting without quoting it.
     # Empty means direct, which is what it always was.
     diary_proxy_url: str = ""
+
+    # How this deployment reaches the diaries (#406): `direct`, `proxy` or
+    # `relay`. Optional, and never a reason to refuse to start. Unset, it is
+    # `proxy` where DIARY_PROXY_URL is usable and `direct` otherwise - what
+    # production did before the setting existed. `proxy` sends Petersburg, and
+    # each «Сетевой город» region the route table marks (`Region.via_proxy`),
+    # through DIARY_PROXY_URL; `direct` sends nothing through it even with one
+    # set. `relay` is accepted and read as `direct` until the relay exists
+    # (#408). A value that is none of the three is read as unset, and the
+    # startup log says so without repeating it.
+    diary_egress: str = ""
 
     # Public origin of this deployment ("https://lessons.example.com"), for the
     # calendar feed URL the bot shows. Configured rather than read off a
@@ -441,6 +471,34 @@ class Settings(BaseSettings):
         return value
 
     @property
+    def diary_egress_asked(self) -> DiaryEgress | None:
+        """``DIARY_EGRESS`` as one of its three words, whatever its case and
+        spacing; ``None`` when it is unset or says none of them."""
+        value = self.diary_egress.strip().lower()
+        try:
+            return DiaryEgress(value) if value else None
+        except ValueError:
+            return None
+
+    @property
+    def diary_egress_value(self) -> DiaryEgress:
+        """How this deployment reaches a diary, as it takes effect: ``DIRECT``
+        or ``PROXY``, never ``RELAY``.
+
+        ``proxy``, unset and unusable all mean the proxy where a usable
+        ``DIARY_PROXY_URL`` backs it, and direct otherwise. ``direct`` is direct
+        whatever URL stands beside it. ``relay`` is direct too: the relay is not
+        built (#408), and a deployment that asks for it chose not to depend on a
+        proxy, so falling back to one it may still carry would send its
+        families' calls through a hop it declined. Direct is what every
+        «Сетевой город» call was before #406, and the capabilities report it,
+        so no phone starts relaying to a server with nowhere to relay to.
+        """
+        if self.diary_egress_asked in (DiaryEgress.DIRECT, DiaryEgress.RELAY):
+            return DiaryEgress.DIRECT
+        return DiaryEgress.PROXY if self.diary_proxy is not None else DiaryEgress.DIRECT
+
+    @property
     def sentry_dsn_value(self) -> str | None:
         """``SENTRY_DSN`` if ``sentry_sdk.init`` could use it, else ``None``.
 
@@ -493,7 +551,32 @@ class Settings(BaseSettings):
         if self.diary_proxy is None and self.diary_proxy_url.strip():
             off.append(
                 "DIARY_PROXY_URL is set but unusable (it must be an http:// or https:// "
-                "address with a host): the Petersburg diary is called directly"
+                "address with a host): no diary goes through a proxy"
+            )
+        # DIARY_EGRESS (#406): only what does not take effect as written. A value
+        # that is none of the three words is described and never repeated - it
+        # is whatever somebody typed into a host's form. `direct` beside a usable
+        # proxy is a choice and announces nothing, as an empty proxy does.
+        asked = self.diary_egress_asked
+        if asked is None and self.diary_egress.strip():
+            effect = (
+                "the diaries the proxy reaches go through it"
+                if self.diary_egress_value is DiaryEgress.PROXY
+                else "every diary is called directly"
+            )
+            off.append(
+                "DIARY_EGRESS is set but unusable (it takes direct, proxy or relay): "
+                f"it is read as unset, so {effect}"
+            )
+        elif asked is DiaryEgress.RELAY:
+            off.append(
+                "DIARY_EGRESS is relay, which this server does not have yet (#408): "
+                "every diary is called directly"
+            )
+        elif asked is DiaryEgress.PROXY and not self.diary_proxy_url.strip():
+            off.append(
+                "DIARY_EGRESS is proxy but DIARY_PROXY_URL is empty: "
+                "every diary is called directly"
             )
         if not self.public_base_url:
             off.append(
