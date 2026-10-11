@@ -883,8 +883,9 @@ argue with how Compose is written rather than with how this code is: `FunctionNa
 and `MagicNumber` does not look inside a `@Preview`. The file gives the reason for each.
 
 **What it forgives.** Each module has a `detekt-baseline.xml` holding the findings the code
-already had when detekt was switched on — 492 entries as the five files stand (#325), most of
-them `MagicNumber` (218), `ReturnCount` (81) and `MaxLineLength` (65). An entry names a rule,
+already had when detekt was switched on — 493 entries as the five files stand (#325, and pull
+request A of the Android decomposition), most of them `MagicNumber` (218), `ReturnCount` (81)
+and `MaxLineLength` (65). An entry names a rule,
 a file and a declaration, so one entry can forgive several findings: when the baselines were
 first written, 576 findings sat under 488 entries, and the findings have not been recounted
 since — that takes a detekt run, and these numbers are a count of the files. They pass; a

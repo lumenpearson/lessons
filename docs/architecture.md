@@ -1005,8 +1005,8 @@ with the host.
 
 ## Testing
 
-3332 tests on the server, 1730 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
+3332 tests on the server, 1738 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 125, `:core:data` 623,
 `:core:designsystem` 196, `:widget` 126, `:app` 668 (#325).
 
 The table below is the load-bearing part of that rather than the whole of it:
@@ -1046,6 +1046,7 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `android/core/data/.../upstream/DiaryProtocolVectorsTest.kt` | the phone's sign-in ports against the same known-answer vectors as the server's, over MockWebServer | JVM JUnit |
 | `android/core/data/.../diary/DiaryCacheTest.kt`, `DiaryImportTest.kt` | `diary.db`'s write-through, the generation guard across a sign-out, the import's phases, resume and zone, and `refreshIfStale` | JVM JUnit |
 | `android/core/data/.../sync/SyncWorkerSourceTest.kt` | that the worker, the widget, the alerts and every declared application, receiver and service never name the diary | JVM JUnit, reading the sources |
+| `android/core/data/.../datastore/SettingsRoundTripTest.kt`, `BundleTagsAndRolesTest.kt` | every setting written comes back under its own key, with a value that differs from the defaults in every field (held by reflection, so a field added without a key fails) and an empty file reading as the defaults; a bundle tag read under its own signature only, class 1's sweep sparing classes 12 and 100, a sweep outside a set sparing the set, the fingerprint and the roles, the fingerprint forgotten on a switch of class, and a role kept per class and gone at a sign-out | JVM JUnit |
 | `android/app/.../RootGateTest.kt`, `SyncArmingTest.kt` | which home each mode opens on, and that the class sync is armed in a class only | JVM JUnit |
 | `android/app/.../ui/onboarding/OnboardingFlowTest.kt`, `OnboardingViewModelTest.kt` | the first run's routes, dots and resume, and that the saved state never carries a credential | JVM JUnit |
 

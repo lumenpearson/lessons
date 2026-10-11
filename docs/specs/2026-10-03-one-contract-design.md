@@ -554,8 +554,9 @@ memory is faulty. The splits:
 
 Kotlin's `private` is file-scoped, so a split widens some declarations to `internal`, and detekt's
 baseline entries name the file: each split ends with `./gradlew detektBaseline` and a review of
-what it removed. `org.gradle.workers.max` is capped in `gradle.properties` as part of this
-sub-project.
+what it removed. The Gradle workers are capped on the command line, `--max-workers=2` on the
+maintainer's machine only, not in `gradle.properties`: the owner's answer of 5 October (#306,
+question 1), written down in `docs/build.md`, «Two workers, on the maintainer's machine».
 
 ## 6. The build console
 

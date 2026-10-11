@@ -28,6 +28,149 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the diaries through the proxy, by region (#406)
+
+Merged as #422 (`6354c3d`, 11 October 2026), from `server/diary-routes`, on milestone 11. It
+closes #406, #419 and #420. The branch was cut from `main` at `a28473e`, the merge of #418, and
+carries the plan, four tasks of code and the documents. Written on 11 October 2026. No
+revision goes with it: the schema stays at `0019`, and the region checks fit `health_checks`'
+32-character names.
+
+The owner decided four things on the morning of 11 October, before a line was written: widen
+the RUVDS Squid ACL to every «Сетевой город» host («Расширить ACL, я разрешаю»), route **by
+region** from what that proxy reaches («По регионам»), give a region's alert a hint on what to
+do («С подсказкой, что делать»), and name the proxy in the privacy policy's «Третьи стороны».
+The plan is `docs/specs/2026-10-11-diary-routes-plan.md` (`032a3c0`), five tasks, each built
+and reviewed before the next.
+
+- **`DIARY_EGRESS` is the deployment's choice of how it reaches the diaries** (`87ff938`,
+  `config.py`): `direct`, `proxy` or `relay`, optional and never a reason to refuse to start.
+  Unset, unusable or `proxy`, it is the proxy where `DIARY_PROXY_URL` is usable and direct
+  otherwise, which is what production already did, so production sets nothing. `direct` sends
+  nothing through the proxy, Petersburg included; `relay` is read as `direct` until the relay
+  exists (#408). The startup log says only what does not take effect as written, and never
+  repeats a value.
+- **The route is a static table, the owner's probe of 11 October** (`87ff938`).
+  `Region.via_proxy` is true for the twelve «Сетевой город» hosts whose school search answered
+  through RUVDS, `Row.via_proxy` for Petersburg, and `registry.route` and `registry.proxy_for`
+  are the one answer to «how does this deployment reach this server». The five password regions
+  that refused the proxy or did not answer — Бурятия, Амурская, Томская, Рязанская, КЧР — stay
+  direct, as every region was before.
+- **#419: the suite no longer reads a developer's proxy** (`87ff938`). `conftest.py` sets
+  `DIARY_PROXY_URL` and `DIARY_EGRESS` empty, because `Settings` reads `server/.env` too and
+  the environment wins only for a name it holds; a proxy in a developer's `.env` would have
+  carried the suite's requests to real regional servers.
+- **Both diary clients take each server's route** (`c191974`). «Сетевой город» keeps two
+  pools, one direct and one through the proxy, and `client_for(region)` picks one on every
+  call — `_send`, `terms_search`, the keep-alive and the bot's school search all go through it;
+  Petersburg's one pool is built with `proxy_for(PETERSBURG)`. `shared_client()` keeps its
+  meaning, the direct pool, so every existing test fake still holds.
+- **v2's `GetDiaryCapabilities` says the route** (`2082f1a`): `DiaryCapabilities.egress = 3`,
+  the deployment's mode as it takes effect, and `ProviderCapabilities.routes = 5`, one
+  `DiaryRoute` per server. Additive, v2 only; v1's answer keeps its shape. No phone reads them
+  yet.
+- **The self-check probes each «Сетевой город» region in use, by its route** (`91087b2`): one
+  `diary_region:<key>` row per region a class is bound to or a live session is on, probed with
+  `GET /webapi/logindata` and the diary client's headers. A refusal or no answer is `failing`;
+  a proxied region that fails while `diary_proxy` fails reads `unknown`, so a dead tunnel is
+  one alert; at most 17 diary probes a tick, all at once inside the checks' budget; a region
+  that leaves use loses its row; `diary_proxy` reads `unknown` under `direct` or `relay`. A
+  «down» and its reminder carry a hint by the route the probe took, and «🩺 Состояние» and
+  `/health` draw a line per region.
+- **#420: a warmup test's class-wide patch no longer depends on fixture teardown order**
+  (`279a369`): Task 4's new autouse fixture flipped the order, and `no_stamp`'s cleanup met the
+  `OperationalError` the test simulated. `80cce89` then made the region-probe fixture fail
+  loudly if its seam ever moves.
+- **The documents and the privacy policy** (`6dd0e74`). `docs/deploy.md` has the routes, the
+  probe's results, the modes and the new monitoring row, including that **a region dropped
+  from use while failing goes silent**, with no «up», which is not a recovery; `docs/diaries.md`,
+  `architecture.md`, `api.md`, `bot.md`, `CLAUDE.md` and the README follow. «Третьи стороны»
+  and «Third parties» each gain one point, the operator's intermediary server in Russia at
+  RUVDS: an HTTP proxy and a TLS tunnel that sees the diary's address and the time, may log
+  them, and never sees a login, a password, a session or a mark. `legal.json` is edition 3,
+  effective 2026-10-11.
+
+### Gates
+
+- **The full suite on SQLite**, at the end of Task 4, `pytest -q -n 4`: **3312 passed, 6
+  skipped**, in 36 min. That is **3318** collected, 78 more than #418's 3240, and the seven
+  places the `handover` skill names say 3318.
+- **The full suite then ran once on PostgreSQL 18**, at `7ee7fda`, with
+  `LESSONS_TEST_DATABASE_URL` and `pytest -q -n 4`: **3311 passed, 7 skipped**, in 3 min 52 s —
+  the seventh is the directory test that is SQLite-only since #418. It covers `80cce89`, the
+  branch's last commit of code before this close-out, which the SQLite full run above also
+  covers.
+- **At this branch's head**, after `80cce89`: ruff clean; mypy, no issues in **240** source
+  files; `test_health.py`, `test_health_tick.py`, `test_diary_egress.py`, `test_diary_proxy.py`
+  and `test_project_screen.py`, **140 passed**; and the tests that read the documents this
+  batch edits — `test_env_example.py`, `test_compose.py`, `test_schema_version.py`,
+  `test_test_imports.py` and `test_ci_paths.py` **28 passed**, `test_deployment_config.py`,
+  `test_rpc_errors.py`, `test_contract_json.py`, `test_roles.py` and `test_database_url.py`
+  **140 passed**.
+- **Android**: the legal tests alone, `./gradlew :core:data:testDebugUnitTest --tests
+  'com.lumenpearson.lessons.core.data.legal.*'`: `LegalDocumentsTest` 11 and `LegalLinksTest`
+  10, all passed, on the privacy texts of edition 3. `:core:data:test` refuses `--tests`,
+  being the aggregate of the two variants. Nothing else under `android/` changed or ran: the
+  count stays **1730**.
+- **The contract**: `diary_pb.py` was re-derived by Buf after the crash below and matched the
+  committed file byte for byte; CI's «Contract» job runs `buf lint`, `buf breaking` and the
+  generated-code check on the push.
+- **CI on the head** is read before the merge.
+
+### What was deliberately left alone
+
+- **The relay (#408)**: `relay` reads as `direct`, and the capabilities never answer
+  `DIARY_EGRESS_RELAY`.
+- **The Android side**: no phone reads `egress` or `routes` yet; that is sub-project 5.
+- **A dynamic fallback**, trying one route and then the other: the owner chose a static table.
+- **The `verified` flags and the APK's bundled region catalog**: the probe answered a school
+  search, not a sign-in, so no region is marked verified.
+- **Probing Petersburg directly under `direct`** (`diary_proxy` reads `unknown` there and
+  nothing asks the city), and «📊 Проект» showing each healthy region's route.
+- **The Squid ACL stays at all nineteen hosts**, the seven direct ones included, so a region
+  can move onto the proxy by one line in `regions.py` with nothing changed on the VPS.
+- **`docs/specs/2026-10-10-deployment-scenarios-design.md`**, a record, is not edited.
+
+### What nobody has verified in this batch
+
+- **A real call through the proxy for any of the eleven newly routed password regions.** Only
+  the school search was asked, by hand, from the VPS; no sign-in, read or keep-alive has taken
+  the route, and whether every path passes through Squid unchanged is unknown.
+- **The region probe from a deployment.** It has run only against `httpx.MockTransport`; the
+  first tick after the merge is its first live run, and which regions production has in use is
+  unknown, possibly none, in which case it draws no region row at all.
+- **The five direct password regions from Vercel's `fra1`**, as before; the new checks will say.
+- **A `CONNECT`**: the tests tell the pools apart through httpx's private
+  `_transport_for_url`, as `test_diary_proxy.py` already did.
+- **The region alert in a real chat**: its hint and reason have been rendered by the tests'
+  sender only.
+
+### After #418's merge: the merge, the ACL, and two crashes
+
+None of this is code in #422, and a close-out never gets a close-out of its own,
+so it is written here. The source is the controller's notes of 11 October 2026.
+
+- **#418 merged by the session** at 08:54 UTC on 11 October 2026 as `a28473e`, after the five
+  checks on `3fc7f54`: CI green (What changed, Server, Host ×2, Vercel and Vercel Preview
+  Comments, with Contract and Android skipped). It closed #411. Its close-out named itself as
+  the only thing open; this is the SHA it left for the next one.
+- **The RUVDS Squid ACL was widened** at 08:21 UTC, on the owner's grant, after a backup to
+  `/etc/squid/squid.conf.before-netschool-20261011T082105Z`: the 19 «Сетевой город» hosts were
+  added, Squid reconfigured, and Petersburg still answered 200 through it. Twelve hosts
+  answered the school search; obr03, obramur, prim-edu, tomedu and edu71 answered a WAF's 403;
+  `e-school.ryazan.gov.ru` and `sgo.kchgov.ru` did not answer.
+- **Squid logs**: `access_log daemon:/var/log/squid/access.log`, line 27 of `squid.conf`,
+  checked at 09:06 UTC. So the privacy text's «и может записать их в свой журнал» stays true.
+- **The development machine crashed twice**: at 11:05 Moscow (`0x7F`, a double fault) and at
+  12:49 Moscow (`0x1A` `0x41792`, PTE `0x4`, the faulty-RAM signature). The second zero-filled
+  this worktree's git index and `COMMIT_EDITMSG` in the middle of Task 3's commit. The index
+  was rebuilt with `git reset`, `git fsck` came back clean, and `diary_pb.py` was re-derived by
+  Buf and matched byte for byte; the worktree, the git directory and `server/.venv` were
+  scanned, and no other file was hit.
+- **Issues filed**: #419 and #420, both on milestone 11, both closed by #422.
+
+`HANDOVER.md`'s section 7, «Next for the programme», says what follows.
+
 ## What the batch before added: the server suite on PostgreSQL, and sub-project 3's live-verification gate (#411)
 
 Merged as #418 (`a28473e`, 11 October 2026), from `checks/postgres-suite`, on milestone 11. It
@@ -8824,3 +8967,63 @@ consent are questions for a lawyer, and since edition 3 so is the intermediary s
 that the diaries' requests pass through. Each passage about this deployment sits under a
 `FORK:` comment. `docs/legal/legal.json` is edition 3 with this pull request; every change to
 what the texts say raises it, as the `release` skill says.
+
+## Moved out of section 5 on 11 October 2026, after sub-project 4's pull request A
+
+#428 merged and the ruleset that requires «CI» was created, and #430 made the legal texts
+edition 5, so `HANDOVER.md`'s section 5 says the ruleset exists and that neither edition has
+been opened in the app. As the two bullets stood until then, under «#423, #424 and #425 have
+been seen only by their tests»:
+
+  - **The «CI» job has not met a skipped «Host».** #428's run, 38148509706, was green and
+    printed `gates: success success success success success`, but every gate ran there; the
+    case the job exists for rests on the test's run of its script under Git Bash, and the
+    ruleset that requires it does not exist until the merge.
+  - **Edition 4 of the privacy policy has not been opened in the app**, and what it says leaves
+    for Sentry is checked against `app/observability.py`, not against an event Sentry received.
+
+## Moved out of section 7 on 11 October 2026, after sub-project 4's pull request A
+
+#428 and #430 merged, the ruleset that requires «CI» was created, the owner ordered the 152-ФЗ
+work before sub-project 4's B and C, and #435 was decided, so `HANDOVER.md`'s section 7 puts
+this pull request, #435's design, #407, #431–#437 and then B and C in that order, says the
+texts are at edition 5 and that edition answers the owner's question about the proxy sentence,
+and names the ruleset. As the four paragraphs stood until then:
+
+**Next for the programme: sub-project 4, then #407.** Sub-project 3 is complete (#396), its
+live-verification gate ran on the night of 10–11 October, and #406 (#422) and #428 («What
+the last session added») followed it. Sub-project 4, the Android decomposition, is in
+progress on `android/decomposition-a`, pull request A of three, with no pull request yet, per
+`docs/specs/2026-10-05-android-decomposition-design.md`; #407, the host's recipe on a Russian
+VPS, comes after it.
+
+**The privacy policy is at edition 4 with #428** (#425), which names Sentry beside the
+intermediary server at RUVDS that edition 3 added (#422). `docs/legal/legal.json` says it takes
+effect on 2026-10-11; if the merge lands on another day, that date is changed to the merge's
+before it. **Edition 5 is a draft, #430**: your brief for a lawyer, written on 11 October 2026
+and kept outside the repository, became a rewrite of both texts by another session, opened at
+14:53 UTC on milestone 12, which closes #429 (what 152-ФЗ asks an operator to publish, the
+eighty-nine regions' diary systems, and when the proxy is used). Your question after #422,
+whether «если из страны, где работает сервер, дневник не отвечает» should be reworded, is being
+answered there. The order is #428 first, then #430 rebased onto edition 4, keeping the Sentry
+point. The RUVDS point says the proxy may log the diary's address and the time, which is true
+while RUVDS's `squid.conf` keeps `access_log` on (line 27, read at 09:06 UTC on 11 October);
+switching it off makes the clause «и может записать их в свой журнал», and its English twin,
+worth taking out with another edition.
+
+**«CI» becomes the one required check on `main`** (#424, #428), in place of
+«Host (pyvoy)» and «Host (hypercorn)» by name, which would have left every pull request that
+changes only `android/` waiting for ever: a skipped matrix is reported under its unexpanded
+name (`docs/build.md`, «The check `main` requires»). The job needs every gate and passes only
+when each succeeded or was skipped. The ruleset that requires it, with the repository admin
+role able to bypass, is created by the session once #428 merges.
+
+**Have the terms of use and the privacy policy read before anybody relies on them.** They
+describe what the code does and claim compliance with nothing: whether a GitHub account named
+as operator satisfies 152-ФЗ, the transfer to hosting in Frankfurt, the age line and parental
+consent are questions for a lawyer, and since edition 3 so is the intermediary server at RUVDS
+that the diaries' requests pass through, and since edition 4 Sentry, whose data is kept in
+Germany. Each passage about this deployment sits under a `FORK:` comment.
+`docs/legal/legal.json` is edition 4 with #428 (#425), and draft #430 (#429), written from
+your brief for a lawyer, makes it 5; every change to what the texts say raises it, as the
+`release` skill says.
