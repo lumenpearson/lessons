@@ -663,7 +663,7 @@ One message, read only, in blocks:
 
 | Block | What it shows |
 | --- | --- |
-| «🩺 Состояние» | the tick's four checks — the schema, v2, the diary's proxy and the deploy — each ✅, 🔴 or ❔, since when, and why when it is not ok |
+| «🩺 Состояние» | the tick's four fixed checks — the schema, v2, the diary's proxy and the deploy — then a line for each «Сетевой город» region in use, titled with the region's name and sorted by its key; each ✅, 🔴 or ❔, since when, and why when it is not ok |
 | «🖥 Сервер» | the running commit and whether it is `main`'s head, the region, how long this function instance has been alive, Python's version |
 | «🗄 База» | the database's revision and the one the code expects; on Postgres its size and its connections |
 | «🛰 Прокси дневника» | whether the proxy answers, its round trip, since when |
@@ -674,7 +674,18 @@ One message, read only, in blocks:
 `/health` is the first block alone. The same owner is written to by the tick when a check
 changes — «🔴 Прокси дневника не отвечает», then «🟢 Прокси дневника снова работает, простой
 40 мин» — and every six hours while one stays failing; `docs/deploy.md`, «Monitoring», has the
-rule.
+rule. A region's «down», and its reminder, carries a second line saying what to do, chosen by
+the route the failing probe took, and its reason last:
+
+```
+🔴 «Сетевой город» · Республика Коми: сервер региона недоступен
+Регион мог закрыть доступ с адреса прокси — переведите его на прямой маршрут (via_proxy в regions.py).
+refused through the proxy: HTTP 403
+```
+
+A region reached directly gets «Регион мог закрыть доступ с адреса сервера — проверьте его
+через прокси и, если отвечает, включите via_proxy в regions.py.» instead. Its «🟢 … снова
+доступен» carries neither.
 
 ## Time zone
 
@@ -714,7 +725,7 @@ server's.
 | `/export`, `/import` | admin+ | timetable as text |
 | `/code` | admin+ | join code for the app |
 | `/project` | the deployment's owner | «📊 Проект»: the deployment's state and numbers |
-| `/health` | the deployment's owner | its first block: the tick's four checks |
+| `/health` | the deployment's owner | its first block: the tick's four fixed checks and a line per «Сетевой город» region in use |
 
 A command you may not use answers with a refusal rather than silence: Telegram
 shows one command list per bot, and a button that does nothing teaches people to

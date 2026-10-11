@@ -208,11 +208,11 @@ Read this before planning a release.
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 240 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 3240 tests, green, about four minutes — the command CI runs, on SQLite; on PostgreSQL by hand only (below) |
+| `pytest -q -n auto` | 3320 tests, green, about four minutes — the command CI runs, on SQLite; on PostgreSQL by hand only (below) |
 | buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
 | v2 over REST and Connect | seventy-five methods served beside v1, every unary one: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), the homework and the events, whose notices to the class go out after the commit (3b-5), the days and the substitutions, told to the class the same way (3b-6), a diary session and the reads of one pupil, with what each diary has declared from the registry's table (3b-7), and the family's corrections over the diary, a batch at a time, all or none (3b-8), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
 | The host target and `WatchClass` | `python -m app.host`, under pyvoy and under hypercorn, started on SQLite by CI's «Host» job and asked over native gRPC: a unary call, a method the contract lacks, `WatchClass` hearing an ORM write, a bulk write and a bell change, a revoked phone cut off, and a forged `X-Forwarded-For` throttled all the same; the bus and the stream are tested in-process too. The image was built and run by hand once (at `261450e`, with a throwaway PostgreSQL 18: the same six live tests passed under both servers, and grpcurl was answered over native gRPC), and nothing builds it routinely; the host is deployed nowhere, and no phone streams yet |
-| Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter. In production since 6 October 2026, where a real failure reached the owner's chat; Sentry has received a transaction, and no error event has been seen arriving |
+| Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, and of each «Сетевой город» region in use by its own route (#406, not yet run in production), the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter. In production since 6 October 2026, where a real failure reached the owner's chat; Sentry has received a transaction, and no error event has been seen arriving |
 | `./gradlew test` | 1730 tests, green, all five modules |
 | `./gradlew detekt` | no finding beyond each module's baseline, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
@@ -287,8 +287,11 @@ not «Сетевой город. Образование», the second provider, 
 regional servers** is the school search: on 26 September 2026 the emulator asked Амурская
 область's server over TLS and got its real list of schools back, and on 10 October 2026 the
 server's own client asked four regional servers and got theirs — which showed that it reads a
-school's address under a key none of them sends (#412). Its password
-sign-in (on the server and on the phone), its keep-alive, its region allow-list and its
+school's address under a key none of them sends (#412). Since #406 the calls of twelve
+regions go through the same Russian proxy as Petersburg's, because their school search, asked
+through it by hand on 11 October 2026, answered; no sign-in or read has been through it, and
+the five password regions that refused it or did not answer stay direct. Its password sign-in
+(on the server and on the phone), its keep-alive, its region allow-list and its
 weekly-diary mapping are read from open-source clients and exercised on hand-written
 payloads, exactly as Petersburg's were. The tests run a hand-written stub in
 place of each: that is the only honest way to check an integration with an undocumented

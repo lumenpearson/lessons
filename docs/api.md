@@ -1104,7 +1104,8 @@ says this server takes a session a client opened itself; a server from before th
 this server signs in to with a password: sixteen of the nineteen, because `altai-krai`,
 `primorye` and `tula` take only Госуслуги and are never listed. A region missing from the
 list is one a client should not send a password to, since the session it opened could not
-be kept here.
+be kept here. v2 alone says how each server is reached (`GetDiaryCapabilities`, #406); this
+answer keeps its shape.
 
 ### Registering a session the client opened: `POST /api/v1/diary/session`
 
@@ -1892,6 +1893,16 @@ page answers differently there but three things.
   the teachers and the turnstile; «Сетевой город» the first four, because its diary has
   none of the other three and is never asked them. With the diary off, `enabled` is false
   and no provider offers a way in or any data; the regions are v1's answer either way.
+- **So is how this server reaches each diary** (#406), in two fields v1 does not have.
+  `egress` is the deployment's `DIARY_EGRESS` as it takes effect: `DIARY_EGRESS_PROXY` only
+  where a usable `DIARY_PROXY_URL` backs it, and `DIARY_EGRESS_DIRECT` otherwise —
+  `DIARY_EGRESS_RELAY` is a value of the enum and never an answer until the relay exists
+  (#408), since a `relay` deployment is read as direct. `routes` is each provider's, one
+  `DiaryRoute` per server it reaches: one with no region for Petersburg, which is one server,
+  and one per listed region, in `regions`' order, for «Сетевой город». One field would not do,
+  because under `proxy` five password regions stay direct, and the phone would have to guess
+  which. Both are said whether or not the diary is enabled, since a route is a fact about the
+  deployment rather than about a session; no client reads them yet.
 - **A session is kept as v1's `/session` keeps it.** `CreateDiarySession` takes the session
   the phone opened with the diary itself, in the case of `credential` that names its
   provider, validated by v1's own schema, so the two versions refuse the same sessions; a

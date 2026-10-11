@@ -342,7 +342,7 @@ def test_the_whole_chain_runs_from_nothing_on_sqlite(tmp_path):
     assert EXPECTED_REVISION in current.stdout, current.stdout
 
 
-async def test_warmup_says_the_database_is_down_rather_than_raising(session, monkeypatch):
+async def test_warmup_says_the_database_is_down_rather_than_raising(session):
     """A `500` from here is the one answer that tells a monitor nothing.
 
     This endpoint exists to be pinged, and the failure it is pinged to find is
@@ -354,17 +354,24 @@ async def test_warmup_says_the_database_is_down_rather_than_raising(session, mon
 
     The body carries no driver text on purpose. A connection error prints the
     host and the user out of the URL, and this route is unauthenticated.
+
+    The patch below is undone inside this test, not by `monkeypatch`'s own
+    teardown: it replaces `AsyncSession.execute` for every session in the
+    process, including the one `no_stamp`'s own teardown uses to drop
+    `alembic_version`, and depending on *that* fixture tearing down before
+    this one - true only by accident of which fixtures elsewhere also ask for
+    `monkeypatch` - turned `no_stamp`'s cleanup into this same `503` (#420).
     """
     from sqlalchemy.exc import OperationalError
 
     async def refuses(*args, **kwargs):
         raise OperationalError("SELECT 1", {}, Exception("could not connect to host"))
 
-    monkeypatch.setattr("app.api.public.AsyncSession.execute", refuses, raising=False)
-
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get("/api/v1/warmup")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr("app.api.public.AsyncSession.execute", refuses, raising=False)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/v1/warmup")
 
     assert response.status_code == 503
     body = response.json()

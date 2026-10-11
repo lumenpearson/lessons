@@ -1,10 +1,12 @@
 """The HTTP client for one «Сетевой город» session.
 
-One pooled `httpx.AsyncClient` per process, carrying no cookies of its own and
-following no redirect (`app.providers.diary.http`), so two families' sessions
-can never meet and the `at` bearer never rides a cross-origin redirect to
-another host. Every call is to a region's own ``origin``, which comes only from
-the allow-list (`app.providers.netschool.regions`).
+Two pooled `httpx.AsyncClient`s per process, one direct and one through the
+deployment's proxy, and every call takes its region's (`client_for`, #406).
+Both carry no cookies of their own and follow no redirect
+(`app.providers.diary.http`), so two families' sessions can never meet and the
+`at` bearer never rides a cross-origin redirect to another host. Every call is
+to a region's own ``origin``, which comes only from the allow-list
+(`app.providers.netschool.regions`).
 
 The session is a small dict, sealed by the service into ``upstream_token``:
 ``at`` (the bearer), the cookies to send, ``ver`` (for the SecurityWarning
@@ -47,6 +49,7 @@ from typing import Any
 
 import httpx
 
+from app.config import DiaryEgress, get_settings
 from app.providers.diary.errors import (
     AddressRefused,
     BadCredentials,
@@ -61,6 +64,7 @@ from app.providers.diary.http import (
     header_value_ok,
     session_cookie,
 )
+from app.providers.diary.registry import NETSCHOOL, route
 from app.providers.netschool.regions import Region
 
 log = logging.getLogger(__name__)
@@ -79,33 +83,79 @@ _KEEPALIVE_TIMEOUT = httpx.Timeout(connect=3.0, read=5.0, write=5.0, pool=3.0)
 #: Markers of a "we do not serve this address" page, whatever its status.
 _WAF_MARKERS = ("Доступ к сайту", "Request forbidden", "Access denied", "blocked")
 
+#: What every call sends besides the session: ``X-Requested-With``, so the
+#: ASP.NET side answers JSON and 401 rather than an HTML redirect. The
+#: self-check's probe of a region sends the same (`services/health.py`).
+HEADERS = {
+    "x-requested-with": "XMLHttpRequest",
+    "accept": "application/json, text/plain, */*",
+}
+
+#: What the self-check asks a region (#406): the first call of every sign-in,
+#: answered without a session, and what the bot asks before a class is bound.
+PROBE = "/webapi/logindata"
+
 _client: httpx.AsyncClient | None = None
+_proxied: httpx.AsyncClient | None = None
 _client_lock = asyncio.Lock()
 
 
 async def shared_client() -> httpx.AsyncClient:
-    """The one client, built on first use. Carries no cookies; the session is
+    """The direct pool, built on first use. Carries no cookies; the session is
     passed on every call, so two families' cookies never meet."""
     global _client
     if _client is None:
         async with _client_lock:
             if _client is None:
-                _client = build_client(
-                    timeout=_TIMEOUT,
-                    headers={
-                        "x-requested-with": "XMLHttpRequest",
-                        "accept": "application/json, text/plain, */*",
-                    },
-                )
+                _client = build_client(timeout=_TIMEOUT, headers=HEADERS)
     return _client
 
 
+async def proxied_client() -> httpx.AsyncClient:
+    """The pool for the regions whose route is the deployment's proxy (#406),
+    built on first use with ``DIARY_PROXY_URL``: a ``CONNECT`` tunnel, so TLS
+    stays end to end and the proxy sees the region's host name, never the
+    session. No cookies and no redirect, as the direct pool."""
+    global _proxied
+    if _proxied is None:
+        async with _client_lock:
+            if _proxied is None:
+                _proxied = build_client(
+                    timeout=_TIMEOUT, headers=HEADERS, proxy=get_settings().diary_proxy
+                )
+    return _proxied
+
+
+async def client_for(region: Region) -> httpx.AsyncClient:
+    """The pool a call to ``region`` goes out through, asked on every call: the
+    proxied one where the region's route is the proxy (`registry.route`), the
+    direct one otherwise. Both live side by side in one process, so two
+    regions' calls in one tick each take their own way."""
+    if route(NETSCHOOL, region.key) is DiaryEgress.PROXY:
+        return await proxied_client()
+    return await shared_client()
+
+
 async def close_client() -> None:
-    """Close the shared client. For the lifespan and for tests."""
-    global _client
-    if _client is not None:
-        await _client.aclose()
-        _client = None
+    """Close both pools. For the lifespan and for tests."""
+    global _client, _proxied
+    for pool in (_client, _proxied):
+        if pool is not None:
+            await pool.aclose()
+    _client = _proxied = None
+
+
+def looks_refused(response: httpx.Response) -> bool:
+    """Whether ``response`` is a region refusing this address: a 403, or a
+    WAF's page whatever its status. The client and the self-check's probe of a
+    region ask the same question."""
+    if response.status_code == 403:
+        return True
+    ctype = response.headers.get("content-type", "")
+    if "html" in ctype or "json" not in ctype:
+        body = response.text[:2000]
+        return any(marker in body for marker in _WAF_MARKERS)
+    return False
 
 
 def _hash_password(salt: str, password: str) -> tuple[str, str]:
@@ -218,16 +268,6 @@ class NetSchoolClient:
             self.session["cookies"] = cookies
 
     @staticmethod
-    def _looks_refused(response: httpx.Response) -> bool:
-        if response.status_code == 403:
-            return True
-        ctype = response.headers.get("content-type", "")
-        if "html" in ctype or "json" not in ctype:
-            body = response.text[:2000]
-            return any(marker in body for marker in _WAF_MARKERS)
-        return False
-
-    @staticmethod
     def _is_security_warning(response: httpx.Response) -> bool:
         ctype = response.headers.get("content-type", "")
         return "html" in ctype and "/asp/SecurityWarning.asp" in response.text[:2000]
@@ -243,7 +283,7 @@ class NetSchoolClient:
         timeout: httpx.Timeout | None = None,
     ) -> httpx.Response:
         """One request, with the session in headers and never in the URL."""
-        client = await shared_client()
+        client = await client_for(self.region)
         headers = self._auth_headers() if auth else {}
         try:
             response = await client.request(
@@ -265,7 +305,7 @@ class NetSchoolClient:
             # `/session`, `/login` and the sign-in page alike. Petersburg's
             # client and DaData's already read it as the upstream failing.
             raise UpstreamUnavailable from error
-        if self._looks_refused(response):
+        if looks_refused(response):
             raise AddressRefused
         return response
 
@@ -591,7 +631,7 @@ class NetSchoolClient:
     async def terms_search(self, group_id: int | None) -> Any:
         # terms/search takes a JSON body, not a form.
         body = {"classIds": [group_id]} if group_id is not None else {}
-        client = await shared_client()
+        client = await client_for(self.region)
         headers = self._auth_headers()
         headers["content-type"] = "application/json"
         try:
@@ -605,7 +645,7 @@ class NetSchoolClient:
         except httpx.HTTPError as error:
             # TransportError and a body that will not decode alike: see `_send`.
             raise UpstreamUnavailable from error
-        if self._looks_refused(response):
+        if looks_refused(response):
             raise AddressRefused
         if response.status_code == 401 or response.is_redirect:
             raise SessionExpired

@@ -74,7 +74,8 @@ read back in the interface.
 | `PUBLIC_BASE_URL` | `https://your-project.vercel.app` — for the calendar and the diary sign-in page |
 | `DIARY_SECRET` | a random string, see "The electronic diary" below |
 | `DADATA_TOKEN` | a DaData key, see "The schools registry" below — without it the school search is simply off |
-| `DIARY_PROXY_URL` | optional: `http://user:password@host:port` of an HTTP proxy in Russia, for the Petersburg diary's requests alone, which the city drops from abroad (#235, #334). Empty means direct; see "The electronic diary" below |
+| `DIARY_PROXY_URL` | optional: `http://user:password@host:port` of an HTTP proxy in Russia, for the diaries' requests `DIARY_EGRESS` sends through it: Petersburg's, which the city drops from abroad, and those of the twelve «Сетевой город» regions known to answer from it (#235, #334, #406). Empty means direct; see "The electronic diary" below |
+| `DIARY_EGRESS` | optional, and best left unset: `direct`, `proxy` or `relay` (#406). Unset, it is `proxy` where `DIARY_PROXY_URL` is usable and `direct` otherwise, which is what production did before the setting existed. `direct` sends nothing through the proxy even with one set; `relay` is read as `direct` until the relay exists (#408). Never a reason to refuse to start; see "The electronic diary" below |
 | `MIN_CLIENT_VERSION` | empty — or the oldest APK versionCode v2 still answers; raise it only once the newer APK is on the phones it would refuse |
 | `SENTRY_DSN` | optional: the DSN of the Sentry project errors and request timings go to, see "Errors and timings: Sentry" below. Empty sends nothing |
 | `GITHUB_READ_TOKEN` | optional: a fine-grained GitHub token, read-only access to public repositories, no other permission; the `deploy` check sends it, see "The self-check" below. Empty asks GitHub anonymously |
@@ -227,25 +228,52 @@ Three things worth knowing about this key:
 The diary also needs `PUBLIC_BASE_URL`: without it the bot has nowhere to get the sign-in
 page's address from, and it says so honestly rather than printing a link that would 404.
 
-**From abroad, the Petersburg diary needs a Russian proxy.** `dnevnik2.petersburgedu.ru`
-drops connections from outside Russia (#235), and Vercel is outside Russia. The whole
-server cannot simply move there, because Telegram is blocked from Russian data centres. So
-the owner's decision of 5 October 2026 is that the bot and the API stay on Vercel and Neon,
-and only the diary's requests go through Russia: `DIARY_PROXY_URL` names an HTTP proxy on
-a small Russian VPS (RUVDS was chosen), and the Petersburg client sends its requests
-through it as a `CONNECT` tunnel (#334).
+**From abroad, the diaries need a Russian proxy.** `dnevnik2.petersburgedu.ru` drops
+connections from outside Russia (#235), several «Сетевой город» regions do the same, and
+Vercel is outside Russia. The whole server cannot simply move there, because Telegram is
+blocked from Russian data centres. So the owner's decision of 5 October 2026 is that the bot
+and the API stay on Vercel and Neon, and only the diaries' requests go through Russia:
+`DIARY_PROXY_URL` names an HTTP proxy on a small Russian VPS (RUVDS was chosen), and a diary
+client sends its requests through it as a `CONNECT` tunnel (#334).
 - TLS stays end to end, so the proxy sees the diary's host name and never the family's
   credential.
-- The bot, Telegram, the database, DaData and the other diaries go direct as before.
+- The bot, Telegram, the database, DaData, GitHub and every region the route table leaves
+  direct go direct as before.
 - The value can carry the proxy's password, so it is a secret like the others, and never
   logged.
 - An empty value means direct, which is right for a deployment inside Russia.
 - An unusable one (not `http://` or `https://`, or no host) is ignored, and the startup log
   says so without quoting it.
 
-The proxy should accept `CONNECT` to `dnevnik2.petersburgedu.ru:443` alone and ask for a
-password, or it is an open proxy on the internet. One request through it to the diary is
-the test that it works.
+**Which diary goes through it is decided region by region** (#406). The proxy carried
+Petersburg alone until 11 October 2026, when the RUVDS Squid ACL was widened to the 19
+«Сетевой город» hosts of the allow-list (`server/app/providers/netschool/regions.py`) and
+each was asked for its school search through it. Twelve answered. Five answered with a WAF's
+403 (Бурятия, Амурская, Приморский край, Томская, Тульская), and two did not answer at all
+(Рязанская, КЧР). A region that refuses the proxy's address gains nothing from it, so the
+route is per region, a static table the owner chose over trying one way and then the other:
+`Region.via_proxy` marks the twelve, `Row.via_proxy` marks Petersburg's row in
+`providers/diary/registry.py`, and `registry.route` reads both beside `DIARY_EGRESS`, which
+chooses the mode:
+- **unset**, or `proxy`: Petersburg and the twelve through the proxy where `DIARY_PROXY_URL`
+  is usable, every other region direct; with no usable URL, everything direct. This is what
+  production needs, and it sets nothing;
+- `direct`: nothing through the proxy, even with one set. It takes Petersburg off the proxy
+  too, so there is no setting that undoes the «Сетевой город» half alone: a partial rollback
+  is a revert;
+- `relay`: read as `direct`, and announced as such at startup, until the relay exists (#408).
+
+A value that is none of the three is read as unset and announced without being repeated.
+v2's `GetDiaryCapabilities` reports the mode and each server's route ([api.md](api.md#the-diary)).
+
+The proxy should accept `CONNECT` to the hosts that go through it alone —
+`dnevnik2.petersburgedu.ru:443` and the `via_proxy` hosts of `regions.py`, each on 443
+except `netcity.admsakhalin.ru` on 11111, a port a stock `squid.conf`'s `SSL_ports` does not
+hold — and ask for a password, or it is an open proxy on the internet. RUVDS's allows all
+nineteen «Сетевой город» hosts, so a region moved onto the proxy there needs no change on
+the VPS; anywhere else its host goes into the list first. One request through it to each
+diary is the test that it works, and the self-check makes one every tick for each region in
+use («Monitoring» below).
 
 `BOT_USERNAME` and `PUBLIC_BASE_URL` are not secrets, but they are not guessable either. The
 first is needed so the app can show a `t.me/<bot>?start=link_<code>` link; without it the
@@ -610,10 +638,10 @@ used to say `server/.env`, which compose never reads, so `up` stopped at «set B
 
 **Every setting the server reads reaches the container.** Besides `BOT_TOKEN`, `OWNER_IDS`
 and `TIMEZONE`, the file hands it `WEBHOOK_SECRET`, `CRON_SECRET`, `BOT_USERNAME`,
-`DIARY_SECRET`, `DADATA_TOKEN`, `DIARY_PROXY_URL`, `PUBLIC_BASE_URL`, `MIN_CLIENT_VERSION`,
-`RUN_BOT`, `TRUSTED_PROXY_HOPS` and `LESSONS_STREAMING` from the same `.env`, each arriving as
-its own default when unset. This image speaks HTTP/1.1, so `WatchClass` streams over Connect
-there and native gRPC is option 3's alone. Until #191 none of those was
+`DIARY_SECRET`, `DADATA_TOKEN`, `DIARY_PROXY_URL`, `DIARY_EGRESS`, `PUBLIC_BASE_URL`,
+`MIN_CLIENT_VERSION`, `RUN_BOT`, `TRUSTED_PROXY_HOPS` and `LESSONS_STREAMING` from the same
+`.env`, each arriving as its own default when unset. This image speaks HTTP/1.1, so
+`WatchClass` streams over Connect there and native gRPC is option 3's alone. Until #191 none of those was
 passed, and a container sees only what the file lists: a compose deployment had no diary,
 no digests and no calendar link whatever `.env` said. What they are for is the table under
 Option 1; here, the digests need `CRON_SECRET` and an external cron exactly as on Vercel
@@ -721,8 +749,8 @@ docker run -p 8000:8000 --env-file host.env lessons-host
 - **Migrations** are applied from a workstation, before the deploy that needs them, as for
   Vercel; the image carries no `alembic`.
 - **The self-check's `deploy` check** reads what Vercel says about the running deployment,
-  so on the host it answers ❔ «not on Vercel»; the schema, v2 and the diary's proxy are
-  checked there as anywhere («Monitoring», below).
+  so on the host it answers ❔ «not on Vercel»; the schema, v2, the diary's proxy and the
+  regions in use are checked there as anywhere («Monitoring», below).
 
 To run it on a laptop, from `server/` with the dev install: `pip install -r
 requirements-host.txt`, which resolves for Windows as well as Linux, then `python -m
@@ -843,28 +871,47 @@ cron's failure email above, and Sentry.
 
 ### The self-check, in every tick
 
-Every tick runs four checks (`server/app/services/health.py`) after the digests and the
-sweeps and before the diary keep-alive, inside their own guard and their own time budget, so
-none of them can fail the tick. They run before the keep-alive because the keep-alive calls the
-regional «Сетевой город» servers, directly rather than through the proxy, and when one hangs
-it holds the request until its own hard stop; the checks stop five seconds before theirs, so an alert always has time to go out, and a
-check the tick left less than its full five seconds that times out reads `unknown` rather than
-raising a false alarm:
+Every tick runs four fixed checks, and one more for each «Сетевой город» region in use, each
+by its own route (`server/app/services/health.py`), after the digests and the sweeps and
+before the diary keep-alive, inside their own guard and their own time budget, so none of
+them can fail the tick. They run before the keep-alive because the keep-alive calls the
+regional «Сетевой город» servers, each by its route, directly or through the proxy, and when
+one hangs it holds the request until its own hard stop; the checks stop five seconds before
+theirs, so an alert always has time to go out, and a check the tick left less than its full
+five seconds that times out reads `unknown` rather than raising a false alarm:
 
 | Check | Ok when |
 | --- | --- |
 | `schema` | the database is at the revision the code expects, or ahead of it in the window a revision applied before its merge opens |
 | `v2` | v2 loaded, rather than answering `503` under its two prefixes |
-| `diary_proxy` | a `HEAD` of the Petersburg diary through `DIARY_PROXY_URL` gets any answer within five seconds; asked only when the setting is set |
+| `diary_proxy` | a `HEAD` of the Petersburg diary through `DIARY_PROXY_URL` gets any answer within five seconds; asked only when the setting is set and `DIARY_EGRESS` sends something through it, so `direct` and `relay` read `unknown` |
 | `deploy` | production runs `main`'s head, or `main` moved less than fifteen minutes ago; asked on production only |
+| `diary_region:<key>` | a `GET /webapi/logindata` of the region's server, sent by the route its calls take and with the diary client's own headers, gets any answer but a refusal within five seconds; one row per region in use (#406) |
+
+**A region's row.** A region is in use when a class is bound to it or a live session is on it,
+and the allow-list still serves it with a password, so a tick probes at most 17 diary servers:
+Petersburg through `diary_proxy` and the sixteen password regions, all at once inside the
+checks' budget. No answer, a `403` or a WAF's page is `failing`, because a region refusing
+this server's address is a route that does not work. A region whose route is the proxy and
+whose probe fails while `diary_proxy` itself is failing reads `unknown`: the dead tunnel is
+one alert, not one per region behind it. A «down» alert, and its reminder, carries a second
+line saying what to do, by the route the failing probe took: through the proxy, the region
+may have shut the proxy's address out, so move it to the direct route (`via_proxy` in
+`regions.py`); directly, it may have shut the server's address out, so try it through the
+proxy and turn `via_proxy` on if it answers there. The «up» carries no such line. A region
+that leaves use loses its row at the next tick, failing or not: **a region dropped from use
+while failing simply goes silent**, with no «up» and no reminder, and that silence is not a
+recovery. If it comes back into use it starts afresh, with a new «down». When the regions in
+use cannot be read at all, no region row is touched that tick.
 
 Each ends `ok`, `failing` or `unknown`, and `health_checks` keeps what each said last.
 Unknown is a check that could not run, or one that does not apply here, and it never alerts.
 The bot writes to every `OWNER_IDS` account when a check starts failing, when it comes back
 (with how long it was down), and every six hours while it stays failing — never once per tick.
-The text names the infrastructure only. In the bot, `/health` shows the four, and `/project`
-the whole of «📊 Проект» (`docs/bot.md`). If the self-check itself fails to commit, the tick
-rolls the session back, so the keep-alive that runs next on it is unaffected.
+The text names the infrastructure only, and a region's reason names its route but never the
+proxy's address. In the bot, `/health` shows the four and a line for each region in use, and
+`/project` the whole of «📊 Проект» (`docs/bot.md`). If the self-check itself fails to commit,
+the tick rolls the session back, so the keep-alive that runs next on it is unaffected.
 
 The `deploy` check reads `main`'s head from GitHub's public API, with an `ETag`, so an
 unchanged answer is a `304`. With `GITHUB_READ_TOKEN` set the request is authorized: the `304`

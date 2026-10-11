@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from html import escape
 from zoneinfo import ZoneInfo
 
-from app.services.health import CHECKS, FAILING, OK, UNKNOWN
+from app.services.health import CHECKS, FAILING, OK, REGION_CHECK, UNKNOWN, region_title
 from app.services.project_stats import CheckRow, ProjectStats
 from app.wording import clamp, cut, duration, more_line
 
@@ -55,20 +55,28 @@ def _code(text: str, limit: int = REASON_SHOWN) -> str:
     return f"<code>{escape(cut(text, limit))}</code>"
 
 
+def _line(title: str, check: CheckRow | None, zone: ZoneInfo) -> str:
+    """One row of «🩺 Состояние»: a title, a check's state and since when, with
+    its reason when it is not ok - or «ещё не проверялось» for a check this
+    deployment has never run."""
+    if check is None:
+        return f"❔ {title} — ещё не проверялось"
+    line = f"{ICONS.get(check.status, '❔')} {title} — с {_when(check.since, zone)}"
+    if check.status != OK and check.reason:
+        line += f" · {_code(check.reason)}"
+    return line
+
+
 def state_lines(checks: Sequence[CheckRow], zone: ZoneInfo) -> list[str]:
-    """«🩺 Состояние»: each check, its state, since when, and why when it is not ok."""
+    """«🩺 Состояние»: each check, its state, since when, and why when it is not
+    ok - then one line per «Сетевой город» region in use, sorted by name."""
     by_name = {check.name: check for check in checks}
     lines = ["<b>🩺 Состояние</b>"]
     for name in CHECKS:
-        title = CHECK_TITLES[name]
-        check = by_name.get(name)
-        if check is None:
-            lines.append(f"❔ {title} — ещё не проверялось")
-            continue
-        line = f"{ICONS.get(check.status, '❔')} {title} — с {_when(check.since, zone)}"
-        if check.status != OK and check.reason:
-            line += f" · {_code(check.reason)}"
-        lines.append(line)
+        lines.append(_line(CHECK_TITLES[name], by_name.get(name), zone))
+    for name in sorted(by_name):
+        if name.startswith(REGION_CHECK):
+            lines.append(_line(escape(region_title(name)), by_name[name], zone))
     return lines
 
 

@@ -220,6 +220,30 @@ def test_a_check_never_run_says_so():
     assert len(text.splitlines()) == 1 + 4
 
 
+def test_each_region_in_use_has_its_line_after_the_four():
+    checks = [
+        _check("v2", "ok"),
+        _check("diary_region:zabaikalsky", "ok"),
+        _check("diary_region:amur", "failing", "refused directly: HTTP 403"),
+    ]
+    lines = project_render.render_health(checks, MOSCOW).splitlines()
+    assert len(lines) == 1 + 4 + 2
+    assert lines[5].startswith("🔴 «Сетевой город» · Амурская область — с ")
+    assert lines[5].endswith("<code>refused directly: HTTP 403</code>")
+    assert lines[6].startswith("✅ «Сетевой город» · Забайкальский край — с ")
+
+
+def test_sixteen_regions_failing_still_send_and_keep_the_server_block():
+    from app.providers.netschool import regions
+
+    reason = "no answer through the proxy: ConnectTimeout"
+    checks = [_check(name, "failing", reason) for name in project_render.CHECKS]
+    checks += [_check(f"diary_region:{r.key}", "failing", reason) for r in regions.listed()]
+    text = project_render.render_project(_stats(checks=checks), MOSCOW)
+    assert len(text) <= MESSAGE_LIMIT
+    assert "<b>🖥 Сервер</b>" in text
+
+
 def test_five_hundred_builds_and_four_long_failures_still_send():
     reason = "<" * 200
     stats = _stats(

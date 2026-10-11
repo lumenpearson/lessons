@@ -43,8 +43,9 @@ nowhere yet.
    the external cron service named in `docs/deploy.md`.
 4. **Nobody was told.** The tick runs a self-check (`services/health.py`) after the digests
    and the sweeps and before the diary keep-alive, which writes to the owner on a change, and
-   the bot's `/health` shows what each check said last: the schema, v2, the diary's proxy and
-   whether production runs `main`'s head. Read it first. A check that reads ❔ could not run,
+   the bot's `/health` shows what each check said last: the schema, v2, the diary's proxy,
+   whether production runs `main`'s head, and each «Сетевой город» region in use, probed by
+   its own route. Read it first. A check that reads ❔ could not run,
    and its reason says why — an anonymous `deploy` check that is out of GitHub's rate limit
    says «set GITHUB_READ_TOKEN». Errors with their place are in Sentry where `SENTRY_DSN` is
    set (`docs/deploy.md`, «Monitoring»).

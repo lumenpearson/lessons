@@ -24,8 +24,12 @@ from sqlalchemy import select, update
 from sqlalchemy import text as sa_text
 
 from app.config import Deployment, Settings, deployment
+from app.crypto import seal
 from app.db import EXPECTED_REVISION
-from app.models import HealthCheck
+from app.models import DiarySession, HealthCheck
+from app.providers.diary.http import USER_AGENT
+from app.providers.netschool import regions
+from app.security import hash_token, new_token
 from app.services import health
 from app.services.health import FAILING, OK, UNKNOWN, Previous, Result, Step, decide
 
@@ -117,6 +121,34 @@ def _fake_github(monkeypatch, handler) -> list[httpx.Request]:
 
     monkeypatch.setattr(health, "_github_client", client)
     return asked
+
+
+def _fake_routes(monkeypatch, handler) -> list[tuple[str | None, httpx.Request]]:
+    """Answer every region's probe with ``handler(proxy, request)``; returns each
+    probe's proxy and request."""
+    asked: list[tuple[str | None, httpx.Request]] = []
+
+    def client(proxy: str | None, timeout: float) -> httpx.AsyncClient:
+        async def recording(request: httpx.Request) -> httpx.Response:
+            asked.append((proxy, request))
+            answer = handler(proxy, request)
+            return await answer if asyncio.iscoroutine(answer) else answer
+
+        return httpx.AsyncClient(transport=httpx.MockTransport(recording), timeout=timeout)
+
+    monkeypatch.setattr(health, "_route_client", client)
+    return asked
+
+
+def _live(region: str | None, provider: str = "netschool", **over) -> DiarySession:
+    return DiarySession(
+        token_hash=hash_token(new_token()),
+        upstream_token=seal("{}"),
+        login="parent@example.com",
+        provider=provider,
+        region=region,
+        **over,
+    )
 
 
 def _commit(sha: str, moved_at: datetime, etag: str = 'W/"one"') -> httpx.Response:
@@ -756,3 +788,333 @@ async def test_a_check_that_raises_is_unknown_and_the_run_goes_on(monkeypatch, s
     rows = await _rows(session)
     assert rows["schema"].reason == "the check raised RuntimeError"
     assert rows["diary_proxy"].reason == "the check raised RuntimeError"
+
+
+# --------------------------------------------------------------------------
+# A region's own route (#406)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("key", "proxied"), [("zabaikalsky", True), ("amur", False)])
+async def test_a_region_is_probed_by_its_own_route(monkeypatch, key, proxied):
+    asked = _fake_routes(monkeypatch, lambda proxy, request: httpx.Response(200, json={}))
+    result = await health.check_diary_region(regions.get(key), Settings(DIARY_PROXY_URL=PROXY))
+    way = "through the proxy" if proxied else "directly"
+    assert (result.status, result.reason) == (OK, f"HTTP 200 {way}")
+    ((proxy, request),) = asked
+    assert proxy == (PROXY if proxied else None)
+    assert str(request.url) == f"{regions.get(key).origin}/webapi/logindata"
+    # What a family's call looks like, so a WAF that refuses httpx's own user
+    # agent cannot read as the route failing.
+    assert request.headers["user-agent"] == USER_AGENT
+    assert request.headers["x-requested-with"] == "XMLHttpRequest"
+
+
+@pytest.mark.parametrize(
+    "refusal",
+    [
+        httpx.Response(403, text="Request forbidden"),
+        httpx.Response(
+            200, text="<p>Доступ к сайту ограничен</p>", headers={"content-type": "text/html"}
+        ),
+    ],
+    ids=["403", "waf-page"],
+)
+async def test_a_region_that_refuses_this_address_is_failing(monkeypatch, refusal):
+    _fake_routes(monkeypatch, lambda proxy, request: refusal)
+    result = await health.check_diary_region(regions.get("amur"), Settings(DIARY_PROXY_URL=PROXY))
+    assert result.status == FAILING
+    assert result.reason == f"refused directly: HTTP {refusal.status_code}"
+    assert result.hint == health.HINT_DIRECT
+
+
+async def test_a_region_that_does_not_answer_is_failing_and_the_proxy_s_password_is_never_said(
+    monkeypatch,
+):
+    def refuse(proxy, request):
+        raise httpx.ProxyError(f"403 Forbidden from {PROXY}")
+
+    _fake_routes(monkeypatch, refuse)
+    result = await health.check_diary_region(
+        regions.get("zabaikalsky"), Settings(DIARY_PROXY_URL=PROXY)
+    )
+    assert (result.status, result.reason) == (FAILING, "no answer through the proxy: ProxyError")
+    assert result.hint == health.HINT_PROXIED
+    assert "hunter2" not in result.reason
+
+
+async def test_a_region_slower_than_its_budget_is_failing_and_says_it_timed_out(monkeypatch):
+    async def stall(proxy, request):
+        await asyncio.sleep(5)
+        return httpx.Response(200)
+
+    _fake_routes(monkeypatch, stall)
+    result = await health.check_diary_region(regions.get("amur"), Settings(), timeout=0.05)
+    assert (result.status, result.timed_out) == (FAILING, True)
+    assert result.reason == "no answer directly: TimeoutError"
+
+
+async def test_the_regions_in_use_are_the_bound_and_the_signed_in_ones_the_list_serves(
+    session, school_class
+):
+    school_class.diary_provider, school_class.diary_region = "netschool", "amur"
+    session.add_all(
+        [
+            _live("zabaikalsky"),
+            _live("tula"),  # takes no password
+            _live("atlantis"),  # off the allow-list
+            _live("komi", expired_at=_now()),
+            _live(None, provider="petersburg"),
+        ]
+    )
+    await session.commit()
+    assert [region.key for region in await health.regions_in_use(session)] == [
+        "amur",
+        "zabaikalsky",
+    ]
+
+
+async def test_each_region_in_use_has_its_row_and_tells_the_owner_once(
+    session, school_class, monkeypatch
+):
+    school_class.diary_provider, school_class.diary_region = "netschool", "amur"
+    session.add(_live("zabaikalsky"))
+    await session.commit()
+    _fake_proxy(monkeypatch, lambda request: httpx.Response(200))
+    _fake_routes(
+        monkeypatch,
+        lambda proxy, request: httpx.Response(403)
+        if request.url.host == "region.obramur.ru"
+        else httpx.Response(200, json={}),
+    )
+    sent = Sent()
+    settings = Settings(DIARY_PROXY_URL=PROXY)
+
+    first = await health.run(session, settings, v2_mounted=True, send=sent)
+    second = await health.run(session, settings, v2_mounted=True, send=sent)
+
+    assert (first["diary_region:amur"], first["diary_region:zabaikalsky"]) == (FAILING, OK)
+    assert second == first
+    assert sent.texts == [
+        "🔴 «Сетевой город» · Амурская область: сервер региона недоступен\n"
+        "Регион мог закрыть доступ с адреса сервера — проверьте его через прокси и, "
+        "если отвечает, включите via_proxy в regions.py.\n"
+        "<code>refused directly: HTTP 403</code>"
+    ]
+
+
+async def test_a_region_failing_through_the_proxy_says_what_to_do_and_its_recovery_does_not(
+    session, monkeypatch
+):
+    """The owner's decision of 11 October 2026: «down» says what to do, by the
+    route the failing probe took, between the first line and the reason; «up»
+    says nothing of it."""
+    session.add(_live("zabaikalsky"))
+    await session.commit()
+    _fake_proxy(monkeypatch, lambda request: httpx.Response(200))
+    refusing = {"now": True}
+
+    def answer(proxy, request):
+        return httpx.Response(403) if refusing["now"] else httpx.Response(200, json={})
+
+    _fake_routes(monkeypatch, answer)
+    sent = Sent()
+    settings = Settings(DIARY_PROXY_URL=PROXY)
+
+    await health.run(session, settings, v2_mounted=True, send=sent)
+    refusing["now"] = False
+    await health.run(session, settings, v2_mounted=True, send=sent)
+
+    down, up = sent.texts
+    assert down.splitlines() == [
+        "🔴 «Сетевой город» · Забайкальский край: сервер региона недоступен",
+        "Регион мог закрыть доступ с адреса прокси — переведите его на прямой маршрут "
+        "(via_proxy в regions.py).",
+        "<code>refused through the proxy: HTTP 403</code>",
+    ]
+    assert up.startswith("🟢 «Сетевой город» · Забайкальский край: сервер региона снова доступен")
+    assert "via_proxy" not in up
+
+
+async def test_a_region_s_reminder_carries_the_route_s_hint_too(session, monkeypatch):
+    """Ruling 15: «up» carries no hint, but «reminder» does — `health.py` reads
+    the hint for `step.alert in ("down", "reminder")`, never for «down» alone.
+    Narrowing that to «down» only would leave the owner with no reminder of
+    what to do about a region still failing six hours on."""
+    session.add(_live("zabaikalsky"))
+    session.add(
+        HealthCheck(
+            name="diary_region:zabaikalsky",
+            status=FAILING,
+            reason="refused through the proxy: HTTP 403",
+            since=T0,
+            checked_at=T0,
+            last_alert_at=T0,  # decide(): told, and now - told is days, past REMINDER_EVERY.
+        )
+    )
+    await session.commit()
+    _fake_proxy(monkeypatch, lambda request: httpx.Response(200))
+    _fake_routes(monkeypatch, lambda proxy, request: httpx.Response(403))
+    sent = Sent()
+    settings = Settings(DIARY_PROXY_URL=PROXY)
+
+    await health.run(session, settings, v2_mounted=True, send=sent)
+
+    (text,) = sent.texts
+    lines = text.splitlines()
+    assert lines[0].startswith(
+        "🔴 «Сетевой город» · Забайкальский край: сервер региона недоступен — уже"
+    )
+    assert lines[1] == health.HINT_PROXIED
+    assert lines[-1] == "<code>refused through the proxy: HTTP 403</code>"
+
+
+async def test_a_region_no_longer_in_use_loses_its_row(session, school_class, monkeypatch):
+    school_class.diary_provider, school_class.diary_region = "netschool", "amur"
+    await session.commit()
+    await health.run(session, Settings(), v2_mounted=True, send=Sent())
+    assert "diary_region:amur" in await _rows(session)
+
+    school_class.diary_provider = school_class.diary_region = None
+    await session.commit()
+    await health.run(session, Settings(), v2_mounted=True, send=Sent())
+
+    assert not any(name.startswith(health.REGION_CHECK) for name in await _rows(session))
+
+
+async def test_with_the_proxy_down_its_regions_wait_rather_than_alert_one_by_one(
+    session, monkeypatch
+):
+    session.add_all([_live("zabaikalsky"), _live("komi"), _live("amur")])
+    await session.commit()
+
+    def down(request):
+        raise httpx.ProxyError("502 Bad Gateway")
+
+    def through_a_dead_proxy(proxy, request):
+        if proxy is not None:
+            raise httpx.ProxyError("502 Bad Gateway")
+        return httpx.Response(200, json={})
+
+    _fake_proxy(monkeypatch, down)
+    _fake_routes(monkeypatch, through_a_dead_proxy)
+    sent = Sent()
+    settings = Settings(DIARY_PROXY_URL=PROXY)
+
+    statuses = await health.run(session, settings, v2_mounted=True, send=sent)
+
+    assert statuses["diary_proxy"] == FAILING
+    assert [statuses[f"diary_region:{key}"] for key in ("komi", "zabaikalsky", "amur")] == [
+        UNKNOWN,
+        UNKNOWN,
+        OK,
+    ]
+    assert [text.splitlines()[0] for text in sent.texts] == ["🔴 Прокси дневника не отвечает"]
+
+
+async def test_with_the_proxy_down_a_direct_region_s_own_refusal_still_alerts(
+    session, monkeypatch
+):
+    """Ruling 11's downgrade is read from the region's own route
+    (`proxy_for(...) is not None` in `health._results`), never from the
+    proxy's own status alone: dropping that guard would read `amur`, which
+    never takes the proxy, as unknown too, silencing a direct region that is
+    genuinely refusing this address while the proxy happens to be down."""
+    session.add_all([_live("zabaikalsky"), _live("komi"), _live("amur")])
+    await session.commit()
+
+    def down(request):
+        raise httpx.ProxyError("502 Bad Gateway")
+
+    def through_a_dead_proxy_amur_refuses(proxy, request):
+        if proxy is not None:
+            raise httpx.ProxyError("502 Bad Gateway")
+        if request.url.host == "region.obramur.ru":
+            return httpx.Response(403)
+        return httpx.Response(200, json={})
+
+    _fake_proxy(monkeypatch, down)
+    _fake_routes(monkeypatch, through_a_dead_proxy_amur_refuses)
+    sent = Sent()
+    settings = Settings(DIARY_PROXY_URL=PROXY)
+
+    statuses = await health.run(session, settings, v2_mounted=True, send=sent)
+
+    assert statuses["diary_proxy"] == FAILING
+    assert [statuses[f"diary_region:{key}"] for key in ("komi", "zabaikalsky", "amur")] == [
+        UNKNOWN,
+        UNKNOWN,
+        FAILING,
+    ]
+    assert [text.splitlines()[0] for text in sent.texts] == [
+        "🔴 Прокси дневника не отвечает",
+        "🔴 «Сетевой город» · Амурская область: сервер региона недоступен",
+    ]
+    assert sent.texts[1].splitlines()[1] == health.HINT_DIRECT
+
+
+@pytest.mark.parametrize("egress", ["direct", "relay"])
+async def test_the_proxy_check_waits_when_the_egress_sends_nothing_through_it(
+    monkeypatch, egress
+):
+    built = _fake_proxy(monkeypatch, lambda request: httpx.Response(200))
+    result = await health.check_diary_proxy(Settings(DIARY_PROXY_URL=PROXY, DIARY_EGRESS=egress))
+    assert (result.status, result.reason) == (
+        UNKNOWN,
+        f"DIARY_EGRESS is {egress}: no diary goes through the proxy",
+    )
+    assert built == []
+
+
+async def test_a_failing_region_query_leaves_the_region_rows_alone(session, monkeypatch):
+    session.add(
+        HealthCheck(
+            name="diary_region:amur", status=FAILING, reason="refused directly: HTTP 403",
+            since=T0, checked_at=T0, last_alert_at=T0,
+        )
+    )
+    await session.commit()
+
+    async def broken(session):
+        raise RuntimeError("a bug")
+
+    monkeypatch.setattr(health, "regions_in_use", broken)
+    statuses = await health.run(session, Settings(), v2_mounted=True, send=Sent())
+
+    assert set(statuses) == set(health.CHECKS)
+    row = (await _rows(session))["diary_region:amur"]
+    assert (row.status, row.checked_at) == (FAILING, T0)
+
+
+def test_every_region_s_row_name_fits_the_column():
+    width = HealthCheck.__table__.c.name.type.length
+    assert all(
+        len(health.region_check(r.key)) <= width for r in regions.listed(password_only=False)
+    )
+
+
+async def test_every_region_in_use_is_probed_at_once_inside_the_checks_budget(
+    session, monkeypatch
+):
+    """Ruling 12: at most 17 diary probes a tick — Petersburg through the proxy
+    and the sixteen regions that take a password — all at once, so a tick in
+    which every one hangs still ends at one probe's budget, shortened here."""
+    served = regions.listed()
+    assert len(served) == 16
+    session.add_all(_live(region.key) for region in served)
+    await session.commit()
+
+    async def hang(*args):
+        await asyncio.sleep(10)
+
+    proxies = _fake_proxy(monkeypatch, hang)
+    asked = _fake_routes(monkeypatch, hang)
+    monkeypatch.setattr(health, "CHECK_TIMEOUT_SECONDS", 0.2)
+    loop = asyncio.get_running_loop()
+    began = loop.time()
+
+    await health.run(session, Settings(DIARY_PROXY_URL=PROXY), v2_mounted=True, send=Sent())
+
+    assert loop.time() - began < 2
+    assert len(proxies) + len(asked) == 17
+    assert sum(proxy is not None for proxy, _ in asked) == 11

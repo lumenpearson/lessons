@@ -120,6 +120,14 @@ os.environ["DADATA_TOKEN"] = ""
 # test that wants the bus attaches it (test_watch.py, test_v2_watch.py).
 os.environ["LESSONS_STREAMING"] = "false"
 os.environ["LESSONS_TARGET"] = ""
+# Whatever the shell or server/.env holds: the suite reaches no diary through
+# anybody's proxy (#419). From #406 twelve «Сетевой город» regions go through the
+# proxy whenever DIARY_PROXY_URL is usable, by a pool no fixture replaces, so a
+# developer's proxy would carry the suite's requests to real regional servers.
+# Empty for the reason above: the environment wins over the file only for a
+# name it holds. A test that wants a proxy sets one and closes the pools.
+os.environ["DIARY_PROXY_URL"] = ""
+os.environ["DIARY_EGRESS"] = ""
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.models import (  # noqa: E402
@@ -605,7 +613,25 @@ def diary_offline(monkeypatch) -> list[httpx.Request]:
 
     monkeypatch.setattr(pbclient, "shared_client", petersburg)
     monkeypatch.setattr(nsclient, "shared_client", netschool)
+    monkeypatch.setattr(nsclient, "proxied_client", netschool)
     return asked
+
+
+@pytest.fixture(autouse=True)
+def region_probes_answered(monkeypatch) -> None:
+    """The self-check's probe of each «Сетевой город» region in use
+    (services/health.py, #406), answered here and never by a region's server:
+    a tick test holding a session or a binding would otherwise ask a real one.
+    A test that wants another answer replaces the seam again."""
+    from app.services import health
+
+    def client(proxy: str | None, timeout: float) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+            timeout=timeout,
+        )
+
+    monkeypatch.setattr(health, "_route_client", client)
 
 
 @pytest.fixture

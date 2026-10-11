@@ -29,8 +29,8 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from app.config import get_settings
 from app.providers.diary.http import cookie_value_ok
+from app.providers.diary.registry import PETERSBURG, proxy_for
 from app.providers.petersburg.exceptions import (
     BadCredentials,
     SessionExpired,
@@ -122,11 +122,11 @@ async def shared_client() -> httpx.AsyncClient:
                     },
                     follow_redirects=False,
                     # The city drops connections from outside Russia (#235),
-                    # so production goes through a Russian proxy when one is
-                    # configured (#334). A CONNECT tunnel: TLS is still end to
-                    # end, and the proxy sees only the host name. None is
-                    # direct, as before.
-                    proxy=get_settings().diary_proxy,
+                    # so its calls go through the deployment's proxy wherever
+                    # DIARY_EGRESS takes them there (#334, #406). A CONNECT
+                    # tunnel: TLS is still end to end, and the proxy sees only
+                    # the host name. None is direct.
+                    proxy=proxy_for(PETERSBURG),
                 )
     return _client
 

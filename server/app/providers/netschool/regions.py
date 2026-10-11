@@ -19,6 +19,14 @@ Two flags decide what a region is good for:
   It is ``False`` for every row, because **nothing here has been tried from the
   deployment's own address** (#121, #135). The one-off owner probe fills that
   gap; until then the bot marks an unverified region «не проверено».
+- ``via_proxy`` — whether this region's server is called through the
+  deployment's proxy when ``DIARY_EGRESS`` is ``proxy`` (#406). True for the
+  twelve whose school search, ``/webapi/schools/search``, answered 200 from the
+  RUVDS proxy when the owner had every host here tried from it on 11 October
+  2026. Five answered with their WAF's 403 (Бурятия, Амурская, Приморский
+  край, Томская, Тульская) and two not at all (Рязанская, КЧР); those stay
+  direct, as every region was before, until the relay (#408). A static table
+  on purpose: the owner chose it over trying one route and then the other.
 
 ``https`` only: an ``http`` origin would send the salted password and the
 session in clear text, so a region that serves only ``http`` (Волгоград) is
@@ -43,6 +51,7 @@ class Region:
     zone: str  # IANA; resolved through app.timezones.resolve, which falls back rather than raises
     password: bool = True
     verified: bool = False
+    via_proxy: bool = False
 
 
 # Alphabetical by title, which is the order the bot's region picker shows. Zones
@@ -51,29 +60,42 @@ class Region:
 _REGIONS: tuple[Region, ...] = (
     # ЕСИА-only since 10 Jan 2026 — never offered, refused locally.
     Region("altai-krai", "Алтайский край", "https://netschool.edu22.info",
-           "Asia/Barnaul", password=False),
+           "Asia/Barnaul", password=False, via_proxy=True),
+    # A WAF's 403 from the proxy.
     Region("amur", "Амурская область", "https://region.obramur.ru", "Asia/Yakutsk"),
-    Region("zabaikalsky", "Забайкальский край", "https://region.zabedu.ru", "Asia/Chita"),
-    Region("kamchatka", "Камчатский край", "https://school.sgo41.ru", "Asia/Kamchatka"),
+    Region("zabaikalsky", "Забайкальский край", "https://region.zabedu.ru", "Asia/Chita",
+           via_proxy=True),
+    Region("kamchatka", "Камчатский край", "https://school.sgo41.ru", "Asia/Kamchatka",
+           via_proxy=True),
+    # No answer from the proxy.
     Region("kchr", "Карачаево-Черкесская Республика", "https://sgo.kchgov.ru", "Europe/Moscow"),
-    Region("leningrad", "Ленинградская область", "https://e-school.obr.lenreg.ru", "Europe/Moscow"),
-    # ЕСИА-only.
+    Region("leningrad", "Ленинградская область", "https://e-school.obr.lenreg.ru",
+           "Europe/Moscow", via_proxy=True),
+    # ЕСИА-only; and a WAF's 403 from the proxy.
     Region("primorye", "Приморский край", "https://sgo.prim-edu.ru",
            "Asia/Vladivostok", password=False),
+    # A WAF's 403 from the proxy.
     Region("buryatia", "Республика Бурятия", "https://deti.obr03.ru", "Asia/Irkutsk"),
-    Region("ingushetia", "Республика Ингушетия", "https://sgo.edu-ri.ru", "Europe/Moscow"),
-    Region("komi", "Республика Коми", "https://giseo.rkomi.ru", "Europe/Moscow"),
-    Region("mari-el", "Республика Марий Эл", "https://sgo.mari-el.gov.ru", "Europe/Moscow"),
-    Region("mordovia", "Республика Мордовия", "https://sgo.e-mordovia.ru", "Europe/Moscow"),
-    Region("yakutia", "Республика Саха (Якутия)", "https://sgo.e-yakutia.ru", "Asia/Yakutsk"),
+    Region("ingushetia", "Республика Ингушетия", "https://sgo.edu-ri.ru", "Europe/Moscow",
+           via_proxy=True),
+    Region("komi", "Республика Коми", "https://giseo.rkomi.ru", "Europe/Moscow", via_proxy=True),
+    Region("mari-el", "Республика Марий Эл", "https://sgo.mari-el.gov.ru", "Europe/Moscow",
+           via_proxy=True),
+    Region("mordovia", "Республика Мордовия", "https://sgo.e-mordovia.ru", "Europe/Moscow",
+           via_proxy=True),
+    Region("yakutia", "Республика Саха (Якутия)", "https://sgo.e-yakutia.ru", "Asia/Yakutsk",
+           via_proxy=True),
+    # No answer from the proxy.
     Region("ryazan", "Рязанская область", "https://e-school.ryazan.gov.ru", "Europe/Moscow"),
-    Region("samara", "Самарская область", "https://asurso.ru", "Europe/Samara"),
+    Region("samara", "Самарская область", "https://asurso.ru", "Europe/Samara", via_proxy=True),
     Region("sakhalin", "Сахалинская область", "https://netcity.admsakhalin.ru:11111",
-           "Asia/Sakhalin"),
+           "Asia/Sakhalin", via_proxy=True),
+    # A WAF's 403 from the proxy.
     Region("tomsk", "Томская область", "https://sgo.tomedu.ru", "Asia/Tomsk"),
-    # ЕСИА + SMS only.
+    # ЕСИА + SMS only; and a WAF's 403 from the proxy.
     Region("tula", "Тульская область", "https://sgo1.edu71.ru", "Europe/Moscow", password=False),
-    Region("ulyanovsk", "Ульяновская область", "https://sgo.cit73.ru", "Europe/Ulyanovsk"),
+    Region("ulyanovsk", "Ульяновская область", "https://sgo.cit73.ru", "Europe/Ulyanovsk",
+           via_proxy=True),
 )
 
 _BY_KEY = {r.key: r for r in _REGIONS}

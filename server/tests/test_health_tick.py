@@ -160,6 +160,17 @@ async def test_a_self_check_that_raises_whole_does_not_fail_the_tick(ticking, mo
     assert response.json() == QUIET_TICK
 
 
+async def test_the_tick_probes_each_region_in_use(session, school_class, ticking):
+    school_class.diary_provider, school_class.diary_region = "netschool", "amur"
+    await session.commit()
+
+    assert (await _tick()).status_code == 200
+
+    rows = {row.name: row.status for row in await session.scalars(select(HealthCheck))}
+    # conftest answers every region's probe with a 200.
+    assert rows["diary_region:amur"] == "ok"
+
+
 async def test_a_self_check_whose_commit_fails_still_lets_the_keep_alive_run(ticking, monkeypatch):
     """A commit that fails inside ``health.run`` (the first-run insert race, Ruling 5) leaves
     the tick's session needing a rollback; the keep-alive runs next on that same session and

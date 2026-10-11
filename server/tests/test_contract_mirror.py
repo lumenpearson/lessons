@@ -141,6 +141,12 @@ MIRRORS: dict[str, Mirror] = {
                 "registers sessions"
             )
         },
+        added={
+            "egress": (
+                "new in v2 (#406); v1's answer keeps its shape, because no "
+                "client of v1 will act on a route"
+            )
+        },
     ),
     "PetersburgCredential": Mirror(("PetersburgCredentialIn",)),
     "NetSchoolCredential": Mirror(("NetSchoolCredentialIn",)),

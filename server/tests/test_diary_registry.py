@@ -25,7 +25,8 @@ import pytest
 from httpx import ASGITransport
 from sqlalchemy import select
 
-from app.contract.lessons.v2.diary_pb import DiaryFeature, MarkKind, SignInMethod
+from app.config import DiaryEgress as SettingEgress
+from app.contract.lessons.v2.diary_pb import DiaryEgress, DiaryFeature, MarkKind, SignInMethod
 from app.crypto import seal
 from app.main import app
 from app.models import DiarySession, SchoolClass
@@ -151,6 +152,13 @@ def test_the_marks_kinds_are_the_contract_s_names() -> None:
     ``ListMarks``, with no silent fallback to catch it in the handler."""
     assert {kind.name for kind in ProviderMarkKind} <= {
         value.name for value in MarkKind if value is not MarkKind.UNSPECIFIED
+    }
+
+
+def test_the_egresses_are_the_contract_s_names() -> None:
+    """`rpc/diary.py`'s `DiaryEgress[...name]` is unguarded, as the features' is."""
+    assert {egress.name for egress in SettingEgress} == {
+        value.name for value in DiaryEgress if value is not DiaryEgress.UNSPECIFIED
     }
 
 

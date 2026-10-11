@@ -322,9 +322,14 @@ made ЕСИА the only way a family signs in: Дневник.ру per region, «
   (Алтайский край, Приморский край, Тульская) are a hand-off to their own server's page, never
   a sign-in, and ТОР is a hand-off too. The sixteen that still take a password are signed into
   — by this server with the password, or by a client that signs in itself and registers the
-  session ([api.md](api.md#the-electronic-diary)). And the first step nothing has taken for any
-  platform is one real session against it: not one route in these pages has been seen
-  answering, «Сетевой город» included.
+  session ([api.md](api.md#the-electronic-diary)). Each region carries its route as well
+  (`via_proxy` in `regions.py`, #406): under `DIARY_EGRESS` `proxy` the twelve whose school
+  search answered from the RUVDS proxy on 11 October 2026 go through it — eleven password
+  regions, and Алтайский край, which is never called — while Бурятия, Амурская, Томская,
+  Рязанская and КЧР, the password regions that refused it or did not answer, stay direct until
+  the relay (#408); [deploy.md](deploy.md) has the probe. And the first step nothing has taken
+  for any platform is one real session against it: of the routes in these pages, only
+  «Сетевой город»'s school search has been seen answering, asked with no account (#412).
 
 ## The region catalog
 

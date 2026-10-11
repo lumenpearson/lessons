@@ -1040,8 +1040,9 @@ class HealthCheck(Base):
     """What one self-check of the cron tick said last, and when the owner was told.
 
     One row per check (``services/health.py``: ``schema``, ``v2``,
-    ``diary_proxy``, ``deploy``), rewritten by every tick. It is what lets the
-    owner be told of a *change* rather than once per tick, and what the bot's
+    ``diary_proxy``, ``deploy``, and one ``diary_region:<key>`` per «Сетевой
+    город» region in use), rewritten by every tick. It is what lets the owner
+    be told of a *change* rather than once per tick, and what the bot's
     «📊 Проект» reads. Nothing in it names a class, a family or a child.
     """
 

@@ -75,6 +75,8 @@ services:
       DADATA_TOKEN: ${DADATA_TOKEN:-}
       # Empty is direct, which is right for a server inside Russia (#334).
       DIARY_PROXY_URL: ${DIARY_PROXY_URL:-}
+      # Unset, proxy where DIARY_PROXY_URL is usable and direct otherwise (#406).
+      DIARY_EGRESS: ${DIARY_EGRESS:-}
       # Empty means the self-check's GitHub read goes anonymous, sharing the
       # sixty requests an hour every unauthenticated caller on this egress
       # address shares (services/health.py).

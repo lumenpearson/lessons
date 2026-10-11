@@ -28,6 +28,140 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: one geometry for the whole app — corners, list rows and insets (#404)
+
+Merged as #413 (`7ce4677`, 10 October 2026), from `android/ui-geometry`, on milestone 12. It
+closes #404. The branch was cut from `main` at `00fb20e`, the merge of #403, and merged with
+`main` at `1eb134e` (#410, documents only) as `be8f259`; it carries 21 commits before this
+close-out, that merge among them. Written on 11 October 2026. No revision goes with it and
+nothing under `server/` changed: the schema stays at `0019`.
+
+The owner asked for it on 10 October, with a screenshot of «Календарь»: «а также, выровни
+скругления, элементы в списках и отступы по всему приложению». They chose cards 24, tiles 12,
+rows 12 and buttons 56, then asked for the choices to be checked against the guidelines and
+improved where they could be, without a review of the plan («скорректируй мои решения …
+проанализировав гайдлайны … Если всё в порядке - оставь как выбрал я, но если можно что-то
+улучшить - сделай и приступай к работе без моего ревью плана»). The check kept 12, 12 and 56
+and moved groups to 28, because 24 is on no Material scale while the theme's sheets and dialogs
+were already 28. The design is `docs/specs/2026-10-10-ui-geometry-design.md` (`d4c75fc`, and
+`4894462` for the guideline check), and its four tasks are in `eec7810`. They were built one at
+a time, each reviewed before the next: Task 3's review failed on five Majors, and one fix round
+and a scoped re-review cleared it. A review of the whole branch found nothing Critical, five
+Important and ten Minor. One fix wave and a follow-up ruling on the week strip's gap answered
+them, and the wave was re-reviewed: every finding addressed, and nothing broken.
+
+- **One corner scale, of four Material tokens** (`theme/Shape.kt`): Row 4, Cell 12, Group and
+  Hero 28, Pill and Tile full; a standalone field is 28.
+- **The floating action buttons are the scale's one exception**: Material's 20 dp FAB corner,
+  shared by the two «День» FABs, which makes the small one a circle.
+- **One row rhythm, `RowPadding` 16 × 12.** `GroupItem` keeps `ListItem`'s own floor of 56, 72
+  and 88 dp, and the hand-built rows carry `heightIn(56)`.
+- **Chips sit on the 4 dp grid**, with a 48 dp touch target.
+- **One `SegmentedPicker` skin**; the day panel's action placed where its ink lands rather than
+  where its button's box does; onboarding's acknowledgement card inset once; and «О приложении»
+  drawn as a group.
+- **The week strip fills the width when its days fit**: 48 dp tiles 4 dp apart, so seven fit
+  from a 392 dp window.
+- **`GeometryScaleTest` refuses four things**: a raw corner literal, a `CircleShape` on a button
+  or a chip, a private `…Corner`, and a read of `shapes.medium` or `shapes.large` by name. Its
+  corner and role allowances are empty.
+- **The documents**: `docs/design.md`, «One scale for corners, rows and insets», says why, and
+  the README's honest status says what nobody has seen.
+
+The commits, in order:
+- Task 1, `e4d155c`: the tokens and `GeometryScaleTest`.
+- Task 2, `4fca627`: the row rhythm, the chips' padding and the 48 dp target.
+- Task 3, `9356dcd`, `303f47e` and `fccbb05`: the calendar's edges, cells and tray, the sheets,
+  onboarding and join. Its fix round: `5b3bcfd`, `3fb741f` and `9c836f5`.
+- Task 4, `c01ee1f`: the documents.
+- The final review's fixes: `c58a390`, `5f03140`, `a571b4b`, `2fce85a`, `4fc2136`, `8c28e63` and
+  `36e4a0b`.
+- The documents again, `1499220`.
+
+### Gates
+
+One invocation from `android/`, at `36e4a0b`, the head of the final fix wave:
+`./gradlew test detekt assembleDebug assembleRelease -Pkotlin.compiler.execution.strategy=in-process --no-parallel`.
+BUILD SUCCESSFUL.
+
+- **`./gradlew test`: 1728 Android tests**, 0 failures: `:core:model` 125, `:core:data` 615,
+  `:core:designsystem` 196, `:widget` 126, `:app` 666. The documents said 1684, already stale
+  before this batch (#398 and #399's gates counted 1687). Of the seven places the `handover`
+  skill names, the four that carry an Android count — this file's cheat-sheet, the README,
+  `docs/architecture.md` and the `gates` skill — say 1728; `CLAUDE.md`, `CONTRIBUTING.md` and
+  the `server-tests` agent carry none.
+- **detekt**: clean, with no baseline touched.
+- **Both assembles** passed, the release through R8.
+- **After `36e4a0b`** the documents (`1499220`), the merge with `main` (`be8f259`) and this
+  close-out touch Markdown and `docs/specs` only. The two server test files that read the
+  documents this close-out edits, `test_schema_version.py` and `test_ci_paths.py`, ran on its
+  working tree: **17 passed**.
+- **The server** is untouched and was not run: 3240 tests, 6 of them `-m host`.
+- **CI on the head** was pending at the time of writing; it is read before the merge.
+
+### What was deliberately left alone
+
+- **Margins that widen with the window (#405, backlog).** Material asks for 24 dp at medium and
+  expanded widths, but `ScreenPadding` is a constant read in places that are not composable, so
+  a margin that depends on the window is a change of its own.
+- **The widget's corners.** Glance has its own arithmetic (`WidgetSizeClass.innerCorner()`,
+  from a 24 dp surface), and the widget was not in the owner's screenshot.
+- **Typography and colour**, which the request did not name.
+- **Older insets the pass did not reach**, still off the 4 dp grid: 10, 14 and 6 dp in a few
+  chip strips, the «сейчас» separator and the empty-state hero.
+- **The month grid's gap stays a literal**; the week strip names its own `WeekdayTileGap` (4 dp)
+  beside it.
+- **`HANDOVER.md`'s section 5, the bullets that say every test ran on SQLite.** The live-verification gate ran the
+  suite on PostgreSQL the same night, and its results are #411's close-out to write.
+
+### What nobody has verified in this batch
+
+- **No screen of this pass has been seen on a device**, on an emulator or a phone. Robolectric
+  measures sizes and judges nothing; `docs/design.md`, «What nobody has looked at on a device»,
+  lists the screens and the likeliest surprises, and `HANDOVER.md`'s section 5 carries them.
+- **The FABs' shared radius and the four fields at 28 dp have no test.** Both corners are
+  Material defaults inside a component, which neither a layout test nor the source scan can
+  read.
+- **`GroupSliderItem` and `GroupSegmentedItem`'s 56 dp tests pin behaviour and guard nothing**:
+  their controls are taller than the floor.
+- **CI on the final head**, pending at the time of writing.
+
+### After #396's merge: four more merges, production read, and the issues
+
+None of this is code in #413, and a close-out never gets a close-out of its own,
+so it is written here. The source is the controller's notes of 10 and 11 October 2026.
+
+- **#396 merged by 3c's session** at 10:25:16 UTC on 10 October 2026 as `80d1281`, with CI all
+  green on its head `39b6ce4`. It closed #395, and sub-project 3 is complete. Production, read
+  at 10:25 UTC:
+  - `/api/v1/warmup`: `ok`, schema `0019`, `v2` `true`;
+  - `WatchClass` over Connect with no token: `200`, ending `unauthenticated` with
+    `DEVICE_TOKEN_INVALID`;
+  - native gRPC: `415` under `/api/rpc`, `404` at the root;
+  - `ListCorrections` `401`, and `GetDiaryCapabilities` over REST `200`.
+- **#398 and #399** merged before it, at 09:11:59 and 09:11:49 UTC, as `65e7a39` and `3741309`;
+  3c's close-out describes both («After #394's merge», in the section on #396, in
+  `docs/history.md` now). Production caught up with 3b-8
+  (#394, whose `d985ffa` Vercel never deployed) through `65e7a39` at 09:12.
+- **#403 merged** at 12:35:44 UTC as `00fb20e`, on milestone 12. It keeps «Классика» and
+  «AMOLED» only, sixteen icons, and removes the six other styles — 48 catalogue lines and
+  aliases and 192 resources; `export_android.py` writes only the two. It closed #402, filed
+  first, because `TestCatalog` needed three styles. This branch was cut from its merge.
+- **#410 merged by the owner** at 15:29:42 UTC as `1eb134e`, on milestone 11: the deployment
+  plan. `docs/specs/2026-10-10-deployment-scenarios-design.md` describes six scenarios — the
+  core on a VPS, on Vercel or in the app, and the diary through a proxy, the relay or directly —
+  and seven protections for the relay. It also edits the one-contract design: where the host
+  lives is decided (Selectel or RUVDS), the console's Deploy tab knows the scenarios, and
+  sub-project 7 is added. It filed #406–#409. This branch took it in as `be8f259`.
+- **Production is on `1eb134e`** (deployment READY). Its warmup, read at 20:49 UTC on 10
+  October, answered `200` three times, in 0.21–0.28 s.
+- **#357 confirmed live** on 10 October, against a local server on PostgreSQL: `GetClass` over
+  Connect GET answered `200` with no `Cache-Control`, and its REST twin `private, no-store`.
+- **Issues filed:** #404, closed by #413; #405, #409 and #412, backlog; #406, #407, #408
+  and #411, milestone 11. #402 closed with #403.
+
+`HANDOVER.md`'s section 7, «Next for the programme», says what follows.
+
 ## What the batch before added: the host target, its stream and its CI job — stage 3c of sub-project 3 (#273)
 
 Merged as #396 (`80d1281`, 10 October 2026), from `server-v2/3c`, on milestone 11, and on

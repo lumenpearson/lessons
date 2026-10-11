@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 from protobuf import Message
 
 from app import wording
+from app.config import Settings, get_settings
 from app.contract.lessons.v2.diary_pb import (
     AttendanceDirection,
     BatchUpdateCorrectionsRequest,
@@ -40,11 +41,13 @@ from app.contract.lessons.v2.diary_pb import (
     DiaryCapabilities,
     DiaryCorrection,
     DiaryEdit,
+    DiaryEgress,
     DiaryFeature,
     DiaryHomework,
     DiaryLesson,
     DiaryMark,
     DiaryPeriod,
+    DiaryRoute,
     DiaryScheduleDay,
     DiarySession,
     DiaryStudent,
@@ -81,7 +84,7 @@ from app.crypto import diary_enabled
 from app.models import DiaryOverride
 from app.models import DiarySession as DiarySessionRow
 from app.providers.diary.models import AcademicPeriod, Mark, Student
-from app.providers.diary.registry import NETSCHOOL, PETERSBURG, TABLE, Feature, row_for
+from app.providers.diary.registry import NETSCHOOL, PETERSBURG, TABLE, Feature, Row, route, row_for
 from app.rpc import dates, values
 from app.rpc.errors import Refusal, validate
 from app.schemas import (
@@ -142,11 +145,17 @@ async def get_diary_capabilities(
     provider offers no way in and no data, though its regions are listed as
     v1 lists them (the 3b plan, Ruling 105). Anonymous and database-free, as
     v1's: the gate opens a scope, and nothing asks it for a query.
+
+    New in v2 (#406): ``egress``, the deployment's own route, and each
+    provider's ``routes`` — said whether or not the diary is enabled, since a
+    route is a fact about the deployment, not about a session.
     """
     enabled = diary_enabled()
+    settings = get_settings()
     return GetDiaryCapabilitiesResponse(
         capabilities=DiaryCapabilities(
             enabled=enabled,
+            egress=DiaryEgress[settings.diary_egress_value.name],
             providers=[
                 ProviderCapabilities(
                     provider=row.key,
@@ -160,11 +169,23 @@ async def get_diary_capabilities(
                     )
                     if enabled
                     else [],
+                    routes=_routes(row, settings),
                 )
                 for row in TABLE
             ],
         )
     )
+
+
+def _routes(row: Row, settings: Settings) -> list[DiaryRoute]:
+    """One route with no region for a provider that is one server; one per
+    listed region, in the regions' order, for a regional one (#406)."""
+    if row.regions is None:
+        return [DiaryRoute(egress=DiaryEgress[route(row.key, None, settings).name])]
+    return [
+        DiaryRoute(region=key, egress=DiaryEgress[route(row.key, key, settings).name])
+        for key in row.listed_regions()
+    ]
 
 
 def _row(call: Call) -> DiarySessionRow:

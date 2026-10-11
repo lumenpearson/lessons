@@ -151,8 +151,11 @@ This server's database (Neon) keeps a history of changes for a further 6 hours, 
 <!-- id: THIRD_PARTIES; label: Third parties; summary: Who else gets what, besides the server -->
 
 <!--
-  FORK: [HOSTING] [DB] [DADATA] [REPOSITORY]
-  «Vercel и Neon» are the upstream's. DaData applies only where DADATA_TOKEN is set; without
+  FORK: [HOSTING] [DB] [PROXY] [DADATA] [REPOSITORY]
+  «Vercel и Neon» are the upstream's.
+  The intermediary server is the upstream's: DIARY_PROXY_URL on a VPS at RUVDS (#334, #406).
+  A fork with no DIARY_PROXY_URL deletes the point, in both files.
+  DaData applies only where DADATA_TOKEN is set; without
   it the search refuses at the door and Settings.disabled_features logs it as off. The GitHub
   point holds for every build of this code: the update check and the guide are fetched from
   lumenpearson/lessons, hard-coded in GithubApi.kt, whatever repository built the APK.
@@ -161,6 +164,7 @@ This server's database (Neon) keeps a history of changes for a further 6 hours, 
 - **The hosting and the database** — Vercel and Neon, for this operator: the server runs on their machines, and everything it keeps is stored there.
 - **Telegram** — everything you do in the bot and everything the bot sends you goes through it.
 - **The diary systems** — Petersburg Education and Setevoy Gorod's regional servers. The phone sends them your login and password when you sign in, and sends Setevoy Gorod your school's name when you search for it; the server sends them your requests to the diary.
+- **The operator's intermediary server in Russia** — RUVDS hosts it for this operator. The server's requests to the diary systems may go through it (it is an HTTP proxy) when a diary does not answer from the country the server runs in. It is a tunnel encrypted with TLS from the server to the diary itself: the intermediary sees only the diary site's address and the time of the request, and may write them to its log, but never sees logins, passwords, sessions or marks.
 - **DaData** — if the operator has turned school search on: the server sends it the school name you typed, but not your IP address.
 - **GitHub** — once a day at start-up the app checks there whether a new version is out (on by default, can be turned off in settings), and fetches the guide from there when you open it; GitHub sees the phone's address and the app's version when it does. A bug report or a translation fix goes there publicly — only if you send it yourself.
 - **Google** — the phone's backup, but only what is not excluded from it (see “What is kept on the phone”).

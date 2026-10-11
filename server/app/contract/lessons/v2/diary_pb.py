@@ -66,7 +66,7 @@ class GetDiaryCapabilitiesResponse(Message[_GetDiaryCapabilitiesResponseFields])
 
         capabilities: DiaryCapabilities | None
 
-_DiaryCapabilitiesFields: TypeAlias = Literal["enabled", "providers"]
+_DiaryCapabilitiesFields: TypeAlias = Literal["enabled", "providers", "egress"]
 
 class DiaryCapabilities(Message[_DiaryCapabilitiesFields]):
     """
@@ -88,9 +88,18 @@ class DiaryCapabilities(Message[_DiaryCapabilitiesFields]):
             ```proto
             repeated lessons.v2.ProviderCapabilities providers = 2;
             ```
+        egress:
+            The deployment's DIARY_EGRESS as it takes effect: PROXY only where a usable
+            proxy backs it, DIRECT for a relay this server does not have yet. Not
+            every server of a provider takes it; each provider's routes say which. New
+            in v2 (#406); v1's answer keeps its shape.
+
+            ```proto
+            lessons.v2.DiaryEgress egress = 3;
+            ```
     """
 
-    __slots__ = ("enabled", "providers")
+    __slots__ = ("enabled", "providers", "egress")
 
     if TYPE_CHECKING:
 
@@ -99,13 +108,15 @@ class DiaryCapabilities(Message[_DiaryCapabilitiesFields]):
             *,
             enabled: bool = False,
             providers: list[ProviderCapabilities] | None = None,
+            egress: DiaryEgress | None = None,
         ) -> None:
             pass
 
         enabled: bool
         providers: list[ProviderCapabilities]
+        egress: DiaryEgress
 
-_ProviderCapabilitiesFields: TypeAlias = Literal["provider", "regions", "sign_in_methods", "features"]
+_ProviderCapabilitiesFields: TypeAlias = Literal["provider", "regions", "sign_in_methods", "features", "routes"]
 
 class ProviderCapabilities(Message[_ProviderCapabilitiesFields]):
     """
@@ -136,9 +147,18 @@ class ProviderCapabilities(Message[_ProviderCapabilitiesFields]):
             ```proto
             repeated lessons.v2.DiaryFeature features = 4 [packed = true];
             ```
+        routes:
+            How this server reaches the provider's own servers, as it does now: one
+            route, with no region, for a provider that is one server; one per region
+            of `regions`, in that order, for a regional one. Said whether or not the
+            diary is enabled, as `regions` is.
+
+            ```proto
+            repeated lessons.v2.DiaryRoute routes = 5;
+            ```
     """
 
-    __slots__ = ("provider", "regions", "sign_in_methods", "features")
+    __slots__ = ("provider", "regions", "sign_in_methods", "features", "routes")
 
     if TYPE_CHECKING:
 
@@ -149,6 +169,7 @@ class ProviderCapabilities(Message[_ProviderCapabilitiesFields]):
             regions: list[str] | None = None,
             sign_in_methods: list[SignInMethod] | None = None,
             features: list[DiaryFeature] | None = None,
+            routes: list[DiaryRoute] | None = None,
         ) -> None:
             pass
 
@@ -156,6 +177,46 @@ class ProviderCapabilities(Message[_ProviderCapabilitiesFields]):
         regions: list[str]
         sign_in_methods: list[SignInMethod]
         features: list[DiaryFeature]
+        routes: list[DiaryRoute]
+
+_DiaryRouteFields: TypeAlias = Literal["region", "egress"]
+
+class DiaryRoute(Message[_DiaryRouteFields]):
+    """
+    One of a provider's routes: how this server reaches one of its servers.
+
+    ```proto
+    message lessons.v2.DiaryRoute
+    ```
+
+    Attributes:
+        region:
+            A key of the provider's `regions`; unset for a provider that is one
+            server.
+
+            ```proto
+            optional string region = 1;
+            ```
+        egress:
+            ```proto
+            lessons.v2.DiaryEgress egress = 2;
+            ```
+    """
+
+    __slots__ = ("region", "egress")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            region: str | None = None,
+            egress: DiaryEgress | None = None,
+        ) -> None:
+            pass
+
+        region: str
+        egress: DiaryEgress
 
 _PetersburgCredentialFields: TypeAlias = Literal["token"]
 
@@ -2067,6 +2128,48 @@ class SignInMethod(Enum):
     PASSWORD = 1
     SESSION_ADOPT = 2
 
+class DiaryEgress(Enum):
+    """
+    How this server reaches a diary's own server (docs/specs/2026-10-10-
+    deployment-scenarios-design.md, «How a scenario is chosen»). A new route is
+    a new value, decoded leniently as DiaryFeature is.
+
+    ```proto
+    enum lessons.v2.DiaryEgress
+    ```
+
+    Attributes:
+        UNSPECIFIED:
+            ```proto
+            DIARY_EGRESS_UNSPECIFIED = 0
+            ```
+        DIRECT:
+            From wherever this server runs, with nothing in between.
+
+            ```proto
+            DIARY_EGRESS_DIRECT = 1
+            ```
+        PROXY:
+            Through the deployment's HTTP proxy, as a CONNECT tunnel: TLS stays end to
+            end.
+
+            ```proto
+            DIARY_EGRESS_PROXY = 2
+            ```
+        RELAY:
+            The phone fetches the diary's answers and hands them over. No server
+            answers it yet: the relay is not built.
+
+            ```proto
+            DIARY_EGRESS_RELAY = 3
+            ```
+    """
+
+    UNSPECIFIED = 0
+    DIRECT = 1
+    PROXY = 2
+    RELAY = 3
+
 class MarkKind(Enum):
     """
     What a register entry is. v1: DiaryMarkOut.kind's strings.
@@ -2146,7 +2249,7 @@ class AttendanceDirection(Enum):
 
 
 _DESC = file_desc(
-    b'\n\x16lessons/v2/diary.proto\x12\nlessons.v2\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18lessons/v2/options.proto"\x1d\n\x1bGetDiaryCapabilitiesRequest"a\n\x1cGetDiaryCapabilitiesResponse\x12A\n\x0ccapabilities\x18\x01 \x01(\x0b2\x1d.lessons.v2.DiaryCapabilitiesR\x0ccapabilities"m\n\x11DiaryCapabilities\x12\x18\n\x07enabled\x18\x01 \x01(\x08R\x07enabled\x12>\n\tproviders\x18\x02 \x03(\x0b2 .lessons.v2.ProviderCapabilitiesR\tproviders"\xc4\x01\n\x14ProviderCapabilities\x12\x1a\n\x08provider\x18\x01 \x01(\tR\x08provider\x12\x18\n\x07regions\x18\x02 \x03(\tR\x07regions\x12@\n\x0fsign_in_methods\x18\x03 \x03(\x0e2\x18.lessons.v2.SignInMethodR\rsignInMethods\x124\n\x08features\x18\x04 \x03(\x0e2\x18.lessons.v2.DiaryFeatureR\x08features",\n\x14PetersburgCredential\x12\x14\n\x05token\x18\x01 \x01(\tR\x05token"\xa9\x01\n\x13NetSchoolCredential\x12\x0e\n\x02at\x18\x01 \x01(\tR\x02at\x126\n\x07cookies\x18\x02 \x01(\x0b2\x1c.lessons.v2.NetSchoolCookiesR\x07cookies\x12\x15\n\x03ver\x18\x03 \x01(\tH\x00R\x03ver\x88\x01\x01\x12\x1e\n\x08time_out\x18\x04 \x01(\x05H\x01R\x07timeOut\x88\x01\x01B\x06\n\x04_verB\x0b\n\t_time_out"c\n\x10NetSchoolCookies\x12"\n\rns_session_id\x18\x01 \x01(\tR\x0bnsSessionId\x12\x1e\n\x08esrn_sec\x18\x02 \x01(\tH\x00R\x07esrnSec\x88\x01\x01B\x0b\n\t_esrn_sec"\x9c\x02\n\x19CreateDiarySessionRequest\x12\x14\n\x05login\x18\x01 \x01(\tR\x05login\x12B\n\npetersburg\x18\x02 \x01(\x0b2 .lessons.v2.PetersburgCredentialH\x00R\npetersburg\x12?\n\tnetschool\x18\x03 \x01(\x0b2\x1f.lessons.v2.NetSchoolCredentialH\x00R\tnetschool\x12\x1b\n\x06region\x18\x04 \x01(\tH\x01R\x06region\x88\x01\x01\x12 \n\tschool_id\x18\x05 \x01(\x03H\x02R\x08schoolId\x88\x01\x01B\x0c\n\ncredentialB\t\n\x07_regionB\x0c\n\n_school_id"P\n\x1aCreateDiarySessionResponse\x122\n\x07session\x18\x01 \x01(\x0b2\x18.lessons.v2.DiarySessionR\x07session"\xae\x02\n\x0cDiarySession\x12\x14\n\x05token\x18\x01 \x01(\tR\x05token\x12\x14\n\x05login\x18\x02 \x01(\tR\x05login\x12\x1a\n\x08provider\x18\x03 \x01(\tR\x08provider\x12\x1b\n\x06region\x18\x04 \x01(\tH\x00R\x06region\x88\x01\x01\x12 \n\tschool_id\x18\x05 \x01(\x03H\x01R\x08schoolId\x88\x01\x01\x12$\n\x0bschool_name\x18\x06 \x01(\tH\x02R\nschoolName\x88\x01\x01\x12\x12\n\x04zone\x18\x07 \x01(\tR\x04zone\x124\n\x08students\x18\x08 \x03(\x0b2\x18.lessons.v2.DiaryStudentR\x08studentsB\t\n\x07_regionB\x0c\n\n_school_idB\x0e\n\x0c_school_name"\x1b\n\x19DeleteDiarySessionRequest"\x1c\n\x1aDeleteDiarySessionResponse"\x88\x02\n\x0cDiaryStudent\x12\x0e\n\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n\nfirst_name\x18\x02 \x01(\tR\tfirstName\x12\x1b\n\tlast_name\x18\x03 \x01(\tR\x08lastName\x12$\n\x0bmiddle_name\x18\x04 \x01(\tH\x00R\nmiddleName\x88\x01\x01\x12\x1b\n\tfull_name\x18\x05 \x01(\tR\x08fullName\x12\x1b\n\x06school\x18\x06 \x01(\tH\x01R\x06school\x88\x01\x01\x12"\n\nclass_name\x18\x07 \x01(\tH\x02R\tclassName\x88\x01\x01B\x0e\n\x0c_middle_nameB\t\n\x07_schoolB\r\n\x0b_class_name"\x15\n\x13ListStudentsRequest"L\n\x14ListStudentsResponse\x124\n\x08students\x18\x01 \x03(\x0b2\x18.lessons.v2.DiaryStudentR\x08students"\x90\x01\n\tDiaryEdit\x12\x14\n\x05field\x18\x01 \x01(\tR\x05field\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value\x12\x1f\n\x08original\x18\x03 \x01(\tH\x00R\x08original\x88\x01\x01\x12)\n\x10changed_upstream\x18\x04 \x01(\x08R\x0fchangedUpstreamB\x0b\n\t_original"Y\n\x10DiaryScheduleDay\x12\x12\n\x04date\x18\x01 \x01(\tR\x04date\x121\n\x07lessons\x18\x02 \x03(\x0b2\x17.lessons.v2.DiaryLessonR\x07lessons"\xac\x03\n\x0bDiaryLesson\x12\x1b\n\x06number\x18\x01 \x01(\x05H\x00R\x06number\x88\x01\x01\x12\x18\n\x07subject\x18\x02 \x01(\tR\x07subject\x12 \n\tstarts_at\x18\x03 \x01(\tH\x01R\x08startsAt\x88\x01\x01\x12\x1c\n\x07ends_at\x18\x04 \x01(\tH\x02R\x06endsAt\x88\x01\x01\x12\x17\n\x04room\x18\x05 \x01(\tH\x03R\x04room\x88\x01\x01\x12\x1d\n\x07teacher\x18\x06 \x01(\tH\x04R\x07teacher\x88\x01\x01\x12\x1f\n\x08homework\x18\x07 \x01(\tH\x05R\x08homework\x88\x01\x01\x12\x19\n\x05topic\x18\x08 \x01(\tH\x06R\x05topic\x88\x01\x01\x12\x16\n\x06target\x18\t \x01(\tR\x06target\x12+\n\x05edits\x18\n \x03(\x0b2\x15.lessons.v2.DiaryEditR\x05edits\x12\x1c\n\tambiguous\x18\x0b \x01(\x08R\tambiguousB\t\n\x07_numberB\x0c\n\n_starts_atB\n\n\x08_ends_atB\x07\n\x05_roomB\n\n\x08_teacherB\x0b\n\t_homeworkB\x08\n\x06_topic"\x98\x01\n\x17ListScheduleDaysRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12"\n\nstart_date\x18\x02 \x01(\tH\x00R\tstartDate\x88\x01\x01\x12\x1e\n\x08end_date\x18\x03 \x01(\tH\x01R\x07endDate\x88\x01\x01B\r\n\x0b_start_dateB\x0b\n\t_end_date"]\n\x18ListScheduleDaysResponse\x12A\n\rschedule_days\x18\x01 \x03(\x0b2\x1c.lessons.v2.DiaryScheduleDayR\x0cscheduleDays"\x82\x02\n\rDiaryHomework\x12\x13\n\x02id\x18\x01 \x01(\x03H\x00R\x02id\x88\x01\x01\x12\x19\n\x08due_date\x18\x02 \x01(\tR\x07dueDate\x12\x18\n\x07subject\x18\x03 \x01(\tR\x07subject\x12\x12\n\x04text\x18\x04 \x01(\tR\x04text\x12\x1d\n\x07teacher\x18\x05 \x01(\tH\x01R\x07teacher\x88\x01\x01\x12\x16\n\x06target\x18\x06 \x01(\tR\x06target\x12+\n\x05edits\x18\x07 \x03(\x0b2\x15.lessons.v2.DiaryEditR\x05edits\x12\x1c\n\tambiguous\x18\x08 \x01(\x08R\tambiguousB\x05\n\x03_idB\n\n\x08_teacher"\x99\x01\n\x18ListDiaryHomeworkRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12"\n\nstart_date\x18\x02 \x01(\tH\x00R\tstartDate\x88\x01\x01\x12\x1e\n\x08end_date\x18\x03 \x01(\tH\x01R\x07endDate\x88\x01\x01B\r\n\x0b_start_dateB\x0b\n\t_end_date"R\n\x19ListDiaryHomeworkResponse\x125\n\x08homework\x18\x01 \x03(\x0b2\x19.lessons.v2.DiaryHomeworkR\x08homework"\xa9\x02\n\tDiaryMark\x12\x13\n\x02id\x18\x01 \x01(\x03H\x00R\x02id\x88\x01\x01\x12"\n\nsubject_id\x18\x02 \x01(\x03H\x01R\tsubjectId\x88\x01\x01\x12\x18\n\x07subject\x18\x03 \x01(\tR\x07subject\x12\x17\n\x04date\x18\x04 \x01(\tH\x02R\x04date\x88\x01\x01\x12\x14\n\x05value\x18\x05 \x01(\tR\x05value\x12(\n\x04kind\x18\x06 \x01(\x0e2\x14.lessons.v2.MarkKindR\x04kind\x12\x1b\n\x06reason\x18\x07 \x01(\tH\x03R\x06reason\x88\x01\x01\x12\x1d\n\x07comment\x18\x08 \x01(\tH\x04R\x07comment\x88\x01\x01B\x05\n\x03_idB\r\n\x0b_subject_idB\x07\n\x05_dateB\t\n\x07_reasonB\n\n\x08_comment"\x91\x01\n\x10ListMarksRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12"\n\nstart_date\x18\x02 \x01(\tH\x00R\tstartDate\x88\x01\x01\x12\x1e\n\x08end_date\x18\x03 \x01(\tH\x01R\x07endDate\x88\x01\x01B\r\n\x0b_start_dateB\x0b\n\t_end_date"@\n\x11ListMarksResponse\x12+\n\x05marks\x18\x01 \x03(\x0b2\x15.lessons.v2.DiaryMarkR\x05marks"\xaa\x01\n\x0bDiaryPeriod\x12\x0e\n\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12 \n\tstarts_on\x18\x03 \x01(\tH\x00R\x08startsOn\x88\x01\x01\x12\x1c\n\x07ends_on\x18\x04 \x01(\tH\x01R\x06endsOn\x88\x01\x01\x12\x1d\n\nis_current\x18\x05 \x01(\x08R\tisCurrentB\x0c\n\n_starts_onB\n\n\x08_ends_on"3\n\x12ListPeriodsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId"H\n\x13ListPeriodsResponse\x121\n\x07periods\x18\x01 \x03(\x0b2\x17.lessons.v2.DiaryPeriodR\x07periods">\n\x0cDiarySubject\x12\x13\n\x02id\x18\x01 \x01(\x03H\x00R\x02id\x88\x01\x01\x12\x12\n\x04name\x18\x02 \x01(\tR\x04nameB\x05\n\x03_id"i\n\x18ListDiarySubjectsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12 \n\tperiod_id\x18\x02 \x01(\x03H\x00R\x08periodId\x88\x01\x01B\x0c\n\n_period_id"Q\n\x19ListDiarySubjectsResponse\x124\n\x08subjects\x18\x01 \x03(\x0b2\x18.lessons.v2.DiarySubjectR\x08subjects"\x88\x01\n\x0cDiaryTeacher\x12\x13\n\x02id\x18\x01 \x01(\x03H\x00R\x02id\x88\x01\x01\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1f\n\x08position\x18\x03 \x01(\tH\x01R\x08position\x88\x01\x01\x12\x1a\n\x08subjects\x18\x04 \x03(\tR\x08subjectsB\x05\n\x03_idB\x0b\n\t_position"4\n\x13ListTeachersRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId"L\n\x14ListTeachersResponse\x124\n\x08teachers\x18\x01 \x03(\x0b2\x18.lessons.v2.DiaryTeacherR\x08teachers"`\n\x0fDiaryAttendance\x12\x0e\n\x02at\x18\x01 \x01(\tR\x02at\x12=\n\tdirection\x18\x02 \x01(\x0e2\x1f.lessons.v2.AttendanceDirectionR\tdirection";\n\x1aListTurnstileEventsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId"e\n\x1bListTurnstileEventsResponse\x12F\n\x10turnstile_events\x18\x01 \x03(\x0b2\x1b.lessons.v2.DiaryAttendanceR\x0fturnstileEvents"\xe3\x01\n\x0fDiaryCorrection\x12\x16\n\x06target\x18\x01 \x01(\tR\x06target\x12\x14\n\x05field\x18\x02 \x01(\tR\x05field\x12\x14\n\x05value\x18\x03 \x01(\tR\x05value\x127\n\x15original_when_written\x18\x04 \x01(\tH\x00R\x13originalWhenWritten\x88\x01\x01\x129\n\nupdated_at\x18\x05 \x01(\x0b2\x1a.google.protobuf.TimestampR\tupdatedAtB\x18\n\x16_original_when_written"\x84\x01\n\x10CorrectionUpdate\x12\x16\n\x06target\x18\x01 \x01(\tR\x06target\x12\x14\n\x05field\x18\x02 \x01(\tR\x05field\x12\x14\n\x05value\x18\x03 \x01(\tR\x05value\x12\x1f\n\x08original\x18\x04 \x01(\tH\x00R\x08original\x88\x01\x01B\x0b\n\t_original"=\n\rCorrectionKey\x12\x16\n\x06target\x18\x01 \x01(\tR\x06target\x12\x14\n\x05field\x18\x02 \x01(\tR\x05field"7\n\x16ListCorrectionsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId"X\n\x17ListCorrectionsResponse\x12=\n\x0bcorrections\x18\x01 \x03(\x0b2\x1b.lessons.v2.DiaryCorrectionR\x0bcorrections"~\n\x1dBatchUpdateCorrectionsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12>\n\x0bcorrections\x18\x02 \x03(\x0b2\x1c.lessons.v2.CorrectionUpdateR\x0bcorrections"_\n\x1eBatchUpdateCorrectionsResponse\x12=\n\x0bcorrections\x18\x01 \x03(\x0b2\x1b.lessons.v2.DiaryCorrectionR\x0bcorrections"u\n\x17ResetCorrectionsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12;\n\x0bcorrections\x18\x02 \x03(\x0b2\x19.lessons.v2.CorrectionKeyR\x0bcorrections"\x1a\n\x18ResetCorrectionsResponse"8\n\x17ClearCorrectionsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId"\x1a\n\x18ClearCorrectionsResponse*\xcb\x02\n\x0cDiaryFeature\x12\x1d\n\x19DIARY_FEATURE_UNSPECIFIED\x10\x00\x12\x1a\n\x16DIARY_FEATURE_SCHEDULE\x10\x01\x12\x1a\n\x16DIARY_FEATURE_HOMEWORK\x10\x02\x12\x17\n\x13DIARY_FEATURE_MARKS\x10\x03\x12\x19\n\x15DIARY_FEATURE_PERIODS\x10\x04\x12\x1a\n\x16DIARY_FEATURE_SUBJECTS\x10\x05\x12\x1a\n\x16DIARY_FEATURE_TEACHERS\x10\x06\x12\x1c\n\x18DIARY_FEATURE_ATTENDANCE\x10\x07\x12\x1b\n\x17DIARY_FEATURE_TURNSTILE\x10\x08\x12\x1e\n\x1aDIARY_FEATURE_MEAL_ACCOUNT\x10\t\x12\x1d\n\x19DIARY_FEATURE_FINAL_MARKS\x10\n*m\n\x0cSignInMethod\x12\x1e\n\x1aSIGN_IN_METHOD_UNSPECIFIED\x10\x00\x12\x1b\n\x17SIGN_IN_METHOD_PASSWORD\x10\x01\x12 \n\x1cSIGN_IN_METHOD_SESSION_ADOPT\x10\x02*\x90\x01\n\x08MarkKind\x12\x19\n\x15MARK_KIND_UNSPECIFIED\x10\x00\x12\x13\n\x0fMARK_KIND_GRADE\x10\x01\x12\x15\n\x11MARK_KIND_ABSENCE\x10\x02\x12\x12\n\x0eMARK_KIND_LATE\x10\x03\x12\x14\n\x10MARK_KIND_REMARK\x10\x04\x12\x13\n\x0fMARK_KIND_OTHER\x10\x05*\x98\x01\n\x13AttendanceDirection\x12$\n ATTENDANCE_DIRECTION_UNSPECIFIED\x10\x00\x12\x1b\n\x17ATTENDANCE_DIRECTION_IN\x10\x01\x12\x1c\n\x18ATTENDANCE_DIRECTION_OUT\x10\x02\x12 \n\x1cATTENDANCE_DIRECTION_UNKNOWN\x10\x032\xd9\x11\n\x0cDiaryService\x12\x90\x01\n\x14GetDiaryCapabilities\x12\'.lessons.v2.GetDiaryCapabilitiesRequest\x1a(.lessons.v2.GetDiaryCapabilitiesResponse"%\x90\x02\x01\x88\xb5\x18\x01\x82\xd3\xe4\x93\x02\x18\x12\x16/v2/diary/capabilities\x12\x86\x01\n\x12CreateDiarySession\x12%.lessons.v2.CreateDiarySessionRequest\x1a&.lessons.v2.CreateDiarySessionResponse"!\x88\xb5\x18\x01\x82\xd3\xe4\x93\x02\x17:\x01*"\x12/v2/diary/sessions\x12\x8b\x01\n\x12DeleteDiarySession\x12%.lessons.v2.DeleteDiarySessionRequest\x1a&.lessons.v2.DeleteDiarySessionResponse"&\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02\x1c*\x1a/v2/diary/sessions/current\x12t\n\x0cListStudents\x12\x1f.lessons.v2.ListStudentsRequest\x1a .lessons.v2.ListStudentsResponse"!\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02\x14\x12\x12/v2/diary/students\x12\x9a\x01\n\x10ListScheduleDays\x12#.lessons.v2.ListScheduleDaysRequest\x1a$.lessons.v2.ListScheduleDaysResponse";\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02.\x12,/v2/diary/students/{student_id}/scheduleDays\x12\x99\x01\n\x11ListDiaryHomework\x12$.lessons.v2.ListDiaryHomeworkRequest\x1a%.lessons.v2.ListDiaryHomeworkResponse"7\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02*\x12(/v2/diary/students/{student_id}/homework\x12~\n\tListMarks\x12\x1c.lessons.v2.ListMarksRequest\x1a\x1d.lessons.v2.ListMarksResponse"4\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02\'\x12%/v2/diary/students/{student_id}/marks\x12\x86\x01\n\x0bListPeriods\x12\x1e.lessons.v2.ListPeriodsRequest\x1a\x1f.lessons.v2.ListPeriodsResponse"6\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02)\x12\'/v2/diary/students/{student_id}/periods\x12\x99\x01\n\x11ListDiarySubjects\x12$.lessons.v2.ListDiarySubjectsRequest\x1a%.lessons.v2.ListDiarySubjectsResponse"7\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02*\x12(/v2/diary/students/{student_id}/subjects\x12\x8a\x01\n\x0cListTeachers\x12\x1f.lessons.v2.ListTeachersRequest\x1a .lessons.v2.ListTeachersResponse"7\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02*\x12(/v2/diary/students/{student_id}/teachers\x12\xa6\x01\n\x13ListTurnstileEvents\x12&.lessons.v2.ListTurnstileEventsRequest\x1a\'.lessons.v2.ListTurnstileEventsResponse">\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x021\x12//v2/diary/students/{student_id}/turnstileEvents\x12\x96\x01\n\x0fListCorrections\x12".lessons.v2.ListCorrectionsRequest\x1a#.lessons.v2.ListCorrectionsResponse":\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02-\x12+/v2/diary/students/{student_id}/corrections\x12\xb7\x01\n\x16BatchUpdateCorrections\x12).lessons.v2.BatchUpdateCorrectionsRequest\x1a*.lessons.v2.BatchUpdateCorrectionsResponse"F\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02<:\x01*"7/v2/diary/students/{student_id}/corrections:batchUpdate\x12\x9f\x01\n\x10ResetCorrections\x12#.lessons.v2.ResetCorrectionsRequest\x1a$.lessons.v2.ResetCorrectionsResponse"@\x88\xb5\x18\x04\x82\xd3\xe4\x93\x026:\x01*"1/v2/diary/students/{student_id}/corrections:reset\x12\x9f\x01\n\x10ClearCorrections\x12#.lessons.v2.ClearCorrectionsRequest\x1a$.lessons.v2.ClearCorrectionsResponse"@\x88\xb5\x18\x04\x82\xd3\xe4\x93\x026:\x01*"1/v2/diary/students/{student_id}/corrections:clearB(\n$com.lumenpearson.lessons.contract.v2P\x01b\x06proto3',
+    b'\n\x16lessons/v2/diary.proto\x12\nlessons.v2\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x18lessons/v2/options.proto"\x1d\n\x1bGetDiaryCapabilitiesRequest"a\n\x1cGetDiaryCapabilitiesResponse\x12A\n\x0ccapabilities\x18\x01 \x01(\x0b2\x1d.lessons.v2.DiaryCapabilitiesR\x0ccapabilities"\x9e\x01\n\x11DiaryCapabilities\x12\x18\n\x07enabled\x18\x01 \x01(\x08R\x07enabled\x12>\n\tproviders\x18\x02 \x03(\x0b2 .lessons.v2.ProviderCapabilitiesR\tproviders\x12/\n\x06egress\x18\x03 \x01(\x0e2\x17.lessons.v2.DiaryEgressR\x06egress"\xf4\x01\n\x14ProviderCapabilities\x12\x1a\n\x08provider\x18\x01 \x01(\tR\x08provider\x12\x18\n\x07regions\x18\x02 \x03(\tR\x07regions\x12@\n\x0fsign_in_methods\x18\x03 \x03(\x0e2\x18.lessons.v2.SignInMethodR\rsignInMethods\x124\n\x08features\x18\x04 \x03(\x0e2\x18.lessons.v2.DiaryFeatureR\x08features\x12.\n\x06routes\x18\x05 \x03(\x0b2\x16.lessons.v2.DiaryRouteR\x06routes"e\n\nDiaryRoute\x12\x1b\n\x06region\x18\x01 \x01(\tH\x00R\x06region\x88\x01\x01\x12/\n\x06egress\x18\x02 \x01(\x0e2\x17.lessons.v2.DiaryEgressR\x06egressB\t\n\x07_region",\n\x14PetersburgCredential\x12\x14\n\x05token\x18\x01 \x01(\tR\x05token"\xa9\x01\n\x13NetSchoolCredential\x12\x0e\n\x02at\x18\x01 \x01(\tR\x02at\x126\n\x07cookies\x18\x02 \x01(\x0b2\x1c.lessons.v2.NetSchoolCookiesR\x07cookies\x12\x15\n\x03ver\x18\x03 \x01(\tH\x00R\x03ver\x88\x01\x01\x12\x1e\n\x08time_out\x18\x04 \x01(\x05H\x01R\x07timeOut\x88\x01\x01B\x06\n\x04_verB\x0b\n\t_time_out"c\n\x10NetSchoolCookies\x12"\n\rns_session_id\x18\x01 \x01(\tR\x0bnsSessionId\x12\x1e\n\x08esrn_sec\x18\x02 \x01(\tH\x00R\x07esrnSec\x88\x01\x01B\x0b\n\t_esrn_sec"\x9c\x02\n\x19CreateDiarySessionRequest\x12\x14\n\x05login\x18\x01 \x01(\tR\x05login\x12B\n\npetersburg\x18\x02 \x01(\x0b2 .lessons.v2.PetersburgCredentialH\x00R\npetersburg\x12?\n\tnetschool\x18\x03 \x01(\x0b2\x1f.lessons.v2.NetSchoolCredentialH\x00R\tnetschool\x12\x1b\n\x06region\x18\x04 \x01(\tH\x01R\x06region\x88\x01\x01\x12 \n\tschool_id\x18\x05 \x01(\x03H\x02R\x08schoolId\x88\x01\x01B\x0c\n\ncredentialB\t\n\x07_regionB\x0c\n\n_school_id"P\n\x1aCreateDiarySessionResponse\x122\n\x07session\x18\x01 \x01(\x0b2\x18.lessons.v2.DiarySessionR\x07session"\xae\x02\n\x0cDiarySession\x12\x14\n\x05token\x18\x01 \x01(\tR\x05token\x12\x14\n\x05login\x18\x02 \x01(\tR\x05login\x12\x1a\n\x08provider\x18\x03 \x01(\tR\x08provider\x12\x1b\n\x06region\x18\x04 \x01(\tH\x00R\x06region\x88\x01\x01\x12 \n\tschool_id\x18\x05 \x01(\x03H\x01R\x08schoolId\x88\x01\x01\x12$\n\x0bschool_name\x18\x06 \x01(\tH\x02R\nschoolName\x88\x01\x01\x12\x12\n\x04zone\x18\x07 \x01(\tR\x04zone\x124\n\x08students\x18\x08 \x03(\x0b2\x18.lessons.v2.DiaryStudentR\x08studentsB\t\n\x07_regionB\x0c\n\n_school_idB\x0e\n\x0c_school_name"\x1b\n\x19DeleteDiarySessionRequest"\x1c\n\x1aDeleteDiarySessionResponse"\x88\x02\n\x0cDiaryStudent\x12\x0e\n\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n\nfirst_name\x18\x02 \x01(\tR\tfirstName\x12\x1b\n\tlast_name\x18\x03 \x01(\tR\x08lastName\x12$\n\x0bmiddle_name\x18\x04 \x01(\tH\x00R\nmiddleName\x88\x01\x01\x12\x1b\n\tfull_name\x18\x05 \x01(\tR\x08fullName\x12\x1b\n\x06school\x18\x06 \x01(\tH\x01R\x06school\x88\x01\x01\x12"\n\nclass_name\x18\x07 \x01(\tH\x02R\tclassName\x88\x01\x01B\x0e\n\x0c_middle_nameB\t\n\x07_schoolB\r\n\x0b_class_name"\x15\n\x13ListStudentsRequest"L\n\x14ListStudentsResponse\x124\n\x08students\x18\x01 \x03(\x0b2\x18.lessons.v2.DiaryStudentR\x08students"\x90\x01\n\tDiaryEdit\x12\x14\n\x05field\x18\x01 \x01(\tR\x05field\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value\x12\x1f\n\x08original\x18\x03 \x01(\tH\x00R\x08original\x88\x01\x01\x12)\n\x10changed_upstream\x18\x04 \x01(\x08R\x0fchangedUpstreamB\x0b\n\t_original"Y\n\x10DiaryScheduleDay\x12\x12\n\x04date\x18\x01 \x01(\tR\x04date\x121\n\x07lessons\x18\x02 \x03(\x0b2\x17.lessons.v2.DiaryLessonR\x07lessons"\xac\x03\n\x0bDiaryLesson\x12\x1b\n\x06number\x18\x01 \x01(\x05H\x00R\x06number\x88\x01\x01\x12\x18\n\x07subject\x18\x02 \x01(\tR\x07subject\x12 \n\tstarts_at\x18\x03 \x01(\tH\x01R\x08startsAt\x88\x01\x01\x12\x1c\n\x07ends_at\x18\x04 \x01(\tH\x02R\x06endsAt\x88\x01\x01\x12\x17\n\x04room\x18\x05 \x01(\tH\x03R\x04room\x88\x01\x01\x12\x1d\n\x07teacher\x18\x06 \x01(\tH\x04R\x07teacher\x88\x01\x01\x12\x1f\n\x08homework\x18\x07 \x01(\tH\x05R\x08homework\x88\x01\x01\x12\x19\n\x05topic\x18\x08 \x01(\tH\x06R\x05topic\x88\x01\x01\x12\x16\n\x06target\x18\t \x01(\tR\x06target\x12+\n\x05edits\x18\n \x03(\x0b2\x15.lessons.v2.DiaryEditR\x05edits\x12\x1c\n\tambiguous\x18\x0b \x01(\x08R\tambiguousB\t\n\x07_numberB\x0c\n\n_starts_atB\n\n\x08_ends_atB\x07\n\x05_roomB\n\n\x08_teacherB\x0b\n\t_homeworkB\x08\n\x06_topic"\x98\x01\n\x17ListScheduleDaysRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12"\n\nstart_date\x18\x02 \x01(\tH\x00R\tstartDate\x88\x01\x01\x12\x1e\n\x08end_date\x18\x03 \x01(\tH\x01R\x07endDate\x88\x01\x01B\r\n\x0b_start_dateB\x0b\n\t_end_date"]\n\x18ListScheduleDaysResponse\x12A\n\rschedule_days\x18\x01 \x03(\x0b2\x1c.lessons.v2.DiaryScheduleDayR\x0cscheduleDays"\x82\x02\n\rDiaryHomework\x12\x13\n\x02id\x18\x01 \x01(\x03H\x00R\x02id\x88\x01\x01\x12\x19\n\x08due_date\x18\x02 \x01(\tR\x07dueDate\x12\x18\n\x07subject\x18\x03 \x01(\tR\x07subject\x12\x12\n\x04text\x18\x04 \x01(\tR\x04text\x12\x1d\n\x07teacher\x18\x05 \x01(\tH\x01R\x07teacher\x88\x01\x01\x12\x16\n\x06target\x18\x06 \x01(\tR\x06target\x12+\n\x05edits\x18\x07 \x03(\x0b2\x15.lessons.v2.DiaryEditR\x05edits\x12\x1c\n\tambiguous\x18\x08 \x01(\x08R\tambiguousB\x05\n\x03_idB\n\n\x08_teacher"\x99\x01\n\x18ListDiaryHomeworkRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12"\n\nstart_date\x18\x02 \x01(\tH\x00R\tstartDate\x88\x01\x01\x12\x1e\n\x08end_date\x18\x03 \x01(\tH\x01R\x07endDate\x88\x01\x01B\r\n\x0b_start_dateB\x0b\n\t_end_date"R\n\x19ListDiaryHomeworkResponse\x125\n\x08homework\x18\x01 \x03(\x0b2\x19.lessons.v2.DiaryHomeworkR\x08homework"\xa9\x02\n\tDiaryMark\x12\x13\n\x02id\x18\x01 \x01(\x03H\x00R\x02id\x88\x01\x01\x12"\n\nsubject_id\x18\x02 \x01(\x03H\x01R\tsubjectId\x88\x01\x01\x12\x18\n\x07subject\x18\x03 \x01(\tR\x07subject\x12\x17\n\x04date\x18\x04 \x01(\tH\x02R\x04date\x88\x01\x01\x12\x14\n\x05value\x18\x05 \x01(\tR\x05value\x12(\n\x04kind\x18\x06 \x01(\x0e2\x14.lessons.v2.MarkKindR\x04kind\x12\x1b\n\x06reason\x18\x07 \x01(\tH\x03R\x06reason\x88\x01\x01\x12\x1d\n\x07comment\x18\x08 \x01(\tH\x04R\x07comment\x88\x01\x01B\x05\n\x03_idB\r\n\x0b_subject_idB\x07\n\x05_dateB\t\n\x07_reasonB\n\n\x08_comment"\x91\x01\n\x10ListMarksRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12"\n\nstart_date\x18\x02 \x01(\tH\x00R\tstartDate\x88\x01\x01\x12\x1e\n\x08end_date\x18\x03 \x01(\tH\x01R\x07endDate\x88\x01\x01B\r\n\x0b_start_dateB\x0b\n\t_end_date"@\n\x11ListMarksResponse\x12+\n\x05marks\x18\x01 \x03(\x0b2\x15.lessons.v2.DiaryMarkR\x05marks"\xaa\x01\n\x0bDiaryPeriod\x12\x0e\n\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12 \n\tstarts_on\x18\x03 \x01(\tH\x00R\x08startsOn\x88\x01\x01\x12\x1c\n\x07ends_on\x18\x04 \x01(\tH\x01R\x06endsOn\x88\x01\x01\x12\x1d\n\nis_current\x18\x05 \x01(\x08R\tisCurrentB\x0c\n\n_starts_onB\n\n\x08_ends_on"3\n\x12ListPeriodsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId"H\n\x13ListPeriodsResponse\x121\n\x07periods\x18\x01 \x03(\x0b2\x17.lessons.v2.DiaryPeriodR\x07periods">\n\x0cDiarySubject\x12\x13\n\x02id\x18\x01 \x01(\x03H\x00R\x02id\x88\x01\x01\x12\x12\n\x04name\x18\x02 \x01(\tR\x04nameB\x05\n\x03_id"i\n\x18ListDiarySubjectsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12 \n\tperiod_id\x18\x02 \x01(\x03H\x00R\x08periodId\x88\x01\x01B\x0c\n\n_period_id"Q\n\x19ListDiarySubjectsResponse\x124\n\x08subjects\x18\x01 \x03(\x0b2\x18.lessons.v2.DiarySubjectR\x08subjects"\x88\x01\n\x0cDiaryTeacher\x12\x13\n\x02id\x18\x01 \x01(\x03H\x00R\x02id\x88\x01\x01\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1f\n\x08position\x18\x03 \x01(\tH\x01R\x08position\x88\x01\x01\x12\x1a\n\x08subjects\x18\x04 \x03(\tR\x08subjectsB\x05\n\x03_idB\x0b\n\t_position"4\n\x13ListTeachersRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId"L\n\x14ListTeachersResponse\x124\n\x08teachers\x18\x01 \x03(\x0b2\x18.lessons.v2.DiaryTeacherR\x08teachers"`\n\x0fDiaryAttendance\x12\x0e\n\x02at\x18\x01 \x01(\tR\x02at\x12=\n\tdirection\x18\x02 \x01(\x0e2\x1f.lessons.v2.AttendanceDirectionR\tdirection";\n\x1aListTurnstileEventsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId"e\n\x1bListTurnstileEventsResponse\x12F\n\x10turnstile_events\x18\x01 \x03(\x0b2\x1b.lessons.v2.DiaryAttendanceR\x0fturnstileEvents"\xe3\x01\n\x0fDiaryCorrection\x12\x16\n\x06target\x18\x01 \x01(\tR\x06target\x12\x14\n\x05field\x18\x02 \x01(\tR\x05field\x12\x14\n\x05value\x18\x03 \x01(\tR\x05value\x127\n\x15original_when_written\x18\x04 \x01(\tH\x00R\x13originalWhenWritten\x88\x01\x01\x129\n\nupdated_at\x18\x05 \x01(\x0b2\x1a.google.protobuf.TimestampR\tupdatedAtB\x18\n\x16_original_when_written"\x84\x01\n\x10CorrectionUpdate\x12\x16\n\x06target\x18\x01 \x01(\tR\x06target\x12\x14\n\x05field\x18\x02 \x01(\tR\x05field\x12\x14\n\x05value\x18\x03 \x01(\tR\x05value\x12\x1f\n\x08original\x18\x04 \x01(\tH\x00R\x08original\x88\x01\x01B\x0b\n\t_original"=\n\rCorrectionKey\x12\x16\n\x06target\x18\x01 \x01(\tR\x06target\x12\x14\n\x05field\x18\x02 \x01(\tR\x05field"7\n\x16ListCorrectionsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId"X\n\x17ListCorrectionsResponse\x12=\n\x0bcorrections\x18\x01 \x03(\x0b2\x1b.lessons.v2.DiaryCorrectionR\x0bcorrections"~\n\x1dBatchUpdateCorrectionsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12>\n\x0bcorrections\x18\x02 \x03(\x0b2\x1c.lessons.v2.CorrectionUpdateR\x0bcorrections"_\n\x1eBatchUpdateCorrectionsResponse\x12=\n\x0bcorrections\x18\x01 \x03(\x0b2\x1b.lessons.v2.DiaryCorrectionR\x0bcorrections"u\n\x17ResetCorrectionsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId\x12;\n\x0bcorrections\x18\x02 \x03(\x0b2\x19.lessons.v2.CorrectionKeyR\x0bcorrections"\x1a\n\x18ResetCorrectionsResponse"8\n\x17ClearCorrectionsRequest\x12\x1d\n\nstudent_id\x18\x01 \x01(\x03R\tstudentId"\x1a\n\x18ClearCorrectionsResponse*\xcb\x02\n\x0cDiaryFeature\x12\x1d\n\x19DIARY_FEATURE_UNSPECIFIED\x10\x00\x12\x1a\n\x16DIARY_FEATURE_SCHEDULE\x10\x01\x12\x1a\n\x16DIARY_FEATURE_HOMEWORK\x10\x02\x12\x17\n\x13DIARY_FEATURE_MARKS\x10\x03\x12\x19\n\x15DIARY_FEATURE_PERIODS\x10\x04\x12\x1a\n\x16DIARY_FEATURE_SUBJECTS\x10\x05\x12\x1a\n\x16DIARY_FEATURE_TEACHERS\x10\x06\x12\x1c\n\x18DIARY_FEATURE_ATTENDANCE\x10\x07\x12\x1b\n\x17DIARY_FEATURE_TURNSTILE\x10\x08\x12\x1e\n\x1aDIARY_FEATURE_MEAL_ACCOUNT\x10\t\x12\x1d\n\x19DIARY_FEATURE_FINAL_MARKS\x10\n*m\n\x0cSignInMethod\x12\x1e\n\x1aSIGN_IN_METHOD_UNSPECIFIED\x10\x00\x12\x1b\n\x17SIGN_IN_METHOD_PASSWORD\x10\x01\x12 \n\x1cSIGN_IN_METHOD_SESSION_ADOPT\x10\x02*t\n\x0bDiaryEgress\x12\x1c\n\x18DIARY_EGRESS_UNSPECIFIED\x10\x00\x12\x17\n\x13DIARY_EGRESS_DIRECT\x10\x01\x12\x16\n\x12DIARY_EGRESS_PROXY\x10\x02\x12\x16\n\x12DIARY_EGRESS_RELAY\x10\x03*\x90\x01\n\x08MarkKind\x12\x19\n\x15MARK_KIND_UNSPECIFIED\x10\x00\x12\x13\n\x0fMARK_KIND_GRADE\x10\x01\x12\x15\n\x11MARK_KIND_ABSENCE\x10\x02\x12\x12\n\x0eMARK_KIND_LATE\x10\x03\x12\x14\n\x10MARK_KIND_REMARK\x10\x04\x12\x13\n\x0fMARK_KIND_OTHER\x10\x05*\x98\x01\n\x13AttendanceDirection\x12$\n ATTENDANCE_DIRECTION_UNSPECIFIED\x10\x00\x12\x1b\n\x17ATTENDANCE_DIRECTION_IN\x10\x01\x12\x1c\n\x18ATTENDANCE_DIRECTION_OUT\x10\x02\x12 \n\x1cATTENDANCE_DIRECTION_UNKNOWN\x10\x032\xd9\x11\n\x0cDiaryService\x12\x90\x01\n\x14GetDiaryCapabilities\x12\'.lessons.v2.GetDiaryCapabilitiesRequest\x1a(.lessons.v2.GetDiaryCapabilitiesResponse"%\x90\x02\x01\x88\xb5\x18\x01\x82\xd3\xe4\x93\x02\x18\x12\x16/v2/diary/capabilities\x12\x86\x01\n\x12CreateDiarySession\x12%.lessons.v2.CreateDiarySessionRequest\x1a&.lessons.v2.CreateDiarySessionResponse"!\x88\xb5\x18\x01\x82\xd3\xe4\x93\x02\x17:\x01*"\x12/v2/diary/sessions\x12\x8b\x01\n\x12DeleteDiarySession\x12%.lessons.v2.DeleteDiarySessionRequest\x1a&.lessons.v2.DeleteDiarySessionResponse"&\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02\x1c*\x1a/v2/diary/sessions/current\x12t\n\x0cListStudents\x12\x1f.lessons.v2.ListStudentsRequest\x1a .lessons.v2.ListStudentsResponse"!\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02\x14\x12\x12/v2/diary/students\x12\x9a\x01\n\x10ListScheduleDays\x12#.lessons.v2.ListScheduleDaysRequest\x1a$.lessons.v2.ListScheduleDaysResponse";\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02.\x12,/v2/diary/students/{student_id}/scheduleDays\x12\x99\x01\n\x11ListDiaryHomework\x12$.lessons.v2.ListDiaryHomeworkRequest\x1a%.lessons.v2.ListDiaryHomeworkResponse"7\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02*\x12(/v2/diary/students/{student_id}/homework\x12~\n\tListMarks\x12\x1c.lessons.v2.ListMarksRequest\x1a\x1d.lessons.v2.ListMarksResponse"4\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02\'\x12%/v2/diary/students/{student_id}/marks\x12\x86\x01\n\x0bListPeriods\x12\x1e.lessons.v2.ListPeriodsRequest\x1a\x1f.lessons.v2.ListPeriodsResponse"6\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02)\x12\'/v2/diary/students/{student_id}/periods\x12\x99\x01\n\x11ListDiarySubjects\x12$.lessons.v2.ListDiarySubjectsRequest\x1a%.lessons.v2.ListDiarySubjectsResponse"7\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02*\x12(/v2/diary/students/{student_id}/subjects\x12\x8a\x01\n\x0cListTeachers\x12\x1f.lessons.v2.ListTeachersRequest\x1a .lessons.v2.ListTeachersResponse"7\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02*\x12(/v2/diary/students/{student_id}/teachers\x12\xa6\x01\n\x13ListTurnstileEvents\x12&.lessons.v2.ListTurnstileEventsRequest\x1a\'.lessons.v2.ListTurnstileEventsResponse">\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x021\x12//v2/diary/students/{student_id}/turnstileEvents\x12\x96\x01\n\x0fListCorrections\x12".lessons.v2.ListCorrectionsRequest\x1a#.lessons.v2.ListCorrectionsResponse":\x90\x02\x01\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02-\x12+/v2/diary/students/{student_id}/corrections\x12\xb7\x01\n\x16BatchUpdateCorrections\x12).lessons.v2.BatchUpdateCorrectionsRequest\x1a*.lessons.v2.BatchUpdateCorrectionsResponse"F\x88\xb5\x18\x04\x82\xd3\xe4\x93\x02<:\x01*"7/v2/diary/students/{student_id}/corrections:batchUpdate\x12\x9f\x01\n\x10ResetCorrections\x12#.lessons.v2.ResetCorrectionsRequest\x1a$.lessons.v2.ResetCorrectionsResponse"@\x88\xb5\x18\x04\x82\xd3\xe4\x93\x026:\x01*"1/v2/diary/students/{student_id}/corrections:reset\x12\x9f\x01\n\x10ClearCorrections\x12#.lessons.v2.ClearCorrectionsRequest\x1a$.lessons.v2.ClearCorrectionsResponse"@\x88\xb5\x18\x04\x82\xd3\xe4\x93\x026:\x01*"1/v2/diary/students/{student_id}/corrections:clearB(\n$com.lumenpearson.lessons.contract.v2P\x01b\x06proto3',
     [
         annotations_pb.desc(),
         timestamp_pb.desc(),
@@ -2157,6 +2260,7 @@ _DESC = file_desc(
         "GetDiaryCapabilitiesResponse": GetDiaryCapabilitiesResponse,
         "DiaryCapabilities": DiaryCapabilities,
         "ProviderCapabilities": ProviderCapabilities,
+        "DiaryRoute": DiaryRoute,
         "PetersburgCredential": PetersburgCredential,
         "NetSchoolCredential": NetSchoolCredential,
         "NetSchoolCookies": NetSchoolCookies,
@@ -2204,6 +2308,7 @@ _DESC = file_desc(
         "ClearCorrectionsResponse": ClearCorrectionsResponse,
         "DiaryFeature": DiaryFeature,
         "SignInMethod": SignInMethod,
+        "DiaryEgress": DiaryEgress,
         "MarkKind": MarkKind,
         "AttendanceDirection": AttendanceDirection,
     },
