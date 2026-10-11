@@ -4,7 +4,7 @@
   <CurrentIssues>
     <ID>CyclomaticComplexMethod:DiaryImportImpl.kt:DiaryImportImpl$private suspend fun FlowCollector&lt;DiaryImportProgress&gt;.import</ID>
     <ID>CyclomaticComplexMethod:DiarySignInProblem.kt:DiarySignInProblem.Companion$private fun ofServer: DiarySignInProblem</ID>
-    <ID>CyclomaticComplexMethod:GithubRepositoryImpl.kt:GithubRepositoryImpl$override suspend fun openTranslationPullRequest: PullRequestResult</ID>
+    <ID>CyclomaticComplexMethod:GithubPullRequests.kt:GithubPullRequests$suspend fun openTranslationPullRequest: PullRequestResult</ID>
     <ID>CyclomaticComplexMethod:RegionSearch.kt:RegionSearch$private fun score: RegionMatch?</ID>
     <ID>CyclomaticComplexMethod:SettingsCodec.kt:internal fun Preferences.toSettings: AppSettings</ID>
     <ID>CyclomaticComplexMethod:TimetableRepositoryImpl.kt:TimetableRepositoryImpl$private suspend fun fetchYear: SyncResult</ID>
@@ -15,7 +15,7 @@
     <ID>LongMethod:SettingsCodec.kt:internal fun Preferences.toSettings: AppSettings</ID>
     <ID>LongMethod:TimetableRepositoryImpl.kt:TimetableRepositoryImpl$private suspend fun fetchYear: SyncResult</ID>
     <ID>LoopWithTooManyJumpStatements:DiaryProtocolVectorsTest.kt:DiaryProtocolVectorsTest$for</ID>
-    <ID>LoopWithTooManyJumpStatements:GithubRepositoryImpl.kt:GithubRepositoryImpl$for</ID>
+    <ID>LoopWithTooManyJumpStatements:GithubPullRequests.kt:GithubPullRequests$for</ID>
     <ID>LoopWithTooManyJumpStatements:UpstreamDirectory.kt:CatalogUpstreamDirectory$for</ID>
     <ID>MagicNumber:DiaryImport.kt:DiaryImportPhase.HOMEWORK$0.25f</ID>
     <ID>MagicNumber:DiaryImport.kt:DiaryImportPhase.MARKS$0.25f</ID>
@@ -41,7 +41,7 @@
     <ID>MagicNumber:DocsMarkdown.kt:DocsMarkdown$3</ID>
     <ID>MagicNumber:EntityMappers.kt:3</ID>
     <ID>MagicNumber:EntityMappers.kt:4</ID>
-    <ID>MagicNumber:GithubRepositoryImpl.kt:1000L</ID>
+    <ID>MagicNumber:GithubDeviceFlow.kt:1000L</ID>
     <ID>MagicNumber:LocaleOverride.kt:33</ID>
     <ID>MagicNumber:ManageModels.kt:ManageFailure.Companion$401</ID>
     <ID>MagicNumber:ManageModels.kt:ManageFailure.Companion$403</ID>
@@ -135,10 +135,10 @@
     <ID>ReturnCount:DocsMarkdown.kt:DocsMarkdown.GuideBuilder$fun read: Boolean</ID>
     <ID>ReturnCount:DocsRepositoryImpl.kt:DocsRepositoryImpl$private fun bundled: DocsLibrary?</ID>
     <ID>ReturnCount:DocsRepositoryImpl.kt:DocsRepositoryImpl$private suspend fun fetch: Outcome</ID>
+    <ID>ReturnCount:GithubDeviceFlow.kt:internal suspend fun pollUntilDecided: PollVerdict</ID>
     <ID>ReturnCount:GithubPreferences.kt:GithubPreferences$private fun Preferences.toAccount: GithubAccount?</ID>
-    <ID>ReturnCount:GithubRepositoryImpl.kt:GithubRepositoryImpl$private suspend fun contents: Pair&lt;String, String&gt;?</ID>
-    <ID>ReturnCount:GithubRepositoryImpl.kt:GithubRepositoryImpl$private suspend fun ensureFork: Boolean</ID>
-    <ID>ReturnCount:GithubRepositoryImpl.kt:internal suspend fun pollUntilDecided: PollVerdict</ID>
+    <ID>ReturnCount:GithubPullRequests.kt:GithubPullRequests$private suspend fun contents: Pair&lt;String, String&gt;?</ID>
+    <ID>ReturnCount:GithubPullRequests.kt:GithubPullRequests$private suspend fun ensureFork: Boolean</ID>
     <ID>ReturnCount:LegalDocuments.kt:internal fun LegalManifest.toEdition: LegalEdition?</ID>
     <ID>ReturnCount:LegalDocuments.kt:internal fun readLegal: LegalText?</ID>
     <ID>ReturnCount:LocaleOverride.kt:fun localeOverrideFor: List&lt;String&gt;?</ID>
@@ -161,7 +161,7 @@
     <ID>ReturnCount:UpstreamJson.kt:UpstreamJson$fun integer: BigInteger?</ID>
     <ID>ReturnCount:UpstreamJson.kt:UpstreamJson$fun parse: JsonElement?</ID>
     <ID>ReturnCount:UpstreamJson.kt:UpstreamJson$fun scalarText: String</ID>
-    <ID>SwallowedException:GithubRepositoryImpl.kt:unreachable: IOException</ID>
+    <ID>SwallowedException:GithubDeviceFlow.kt:unreachable: IOException</ID>
     <ID>SwallowedException:SingleFlight.kt:SingleFlight$cancelled: CancellationException</ID>
     <ID>SwallowedException:TimetableRepositoryImpl.kt:TimetableRepositoryImpl$missing: ServerAddressMissingException</ID>
     <ID>SwallowedException:UpstreamHttpTest.kt:UpstreamHttpTest$refused: UpstreamNotAllowed</ID>
@@ -175,8 +175,10 @@
     <ID>TooGenericExceptionCaught:DiaryRepositoryImpl.kt:DiaryRepositoryImpl$failure: Exception</ID>
     <ID>TooGenericExceptionCaught:DiarySignInImpl.kt:DiarySignInImpl$failure: Exception</ID>
     <ID>TooGenericExceptionCaught:GithubApi.kt:GithubApi$failure: Exception</ID>
+    <ID>TooGenericExceptionCaught:GithubDeviceFlow.kt:GithubDeviceFlow$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:GithubIssues.kt:GithubIssues$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:GithubPullRequests.kt:GithubPullRequests$failure: Throwable</ID>
     <ID>TooGenericExceptionCaught:GithubRepositoryImpl.kt:GithubRepositoryImpl$failure: Exception</ID>
-    <ID>TooGenericExceptionCaught:GithubRepositoryImpl.kt:GithubRepositoryImpl$failure: Throwable</ID>
     <ID>TooGenericExceptionCaught:ManageRepositoryImpl.kt:ManageRepositoryImpl$failure: Exception</ID>
     <ID>TooGenericExceptionCaught:NetSchoolSchoolSearch.kt:NetSchoolSchoolSearch$failure: Exception</ID>
     <ID>TooGenericExceptionCaught:SchoolAlertReceiver.kt:SchoolAlertReceiver$error: Throwable</ID>
@@ -193,7 +195,6 @@
     <ID>TooManyFunctions:DiaryDao.kt:DiaryDao</ID>
     <ID>TooManyFunctions:DiaryRepository.kt:DiaryRepository</ID>
     <ID>TooManyFunctions:DiaryRepositoryImpl.kt:DiaryRepositoryImpl : DiaryRepository</ID>
-    <ID>TooManyFunctions:GithubRepositoryImpl.kt:GithubRepositoryImpl : GithubRepository</ID>
     <ID>TooManyFunctions:LessonsPreferences.kt:LessonsPreferences : DiarySessionStoreShellModeSourceSettingsStore</ID>
     <ID>TooManyFunctions:ManageApi.kt:ManageApi</ID>
     <ID>TooManyFunctions:ManageMappers.kt:com.lumenpearson.lessons.core.data.repository.ManageMappers.kt</ID>
