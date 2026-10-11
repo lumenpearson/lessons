@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.designsystem.component
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -18,9 +19,10 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.GraphicsMode
 
 /**
- * The space around a segment in a tray is one number (#184).
+ * The space around a segment in a tray is one number (#184, #414).
  *
  * Asked as geometry rather than as a constant, because the defect was two
  * numbers that each looked right in their own file: the callers' 4 dp tray and
@@ -29,6 +31,9 @@ import org.robolectric.RobolectricTestRunner
  * so that is what is measured.
  */
 @RunWith(RobolectricTestRunner::class)
+// NATIVE, so a label measures its real height: under LEGACY the text is
+// taller than any font draws it, and a segment outgrew its 48 dp target.
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SegmentedPickerGapTest {
 
     @get:Rule
@@ -48,12 +53,26 @@ class SegmentedPickerGapTest {
 
         val tray = compose.onNodeWithTag(Tray).getUnclippedBoundsInRoot()
         val segments = segmentBounds()
+        // A segment's node is its drawn 40 dp container, which the button
+        // centres inside its 48 dp touch target, so above and below it the
+        // tray shows its own 4 dp plus 4 dp of that target. The inset the eye
+        // reads must be that one number on every side (#414).
+        val above = (segments[0].top - tray.top).value
 
-        assertEquals("from the tray's edge", 4f, (segments[0].left - tray.left).value, 0.5f)
+        assertEquals(
+            "the drawn container",
+            ToggleButtonDefaults.MinHeight.value,
+            (segments[0].bottom - segments[0].top).value,
+            0.5f,
+        )
+        assertEquals("above a segment", 8f, above, 0.5f)
+        assertEquals("below it", above, (tray.bottom - segments[0].bottom).value, 0.5f)
+        assertEquals("from the tray's start", above, (segments[0].left - tray.left).value, 0.5f)
+        assertEquals("from the tray's end", above, (tray.right - segments.last().right).value, 0.5f)
         for (i in 1 until segments.size) {
             assertEquals(
                 "between «${items[i - 1]}» and «${items[i]}»",
-                4f,
+                above,
                 (segments[i].left - segments[i - 1].right).value,
                 0.5f,
             )

@@ -304,8 +304,13 @@ class WeekScreenEdgeAlignmentTest {
         /** Half a pixel at this density, mdpi, where every edge here is a whole pixel. */
         const val Tolerance = 0.5f
 
-        /** `SegmentedPicker`'s default `contentPadding`, the tray the real call draws. */
-        val SwitcherTrayInset = 4.dp
+        /**
+         * How far the switcher's end segments sit inside its tray: the default
+         * `contentPadding`, 4 dp, plus the 4 dp a segment's 40 dp container
+         * sits inside its 48 dp touch target, which the tray now adds across
+         * as well as above and below (#414).
+         */
+        val SwitcherTrayInset = 8.dp
 
         /** Material's `TextButtonContentPadding` end, the 12 dp `SectionHeader` gives back. */
         val TextButtonEndPadding = 12.dp

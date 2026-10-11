@@ -15,8 +15,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +36,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
@@ -121,21 +124,33 @@ fun <T> SegmentedPicker(
         inner = ButtonGroupDefaults.connectedLeadingButtonShape,
         inset = inset,
     )
+    // What the eye measures is not the tray's padding but the space between
+    // the tray's edge and a segment's drawn container (#414). A ToggleButton
+    // draws a 40 dp container inside its 48 dp touch target, centred, so above
+    // and below a segment the tray shows its own padding plus that slack — 8 dp
+    // in a 4 dp tray — while at the ends and between segments, where the
+    // button is wider than its target, it showed the padding alone. The owner
+    // saw the ends crowd the tray's rounded ends. So in a tray the slack is
+    // added across as well: the ends, the gaps and the top and bottom then
+    // read as one number. Standing alone there is no tray to be even with.
+    val visibleInset = if (inset > 0.dp) inset + touchTargetSlack() else 0.dp
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
             .background(containerColor)
-            .padding(contentPadding),
-        // In a tray, the tray's inset: each segment then sits as far from its
-        // neighbour as from the tray's edge (#184). It was Material's connected
-        // gap, 2 dp inside a 4 dp tray, whose corners were already derived from
-        // the inset and whose gaps never were — the segments looked crowded
-        // together in a frame wider than the space between them. Standing alone
-        // there is no inset to match, and the connected gap is the design.
+            .padding(contentPadding)
+            .padding(horizontal = visibleInset - inset),
+        // In a tray, the tray's visible inset: each segment then sits as far
+        // from its neighbour as from the tray's edge (#184). It was Material's
+        // connected gap, 2 dp inside a 4 dp tray, whose corners were already
+        // derived from the inset and whose gaps never were — the segments
+        // looked crowded together in a frame wider than the space between
+        // them. Standing alone there is no inset to match, and the connected
+        // gap is the design.
         horizontalArrangement = Arrangement.spacedBy(
-            maxOf(inset, ButtonGroupDefaults.ConnectedSpaceBetween),
+            maxOf(visibleInset, ButtonGroupDefaults.ConnectedSpaceBetween),
         ),
     ) {
         items.forEachIndexed { index, item ->
@@ -183,6 +198,21 @@ fun <T> SegmentedPicker(
             }
         }
     }
+}
+
+/**
+ * How far a segment's touch target reaches past its drawn container on each
+ * side, top and bottom: half the difference between the minimum touch target
+ * and the toggle button's own height. Zero where the touch target is switched
+ * off (`LocalMinimumInteractiveComponentSize` unspecified) or no larger than
+ * the button, so the tray is never padded for slack that is not there.
+ */
+@Composable
+private fun touchTargetSlack(): Dp {
+    val target = LocalMinimumInteractiveComponentSize.current
+    // Unspecified is NaN: the touch target has been switched off.
+    if (target.value.isNaN()) return 0.dp
+    return ((target - ToggleButtonDefaults.MinHeight) / 2).coerceAtLeast(0.dp)
 }
 
 /**

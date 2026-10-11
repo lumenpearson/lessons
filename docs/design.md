@@ -62,6 +62,16 @@ gap is the inset now; a picker with no tray keeps the connected gap, because the
 edge to match. The floating toolbar keeps the same rule with 8 dp for both: its pill's inset
 and the gap between tabs. `SegmentedPickerGapTest` reads it as geometry.
 
+**The inset is what the eye reads, not what the padding says** (#414). A `ToggleButton`
+draws a 40 dp container inside its 48 dp touch target, centred. So above and below a segment
+the tray showed its 4 dp padding plus 4 dp of that target, 8 dp in all, while at the ends and
+between segments, where a button is wider than its target, it showed the 4 dp alone. The owner
+saw it on the emulator: the first and last segments' rounded ends crowded the tray's. In a
+tray the slack is now added across as well, so the segments are narrower. They sit 8 dp from
+every edge of the tray and 8 dp apart, and the tray's ends are concentric with theirs. The
+slack is read from Material, not written down: the touch target less the button's own
+height, halved, and nothing where the touch target is switched off.
+
 **The widget derives every inner corner from the rung it is on.** Its `innerCorner()` is
 the 24 dp surface less that rung's own padding, floored at 6 dp. It was a
 flat 18 dp — "one step tighter than the surface" — which would have been right for exactly
@@ -209,8 +219,16 @@ screen can move it.
   card with 20 dp and 28 dp of its own padding. Its content is one centred row padded
   `RowPadding`. The prose is still centred; only the geometry moved.
 
-**`SegmentedPicker` has one skin.** The skin is its own concentric tray, 4 dp around
-Material's connected buttons. The diary's tabs used to clip that tray a second time, at 24 dp,
+**«Календарь»'s period sits between the arrows that step it** (#416).
+- **Before.** The period was the title's subtitle, a line above a row that held the «2026/27» chip at one end and «‹ ›» at the other, with nothing between them. The owner circled that band on the emulator.
+- **The panel.** Under the title is now one panel in the view switcher's skin: «‹», the period with «term · school year ▾» under it, and «›». Pressing the period opens the year picker, as the chip did. «Сегодня» is a pill at the title's end, shown only away from today; TalkBack hears «Текущая неделя» or «Текущий месяц».
+- **Overflow, the owner's choice.** At a large font or on a narrow phone nothing is clipped or scrolled. The pill drops under the title, the period wraps, and the panel grows taller while its arrows stay 48 dp squares at the ends.
+- **Wrapping.** A number is kept with its month by a non-breaking space, so a week wraps at its dash: «12 октября —» over «18 октября».
+- **Shape.** The panel is rounded by `Group`, not as a capsule. At its one-line height of 56 dp the two are the same shape as the switcher, and taller it stays a rounded rectangle instead of swelling into a stadium.
+
+**`SegmentedPicker` has one skin.** The skin is its own concentric tray, padded 4 dp around
+Material's connected buttons, which reads as 8 dp on every side once the buttons' touch target
+is counted (#414). The diary's tabs used to clip that tray a second time, at 24 dp,
 which recreated the guessed-radius bug the component was rewritten to remove. «Задания» had no
 tray at all and now has the default one.
 
