@@ -5,14 +5,14 @@
     <ID>CyclomaticComplexMethod:DiaryImportImpl.kt:DiaryImportImpl$private suspend fun FlowCollector&lt;DiaryImportProgress&gt;.import</ID>
     <ID>CyclomaticComplexMethod:DiarySignInProblem.kt:DiarySignInProblem.Companion$private fun ofServer: DiarySignInProblem</ID>
     <ID>CyclomaticComplexMethod:GithubRepositoryImpl.kt:GithubRepositoryImpl$override suspend fun openTranslationPullRequest: PullRequestResult</ID>
-    <ID>CyclomaticComplexMethod:LessonsPreferences.kt:LessonsPreferences$private fun Preferences.toSettings: AppSettings</ID>
     <ID>CyclomaticComplexMethod:RegionSearch.kt:RegionSearch$private fun score: RegionMatch?</ID>
+    <ID>CyclomaticComplexMethod:SettingsCodec.kt:internal fun Preferences.toSettings: AppSettings</ID>
     <ID>CyclomaticComplexMethod:TimetableRepositoryImpl.kt:TimetableRepositoryImpl$private suspend fun fetchYear: SyncResult</ID>
     <ID>LongMethod:BundleJsonTest.kt:BundleJsonTest$@Test fun serverPayload_decodesAndMapsToDomain</ID>
     <ID>LongMethod:DiaryImportImpl.kt:DiaryImportImpl$private suspend fun FlowCollector&lt;DiaryImportProgress&gt;.import</ID>
     <ID>LongMethod:DtoMappersTest.kt:DtoMappersTest$@Test fun normalDay_mapsEveryFieldAndSortsTheTimeline</ID>
-    <ID>LongMethod:LessonsPreferences.kt:LessonsPreferences$override suspend fun updateSettings</ID>
-    <ID>LongMethod:LessonsPreferences.kt:LessonsPreferences$private fun Preferences.toSettings: AppSettings</ID>
+    <ID>LongMethod:SettingsCodec.kt:internal fun MutablePreferences.putSettings</ID>
+    <ID>LongMethod:SettingsCodec.kt:internal fun Preferences.toSettings: AppSettings</ID>
     <ID>LongMethod:TimetableRepositoryImpl.kt:TimetableRepositoryImpl$private suspend fun fetchYear: SyncResult</ID>
     <ID>LoopWithTooManyJumpStatements:DiaryProtocolVectorsTest.kt:DiaryProtocolVectorsTest$for</ID>
     <ID>LoopWithTooManyJumpStatements:GithubRepositoryImpl.kt:GithubRepositoryImpl$for</ID>
@@ -42,7 +42,6 @@
     <ID>MagicNumber:EntityMappers.kt:3</ID>
     <ID>MagicNumber:EntityMappers.kt:4</ID>
     <ID>MagicNumber:GithubRepositoryImpl.kt:1000L</ID>
-    <ID>MagicNumber:LessonsPreferences.kt:LessonsPreferences$7</ID>
     <ID>MagicNumber:LocaleOverride.kt:33</ID>
     <ID>MagicNumber:ManageModels.kt:ManageFailure.Companion$401</ID>
     <ID>MagicNumber:ManageModels.kt:ManageFailure.Companion$403</ID>
@@ -75,6 +74,7 @@
     <ID>MagicNumber:SchoolDirectory.kt:DirectoryProblem.Companion$503</ID>
     <ID>MagicNumber:SchoolDirectory.kt:DirectoryProblem.Companion$504</ID>
     <ID>MagicNumber:SchoolDirectory.kt:DirectoryProblem.Companion$8</ID>
+    <ID>MagicNumber:SettingsCodec.kt:7</ID>
     <ID>MagicNumber:UpstreamFailure.kt:8</ID>
     <ID>MagicNumber:UpstreamHttp.kt:UpstreamHttp$10</ID>
     <ID>MagicNumber:UpstreamHttp.kt:UpstreamHttp$20</ID>
@@ -124,6 +124,8 @@
     <ID>ReturnCount:DiaryCache.kt:DiaryEditsCodec$fun decode: List&lt;DiaryEdit&gt;</ID>
     <ID>ReturnCount:DiaryImportImpl.kt:DiaryImportImpl$override suspend fun refreshIfStale: Result&lt;Boolean&gt;</ID>
     <ID>ReturnCount:DiaryImportImpl.kt:DiaryImportImpl$private suspend fun FlowCollector&lt;DiaryImportProgress&gt;.import</ID>
+    <ID>ReturnCount:DiaryKeys.kt:internal fun Preferences.toDiarySession: DiarySession?</ID>
+    <ID>ReturnCount:DiaryKeys.kt:internal fun Preferences.toDiaryTarget: DiaryTarget?</ID>
     <ID>ReturnCount:DiaryMappers.kt:internal fun DiaryHomeworkDto.toDomain: DiaryHomework?</ID>
     <ID>ReturnCount:DiaryMappers.kt:internal fun DiaryOverrideDto.toDomain: DiaryOverrideRecord?</ID>
     <ID>ReturnCount:DiarySignInImpl.kt:DiarySignInImpl$override suspend fun signIn: Result&lt;DiaryRegistration&gt;</ID>
@@ -139,8 +141,6 @@
     <ID>ReturnCount:GithubRepositoryImpl.kt:internal suspend fun pollUntilDecided: PollVerdict</ID>
     <ID>ReturnCount:LegalDocuments.kt:internal fun LegalManifest.toEdition: LegalEdition?</ID>
     <ID>ReturnCount:LegalDocuments.kt:internal fun readLegal: LegalText?</ID>
-    <ID>ReturnCount:LessonsPreferences.kt:internal fun Preferences.toDiarySession: DiarySession?</ID>
-    <ID>ReturnCount:LessonsPreferences.kt:internal fun Preferences.toDiaryTarget: DiaryTarget?</ID>
     <ID>ReturnCount:LocaleOverride.kt:fun localeOverrideFor: List&lt;String&gt;?</ID>
     <ID>ReturnCount:ManageMappers.kt:internal fun BellPeriodDto.toDomain: BellPeriod?</ID>
     <ID>ReturnCount:ManageMappers.kt:private fun wallTime: LocalDateTime?</ID>
