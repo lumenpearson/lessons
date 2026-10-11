@@ -10,21 +10,25 @@ Last updated: **11 October 2026**. **PRs #63 through #85, #128, #129, #133, #134
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
 #313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363, #366, #372,
-#376, #379, #380, #385, #388, #392, #394, #396, #398, #399, #403, #410, #413, #415 and #417
-are merged**, and #344's commit went in with #366 although GitHub marks it closed rather than
-merged; `main` is at `4211839`, the merge of #417, by the session at 08:07:50 UTC on 11 October
-2026. **Sub-project 3 is complete** with #396 (`80d1281`), **and its live-verification gate has
-run**, as far as a session can take it: the condition the owner set on 8 October before
-sub-project 4, checked on the development machine on the night of 10–11 October. **The four
-designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered every question
-with its recommendation on 5 October (#301, #306, #307, #308), and #410 added a seventh
-sub-project and six deployment scenarios to the programme. **One pull request is open: #418,
-carrying this paragraph**, from `checks/postgres-suite` to `main`, on milestone 11, which
-closes #411: the server suite on a local PostgreSQL, and the gate's results. **The schema did
-not move**: the head is still `0019`, on production since 16:28 UTC on 6 October, and
-`EXPECTED_REVISION` did not move either. Production deployed `4211839` (GitHub's deployment
-status `success` at 08:08:20 UTC on 11 October), and its `/api/v1/warmup` answered
-`{"status":"ok","api_version":1,"schema":"0019","v2":true}` at 08:09 UTC.
+#376, #379, #380, #385, #388, #392, #394, #396, #398, #399, #403, #410, #413, #415, #417 and
+#418 are merged**, and #344's commit went in with #366 although GitHub marks it closed rather
+than merged; `main` is at `a28473e`, the merge of #418, by the session at 08:54 UTC on 11
+October 2026. **Sub-project 3 is complete** with #396 (`80d1281`), **and its live-verification
+gate has run**, as far as a session can take it: the condition the owner set on 8 October
+before sub-project 4, checked on the development machine on the night of 10–11 October. **The
+four designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered every
+question with its recommendation on 5 October (#301, #306, #307, #308), and #410 added a
+seventh sub-project and six deployment scenarios to the programme. **One pull request is open:
+this pull request, carrying this paragraph**, from `server/diary-routes` to `main`, on
+milestone 11, which closes #406, #419 and #420: the diaries through the proxy by region,
+`DIARY_EGRESS`, the route in v2's capabilities, a self-check row per «Сетевой город» region in
+use, and the privacy policy naming the proxy (edition 3). **The schema did not move**: the
+head is still `0019`, on production since 16:28 UTC on 6 October, and `EXPECTED_REVISION` did
+not move either. Production deployed `4211839` (GitHub's deployment status `success` at
+08:08:20 UTC on 11 October), and its `/api/v1/warmup` answered
+`{"status":"ok","api_version":1,"schema":"0019","v2":true}` at 08:09 UTC. Whether it then
+deployed `a28473e` was not read for this close-out; #418 changed nothing under `server/app`,
+so the code it serves is the same either way.
 
 The issues filed since #396 merged:
 - #402, closed by #403;
@@ -32,15 +36,19 @@ The issues filed since #396 merged:
 - #405, open in the backlog: margins of 24 dp at medium and expanded widths, which the geometry
   batch left alone;
 - #406–#409, filed with #410's deployment plan: #406, #407 and #408 open on milestone 11, #409
-  open in the backlog;
-- #411, open on milestone 11 until #418 merges and closes it: the server suite had
-  only ever run on SQLite;
+  open in the backlog; this pull request closes #406;
+- #411, closed by #418: the server suite had only ever run on SQLite;
 - #412, open in the backlog: the «Сетевой город» school search reads `addressString`, a key no
   live server sends. The gate found it by asking four regional servers, with no account;
 - #414, closed by #415: a segment sat 4 dp from its tray's ends and 8 dp from its top and
   bottom;
 - #416, closed by #417: «Календарь»'s header left an empty band between the year chip and the
-  arrows.
+  arrows;
+- #419, on milestone 11, which this pull request closes: the suite read a developer's proxy out
+  of `server/.env`, because pydantic-settings lets the environment win only for a name it
+  holds;
+- #420, on milestone 11, fixed by `279a369` and closed by this pull request: a warmup test's
+  class-wide patch outlived the test whenever a new autouse fixture changed the teardown order.
 
 #395 closed with #396 and #397 with #399; #400 (backlog) and #401 (milestone 11), filed by 3c,
 are open. #352, #355, #357, #365, #368, #371, #375, #377, #378, #384 and #391 stay as the last
@@ -49,9 +57,10 @@ confirmed live on 10 October against a local server on PostgreSQL — `GetClass`
 answered `200` with none, and its REST twin `private, no-store`. #365's diary reads are to move
 onto the phone after sub-project 3. #118, what Preview is for, was closed by #350.
 
-The section «What the last session added» below is the gate and #411, with #415 and #417 in its
-«After #413's merge»; «What the session before it added» is the geometry batch (#413). 3c's
-section (#396) is in [docs/history.md](docs/history.md) now.
+The section «What the last session added» below is #406, the diaries through the proxy by
+region, with #418's merge in its «After #418's merge»; «What the session before it added» is
+the gate and #411 (#418), with #415 and #417 in its «After #413's merge». The geometry batch's
+section (#413) is in [docs/history.md](docs/history.md) now.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -186,10 +195,150 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: the server suite on PostgreSQL, and sub-project 3's live-verification gate (#411)
+## What the last session added: the diaries through the proxy, by region (#406)
 
-Open as #418, from `checks/postgres-suite` to `main`, on milestone 11. It closes
-#411. The branch was cut from `main` at `1eb134e`, the merge of #410, and carries one commit of
+Open as this pull request, from `server/diary-routes` to `main`, on milestone 11. It closes
+#406, #419 and #420. The branch was cut from `main` at `a28473e`, the merge of #418, and
+carries the plan, four tasks of code and the documents. Written on 11 October 2026. No
+revision goes with it: the schema stays at `0019`, and the region checks fit `health_checks`'
+32-character names.
+
+The owner decided four things on the morning of 11 October, before a line was written: widen
+the RUVDS Squid ACL to every «Сетевой город» host («Расширить ACL, я разрешаю»), route **by
+region** from what that proxy reaches («По регионам»), give a region's alert a hint on what to
+do («С подсказкой, что делать»), and name the proxy in the privacy policy's «Третьи стороны».
+The plan is `docs/specs/2026-10-11-diary-routes-plan.md` (`032a3c0`), five tasks, each built
+and reviewed before the next.
+
+- **`DIARY_EGRESS` is the deployment's choice of how it reaches the diaries** (`87ff938`,
+  `config.py`): `direct`, `proxy` or `relay`, optional and never a reason to refuse to start.
+  Unset, unusable or `proxy`, it is the proxy where `DIARY_PROXY_URL` is usable and direct
+  otherwise, which is what production already did, so production sets nothing. `direct` sends
+  nothing through the proxy, Petersburg included; `relay` is read as `direct` until the relay
+  exists (#408). The startup log says only what does not take effect as written, and never
+  repeats a value.
+- **The route is a static table, the owner's probe of 11 October** (`87ff938`).
+  `Region.via_proxy` is true for the twelve «Сетевой город» hosts whose school search answered
+  through RUVDS, `Row.via_proxy` for Petersburg, and `registry.route` and `registry.proxy_for`
+  are the one answer to «how does this deployment reach this server». The five password regions
+  that refused the proxy or did not answer — Бурятия, Амурская, Томская, Рязанская, КЧР — stay
+  direct, as every region was before.
+- **#419: the suite no longer reads a developer's proxy** (`87ff938`). `conftest.py` sets
+  `DIARY_PROXY_URL` and `DIARY_EGRESS` empty, because `Settings` reads `server/.env` too and
+  the environment wins only for a name it holds; a proxy in a developer's `.env` would have
+  carried the suite's requests to real regional servers.
+- **Both diary clients take each server's route** (`c191974`). «Сетевой город» keeps two
+  pools, one direct and one through the proxy, and `client_for(region)` picks one on every
+  call — `_send`, `terms_search`, the keep-alive and the bot's school search all go through it;
+  Petersburg's one pool is built with `proxy_for(PETERSBURG)`. `shared_client()` keeps its
+  meaning, the direct pool, so every existing test fake still holds.
+- **v2's `GetDiaryCapabilities` says the route** (`2082f1a`): `DiaryCapabilities.egress = 3`,
+  the deployment's mode as it takes effect, and `ProviderCapabilities.routes = 5`, one
+  `DiaryRoute` per server. Additive, v2 only; v1's answer keeps its shape. No phone reads them
+  yet.
+- **The self-check probes each «Сетевой город» region in use, by its route** (`91087b2`): one
+  `diary_region:<key>` row per region a class is bound to or a live session is on, probed with
+  `GET /webapi/logindata` and the diary client's headers. A refusal or no answer is `failing`;
+  a proxied region that fails while `diary_proxy` fails reads `unknown`, so a dead tunnel is
+  one alert; at most 17 diary probes a tick, all at once inside the checks' budget; a region
+  that leaves use loses its row; `diary_proxy` reads `unknown` under `direct` or `relay`. A
+  «down» and its reminder carry a hint by the route the probe took, and «🩺 Состояние» and
+  `/health` draw a line per region.
+- **#420: a warmup test's class-wide patch no longer depends on fixture teardown order**
+  (`279a369`): Task 4's new autouse fixture flipped the order, and `no_stamp`'s cleanup met the
+  `OperationalError` the test simulated. `80cce89` then made the region-probe fixture fail
+  loudly if its seam ever moves.
+- **The documents and the privacy policy** (`6dd0e74`). `docs/deploy.md` has the routes, the
+  probe's results, the modes and the new monitoring row, including that **a region dropped
+  from use while failing goes silent**, with no «up», which is not a recovery; `docs/diaries.md`,
+  `architecture.md`, `api.md`, `bot.md`, `CLAUDE.md` and the README follow. «Третьи стороны»
+  and «Third parties» each gain one point, the operator's intermediary server in Russia at
+  RUVDS: an HTTP proxy and a TLS tunnel that sees the diary's address and the time, may log
+  them, and never sees a login, a password, a session or a mark. `legal.json` is edition 3,
+  effective 2026-10-11.
+
+### Gates
+
+- **The full suite on SQLite**, at the end of Task 4, `pytest -q -n 4`: **3312 passed, 6
+  skipped**, in 36 min. That is **3318** collected, 78 more than #418's 3240, and the seven
+  places the `handover` skill names say 3318.
+- **At this branch's head**, after `80cce89`: ruff clean; mypy, no issues in **240** source
+  files; `test_health.py`, `test_health_tick.py`, `test_diary_egress.py`, `test_diary_proxy.py`
+  and `test_project_screen.py`, **140 passed**; and the tests that read the documents this
+  batch edits — `test_env_example.py`, `test_compose.py`, `test_schema_version.py`,
+  `test_test_imports.py` and `test_ci_paths.py` **28 passed**, `test_deployment_config.py`,
+  `test_rpc_errors.py`, `test_contract_json.py`, `test_roles.py` and `test_database_url.py`
+  **140 passed**.
+- **Android**: the legal tests alone, `./gradlew :core:data:testDebugUnitTest --tests
+  'com.lumenpearson.lessons.core.data.legal.*'`: `LegalDocumentsTest` 11 and `LegalLinksTest`
+  10, all passed, on the privacy texts of edition 3. `:core:data:test` refuses `--tests`,
+  being the aggregate of the two variants. Nothing else under `android/` changed or ran: the
+  count stays **1730**.
+- **The contract**: `diary_pb.py` was re-derived by Buf after the crash below and matched the
+  committed file byte for byte; CI's «Contract» job runs `buf lint`, `buf breaking` and the
+  generated-code check on the push.
+- **CI on the head** is read before the merge.
+
+### What was deliberately left alone
+
+- **The relay (#408)**: `relay` reads as `direct`, and the capabilities never answer
+  `DIARY_EGRESS_RELAY`.
+- **The Android side**: no phone reads `egress` or `routes` yet; that is sub-project 5.
+- **A dynamic fallback**, trying one route and then the other: the owner chose a static table.
+- **The `verified` flags and the APK's bundled region catalog**: the probe answered a school
+  search, not a sign-in, so no region is marked verified.
+- **Probing Petersburg directly under `direct`** (`diary_proxy` reads `unknown` there and
+  nothing asks the city), and «📊 Проект» showing each healthy region's route.
+- **The Squid ACL stays at all nineteen hosts**, the seven direct ones included, so a region
+  can move onto the proxy by one line in `regions.py` with nothing changed on the VPS.
+- **`docs/specs/2026-10-10-deployment-scenarios-design.md`**, a record, is not edited.
+
+### What nobody has verified in this batch
+
+- **A real call through the proxy for any of the eleven newly routed password regions.** Only
+  the school search was asked, by hand, from the VPS; no sign-in, read or keep-alive has taken
+  the route, and whether every path passes through Squid unchanged is unknown.
+- **The region probe from a deployment.** It has run only against `httpx.MockTransport`; the
+  first tick after the merge is its first live run, and which regions production has in use is
+  unknown, possibly none, in which case it draws no region row at all.
+- **The five direct password regions from Vercel's `fra1`**, as before; the new checks will say.
+- **A `CONNECT`**: the tests tell the pools apart through httpx's private
+  `_transport_for_url`, as `test_diary_proxy.py` already did.
+- **The full suite on PostgreSQL** on this branch: the `lessons-pg-gate` container may be down
+  since the crash reboot, and nobody checked `docker ps`.
+- **The region alert in a real chat**: its hint and reason have been rendered by the tests'
+  sender only.
+
+### After #418's merge: the merge, the ACL, and two crashes
+
+None of this is code in this pull request, and a close-out never gets a close-out of its own,
+so it is written here. The source is the controller's notes of 11 October 2026.
+
+- **#418 merged by the session** at 08:54 UTC on 11 October 2026 as `a28473e`, after the five
+  checks on `3fc7f54`: CI green (What changed, Server, Host ×2, Vercel and Vercel Preview
+  Comments, with Contract and Android skipped). It closed #411. Its close-out named itself as
+  the only thing open; this is the SHA it left for the next one.
+- **The RUVDS Squid ACL was widened** at 08:21 UTC, on the owner's grant, after a backup to
+  `/etc/squid/squid.conf.before-netschool-20261011T082105Z`: the 19 «Сетевой город» hosts were
+  added, Squid reconfigured, and Petersburg still answered 200 through it. Twelve hosts
+  answered the school search; obr03, obramur, prim-edu, tomedu and edu71 answered a WAF's 403;
+  `e-school.ryazan.gov.ru` and `sgo.kchgov.ru` did not answer.
+- **Squid logs**: `access_log daemon:/var/log/squid/access.log`, line 27 of `squid.conf`,
+  checked at 09:06 UTC. So the privacy text's «и может записать их в свой журнал» stays true.
+- **The development machine crashed twice**: at 11:05 Moscow (`0x7F`, a double fault) and at
+  12:49 Moscow (`0x1A` `0x41792`, PTE `0x4`, the faulty-RAM signature). The second zero-filled
+  this worktree's git index and `COMMIT_EDITMSG` in the middle of Task 3's commit. The index
+  was rebuilt with `git reset`, `git fsck` came back clean, and `diary_pb.py` was re-derived by
+  Buf and matched byte for byte; the worktree, the git directory and `server/.venv` were
+  scanned, and no other file was hit.
+- **Issues filed**: #419 and #420, both on milestone 11, both closed by this pull request.
+
+Section 7's «Next for the programme» says what follows.
+
+## What the session before it added: the server suite on PostgreSQL, and sub-project 3's live-verification gate (#411)
+
+Merged as #418 (`a28473e`, 11 October 2026), from `checks/postgres-suite`, on milestone 11. It
+closes #411. The branch was cut from `main` at `1eb134e`, the merge of #410, and carries one commit of
 code, `910f4cc`, then two merges with `main`: `3b4aba4`, at `7ce4677` (#413), and `d7ebd6c`, at
 `4211839` (#417). Written on 11 October 2026. No revision goes with it: the schema stays at
 `0019`.
@@ -391,140 +540,6 @@ it is written here. The source is the controller's notes of 10 and 11 October 20
 
 Section 7's «Next for the programme» says what follows.
 
-## What the session before it added: one geometry for the whole app — corners, list rows and insets (#404)
-
-Merged as #413 (`7ce4677`, 10 October 2026), from `android/ui-geometry`, on milestone 12. It
-closes #404. The branch was cut from `main` at `00fb20e`, the merge of #403, and merged with
-`main` at `1eb134e` (#410, documents only) as `be8f259`; it carries 21 commits before this
-close-out, that merge among them. Written on 11 October 2026. No revision goes with it and
-nothing under `server/` changed: the schema stays at `0019`.
-
-The owner asked for it on 10 October, with a screenshot of «Календарь»: «а также, выровни
-скругления, элементы в списках и отступы по всему приложению». They chose cards 24, tiles 12,
-rows 12 and buttons 56, then asked for the choices to be checked against the guidelines and
-improved where they could be, without a review of the plan («скорректируй мои решения …
-проанализировав гайдлайны … Если всё в порядке - оставь как выбрал я, но если можно что-то
-улучшить - сделай и приступай к работе без моего ревью плана»). The check kept 12, 12 and 56
-and moved groups to 28, because 24 is on no Material scale while the theme's sheets and dialogs
-were already 28. The design is `docs/specs/2026-10-10-ui-geometry-design.md` (`d4c75fc`, and
-`4894462` for the guideline check), and its four tasks are in `eec7810`. They were built one at
-a time, each reviewed before the next: Task 3's review failed on five Majors, and one fix round
-and a scoped re-review cleared it. A review of the whole branch found nothing Critical, five
-Important and ten Minor. One fix wave and a follow-up ruling on the week strip's gap answered
-them, and the wave was re-reviewed: every finding addressed, and nothing broken.
-
-- **One corner scale, of four Material tokens** (`theme/Shape.kt`): Row 4, Cell 12, Group and
-  Hero 28, Pill and Tile full; a standalone field is 28.
-- **The floating action buttons are the scale's one exception**: Material's 20 dp FAB corner,
-  shared by the two «День» FABs, which makes the small one a circle.
-- **One row rhythm, `RowPadding` 16 × 12.** `GroupItem` keeps `ListItem`'s own floor of 56, 72
-  and 88 dp, and the hand-built rows carry `heightIn(56)`.
-- **Chips sit on the 4 dp grid**, with a 48 dp touch target.
-- **One `SegmentedPicker` skin**; the day panel's action placed where its ink lands rather than
-  where its button's box does; onboarding's acknowledgement card inset once; and «О приложении»
-  drawn as a group.
-- **The week strip fills the width when its days fit**: 48 dp tiles 4 dp apart, so seven fit
-  from a 392 dp window.
-- **`GeometryScaleTest` refuses four things**: a raw corner literal, a `CircleShape` on a button
-  or a chip, a private `…Corner`, and a read of `shapes.medium` or `shapes.large` by name. Its
-  corner and role allowances are empty.
-- **The documents**: `docs/design.md`, «One scale for corners, rows and insets», says why, and
-  the README's honest status says what nobody has seen.
-
-The commits, in order:
-- Task 1, `e4d155c`: the tokens and `GeometryScaleTest`.
-- Task 2, `4fca627`: the row rhythm, the chips' padding and the 48 dp target.
-- Task 3, `9356dcd`, `303f47e` and `fccbb05`: the calendar's edges, cells and tray, the sheets,
-  onboarding and join. Its fix round: `5b3bcfd`, `3fb741f` and `9c836f5`.
-- Task 4, `c01ee1f`: the documents.
-- The final review's fixes: `c58a390`, `5f03140`, `a571b4b`, `2fce85a`, `4fc2136`, `8c28e63` and
-  `36e4a0b`.
-- The documents again, `1499220`.
-
-### Gates
-
-One invocation from `android/`, at `36e4a0b`, the head of the final fix wave:
-`./gradlew test detekt assembleDebug assembleRelease -Pkotlin.compiler.execution.strategy=in-process --no-parallel`.
-BUILD SUCCESSFUL.
-
-- **`./gradlew test`: 1728 Android tests**, 0 failures: `:core:model` 125, `:core:data` 615,
-  `:core:designsystem` 196, `:widget` 126, `:app` 666. The documents said 1684, already stale
-  before this batch (#398 and #399's gates counted 1687). Of the seven places the `handover`
-  skill names, the four that carry an Android count — this file's cheat-sheet, the README,
-  `docs/architecture.md` and the `gates` skill — say 1728; `CLAUDE.md`, `CONTRIBUTING.md` and
-  the `server-tests` agent carry none.
-- **detekt**: clean, with no baseline touched.
-- **Both assembles** passed, the release through R8.
-- **After `36e4a0b`** the documents (`1499220`), the merge with `main` (`be8f259`) and this
-  close-out touch Markdown and `docs/specs` only. The two server test files that read the
-  documents this close-out edits, `test_schema_version.py` and `test_ci_paths.py`, ran on its
-  working tree: **17 passed**.
-- **The server** is untouched and was not run: 3240 tests, 6 of them `-m host`.
-- **CI on the head** was pending at the time of writing; it is read before the merge.
-
-### What was deliberately left alone
-
-- **Margins that widen with the window (#405, backlog).** Material asks for 24 dp at medium and
-  expanded widths, but `ScreenPadding` is a constant read in places that are not composable, so
-  a margin that depends on the window is a change of its own.
-- **The widget's corners.** Glance has its own arithmetic (`WidgetSizeClass.innerCorner()`,
-  from a 24 dp surface), and the widget was not in the owner's screenshot.
-- **Typography and colour**, which the request did not name.
-- **Older insets the pass did not reach**, still off the 4 dp grid: 10, 14 and 6 dp in a few
-  chip strips, the «сейчас» separator and the empty-state hero.
-- **The month grid's gap stays a literal**; the week strip names its own `WeekdayTileGap` (4 dp)
-  beside it.
-- **Section 5's bullets that say every test ran on SQLite.** The live-verification gate ran the
-  suite on PostgreSQL the same night, and its results are #411's close-out to write.
-
-### What nobody has verified in this batch
-
-- **No screen of this pass has been seen on a device**, on an emulator or a phone. Robolectric
-  measures sizes and judges nothing; `docs/design.md`, «What nobody has looked at on a device»,
-  lists the screens and the likeliest surprises, and section 5 carries them.
-- **The FABs' shared radius and the four fields at 28 dp have no test.** Both corners are
-  Material defaults inside a component, which neither a layout test nor the source scan can
-  read.
-- **`GroupSliderItem` and `GroupSegmentedItem`'s 56 dp tests pin behaviour and guard nothing**:
-  their controls are taller than the floor.
-- **CI on the final head**, pending at the time of writing.
-
-### After #396's merge: four more merges, production read, and the issues
-
-None of this is code in #413, and a close-out never gets a close-out of its own,
-so it is written here. The source is the controller's notes of 10 and 11 October 2026.
-
-- **#396 merged by 3c's session** at 10:25:16 UTC on 10 October 2026 as `80d1281`, with CI all
-  green on its head `39b6ce4`. It closed #395, and sub-project 3 is complete. Production, read
-  at 10:25 UTC:
-  - `/api/v1/warmup`: `ok`, schema `0019`, `v2` `true`;
-  - `WatchClass` over Connect with no token: `200`, ending `unauthenticated` with
-    `DEVICE_TOKEN_INVALID`;
-  - native gRPC: `415` under `/api/rpc`, `404` at the root;
-  - `ListCorrections` `401`, and `GetDiaryCapabilities` over REST `200`.
-- **#398 and #399** merged before it, at 09:11:59 and 09:11:49 UTC, as `65e7a39` and `3741309`;
-  3c's close-out describes both («After #394's merge», in the section on #396, in
-  `docs/history.md` now). Production caught up with 3b-8
-  (#394, whose `d985ffa` Vercel never deployed) through `65e7a39` at 09:12.
-- **#403 merged** at 12:35:44 UTC as `00fb20e`, on milestone 12. It keeps «Классика» and
-  «AMOLED» only, sixteen icons, and removes the six other styles — 48 catalogue lines and
-  aliases and 192 resources; `export_android.py` writes only the two. It closed #402, filed
-  first, because `TestCatalog` needed three styles. This branch was cut from its merge.
-- **#410 merged by the owner** at 15:29:42 UTC as `1eb134e`, on milestone 11: the deployment
-  plan. `docs/specs/2026-10-10-deployment-scenarios-design.md` describes six scenarios — the
-  core on a VPS, on Vercel or in the app, and the diary through a proxy, the relay or directly —
-  and seven protections for the relay. It also edits the one-contract design: where the host
-  lives is decided (Selectel or RUVDS), the console's Deploy tab knows the scenarios, and
-  sub-project 7 is added. It filed #406–#409. This branch took it in as `be8f259`.
-- **Production is on `1eb134e`** (deployment READY). Its warmup, read at 20:49 UTC on 10
-  October, answered `200` three times, in 0.21–0.28 s.
-- **#357 confirmed live** on 10 October, against a local server on PostgreSQL: `GetClass` over
-  Connect GET answered `200` with no `Cache-Control`, and its REST twin `private, no-store`.
-- **Issues filed:** #404, closed by #413; #405, #409 and #412, backlog; #406, #407, #408
-  and #411, milestone 11. #402 closed with #403.
-
-Section 7's «Next for the programme» says what follows.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -547,7 +562,7 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396 and #410 (merged) and #418 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408 and #411 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410 and #418 (merged) and this pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419 and #420 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415 and #417 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387, #402, #404, #414 and #416 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409 and #412; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -589,6 +604,31 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
+- **#406's routes have been seen only as far as a school search** (this pull request; its
+  section above has the detail).
+  - **The twelve proxied regions answered a school search, not a sign-in or a read.** On 11
+    October each was asked, by hand from the RUVDS VPS, for `/webapi/schools/search`; no
+    sign-in, diary read, period read or keep-alive of the eleven newly routed password regions
+    has gone through Squid, and whether every path passes through it unchanged is unknown.
+  - **The five direct password regions from Vercel's `fra1`** are as unknown as before; the
+    region checks will say, once a class or a family uses one.
+  - **Which regions production has in use is unknown, possibly none.** The first tick after the
+    merge is the probe's first live run; with no class bound and no family signed in it draws no
+    region row at all, which is not a sign that the checks are broken.
+  - **One address carries eleven served regions and Petersburg.** The RUVDS VPS is a single
+    point of failure for all of them, and `diary_proxy` the one check that says it is the
+    tunnel.
+  - **No setting undoes only the «Сетевой город» half.** `DIARY_EGRESS=direct` takes Petersburg
+    off the proxy too, so taking the regions alone off it is a change to `regions.py` and a
+    deploy, not a setting.
+  - **What a family sees when the proxy fails** is `UpstreamUnavailable`, which the bot words
+    as the region's own outage; only `diary_proxy` tells the owner which it is.
+  - **The tests cannot make a `CONNECT`.** They tell the two pools apart through httpx's private
+    `_transport_for_url`, as `test_diary_proxy.py` already did, so an httpx upgrade that renames
+    it fails those tests rather than the route.
+  - **The suite has not run on PostgreSQL on this branch**; #418's run was on `910f4cc`.
+  - **The region alert has not reached a real chat**: its hint and reason were rendered by the
+    tests' sender only.
 - **The geometry pass (#404), the tray (#415) and «Календарь»'s header (#417) have been seen on
   an emulator, not on a phone.** On 10–11 October the debug APK of `7ce4677`'s code ran on a
   Pixel 10 Pro XL image (API 37), in light and dark: the weekday strip fills the width and ends
@@ -791,7 +831,8 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   («Outside the pull request, the same day», in the section on #342). A session a phone opened
   is then replayed from the proxy's address rather than the family's, and whether Петербург
   accepts a real one that way is as unknown as for any diary. «Сетевой город»'s regions were
-  not asked from Frankfurt.
+  not asked from Frankfurt. Since #406 a session in one of the twelve proxied regions is
+  replayed from the RUVDS address too, as Петербург's is.
 - **#140's phone half has run on an emulator, and only as far as a diary without a
   password goes.** Nothing composes `LessonsApp` in a test, so the gate between the three
   homes, the hold on the first run and the resume after the process dies are still proved by
@@ -1547,17 +1588,36 @@ first run. Section 5 has what is likeliest to look wrong. If the stretched weekd
 round small FAB read wrong, each goes back in one place: `WeekdayTileGap` and the fit check in
 `CalendarGrids.kt`, and the FAB's `shape` in `DayRibbonView.kt`.
 
-**Next for the programme: #406, #407, then sub-project 4.** Sub-project 3 is complete (#396):
+**Next for the programme: #407, then sub-project 4.** Sub-project 3 is complete (#396):
 v2 serves every unary method beside v1 on Vercel, and the host target serves native gRPC and
 `WatchClass`. Its live-verification gate, the owner's condition of 8 October, ran on the night
-of 10–11 October as far as a session can take it, and its results are in «What the last session
-added». In order:
-1. #406, the diaries through the proxy, **by region**, the owner's choice on 11 October.
-   - The RUVDS Squid ACL was widened that morning, on the owner's grant. It now allows all 19 «Сетевой город» hosts.
-   - Only 12 of those regions answer from the datacenter, so each region in `regions.py` carries its route. The 12 checked ones go through the proxy; the others stay direct, as today, until the relay (#408).
-   - `DIARY_EGRESS` sets the deployment's mode, the capabilities report it, and the tick's self-check probes each bound region by its own route.
-2. #407, the host's recipe on a Russian VPS.
-3. Sub-project 4.
+of 10–11 October as far as a session can take it, and its results are in «What the session
+before it added». #406, the diaries through the proxy by region, is this pull request
+(«What the last session added»). In order:
+1. #407, the host's recipe on a Russian VPS.
+2. Sub-project 4.
+
+**#406 needs nothing set.** `DIARY_EGRESS` is best left unset in Production and Preview alike:
+unset, with `DIARY_PROXY_URL` as it is, Petersburg and the twelve regions go through RUVDS and
+the rest direct. After the merge, look at «🩺 Состояние» once: a line per «Сетевой город» region
+in use, or none if no class is bound to one and no family is signed in to one. A region that
+reads 🔴 says on its second line what to do; one that leaves use while failing simply
+disappears, which is not a recovery (`docs/deploy.md`, «Monitoring»).
+
+**The privacy policy's edition was raised to 3** by this pull request, because it now names the
+intermediary server at RUVDS in «Третьи стороны». `docs/legal/legal.json` says it takes effect
+on 2026-10-11, the day the merge is expected; if the merge lands on another day, that date is
+changed to the merge's before it. The point says the proxy may log the diary's address and the
+time, which is true while RUVDS's `squid.conf` keeps `access_log` on (line 27, read at 09:06
+UTC on 11 October); switching it off makes the clause «и может записать их в свой журнал»,
+and its English twin, worth taking out with another edition.
+
+**The development machine's RAM is still faulty.** It crashed twice on 11 October — at 11:05
+Moscow with a double fault (`0x7F`), and at 12:49 with `0x1A` `0x41792`, the faulty-RAM
+signature, which zero-filled this worktree's git index in the middle of a commit (recovered;
+«After #418's merge» has how). Your fix is to pull the unbranded DIMM pair and run a memtest
+on what remains. Until then a session runs one heavy job at a time, and scans for zero-filled
+files after a crash.
 
 What the gate could not do is yours: the real diary sign-ins (#121, #343) and a DaData query
 (#120), as before, and now one error sent to Sentry on purpose. Each has a paragraph below.
@@ -1638,9 +1698,10 @@ default is a build property and a decision about who that server serves; it is t
 **Have the terms of use and the privacy policy read before anybody relies on them.** They
 describe what the code does and claim compliance with nothing: whether a GitHub account named
 as operator satisfies 152-ФЗ, the transfer to hosting in Frankfurt, the age line and parental
-consent are questions for a lawyer. Each passage about this deployment sits under a `FORK:`
-comment. Nothing has been published, so `docs/legal/legal.json` is still edition 1; once
-the texts are out, every change to them raises it, as the `release` skill says.
+consent are questions for a lawyer, and since edition 3 so is the intermediary server at RUVDS
+that the diaries' requests pass through. Each passage about this deployment sits under a
+`FORK:` comment. `docs/legal/legal.json` is edition 3 with this pull request; every change to
+what the texts say raises it, as the `release` skill says.
 
 **`DADATA_TOKEN` now serves a second caller (#120).** The anonymous school directory spends at
 most 4,000 of DaData's 10,000 daily requests. Without the key it answers `503` with
@@ -1662,8 +1723,9 @@ Selectel VDS, could not reach the diary: Selectel blocks the e-government's subn
 VDS servers and will not unblock them, and the owner deleted it on 8 October («After #372's
 merge», in the section on #376). By the owner's order the diary's reads move onto the phone,
 for both diaries, after sub-project 3. Until then production reads the Petersburg diary
-through RUVDS, and the self-check reports its drops. Nothing needs doing now; cancelling
-RUVDS waits for the phone.
+through RUVDS, and since #406 the twelve «Сетевой город» regions that answer from it too, and
+the self-check reports its drops and each region's. Nothing needs doing now; cancelling RUVDS
+waits for the phone, and would now take those regions' route with it.
 
 **#135 now has an answer in the code to each of its three questions, and closing it is the
 owner's.** `docs/diaries.md` is the map:
@@ -1831,7 +1893,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3240 tests, ~12 min alone on Windows
+cd server  && pytest -q -n auto                          # 3318 tests, ~12 min alone on Windows
 cd server  && python -m mypy                             # clean, 240 modules
 cd android && ./gradlew test                             # 1730 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
