@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import os
 from pathlib import Path
 
 import httpx
@@ -603,6 +604,10 @@ async def test_a_parallel_burst_from_one_address_cannot_pass_the_limit(
     assert len(upstream.requests) <= directory.directory_limiter.limit
 
 
+@pytest.mark.skipif(
+    os.environ.get("LESSONS_TEST_DATABASE_URL", "") != "",
+    reason="SQLite's one write lock and its busy timeout; PostgreSQL has neither (#411)",
+)
 async def test_the_burst_waits_for_sqlites_write_lock_rather_than_failing_on_it(session):
     """The burst above is a hundred writers on one SQLite file, and SQLite
     hands its one write lock out in turn: a writer that waits longer than the

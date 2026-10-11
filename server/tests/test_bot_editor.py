@@ -1165,7 +1165,12 @@ async def test_a_long_split_slot_still_fits_the_alert_telegram_will_take(
 ):
     """200 characters is Telegram's ceiling on a callback answer, and going
     over it is a 400 — which on this surface is a press that answers nothing.
-    Two halves with a long subject, a room and a teacher reach 284."""
+    Two halves with a long subject, a room and a teacher go well past it.
+
+    The room stays within the column's 32 characters:
+    PostgreSQL refuses a longer one outright, where SQLite stores it (#411),
+    and every way a room comes in (the paste grammar, the button editor, v1
+    and v2) cuts or refuses it at 32 before it gets here."""
     await editor.editor_parity(
         CardCallback(),
         EditorAction(action="split", day=1, index=2),
@@ -1181,7 +1186,7 @@ async def test_a_long_split_slot_still_fits_the_alert_telegram_will_take(
             2,
             parity,
             subject="Основы безопасности жизнедеятельности и начальной военной подготовки",
-            room="Кабинет 214, второй этаж, левое крыло",
+            room="Кабинет 214, второй этаж, крыло",
             teacher="Иванова-Петрова Александра Владимировна",
         )
     await session.commit()

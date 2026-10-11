@@ -208,12 +208,12 @@ Read this before planning a release.
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 240 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 3240 tests, green, about four minutes — the command CI runs |
+| `pytest -q -n auto` | 3240 tests, green, about four minutes — the command CI runs, on SQLite; on PostgreSQL by hand only (below) |
 | buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
 | v2 over REST and Connect | seventy-five methods served beside v1, every unary one: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), the homework and the events, whose notices to the class go out after the commit (3b-5), the days and the substitutions, told to the class the same way (3b-6), a diary session and the reads of one pupil, with what each diary has declared from the registry's table (3b-7), and the family's corrections over the diary, a batch at a time, all or none (3b-8), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
 | The host target and `WatchClass` | `python -m app.host`, under pyvoy and under hypercorn, started on SQLite by CI's «Host» job and asked over native gRPC: a unary call, a method the contract lacks, `WatchClass` hearing an ORM write, a bulk write and a bell change, a revoked phone cut off, and a forged `X-Forwarded-For` throttled all the same; the bus and the stream are tested in-process too. The image was built and run by hand once (at `261450e`, with a throwaway PostgreSQL 18: the same six live tests passed under both servers, and grpcurl was answered over native gRPC), and nothing builds it routinely; the host is deployed nowhere, and no phone streams yet |
-| Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter; none of it has run in production yet |
-| `./gradlew test` | 1728 tests, green, all five modules |
+| Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter. In production since 6 October 2026, where a real failure reached the owner's chat; Sentry has received a transaction, and no error event has been seen arriving |
+| `./gradlew test` | 1730 tests, green, all five modules |
 | `./gradlew detekt` | no finding beyond each module's baseline, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
@@ -226,6 +226,20 @@ a pull request is cheaper than catching it on a release.
 The server was checked live: brought up under uvicorn, answering `join` and `bundle`,
 handing back substitutions, events, homework and `next_school_day`. The state engine was
 walked through all 1440 minutes of a school day and through all eleven Russian time zones.
+
+**The server suite has passed on PostgreSQL once, by hand.** CI runs it on SQLite, and
+production runs on PostgreSQL, so on every pull request everything the two databases disagree
+about — a row lock, a savepoint, a cascade, the width of a `VARCHAR` — is tested on the one
+nobody deploys. On 10 October 2026 `LESSONS_TEST_DATABASE_URL` pointed the whole suite at a
+throwaway local PostgreSQL 18. The first run failed 31 tests, every one for a reason of the
+tests' own; once those were fixed, or skipped where they asked a question only SQLite has, 3233
+passed and 7 were skipped (#411; [build.md](docs/build.md), «The suite on PostgreSQL»). On
+the same database, by hand: the migration chain built from empty and compared with the models,
+a row lock (`FOR UPDATE`), the daily counter's race and the alert's claim run with real
+concurrent sessions, and a local server sending real notices through a test bot — an access
+request approved and declined, an event, one evening digest out of two concurrent ticks, and a
+schema alert with its recovery. Nothing runs any of it routinely; it is a check to make before
+a change to how the database is used, not a gate.
 
 **What one walkthrough on an emulator saw.** On 26 September 2026 the app was walked by
 hand on an API 37 emulator (Pixel 10 Pro XL image), against a local server and against
@@ -269,9 +283,11 @@ measured how they behave across Android versions.
 
 The electronic diary has never once been opened against a real server. Not Petersburg's
 dnevnik2.petersburgedu.ru — neither the sign-in page nor any screen of the app's diary — and
-not «Сетевой город. Образование», the second provider, whose **only contact with a live
-regional server** is the phone's school search: on 26 September 2026 the emulator asked
-Амурская область's server over TLS and got its real list of schools back. Its password
+not «Сетевой город. Образование», the second provider, whose **only contact with live
+regional servers** is the school search: on 26 September 2026 the emulator asked Амурская
+область's server over TLS and got its real list of schools back, and on 10 October 2026 the
+server's own client asked four regional servers and got theirs — which showed that it reads a
+school's address under a key none of them sends (#412). Its password
 sign-in (on the server and on the phone), its keep-alive, its region allow-list and its
 weekly-diary mapping are read from open-source clients and exercised on hand-written
 payloads, exactly as Petersburg's were. The tests run a hand-written stub in
@@ -356,7 +372,8 @@ selects the same rows and sends them again. Marking before sending protects agai
 that dies halfway, which is a different failure; both are here, because `reminders.yml`
 cuts `curl` off on a timeout while the serverless call it started keeps running. The right
 to send is now granted by a conditional `UPDATE`: the database decides, and exactly one
-gets it.
+gets it. Two ticks at once were run against a local server on PostgreSQL on 10 October 2026,
+with a real bot: one digest arrived.
 
 **A "shortened lessons" day with no bell schedule of its own** showed the usual times: the
 resolver fell back to the class's default schedule. That is worse than not marking the day
@@ -412,8 +429,9 @@ of DaData's `region_kladr_id`, and whether DaData's rows for organisations carry
 all is unknown — the fallback by the region's name exists for that case, and every one of the
 catalog's DaData spellings it would fall back on is unverified too, as are the codes of the
 four regions admitted in 2022. The daily cap assumes DaData's day turns at Moscow midnight,
-which nothing documents, and that two requests cannot both spend its last unit has been
-checked on SQLite only.
+which nothing documents. That two requests cannot both spend its last unit was checked on
+PostgreSQL on 10 October 2026, by hand: twenty-five concurrent sessions reaching for ten units
+took exactly ten.
 
 **A flag that meant nothing.** The class card in the bot had a «🔓 Открыть класс / 🔒
 Закрыть класс» button and a «Тип класса: публичный / закрытый» line. **Not one** code path
@@ -507,19 +525,22 @@ one of them is proved by a test rather than by a screen.
   through the Vercel connector, which carries the owner's access; the production alias is
   not behind it. It is one request, not a measurement, and the next migration needs it read
   again.
-* **`docker compose up` has not been run.** The compose file was parsed and its dependency
-  conditions asserted; the `migrate` service and the revisions now in the image are written
-  and never watched coming up. The host's image, the root `Dockerfile`, has been built and run
+* **`docker compose up` has come up once, as far as the warmup.** On the night of 10–11
+  October 2026, with a throwaway `.env`, the image built, the `migrate` service ran `alembic
+  upgrade head` inside it to `0019`, and the server answered `/api/v1/health` and
+  `/api/v1/warmup` on port 8000. The bot stayed off (`RUN_BOT=false`), and nothing past the
+  warmup was asked of the stack. The host's image, the root `Dockerfile`, has been built and run
   once, by hand, in 3c: `lessons-host:3c` at `261450e`, 545 MB, against a throwaway
   PostgreSQL 18, where the six live tests passed under pyvoy and under hypercorn. Nothing
   builds it routinely: CI starts `python -m app.host` from the same two locks instead, on
   Linux, and the file is read by a test.
 
-**The geometry pass of 10 October 2026 is measured, not seen.** One corner scale, one row
-rhythm and one inset now run through every screen (`docs/design.md`, «One scale for corners,
-rows and insets»). Robolectric holds them as sizes, and a source scan refuses a raw corner
-literal. Nobody has yet looked at any screen after the change, on an emulator or on a phone.
-The likeliest to look different from what was meant:
+**The geometry pass of 10 October 2026 has been seen on an emulator, not on a phone.** One
+corner scale, one row rhythm and one inset now run through every screen (`docs/design.md`, «One
+scale for corners, rows and insets»). Robolectric holds them as sizes, and a source scan refuses
+a raw corner literal. On 10–11 October the main screens were walked on an API 37 emulator, in
+light and dark, along with the segmented tray's even insets (#415) and «Календарь»'s new header
+(#417); nobody has looked on a phone. The likeliest to look different from what was meant:
 - every group is 4 dp rounder;
 - chip rows are looser, because a tappable chip takes a 48 dp slot;
 - «Календарь»'s weekday tiles are 4 dp apart and stretched to fill the width;
@@ -533,6 +554,8 @@ The full list is in that section.
 * A link between a class and a registry record. A school can now be found by search — in
   the bot and in the app — but only its name lands on the class: no OGRN, no link to the
   record is stored, so a school renamed in the registry passes the class unnoticed.
+  «Сетевой город»'s school search does send an `ogrn` and an `inn` for every school, and
+  nothing reads them yet (#412).
 * The widget stays on the system font: Glance passes `fontFamily` as the name of a system
   family rather than as a resource.
 
