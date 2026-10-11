@@ -26,9 +26,9 @@ use, and the privacy policy naming the proxy (edition 3). **The schema did not m
 head is still `0019`, on production since 16:28 UTC on 6 October, and `EXPECTED_REVISION` did
 not move either. Production deployed `4211839` (GitHub's deployment status `success` at
 08:08:20 UTC on 11 October), and its `/api/v1/warmup` answered
-`{"status":"ok","api_version":1,"schema":"0019","v2":true}` at 08:09 UTC. Whether it then
-deployed `a28473e` was not read for this close-out; #418 changed nothing under `server/app`,
-so the code it serves is the same either way.
+`{"status":"ok","api_version":1,"schema":"0019","v2":true}` at 08:09 UTC. Production's
+deployment of `a28473e` was then read from Vercel at about 10:40 UTC on 11 October: state
+READY; #418 changed nothing under `server/app`, so the code it serves is the same either way.
 
 The issues filed since #396 merged:
 - #402, closed by #403;
@@ -48,7 +48,9 @@ The issues filed since #396 merged:
   of `server/.env`, because pydantic-settings lets the environment win only for a name it
   holds;
 - #420, on milestone 11, fixed by `279a369` and closed by this pull request: a warmup test's
-  class-wide patch outlived the test whenever a new autouse fixture changed the teardown order.
+  class-wide patch outlived the test whenever a new autouse fixture changed the teardown order;
+- #421, filed by the whole-branch review and open in the backlog: a proxy that refuses the
+  tunnel to a region is reported as the region's fault, with advice to move it to direct.
 
 #395 closed with #396 and #397 with #399; #400 (backlog) and #401 (milestone 11), filed by 3c,
 are open. #352, #355, #357, #365, #368, #371, #375, #377, #378, #384 and #391 stay as the last
@@ -262,6 +264,11 @@ and reviewed before the next.
 - **The full suite on SQLite**, at the end of Task 4, `pytest -q -n 4`: **3312 passed, 6
   skipped**, in 36 min. That is **3318** collected, 78 more than #418's 3240, and the seven
   places the `handover` skill names say 3318.
+- **The full suite then ran once on PostgreSQL 18**, at `7ee7fda`, with
+  `LESSONS_TEST_DATABASE_URL` and `pytest -q -n 4`: **3311 passed, 7 skipped**, in 3 min 52 s —
+  the seventh is the directory test that is SQLite-only since #418. It covers `80cce89`, the
+  branch's last commit of code before this close-out, which the SQLite full run above also
+  covers.
 - **At this branch's head**, after `80cce89`: ruff clean; mypy, no issues in **240** source
   files; `test_health.py`, `test_health_tick.py`, `test_diary_egress.py`, `test_diary_proxy.py`
   and `test_project_screen.py`, **140 passed**; and the tests that read the documents this
@@ -304,8 +311,6 @@ and reviewed before the next.
 - **The five direct password regions from Vercel's `fra1`**, as before; the new checks will say.
 - **A `CONNECT`**: the tests tell the pools apart through httpx's private
   `_transport_for_url`, as `test_diary_proxy.py` already did.
-- **The full suite on PostgreSQL** on this branch: the `lessons-pg-gate` container may be down
-  since the crash reboot, and nobody checked `docker ps`.
 - **The region alert in a real chat**: its hint and reason have been rendered by the tests'
   sender only.
 
@@ -622,11 +627,15 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     off the proxy too, so taking the regions alone off it is a change to `regions.py` and a
     deploy, not a setting.
   - **What a family sees when the proxy fails** is `UpstreamUnavailable`, which the bot words
-    as the region's own outage; only `diary_proxy` tells the owner which it is.
+    as the region's own outage; only `diary_proxy` tells the owner which it is — and the same
+    is true the other way round: a proxy that refuses the tunnel to one region is reported as
+    that region's own fault, with the hint pointing at `via_proxy` rather than at the proxy
+    (#421, filed by the whole-branch review).
   - **The tests cannot make a `CONNECT`.** They tell the two pools apart through httpx's private
     `_transport_for_url`, as `test_diary_proxy.py` already did, so an httpx upgrade that renames
     it fails those tests rather than the route.
-  - **The suite has not run on PostgreSQL on this branch**; #418's run was on `910f4cc`.
+  - **The full suite ran on PostgreSQL on this branch, at `7ee7fda`**: 3311 passed, 7 skipped,
+    in 3 min 52 s, covering `80cce89`; the Gates section above has the figures.
   - **The region alert has not reached a real chat**: its hint and reason were rendered by the
     tests' sender only.
 - **The geometry pass (#404), the tray (#415) and «Календарь»'s header (#417) have been seen on
@@ -1893,7 +1902,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3318 tests, ~12 min alone on Windows
+cd server  && pytest -q -n auto                          # 3320 tests, ~12 min alone on Windows
 cd server  && python -m mypy                             # clean, 240 modules
 cd android && ./gradlew test                             # 1730 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
