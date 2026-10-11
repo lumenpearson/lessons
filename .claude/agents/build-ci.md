@@ -13,7 +13,11 @@ You own `.github/`. **The workflows work — do not edit them casually.**
 `buf breaking` against the base, the generated-code check), which reads no secret, and
 «Host», a matrix of pyvoy and hypercorn run whenever the server job is: `python -m app.host`
 started in the background on SQLite and `pytest -m host` asking it over native gRPC
-(`server/tests/test_host_job.py` holds the job to those tests). Nothing
+(`server/tests/test_host_job.py` holds the job to those tests); and last «CI», which needs
+every other job, runs whatever they ended as and passes only when each succeeded or was
+skipped. «CI» is the one check `main`'s ruleset requires (#424), because a matrix its `if:`
+skips is reported under its unexpanded name, so «Host (pyvoy)» cannot be required by its own;
+`server/tests/test_ci_required.py` fails on a job left out of its `needs`. Nothing
 else. mypy joined on 27 September 2026, when the owner asked for
 it through that day's audit (#210). The server job installs the root `requirements.txt` —
 the lock Vercel installs — together with the package (#192), so its verdict is about the

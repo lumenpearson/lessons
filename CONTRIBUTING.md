@@ -52,7 +52,9 @@ CI (`.github/workflows/ci.yml`) runs exactly this: `ruff`, `python -m mypy`,
 `pytest -n auto`, `./gradlew test`, `assembleDebug`, `assembleRelease` and `./gradlew detekt`; and, when the
 contract changed, `buf lint`, `buf breaking` and a check that `server/app/contract/` is what
 `buf generate` writes; and, whenever the server's do, the «Host» job, which starts `python -m
-app.host` under pyvoy and under hypercorn and asks it over native gRPC. The release
+app.host` under pyvoy and under hypercorn and asks it over native gRPC; and last «CI», the
+one check `main` requires, which passes only when every job before it succeeded or was
+skipped (`docs/build.md`, «The check `main` requires»). The release
 build runs on every push, not only on a release: R8 and resource shrinking are the classic
 "it worked in debug and broke in the installed APK", and catching that on a pull request is
 cheaper than catching it on people.

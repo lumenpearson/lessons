@@ -74,7 +74,9 @@ Only when `proto/`, `buf.*` or `server/app/contract/` changed, which is CI's own
 assembles, and `./gradlew detekt` as a step of its own after them; «Contract (Buf)» when
 the contract changed; and «Host», under pyvoy and hypercorn, whenever the server job runs: the
 host started on SQLite, and `pytest -m host` asking it over native gRPC — tests the ordinary
-run skips, and which need a Linux runner, the host's lock and a network. Nothing else.
+run skips, and which need a Linux runner, the host's lock and a network; and last «CI», which
+passes only when every job before it succeeded or was skipped, the one check `main` requires
+(#424). Nothing else.
 
 ## Two rules about evidence
 
