@@ -10,29 +10,37 @@ Last updated: **11 October 2026**. **PRs #63 through #85, #128, #129, #133, #134
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
 #313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363, #366, #372,
-#376, #379, #380, #385, #388, #392, #394, #396, #398, #399, #403 and #410 are merged**, and
-#344's commit went in with #366 although GitHub marks it closed rather than merged; `main` is at
-`1eb134e`, the merge of #410, by the owner at 15:29:42 UTC on 10 October 2026. **Sub-project 3
-is complete** with #396 (`80d1281`). **The four designs of sub-projects 3 to 6 are approved and
-on `main`**: the owner answered every question with its recommendation on 5 October (#301,
-#306, #307, #308), and #410 added a seventh sub-project and six deployment scenarios to the
-programme. **One pull request is open: #413, the one carrying this paragraph**, from
-`android/ui-geometry` to `main`, on milestone 12, which closes #404: one geometry for the whole
-app. **The schema did not move**: the head is still `0019`, on production since 16:28 UTC on 6
-October, and `EXPECTED_REVISION` did not move either.
+#376, #379, #380, #385, #388, #392, #394, #396, #398, #399, #403, #410, #413, #415 and #417
+are merged**, and #344's commit went in with #366 although GitHub marks it closed rather than
+merged; `main` is at `4211839`, the merge of #417, by the session at 08:07:50 UTC on 11 October
+2026. **Sub-project 3 is complete** with #396 (`80d1281`), **and its live-verification gate has
+run**, as far as a session can take it: the condition the owner set on 8 October before
+sub-project 4, checked on the development machine on the night of 10–11 October. **The four
+designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered every question
+with its recommendation on 5 October (#301, #306, #307, #308), and #410 added a seventh
+sub-project and six deployment scenarios to the programme. **One pull request is open: this
+one, carrying this paragraph**, from `checks/postgres-suite` to `main`, on milestone 11, which
+closes #411: the server suite on a local PostgreSQL, and the gate's results. **The schema did
+not move**: the head is still `0019`, on production since 16:28 UTC on 6 October, and
+`EXPECTED_REVISION` did not move either. Production deployed `4211839` (GitHub's deployment
+status `success` at 08:08:20 UTC on 11 October), and its `/api/v1/warmup` answered
+`{"status":"ok","api_version":1,"schema":"0019","v2":true}` at 08:09 UTC.
 
 The issues filed since #396 merged:
 - #402, closed by #403;
-- #404, this batch's own defect, open until #413 merges and closes it;
-- #405, open in the backlog: margins of 24 dp at medium and expanded widths, which this batch
-  left alone;
+- #404, closed by #413;
+- #405, open in the backlog: margins of 24 dp at medium and expanded widths, which the geometry
+  batch left alone;
 - #406–#409, filed with #410's deployment plan: #406, #407 and #408 open on milestone 11, #409
   open in the backlog;
-- #411, open on milestone 11: the server suite has only ever run on SQLite. The
-  live-verification gate filed it on the night of 10–11 October, and its own pull request, from
-  `checks/postgres-suite`, comes after this one;
-- #412, in the backlog: the «Сетевой город» school search reads `addressString`, a key no live
-  server sends. The same gate found it by asking four regional servers, with no account.
+- #411, open on milestone 11 until this pull request merges and closes it: the server suite had
+  only ever run on SQLite;
+- #412, open in the backlog: the «Сетевой город» school search reads `addressString`, a key no
+  live server sends. The gate found it by asking four regional servers, with no account;
+- #414, closed by #415: a segment sat 4 dp from its tray's ends and 8 dp from its top and
+  bottom;
+- #416, closed by #417: «Календарь»'s header left an empty band between the year chip and the
+  arrows.
 
 #395 closed with #396 and #397 with #399; #400 (backlog) and #401 (milestone 11), filed by 3c,
 are open. #352, #355, #357, #365, #368, #371, #375, #377, #378, #384 and #391 stay as the last
@@ -41,8 +49,9 @@ confirmed live on 10 October against a local server on PostgreSQL — `GetClass`
 answered `200` with none, and its REST twin `private, no-store`. #365's diary reads are to move
 onto the phone after sub-project 3. #118, what Preview is for, was closed by #350.
 
-The section «What the last session added» below is the geometry batch, and «What the session
-before it added» is 3c's (#396).
+The section «What the last session added» below is the gate and #411, with #415 and #417 in its
+«After #413's merge»; «What the session before it added» is the geometry batch (#413). 3c's
+section (#396) is in [docs/history.md](docs/history.md) now.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -177,13 +186,214 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: one geometry for the whole app — corners, list rows and insets (#404)
+## What the last session added: the server suite on PostgreSQL, and sub-project 3's live-verification gate (#411)
 
-Open as #413, from `android/ui-geometry` to `main`, on milestone 12. It closes
-#404. The branch was cut from `main` at `00fb20e`, the merge of #403, and merged with `main` at
-`1eb134e` (#410, documents only) as `be8f259`; it carries 21 commits before this close-out,
-that merge among them. Written on 11 October 2026. No revision goes with it and nothing under
-`server/` changed: the schema stays at `0019`.
+Open as this pull request, from `checks/postgres-suite` to `main`, on milestone 11. It closes
+#411. The branch was cut from `main` at `1eb134e`, the merge of #410, and carries one commit of
+code, `910f4cc`, then two merges with `main`: `3b4aba4`, at `7ce4677` (#413), and `d7ebd6c`, at
+`4211839` (#417). Written on 11 October 2026. No revision goes with it: the schema stays at
+`0019`.
+
+The owner set the gate on 8 October: everything recorded as unverified in sub-project 3 is
+checked on the development machine before sub-project 4 starts. It ran on the night of 10–11
+October, against a throwaway PostgreSQL 18.6 (`postgres:18-alpine`, on 127.0.0.1:55432, fsync
+off) under Docker Desktop 29.8.2, with an emulator beside it; the source is the controller's
+notes of that night. The one change it needed in the code is #411's, because the suite could not
+be pointed at PostgreSQL at all.
+
+- **`LESSONS_TEST_DATABASE_URL` runs the whole server suite on a local PostgreSQL** (`910f4cc`,
+  `server/tests/conftest.py`). Each xdist worker gets a database of its own, the schema is built
+  once per worker, and the tables are emptied with `TRUNCATE … RESTART IDENTITY CASCADE` between
+  tests. A URL naming any host but this machine is refused before a single import, because every
+  test empties every table. `docs/build.md`, «The suite on PostgreSQL», says how; CI does not run
+  it, as a check rather than a gate.
+- **The tests that pinned SQLite's behaviour were fixed or skipped.** The first run on
+  PostgreSQL had 31 failures, and every one was the tests' own:
+  - 28 write-counting tests compared the captured SQL with rules written in SQLite's `?`
+    placeholders, where asyncpg sends `$1::TIMESTAMP WITHOUT TIME ZONE`; the capture now folds
+    the placeholders to `?`;
+  - `test_bot_editor`'s long split slot put a 37-character room into a `VARCHAR(32)`, which no
+    way in can produce: the paste grammar and the button editor cut at `ROOM_MAX` 32, v1's schema
+    caps it, and v2's `CreateSubstitution` refused 44 characters when asked live. It now uses 31;
+  - `test_project_screen` asserted SQLite's empty catalogue, and now asks each database its own
+    question;
+  - `test_directory`'s burst that waits for SQLite's write lock is skipped on PostgreSQL.
+- **The suite then passed on PostgreSQL 18: 3233 passed, 7 skipped** (the six host tests and the
+  SQLite-only one), in 3 min 54 s. So every v2 method the suite calls answers there as it does on
+  SQLite, the journal's keyset pagination and the cascades and bulk statements behave as the tests
+  claim, and the savepoints hold: `test_v2_terms.py`, which asserts that a refused `UpdateTerm`
+  leaves none of the terms `terms.ensure` seeded inside its savepoint, passed through both shells
+  (#354's scenario).
+- **The migration chain reproduces the models on PostgreSQL 18.** `alembic upgrade head` on an
+  empty database reached `0019` with 27 tables, and `alembic check` found one difference:
+  `classes.is_public` is in the database and not in the model, kept on purpose by `0010`
+  because dropping a column is not additive.
+- **The row locks and the races ran on PostgreSQL, with real concurrent sessions.**
+  - #370's `FOR UPDATE`: a second session asking for a pending access request 0.3 s after the
+    first had locked it waited 1.22 s, until the first committed, and then found nothing pending.
+  - The daily counter: 25 racers for a cap of 10 took exactly 10, and two racers for the last
+    unit got `[True, False]`.
+  - The self-check's alert claim: eight concurrent `health.claim_alert` calls had one winner.
+- **`x-vercel-forwarded-for` reached the join limiter's bucket end to end**, on a local server
+  with `VERCEL=1`. Five failed joins from three addresses, over v1 and v2, each with a forged
+  `X-Forwarded-For`, filled three buckets of 3, 1 and 1. So v1 and v2 share one budget per
+  address (decision 11), the forged header bought nothing, and every key, at 64 characters, fits
+  PostgreSQL's `VARCHAR(64)`.
+- **Connect answered a local instance on PostgreSQL**: `MeService/GetMe` gave the same body over
+  `buf curl` (binary), Connect JSON, Connect GET and its REST twin, `GET /api/v2/me`.
+- **Real notices went through the test bot**, from a local server on PostgreSQL, and were read
+  off the owner's screen at about 23:46–23:47 Moscow on 10 October:
+  - v2's `DeclineAccessRequest` and `ApproveAccessRequest`: «✕ Запрос доступа в классе 9Б
+    отклонён.» and «✅ Доступ выдан: Редактор в классе 9Б. Откройте /start.», the role in bold;
+  - `CreateEvent`'s notice to the class, with its author left out: «📅 Событие: Проверка
+    уведомлений завтра, 11 октября (воскресенье), 10:00–11:00»;
+  - one evening digest from two concurrent ticks, whose bodies said `evening: 0` and
+    `evening: 1`, with `last_evening_sent` set once: «🌙 Добрый вечер! Домашних заданий на
+    понедельник, 12 октября нет.»;
+  - the self-check: no alert on the first tick, «🔴 Схема базы не совпадает с кодом» once
+    `alembic_version` was set back to `0018`, and «🟢 Схема базы снова совпадает с кодом,
+    простой 1 мин» once it was restored.
+
+  Everything rendered, no tag showed and nothing was refused. The bot's token came from BotFather
+  on the owner's Telegram, with screen access granted, and neither it nor the chat id was
+  printed.
+- **`docker compose up` came up for the first time**, from `3b4aba4`, with a throwaway root
+  `.env` (a fake bot token, `RUN_BOT=false`) deleted afterwards. The image built from
+  `server/Dockerfile` (414 MB), `db` (PostgreSQL 16.15) became healthy, `migrate` ran
+  `alembic upgrade head` inside the image and exited 0 at `0019` with 27 tables, and `server`
+  answered `/api/v1/health` and `/api/v1/warmup` (`ok`, `0019`, `v2` `true`) on port 8000. The
+  stack was torn down with `down -v`.
+- **Dependabot's `uv` entry has regenerated the lock, twice.** #346 (fastapi) and #345
+  (sqlalchemy), both merged on 6 October, changed `requirements.in` and `requirements.txt`
+  together, and #346's `# via` annotations moved as only `uv pip compile` moves them.
+- **The geometry pass was seen on an emulator** (Pixel 10 Pro XL image, API 37, 1344×2992 at
+  480 dpi): the debug APK of `7ce4677`'s code, through the first run in Russian, joined to class
+  «7А» on the local server. The weekday strip fills the width and ends on the switcher's line,
+  as «Подробно →» does; groups are 28 dp with 4 dp rows inside; month cells are 12 dp; and «О
+  приложении» is a group, whose server badge read «Сервер на связи», «API v1», «Схема 0019». The
+  main screens were taken in light and dark, and six shots went to the owner.
+- **Two defects were confirmed or found live.** #357: a linked owner's `ClassService/GetClass`
+  answered `200` over Connect GET and Connect POST with no `Cache-Control`, while
+  `GET /api/v2/class` answered `private, no-store`. #412: four live «Сетевой город» servers,
+  asked for «школа» with no account, answered 33, 199, 98 and 77 schools, and none sends the
+  `addressString` the client reads.
+
+### Gates
+
+At `910f4cc`, the branch's one commit of code:
+
+- **The suite on SQLite**, `pytest -q -n 4`: **3234 passed, 6 skipped**, in 36 min. That is 3240
+  collected, and the seven places the `handover` skill names still say 3240.
+- **The suite on PostgreSQL 18**: **3233 passed, 7 skipped**, in 3 min 54 s.
+- **mypy**: no issues found in 240 source files.
+- **ruff check**: clean.
+- **Android** did not run here, because `910f4cc` changes nothing under `android/`. The count is
+  **1730**, from #417's gate: `:core:model` 125, `:core:data` 615, `:core:designsystem` 196,
+  `:widget` 126, `:app` 668. The four places that carry an Android count (this file's
+  cheat-sheet, the README, `docs/architecture.md` and the `gates` skill) say 1730.
+- **This close-out** touches Markdown only. The two server test files that read the documents
+  it edits, `test_schema_version.py` and `test_ci_paths.py`, ran on its working tree: **17
+  passed**.
+- **CI on the head** is read before the merge.
+
+### What was deliberately left alone
+
+- **CI stays on SQLite.** The PostgreSQL run is a check to make by hand before a change to how
+  the database is used, as `docs/build.md` says, not a gate.
+- **#412's fix**, in the backlog: `address` was null in all 407 rows, so nothing is lost today.
+- **#357's fix**, on milestone 11: confirmed, not fixed.
+- **`classes.is_public`** stays in the database and out of the model, by `0010`'s decision.
+- **#406 through the RUVDS proxy**, which waits for the owner to widen Squid's ACL (section 7).
+
+### What nobody has verified in this batch
+
+- **The real diaries**: no account was at hand, so neither diary's sign-in was tried, nor any
+  read of Petersburg's. Only the «Сетевой город» school search met live servers, and Primorye's
+  did not answer from this machine («Электронный дневник не отвечает»).
+- **A live DaData** and **the app's pull request flow to GitHub** were not reached.
+- **An error event in Sentry.** Read through the Sentry connector, the errors dataset held no
+  error event in the thirty days to 10 October, which a server without errors and a transport
+  that never delivers one would both produce. `SENTRY_DSN` is a sensitive Vercel variable that
+  cannot be read back, so no local run can send one.
+- **Cold starts** were read, not measured. The last 55 minutes of production's runtime logs, on
+  `1eb134e` at 20:50 UTC on 10 October, held two cold starts, both on a cron tick; the
+  import-time line came 0.04 s after the request's own stamp in one and 4.7 s in the other, and
+  logs alone cannot say what that stamp marks. Both ticks spent about 5.8 s of their 10.4 s
+  between the startup line and the GitHub check's answer.
+- **A `client_version` from an APK**: no APK sends `X-Lessons-Client` yet.
+- **An upgrade in place.** The emulator's release install is `apk.yml` run #41, built from
+  `261450e` on `server-v2/3c` and signed with the runner's throwaway debug key, as a branch build
+  is by design (#330). A local release build under the owner's key was refused over it with
+  `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, as documented, and the class «11А» was left as it was. A
+  real check needs two builds signed by one key.
+- **TalkBack, the widget's twelve rungs and its third sentence** were not reached, nor were
+  Postman and the legal read.
+- **The stack under compose with the bot polling**: `RUN_BOT` stayed `false`, and nothing past
+  the warmup was asked of it.
+- **The emulator's `system_server` aborted once**: ART heap corruption in its GC, a SIGABRT in
+  HeapTaskDaemon, and Android restarted. No crash of our package was logged. It is noted beside
+  the machine's known faulty RAM, and unexplained.
+
+### After #413's merge: the merge, two Android pull requests, and production
+
+None of this is code in this pull request, and a close-out never gets a close-out of its own, so
+it is written here. The source is the controller's notes of 10 and 11 October 2026.
+
+- **#413 merged by the session** at 21:37:43 UTC on 10 October 2026 (00:37 Moscow, 11 October)
+  as `7ce4677`, after the five checks on head `861708e`:
+  - CI green: What changed, Server, Host (pyvoy), Host (hypercorn), Android, Vercel and Vercel
+    Preview Comments, with Contract skipped;
+  - `mergeStateStatus` clean;
+  - milestone 12;
+  - no review waiting;
+  - the gates run locally at `36e4a0b`, and Markdown only after it.
+
+  Its close-out is `e7ed3c7` and `d768754`, with the pull request's number written in `861708e`.
+  It closed #404.
+- **#415 merged by the session** at 22:34:29 UTC on 10 October as `47e7da5`, after the five
+  checks on `2497540`, on milestone 12. It closes #414, filed first from the owner's look at the
+  emulator at about 01:05 Moscow: «сжав длину кнопок … отступы по горизонтали равны
+  вертикальным», then «Исправь по всему приложению».
+  - **The cause.** `ToggleButton` draws 40 dp inside a 48 dp touch target, so a segment sat 8 dp
+    from its tray's top and bottom and 4 dp from its ends and its neighbours.
+  - **The fix.** `SegmentedPicker` adds the slack across, so every inset reads 8 dp.
+    `SegmentedPickerGapTest` runs under NATIVE and was red on the old code («from the tray's
+    start expected 8 but was 4»); `WeekScreenEdgeAlignmentTest`'s derived inset went from 4 to
+    8, and `docs/design.md` follows.
+  - **Gates:** 1728 tests, detekt and both assembles. Seen on the emulator at 8 dp all round,
+    and the shot went to the owner.
+- **#417 merged by the session** at 08:07:50 UTC on 11 October as `4211839`, after the five
+  checks on `6758fd3`, on milestone 12. It closes #416, filed first from the owner's look at
+  about 01:35 Moscow, which circled the empty band between the «2026/27» chip and the arrows.
+  The owner chose the period panel, and an overflow that grows in height, then said «Продолжай
+  автономно».
+  - **The change.** `ScheduleHeader` holds the title row, a `FlowRow` with the «Сегодня» pill
+    shown only away from today, over a full-width panel, «‹ period / term · year ▾ ›», in the
+    switcher's skin; pressing the period opens the year picker. An overflow wraps and grows,
+    with a non-breaking space between a number and its month.
+  - **The tests.** `CalendarHeaderTest` moved to NATIVE, with new tests for the period between
+    the arrows, the year picker and the 2× font at 320 dp. The guides, Russian and English, and
+    `docs/design.md` follow.
+  - **Gates:** **1730 tests** (`:app` 668), detekt and both assembles. Seen on the emulator at
+    font scales 1 and 2; two shots went to the owner, and the emulator's font scale was put back
+    to 1.0.
+- **Neither #415 nor #417 carries a close-out of its own**: this is it for both of them.
+- **Production.** `7ce4677` and `47e7da5` deployed READY. `4211839`'s production deployment
+  read `success` on GitHub at 08:08:20 UTC on 11 October, and the warmup answered
+  `{"status":"ok","api_version":1,"schema":"0019","v2":true}` at 08:09 UTC. The schema did not
+  move.
+- **Issues filed:** #411, milestone 11, which this pull request closes when it merges; #412,
+  backlog, open; #414 and #416, milestone 12, closed by #415 and #417.
+
+Section 7's «Next for the programme» says what follows.
+
+## What the session before it added: one geometry for the whole app — corners, list rows and insets (#404)
+
+Merged as #413 (`7ce4677`, 10 October 2026), from `android/ui-geometry`, on milestone 12. It
+closes #404. The branch was cut from `main` at `00fb20e`, the merge of #403, and merged with
+`main` at `1eb134e` (#410, documents only) as `be8f259`; it carries 21 commits before this
+close-out, that merge among them. Written on 11 October 2026. No revision goes with it and
+nothing under `server/` changed: the schema stays at `0019`.
 
 The owner asked for it on 10 October, with a screenshot of «Календарь»: «а также, выровни
 скругления, элементы в списках и отступы по всему приложению». They chose cards 24, tiles 12,
@@ -289,7 +499,8 @@ so it is written here. The source is the controller's notes of 10 and 11 October
   - native gRPC: `415` under `/api/rpc`, `404` at the root;
   - `ListCorrections` `401`, and `GetDiaryCapabilities` over REST `200`.
 - **#398 and #399** merged before it, at 09:11:59 and 09:11:49 UTC, as `65e7a39` and `3741309`;
-  3c's close-out describes both («After #394's merge», below). Production caught up with 3b-8
+  3c's close-out describes both («After #394's merge», in the section on #396, in
+  `docs/history.md` now). Production caught up with 3b-8
   (#394, whose `d985ffa` Vercel never deployed) through `65e7a39` at 09:12.
 - **#403 merged** at 12:35:44 UTC as `00fb20e`, on milestone 12. It keeps «Классика» and
   «AMOLED» only, sixteen icons, and removes the six other styles — 48 catalogue lines and
@@ -309,185 +520,6 @@ so it is written here. The source is the controller's notes of 10 and 11 October
   and #411, milestone 11. #402 closed with #403.
 
 Section 7's «Next for the programme» says what follows.
-
-## What the session before it added: the host target, its stream and its CI job — stage 3c of sub-project 3 (#273)
-
-Merged as #396 (`80d1281`, 10 October 2026), from `server-v2/3c`, on milestone 11, and on
-project 6. It closes #395, and refers to #273. The branch was cut from `main` at `d985ffa`,
-the merge of #394, and carries 18 commits before this close-out, to `682ac58`. Written on 10
-October 2026. No revision goes with it: the schema stays at `0019`. This is stage 3c of
-`docs/specs/2026-10-05-server-v2-design.md`, the last, built by
-`docs/specs/2026-10-05-server-v2-3c-plan.md`, one task at a time, each reviewed before the
-next — Tasks 1 and 5 each had one fix round, the rest were approved first time — then a review
-of the whole branch found nothing Critical, one Important (one stream per device), and one
-fix wave of four changes; a scoped re-review found every item addressed and nothing new above
-Minor. Two residuals were filed rather than fixed here (#400, #401), two findings were parked
-(N3, N4: the raw-SQL walk could be fooled by `UPDATE ONLY` or a `WITH … DELETE`, which nothing
-in `app/` writes today; and two claims that stay untested), and three wording overstatements
-the final review found are fixed in this close-out's own first commit (N1, N2). With it the
-design is delivered: v1 answers as before, v2 serves every unary method on both targets, and
-the host target serves native gRPC and `WatchClass` besides.
-
-- **The class-changed bus, `app/watch.py`.** It listens to the session, so the bot, v1 and v2
-  are heard alike: before each flush it collects the class of every row written to a table a
-  window is read from — `bot_users` among them, since every window carries the caller's role —
-  and publishes them at the transaction's outermost commit, never at a savepoint's release. A
-  bulk statement touches it, and a walk of all of `app/` holds that, widened in the final fix
-  wave to raw SQL and Core's table methods beside the ORM's; the bot's «-» on a weekday, a bare
-  delete in its handler, goes through `structure.apply_timetable` now.
-- **`WatchClass` streams** where `LESSONS_STREAMING=true` and the target is not Vercel: the
-  class's revision on open, on every change, and every thirty seconds; `call.stream` asks the
-  gate again, in a scope of its own, before every message after the first, so a revoked phone
-  or a deleted class ends its stream, and no watcher holds a pooled connection. A phone holds
-  one stream: a newer one under the same device token ends the one it held before, cleanly,
-  and leaves every other phone's alone — the final review's one Important finding, fixed in
-  `c2a46e1`.
-- **The host, `python -m app.host`**: the app under pyvoy (one thread, lifespan required,
-  gzip), or hypercorn on `--server hypercorn`; native gRPC answered at the root too. #395:
-  pyvoy's own Envoy took the client's address from `X-Forwarded-For`; `app.host` turns that
-  off — recognising Envoy's connection manager by its `typed_config` type rather than its name
-  — and refuses a configuration it cannot correct.
-- **The marker and the switch.** `LESSONS_TARGET=host`, set by the root `Dockerfile` alone,
-  makes the settings refusal apply as on Vercel; any other value is refused. The suite forces
-  streaming off and drops the marker.
-- **The host's lock and image.** `server/requirements-host.txt`, compiled against
-  `requirements.txt` for every platform and held equal to it on every shared pin; the root
-  `Dockerfile` installs both and the package without its floors, as a user of its own.
-- **CI's «Host» job**, under pyvoy and under hypercorn: the host on SQLite, asked over native
-  gRPC by `tests/test_host_live.py`, which every other run skips. First green at `b77d435`
-  under both servers; on #396's final head, `db1d86f`, «Host (pyvoy)» took 51 s and «Host
-  (hypercorn)» 48 s, both passing.
-- **The image, checked live.** `lessons-host:3c`, built from the root `Dockerfile` at
-  `261450e` (545 MB, about a minute to build, runs as the non-root user `lessons`, with zone
-  data from the base image), was run once against a throwaway `postgres:18-alpine`, with the
-  owner present: `scripts.init_db` built the schema and stamped `0019`, and the live tests gave
-  6 passed under pyvoy — grpcurl got a native gRPC answer with `server: envoy` — and 6 passed
-  under hypercorn, once the join budget the pyvoy run had spent was cleared, confirming #395
-  holds against thirty forged addresses. These were the first runs of the stream tests on
-  PostgreSQL; everything but the image was torn down afterwards.
-- **`watch.proto`** says, in comments only, what a stream sends and when it ends.
-
-### Gates
-
-The full suite ran twice, alone with `-n 4`: at `b77d435`, the head of the seven code tasks,
-**3227 passed, 6 skipped** in 1914.68 s (549 warnings); and at `db1d86f`, the head of the final
-fix wave, **3231 passed, 6 skipped, 1 failed and 2 errors** in 2049.81 s. All three problems
-were in files 3c never touched — `test_corrections_per_child_revision.py` (refiled),
-`test_services_directory.py` (sentences) and one parity case of `test_services.py` — and a
-rerun of those three alone gave **20 passed**. The error text was not kept: suspected memory
-pressure, unconfirmed. The documents (`e891543`) and this close-out's own three wording fixes
-(`682ac58`) changed no Python, and ran their own files again (below). CI runs on the head the
-merge is made from, and the merge waits for it to be green.
-
-- **ruff**: `ruff check app tests scripts migrations`, all checks passed, at `682ac58`.
-- **mypy**: no issues found in 240 source files, at `db1d86f`, with pyvoy and hypercorn
-  installed.
-- **The server suite.** **3240 collected** (3233 + the final fix wave's 7), 6 of them
-  `-m host`. The seven places the `handover` skill names say 3240.
-- **The host by hand.** `lessons-host:3c`, built from the root `Dockerfile` (545 MB, about a
-  minute to build, runs as the non-root user `lessons`, with zone data from the base image),
-  was checked live at `261450e` against a throwaway `postgres:18-alpine`, with the owner
-  present: `scripts.init_db` built the schema and stamped `0019`, and `pytest -m host` gave
-  **6 passed** under pyvoy — grpcurl got a native gRPC answer with `server: envoy` — and
-  **6 passed** under hypercorn, once the join budget the pyvoy run had spent was cleared; that
-  confirmed #395 holds, thirty forged addresses having landed under one key. These were the
-  first runs of the stream tests on PostgreSQL. Everything but the image was torn down
-  afterwards.
-- **The contract**: `buf lint` exit 0; `buf breaking --against .git#ref=origin/main` exit 0;
-  `buf generate` reproduces the committed files, `watch_connect.py`'s docstrings and
-  `watch_pb.py`'s field comments the only change.
-- **CI on the head** is read before the merge; the «Contract» job runs, since `proto/`
-  changed, and the two «Host» jobs ran green for the first time at `b77d435`, and again at
-  `db1d86f` — every job green there.
-- **Android** was not run, because nothing under `android/` changed; its count stands.
-
-### What was deliberately left alone
-
-- **A deployment of the host**, which waits for a phone that needs it (the design's
-  question 3); a host inside Russia would also be the egress #235 waited for.
-- **The image beyond the one live check**: built and run once, by hand, against a throwaway
-  PostgreSQL, with the owner present, then torn down; CI itself starts `python -m app.host`
-  from the same two locks rather than from the image, and the image has not been pushed
-  anywhere.
-- **`device_tokens` on the bus**: a phone's link reaches it at its next sync, because every
-  call writes `last_seen_at` there.
-- **Dependabot for the host's lock**: a bump of Vercel's lock that moves a shared pin fails
-  `test_host_image.py` until the host's is regenerated (the `github-pr` skill).
-- **`server/Dockerfile`**, compose's, which still installs `pyproject.toml`'s floors rather
-  than the lock (said in the 3c plan, not filed).
-- **The app's side of the stream**, sub-project 5's stage 5c.
-
-### What nobody has verified in this batch
-
-- **The host anywhere but a CI runner, the development machine, and the one live check.**
-  `python -m app.host` has run on a CI runner and on the development machine, on SQLite, and
-  once, live, as its own image against a throwaway PostgreSQL, with the owner present
-  (`lessons-host:3c` at `261450e`, torn down afterwards) — never behind a TLS proxy, never
-  with a real bot's webhook pointed at it, and never left running.
-- **A stream held for hours**: the longest held in a test is seconds; Envoy's five-minute idle
-  timeout is answered by the heartbeat on the strength of its documentation and an
-  eighty-second probe.
-- **A phone over native gRPC**: no APK speaks it before sub-project 5's stage 5c.
-- **The three problems at `db1d86f`'s full run** (one failed, two errors), beyond a rerun that
-  passed all three alone: suspected memory pressure, unconfirmed.
-
-### After #394's merge: the merge, production, and two Android pull requests
-
-None of this is code in #396, and a close-out never gets a close-out of its own, so it is
-written here. The source is the controller's notes of 10 October 2026.
-
-- **The merge, by this session.** #394 merged at 04:27:46 UTC on 10 October 2026 as `d985ffa`,
-  after the five checks on head `bd90e1b`: CI green on that exact head (Server, Contract
-  (Buf), What changed, Vercel Preview Comments; Android skipped), `mergeStateStatus` clean,
-  milestone 11, no review waiting, and the gates run locally (full runs at `1c0a362`, 3140,
-  and at `f2bfea1`, 3142). It closed #393.
-- **A claim checked before the merge.** A docs-claims check of `9f6e02a` found one overstated
-  sentence — `docs/api.md` said an empty batch succeeds for any pupil, when a pupil with no
-  scope gets `CORRECTIONS_UNAVAILABLE` even for an empty batch — fixed in `496ed2f` before the
-  close-out `bd90e1b`.
-- **Production did not deploy at once (#349's shape).** Vercel made no production deployment
-  for `d985ffa`: the commit status stayed «pending» with no Vercel context, and the project's
-  last production deployment stayed `11ee629` (#392's merge) while previews built for
-  `bd90e1b` and `bb8e705`. Read at 04:32 UTC, `/api/v1/warmup` still answered
-  `{"status":"ok","api_version":1,"schema":"0019","v2":true}` and all eight correction routes
-  — four REST, four Connect — answered `501`: production was still running 3b-7's code. This
-  session did not redeploy production itself.
-- **#395 filed at 04:40 UTC** by 3c's plan: milestone 11, a sub-issue of #273, on the board at
-  Now/P1/S/2. Branch `server-v2/3c` was cut from `d985ffa`, and the plan was committed as
-  `bb8e705` and pushed.
-- **Production caught up at 09:12 UTC**, with no manual redeploy needed: it deployed `65e7a39`
-  (the merge of #398, which carries `d985ffa`). Read then: warmup `ok`, schema `0019`, `v2`
-  `true`; the four REST correction routes and the four Connect methods all answered `401` with
-  `WWW-Authenticate: Bearer` and `DIARY_TOKEN_INVALID`. The `501` window ran from 04:27 to
-  09:12 UTC.
-- **#398 merged by this session as `65e7a39`** («Show the app's mark without the flat plate a
-  launcher needs under it», milestone 12). The owner asked for the in-app icon without its
-  white background, everywhere, and only for the flat plates (Классика, Край в край, AMOLED):
-  `AppIconStyle.flatGround`, `AppIconImage` skipping that ground, `AppIconGroundTest`, and
-  `design.md`.
-- **#399 merged by this session as `3741309`** (milestone 9; `Closes #397`). #397 was filed
-  first: the pull-to-refresh loader was cut off at the status bar's lower edge, because
-  Material3 clips at the indicator's layout top and #224 had laid the loader out below the
-  status bar. The loader is now laid out from the window's top, with `maxDistance` lengthened
-  by the status bar; `PullToRefreshUnderStatusBarTest` fakes a 120 px status bar, and reads
-  120 dp where 0 is expected against the old layout.
-  Neither #398 nor #399 carries a close-out of its own: this is it for both of them
-  (`CLAUDE.md`: a close-out names what merged).
-- **Local Android gates for #398 and #399 together:** `./gradlew test detekt assembleDebug`
-  built successfully, 1687 tests (app 659, model 125, data 615, designsystem 162,
-  widget 126), 0 failures.
-- **The owner's machine, readied for the host.** Docker Desktop 4.94.0 and grpcurl 1.9.4 are
-  installed; the worktree's `server/.venv` has the host packages again; the
-  `.claude/settings.json` deny rule was narrowed to the real `.env` files by the owner,
-  committed as `261450e` on `server-v2/3c`. Firefox's 14 GB starved the JVMs once
-  (`errno 1455`); Gradle could not start until the owner closed the emulator.
-- **The host image was checked live** (`lessons-host:3c` at `261450e`, with a throwaway
-  `postgres:18-alpine`): 545 MB, non-root user `lessons`, zone data from the base image. Under
-  pyvoy, 6/6 live tests passed, and grpcurl got a native gRPC answer with `server: envoy`.
-  Under hypercorn, 6/6 passed after the join budget was cleared. These were the first runs of
-  the stream tests on PostgreSQL.
-- **Issues filed:** #397 (fixed by #399); #400, a vanished phone holds its stream for about
-  fifteen minutes (Backlog); #401, `watch.proto` is silent on a clean end (milestone 11).
 
 ## The milestones
 
@@ -511,8 +543,8 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396 and #410 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408 and #411 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398 and #403 (merged) and #413 (open); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387, #402 and #404 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396 and #410 (merged) and this close-out's pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408 and #411 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415 and #417 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387, #402, #404, #414 and #416 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409 and #412; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
@@ -553,19 +585,28 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
-- **No screen of the geometry pass (#404) has been seen on a device.** Robolectric holds its
-  sizes and a source scan its corners; `docs/design.md`, «What nobody has looked at on a
-  device», lists the screens. The likeliest to look different from what was meant:
-  - every group is 4 dp rounder;
-  - one-line rows are a little taller;
-  - chip rows are looser;
-  - the weekday tiles are 4 dp apart and stretched: five draw about 70 dp wide at 411 dp, and
-    the strip spreads out one frame after it appears;
-  - the small «День» FAB is a circle;
-  - «Календарь»'s cells are 12 dp.
-
-  The FABs' shared radius and the four fields at 28 dp have no test, being Material defaults
-  inside a component. Section 7 has the owner's look at them.
+- **The geometry pass (#404), the tray (#415) and «Календарь»'s header (#417) have been seen on
+  an emulator, not on a phone.** On 10–11 October the debug APK of `7ce4677`'s code ran on a
+  Pixel 10 Pro XL image (API 37), in light and dark: the weekday strip fills the width and ends
+  on the switcher's line, groups are 28 dp with 4 dp rows inside, month cells are 12 dp, and «О
+  приложении» is a group. #415's tray read 8 dp all round there, and #417's header was seen at
+  font scales 1 and 2; the owner was sent the shots. Not judged: the one-line rows, the chip
+  rows and the small «День» FAB's circle. The FABs' shared radius and the four fields at 28 dp
+  have no test, being Material defaults inside a component. Section 7 has the owner's look on a
+  phone.
+- **#357 is confirmed live, and not fixed.** On 10 October, against a local server on
+  PostgreSQL, a linked owner's `ClassService/GetClass` answered `200` over Connect GET and
+  Connect POST with no `Cache-Control`, while its REST twin, `GET /api/v2/class`, answered
+  `private, no-store`: the defect exactly as filed. `GetCalendarFeed` answered `501` on every
+  transport there, because no `PUBLIC_BASE_URL` was set.
+- **The «Сетевой город» school search reads a key no live server sends (#412, backlog).** Every
+  row the four servers asked on 10 October sent back carries `address`, `cityId`, `id`, `inn`,
+  `name`, `ogrn`, `provinceId` and `shortName`, and the code reads `addressString`. `address`
+  was null in all 407 rows, so nothing is lost today; `ogrn` and `inn` are in every row, the
+  registry link the README says is missing.
+- **The emulator's `system_server` aborted once during the gate's walk** (ART heap corruption in
+  its GC, a SIGABRT in HeapTaskDaemon), and Android restarted. No crash of our package was
+  logged. It is noted beside the development machine's known faulty RAM, and unexplained.
 - **The launcher icon of #388 has run on no device and no emulator.** Every claim about it is a
   JVM test's, and the launcher that draws it is another app. Unseen:
   - any real launcher: how Pixel Launcher, One UI and MIUI place, re-index and clip the icon
@@ -626,32 +667,27 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     `DEVICE_TOKEN_INVALID`, and Connect `SubstitutionService/ListSubstitutions` `401`
     `unauthenticated`; the ten of 3b-7 are asked after #392's merge, once, without a token;
     the four of 3b-8 are asked after #394's merge, once, without a token;
-  - **the seventy-five methods of 3b-1 to 3b-8 against Postgres**: every v2 test ran on SQLite,
-    the journal's keyset, the import's bulk delete and insert, the bells' bulk delete, the
-    class's cascade, the directory's allowance, the link code's and the tick's savepoints,
-    the homework's unique pair and its savepoints, the day's mark's and the substitutions'
-    savepoints, the diary limiters' counting under both versions among them, a batch of
-    corrections, whose rows stay locked until its one commit, and `put_override`'s savepoint;
   - **the diary over v2 against a real diary**: every 3b-7 test drives Petersburg's or
     «Сетевой город»'s fake upstream, or none; no session has been registered over v2, and
     «Сетевой город»'s week walk, periods and adoption have never met a live server through
     either version; and no correction has been written, reset or cleared over v2 from a
     phone;
-  - **v2's notices to the class through Telegram itself**: the tests hand `telegram_send` a
-    bot that records what it was asked to send;
+  - **v2's notices to the class through Telegram itself, beyond the event's**: `CreateEvent`'s
+    reached a real chat through the test bot on 10 October (#411's gate); the homework's, the
+    days' and the substitutions' have met only the tests' bot that records what it was asked to
+    send;
   - **the bot committing before it speaks, through Telegram itself**, for a task, a tick and
     the feed's address: the tests hand the handlers a chat that reads the database as they
     speak;
-  - **a notice of `ApproveAccessRequest` or `DeclineAccessRequest` through a real bot**:
-    every v2 test hands `telegram_send` a fake;
   - **`ListSchoolRegions` and `ListSchools` against DaData**: every v2 test replaces the
     search;
   - **`ListTerms` and `GetTermScheme` across 1 September, in a zone far from Moscow**:
     `current_year` reads the class's own clock, and every test ran on the day it ran;
-  - **`x-vercel-forwarded-for` reaching a v2 call's bucket**: held by unit tests of
-    `caller_bucket`, never through Vercel's proxy;
+  - **`x-vercel-forwarded-for` as Vercel's own proxy sets it**: on 10 October a local server with
+    `VERCEL=1` was sent the header by hand and counted it into the right bucket over v1 and v2
+    (#411's gate), but Vercel's proxy has not been watched setting it;
   - **a `client_version` from an APK**: none sends the header, so every one in production is
-    null;
+    null, and the live gate of 10–11 October could not change that;
   - **a segfault in a native extension at import**, which `mount_v2` cannot catch: it turns an
     import that raises into the `503`, and an interpreter that crashes raises nothing;
   - **the bot's new refusals through Telegram itself**: a cancellation of a lesson the
@@ -665,10 +701,14 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
 - **The monitoring of #359 has been seen working in production, and failing for real.** Its
   four checks read `ok` on the first tick, «📊 Проект» drew on the owner's screen, and the
   proxy's failures that evening were told to the owner with their recoveries («After #363's
-  merge», in the section on #366). Still unseen:
-  - two ticks at once, which are tested in sequence only;
-  - an error event reaching Sentry. A transaction has, sent by the SDK's background transport
-    from a Vercel function.
+  merge», in the section on #366). On 10 October a local server on PostgreSQL sent a schema
+  alert and its recovery through the test bot, eight concurrent claims on an alert had one
+  winner, and two concurrent ticks sent one digest (#411's gate). Still unseen: an error event
+  reaching Sentry. A transaction has, sent by the SDK's background transport from a Vercel
+  function; the errors dataset held no error event in the thirty days to 10 October, which a
+  server without errors and a transport that never delivers one would both produce, and
+  `SENTRY_DSN` cannot be read back from Vercel to send one locally. Section 7 asks the owner for
+  one deliberate error.
 - **Buf's unauthenticated rate limit has not been met.** CI's «Contract (Buf)» job fetches two
   remote plugins without a token; one run, 37230983817, was not throttled. If it ever is,
   either step can be the one that fails (the buf-action step fetches `googleapis` from the
@@ -688,11 +728,14 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
 - **The Postman smoke collection has never been run in Postman** (#300). It lives in the
   owner's personal workspace and is not in the repository; its anonymous requests were made
   with curl against production and answered as its tests expect, and its second folder, which
-  needs a device token, has not run at all.
-- **The cold-start fix (#275) has not been read on Vercel.** The 736 aiogram modules were
-  measured in a fresh interpreter on Windows under Vercel's settings, and
-  `tests/test_cold_start.py` holds the answer there; no deployment of this branch has been
-  asked how long its first request takes.
+  needs a device token, has not run at all. The live gate of 10–11 October did not run it.
+- **The cold-start fix (#275) has been read on Vercel, not measured.** The 736 aiogram modules
+  were measured in a fresh interpreter on Windows under Vercel's settings, and
+  `tests/test_cold_start.py` holds the answer there. On 10 October at 20:50 UTC the last 55
+  minutes of production's runtime logs, on `1eb134e`, held two cold starts, both on a cron tick:
+  the import-time «Telegram webhook mounted» came 0.04 s after the request id's own stamp in one
+  and 4.7 s after it in the other. Logs alone cannot say whether that stamp marks the edge's
+  receipt or the instance's start, so the import's real cost is not separable there.
 - **The developer mode (#237) past its door has been seen by nobody.** #257's session saw
   the reveal on an API 37 emulator, along with the toast, the section in the settings, the
   signed-out page and hiding it again; that walk is what found #255 and #256. Everything
@@ -711,13 +754,17 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   it should edit the page by hand, because the generator is not in the repository — and,
   where the edit touches `docs/diaries/regions.md`, regenerate the region catalog with
   `scripts/region_catalog.py`, which a test insists on.
-- **The «Сетевой город» provider has never met a live server.** #140 wrote the client, the
-  mapper, the keep-alive and the school search from open-source clients and hand-written test
-  payloads; no ИРТех server answers a cloud session, so none was called. Every upstream shape
-  — the salted-MD5 sign-in, `/webapi/context`, the weekly diary, the school search — is what a
-  client sends, not what a server was seen to accept. The refresh-token grant (LoginType 9)
-  and the Госуслуги refusal path (`SignInUnsupported`) are the least exercised of all. The
-  first live sign-in on it is the owner's, #121's caveat a second time.
+- **The «Сетевой город» provider has met live servers only through its school search.** #140
+  wrote the client, the mapper, the keep-alive and the school search from open-source clients
+  and hand-written test payloads. On 10 October the server's own client,
+  `NetSchoolClient.schools_search`, asked four regional servers for «школа» with no account and
+  got their schools back (Амурская 33, Ленинградская 199, Коми 98, Алтайский край 77), which
+  found #412, above; Primorye's did not answer from the development machine. Every other
+  upstream shape — the salted-MD5 sign-in, `/webapi/context`, the weekly diary — is what a
+  client sends, not what a server was seen to accept. The refresh-token grant (LoginType 9) and
+  the Госуслуги refusal path (`SignInUnsupported`) are the least exercised of all. The sign-in
+  needs an account, which the gate did not have, so the first live sign-in on it is still the
+  owner's, #121's caveat a second time.
 - **The phone's own sign-in has never met a live diary either — neither «Сетевой город» nor
   Петербург.** The Kotlin ports and the Python originals run one set of known-answer vectors
   (`server/tests/vectors/diary_protocol.json`), which proves the two agree and nothing about
@@ -748,7 +795,7 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   languages: the legal documents online and the bundled fallback offline, the region list, a
   Госуслуги-only region's hand-off, ТОР «Моя школа»'s, a live school search and the password
   form. Nobody has heard any of it through TalkBack, and `diary.db` has not been written,
-  because no password was typed.
+  because no password was typed. The live gate of 10–11 October reached neither.
 - **TLS against the regional servers is seen succeeding once, and its failures and Android's
   own windows-1251 are inferred.** #186's school search reached Амурская область's live
   «Сетевой город» server over TLS from the emulator and got its schools back. The failure
@@ -763,17 +810,18 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
 - **The widget's third sentence has never been on a launcher.** Whether «Дневник — в
   приложении» and the new sentence for a phone with neither fit their rungs without a clip is
   judged by length only, and the redraw when the mode changes rests on a broadcast no test
-  composes.
+  composes. The live gate of 10–11 October did not reach it.
 - **DaData's side of the school directory is assumed.** Whether its company rows carry
   `region_kladr_id` is unknown — the directory falls back to the region's name for exactly
   that reason — and so are the subject codes of the four regions admitted in 2022 (90, 93,
   94, 95), every DaData spelling in the catalog's overlay, and whether DaData's day turns at
   Moscow midnight, which is when `usage_counters` starts a new one. Two requests racing for
-  the last unit of the day were checked on SQLite only.
+  the last unit of the day were checked on PostgreSQL on 10 October, and only one got it; the
+  live gate asked no DaData.
 - **The terms of use and the privacy policy have never been read by a lawyer.** They
   describe what the code does and claim compliance with nothing: whether naming a GitHub
   account as operator satisfies 152-ФЗ, the transfer to hosting in Frankfurt, the age line
-  and parental consent are open.
+  and parental consent are open. No gate a session runs can answer them.
 - **The tab arranging has been seen on an emulator only, and it is a gesture.** #84 is a
   long press, a wobble and a drag; #85 is the drag actually reporting where it landed. What
   the 39 tests prove is arithmetic and contracts: where a drag of so many pixels lands, that
@@ -865,16 +913,12 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   as seven days, and
   whether the subject keeps its width beside a long teacher's name. Below API 31 the corner
   half of this does not arise at all — `cornerRadius` is a no-op there.
-- **`docker compose up` has never been run.** There was no Docker where #83 was written, and
-  the Docker Desktop on the owner's machine since 3c built and ran the host's image, not this
-  stack. So what #83 proves about the new `migrate` service is that the compose file parses
-  and that its dependency conditions are what they claim — `service_completed_successfully`
-  before the API starts. Nobody has watched the stack come up, nobody has seen
-  `alembic upgrade head` run inside the image, and nobody has confirmed that the revisions
-  the Dockerfile now copies are the ones it needs. #190, #191 and #195 changed the file and
-  the image again — a password the stack refuses to start without, every setting passed
-  through, a non-root user — and are read by `test_compose.py` and `test_dockerfile.py`,
-  not by a container.
+- **`docker compose up` has come up once, and only as far as the warmup.** On the night of
+  10–11 October, from `3b4aba4`, with a throwaway root `.env`: the image built from
+  `server/Dockerfile`, `migrate` ran `alembic upgrade head` inside it to `0019`, and `server`
+  answered `/api/v1/health` and `/api/v1/warmup` on port 8000 (#411's gate). `RUN_BOT` stayed
+  `false`, so the bot has never polled from the stack, and nothing past the warmup was asked
+  of it.
 - **The animations #247 added have been seen only in two frames on an emulator.** Rows
   opening under their switches and the selected tab's label being revealed were caught with
   the animator scale at ten; the list items fading and sliding on «Сегодня» and «Задания»,
@@ -892,10 +936,6 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   another phone or a wiped Keystore, which should read as no token; the diary's bearer,
   sealed the same way, because no diary session was opened; and a release build joined to a
   production class.
-- **Dependabot's `uv` entry (#192) has not opened a pull request yet**, so the way a bump
-  regenerates the lock is read from dependabot-core rather than seen. The lock itself was
-  installed on Linux and Python 3.12 by #214's CI, which ran the suite on it, and Vercel
-  built #214's preview from it; the local runs were all Windows and Python 3.13.
 - **No Compose test was actually made to hang**, so `MarqueeClockTest` — the guard #83 added
   for the trap that costs a whole Gradle run — is reasoned from `MarqueeText`'s
   `Int.MAX_VALUE` iteration count and from the list of files that call `createComposeRule`.
@@ -939,7 +979,8 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   from the owner's chat — which recorded what the bot did and not how a card looked.
   **Nobody draws the widget.** Glance has `glance-appwidget-testing` at the same version as
   the Glance in this project (`1.3.0-alpha02`) — the twelve rungs of the size ladder could be
-  rendered and compared with no device. Not done.
+  rendered and compared with no device. Not done, and the live gate of 10–11 October did not
+  reach the widget either.
 - **Nobody has made a correction over the diary on a screen.** They are covered by tests on
   both halves — the key when a class is split into groups, an empty correction, the diary
   moving out from under a correction, the "correct / reset / do nothing" decision, and that a
@@ -950,7 +991,8 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
 - **The real dnevnik2 has still not been opened.** The corrections are proved against a
   hand-written stub — exactly like the rest of the integration, and exactly as far as it
   claims. In particular, nobody has seen a real day split into groups, which is what the
-  refusal to apply a correction on a key collision was made for.
+  refusal to apply a correction on a key collision was made for. The live gate of 10–11
+  October had no account to open it with.
 - **Nobody has held two classes on one phone.** Storing memberships and splitting the cache
   by class are covered from below; from above, `ClassRowsScreenTest` now presses the group
   itself: the tick stands next to the class being shown and it is not a button, another row
@@ -980,7 +1022,11 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   kept its class in four flat keys; a test builds exactly those keys and makes sure the class
   is found and the "introduction shown" flag is not reset. Nobody has upgraded a real
   installation of the previous version. If that is broken, the user sees the code field
-  instead of their class — and nothing in the logs.
+  instead of their class — and nothing in the logs. The live gate of 10–11 October could not
+  try a second: the emulator's release install is `apk.yml` run #41, a branch build signed with
+  the runner's throwaway debug key by design (#330), and a release build under the owner's key
+  was refused over it with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`. A real check needs two builds
+  signed by one key.
 - **The build-chain bumps have been looked at only as far as #186's walk goes.** AGP
   9.3.1 → 9.4.0 → 9.4.1, Gradle 9.5.0 → 9.7.1 and compose-bom 2026.06.01 → 2026.09.00 are
   proved by every test passing and both assembles building — locally and on the runner.
@@ -999,12 +1045,14 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
 - **A live DaData has never been asked**: there is no `DADATA_TOKEN` in the development
   environment, and every test on both sides runs a stub. The owner reported setting the key
   on Vercel — **nothing has verified that.** #140's anonymous school directory rests on the
-  same stub, and so does its daily count.
+  same stub, and so does its daily count. The live gate of 10–11 October did not ask it
+  either; a query is the owner's (#120).
 - **The real dnevnik2 has never been opened**, neither the sign-in — the server's or, since
   #140, the phone's own — nor any of the four screens.
 - **Not one server-side fix has been run against a live class.** `claim` is verified by
-  claiming twice on one date, but nobody has run two ticks at once; the export's round trip
-  is verified by computing both sides, which is all it claims.
+  claiming twice on one date, and two ticks at once ran on 10 October against a local class on
+  PostgreSQL, where exactly one evening digest arrived through the test bot (#411's gate); the
+  export's round trip is verified by computing both sides, which is all it claims.
 
 - **#62, the batch that stopped text being cut off, has been seen moving only in the reports
   #80 answered**: on a phone, a line that scrolled beside one that had spent its three passes
@@ -1026,6 +1074,7 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   it afterwards. The failure modes that were closed — a repository merely named `lessons`, a
   branch cut from a stale fork, the owner's own 422 — were reasoned about, not observed.
   **The first press should be the owner's**, because the first press is also the first test.
+  The live gate of 10–11 October did not reach it.
 
 - **The guide has never been fetched.** The parser, the two languages' parity and the choice
   between a stored and a bundled copy are tested; the four steps between the app and
@@ -1486,32 +1535,37 @@ start. Section 5 has the list it starts on.
 their own — the plate-free launcher icon and the pull-to-refresh loader laid out from under
 the status bar — and nobody has seen either drawn.
 
-**Look at the geometry pass (#404) on the emulator or a phone, in light and dark**:
-«Сегодня», «Календарь» (week, month and agenda), «Задания», the diary, «Оформление», «Значок
-приложения», «О приложении» and the first run. Section 5 has what is likeliest to look wrong.
-If the stretched weekday tiles or the round small FAB read wrong, each goes back in one place:
-`WeekdayTileGap` and the fit check in `CalendarGrids.kt`, and the FAB's `shape` in
-`DayRibbonView.kt`.
+**Look at the geometry pass (#404), the tray (#415) and «Календарь»'s header (#417) on a
+phone.** The emulator was walked on 10–11 October and its shots were sent to you; what is left
+is a phone, in light and dark: «Сегодня», «Календарь» (week, month and agenda, and its header at
+a large font), «Задания», the diary, «Оформление», «Значок приложения», «О приложении» and the
+first run. Section 5 has what is likeliest to look wrong. If the stretched weekday tiles or the
+round small FAB read wrong, each goes back in one place: `WeekdayTileGap` and the fit check in
+`CalendarGrids.kt`, and the FAB's `shape` in `DayRibbonView.kt`.
 
-**Next for the programme: #411's pull request, the rest of the live gate, then #406 and #407,
-then sub-project 4.** Sub-project 3 is complete (#396): v2 serves every unary method beside v1
-on Vercel, and the host target serves native gRPC and `WatchClass`. By the owner's order of 8
-October, everything recorded as unverified in sub-project 3 is checked on the development
-machine before sub-project 4 starts. In order:
-1. #411's pull request, from `checks/postgres-suite`: the server suite on PostgreSQL, and the
-   live gate's results.
-2. The rest of the gate: the emulator's items, `docker compose up`, and what only the owner can
-   do — the real diary, DaData and Sentry.
-3. #406, every diary through the proxy, and #407, the host's recipe on a Russian VPS; then
-   sub-project 4.
+**Next for the programme: #406, #407, then sub-project 4.** Sub-project 3 is complete (#396):
+v2 serves every unary method beside v1 on Vercel, and the host target serves native gRPC and
+`WatchClass`. Its live-verification gate, the owner's condition of 8 October, ran on the night
+of 10–11 October as far as a session can take it, and its results are in «What the last session
+added». In order:
+1. #406, every diary through the proxy, behind an explicit opt-in. The RUVDS Squid allows
+   `CONNECT` to the Petersburg diary only (the section on #334, in `docs/history.md`), so routing
+   «Сетевой город» through it needs you to widen its ACL first.
+2. #407, the host's recipe on a Russian VPS.
+3. Sub-project 4.
+
+What the gate could not do is yours: the real diary sign-ins (#121, #343) and a DaData query
+(#120), as before, and now one error sent to Sentry on purpose. Each has a paragraph below.
 
 Where the host lives was decided by #410: Selectel or RUVDS, for the scenarios in which the
 core runs on a VPS (`docs/specs/2026-10-10-deployment-scenarios-design.md`).
 
-**The live-verification gate began on the night of 10–11 October.** The whole server suite ran
-on a local PostgreSQL 18, the migration chain was checked there, the row locks and races were
-checked, and real notices went through the test bot. Its results go into #411's close-out,
-which is also where section 5's bullets saying every test ran on SQLite get their answer.
+**Send one error to Sentry on purpose, with `SENTRY_DSN` set.** A transaction has reached
+Sentry from production, and no error event has been seen there: the errors dataset held none in
+the thirty days to 10 October, which a server without errors and a transport that never
+delivers one would both produce. The DSN is a sensitive Vercel variable that cannot be read back, so no session can
+send one from here. One deliberate error on Preview or production, wherever the DSN is set, and
+a look at Sentry settles which it is.
 
 **Decide whether «Host (pyvoy)» and «Host (hypercorn)» become required checks.** Both ran
 green for the first time on #396 (CI's «Host» job), under a matrix of the two servers;
@@ -1774,7 +1828,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 3240 tests, ~12 min alone on Windows
 cd server  && python -m mypy                             # clean, 240 modules
-cd android && ./gradlew test                             # 1728 tests across the five modules
+cd android && ./gradlew test                             # 1730 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

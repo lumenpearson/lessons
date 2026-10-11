@@ -965,7 +965,8 @@ throttle lives there: that table is pruned to fifteen minutes on every recorded 
 day's count kept in it would silently become a quarter of an hour's. The spend is a single
 `INSERT … ON CONFLICT … DO UPDATE … WHERE used + n <= cap RETURNING`, so two invocations
 reaching for the last unit cannot both have it — there is no read-then-write to race through
-(checked on SQLite; on Postgres by construction, not by a test). A unit is spent **before** the
+(checked on SQLite by the suite, and on PostgreSQL 18 by hand on 10 October 2026, #411: 25
+concurrent sessions for a cap of 10 took exactly 10). A unit is spent **before** the
 request it pays for, and the empty-answer retry asks for its own unit first, because DaData
 counts a request whatever comes of it.
 
@@ -988,9 +989,9 @@ with the host.
 
 ## Testing
 
-3240 tests on the server, 1728 on Android; `pytest -q -n auto` and `./gradlew test`, both
+3240 tests on the server, 1730 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
-`:core:designsystem` 196, `:widget` 126, `:app` 666 (#325).
+`:core:designsystem` 196, `:widget` 126, `:app` 668 (#325).
 
 The table below is the load-bearing part of that rather than the whole of it:
 
