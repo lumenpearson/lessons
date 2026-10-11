@@ -303,7 +303,11 @@ At `910f4cc`, the branch's one commit of code:
 - **#412's fix**, in the backlog: `address` was null in all 407 rows, so nothing is lost today.
 - **#357's fix**, on milestone 11: confirmed, not fixed.
 - **`classes.is_public`** stays in the database and out of the model, by `0010`'s decision.
-- **#406 through the RUVDS proxy**, which waits for the owner to widen Squid's ACL (section 7).
+- **#406's code.** The groundwork was laid on the morning of 11 October, on the owner's grant.
+  - The RUVDS Squid ACL now allows the 19 «Сетевой город» hosts beside Petersburg. The config was backed up as `/etc/squid/squid.conf.before-netschool-20261011T082105Z` before 08:21 UTC.
+  - Checked through the proxy: Petersburg still answered 200, Якутия 200, Амурская 403 from the regional WAF, and a host off the list was refused by Squid.
+  - From the VPS, 12 regions answered the school search, 5 blocked the datacenter with a WAF 403 (Бурятия, Амурская, Приморье, Томская, Тульская), and 2 answered nothing (Рязанская, КЧР).
+  - The owner then chose routing by region, the next batch's work. Nothing in the code uses the wider ACL yet.
 
 ### What nobody has verified in this batch
 
@@ -1548,9 +1552,10 @@ v2 serves every unary method beside v1 on Vercel, and the host target serves nat
 `WatchClass`. Its live-verification gate, the owner's condition of 8 October, ran on the night
 of 10–11 October as far as a session can take it, and its results are in «What the last session
 added». In order:
-1. #406, every diary through the proxy, behind an explicit opt-in. The RUVDS Squid allows
-   `CONNECT` to the Petersburg diary only (the section on #334, in `docs/history.md`), so routing
-   «Сетевой город» through it needs you to widen its ACL first.
+1. #406, the diaries through the proxy, **by region**, the owner's choice on 11 October.
+   - The RUVDS Squid ACL was widened that morning, on the owner's grant. It now allows all 19 «Сетевой город» hosts.
+   - Only 12 of those regions answer from the datacenter, so each region in `regions.py` carries its route. The 12 checked ones go through the proxy; the others stay direct, as today, until the relay (#408).
+   - `DIARY_EGRESS` sets the deployment's mode, the capabilities report it, and the tick's self-check probes each bound region by its own route.
 2. #407, the host's recipe on a Russian VPS.
 3. Sub-project 4.
 
