@@ -107,9 +107,14 @@ def build_client(
     timeout: httpx.Timeout,
     limits: httpx.Limits | None = None,
     headers: dict[str, str] | None = None,
+    proxy: str | None = None,
 ) -> httpx.AsyncClient:
     """A client that carries no cookies of its own, follows no redirect, and
-    verifies TLS. Every diary provider's pooled client is built here."""
+    verifies TLS. Every diary provider's pooled client is built here.
+
+    ``proxy`` is the deployment's, for a pool whose calls the route sends
+    through it (#406, `registry.route`); ``None`` is direct.
+    """
     base_headers = {"user-agent": USER_AGENT, "accept": "application/json"}
     if headers:
         base_headers.update(headers)
@@ -125,4 +130,5 @@ def build_client(
         # Trusted Root) is left out of the allow-list rather than given a
         # CA of its own or a verification switched off — there is no
         # per-origin trust store here, and none is read.
+        proxy=proxy,
     )

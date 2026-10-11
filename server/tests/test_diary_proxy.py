@@ -88,3 +88,14 @@ async def test_the_diary_goes_direct_without_one(fresh_client):
     get_settings.cache_clear()
     client = await petersburg.shared_client()
     assert _pool_of(client) == "AsyncConnectionPool"
+
+
+@pytest.mark.parametrize("egress", ["direct", "relay"])
+async def test_the_diary_goes_direct_when_the_egress_says_so(fresh_client, egress):
+    """#406: `direct` sends nothing through the proxy, and `relay` is read as
+    `direct` until it exists, whatever DIARY_PROXY_URL says."""
+    fresh_client.setenv("DIARY_PROXY_URL", "http://user:secret@proxy.example:3128")
+    fresh_client.setenv("DIARY_EGRESS", egress)
+    get_settings.cache_clear()
+    client = await petersburg.shared_client()
+    assert _pool_of(client) == "AsyncConnectionPool"
