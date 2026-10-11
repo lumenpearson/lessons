@@ -970,6 +970,12 @@ What the owner does, once:
 The free plan takes 5,000 errors a month, and a 5 % sample of this project's requests is far
 inside its allowance for timings.
 
+The privacy policy names Sentry, in «Третьи стороны» and in «Чего сервер не хранит», since
+its edition 4 (#425): what leaves, what never does, and that this operator's Sentry data is
+kept in Germany (the organisation's region is `de.sentry.io`). A deployment without
+`SENTRY_DSN` — this one after step 3, or a fork — deletes that point as the `[SENTRY]` comment
+above it says, and raises the edition.
+
 ### Where the graphs are
 
 The bot names the dashboards and links none, because a link names the owner's accounts:
