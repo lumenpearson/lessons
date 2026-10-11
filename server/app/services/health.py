@@ -629,7 +629,7 @@ async def _results(
 ) -> tuple[dict[str, Result], list[str] | None]:
     """The four fixed checks plus one per region in use, and the region names
     - ``None`` when :func:`regions_in_use` itself could not be read, which
-    then touches no ``diary_region:`` row at all (Ruling 11)."""
+    then touches no ``diary_region:`` row at all (Ruling 13)."""
     try:
         schema = await check_schema(session)
     except Exception as failure:  # noqa: BLE001 - see _within
@@ -672,7 +672,7 @@ async def _results(
             ):
                 # The region's own route is the proxy, and the proxy is
                 # itself down: a region behind a dead tunnel saying nothing
-                # is not news (Ruling 13).
+                # is not news (Ruling 11).
                 result = Result(UNKNOWN, "the proxy itself does not answer (diary_proxy)")
             results[region_check(region.key)] = result
     return results, region_names

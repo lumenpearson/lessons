@@ -936,6 +936,39 @@ async def test_a_region_failing_through_the_proxy_says_what_to_do_and_its_recove
     assert "via_proxy" not in up
 
 
+async def test_a_region_s_reminder_carries_the_route_s_hint_too(session, monkeypatch):
+    """Ruling 15: «up» carries no hint, but «reminder» does — `health.py` reads
+    the hint for `step.alert in ("down", "reminder")`, never for «down» alone.
+    Narrowing that to «down» only would leave the owner with no reminder of
+    what to do about a region still failing six hours on."""
+    session.add(_live("zabaikalsky"))
+    session.add(
+        HealthCheck(
+            name="diary_region:zabaikalsky",
+            status=FAILING,
+            reason="refused through the proxy: HTTP 403",
+            since=T0,
+            checked_at=T0,
+            last_alert_at=T0,  # decide(): told, and now - told is days, past REMINDER_EVERY.
+        )
+    )
+    await session.commit()
+    _fake_proxy(monkeypatch, lambda request: httpx.Response(200))
+    _fake_routes(monkeypatch, lambda proxy, request: httpx.Response(403))
+    sent = Sent()
+    settings = Settings(DIARY_PROXY_URL=PROXY)
+
+    await health.run(session, settings, v2_mounted=True, send=sent)
+
+    (text,) = sent.texts
+    lines = text.splitlines()
+    assert lines[0].startswith(
+        "🔴 «Сетевой город» · Забайкальский край: сервер региона недоступен — уже"
+    )
+    assert lines[1] == health.HINT_PROXIED
+    assert lines[-1] == "<code>refused through the proxy: HTTP 403</code>"
+
+
 async def test_a_region_no_longer_in_use_loses_its_row(session, school_class, monkeypatch):
     school_class.diary_provider, school_class.diary_region = "netschool", "amur"
     await session.commit()
@@ -977,6 +1010,47 @@ async def test_with_the_proxy_down_its_regions_wait_rather_than_alert_one_by_one
         OK,
     ]
     assert [text.splitlines()[0] for text in sent.texts] == ["🔴 Прокси дневника не отвечает"]
+
+
+async def test_with_the_proxy_down_a_direct_region_s_own_refusal_still_alerts(
+    session, monkeypatch
+):
+    """Ruling 11's downgrade is read from the region's own route
+    (`proxy_for(...) is not None` in `health._results`), never from the
+    proxy's own status alone: dropping that guard would read `amur`, which
+    never takes the proxy, as unknown too, silencing a direct region that is
+    genuinely refusing this address while the proxy happens to be down."""
+    session.add_all([_live("zabaikalsky"), _live("komi"), _live("amur")])
+    await session.commit()
+
+    def down(request):
+        raise httpx.ProxyError("502 Bad Gateway")
+
+    def through_a_dead_proxy_amur_refuses(proxy, request):
+        if proxy is not None:
+            raise httpx.ProxyError("502 Bad Gateway")
+        if request.url.host == "region.obramur.ru":
+            return httpx.Response(403)
+        return httpx.Response(200, json={})
+
+    _fake_proxy(monkeypatch, down)
+    _fake_routes(monkeypatch, through_a_dead_proxy_amur_refuses)
+    sent = Sent()
+    settings = Settings(DIARY_PROXY_URL=PROXY)
+
+    statuses = await health.run(session, settings, v2_mounted=True, send=sent)
+
+    assert statuses["diary_proxy"] == FAILING
+    assert [statuses[f"diary_region:{key}"] for key in ("komi", "zabaikalsky", "amur")] == [
+        UNKNOWN,
+        UNKNOWN,
+        FAILING,
+    ]
+    assert [text.splitlines()[0] for text in sent.texts] == [
+        "🔴 Прокси дневника не отвечает",
+        "🔴 «Сетевой город» · Амурская область: сервер региона недоступен",
+    ]
+    assert sent.texts[1].splitlines()[1] == health.HINT_DIRECT
 
 
 @pytest.mark.parametrize("egress", ["direct", "relay"])

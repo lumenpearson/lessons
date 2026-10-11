@@ -613,6 +613,7 @@ def diary_offline(monkeypatch) -> list[httpx.Request]:
 
     monkeypatch.setattr(pbclient, "shared_client", petersburg)
     monkeypatch.setattr(nsclient, "shared_client", netschool)
+    monkeypatch.setattr(nsclient, "proxied_client", netschool)
     return asked
 
 

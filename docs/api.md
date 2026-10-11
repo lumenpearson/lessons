@@ -1898,7 +1898,7 @@ page answers differently there but three things.
   where a usable `DIARY_PROXY_URL` backs it, and `DIARY_EGRESS_DIRECT` otherwise —
   `DIARY_EGRESS_RELAY` is a value of the enum and never an answer until the relay exists
   (#408), since a `relay` deployment is read as direct. `routes` is each provider's, one
-  `DiaryRoute` per server it reaches: one with no region for Петербург, which is one server,
+  `DiaryRoute` per server it reaches: one with no region for Petersburg, which is one server,
   and one per listed region, in `regions`' order, for «Сетевой город». One field would not do,
   because under `proxy` five password regions stay direct, and the phone would have to guess
   which. Both are said whether or not the diary is enabled, since a route is a fact about the

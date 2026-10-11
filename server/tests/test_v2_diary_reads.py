@@ -444,6 +444,13 @@ async def test_with_the_diary_off_no_provider_offers_a_way_in_or_any_data(v2, mo
     assert all(not p.sign_in_methods and not p.features for p in capabilities.providers)
     providers = {p.provider: list(p.regions) for p in capabilities.providers}
     assert providers["netschool"] == v1["providers"]["netschool"]["regions"]
+    # #406: `routes` is said whether or not the diary is enabled, as `regions`
+    # is (the proto comment on `ProviderCapabilities.routes`) — a route is a
+    # fact about the deployment, not about a session.
+    routes = {p.provider: list(p.routes) for p in capabilities.providers}
+    assert [r.region for r in routes["netschool"]] == providers["netschool"]
+    assert {r.egress for r in routes["netschool"]} == {DiaryEgress.DIRECT}
+    assert [r.egress for r in routes["petersburg"]] == [DiaryEgress.DIRECT]
 
 
 PROXY = "http://user:hunter2@proxy.example:3128"

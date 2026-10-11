@@ -153,11 +153,12 @@ class Settings(BaseSettings):
     # An HTTP proxy for the diaries' requests that DIARY_EGRESS sends there
     # (#334, #406): Petersburg's, and those of the «Сетевой город» regions known
     # to answer from it.
-    # The city's network drops connections from outside Russia (#235), and the
-    # whole server cannot move there, because Telegram is blocked from Russian
-    # data centres. So the API stays where it is and this one upstream goes
+    # Petersburg's network drops connections from outside Russia (#235), and
+    # several «Сетевой город» regions refuse the same address; the whole server
+    # cannot move there either way, because Telegram is blocked from Russian
+    # data centres. So the API stays where it is and these upstreams go
     # through a small Russian VPS, as a ``CONNECT`` tunnel. TLS stays end to
-    # end, so the proxy sees the diary's host name and never the credential.
+    # end, so the proxy sees each diary's host name and never the credential.
     #
     # ``http://user:password@host:port``. It may carry a password, so it is
     # never logged, and the startup line names the setting without quoting it.
@@ -449,7 +450,9 @@ class Settings(BaseSettings):
 
     @property
     def diary_proxy(self) -> str | None:
-        """``DIARY_PROXY_URL`` if the Petersburg client can use it, else ``None``.
+        """``DIARY_PROXY_URL`` as a usable value, for whichever diary call
+        ``DIARY_EGRESS`` and the route table send through it — Petersburg's,
+        and the «Сетевой город» regions ``via_proxy`` marks; ``None`` otherwise.
 
         An unusable value is treated as unset rather than raised: httpx refuses
         an unknown scheme when the client is built, and that would take the
