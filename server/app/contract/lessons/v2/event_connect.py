@@ -52,9 +52,11 @@ class EventService(Protocol):
         covers_lesson. A path whose field is absent clears it: location goes,
         covers_lesson goes back to what the kind means, and kind becomes
         EVENT_KIND_EVENT; date, starts_at, ends_at and title cannot be cleared. A
-        time that moves is held against the one that stays. Announced to the
-        class's subscribers once, on the date it is on afterwards, unless nothing
-        changed.
+        kind that changes while the update leaves covers_lesson alone takes it
+        along when it was what the old kind means, and keeps it when somebody set
+        it apart. A time that moves is held against the one that stays. Announced
+        to the class's subscribers once, on the date it is on afterwards, unless
+        nothing changed.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -231,9 +233,11 @@ class EventServiceClient(ConnectClient):
         covers_lesson. A path whose field is absent clears it: location goes,
         covers_lesson goes back to what the kind means, and kind becomes
         EVENT_KIND_EVENT; date, starts_at, ends_at and title cannot be cleared. A
-        time that moves is held against the one that stays. Announced to the
-        class's subscribers once, on the date it is on afterwards, unless nothing
-        changed.
+        kind that changes while the update leaves covers_lesson alone takes it
+        along when it was what the old kind means, and keeps it when somebody set
+        it apart. A time that moves is held against the one that stays. Announced
+        to the class's subscribers once, on the date it is on afterwards, unless
+        nothing changed.
         """
         return await self.execute_unary(
             request=request,
@@ -296,9 +300,11 @@ class EventServiceSync(Protocol):
         covers_lesson. A path whose field is absent clears it: location goes,
         covers_lesson goes back to what the kind means, and kind becomes
         EVENT_KIND_EVENT; date, starts_at, ends_at and title cannot be cleared. A
-        time that moves is held against the one that stays. Announced to the
-        class's subscribers once, on the date it is on afterwards, unless nothing
-        changed.
+        kind that changes while the update leaves covers_lesson alone takes it
+        along when it was what the old kind means, and keeps it when somebody set
+        it apart. A time that moves is held against the one that stays. Announced
+        to the class's subscribers once, on the date it is on afterwards, unless
+        nothing changed.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -470,9 +476,11 @@ class EventServiceClientSync(ConnectClientSync):
         covers_lesson. A path whose field is absent clears it: location goes,
         covers_lesson goes back to what the kind means, and kind becomes
         EVENT_KIND_EVENT; date, starts_at, ends_at and title cannot be cleared. A
-        time that moves is held against the one that stays. Announced to the
-        class's subscribers once, on the date it is on afterwards, unless nothing
-        changed.
+        kind that changes while the update leaves covers_lesson alone takes it
+        along when it was what the old kind means, and keeps it when somebody set
+        it apart. A time that moves is held against the one that stays. Announced
+        to the class's subscribers once, on the date it is on afterwards, unless
+        nothing changed.
         """
         return self.execute_unary(
             request=request,

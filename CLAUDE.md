@@ -68,7 +68,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3320 tests in about four minutes, six of them skipped unless a
+- **`pytest -q -n auto`** — 3332 tests in about four minutes, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
@@ -141,7 +141,14 @@ assembles, and `./gradlew detekt` after them; and, when `proto/`, `buf.*` or
 `server/app/contract/` changed, the «Contract» job: `buf lint`, `buf breaking` against the base,
 and the check that the committed generated code is what `buf generate` writes; and,
 whenever the server job runs, «Host», under pyvoy and under hypercorn: `python -m app.host`
-started on SQLite, asked over native gRPC by `tests/test_host_live.py`. Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
+started on SQLite, asked over native gRPC by `tests/test_host_live.py`; and last, «CI», which
+needs every job before it, runs whatever they ended as, and passes only when each one
+succeeded or was skipped. It is the one check `main` requires, through the repository
+ruleset that requires it, which the repository admin role can bypass (#424). The gates are
+not required by their own names because «Host» is a matrix: a job its `if:` skips is reported
+once, under the unexpanded `Host (${{ matrix.server }})`, so a required «Host (pyvoy)» would
+never arrive on a pull request that changes only `android/` (`docs/build.md`, «The check
+`main` requires»). Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
 `reminders.yml` is a fallback clock, not the clock (see below). The workflows work — do
 not edit them casually. The repository is public, so standard runners cost nothing; what
 the workflows still carry from the months it was private is in `docs/build.md`, "Actions

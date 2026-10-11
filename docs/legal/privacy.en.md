@@ -90,7 +90,7 @@ The password does pass through the server in two cases: when you sign in to a di
 
 **The diary's contents** — marks, homework, timetable, the list of pupils — are read by the server when you ask and passed on without being kept. The exception is what an entry said when it was corrected.
 
-**There are no analytics, no advertising identifiers and no automatic crash reporting**, in the app or on the server.
+There are **no analytics and no advertising identifiers** in the app or on the server. The app sends no crash report anywhere by itself. The server, if its operator set it up so, sends reports of its own errors to the Sentry service, without personal data (see “Third parties”).
 
 ## How signing in to a diary works
 <!-- id: SIGN_IN; label: Sign-in; summary: Where the password goes and what the server gets -->
@@ -151,8 +151,11 @@ This server's database (Neon) keeps a history of changes for a further 6 hours, 
 <!-- id: THIRD_PARTIES; label: Third parties; summary: Who else gets what, besides the server -->
 
 <!--
-  FORK: [HOSTING] [DB] [PROXY] [DADATA] [REPOSITORY]
+  FORK: [HOSTING] [DB] [SENTRY] [PROXY] [DADATA] [REPOSITORY]
   «Vercel и Neon» are the upstream's.
+  The Sentry point is the upstream's: SENTRY_DSN set on Vercel (#359), organisation region
+  de.sentry.io (read 11 October 2026). A fork without SENTRY_DSN deletes the point, in both
+  files, and the sentence in «Чего сервер не хранит» says the server sends nothing.
   The intermediary server is the upstream's: DIARY_PROXY_URL on a VPS at RUVDS (#334, #406).
   A fork with no DIARY_PROXY_URL deletes the point, in both files.
   DaData applies only where DADATA_TOKEN is set; without
@@ -162,6 +165,7 @@ This server's database (Neon) keeps a history of changes for a further 6 hours, 
 -->
 
 - **The hosting and the database** — Vercel and Neon, for this operator: the server runs on their machines, and everything it keeps is stored there.
+- **Sentry** — if the operator connected it (this operator has): the server sends it reports of its own errors and of how long some requests took — the error's type, the place in the code, the request's route, the server's version. Requests' contents, their headers and parameters, your data and your IP address never go there. This operator's Sentry data is kept in Germany.
 - **Telegram** — everything you do in the bot and everything the bot sends you goes through it.
 - **The diary systems** — Petersburg Education and Setevoy Gorod's regional servers. The phone sends them your login and password when you sign in, and sends Setevoy Gorod your school's name when you search for it; the server sends them your requests to the diary.
 - **The operator's intermediary server in Russia** — RUVDS hosts it for this operator. The server's requests to the diary systems may go through it (it is an HTTP proxy) when a diary does not answer from the country the server runs in. It is a tunnel encrypted with TLS from the server to the diary itself: the intermediary sees only the diary site's address and the time of the request, and may write them to its log, but never sees logins, passwords, sessions or marks.
