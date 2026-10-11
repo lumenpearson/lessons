@@ -121,14 +121,23 @@ async def update(
     on its new one.
 
     ``location`` ``None`` takes the place away, and ``covers_lesson`` ``None``
-    puts it back to what the kind means afterwards. The caller has held the
-    two times against each other. A change that leaves every field as it was
-    writes nothing, its line included, and its notice is ``None``. Nothing is
-    committed.
+    puts it back to what the kind means afterwards. A kind that changes
+    without ``covers_lesson`` beside it carries it along while it is what the
+    old kind means, and leaves it where somebody set it apart (#423). The
+    caller has held the two times against each other. A change that leaves
+    every field as it was writes nothing, its line included, and its notice
+    is ``None``. Nothing is committed.
     """
     wanted = dict(changes)
-    if "covers_lesson" in wanted and wanted["covers_lesson"] is None:
-        wanted["covers_lesson"] = wanted.get("kind", event.kind) in COVERS_BY_DEFAULT
+    if "covers_lesson" in wanted:
+        if wanted["covers_lesson"] is None:
+            wanted["covers_lesson"] = wanted.get("kind", event.kind) in COVERS_BY_DEFAULT
+    elif "kind" in wanted and event.covers_lesson == (event.kind in COVERS_BY_DEFAULT):
+        # Nobody has said anything about this event's lessons that its kind
+        # did not, so it reads as one created with the new kind would: a trip
+        # turned into a canteen break stops replacing them (#423). A value
+        # somebody set apart from the old kind was a decision, and stays.
+        wanted["covers_lesson"] = wanted["kind"] in COVERS_BY_DEFAULT
     changed = {name: value for name, value in wanted.items() if getattr(event, name) != value}
     if not changed:
         return Written(event, None)

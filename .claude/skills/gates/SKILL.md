@@ -27,7 +27,7 @@ that happens and names both trees (#312).
    after ruff — the owner asked for it through that day's audit (#210) — and still worth
    running before a push: seconds here, minutes there. It is the thing that reproduces the
    «🗓 Четверти» crash.
-3. `pytest -q -n auto`, bare, from `server/` with its venv active — 3320 tests today, six of
+3. `pytest -q -n auto`, bare, from `server/` with its venv active — 3332 tests today, six of
    them skipped unless a host is running (`-m host`, CI's «Host» job), and
    **the exact command CI runs**. Not `python -m pytest`: the `-m` form puts the current
    directory on `sys.path` and the bare one does not, so whatever leans on that passes here and
@@ -74,7 +74,9 @@ Only when `proto/`, `buf.*` or `server/app/contract/` changed, which is CI's own
 assembles, and `./gradlew detekt` as a step of its own after them; «Contract (Buf)» when
 the contract changed; and «Host», under pyvoy and hypercorn, whenever the server job runs: the
 host started on SQLite, and `pytest -m host` asking it over native gRPC — tests the ordinary
-run skips, and which need a Linux runner, the host's lock and a network. Nothing else.
+run skips, and which need a Linux runner, the host's lock and a network; and last «CI», which
+passes only when every job before it succeeded or was skipped, the one check `main` requires
+(#424). Nothing else.
 
 ## Two rules about evidence
 
