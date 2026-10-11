@@ -18,8 +18,8 @@ run**, as far as a session can take it: the condition the owner set on 8 October
 sub-project 4, checked on the development machine on the night of 10–11 October. **The four
 designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered every question
 with its recommendation on 5 October (#301, #306, #307, #308), and #410 added a seventh
-sub-project and six deployment scenarios to the programme. **One pull request is open: this
-one, carrying this paragraph**, from `checks/postgres-suite` to `main`, on milestone 11, which
+sub-project and six deployment scenarios to the programme. **One pull request is open: #418,
+carrying this paragraph**, from `checks/postgres-suite` to `main`, on milestone 11, which
 closes #411: the server suite on a local PostgreSQL, and the gate's results. **The schema did
 not move**: the head is still `0019`, on production since 16:28 UTC on 6 October, and
 `EXPECTED_REVISION` did not move either. Production deployed `4211839` (GitHub's deployment
@@ -33,7 +33,7 @@ The issues filed since #396 merged:
   batch left alone;
 - #406–#409, filed with #410's deployment plan: #406, #407 and #408 open on milestone 11, #409
   open in the backlog;
-- #411, open on milestone 11 until this pull request merges and closes it: the server suite had
+- #411, open on milestone 11 until #418 merges and closes it: the server suite had
   only ever run on SQLite;
 - #412, open in the backlog: the «Сетевой город» school search reads `addressString`, a key no
   live server sends. The gate found it by asking four regional servers, with no account;
@@ -188,7 +188,7 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
 
 ## What the last session added: the server suite on PostgreSQL, and sub-project 3's live-verification gate (#411)
 
-Open as this pull request, from `checks/postgres-suite` to `main`, on milestone 11. It closes
+Open as #418, from `checks/postgres-suite` to `main`, on milestone 11. It closes
 #411. The branch was cut from `main` at `1eb134e`, the merge of #410, and carries one commit of
 code, `910f4cc`, then two merges with `main`: `3b4aba4`, at `7ce4677` (#413), and `d7ebd6c`, at
 `4211839` (#417). Written on 11 October 2026. No revision goes with it: the schema stays at
@@ -340,7 +340,7 @@ At `910f4cc`, the branch's one commit of code:
 
 ### After #413's merge: the merge, two Android pull requests, and production
 
-None of this is code in this pull request, and a close-out never gets a close-out of its own, so
+None of this is code in #418, and a close-out never gets a close-out of its own, so
 it is written here. The source is the controller's notes of 10 and 11 October 2026.
 
 - **#413 merged by the session** at 21:37:43 UTC on 10 October 2026 (00:37 Moscow, 11 October)
@@ -386,7 +386,7 @@ it is written here. The source is the controller's notes of 10 and 11 October 20
   read `success` on GitHub at 08:08:20 UTC on 11 October, and the warmup answered
   `{"status":"ok","api_version":1,"schema":"0019","v2":true}` at 08:09 UTC. The schema did not
   move.
-- **Issues filed:** #411, milestone 11, which this pull request closes when it merges; #412,
+- **Issues filed:** #411, milestone 11, which #418 closes when it merges; #412,
   backlog, open; #414 and #416, milestone 12, closed by #415 and #417.
 
 Section 7's «Next for the programme» says what follows.
@@ -547,7 +547,7 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396 and #410 (merged) and this close-out's pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408 and #411 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396 and #410 (merged) and #418 (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408 and #411 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415 and #417 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387, #402, #404, #414 and #416 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409 and #412; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
