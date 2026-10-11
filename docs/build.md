@@ -187,6 +187,24 @@ as long as that setting says. If the APK has to outlive its run, that setting is
 to raise, and raising it lengthens the CI artifacts too — which is the storage problem
 "Actions minutes" describes, so raise it deliberately rather than by default.
 
+### The check `main` requires
+
+**One job, «CI», is what `main` requires**, through the repository ruleset that requires it,
+which the repository admin role can bypass (#424). It is the last job in `ci.yml`: it needs
+every other one — «What changed», «Contract (Buf)», «Server (API + bot)», «Host» and
+«Android» — runs whatever they ended as (`if: always()`), and passes only when each one
+succeeded or was skipped. A gate that failed or was cancelled holds the pull request back; a
+gate its path filter skipped does not, and a matrix whose one leg failed counts as failed.
+
+**It exists because of the matrix.** «Host» is `Host (${{ matrix.server }})`, and GitHub does
+not expand the matrix of a job its `if:` skips: it reports one check, under the unexpanded
+name. Required by name, «Host (pyvoy)» would never be reported on a pull request that changes
+only `android/` — a dependabot Gradle bump, say — and that pull request would wait on
+«Expected — Waiting for status to be reported» for ever. Requiring «CI» requires every gate
+without naming a leg. `server/tests/test_ci_required.py` holds its `needs` to every other job
+in the file, so a gate added later is required too, and runs its one step's script to check
+the verdict.
+
 ### Cut a release
 
 ```bash

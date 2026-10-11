@@ -480,3 +480,32 @@ jobs:
       - name: Detekt
         if: success() || failure()
         run: ./gradlew detekt
+
+  # The one check a ruleset requires (#424). The «Host» matrix cannot be
+  # required by name: a job its `if:` skips is reported once, under the
+  # unexpanded `Host (${{ matrix.server }})`, so a required «Host (pyvoy)»
+  # would never arrive on a pull request that changes only `android/`.
+  # This job needs every gate and passes only when each one succeeded or
+  # was skipped; a skipped matrix job's result is `skipped`, a failed leg
+  # makes the whole matrix's result `failure`. server/tests/test_ci_required.py
+  # holds `needs` to every other job here, so a gate added later is required
+  # too.
+  ci:
+    name: CI
+    needs: [changes, contract, server, host, android]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every gate passed or was skipped
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          set -eu
+          echo "gates: $RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "::error::a gate ended '$result'"; exit 1 ;;
+            esac
+          done

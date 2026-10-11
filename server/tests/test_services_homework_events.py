@@ -149,6 +149,62 @@ async def test_an_event_stands_in_for_lessons_as_its_kind_means_unless_told(
     assert (await _lines(session))[0] == ("event.add", f"Событие: Экскурсия, {TODAY} 12:30–13:00")
 
 
+async def test_a_trip_turned_into_a_canteen_break_gives_the_lessons_back(
+    session, school_class
+) -> None:
+    """#423: the trip took its kind's «covers the lessons», nobody set it
+    apart, so it follows the kind into a break, as one created a break
+    would be."""
+    trip = (await _trip(session, school_class)).event
+    written = await events.update(session, school_class, EDITOR, trip, {"kind": EventKind.CANTEEN})
+    assert (trip.kind, trip.covers_lesson) == (EventKind.CANTEEN, False)
+    assert written.notice is not None
+
+
+async def test_a_break_turned_into_a_trip_stands_in_for_the_lessons(session, school_class) -> None:
+    canteen = (await _trip(session, school_class, title="Обед", kind=EventKind.CANTEEN)).event
+    await events.update(session, school_class, EDITOR, canteen, {"kind": EventKind.TRIP})
+    assert (canteen.kind, canteen.covers_lesson) == (EventKind.TRIP, True)
+
+
+async def test_a_kind_change_keeps_what_somebody_set_apart_from_the_old_kind(
+    session, school_class
+) -> None:
+    """A trip somebody said covers nothing was a decision about this event,
+    and changing its kind is not a decision about the lessons."""
+    told = (await _trip(session, school_class, title="Поход", covers_lesson=False)).event
+    await events.update(session, school_class, EDITOR, told, {"kind": EventKind.CANTEEN})
+    assert (told.kind, told.covers_lesson) == (EventKind.CANTEEN, False)
+    covering = (
+        await _trip(session, school_class, kind=EventKind.CANTEEN, covers_lesson=True)
+    ).event
+    await events.update(session, school_class, EDITOR, covering, {"kind": EventKind.EXAM})
+    assert (covering.kind, covering.covers_lesson) == (EventKind.EXAM, True)
+
+
+async def test_the_lessons_named_beside_a_kind_change_win_over_it(session, school_class) -> None:
+    """Named in the same update, ``covers_lesson`` is what it says, and
+    ``None`` is what the new kind means, whatever the old kind meant."""
+    kept = (await _trip(session, school_class)).event
+    await events.update(
+        session,
+        school_class,
+        EDITOR,
+        kept,
+        {"kind": EventKind.CANTEEN, "covers_lesson": True},
+    )
+    assert (kept.kind, kept.covers_lesson) == (EventKind.CANTEEN, True)
+    reset = (await _trip(session, school_class, covers_lesson=False)).event
+    await events.update(
+        session,
+        school_class,
+        EDITOR,
+        reset,
+        {"kind": EventKind.EVENT, "covers_lesson": None},
+    )
+    assert (reset.kind, reset.covers_lesson) == (EventKind.EVENT, True)
+
+
 async def test_deleting_an_event_words_its_line_and_its_notice(
     session, school_class, monkeypatch
 ) -> None:
