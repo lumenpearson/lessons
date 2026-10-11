@@ -208,6 +208,21 @@ enum SignInMethod {
   SIGN_IN_METHOD_SESSION_ADOPT = 2;
 }
 
+// How this server reaches a diary's own server (docs/specs/2026-10-10-
+// deployment-scenarios-design.md, «How a scenario is chosen»). A new route is
+// a new value, decoded leniently as DiaryFeature is.
+enum DiaryEgress {
+  DIARY_EGRESS_UNSPECIFIED = 0;
+  // From wherever this server runs, with nothing in between.
+  DIARY_EGRESS_DIRECT = 1;
+  // Through the deployment's HTTP proxy, as a CONNECT tunnel: TLS stays end to
+  // end.
+  DIARY_EGRESS_PROXY = 2;
+  // The phone fetches the diary's answers and hands them over. No server
+  // answers it yet: the relay is not built.
+  DIARY_EGRESS_RELAY = 3;
+}
+
 message GetDiaryCapabilitiesRequest {}
 
 message GetDiaryCapabilitiesResponse {
@@ -220,6 +235,11 @@ message DiaryCapabilities {
   // False without DIARY_SECRET: nothing anybody types will help.
   bool enabled = 1;
   repeated ProviderCapabilities providers = 2;
+  // The deployment's DIARY_EGRESS as it takes effect: PROXY only where a usable
+  // proxy backs it, DIRECT for a relay this server does not have yet. Not
+  // every server of a provider takes it; each provider's routes say which. New
+  // in v2 (#406); v1's answer keeps its shape.
+  DiaryEgress egress = 3;
 }
 
 message ProviderCapabilities {
@@ -231,6 +251,19 @@ message ProviderCapabilities {
   repeated string regions = 2;
   repeated SignInMethod sign_in_methods = 3;
   repeated DiaryFeature features = 4;
+  // How this server reaches the provider's own servers, as it does now: one
+  // route, with no region, for a provider that is one server; one per region
+  // of `regions`, in that order, for a regional one. Said whether or not the
+  // diary is enabled, as `regions` is.
+  repeated DiaryRoute routes = 5;
+}
+
+// One of a provider's routes: how this server reaches one of its servers.
+message DiaryRoute {
+  // A key of the provider's `regions`; unset for a provider that is one
+  // server.
+  optional string region = 1;
+  DiaryEgress egress = 2;
 }
 
 // The session Petersburg handed the phone. v1: PetersburgCredentialIn.

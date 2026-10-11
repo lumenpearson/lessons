@@ -25,6 +25,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.contract.lessons.v2.diary_pb import (
     AttendanceDirection,
+    DiaryEgress,
     DiaryFeature,
     ListDiarySubjectsRequest,
     ListPeriodsRequest,
@@ -35,6 +36,7 @@ from app.contract.lessons.v2.diary_pb import (
 from app.crypto import seal
 from app.db import SessionLocal
 from app.models import DiarySession
+from app.providers.netschool import regions as ns_regions
 from app.providers.petersburg import client as pbclient
 from app.providers.petersburg import provider as pbprovider
 from app.rpc.diary import NOT_IN_THIS_DIARY
@@ -442,3 +444,64 @@ async def test_with_the_diary_off_no_provider_offers_a_way_in_or_any_data(v2, mo
     assert all(not p.sign_in_methods and not p.features for p in capabilities.providers)
     providers = {p.provider: list(p.regions) for p in capabilities.providers}
     assert providers["netschool"] == v1["providers"]["netschool"]["regions"]
+
+
+PROXY = "http://user:hunter2@proxy.example:3128"
+
+
+@pytest.mark.parametrize(
+    ("egress", "proxy", "deployment"),
+    [
+        ("", "", DiaryEgress.DIRECT),
+        ("", PROXY, DiaryEgress.PROXY),
+        ("direct", PROXY, DiaryEgress.DIRECT),
+        ("relay", PROXY, DiaryEgress.DIRECT),
+    ],
+    ids=["no-proxy", "production", "direct", "relay-not-built"],
+)
+async def test_capabilities_say_how_each_server_is_reached(
+    v2, monkeypatch, egress, proxy, deployment
+) -> None:
+    """#406: the phone learns the route rather than guessing it — the
+    deployment's DIARY_EGRESS as it takes effect, and each server's own, since
+    under proxy five regions that take a password stay direct. Never RELAY (#408).
+    v1's answer keeps its shape: nothing that reads v1 will act on a route."""
+    monkeypatch.setattr(get_settings(), "diary_egress", egress)
+    monkeypatch.setattr(get_settings(), "diary_proxy_url", proxy)
+    answer = await v2.both("DiaryService/GetDiaryCapabilities")
+    capabilities = answer.message.capabilities
+    assert capabilities.egress == deployment
+    providers = {p.provider: p for p in capabilities.providers}
+    assert [
+        (r.region if r.has_field("region") else None, r.egress)
+        for r in providers["petersburg"].routes
+    ] == [(None, deployment)]
+    netschool = providers["netschool"]
+    expected = [
+        (
+            key,
+            DiaryEgress.PROXY
+            if deployment == DiaryEgress.PROXY and ns_regions.get(key).via_proxy
+            else DiaryEgress.DIRECT,
+        )
+        for key in netschool.regions
+    ]
+    assert [
+        (r.region if r.has_field("region") else None, r.egress) for r in netschool.routes
+    ] == expected
+    if deployment == DiaryEgress.PROXY:
+        assert sum(r.egress == DiaryEgress.PROXY for r in netschool.routes) == 11
+    v1 = (await v2.http.get("/api/v1/diary/capabilities")).json()
+    assert set(v1) == {"enabled", "registration", "providers"}
+    assert set(v1["providers"]["netschool"]) == {"regions"}
+
+
+async def test_in_json_an_egress_is_its_name_and_a_one_server_route_has_no_region(
+    v2, monkeypatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "diary_egress", "")
+    monkeypatch.setattr(get_settings(), "diary_proxy_url", PROXY)
+    body = (await v2.both("DiaryService/GetDiaryCapabilities")).body.decode()
+    assert '"egress":"DIARY_EGRESS_PROXY"' in body
+    assert '"routes":[{"egress":"DIARY_EGRESS_PROXY"}]' in body
+    assert '{"region":"amur","egress":"DIARY_EGRESS_DIRECT"}' in body
