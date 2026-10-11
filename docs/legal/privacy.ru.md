@@ -178,8 +178,11 @@
 <!-- id: THIRD_PARTIES; label: Третьи стороны; summary: Кому и что уходит помимо сервера -->
 
 <!--
-  FORK: [HOSTING] [DB] [DADATA] [REPOSITORY]
-  «Vercel и Neon» are the upstream's. DaData applies only where DADATA_TOKEN is set; without
+  FORK: [HOSTING] [DB] [PROXY] [DADATA] [REPOSITORY]
+  «Vercel и Neon» are the upstream's.
+  The intermediary server is the upstream's: DIARY_PROXY_URL on a VPS at RUVDS (#334, #406).
+  A fork with no DIARY_PROXY_URL deletes the point, in both files.
+  DaData applies only where DADATA_TOKEN is set; without
   it the search refuses at the door and Settings.disabled_features logs it as off. The GitHub
   point holds for every build of this code: the update check and the guide are fetched from
   lumenpearson/lessons, hard-coded in GithubApi.kt, whatever repository built the APK.
@@ -188,6 +191,7 @@
 - **Хостинг и база данных** — у этого оператора Vercel и Neon: на их серверах работает сервер и лежит всё, что он хранит.
 - **Telegram** — через него проходит всё, что вы делаете в боте и что бот вам присылает.
 - **Системы дневников** — «Петербургское образование» и региональные серверы «Сетевого города». Телефон отправляет им логин и пароль при входе, а «Сетевому городу» — и название школы, когда вы её ищете; сервер отправляет им ваши запросы к дневнику.
+- **Промежуточный сервер оператора в России** — у этого оператора на хостинге RUVDS. Через него (это HTTP-прокси) могут идти запросы сервера к системам дневников, если из страны, где работает сервер, дневник не отвечает. Это туннель, зашифрованный TLS от сервера до самого дневника: промежуточный сервер видит только адрес сайта дневника и время запроса и может записать их в свой журнал, но не видит ни логинов, ни паролей, ни сессий, ни оценок.
 - **DaData** — если оператор включил поиск школ: сервер отправляет туда набранное название школы, но не ваш IP-адрес.
 - **GitHub** — приложение раз в сутки при запуске проверяет там, нет ли новой версии (включено по умолчанию, выключается в настройках), и загружает оттуда руководство, когда вы его открываете; GitHub при этом видит адрес телефона и версию приложения. Отчёт об ошибке и исправление перевода попадают туда публично — только если вы сами их отправили.
 - **Google** — резервная копия телефона, но лишь то, что из неё не исключено (см. «Что хранится на телефоне»).

@@ -68,7 +68,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3240 tests in about four minutes, six of them skipped unless a
+- **`pytest -q -n auto`** — 3318 tests in about four minutes, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
@@ -255,8 +255,9 @@ Server modules:
   class) are
   `app/wording.py`'s.
   The tick runs `health.py`'s self-check after the digests and the sweeps and before the
-  diary keep-alive: four checks, what each said last in `health_checks`, and the owner's
-  alerts on a change; the owner's «📊 Проект» reads `project_stats.py`, which writes nothing.
+  diary keep-alive: four fixed checks and one per «Сетевой город» region in use, each by its
+  route, what each said last in `health_checks`, and the owner's alerts on a change; the
+  owner's «📊 Проект» reads `project_stats.py`, which writes nothing.
 - `api/` — `public.py` (the phone's reads and its own writes), `edit.py` (the day-to-day
   writes), `manage/` (running the class, one module per resource over
   `services/manage/`, with `_common.py` holding `Actor` and the one role dependency per
@@ -293,8 +294,8 @@ Server modules:
   it refuses at the door and the bot asks for the name to be typed, exactly as the diary
   refuses without `DIARY_SECRET`. The diaries are one table, `providers/diary/registry.py`'s
   `TABLE`, a row per provider, which every question about a provider key reads — the binding,
-  the features, the corrections' scope, the keep-alive — and a session whose key no row
-  answers is read by nobody
+  the features, the corrections' scope, the keep-alive, the route through the proxy or
+  direct — and a session whose key no row answers is read by nobody
 - `contract/` — the Python `buf generate` writes from `proto/lessons/v2/` (and googleapis'
   `google/api` and `google/rpc`). Never edited by hand, since every regeneration deletes and
   rewrites it. Skipped by ruff and mypy, and on the API's cold path on purpose since v2 is
@@ -519,9 +520,15 @@ points Hilt does not inject cleanly.
   `GITHUB_READ_TOKEN` (the `deploy` check asks GitHub anonymously instead) are two more,
   neither ever a reason to refuse to start. All are logged as switched off at startup
   (`Settings.disabled_features`), which is a different decision from making them mandatory.
-  `DIARY_PROXY_URL` (#334) is optional too, and empty is not a switch but a route: the
-  Petersburg diary is called directly, which is right inside Russia. Only an unusable value
-  is announced, and never quoted, because it can carry the proxy's password.
+  `DIARY_PROXY_URL` (#334) is optional too, and empty is not a switch but a route: no diary
+  goes through a proxy, which is right inside Russia. Only an unusable value is announced,
+  and never quoted, because it can carry the proxy's password. `DIARY_EGRESS` (#406) beside
+  it is optional as well, and best left unset: unset, or `proxy`, means the proxy where the
+  URL is usable — for Petersburg and the twelve «Сетевой город» regions marked `via_proxy` in
+  `regions.py`, every other region direct — and direct otherwise; `direct` sends nothing
+  through it; `relay` is read as `direct` until the relay exists (#408). Only what does not
+  take effect as written is announced, never a value. `providers/diary/registry.route` is the
+  one place that answers which way a server is reached.
   `MIN_CLIENT_VERSION` is optional as well — empty means no minimum, and a request without
   `X-Lessons-Client` is never refused — and it is not a feature switched off, so it is in
   neither list. `LESSONS_STREAMING` is optional too — off unless `true`, and never on

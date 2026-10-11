@@ -185,20 +185,25 @@ refuses to start without what a deployment needs, as Vercel does.
 Every cron tick runs a self-check (`services/health.py`; the design is
 `docs/specs/2026-10-05-monitoring-design.md`) after the digests and the sweeps and before the
 diary keep-alive: whether the database is at the code's revision, whether v2 loaded, whether
-the diary's proxy answers, and whether production runs `main`'s head. Each says `ok`,
-`failing` or `unknown`, and a row of `health_checks` keeps what it said last, so the owner is
-written to on a change — when a check starts failing, when it comes back, and every six hours
-between — and never once per tick. Unknown is a check that could not run, and it never alerts.
-The rule is one function, `health.decide`, over what was stored and what was seen, and the
-claim on an alert is a compare-and-set on `last_alert_at`, so two ticks running together tell
-the owner once. The self-check runs before the keep-alive because the keep-alive calls the
-regional «Сетевой город» servers, directly, and when one hangs it holds the request until its
-own hard stop; the
-checks stop five seconds before the self-check's own hard stop, so an alert always has time to
-go out, and a check the tick left less than its full five seconds that times out reads
-`unknown` rather than `failing`. Each — the self-check and the keep-alive — runs inside its
-own guard and time budget, so nothing either meets can fail the tick, and a self-check that
-fails to commit rolls the session back, so the keep-alive that runs next on it is unaffected.
+the diary's proxy answers, and whether production runs `main`'s head — four fixed checks — and
+then, for each «Сетевой город» region in use (bound to a class, or under a live session),
+whether its server answers a probe sent by the route its calls take, directly or through the
+proxy (#406). A region's row comes and goes with its use, a proxied region whose probe fails
+reads `unknown` rather than `failing` while the proxy itself is down, and its «down» alert
+says what to do by the route the probe took. Each says `ok`, `failing` or `unknown`, and a
+row of `health_checks` keeps what it said last, so the owner is written to on a change — when
+a check starts failing, when it comes back, and every six hours between — and never once per
+tick. Unknown is a check that could not run, and it never alerts. The rule is one function,
+`health.decide`, over what was stored and what was seen, and the claim on an alert is a
+compare-and-set on `last_alert_at`, so two ticks running together tell the owner once. The
+self-check runs before the keep-alive because the keep-alive calls the regional «Сетевой
+город» servers, each by its route, and when one hangs it holds the request until its own hard
+stop; the checks stop five seconds before the self-check's own hard stop, so an alert always
+has time to go out, and a check the tick left less than its full five seconds that times out
+reads `unknown` rather than `failing`. Each — the self-check and the keep-alive — runs inside
+its own guard and time budget, so nothing either meets can fail the tick, and a self-check
+that fails to commit rolls the session back, so the keep-alive that runs next on it is
+unaffected.
 
 The messages go through `app/telegram_send.py`, a bot built for one job and closed after it,
 which imports aiogram inside its functions: `services/` may not import the bot, and the API's
@@ -715,9 +720,20 @@ no reader would see, was the change deliberately not made.
 `registry.py` is the diary as data: one row per provider in `TABLE` — its key, its
 implementation, what a class's binding to it needs (nothing, or a region and a school), the
 ways in a phone may draw a form for, the features it has, how a child's corrections are
-scoped, whether the tick keeps its sessions open, and how what a phone hands over is
-sealed. Every question asked of a key reads its row, so a third diary is a row and its
-module rather than an `if` in five places. A row names its implementation, and a regional
+scoped, whether the tick keeps its sessions open, how what a phone hands over is sealed,
+and whether its calls go through the deployment's proxy. Every question asked of a key reads
+its row, so a third diary is a row and its module rather than an `if` in five places.
+`registry.route(key, region)` is the one answer to how this deployment reaches a diary's
+server (#406): `PROXY` where `DIARY_EGRESS` takes effect as `proxy` and the row says the
+proxy carries that server — the row's own flag for Petersburg, which is one server, and the
+region's `via_proxy` for «Сетевой город», never for a region the allow-list does not hold —
+and `DIRECT` everywhere else, never `RELAY`, which is not built (#408). `proxy_for` turns the
+answer into the URL a client is built with. Petersburg's one pool is built with it;
+«Сетевой город» has two pools side by side, one direct and one through the proxy, and
+`client_for(region)` picks one on every call, so two regions' calls in one tick each take
+their own way. v2's `GetDiaryCapabilities` and the self-check's probe of a region ask the same
+function, so what the phone is told, what the owner is warned about and what a call does
+cannot disagree. A row names its implementation, and a regional
 provider its allow-list, as a module imported lazily, so neither upstream's HTTP client
 lands on the cold-start path of a request that does not use it. A feature is declared only
 when the provider's connection reads it from the diary: «Сетевой город» has no subjects,
@@ -989,7 +1005,7 @@ with the host.
 
 ## Testing
 
-3240 tests on the server, 1730 on Android; `pytest -q -n auto` and `./gradlew test`, both
+3318 tests on the server, 1730 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 615,
 `:core:designsystem` 196, `:widget` 126, `:app` 668 (#325).
 
@@ -1022,7 +1038,8 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `server/tests/test_vercel_entry.py` | that `api/index.py` re-exports the very app the server runs, and can find it from where Vercel starts it | pytest + a subprocess |
 | `server/tests/test_scripts.py` | that both one-shot scripts refuse a database that is not a local file, and say truthfully where they are about to write | pytest |
 | `server/tests/test_announcements.py` | that every place pushing to the class is bounded, measured at the call site rather than on the helper | pytest |
-| `server/tests/test_health.py`, `test_health_tick.py` | the four checks with the proxy, GitHub and Vercel faked; the alert rule — one message on a change, none per tick, a reminder after six hours, nothing for `unknown`, a refused send tried again; the time budget, its send reserve, and a clamped timeout read as `unknown` rather than `failing`; `GITHUB_READ_TOKEN` sent and never logged; the self-check running before the keep-alive, with the session rolled back after a failed check; and a tick that answers as before when every check raises | pytest + `httpx.MockTransport` |
+| `server/tests/test_health.py`, `test_health_tick.py` | the four fixed checks with the proxy, GitHub and Vercel faked, and a row per «Сетевой город» region in use — probed by its own route, failing on a refusal, `unknown` behind a dead proxy, a hint by route on «down» and none on «up», its row deleted when the region leaves use and left alone when the regions cannot be read, and every probe at once inside the budget; the alert rule — one message on a change, none per tick, a reminder after six hours, nothing for `unknown`, a refused send tried again; the time budget, its send reserve, and a clamped timeout read as `unknown` rather than `failing`; `GITHUB_READ_TOKEN` sent and never logged; the self-check running before the keep-alive, with the session rolled back after a failed check; and a tick that answers as before when every check raises | pytest + `httpx.MockTransport` |
+| `server/tests/test_diary_egress.py` | `DIARY_EGRESS` as it takes effect beside `DIARY_PROXY_URL`, and what the startup log says of it without repeating a value; a proxy written in `server/.env` reaching no test (#419); the route table as the owner's probe of 11 October 2026 found it; and every «Сетевой город» call — the first of a sign-in, a period read, the bot's school search, the keep-alive — leaving through its region's pool, for each of the nineteen regions, with `direct` and `relay` sending nothing through the proxy and `close_client` closing both pools (#406) | pytest + `httpx.MockTransport` |
 | `server/tests/test_observability.py` | that no body, header, query, message or local leaves for Sentry, on an event built from a real request in a fresh interpreter | pytest + a subprocess |
 | `server/tests/test_project_screen.py` | «📊 Проект»'s numbers read without a write, the page within budget, everything from outside escaped | pytest |
 | `android/core/model/.../StabilityPromiseTest.kt` | that nothing in the domain module is a `var`, which is what `compose-stability.conf` promises the Compose compiler | JVM JUnit |
