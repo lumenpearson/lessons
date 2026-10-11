@@ -5,13 +5,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.floatPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.lumenpearson.lessons.core.data.network.RequestCredentials
 import com.lumenpearson.lessons.core.data.repository.AppSettings
@@ -211,14 +206,14 @@ internal class LessonsPreferences(
         write { prefs ->
             val remaining = prefs.memberships().filterNot { it.classId == classId }
             prefs.writeMemberships(remaining)
-            prefs.remove(roleKey(classId))
+            prefs.remove(PreferenceKeys.roleKey(classId))
             val was = prefs[MembershipKeys.ACTIVE_CLASS_ID]
             val next = remaining.firstOrNull { it.classId == was } ?: remaining.firstOrNull()
             when {
                 next == null -> {
-                    prefs[KEY_ONBOARDING_DONE] = true
+                    prefs[PreferenceKeys.KEY_ONBOARDING_DONE] = true
                     prefs.remove(MembershipKeys.ACTIVE_CLASS_ID)
-                    prefs.remove(KEY_SCHEDULE_FINGERPRINT)
+                    prefs.remove(PreferenceKeys.KEY_SCHEDULE_FINGERPRINT)
                 }
                 // Leaving a class that was not the one on screen changes
                 // nothing about the one that is, so the fingerprint stays.
@@ -246,19 +241,19 @@ internal class LessonsPreferences(
             // is what the read side uses to recognise somebody who predates the
             // introduction flag. To be here at all you were in a class, and to
             // have been in a class you got past the join screen.
-            prefs[KEY_ONBOARDING_DONE] = true
+            prefs[PreferenceKeys.KEY_ONBOARDING_DONE] = true
             // Both the list and the four keys it replaced: the old ones are
             // what an install from before this version is read from, and
             // leaving them would sign the user back in to that one class on the
             // next launch.
             prefs.clearMemberships()
-            prefs.removeKeysStartingWith { it.startsWith(ROLE_PREFIX) }
+            prefs.removeKeysStartingWith { it.startsWith(PreferenceKeys.ROLE_PREFIX) }
             // The fingerprint describes the shape of *that* class's schedule, so
             // keeping it means the first sync after joining a different one
             // compares two unrelated timetables, finds them different, and
             // announces that the schedule changed seconds after joining —
             // exactly the noise the baseline rule exists to prevent.
-            prefs.remove(KEY_SCHEDULE_FINGERPRINT)
+            prefs.remove(PreferenceKeys.KEY_SCHEDULE_FINGERPRINT)
         }
     }
 
@@ -345,73 +340,73 @@ internal class LessonsPreferences(
     override suspend fun updateSettings(transform: (AppSettings) -> AppSettings) {
         write { prefs ->
             val updated = transform(prefs.toSettings())
-            prefs[KEY_BASE_URL] = updated.baseUrl.trim()
-            prefs[KEY_THEME_MODE] = updated.themeMode.name
-            prefs[KEY_DYNAMIC_COLOR] = updated.dynamicColor
-            prefs[KEY_PITCH_BLACK] = updated.pitchBlack
-            prefs[KEY_HAPTICS] = updated.hapticsEnabled
-            prefs[KEY_HAPTIC_STRENGTH] = updated.hapticStrength.name
-            prefs[KEY_APP_FONT] = updated.appFont.name
-            prefs[KEY_LANGUAGE] = updated.language.name
-            prefs[KEY_TEXT_SCALE] = updated.textScale.coerceIn(AppSettings.TEXT_SCALE_RANGE)
-            prefs[KEY_ANIMATIONS] = updated.animations
-            prefs[KEY_MOTION_SPEED] = updated.motionSpeed.coerceIn(AppSettings.MOTION_SPEED_RANGE)
-            prefs[KEY_SWIPE_TABS] = updated.swipeTabs
-            prefs[KEY_DEFAULT_TAB] = updated.defaultTab.name
-            prefs[KEY_TAB_ORDER] = HomeTab.storedOrder(updated.tabOrder)
-            prefs[KEY_MOTION_BLUR] = updated.motionBlur
-            prefs[KEY_MOTION_BLUR_SCALE] = updated.motionBlurScale
+            prefs[PreferenceKeys.KEY_BASE_URL] = updated.baseUrl.trim()
+            prefs[PreferenceKeys.KEY_THEME_MODE] = updated.themeMode.name
+            prefs[PreferenceKeys.KEY_DYNAMIC_COLOR] = updated.dynamicColor
+            prefs[PreferenceKeys.KEY_PITCH_BLACK] = updated.pitchBlack
+            prefs[PreferenceKeys.KEY_HAPTICS] = updated.hapticsEnabled
+            prefs[PreferenceKeys.KEY_HAPTIC_STRENGTH] = updated.hapticStrength.name
+            prefs[PreferenceKeys.KEY_APP_FONT] = updated.appFont.name
+            prefs[PreferenceKeys.KEY_LANGUAGE] = updated.language.name
+            prefs[PreferenceKeys.KEY_TEXT_SCALE] = updated.textScale.coerceIn(AppSettings.TEXT_SCALE_RANGE)
+            prefs[PreferenceKeys.KEY_ANIMATIONS] = updated.animations
+            prefs[PreferenceKeys.KEY_MOTION_SPEED] = updated.motionSpeed.coerceIn(AppSettings.MOTION_SPEED_RANGE)
+            prefs[PreferenceKeys.KEY_SWIPE_TABS] = updated.swipeTabs
+            prefs[PreferenceKeys.KEY_DEFAULT_TAB] = updated.defaultTab.name
+            prefs[PreferenceKeys.KEY_TAB_ORDER] = HomeTab.storedOrder(updated.tabOrder)
+            prefs[PreferenceKeys.KEY_MOTION_BLUR] = updated.motionBlur
+            prefs[PreferenceKeys.KEY_MOTION_BLUR_SCALE] = updated.motionBlurScale
                 .coerceIn(AppSettings.MOTION_BLUR_SCALE_RANGE)
-            prefs[KEY_EDGE_BLUR] = updated.edgeBlur
-            prefs[KEY_SHOW_TEACHER] = updated.showTeacher
-            prefs[KEY_WIDGET_SHOW_PROGRESS] = updated.widgetShowProgress
-            prefs[KEY_TODAY_SHOW_HERO] = updated.todayShowHero
-            prefs[KEY_TODAY_LAYOUT] = updated.todayLayout.name
-            prefs[KEY_TODAY_WHOLE_DAY] = updated.todayWholeDay
-            prefs[KEY_TODAY_HOMEWORK_PREVIEW] =
+            prefs[PreferenceKeys.KEY_EDGE_BLUR] = updated.edgeBlur
+            prefs[PreferenceKeys.KEY_SHOW_TEACHER] = updated.showTeacher
+            prefs[PreferenceKeys.KEY_WIDGET_SHOW_PROGRESS] = updated.widgetShowProgress
+            prefs[PreferenceKeys.KEY_TODAY_SHOW_HERO] = updated.todayShowHero
+            prefs[PreferenceKeys.KEY_TODAY_LAYOUT] = updated.todayLayout.name
+            prefs[PreferenceKeys.KEY_TODAY_WHOLE_DAY] = updated.todayWholeDay
+            prefs[PreferenceKeys.KEY_TODAY_HOMEWORK_PREVIEW] =
                 AppSettings.nearestHomeworkPreview(updated.todayHomeworkPreview)
-            prefs[KEY_TODAY_SHOW_EVENTS] = updated.todayShowEvents
-            prefs[KEY_WEEK_START] = updated.weekStart.name
-            prefs[KEY_WEEK_WEEKENDS] = updated.weekShowWeekends
-            prefs[KEY_WEEK_LOAD] = updated.weekShowLoad
-            prefs[KEY_WEEK_EVENTS] = updated.weekShowEvents
-            prefs[KEY_WEEK_HOMEWORK] = updated.weekShowHomework
+            prefs[PreferenceKeys.KEY_TODAY_SHOW_EVENTS] = updated.todayShowEvents
+            prefs[PreferenceKeys.KEY_WEEK_START] = updated.weekStart.name
+            prefs[PreferenceKeys.KEY_WEEK_WEEKENDS] = updated.weekShowWeekends
+            prefs[PreferenceKeys.KEY_WEEK_LOAD] = updated.weekShowLoad
+            prefs[PreferenceKeys.KEY_WEEK_EVENTS] = updated.weekShowEvents
+            prefs[PreferenceKeys.KEY_WEEK_HOMEWORK] = updated.weekShowHomework
             // Names rather than ordinals: an ordinal is a number that silently
             // means something else the day somebody reorders the enum, and a
             // stored filter that turned into a different one would be a
             // calendar quietly narrowed to the wrong thing.
-            prefs[KEY_CALENDAR_FILTERS] = updated.calendarFilters.map { it.name }.toSet()
-            prefs[KEY_CALENDAR_ORDER] = updated.calendarOrder.name
-            prefs[KEY_DAY_RIBBON_FLOW] = updated.dayRibbonFlow.name
-            prefs[KEY_DAY_MODE] = updated.dayMode.name
-            prefs[KEY_DAY_RIBBON_SNAP] = updated.dayRibbonSnap
-            prefs[KEY_DAY_RIBBON_DEPTH] = updated.dayRibbonDepth
-            prefs[KEY_DEBUG_MODE] = updated.debugMode
-            prefs[KEY_ONBOARDING_DONE] = updated.onboardingDone
-            prefs[KEY_ALERT_LESSON] = updated.alerts.lessonSoon
-            prefs[KEY_ALERT_LEAD] = updated.alerts.lessonLeadMinutes
-            prefs[KEY_ALERT_MORNING] = updated.alerts.morningSummary
-            prefs[KEY_ALERT_MORNING_AT] = updated.alerts.morningAtMinutes
-            prefs[KEY_ALERT_HOMEWORK] = updated.alerts.homeworkReminder
-            prefs[KEY_ALERT_HOMEWORK_AT] = updated.alerts.homeworkAtMinutes
-            prefs[KEY_ALERT_CHANGES] = updated.alerts.scheduleChanges
-            prefs[KEY_ALERT_LESSON_DETAIL] = updated.alerts.lessonDetail.name
+            prefs[PreferenceKeys.KEY_CALENDAR_FILTERS] = updated.calendarFilters.map { it.name }.toSet()
+            prefs[PreferenceKeys.KEY_CALENDAR_ORDER] = updated.calendarOrder.name
+            prefs[PreferenceKeys.KEY_DAY_RIBBON_FLOW] = updated.dayRibbonFlow.name
+            prefs[PreferenceKeys.KEY_DAY_MODE] = updated.dayMode.name
+            prefs[PreferenceKeys.KEY_DAY_RIBBON_SNAP] = updated.dayRibbonSnap
+            prefs[PreferenceKeys.KEY_DAY_RIBBON_DEPTH] = updated.dayRibbonDepth
+            prefs[PreferenceKeys.KEY_DEBUG_MODE] = updated.debugMode
+            prefs[PreferenceKeys.KEY_ONBOARDING_DONE] = updated.onboardingDone
+            prefs[PreferenceKeys.KEY_ALERT_LESSON] = updated.alerts.lessonSoon
+            prefs[PreferenceKeys.KEY_ALERT_LEAD] = updated.alerts.lessonLeadMinutes
+            prefs[PreferenceKeys.KEY_ALERT_MORNING] = updated.alerts.morningSummary
+            prefs[PreferenceKeys.KEY_ALERT_MORNING_AT] = updated.alerts.morningAtMinutes
+            prefs[PreferenceKeys.KEY_ALERT_HOMEWORK] = updated.alerts.homeworkReminder
+            prefs[PreferenceKeys.KEY_ALERT_HOMEWORK_AT] = updated.alerts.homeworkAtMinutes
+            prefs[PreferenceKeys.KEY_ALERT_CHANGES] = updated.alerts.scheduleChanges
+            prefs[PreferenceKeys.KEY_ALERT_LESSON_DETAIL] = updated.alerts.lessonDetail.name
             // Stored as a set of decimal weekday numbers. An empty set is a
             // real answer — "не показывать ни в один день" — and DataStore
             // keeps an empty set as a present key, so it survives the read
             // below rather than falling back to all seven.
-            prefs[KEY_ALERT_MORNING_DAYS] = updated.alerts.morningWeekdays.map(Int::toString).toSet()
-            prefs[KEY_ALERT_QUIET] = updated.alerts.quietHours
-            prefs[KEY_ALERT_QUIET_FROM] = updated.alerts.quietFromMinutes
-            prefs[KEY_ALERT_QUIET_TO] = updated.alerts.quietToMinutes
-            prefs[KEY_ALERT_SKIP_HOLIDAYS] = updated.alerts.skipHolidays
-            prefs[KEY_SYNC_INTERVAL] = updated.syncIntervalMinutes
+            prefs[PreferenceKeys.KEY_ALERT_MORNING_DAYS] = updated.alerts.morningWeekdays.map(Int::toString).toSet()
+            prefs[PreferenceKeys.KEY_ALERT_QUIET] = updated.alerts.quietHours
+            prefs[PreferenceKeys.KEY_ALERT_QUIET_FROM] = updated.alerts.quietFromMinutes
+            prefs[PreferenceKeys.KEY_ALERT_QUIET_TO] = updated.alerts.quietToMinutes
+            prefs[PreferenceKeys.KEY_ALERT_SKIP_HOLIDAYS] = updated.alerts.skipHolidays
+            prefs[PreferenceKeys.KEY_SYNC_INTERVAL] = updated.syncIntervalMinutes
                 .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES)
-            prefs[KEY_RIPPLE_EFFECTS] = updated.rippleEffects
-            prefs[KEY_THEME_REVEAL] = updated.themeReveal
-            prefs[KEY_AUTO_CHECK_UPDATES] = updated.autoCheckUpdates
-            prefs[KEY_INCLUDE_PRERELEASE] = updated.includePrerelease
-            prefs[KEY_NOTIFY_UPDATES] = updated.notifyNewUpdates
+            prefs[PreferenceKeys.KEY_RIPPLE_EFFECTS] = updated.rippleEffects
+            prefs[PreferenceKeys.KEY_THEME_REVEAL] = updated.themeReveal
+            prefs[PreferenceKeys.KEY_AUTO_CHECK_UPDATES] = updated.autoCheckUpdates
+            prefs[PreferenceKeys.KEY_INCLUDE_PRERELEASE] = updated.includePrerelease
+            prefs[PreferenceKeys.KEY_NOTIFY_UPDATES] = updated.notifyNewUpdates
         }
     }
 
@@ -434,11 +429,11 @@ internal class LessonsPreferences(
      * exists only so a sync can tell "the timetable changed" from "the timetable
      * was fetched again".
      */
-    suspend fun scheduleFingerprint(): String? = preferences.first()[KEY_SCHEDULE_FINGERPRINT]
+    suspend fun scheduleFingerprint(): String? = preferences.first()[PreferenceKeys.KEY_SCHEDULE_FINGERPRINT]
 
     /** @see scheduleFingerprint */
     suspend fun writeScheduleFingerprint(value: String) {
-        write { prefs -> prefs[KEY_SCHEDULE_FINGERPRINT] = value }
+        write { prefs -> prefs[PreferenceKeys.KEY_SCHEDULE_FINGERPRINT] = value }
     }
 
     /**
@@ -458,7 +453,7 @@ internal class LessonsPreferences(
      * until leaving a class started reaching it.
      */
     suspend fun bundleTag(signature: String): String? =
-        preferences.first()[bundleTagKey(signature)]
+        preferences.first()[PreferenceKeys.bundleTagKey(signature)]
 
     /**
      * The role the server last gave this phone in [classId], kept across
@@ -472,23 +467,24 @@ internal class LessonsPreferences(
      * and every write behind that button is checked by the server per request.
      */
     fun lastRole(classId: Long): Flow<ClassRole?> =
-        preferences.map { ClassRole.fromWire(it[roleKey(classId)]) }.distinctUntilChanged()
+        preferences.map { ClassRole.fromWire(it[PreferenceKeys.roleKey(classId)]) }.distinctUntilChanged()
 
     /** @see lastRole; `null` forgets it. */
     suspend fun rememberRole(classId: Long, role: ClassRole?) {
         write { prefs ->
-            if (role == null) prefs.remove(roleKey(classId)) else prefs[roleKey(classId)] = role.name
+            val key = PreferenceKeys.roleKey(classId)
+            if (role == null) prefs.remove(key) else prefs[key] = role.name
         }
     }
 
     /** @see bundleTag */
     suspend fun writeBundleTag(signature: String, etag: String) {
-        write { prefs -> prefs[bundleTagKey(signature)] = etag }
+        write { prefs -> prefs[PreferenceKeys.bundleTagKey(signature)] = etag }
     }
 
     /** @see bundleTag */
     suspend fun forgetBundleTag(signature: String) {
-        write { prefs -> prefs.remove(bundleTagKey(signature)) }
+        write { prefs -> prefs.remove(PreferenceKeys.bundleTagKey(signature)) }
     }
 
     /**
@@ -502,7 +498,7 @@ internal class LessonsPreferences(
      * @see bundleTag
      */
     suspend fun forgetBundleTagsOf(classId: Long) {
-        val prefix = bundleTagPrefix(classId)
+        val prefix = PreferenceKeys.bundleTagPrefix(classId)
         write { prefs -> prefs.removeKeysStartingWith { it.startsWith(prefix) } }
     }
 
@@ -512,10 +508,10 @@ internal class LessonsPreferences(
      * @see bundleTag
      */
     suspend fun forgetBundleTagsOutside(keep: Collection<Long>) {
-        val kept = keep.map { bundleTagPrefix(it) }
+        val kept = keep.map { PreferenceKeys.bundleTagPrefix(it) }
         write { prefs ->
             prefs.removeKeysStartingWith { name ->
-                name.startsWith(BUNDLE_TAG_PREFIX) && kept.none { name.startsWith(it) }
+                name.startsWith(PreferenceKeys.BUNDLE_TAG_PREFIX) && kept.none { name.startsWith(it) }
             }
         }
     }
@@ -544,7 +540,7 @@ internal class LessonsPreferences(
      */
     private fun MutablePreferences.activate(classId: Long) {
         this[MembershipKeys.ACTIVE_CLASS_ID] = classId
-        remove(KEY_SCHEDULE_FINGERPRINT)
+        remove(PreferenceKeys.KEY_SCHEDULE_FINGERPRINT)
     }
 
     /**
@@ -571,55 +567,55 @@ internal class LessonsPreferences(
      * a newer build must not crash an older one.
      */
     private fun Preferences.toSettings(): AppSettings = AppSettings(
-        baseUrl = this[KEY_BASE_URL]?.takeIf { it.isNotBlank() } ?: AppSettings.DEFAULT_BASE_URL,
-        themeMode = ThemeMode.fromName(this[KEY_THEME_MODE]),
-        dynamicColor = this[KEY_DYNAMIC_COLOR] ?: true,
-        pitchBlack = this[KEY_PITCH_BLACK] ?: false,
-        hapticsEnabled = this[KEY_HAPTICS] ?: true,
-        hapticStrength = HapticStrength.fromName(this[KEY_HAPTIC_STRENGTH]),
-        appFont = AppFont.fromName(this[KEY_APP_FONT]),
-        language = AppLanguage.fromName(this[KEY_LANGUAGE]),
-        textScale = (this[KEY_TEXT_SCALE] ?: AppSettings.DEFAULT_TEXT_SCALE)
+        baseUrl = this[PreferenceKeys.KEY_BASE_URL]?.takeIf { it.isNotBlank() } ?: AppSettings.DEFAULT_BASE_URL,
+        themeMode = ThemeMode.fromName(this[PreferenceKeys.KEY_THEME_MODE]),
+        dynamicColor = this[PreferenceKeys.KEY_DYNAMIC_COLOR] ?: true,
+        pitchBlack = this[PreferenceKeys.KEY_PITCH_BLACK] ?: false,
+        hapticsEnabled = this[PreferenceKeys.KEY_HAPTICS] ?: true,
+        hapticStrength = HapticStrength.fromName(this[PreferenceKeys.KEY_HAPTIC_STRENGTH]),
+        appFont = AppFont.fromName(this[PreferenceKeys.KEY_APP_FONT]),
+        language = AppLanguage.fromName(this[PreferenceKeys.KEY_LANGUAGE]),
+        textScale = (this[PreferenceKeys.KEY_TEXT_SCALE] ?: AppSettings.DEFAULT_TEXT_SCALE)
             .coerceIn(AppSettings.TEXT_SCALE_RANGE),
-        animations = this[KEY_ANIMATIONS] ?: true,
-        motionSpeed = (this[KEY_MOTION_SPEED] ?: AppSettings.DEFAULT_MOTION_SPEED)
+        animations = this[PreferenceKeys.KEY_ANIMATIONS] ?: true,
+        motionSpeed = (this[PreferenceKeys.KEY_MOTION_SPEED] ?: AppSettings.DEFAULT_MOTION_SPEED)
             .coerceIn(AppSettings.MOTION_SPEED_RANGE),
-        swipeTabs = this[KEY_SWIPE_TABS] ?: true,
-        defaultTab = HomeTab.fromName(this[KEY_DEFAULT_TAB]),
-        tabOrder = HomeTab.order(this[KEY_TAB_ORDER]),
-        motionBlur = this[KEY_MOTION_BLUR] ?: false,
-        motionBlurScale = (this[KEY_MOTION_BLUR_SCALE] ?: AppSettings.DEFAULT_MOTION_BLUR_SCALE)
+        swipeTabs = this[PreferenceKeys.KEY_SWIPE_TABS] ?: true,
+        defaultTab = HomeTab.fromName(this[PreferenceKeys.KEY_DEFAULT_TAB]),
+        tabOrder = HomeTab.order(this[PreferenceKeys.KEY_TAB_ORDER]),
+        motionBlur = this[PreferenceKeys.KEY_MOTION_BLUR] ?: false,
+        motionBlurScale = (this[PreferenceKeys.KEY_MOTION_BLUR_SCALE] ?: AppSettings.DEFAULT_MOTION_BLUR_SCALE)
             .coerceIn(AppSettings.MOTION_BLUR_SCALE_RANGE),
-        edgeBlur = this[KEY_EDGE_BLUR] ?: true,
-        showTeacher = this[KEY_SHOW_TEACHER] ?: true,
-        widgetShowProgress = this[KEY_WIDGET_SHOW_PROGRESS] ?: true,
-        todayShowHero = this[KEY_TODAY_SHOW_HERO] ?: true,
-        todayLayout = TodayLayout.fromName(this[KEY_TODAY_LAYOUT]),
-        todayWholeDay = this[KEY_TODAY_WHOLE_DAY] ?: false,
+        edgeBlur = this[PreferenceKeys.KEY_EDGE_BLUR] ?: true,
+        showTeacher = this[PreferenceKeys.KEY_SHOW_TEACHER] ?: true,
+        widgetShowProgress = this[PreferenceKeys.KEY_WIDGET_SHOW_PROGRESS] ?: true,
+        todayShowHero = this[PreferenceKeys.KEY_TODAY_SHOW_HERO] ?: true,
+        todayLayout = TodayLayout.fromName(this[PreferenceKeys.KEY_TODAY_LAYOUT]),
+        todayWholeDay = this[PreferenceKeys.KEY_TODAY_WHOLE_DAY] ?: false,
         todayHomeworkPreview = AppSettings.nearestHomeworkPreview(
-            this[KEY_TODAY_HOMEWORK_PREVIEW] ?: AppSettings.DEFAULT_HOMEWORK_PREVIEW,
+            this[PreferenceKeys.KEY_TODAY_HOMEWORK_PREVIEW] ?: AppSettings.DEFAULT_HOMEWORK_PREVIEW,
         ),
-        todayShowEvents = this[KEY_TODAY_SHOW_EVENTS] ?: true,
-        weekStart = WeekStart.fromName(this[KEY_WEEK_START]),
-        weekShowWeekends = this[KEY_WEEK_WEEKENDS] ?: true,
-        weekShowLoad = this[KEY_WEEK_LOAD] ?: true,
-        weekShowEvents = this[KEY_WEEK_EVENTS] ?: true,
-        weekShowHomework = this[KEY_WEEK_HOMEWORK] ?: true,
+        todayShowEvents = this[PreferenceKeys.KEY_TODAY_SHOW_EVENTS] ?: true,
+        weekStart = WeekStart.fromName(this[PreferenceKeys.KEY_WEEK_START]),
+        weekShowWeekends = this[PreferenceKeys.KEY_WEEK_WEEKENDS] ?: true,
+        weekShowLoad = this[PreferenceKeys.KEY_WEEK_LOAD] ?: true,
+        weekShowEvents = this[PreferenceKeys.KEY_WEEK_EVENTS] ?: true,
+        weekShowHomework = this[PreferenceKeys.KEY_WEEK_HOMEWORK] ?: true,
         // A name this build does not know is dropped rather than throwing: a
         // downgrade after a filter was added must narrow to less, not crash on
         // every read of the settings.
-        calendarFilters = this[KEY_CALENDAR_FILTERS]
+        calendarFilters = this[PreferenceKeys.KEY_CALENDAR_FILTERS]
             .orEmpty()
             .mapNotNull { name -> DayFilter.entries.firstOrNull { it.name == name } }
             .toSet(),
         calendarOrder = DayOrder.entries
-            .firstOrNull { it.name == this[KEY_CALENDAR_ORDER] }
+            .firstOrNull { it.name == this[PreferenceKeys.KEY_CALENDAR_ORDER] }
             ?: DayOrder.DATE_ASC,
-        dayRibbonFlow = RibbonFlow.fromName(this[KEY_DAY_RIBBON_FLOW]),
-        dayMode = DayMode.fromName(this[KEY_DAY_MODE]),
-        dayRibbonSnap = this[KEY_DAY_RIBBON_SNAP] ?: true,
-        dayRibbonDepth = this[KEY_DAY_RIBBON_DEPTH] ?: true,
-        debugMode = this[KEY_DEBUG_MODE] ?: false,
+        dayRibbonFlow = RibbonFlow.fromName(this[PreferenceKeys.KEY_DAY_RIBBON_FLOW]),
+        dayMode = DayMode.fromName(this[PreferenceKeys.KEY_DAY_MODE]),
+        dayRibbonSnap = this[PreferenceKeys.KEY_DAY_RIBBON_SNAP] ?: true,
+        dayRibbonDepth = this[PreferenceKeys.KEY_DAY_RIBBON_DEPTH] ?: true,
+        debugMode = this[PreferenceKeys.KEY_DEBUG_MODE] ?: false,
         // False only for a genuinely fresh install. The key arrived with the
         // introduction, so on every phone that had the app before it there is
         // no value here — and a plain `?: false` therefore promised four
@@ -636,131 +632,35 @@ internal class LessonsPreferences(
         // it: reading only `KEY_TOKEN` would promise four screens of
         // introduction to every long-standing user the first time their
         // memberships were rewritten as a list.
-        onboardingDone = this[KEY_ONBOARDING_DONE]
+        onboardingDone = this[PreferenceKeys.KEY_ONBOARDING_DONE]
             ?: (this[MembershipKeys.TOKEN] != null || this[MembershipKeys.SESSIONS] != null),
         alerts = AlertPreferences(
-            lessonSoon = this[KEY_ALERT_LESSON] ?: false,
-            lessonLeadMinutes = this[KEY_ALERT_LEAD] ?: AlertPreferences.DefaultLeadMinutes,
-            morningSummary = this[KEY_ALERT_MORNING] ?: false,
-            morningAtMinutes = this[KEY_ALERT_MORNING_AT] ?: AlertPreferences.DefaultMorningMinutes,
-            homeworkReminder = this[KEY_ALERT_HOMEWORK] ?: false,
-            homeworkAtMinutes = this[KEY_ALERT_HOMEWORK_AT] ?: AlertPreferences.DefaultHomeworkMinutes,
-            scheduleChanges = this[KEY_ALERT_CHANGES] ?: false,
-            lessonDetail = LessonAlertDetail.fromName(this[KEY_ALERT_LESSON_DETAIL]),
+            lessonSoon = this[PreferenceKeys.KEY_ALERT_LESSON] ?: false,
+            lessonLeadMinutes = this[PreferenceKeys.KEY_ALERT_LEAD] ?: AlertPreferences.DefaultLeadMinutes,
+            morningSummary = this[PreferenceKeys.KEY_ALERT_MORNING] ?: false,
+            morningAtMinutes = this[PreferenceKeys.KEY_ALERT_MORNING_AT] ?: AlertPreferences.DefaultMorningMinutes,
+            homeworkReminder = this[PreferenceKeys.KEY_ALERT_HOMEWORK] ?: false,
+            homeworkAtMinutes = this[PreferenceKeys.KEY_ALERT_HOMEWORK_AT] ?: AlertPreferences.DefaultHomeworkMinutes,
+            scheduleChanges = this[PreferenceKeys.KEY_ALERT_CHANGES] ?: false,
+            lessonDetail = LessonAlertDetail.fromName(this[PreferenceKeys.KEY_ALERT_LESSON_DETAIL]),
             // Anything unparseable is dropped rather than defaulted: a set that
             // half survived an older build should lose the bad entries, not the
             // days the user actually picked.
-            morningWeekdays = this[KEY_ALERT_MORNING_DAYS]
+            morningWeekdays = this[PreferenceKeys.KEY_ALERT_MORNING_DAYS]
                 ?.mapNotNull { it.toIntOrNull()?.takeIf { day -> day in 1..7 } }
                 ?.toSet()
                 ?: AlertPreferences.AllWeekdays,
-            quietHours = this[KEY_ALERT_QUIET] ?: false,
-            quietFromMinutes = this[KEY_ALERT_QUIET_FROM] ?: AlertPreferences.DefaultQuietFromMinutes,
-            quietToMinutes = this[KEY_ALERT_QUIET_TO] ?: AlertPreferences.DefaultQuietToMinutes,
-            skipHolidays = this[KEY_ALERT_SKIP_HOLIDAYS] ?: true,
+            quietHours = this[PreferenceKeys.KEY_ALERT_QUIET] ?: false,
+            quietFromMinutes = this[PreferenceKeys.KEY_ALERT_QUIET_FROM] ?: AlertPreferences.DefaultQuietFromMinutes,
+            quietToMinutes = this[PreferenceKeys.KEY_ALERT_QUIET_TO] ?: AlertPreferences.DefaultQuietToMinutes,
+            skipHolidays = this[PreferenceKeys.KEY_ALERT_SKIP_HOLIDAYS] ?: true,
         ),
-        syncIntervalMinutes = (this[KEY_SYNC_INTERVAL] ?: AppSettings.DEFAULT_SYNC_INTERVAL_MINUTES)
+        syncIntervalMinutes = (this[PreferenceKeys.KEY_SYNC_INTERVAL] ?: AppSettings.DEFAULT_SYNC_INTERVAL_MINUTES)
             .coerceAtLeast(AppSettings.MIN_SYNC_INTERVAL_MINUTES),
-        rippleEffects = this[KEY_RIPPLE_EFFECTS] ?: true,
-        themeReveal = this[KEY_THEME_REVEAL] ?: true,
-        autoCheckUpdates = this[KEY_AUTO_CHECK_UPDATES] ?: true,
-        includePrerelease = this[KEY_INCLUDE_PRERELEASE] ?: false,
-        notifyNewUpdates = this[KEY_NOTIFY_UPDATES] ?: true,
+        rippleEffects = this[PreferenceKeys.KEY_RIPPLE_EFFECTS] ?: true,
+        themeReveal = this[PreferenceKeys.KEY_THEME_REVEAL] ?: true,
+        autoCheckUpdates = this[PreferenceKeys.KEY_AUTO_CHECK_UPDATES] ?: true,
+        includePrerelease = this[PreferenceKeys.KEY_INCLUDE_PRERELEASE] ?: false,
+        notifyNewUpdates = this[PreferenceKeys.KEY_NOTIFY_UPDATES] ?: true,
     )
-
-    private companion object {
-        // The membership keys live in `MembershipKeys`, beside the code that reads them.
-
-        // The diary's keys live in `DiaryKeys`, beside the reads that decode them.
-
-        val KEY_CALENDAR_FILTERS = stringSetPreferencesKey("calendar_filters")
-        val KEY_CALENDAR_ORDER = stringPreferencesKey("calendar_order")
-        val KEY_DAY_RIBBON_FLOW = stringPreferencesKey("day_ribbon_flow")
-        val KEY_DAY_MODE = stringPreferencesKey("day_mode")
-        val KEY_DAY_RIBBON_SNAP = booleanPreferencesKey("day_ribbon_snap")
-        val KEY_DAY_RIBBON_DEPTH = booleanPreferencesKey("day_ribbon_depth")
-        val KEY_DEBUG_MODE = booleanPreferencesKey("settings_debug_mode")
-        val KEY_ONBOARDING_DONE = booleanPreferencesKey("settings_onboarding_done")
-
-        val KEY_ALERT_LESSON = booleanPreferencesKey("alert_lesson_soon")
-        val KEY_ALERT_LEAD = intPreferencesKey("alert_lesson_lead_minutes")
-        val KEY_ALERT_MORNING = booleanPreferencesKey("alert_morning")
-        val KEY_ALERT_MORNING_AT = intPreferencesKey("alert_morning_at_minutes")
-        val KEY_ALERT_HOMEWORK = booleanPreferencesKey("alert_homework")
-        val KEY_ALERT_HOMEWORK_AT = intPreferencesKey("alert_homework_at_minutes")
-        val KEY_ALERT_CHANGES = booleanPreferencesKey("alert_schedule_changes")
-        val KEY_ALERT_LESSON_DETAIL = stringPreferencesKey("alert_lesson_detail")
-        val KEY_ALERT_MORNING_DAYS = stringSetPreferencesKey("alert_morning_weekdays")
-        val KEY_ALERT_QUIET = booleanPreferencesKey("alert_quiet_hours")
-        val KEY_ALERT_QUIET_FROM = intPreferencesKey("alert_quiet_from_minutes")
-        val KEY_ALERT_QUIET_TO = intPreferencesKey("alert_quiet_to_minutes")
-        val KEY_ALERT_SKIP_HOLIDAYS = booleanPreferencesKey("alert_skip_holidays")
-        val KEY_SCHEDULE_FINGERPRINT = stringPreferencesKey("alert_schedule_fingerprint")
-        /**
-         * One key per window, named after its signature.
-         *
-         * The two keys this replaced — `bundle_etag_signature` and
-         * `bundle_etag` — are deliberately not read any more and not migrated
-         * either: a tag whose window is no longer described the same way is
-         * worth exactly one avoided download, and the cost of getting the
-         * migration wrong is a `304` over rows this phone does not hold. They
-         * are left where they are, which costs two strings.
-         */
-        fun bundleTagKey(signature: String) = stringPreferencesKey("bundle_etag|$signature")
-
-        /** @see LessonsPreferences.lastRole */
-        fun roleKey(classId: Long) = stringPreferencesKey("$ROLE_PREFIX$classId")
-
-        /** What every remembered role's key starts with. */
-        const val ROLE_PREFIX = "device_role|"
-
-        /**
-         * What every one of this class's tags starts with.
-         *
-         * The trailing separator is the whole of it: without it, forgetting
-         * class 1 would take class 12 and class 100 with it, and the symptom
-         * would be one avoided download turning into a full one — invisible
-         * until somebody read the bill.
-         */
-        fun bundleTagPrefix(classId: Long) = "bundle_etag|$classId|"
-
-        /** What every tag starts with, whatever class and year it is about. */
-        const val BUNDLE_TAG_PREFIX = "bundle_etag|"
-
-        val KEY_BASE_URL = stringPreferencesKey("settings_base_url")
-        val KEY_THEME_MODE = stringPreferencesKey("settings_theme_mode")
-        val KEY_DYNAMIC_COLOR = booleanPreferencesKey("settings_dynamic_color")
-        val KEY_PITCH_BLACK = booleanPreferencesKey("settings_pitch_black")
-        val KEY_HAPTICS = booleanPreferencesKey("settings_haptics_enabled")
-        val KEY_HAPTIC_STRENGTH = stringPreferencesKey("settings_haptic_strength")
-        val KEY_APP_FONT = stringPreferencesKey("settings_app_font")
-        val KEY_LANGUAGE = stringPreferencesKey("settings_language")
-        val KEY_TEXT_SCALE = floatPreferencesKey("settings_text_scale")
-        val KEY_ANIMATIONS = booleanPreferencesKey("settings_animations")
-        val KEY_MOTION_SPEED = floatPreferencesKey("settings_motion_speed")
-        val KEY_SWIPE_TABS = booleanPreferencesKey("settings_swipe_tabs")
-        val KEY_DEFAULT_TAB = stringPreferencesKey("settings_default_tab")
-        val KEY_TAB_ORDER = stringPreferencesKey("settings_tab_order")
-        val KEY_MOTION_BLUR = booleanPreferencesKey("settings_motion_blur")
-        val KEY_MOTION_BLUR_SCALE = floatPreferencesKey("settings_motion_blur_scale")
-        val KEY_EDGE_BLUR = booleanPreferencesKey("settings_edge_blur")
-        val KEY_SHOW_TEACHER = booleanPreferencesKey("settings_show_teacher")
-        val KEY_WIDGET_SHOW_PROGRESS = booleanPreferencesKey("settings_widget_show_progress")
-        val KEY_TODAY_SHOW_HERO = booleanPreferencesKey("settings_today_show_hero")
-        val KEY_TODAY_LAYOUT = stringPreferencesKey("settings_today_layout")
-        val KEY_TODAY_WHOLE_DAY = booleanPreferencesKey("settings_today_whole_day")
-        val KEY_TODAY_HOMEWORK_PREVIEW = intPreferencesKey("settings_today_homework_preview")
-        val KEY_TODAY_SHOW_EVENTS = booleanPreferencesKey("settings_today_show_events")
-        val KEY_WEEK_START = stringPreferencesKey("settings_week_start")
-        val KEY_WEEK_WEEKENDS = booleanPreferencesKey("settings_week_weekends")
-        val KEY_WEEK_LOAD = booleanPreferencesKey("settings_week_load")
-        val KEY_WEEK_EVENTS = booleanPreferencesKey("settings_week_events")
-        val KEY_WEEK_HOMEWORK = booleanPreferencesKey("settings_week_homework")
-        val KEY_SYNC_INTERVAL = intPreferencesKey("settings_sync_interval_minutes")
-        val KEY_RIPPLE_EFFECTS = booleanPreferencesKey("settings_ripple_effects")
-        val KEY_THEME_REVEAL = booleanPreferencesKey("settings_theme_reveal")
-        val KEY_AUTO_CHECK_UPDATES = booleanPreferencesKey("settings_auto_check_updates")
-        val KEY_INCLUDE_PRERELEASE = booleanPreferencesKey("settings_include_prerelease")
-        val KEY_NOTIFY_UPDATES = booleanPreferencesKey("settings_notify_updates")
-    }
 }
