@@ -7,6 +7,11 @@ open a pull request.
 By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md) and the
 [AI usage policy](AI_USAGE_POLICY.md).
 
+Before opening an issue to ask whether a change is wanted or where it belongs, ask in
+[Discussions, Q&A](https://github.com/lumenpearson/lessons/discussions/categories/q-a). An idea
+not yet ready for the Proposal form goes to
+[Ideas](https://github.com/lumenpearson/lessons/discussions/categories/ideas).
+
 The repository has three parts, and each has its own chain of checks: a Python server, an
 Android app in Kotlin, and the documentation. You may change them separately, but you run
 the checks for everything you touched.

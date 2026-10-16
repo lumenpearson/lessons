@@ -375,6 +375,10 @@ goes out as an issue on GitHub and already contains the table about the device a
 version. There is no need to add the class code or anybody's surname to it: the issue is
 public.
 
+A question rather than a bug goes to
+[Discussions, Q&A](https://github.com/lumenpearson/lessons/discussions/categories/q-a). It is
+public too.
+
 If the app closes by itself, switch **«Настройки → О приложении → Отчёты о сбоях»** on and
 let it happen once more. The row under the switch opens the last five reports and sends the
 one you choose — it is there for everybody, not only for an administrator, because the

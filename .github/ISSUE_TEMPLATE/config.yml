@@ -8,6 +8,12 @@ contact_links:
   - name: Vulnerability
     url: https://github.com/lumenpearson/lessons/security/advisories/new
     about: Do not open a public issue. Report it privately through a security advisory.
+  - name: A question, not a bug
+    url: https://github.com/lumenpearson/lessons/discussions/categories/q-a
+    about: Discussions, Q&A. Not for bugs.
+  - name: An idea not yet ready for the Proposal form
+    url: https://github.com/lumenpearson/lessons/discussions/categories/ideas
+    about: Discussions, Ideas. It becomes an issue once it can fill the Proposal form.
   - name: The APK will not build, or signing does not work
     url: https://github.com/lumenpearson/lessons/blob/main/docs/build.md
     about: Building in Actions, your own key, a release from a tag, and pointing the app at a server.

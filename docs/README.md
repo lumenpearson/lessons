@@ -17,6 +17,7 @@ neighbour — if the answer is not here it is in the code, and there is usually 
 | are writing a client for the API | [api.md](api.md) |
 | want to connect a diary other than Petersburg's | [diaries.md](diaries.md) |
 | are picking up the work | [HANDOVER.md](../HANDOVER.md), then [history.md](history.md) for every batch before its last two |
+| have a question these documents do not answer | [Discussions, Q&A](https://github.com/lumenpearson/lessons/discussions/categories/q-a) |
 
 ## Every document
 

@@ -198,6 +198,10 @@ For anybody about to write code: [CONTRIBUTING.md](CONTRIBUTING.md) and
 [CLAUDE.md](CLAUDE.md) — the commands, the boundaries, and what will bite anybody who does
 not know them.
 
+Questions go to [Discussions, Q&A](https://github.com/lumenpearson/lessons/discussions/categories/q-a);
+bugs and proposals are issues; a vulnerability goes to [SECURITY.md](.github/SECURITY.md),
+never to either.
+
 ## Honest status
 
 Read this before planning a release.
