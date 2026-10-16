@@ -10,36 +10,34 @@ Last updated: **11 October 2026**. **PRs #63 through #85, #128, #129, #133, #134
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
 #313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363, #366, #372,
-#376, #379, #380, #385, #388, #392, #394, #396, #398, #399, #403, #410, #413, #415, #417, #418
-and #422 are merged**, and #344's commit went in with #366 although GitHub marks it closed
-rather than merged; `main` is at `6354c3d`, the merge of #422, by the session at 13:48:33 UTC
-on 11 October 2026. **Sub-project 3 is complete** with #396 (`80d1281`), **and its
-live-verification gate has run**, as far as a session can take it: the condition the owner set
-on 8 October before sub-project 4, checked on the development machine on the night of 10–11
-October. **The
-four designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered every
-question with its recommendation on 5 October (#301, #306, #307, #308), and #410 added a
-seventh sub-project and six deployment scenarios to the programme. **Three things are open.**
-- **#428, this pull request, carrying this paragraph**, from `fix/kind-ci-sentry` to `main`, on
-  milestone 11, which closes #423, #424 and #425: an event's «covers the lesson» follows its
-  kind until somebody sets it apart, one summary check «CI» for a ruleset to require, and the
-  privacy policy naming Sentry (edition 4).
-- **#430, a draft by another session**, from `agents/privacy-policy-eula-diary-d6b875`, on
-  milestone 12, opened at 14:53 UTC on 11 October: edition 5 of the privacy policy and the
-  terms, written from the owner's brief for a lawyer, which closes #429. It touches the same
-  files as #428 (`legal.json`, `privacy.*.md`), so #428 merges first and #430 is rebased onto
-  edition 4, keeping the Sentry point.
-- **Branch `android/decomposition-a`**, sub-project 4's pull request A of three, the Android
-  decomposition per `docs/specs/2026-10-05-android-decomposition-design.md`: in progress, with
-  no pull request yet.
+#376, #379, #380, #385, #388, #392, #394, #396, #398, #399, #403, #410, #413, #415, #417, #418,
+#422, #428 and #430 are merged**, and #344's commit went in with #366 although GitHub marks it
+closed rather than merged; `main` is at `014b1c0`, the merge of #430, by the owner's account at
+15:32 UTC on 11 October 2026, twenty-one minutes after the session merged #428 as `f26fdb7`.
+**Sub-project 3 is complete** with #396 (`80d1281`), **and its live-verification gate has
+run**, as far as a session can take it: the condition the owner set on 8 October before
+sub-project 4, checked on the development machine on the night of 10–11 October. **The four
+designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered every question
+with its recommendation on 5 October (#301, #306, #307, #308), and #410 added a seventh
+sub-project and six deployment scenarios to the programme. **Sub-project 4 has begun, and one
+thing is open.**
+- **This pull request, carrying this paragraph**, from `android/decomposition-a` to `main`, on
+  milestone 11, `Refs #273`: sub-project 4's pull request A of three, the Android decomposition
+  per `docs/specs/2026-10-05-android-decomposition-design.md`. `LessonsPreferences` and
+  `GithubRepositoryImpl` are split along their concerns, two characterization tests ran green
+  before anything moved, and the two-worker cap on the maintainer's machine is written down. It
+  closes no issue.
+
+**`main` requires one check now**, «CI», through ruleset 24883111, which the session created
+after #428's merge with the owner's permission; the repository admin role may bypass it.
+**And the owner ordered a 152-ФЗ track on 11 October**: after this pull request and before
+sub-project 4's pull requests B and C, the software is to let any deployment meet 152-ФЗ without
+changing the code (epic #438, milestone 12). Section 7's «Next for the programme» has the order.
 
 **The schema did not move**: the head is still `0019`, on production since 16:28 UTC on 6
-October, and `EXPECTED_REVISION` did not move either. Production deployed `6354c3d`, #422's
-merge, READY, and its `/api/v1/warmup` answered
-`{"status":"ok","api_version":1,"schema":"0019","v2":true}`; `GET /api/v2/diary/capabilities`
-answered `200` with `egress: DIARY_EGRESS_PROXY`. The production bot's «📊 Проект», read at
-17:02 Moscow on 11 October, showed commit `6354c3d`, all four checks ✅, the proxy answering in
-450 ms, no region line because no region is in use, one class and two accounts.
+October, and `EXPECTED_REVISION` did not move either. Production deployed `f26fdb7`, #428's
+merge, READY, and its `/api/v1/warmup` answered `ok` with schema `0019` and `"v2": true`.
+#430's deployment, which changed `docs/legal/` alone, was not read.
 
 The issues filed since #396 merged:
 - #402, closed by #403;
@@ -61,19 +59,29 @@ The issues filed since #396 merged:
   test whenever a new autouse fixture changed the teardown order;
 - #421, filed by #422's whole-branch review and open in the backlog: a proxy that refuses the
   tunnel to a region is reported as the region's fault, with advice to move it to direct;
-- #423, #424 and #425, on milestone 11, which #428 closes: a trip turned into a
+- #423, #424 and #425, on milestone 11, closed by #428: a trip turned into a
   canteen break kept replacing the lessons; nothing made a CI gate required, and the «Host»
   matrix cannot be required by name; the privacy policy said the server sends no crash
   reports, and it sends them to Sentry;
 - #426, open in the backlog: the owner's request of 11 October to open the privacy policy and
   the terms in the app's own WebView rather than another app, recorded for later;
-- #427, on milestone 11, filed during #428's review: the legal tests read `docs/legal` outside
-  Gradle's inputs, so a run after an edit can be restored from the build cache and read
-  nothing, and CI's run on #428 was;
+- #427, open on milestone 11, filed during #428's review: the legal tests read `docs/legal`
+  outside Gradle's inputs, so a run after an edit can be restored from the build cache and read
+  nothing, and CI's run on #428 was. This pull request does not touch `docs/legal/`;
 - #429, on milestone 12, opened from the owner's account by another session: the privacy
-  policy and the terms do not say what 152-ФЗ asks an operator to publish, name two diary
-  systems of the eighty-nine regions', and mis-state when the proxy is used. Draft #430
-  closes it.
+  policy and the terms did not say what 152-ФЗ asks an operator to publish, named two diary
+  systems of the eighty-nine regions', and mis-stated when the proxy is used. #430 closed it,
+  as edition 5;
+- #431–#437 and their epic #438, on milestone 12, filed on 11 October from the owner's order of
+  that day, the work that lets whoever deploys a server do what 152-ФЗ asks of an operator
+  without changing the code: a consent to the processing of personal data, asked for and
+  recorded apart from the terms (#431); a
+  retention term for every kind of stored record, which a deployment can set and the tick
+  sweeps (#432); an invited person's phone number kept only as a hash, and an invitation nobody
+  answers dropped (#433); every diary signed in to on the diary's own side, closing the two ways
+  a password still reaches the server (#434); a design for how a deployment keeps its data in
+  Russia (#435, decided: option C); the legal texts as a template every deployment fills in,
+  naming no operator in the repository (#436); and a guide for whoever deploys a server (#437).
 
 #395 closed with #396 and #397 with #399; #400 (backlog) and #401 (milestone 11), filed by 3c,
 are open. #352, #355, #357, #365, #368, #371, #375, #377, #378, #384 and #391 stay as the last
@@ -82,11 +90,10 @@ confirmed live on 10 October against a local server on PostgreSQL — `GetClass`
 answered `200` with none, and its REST twin `private, no-store`. #365's diary reads are to move
 onto the phone after sub-project 3. #118, what Preview is for, was closed by #350.
 
-The section «What the last session added» below is #428, this pull request: #423, #424 and
-#425, with #422's merge in its «After #422's merge»; «What the session before it added» is
-#406, the diaries through the proxy by region (#422), with #418's merge in its «After #418's
-merge». The live-verification gate's section (#411, #418) is in
-[docs/history.md](docs/history.md) now.
+The section «What the last session added» below is this pull request, sub-project 4's first,
+with #428's and #430's merges in its «After #428's merge»; «What the session before it added»
+is #428's, #423, #424 and #425, with #422's merge in its «After #422's merge». #406's section
+(#422), the diaries through the proxy by region, is in [docs/history.md](docs/history.md) now.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -221,9 +228,210 @@ next, someday, done) and `needs:` (device, owner). **The board is the owner's pr
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: an event's kind carries «covers the lesson», one required check, and Sentry in the privacy policy (#423, #424, #425)
+## What the last session added: sub-project 4's first pull request, `LessonsPreferences` and `GithubRepositoryImpl` split, and the two-worker cap
 
-Open as #428, this pull request, from `fix/kind-ci-sentry` to `main`, on milestone 11. It
+Open as this pull request, from `android/decomposition-a` to `main`, on milestone 11, `Refs
+#273`; it closes no issue. The branch was cut from `main` at `6354c3d`, the merge of #422, and
+merged `main` once, at `014b1c0`, as `0a8662d`, without a conflict. It carries the plan, one
+commit per task, a fix to four comments and this close-out. Written on 11 October 2026. No
+revision goes with it: the schema stays at `0019`, and nothing under `server/` changes.
+
+The design is `docs/specs/2026-10-05-android-decomposition-design.md`, approved on 5 October;
+the plan is `docs/specs/2026-10-11-android-decomposition-a-plan.md`, twelve tasks, each built
+and reviewed before the next. Every move is verbatim but for the lines the plan names, and a
+line-by-line move check, a tool outside the repository, held each commit to that. What a move
+widened from `private` to `internal` is the plan's «What is widened» table and nothing else.
+
+- **The plan** (`f431817`): pull request A in the design's order (decision 8), the two
+  characterization tests before the moves, and every count in it a grep's.
+- **Every Gradle run on the maintainer's machine carries `--max-workers=2`, and runs alone**
+  (`1d6dee5`; `docs/build.md`, «Two workers, on the maintainer's machine»). Fewer tasks at once
+  is fewer simultaneous peaks on a machine with faulty memory; it caps no memory. It goes on the
+  command line, by the owner's answer of 5 October (#306, question 1): `android/gradle.properties`
+  is CI's too, and `~/.gradle/gradle.properties` holds the signing passwords.
+- **Every setting's round trip is held before its two halves move** (`0332bb0`).
+  `SettingsRoundTripTest` writes a value that differs from the defaults in every field, reads it
+  back through a second store over the same file, and holds by reflection that the value really
+  does differ everywhere, so a field added to `AppSettings` or `AlertPreferences` without a key
+  fails; an empty file reads as `AppSettings()`. Seen failing with one key's write removed. It
+  goes through the store's internal constructor, which has been the seam since #201, so
+  `AppSettingsTest`'s note that there was none is corrected.
+- **The bundle tags, the schedule's fingerprint and the remembered roles are held before they
+  move** (`3ad874a`). `BundleTagsAndRolesTest`: a tag read back under its own signature only;
+  class 1's sweep sparing classes 12 and 100; a sweep outside a set sparing the set, the
+  fingerprint and the roles; the fingerprint forgotten on a switch of class; and a role kept per
+  class, forgotten with `null`, and gone at a sign-out while the tags stay. Seen failing with the
+  trailing separator removed. The tag sweep `docs/history.md` records as written and never run
+  has run now.
+- **The shell's and the diary's keys have files of their own** (`d687cc9`): `ShellKeys.kt` and
+  `DiaryKeys.kt`, verbatim, beside the code that reads them. Nothing was widened.
+- **The settings', the roles' and the tags' keys are `PreferenceKeys`** (`f96991f`), an
+  `internal object` shaped like `MembershipKeys`: the 62 members of the class's private
+  companion, verbatim, and its 130 references to them, on 129 lines, qualified and nothing else.
+  `rememberRole`'s line, which the qualifier took to 131 characters, names the key once in a
+  local rather than joining the baseline.
+- **The settings' two halves sit side by side in `SettingsCodec`** (`0546a05`): `toSettings`,
+  and `putSettings`, the write half of `updateSettings` with its 56 key writes. `updateSettings`
+  keeps the transaction and the read-modify-write, and calls the pair.
+- **The bundle tags and the fingerprint have a class of their own over the store** (`5bb5e30`):
+  `BundleTags`, the seven calls the sync makes, verbatim but for `store.`. It writes through
+  `LessonsPreferences.write`, so every write still refreshes the credentials; `write` and the
+  `preferences` flow become internal while `dataStore` stays private, and
+  `removeKeysStartingWith` becomes a top-level internal function. `LessonsPreferences` keeps the
+  seven as one-line delegates, so `LessonsContainer` and `SchoolAlerts` change nothing.
+- **`LessonsPreferences`' detekt findings moved with their code** (`8c2493d`):
+  `:core:data:detektBaseline` alone, read line by line. Six entries went and six came back under
+  the same rule for the same code — `updateSettings`' `LongMethod` is `putSettings`' now — and
+  the module's file holds 201, as before.
+- **`GithubRepositoryImpl` is four classes** (`284538d`): `GithubDeviceFlow` (the client id, the
+  state flow, the lock, the polling job and the login requests, with `pollUntilDecided`,
+  `PollOutcome` and `PollVerdict` beside it), `GithubPullRequests`, `GithubIssues` and
+  `GithubPermissions`. They share `GithubPreferences`, which holds no token in memory, and one
+  lazy user agent; `TAG`, `HTTP_CREATED` and `HTTP_UNAUTHORISED` are internal and top-level,
+  because four files read them. The repository builds the four and delegates, and `signOut`
+  still cancels the flow, then clears.
+- **Its detekt findings moved with it** (`d4aa77a`): 201 entries become 202. Seven moved; the
+  one `TooGenericExceptionCaught` for `Throwable` became three, one per class its three catch
+  sites went to; the eighth, `TooGenericExceptionCaught …$failure: Exception`, stayed in
+  `GithubRepositoryImpl.kt` with `signOut`; and the repository's `TooManyFunctions` is gone, as
+  the design expected, since it keeps six functions.
+- **The comments say which collaborator reads the token and which forgets it on a `401`**
+  (`ce03781`), from Task 9's review: the device flow writes the token and never reads or clears
+  it, and the pull requests read it once and clear it only on a `401` that `get` receives. Four
+  KDoc sentences, and no line of code.
+- **The counts, the documents and this close-out** (this commit): 1740 Android tests in the four
+  places that carry the Android count, a row in `docs/architecture.md`'s test table for the two
+  new tests, `docs/build.md`'s baseline totals recounted from the five files, and the programme
+  design's line on the workers cap pointed at `docs/build.md`.
+
+### Gates
+
+On the merged tree at `ce03781`, from `android/`, each alone and in that order, with
+`--max-workers=2`:
+
+- **`./gradlew test --rerun`**: `BUILD SUCCESSFUL in 1m 21s`. `--rerun` reaches only the task it
+  follows, and in an Android module `test` is the aggregate, so
+  `:core:designsystem:testDebugUnitTest`, whose inputs had not changed, still came `FROM-CACHE`;
+  it was run again alone with `--rerun`, `BUILD SUCCESSFUL in 21s`. Counted from the JUnit
+  reports: `:core:model` 125, `:core:data` 625, `:core:designsystem` 196, `:widget` 126, `:app`
+  668, **1740**, every failure and error 0. That is ten more than 1730, all in `:core:data`:
+  five in `SettingsRoundTripTest` and five in `BundleTagsAndRolesTest`. The legal parity
+  tests ran in it on edition 5 (`LegalDocumentsTest` 11, `LegalLinksTest` 10).
+- **`./gradlew assembleDebug`**: `BUILD SUCCESSFUL in 16s`.
+- **`./gradlew assembleRelease`**: `BUILD SUCCESSFUL in 1m 56s`, R8 and resource shrinking
+  included, signed with the debug key because no release key is configured on that machine.
+- **`./gradlew detekt`**: `BUILD SUCCESSFUL in 8s`, all five modules, nothing beyond their
+  baselines.
+- **What the branch touched under `android/`**: the eleven Kotlin files under `datastore/` and
+  `github/` (two modified, nine created), `SettingsRoundTripTest.kt`, `BundleTagsAndRolesTest.kt`
+  and `AppSettingsTest.kt`, and `android/core/data/detekt-baseline.xml`, the only baseline.
+- **The baselines**: 493 entries across the five files, one more than 492 — `:core:data` 202,
+  `:app` 184, `:core:designsystem` 73, `:widget` 21, `:core:model` 13 — most of them `MagicNumber`
+  (218), `ReturnCount` (81) and `MaxLineLength` (65). `docs/build.md`, «detekt», says so.
+- **No document names a moved declaration where it no longer is**: the plan's `git grep` over
+  everything but `docs/history.md` and `docs/specs/` printed nothing.
+- **The server**: no code changed. `test_env_example.py`, `test_ci_paths.py` and
+  `test_schema_version.py`, which read the documents, **22 passed** with `-p no:xdist`, after
+  the documents were written. CI's server job runs the whole suite, because `docs/*.md` and
+  `.claude/*.md` are in its path filter.
+- **CI on the head** is read before the merge.
+
+### What was deliberately left alone
+
+- **Pull request B**: `ManagementViewModel` (its state types, then per-sheet collaborators over
+  shared plumbing) and `SettingsViewModel` (its characterization test, then its collaborators;
+  decision 5).
+- **Pull request C**: `OnboardingScreen`, one file per step, with `OnboardingPromisesTest`'s path
+  and anchor (decision 3); `FloatingToolbar`'s split by concern; and `HomeShell`'s pure rules,
+  with the body left inline (decision 4).
+- **What sub-project 5 rewrites**: the network layer — the Retrofit interfaces, the v1 DTOs, the
+  failure classifiers — and the container's bindings. Nothing here splits or touches them, and
+  `GithubApi.kt` and `GithubDtos.kt` stay as they are.
+- **A seam for the GitHub client.** Making `GithubApi.client` or `API_BASE` injectable, so that a
+  mock server could reach the four classes, is a change rather than a move, and belongs to a pull
+  request of its own if anybody wants it.
+- **detekt with type resolution**, and the 93 rules it would switch on (`docs/build.md`,
+  «detekt»).
+- **The cap anywhere but the command line**: neither `android/gradle.properties`, which CI
+  reads, nor `~/.gradle/gradle.properties`, which no agent opens.
+- **`docs/history.md`'s note** that the tag sweep was written and not run. It is a record of its
+  time; `BundleTagsAndRolesTest` is what answers it now.
+- **Feature Gradle modules and the package cycles**, which the programme rejected for this
+  sub-project.
+- **`repositoryPermissions`' own KDoc**, moved verbatim, which still says a `401` forgets the
+  token «as every other call does». It is older than the split, and `ce03781` corrected only the
+  four sentences the split wrote.
+- **«Twelve» «Сетевой город» regions through the proxy**, in `CLAUDE.md`, `docs/deploy.md`,
+  three lines of this file's sections 5 and 7, and two test comments: the regions served are eleven,
+  since twelve hosts are marked `via_proxy` and Altai's takes no password. This pull request
+  touches none of those lines; a documents pass does.
+
+### What nobody has verified in this batch
+
+- **No test reaches the four GitHub classes.** Their check was the compile, `DeviceFlowPollTest`,
+  the move check and review.
+- **No APK from this branch was installed** on a device or an emulator.
+- **What the workers cap saves is unmeasured.**
+
+### After #428's merge: the merge, the required check, production, #430, and the owner's order
+
+None of this is code in this pull request, and a close-out never gets a close-out of its own,
+so it is written here. The source is the controller's notes of 11 October 2026 and GitHub,
+read the same day.
+
+- **#428 merged by the session** at 15:10:44 UTC on 11 October 2026 as `f26fdb7`, after the five
+  checks on head `6c47cb8`: eight check runs, the new «CI» among them, and the Vercel status, all
+  success; mergeable `CLEAN`; milestone 11; the only comment the Vercel bot's. It closed #423,
+  #424 and #425. Its review, by opus, came back «with fixes»; the fix round, `6c47cb8`, made the
+  close-out true at the merge — #427, #429, #430, and CI's cached legal tests — and the re-review
+  found all of it addressed. Its close-out named itself as the only thing open; this is the SHA
+  it left for the next one.
+- **«CI»'s first real runs were green**: `gates: success success success success success`, on
+  run 38148509706 and on `6c47cb8`'s run. It has not yet met a pull request where «Host» is
+  skipped, which needs one that changes only `android/`.
+- **`main` requires «CI»**: ruleset 24883111, «main: «CI» must pass», created by the session
+  right after the merge with the owner's permission («попытайся сделать сам», 11 October).
+  Enforcement is active, on the default branch; it requires the check «CI» from GitHub Actions
+  (integration 15368, which posted «CI» on `6c47cb8`); the repository admin role may bypass it,
+  always; and strict mode is off, so a branch need not be up to date with `main`.
+- **Production deployed `f26fdb7`: READY**, read from Vercel shortly after 15:11 UTC.
+  `/api/v1/warmup` answered `ok`, schema `0019`, `"v2": true`.
+- **The board**: #423, #424, #425 and #428 are Done, and the three issues are labelled
+  `status:done`.
+- **#430 merged after #428**, as `014b1c0`, from the owner's account at 15:32 UTC on 11
+  October, on milestone 12, from the other session «Политика конфиденциальности и EULA для
+  Дневника». Its branch had merged `main` first (`1590ff3`, «keeping edition 5's legal texts over
+  edition 4's»). It made both legal texts edition 5, effective 2026-10-11, kept #425's Sentry
+  point and the `[SENTRY]` marker (checked on `main`), and closed #429 at 15:32:02 UTC. It wrote
+  no close-out of its own and left that to the next one, which is this. What its description
+  says it did not cover is in section 5 now: no lawyer has read edition 5, nobody has opened it
+  on a phone, and its counts of regions per platform will drift; the separate consent form it
+  did not write is #431.
+- **The owner's order of 11 October**, given after #428 merged: after this pull request and
+  before sub-project 4's B and C, the software is to let any deployment meet 152-ФЗ without
+  changing the code. It is epic #438 on milestone 12, with #431–#437. The owner's position is
+  that the project is impersonal open source: the repository names no operator, and whoever
+  deploys a server is its operator.
+- **#435 is decided: option C**, recorded on the issue the same day. The core runs on a Russian
+  VPS, RUVDS, with PostgreSQL on it, and the bot reaches Telegram through an SSH tunnel to a
+  machine abroad; option B is C with that setting left empty. On 11 October the RUVDS VPS could
+  not open a TCP connection to `api.telegram.org`. The comparison of the options becomes
+  `docs/specs/2026-10-11-data-in-russia-design.md`, and #407's recipe is written for it.
+- **Still open**: #427 (milestone 11), the legal tests restored from the build cache, which this
+  pull request does not touch; #426 and #421 (Backlog).
+- **Stale lines found on `main`**: section 6 of this file named `setup-android` `v4.0.1`, while
+  both workflows pin `v4.0.4` since #166, and the programme design said the workers cap goes in
+  `gradle.properties`; both are corrected here. The «twelve regions» lines are left, as «What was
+  deliberately left alone» says.
+- **Left in place**: the plan workspace `.superpowers/sdd/2026-10-11-android-decomposition-a-plan/`,
+  which git ignores, and the move check and the test counter, in a temporary directory outside
+  the repository.
+
+Section 7's «Next for the programme» says what follows.
+
+## What the session before it added: an event's kind carries «covers the lesson», one required check, and Sentry in the privacy policy (#423, #424, #425)
+
+Merged as #428 (`f26fdb7`, 11 October 2026), from `fix/kind-ci-sentry`, on milestone 11. It
 closes #423, #424 and #425. The branch was cut from `main` at `6354c3d`, the merge of #422, and
 carries one commit per issue and this close-out. Written on 11 October 2026. No revision goes
 with it: the schema stays at `0019`.
@@ -255,7 +463,7 @@ that brief, as draft #430.
   runs its step's script under bash. `CLAUDE.md`, `docs/build.md` («The check `main`
   requires»), `docs/README.md`, `CONTRIBUTING.md`, the `gates` skill and the `build-ci` agent
   say so, and say that `main` requires it through the ruleset that requires it, which the
-  repository admin role can bypass. The ruleset is created on GitHub after this merge.
+  repository admin role can bypass. The ruleset is created on GitHub after #428's merge.
 - **The privacy policy names Sentry, as edition 4** (#425, `f74cbbc`). Edition 3 said there was
   no automatic sending of crash reports from the app or the server, and did not name Sentry,
   which the server has used since #359. «Чего сервер не хранит» now says the app sends no crash
@@ -365,150 +573,10 @@ written here. The source is the controller's notes of 11 October 2026.
   October and kept outside the repository; another session wrote edition 5 of both texts from
   it, draft #430, which closes #429.
 - **Left in place**: the plan workspace `.superpowers/sdd/2026-10-11-diary-routes-plan/`, which
-  git ignores; its rulings are in #422's body and in the section below.
-
-Section 7's «Next for the programme» says what follows.
-
-## What the session before it added: the diaries through the proxy, by region (#406)
-
-Merged as #422 (`6354c3d`, 11 October 2026), from `server/diary-routes`, on milestone 11. It
-closes #406, #419 and #420. The branch was cut from `main` at `a28473e`, the merge of #418, and
-carries the plan, four tasks of code and the documents. Written on 11 October 2026. No
-revision goes with it: the schema stays at `0019`, and the region checks fit `health_checks`'
-32-character names.
-
-The owner decided four things on the morning of 11 October, before a line was written: widen
-the RUVDS Squid ACL to every «Сетевой город» host («Расширить ACL, я разрешаю»), route **by
-region** from what that proxy reaches («По регионам»), give a region's alert a hint on what to
-do («С подсказкой, что делать»), and name the proxy in the privacy policy's «Третьи стороны».
-The plan is `docs/specs/2026-10-11-diary-routes-plan.md` (`032a3c0`), five tasks, each built
-and reviewed before the next.
-
-- **`DIARY_EGRESS` is the deployment's choice of how it reaches the diaries** (`87ff938`,
-  `config.py`): `direct`, `proxy` or `relay`, optional and never a reason to refuse to start.
-  Unset, unusable or `proxy`, it is the proxy where `DIARY_PROXY_URL` is usable and direct
-  otherwise, which is what production already did, so production sets nothing. `direct` sends
-  nothing through the proxy, Petersburg included; `relay` is read as `direct` until the relay
-  exists (#408). The startup log says only what does not take effect as written, and never
-  repeats a value.
-- **The route is a static table, the owner's probe of 11 October** (`87ff938`).
-  `Region.via_proxy` is true for the twelve «Сетевой город» hosts whose school search answered
-  through RUVDS, `Row.via_proxy` for Petersburg, and `registry.route` and `registry.proxy_for`
-  are the one answer to «how does this deployment reach this server». The five password regions
-  that refused the proxy or did not answer — Бурятия, Амурская, Томская, Рязанская, КЧР — stay
-  direct, as every region was before.
-- **#419: the suite no longer reads a developer's proxy** (`87ff938`). `conftest.py` sets
-  `DIARY_PROXY_URL` and `DIARY_EGRESS` empty, because `Settings` reads `server/.env` too and
-  the environment wins only for a name it holds; a proxy in a developer's `.env` would have
-  carried the suite's requests to real regional servers.
-- **Both diary clients take each server's route** (`c191974`). «Сетевой город» keeps two
-  pools, one direct and one through the proxy, and `client_for(region)` picks one on every
-  call — `_send`, `terms_search`, the keep-alive and the bot's school search all go through it;
-  Petersburg's one pool is built with `proxy_for(PETERSBURG)`. `shared_client()` keeps its
-  meaning, the direct pool, so every existing test fake still holds.
-- **v2's `GetDiaryCapabilities` says the route** (`2082f1a`): `DiaryCapabilities.egress = 3`,
-  the deployment's mode as it takes effect, and `ProviderCapabilities.routes = 5`, one
-  `DiaryRoute` per server. Additive, v2 only; v1's answer keeps its shape. No phone reads them
-  yet.
-- **The self-check probes each «Сетевой город» region in use, by its route** (`91087b2`): one
-  `diary_region:<key>` row per region a class is bound to or a live session is on, probed with
-  `GET /webapi/logindata` and the diary client's headers. A refusal or no answer is `failing`;
-  a proxied region that fails while `diary_proxy` fails reads `unknown`, so a dead tunnel is
-  one alert; at most 17 diary probes a tick, all at once inside the checks' budget; a region
-  that leaves use loses its row; `diary_proxy` reads `unknown` under `direct` or `relay`. A
-  «down» and its reminder carry a hint by the route the probe took, and «🩺 Состояние» and
-  `/health` draw a line per region.
-- **#420: a warmup test's class-wide patch no longer depends on fixture teardown order**
-  (`279a369`): Task 4's new autouse fixture flipped the order, and `no_stamp`'s cleanup met the
-  `OperationalError` the test simulated. `80cce89` then made the region-probe fixture fail
-  loudly if its seam ever moves.
-- **The documents and the privacy policy** (`6dd0e74`). `docs/deploy.md` has the routes, the
-  probe's results, the modes and the new monitoring row, including that **a region dropped
-  from use while failing goes silent**, with no «up», which is not a recovery; `docs/diaries.md`,
-  `architecture.md`, `api.md`, `bot.md`, `CLAUDE.md` and the README follow. «Третьи стороны»
-  and «Third parties» each gain one point, the operator's intermediary server in Russia at
-  RUVDS: an HTTP proxy and a TLS tunnel that sees the diary's address and the time, may log
-  them, and never sees a login, a password, a session or a mark. `legal.json` is edition 3,
-  effective 2026-10-11.
-
-### Gates
-
-- **The full suite on SQLite**, at the end of Task 4, `pytest -q -n 4`: **3312 passed, 6
-  skipped**, in 36 min. That is **3318** collected, 78 more than #418's 3240, and the seven
-  places the `handover` skill names say 3318.
-- **The full suite then ran once on PostgreSQL 18**, at `7ee7fda`, with
-  `LESSONS_TEST_DATABASE_URL` and `pytest -q -n 4`: **3311 passed, 7 skipped**, in 3 min 52 s —
-  the seventh is the directory test that is SQLite-only since #418. It covers `80cce89`, the
-  branch's last commit of code before this close-out, which the SQLite full run above also
-  covers.
-- **At this branch's head**, after `80cce89`: ruff clean; mypy, no issues in **240** source
-  files; `test_health.py`, `test_health_tick.py`, `test_diary_egress.py`, `test_diary_proxy.py`
-  and `test_project_screen.py`, **140 passed**; and the tests that read the documents this
-  batch edits — `test_env_example.py`, `test_compose.py`, `test_schema_version.py`,
-  `test_test_imports.py` and `test_ci_paths.py` **28 passed**, `test_deployment_config.py`,
-  `test_rpc_errors.py`, `test_contract_json.py`, `test_roles.py` and `test_database_url.py`
-  **140 passed**.
-- **Android**: the legal tests alone, `./gradlew :core:data:testDebugUnitTest --tests
-  'com.lumenpearson.lessons.core.data.legal.*'`: `LegalDocumentsTest` 11 and `LegalLinksTest`
-  10, all passed, on the privacy texts of edition 3. `:core:data:test` refuses `--tests`,
-  being the aggregate of the two variants. Nothing else under `android/` changed or ran: the
-  count stays **1730**.
-- **The contract**: `diary_pb.py` was re-derived by Buf after the crash below and matched the
-  committed file byte for byte; CI's «Contract» job runs `buf lint`, `buf breaking` and the
-  generated-code check on the push.
-- **CI on the head** is read before the merge.
-
-### What was deliberately left alone
-
-- **The relay (#408)**: `relay` reads as `direct`, and the capabilities never answer
-  `DIARY_EGRESS_RELAY`.
-- **The Android side**: no phone reads `egress` or `routes` yet; that is sub-project 5.
-- **A dynamic fallback**, trying one route and then the other: the owner chose a static table.
-- **The `verified` flags and the APK's bundled region catalog**: the probe answered a school
-  search, not a sign-in, so no region is marked verified.
-- **Probing Petersburg directly under `direct`** (`diary_proxy` reads `unknown` there and
-  nothing asks the city), and «📊 Проект» showing each healthy region's route.
-- **The Squid ACL stays at all nineteen hosts**, the seven direct ones included, so a region
-  can move onto the proxy by one line in `regions.py` with nothing changed on the VPS.
-- **`docs/specs/2026-10-10-deployment-scenarios-design.md`**, a record, is not edited.
-
-### What nobody has verified in this batch
-
-- **A real call through the proxy for any of the eleven newly routed password regions.** Only
-  the school search was asked, by hand, from the VPS; no sign-in, read or keep-alive has taken
-  the route, and whether every path passes through Squid unchanged is unknown.
-- **The region probe from a deployment.** It has run only against `httpx.MockTransport`; the
-  first tick after the merge is its first live run, and which regions production has in use is
-  unknown, possibly none, in which case it draws no region row at all.
-- **The five direct password regions from Vercel's `fra1`**, as before; the new checks will say.
-- **A `CONNECT`**: the tests tell the pools apart through httpx's private
-  `_transport_for_url`, as `test_diary_proxy.py` already did.
-- **The region alert in a real chat**: its hint and reason have been rendered by the tests'
-  sender only.
-
-### After #418's merge: the merge, the ACL, and two crashes
-
-None of this is code in #422, and a close-out never gets a close-out of its own,
-so it is written here. The source is the controller's notes of 11 October 2026.
-
-- **#418 merged by the session** at 08:54 UTC on 11 October 2026 as `a28473e`, after the five
-  checks on `3fc7f54`: CI green (What changed, Server, Host ×2, Vercel and Vercel Preview
-  Comments, with Contract and Android skipped). It closed #411. Its close-out named itself as
-  the only thing open; this is the SHA it left for the next one.
-- **The RUVDS Squid ACL was widened** at 08:21 UTC, on the owner's grant, after a backup to
-  `/etc/squid/squid.conf.before-netschool-20261011T082105Z`: the 19 «Сетевой город» hosts were
-  added, Squid reconfigured, and Petersburg still answered 200 through it. Twelve hosts
-  answered the school search; obr03, obramur, prim-edu, tomedu and edu71 answered a WAF's 403;
-  `e-school.ryazan.gov.ru` and `sgo.kchgov.ru` did not answer.
-- **Squid logs**: `access_log daemon:/var/log/squid/access.log`, line 27 of `squid.conf`,
-  checked at 09:06 UTC. So the privacy text's «и может записать их в свой журнал» stays true.
-- **The development machine crashed twice**: at 11:05 Moscow (`0x7F`, a double fault) and at
-  12:49 Moscow (`0x1A` `0x41792`, PTE `0x4`, the faulty-RAM signature). The second zero-filled
-  this worktree's git index and `COMMIT_EDITMSG` in the middle of Task 3's commit. The index
-  was rebuilt with `git reset`, `git fsck` came back clean, and `diary_pb.py` was re-derived by
-  Buf and matched byte for byte; the worktree, the git directory and `server/.venv` were
-  scanned, and no other file was hit.
-- **Issues filed**: #419 and #420, both on milestone 11, both closed by #422.
+  git ignores; its rulings are in #422's body and in #406's section, in `docs/history.md` now.
+- **Draft #430 merged after #428**, as `014b1c0`, from the owner's account at 15:32 UTC on 11
+  October 2026: edition 5 of both legal texts, which kept #425's Sentry point and closed #429.
+  It wrote no close-out of its own; «After #428's merge», in the section above, records it.
 
 Section 7's «Next for the programme» says what follows.
 
@@ -534,8 +602,8 @@ maps them. The
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418 and #422 (merged) and #428, this pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425 and #427 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415 and #417 (merged) and #430 (a draft, open); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387, #402, #404, #414, #416 and #429 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422 and #428 (merged) and this pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425 and #427 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417 and #430 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387, #402, #404, #414, #416, #429 and #431–#438 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421 and #426; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
@@ -576,21 +644,37 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
+- **Sub-project 4's pull request A has been seen by its tests and its gates only** (this pull
+  request; its section above has the detail).
+  - **No test reaches the four GitHub classes.** `GithubApi`'s HTTP client and `API_BASE` are
+    global, so nothing can point `GithubDeviceFlow`, `GithubPullRequests`, `GithubIssues` or
+    `GithubPermissions` at a mock server; their check was the compile, `DeviceFlowPollTest`, a
+    line-by-line move check and review.
+  - **No APK from this branch has been installed** on a device or an emulator; the assembles are
+    the whole of what was seen of the build.
+  - **What the two-worker cap saves is unmeasured**: nobody has timed a build, or counted
+    crashes, with and without it on the maintainer's machine.
 - **#423, #424 and #425 have been seen only by their tests** (#428; its section above has the
   detail).
   - **The «CI» job has not met a skipped «Host».** #428's run, 38148509706, was green and
     printed `gates: success success success success success`, but every gate ran there; the
-    case the job exists for rests on the test's run of its script under Git Bash, and the
-    ruleset that requires it does not exist until the merge.
+    case the job exists for rests on the test's run of its script under Git Bash. This pull
+    request does not meet it either: it changes documents the server job reads, so «Host»
+    runs. The ruleset that requires «CI», 24883111, exists since #428's merge.
   - **CI did not run the legal parity tests on edition 4** (#427): its «Android» job restored
     `:core:data:testDebugUnitTest` from the build cache. Edition 4's parity rests on a local
     `--rerun` (11 and 10 passed).
   - **No client changes an event's kind yet.** The rule is v2's `UpdateEvent` and nothing calls
     it but the tests until sub-project 5.
-  - **Edition 4 of the privacy policy has not been opened in the app**, and what it says leaves
-    for Sentry is checked against `app/observability.py`, not against an event Sentry received.
-- **#406's routes have been seen only as far as a school search** (#422; its section above has
-  the detail).
+  - **Neither edition 4 nor edition 5 (#430) of the privacy policy has been opened in the app.**
+    Edition 5's parity was held by #430's local `--rerun` and again by this pull request's
+    `test --rerun` on the merged tree, where `:core:data:testDebugUnitTest` ran rather than
+    came from the cache: `LegalDocumentsTest` 11 and `LegalLinksTest` 10, all passed. What
+    either says leaves for Sentry is checked against `app/observability.py`, not against an
+    event Sentry received; no lawyer has read edition 5; and its counts of regions per diary
+    platform are the survey's of September 2026, which will drift as regions move.
+- **#406's routes have been seen only as far as a school search** (#422; its section, in
+  `docs/history.md` now, has the detail).
   - **The twelve proxied regions answered a school search, not a sign-in or a read.** On 11
     October each was asked, by hand from the RUVDS VPS, for `/webapi/schools/search`; no
     sign-in, diary read, period read or keep-alive of the eleven newly routed password regions
@@ -616,7 +700,8 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     `_transport_for_url`, as `test_diary_proxy.py` already did, so an httpx upgrade that renames
     it fails those tests rather than the route.
   - **The full suite ran on PostgreSQL on #422's branch, at `7ee7fda`**: 3311 passed, 7
-    skipped, in 3 min 52 s, covering `80cce89`; its Gates section above has the figures.
+    skipped, in 3 min 52 s, covering `80cce89`; its Gates section, in `docs/history.md` now,
+    has the figures.
   - **The region alert has not reached a real chat**: its hint and reason were rendered by the
     tests' sender only.
 - **The geometry pass (#404), the tray (#415) and «Календарь»'s header (#417) have been seen on
@@ -1145,8 +1230,9 @@ two left alone on purpose is kept below, under «Two things left in Russian on p
 
 ### CI and building the APK
 
-`android-actions/setup-android` is **pinned to `v4.0.1`** and is given
-`packages: platform-tools` — in `ci.yml` and in `apk.yml`. That is not cosmetic: a floating
+`android-actions/setup-android` is **pinned to an exact tag**, `v4.0.4` since #166's bump of
+26 September, and is given `packages: platform-tools` — in `ci.yml` and in `apk.yml`. That is
+not cosmetic: a floating
 `@v4` asks by default for the `tools` package, which Google removed, and `sdkmanager` now
 returns a non-zero code for it. Without the pin, every Android run fails before Gradle
 starts. **Do not remove the pin and do not drop `packages` without checking that the action
@@ -1581,12 +1667,36 @@ first run. Section 5 has what is likeliest to look wrong. If the stretched weekd
 round small FAB read wrong, each goes back in one place: `WeekdayTileGap` and the fit check in
 `CalendarGrids.kt`, and the FAB's `shape` in `DayRibbonView.kt`.
 
-**Next for the programme: sub-project 4, then #407.** Sub-project 3 is complete (#396), its
-live-verification gate ran on the night of 10–11 October, and #406 (#422) and #428 («What
-the last session added») followed it. Sub-project 4, the Android decomposition, is in
-progress on `android/decomposition-a`, pull request A of three, with no pull request yet, per
-`docs/specs/2026-10-05-android-decomposition-design.md`; #407, the host's recipe on a Russian
-VPS, comes after it.
+**Next for the programme: this pull request, then the 152-ФЗ work, then sub-project 4's B and
+C.** Sub-project 3 is complete (#396), its live-verification gate ran on the night of 10–11
+October, and #406 (#422), #428 and #430 followed it. Sub-project 4, the Android decomposition
+per `docs/specs/2026-10-05-android-decomposition-design.md`, has begun with this pull request,
+A of three («What the last session added»). By your order of 11 October, the work that lets
+any deployment meet 152-ФЗ without changing the code, epic #438 on milestone 12, comes between
+A and the rest. In order:
+1. This pull request's merge.
+2. #435's design, option C, as `docs/specs/2026-10-11-data-in-russia-design.md` with your
+   choices and the open questions for a lawyer, and its plan; then #407's recipe for it — the
+   host target on RUVDS with PostgreSQL on the same VPS, and the bot's Telegram calls through
+   an SSH tunnel to a machine abroad. #407 is open on milestone 11, with nothing written for it
+   yet.
+3. #431–#434 and #436–#437: the consent, the retention terms, the invited phones, the diary
+   sign-in on the diary's own side, the legal texts as a template, and the guide for whoever
+   deploys.
+4. Sub-project 4's pull request B — `ManagementViewModel`, and `SettingsViewModel` after its
+   characterization test — and C — `OnboardingScreen`, `FloatingToolbar` and `HomeShell`'s
+   rules.
+
+**The project is impersonal open source, by your position of 11 October**: the repository
+names no operator, and whoever deploys a server is its operator. #436 makes the legal texts a
+template every deployment fills in, and #437 is the guide its operator reads.
+
+**#435 is decided: option C**, recorded on the issue on 11 October. The core runs on a Russian
+VPS, RUVDS, with PostgreSQL on the same VPS, and the bot's calls to Telegram go out through an
+SSH tunnel to a machine abroad, which sees only encrypted bytes; option B is C with that egress
+setting left empty. On RUVDS the egress is required: the same day, the VPS resolved
+`api.telegram.org` but could not open a TCP connection to it — three HTTPS attempts each timed
+out after 15 s — while it reaches Petersburg's diary in about 0.2 s.
 
 **#406 needed nothing set, and production reads it back.** `DIARY_EGRESS` is best left unset
 in Production and Preview alike: on `6354c3d`, `GetDiaryCapabilities` answered that Petersburg
@@ -1596,26 +1706,29 @@ region line, because no region is in use. When one is, a region that reads 🔴 
 second line what to do; one that leaves use while failing simply disappears, which is not a
 recovery (`docs/deploy.md`, «Monitoring»).
 
-**The privacy policy is at edition 4 with #428** (#425), which names Sentry beside the
-intermediary server at RUVDS that edition 3 added (#422). `docs/legal/legal.json` says it takes
-effect on 2026-10-11; if the merge lands on another day, that date is changed to the merge's
-before it. **Edition 5 is a draft, #430**: your brief for a lawyer, written on 11 October 2026
-and kept outside the repository, became a rewrite of both texts by another session, opened at
-14:53 UTC on milestone 12, which closes #429 (what 152-ФЗ asks an operator to publish, the
-eighty-nine regions' diary systems, and when the proxy is used). Your question after #422,
-whether «если из страны, где работает сервер, дневник не отвечает» should be reworded, is being
-answered there. The order is #428 first, then #430 rebased onto edition 4, keeping the Sentry
-point. The RUVDS point says the proxy may log the diary's address and the time, which is true
-while RUVDS's `squid.conf` keeps `access_log` on (line 27, read at 09:06 UTC on 11 October);
-switching it off makes the clause «и может записать их в свой журнал», and its English twin,
-worth taking out with another edition.
+**The privacy policy and the terms are at edition 5** (#430, which closed #429), effective
+2026-10-11, the day it merged. Your brief for a lawyer, written on 11 October 2026 and kept
+outside the repository, became a rewrite of both texts by another session: the shape 152-ФЗ
+asks a published policy to have, the eighty-nine regions' diary systems, the sign-in that
+happens in the diary's own system, and the proxy's route stated as the fixed table it is. That
+last answers your question after #422 about «если из страны, где работает сервер, дневник не
+отвечает». Edition 5 keeps edition 4's Sentry point (#425). Two commitments in it are the
+operator's rather than the code's — answering a request within the statutory ten working days,
+and reporting a breach — and the header comment of `privacy.ru.md` names both, so a fork can
+keep or strike them. #430 asked you to confirm both before its merge, and nothing in the
+repository records whether you did. The RUVDS point now says the proxy writes the diary's
+address and the time to its log, which is true while RUVDS's `squid.conf` keeps `access_log` on
+(line 27, read at 09:06 UTC on 11 October); switching it off makes the clause «и записывает их
+в свой журнал», and its English twin, untrue, to be taken out with another edition.
 
 **The development machine's RAM is still faulty.** It crashed twice on 11 October — at 11:05
 Moscow with a double fault (`0x7F`), and at 12:49 with `0x1A` `0x41792`, the faulty-RAM
 signature, which zero-filled this worktree's git index in the middle of a commit (recovered;
-«After #418's merge» has how). Your fix is to pull the unbranded DIMM pair and run a memtest
-on what remains. Until then a session runs one heavy job at a time, and scans for zero-filled
-files after a crash.
+«After #418's merge», in `docs/history.md` now, has how). Your fix is to pull the unbranded
+DIMM pair and run a memtest on what remains. Until then a session runs one heavy job at a
+time, and scans for zero-filled files after a crash; every Gradle run there carries
+`--max-workers=2` since this pull request wrote it down (`docs/build.md`, «Two workers, on the
+maintainer's machine»).
 
 What the gate could not do is yours: the real diary sign-ins (#121, #343) and a DaData query
 (#120), as before, and now one error sent to Sentry on purpose. Each has a paragraph below.
@@ -1630,12 +1743,14 @@ delivers one would both produce. The DSN is a sensitive Vercel variable that can
 send one from here. One deliberate error on Preview or production, wherever the DSN is set, and
 a look at Sentry settles which it is.
 
-**«CI» becomes the one required check on `main`** (#424, #428), in place of
-«Host (pyvoy)» and «Host (hypercorn)» by name, which would have left every pull request that
-changes only `android/` waiting for ever: a skipped matrix is reported under its unexpanded
-name (`docs/build.md`, «The check `main` requires»). The job needs every gate and passes only
-when each succeeded or was skipped. The ruleset that requires it, with the repository admin
-role able to bypass, is created by the session once #428 merges.
+**«CI» is the one required check on `main`** (#424, #428), in place of «Host (pyvoy)» and
+«Host (hypercorn)» by name, which would have left every pull request that changes only
+`android/` waiting for ever: a skipped matrix is reported under its unexpanded name
+(`docs/build.md`, «The check `main` requires»). The job needs every gate and passes only when
+each succeeded or was skipped. The ruleset that requires it, 24883111, «main: «CI» must pass»,
+was created by the session right after #428's merge, with your permission («попытайся сделать
+сам»): active on the default branch, the check «CI» from GitHub Actions, the repository admin
+role able to bypass it, and strict mode off, so a branch need not be level with `main`.
 
 **Measure one `GetScheduleWindow` on the host's single thread, and decide #400's keep-alive
 before any host deployment.** pyvoy runs the app on one thread; nobody has timed a call under
@@ -1702,9 +1817,9 @@ as operator satisfies 152-ФЗ, the transfer to hosting in Frankfurt, the age li
 consent are questions for a lawyer, and since edition 3 so is the intermediary server at RUVDS
 that the diaries' requests pass through, and since edition 4 Sentry, whose data is kept in
 Germany. Each passage about this deployment sits under a `FORK:` comment.
-`docs/legal/legal.json` is edition 4 with #428 (#425), and draft #430 (#429), written from
-your brief for a lawyer, makes it 5; every change to what the texts say raises it, as the
-`release` skill says.
+`docs/legal/legal.json` is edition 5 since #430 (#429), written from your brief for a lawyer,
+and no lawyer has read it; the questions it leaves for one are listed in #430's description.
+Every change to what the texts say raises the edition, as the `release` skill says.
 
 **`DADATA_TOKEN` now serves a second caller (#120).** The anonymous school directory spends at
 most 4,000 of DaData's 10,000 daily requests. Without the key it answers `503` with
@@ -1898,7 +2013,10 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 3332 tests, ~12 min alone on Windows
 cd server  && python -m mypy                             # clean, 240 modules
-cd android && ./gradlew test                             # 1730 tests across the five modules
+cd android && ./gradlew test                             # 1740 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
+
+On the maintainer's machine every Gradle command carries `--max-workers=2` and runs alone:
+`docs/build.md`, «Two workers, on the maintainer's machine».

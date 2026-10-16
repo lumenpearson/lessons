@@ -736,6 +736,31 @@ The same four values are read from the environment variables `LESSONS_KEYSTORE_F
 `LESSONS_KEYSTORE_PASSWORD`, `LESSONS_KEY_ALIAS` and `LESSONS_KEY_PASSWORD` — which is what
 CI uses.
 
+### Two workers, on the maintainer's machine
+
+The maintainer's Windows machine has faulty memory and has blue-screened under builds and
+test runs since 26 September 2026 — not because memory runs out, but because more pages in
+use meet the bad bit sooner. So there every Gradle run carries one flag, and runs alone:
+
+```bash
+cd android
+./gradlew --max-workers=2 test
+./gradlew --max-workers=2 assembleRelease
+```
+
+- **What it does:** at most two tasks run at once, which is fewer simultaneous peaks.
+- **What it does not do:** cap any memory. The Gradle daemon's 4 GB, the Kotlin daemon,
+  Robolectric's test JVMs and R8 take what they take with it or without it, which is why a
+  Gradle run there is also the only heavy job on the machine — never beside a second Gradle
+  or the full server suite.
+- **Why on the command line.** `android/gradle.properties` is CI's too, and its four-core
+  runners are healthy: one machine's fault would slow every run. `~/.gradle/gradle.properties`
+  holds the signing passwords (above), so no agent opens it, not even to add this line. And
+  the build console ([its design](specs/2026-10-05-build-console-design.md), decision 2) is
+  to pass this one spelling to every Gradle run it starts: its check that its gates are CI's
+  strips this exact spelling off an allow-list that also strips `--console=plain`, and another
+  spelling, such as `-Dorg.gradle.workers.max=2`, would read as a difference from CI.
+
 ### The suite on PostgreSQL
 
 `pytest` runs on SQLite, and production runs on PostgreSQL. So everything the two databases
@@ -858,8 +883,9 @@ argue with how Compose is written rather than with how this code is: `FunctionNa
 and `MagicNumber` does not look inside a `@Preview`. The file gives the reason for each.
 
 **What it forgives.** Each module has a `detekt-baseline.xml` holding the findings the code
-already had when detekt was switched on — 492 entries as the five files stand (#325), most of
-them `MagicNumber` (218), `ReturnCount` (81) and `MaxLineLength` (65). An entry names a rule,
+already had when detekt was switched on — 493 entries as the five files stand (#325, and pull
+request A of the Android decomposition), most of them `MagicNumber` (218), `ReturnCount` (81)
+and `MaxLineLength` (65). An entry names a rule,
 a file and a declaration, so one entry can forgive several findings: when the baselines were
 first written, 576 findings sat under 488 entries, and the findings have not been recounted
 since — that takes a detekt run, and these numbers are a count of the files. They pass; a
