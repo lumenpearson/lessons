@@ -1,0 +1,40 @@
+# The form for Discussions, Q&A. GitHub matches it by file name to the category's slug, q-a.
+# The checkboxes exist because this project's readers are families: a class code or a
+# screenshot of the app publishes a class (CODE_OF_CONDUCT.md, "What is particular").
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A bug goes to an issue, form Bug. A vulnerability goes to [SECURITY.md](https://github.com/lumenpearson/lessons/blob/main/.github/SECURITY.md), never here. Questions in Russian are welcome.
+  - type: dropdown
+    id: asking-as
+    attributes:
+      label: You are asking as
+      options:
+        - A family using the app
+        - Someone who keeps a class in the bot
+        - Someone running a server
+        - Someone building the APK or changing the code
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: The question
+      description: What you did, what you expected, what happened. Quote an error exactly.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: The app's version from «Настройки → О приложении», or the commit your server or APK was built from.
+  - type: checkboxes
+    id: nothing-private
+    attributes:
+      label: Nothing private
+      options:
+        - label: No surname, no class number with its school, no class code or personal code, no calendar link, nothing from an e-diary, and no screenshot showing any of them.
+          required: true
+        - label: Every token, secret, password and database URL is replaced with `<redacted>`.
+          required: true
