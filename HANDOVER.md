@@ -87,7 +87,8 @@ The issues filed since #396 merged:
   sweeps (#432); an invited person's phone number kept only as a hash, and an invitation nobody
   answers dropped (#433); every diary signed in to on the diary's own side, closing the two ways
   a password still reaches the server (#434); a design for how a deployment keeps its data in
-  Russia (#435, decided: option C); the legal texts as a template every deployment fills in,
+  Russia (#435, decided: where a deployment keeps its data is its operator's choice, and option C
+  is the Russian option); the legal texts as a template every deployment fills in,
   naming no operator in the repository (#436); and a guide for whoever deploys a server (#437);
 - #439–#445, filed on 11 October after #430's merge, from what the owner asked and reported
   that day: a recipe for running the server on a machine of one's own (#439, backlog); a beta
@@ -407,8 +408,8 @@ nothing else. No revision goes with the batch: the schema stays at `0019`, and
 - **What the audit found stale outside this file**: the `github-pr` skill's copy of the
   milestone table, which stops far short of the one below, and the KDoc in
   `SchoolDayWithDetails.kt` and `TimetableRepositoryImpl.kt` that still names `replaceAll`.
-  #473 edits `HANDOVER.md` and `docs/history.md` alone, and no issue has been filed for either
-  yet.
+  #473 edits `HANDOVER.md` and `docs/history.md` alone, so both are filed instead: #475 for
+  the skill's table and #474 for the KDoc, on milestone 11.
 
 ### What nobody has verified in this batch
 
@@ -661,7 +662,7 @@ stop well short of this one's (its eleventh at PR #305); this table is the one k
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428 and #451 (merged) and #473, this close-out (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466 and #468 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428 and #451 (merged) and #473, this close-out (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474 and #475 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430 and #472 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467 and #469–#471 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441 and #443; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
