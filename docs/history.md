@@ -28,6 +28,159 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: an event's kind carries «covers the lesson», one required check, and Sentry in the privacy policy (#423, #424, #425)
+
+Merged as #428 (`f26fdb7`, 11 October 2026), from `fix/kind-ci-sentry`, on milestone 11. It
+closes #423, #424 and #425. The branch was cut from `main` at `6354c3d`, the merge of #422, and
+carries one commit per issue and this close-out. Written on 11 October 2026. No revision goes
+with it: the schema stays at `0019`.
+
+All three were filed on 11 October from what #422's review and the owner's questions of that
+day left open. The owner left #423's rule to the session, asked for «Host (pyvoy)» and «Host
+(hypercorn)» to become required, which #424 does another way, and wrote a brief for a lawyer
+the same day, which #425 corrects edition 3 ahead of: another session wrote edition 5 from
+that brief, as draft #430.
+
+- **An event's «covers the lesson» follows its kind until somebody sets it apart** (#423,
+  `92d93cb`). An `UpdateEvent` that turned a trip into a canteen break kept the trip's
+  `covers_lesson`, so the break went on replacing the lessons it overlapped, while a break
+  created as one would not (the 3b-5 list's Ruling 79). The rule now, the session's call of 11
+  October: on an update that changes the kind and does not name `covers_lesson`, a stored value
+  equal to what the **old** kind means becomes what the **new** kind means, and any other is
+  kept, because somebody decided it for this event; a `covers_lesson` named in the same update
+  always wins, and `None` there is what the new kind means, as before. It lives in
+  `services/events.update`. Only v2 changes a kind: v1's `PUT /events` always creates and the
+  bot's «📅 Событие» only creates, so neither needed a change. `event.proto`'s comment on
+  `UpdateEvent` says the rule, Buf regenerated `event_connect.py`'s four docstrings and nothing
+  else, and `docs/api.md` says it beside the masked-field rule.
+- **One summary check, «CI», for a ruleset to require** (#424, `9883f2d`). `ci.yml` ends with a
+  job that needs every other one, runs `if: always()`, and passes only when each succeeded or
+  was skipped. The gates are not required by their own names because «Host» is a matrix: a job
+  its `if:` skips is reported once, under the unexpanded `Host (${{ matrix.server }})`, so a
+  required «Host (pyvoy)» would never arrive on a pull request that changes only `android/`.
+  `server/tests/test_ci_required.py` holds the job's `needs` to every other job in the file and
+  runs its step's script under bash. `CLAUDE.md`, `docs/build.md` («The check `main`
+  requires»), `docs/README.md`, `CONTRIBUTING.md`, the `gates` skill and the `build-ci` agent
+  say so, and say that `main` requires it through the ruleset that requires it, which the
+  repository admin role can bypass. The ruleset is created on GitHub after #428's merge.
+- **The privacy policy names Sentry, as edition 4** (#425, `f74cbbc`). Edition 3 said there was
+  no automatic sending of crash reports from the app or the server, and did not name Sentry,
+  which the server has used since #359. «Чего сервер не хранит» now says the app sends no crash
+  report by itself and the server, if its operator set it up so, sends reports of its own errors
+  to Sentry without personal data; «Третьи стороны» has a Sentry point after the hosting —
+  the error's type, the place in the code, the route, the server's version and how long some
+  requests took leave; requests' contents, headers and parameters, your data and your IP address
+  never do; this operator's Sentry data is kept in Germany (`de.sentry.io`). Each claim was
+  checked against `app/observability.py`, and the 5 % sample of timings is why the text says
+  «на часть запросов». The English twin matches block for block. The FORK comment gains
+  `[SENTRY]`. `legal.json` is edition 4, effective 2026-10-11, and `docs/deploy.md`'s Sentry
+  section says the policy names it.
+- **Two documents' nits from #422** (this close-out): «Петербург» in `docs/api.md`'s English
+  prose is Petersburg, and the milestone table's backlog row names #421 and #426.
+
+### Gates
+
+- **The full suite on PostgreSQL 18**, at `f74cbbc`, the last commit of code, with
+  `LESSONS_TEST_DATABASE_URL` and `pytest -q -n 4`: **3325 passed, 7 skipped**, in 3 min 59 s.
+  That is **3332** collected, twelve more than #422's 3320 — five for #423 and seven for #424 —
+  and the seven places the `handover` skill names say 3332. The SQLite suite is CI's, on this
+  pull request.
+- **ruff** clean; **mypy**, no issues in **240** source files.
+- **The tests first, seen failing.** #423: the two service tests that change a kind alone and
+  the v2 test through `UpdateEvent` failed on the old rule (`(200, True) == (200, False)`); the
+  two that hold a value set apart and a value named beside the kind passed either way, as they
+  should. #424: all seven of `test_ci_required.py` failed with `KeyError: 'ci'` before the job
+  existed.
+- **The focused runs.** `test_services_homework_events.py`, `test_v2_event_writes.py`,
+  `test_v2_events.py`, `test_api_extended.py` and `test_contract.py`, **137 passed**;
+  `test_contract.py`, `test_contract_json.py` and `test_contract_mirror.py`, **98 passed**;
+  `test_ci_required.py`, `test_ci_paths.py`, `test_host_job.py`, `test_env_example.py` and
+  `test_schema_version.py`, **33 passed, 1 skipped** (the host-live check); and
+  `test_schema_version.py`, `test_corrections_per_child_revision.py`,
+  `test_deployment_config.py` and `test_observability.py`, **82 passed**.
+- **Buf 1.73.0**: `buf lint` clean; `buf generate` changed `event_connect.py`'s four docstrings
+  and nothing else; `buf breaking` against `6354c3d` printed nothing. CI's «Contract» job runs
+  all three on the push.
+- **Android**: the legal tests alone, `./gradlew :core:data:testDebugUnitTest --rerun --tests
+  'com.lumenpearson.lessons.core.data.legal.*'`: `LegalDocumentsTest` 11 and `LegalLinksTest`
+  10, all passed, on edition 4. The first run without `--rerun` was restored from the build
+  cache, because the task does not declare `docs/legal/` as an input, so it proved nothing
+  (#427). **CI's run was restored from the cache as well**: #428's «Android» job (run
+  38148509706) logged `:core:data:testDebugUnitTest FROM-CACHE`, because
+  `android/gradle.properties` sets `org.gradle.caching=true` and `setup-gradle` restores the
+  cache. So CI never ran the parity tests on edition 4, and edition 4's parity rests on this
+  local `--rerun`. Nothing else under `android/` changed: the count stays **1730**.
+- **CI on the head** is read before the merge.
+
+### What was deliberately left alone
+
+- **v1 and the bot's event flows**: neither changes an event's kind, so the rule has nowhere
+  else to go. An event created with `covers_lesson` set to what its kind means anyway cannot be
+  told from one that took the default, so it follows its kind like any other.
+- **The ruleset itself**: it is created on GitHub by the session after the merge, and nothing in
+  the repository can check that it exists. The summary job's `if: always()` also judges a run
+  cancelled by a newer push, which then reads red on a superseded commit; that is a run nobody
+  merges.
+- **Sentry's retention period** is not stated in the policy. What the owner's brief for a
+  lawyer asks for is draft #430's, edition 5.
+- **The proxy point's «если из страны, где работает сервер, дневник не отвечает»**: the owner
+  asked after #422 whether edition 4 should reword it. #425 did not touch it; #429 names it,
+  and draft #430 answers it in edition 5.
+- **`.claude/settings.json`**: the owner's two allow lines are in the session's working tree,
+  not in #428, since a session does not edit its own permissions.
+
+### What nobody has verified in this batch
+
+- **The «CI» job on a pull request that skips «Host».** #428's own run, 38148509706, was its
+  first and was green — it printed `gates: success success success success success` — but every
+  gate ran there, so the case the job exists for, a matrix its `if:` skipped, has not been met
+  on GitHub; that half rests on the test's run of the script under Git Bash.
+- **The legal parity tests on CI** (#427): #428's «Android» job restored them from the build
+  cache, so they did not run there on edition 4.
+- **The event rule from a client**: no phone calls `UpdateEvent` yet (sub-project 5).
+- **Edition 4 in the app**: nobody has opened the bundled sheet or the link on a phone.
+- **An error event in Sentry**, as before: what edition 4 says leaves is checked against the
+  code, not against an event Sentry received.
+
+### After #422's merge: the merge, production, and the owner's answers
+
+None of this is code in #428, and a close-out never gets a close-out of its own, so it is
+written here. The source is the controller's notes of 11 October 2026.
+
+- **#422 merged by the session** at 13:48:33 UTC on 11 October 2026 as `6354c3d`, after the
+  five checks on head `f395971`: seven check runs and the Vercel status, all success;
+  mergeable `CLEAN`; milestone 11; the only comment the Vercel bot's. It closed #406, #419 and
+  #420. Its close-out named itself as the only thing open; this is the SHA it left for the next
+  one.
+- **Production deployed `6354c3d`: READY.** `/api/v1/warmup` answered
+  `{"status":"ok","api_version":1,"schema":"0019","v2":true}`, and `GET
+  /api/v2/diary/capabilities` answered `200` with `egress: DIARY_EGRESS_PROXY`: Petersburg
+  through the proxy, and of «Сетевой город» zabaikalsky, kamchatka, leningrad, ingushetia, komi,
+  mari-el, mordovia, yakutia, samara, sakhalin and ulyanovsk through it, amur, kchr, buryatia,
+  ryazan and tomsk direct.
+- **The production bot's «📊 Проект»**, read at 17:02 Moscow: commit `6354c3d`, all four checks
+  ✅, the proxy answering in 450 ms, no region line because no region is in use, one class and
+  two accounts. That settles the one look at «🩺 Состояние» `HANDOVER.md`'s section 7 asked for
+  after the merge.
+- **The board**: #406, #419, #420 and #422 are Done, and the issues are labelled `status:done`.
+  #421 is in the backlog (Someday, P2, S).
+- **The owner's answers of 11 October**, which `HANDOVER.md`'s section 7 now carries: Android
+  Studio was restarted; the two `pytest` allow lines were added to `.claude/settings.json`, and
+  the `deny` for `~/.gradle/gradle.properties` was not, by choice; rotating the release signing
+  passwords is not important; #144 is decided, no default server, a server being chosen when
+  the app is built, through the build console (sub-project 6); #423's rule was left to the
+  session; and the required checks became #424. The owner also has a brief for a lawyer,
+  written on 11 October and kept outside the repository; another session wrote edition 5 of
+  both texts from it, draft #430, which closes #429.
+- **Left in place**: the plan workspace `.superpowers/sdd/2026-10-11-diary-routes-plan/`, which
+  git ignores; its rulings are in #422's body and in #406's section, in `docs/history.md` now.
+- **Draft #430 merged after #428**, as `014b1c0`, from the owner's account at 15:32 UTC on 11
+  October 2026: edition 5 of both legal texts, which kept #425's Sentry point and closed #429.
+  It wrote no close-out of its own; «After #428's merge», in the section on sub-project 4's
+  first pull request (#451), records it.
+
+`HANDOVER.md`'s section 7, «Next for the programme», says what follows.
+
 ## What the batch before added: the diaries through the proxy, by region (#406)
 
 Merged as #422 (`6354c3d`, 11 October 2026), from `server/diary-routes`, on milestone 11. It
@@ -9027,3 +9180,32 @@ Germany. Each passage about this deployment sits under a `FORK:` comment.
 `docs/legal/legal.json` is edition 4 with #428 (#425), and draft #430 (#429), written from
 your brief for a lawyer, makes it 5; every change to what the texts say raises it, as the
 `release` skill says.
+
+## Moved out of section 5 on 16 October 2026, after #451, #452 and #472
+
+«CI» has met a skipped «Host» on GitHub's runners since #428 merged, in both directions:
+dependabot's Android-only #449 and #450 ran on 13 October with «Server (API + bot)», «Host»
+and «Contract (Buf)» skipped and «CI» passed (runs 38484096532 and 38484136922), and on #446 a
+failed «Server (API + bot)» failed «CI» (run 38483411159). So `HANDOVER.md`'s section 5 no
+longer says the job has not met that case. As the sub-bullet stood until then, under «#423,
+#424 and #425 have been seen only by their tests», where «this pull request» was sub-project
+4's pull request A, #451:
+
+  - **The «CI» job has not met a skipped «Host».** #428's run, 38148509706, was green and
+    printed `gates: success success success success success`, but every gate ran there; the
+    case the job exists for rests on the test's run of its script under Git Bash. This pull
+    request does not meet it either: it changes documents the server job reads, so «Host»
+    runs. The ruleset that requires «CI», 24883111, exists since #428's merge.
+
+## Moved out of section 7 on 16 October 2026, after #451, #452 and #472
+
+The owner chose the launcher icons on 10 October and #403 (`00fb20e`) shipped the choice, so
+the paragraph left `HANDOVER.md`'s section 7, which shrinks when the owner does one of its
+items. The one thing in it still open, the reconcile nobody has watched on a device, went into
+the walk of the launcher icon that stays there. As the paragraph stood until then:
+
+**The launcher icons were chosen (#388): done on 10 October 2026.** The owner kept «Классика» and
+«AMOLED», eight palettes each, and the other six styles were taken out: forty-eight catalog lines,
+aliases and 192 resources. `android/logo/export_android.py` now writes only the kept styles. A
+phone that had chosen a removed icon is moved back to «Классика · Мята» by the reconcile on the
+update. That has not yet been seen on a device.
