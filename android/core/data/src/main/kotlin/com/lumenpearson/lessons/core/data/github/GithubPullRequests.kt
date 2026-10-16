@@ -262,9 +262,9 @@ internal class GithubPullRequests(
     /**
      * A GET returning the body, or `null` for anything that is not a 200.
      *
-     * A 401 clears the token for the same reason [GithubIssues.fileIssue] does: GitHub no
-     * longer honours it, and kept, it would fail this way on every later try
-     * while the row still said "signed in".
+     * A 401 clears the token for the same reason [GithubIssues.fileIssue] does:
+     * GitHub no longer honours it, and kept, it would fail this way on every
+     * later try while the row still said "signed in".
      */
     private suspend fun get(token: String, url: String): String? {
         val request = GithubApi.apiRequest(url, userAgent)

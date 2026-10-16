@@ -758,8 +758,8 @@ cd android
   holds the signing passwords (above), so no agent opens it, not even to add this line. And
   the build console ([its design](specs/2026-10-05-build-console-design.md), decision 2) is
   to pass this one spelling to every Gradle run it starts: its check that its gates are CI's
-  strips exactly this flag, and another spelling, such as `-Dorg.gradle.workers.max=2`,
-  would read as a difference from CI.
+  strips this exact spelling off an allow-list that also strips `--console=plain`, and another
+  spelling, such as `-Dorg.gradle.workers.max=2`, would read as a difference from CI.
 
 ### The suite on PostgreSQL
 

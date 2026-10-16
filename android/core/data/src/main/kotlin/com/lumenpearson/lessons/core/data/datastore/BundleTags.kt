@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.datastore
 
+import com.lumenpearson.lessons.core.data.repository.AppSettings
 import kotlinx.coroutines.flow.first
 
 /**

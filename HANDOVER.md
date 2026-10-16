@@ -290,10 +290,11 @@ widened from `private` to `internal` is the plan's «What is widened» table and
   lazy user agent; `TAG`, `HTTP_CREATED` and `HTTP_UNAUTHORISED` are internal and top-level,
   because four files read them. The repository builds the four and delegates, and `signOut`
   still cancels the flow, then clears.
-- **Its detekt findings moved with it** (`d4aa77a`): 201 entries become 202. Eight moved; the
+- **Its detekt findings moved with it** (`d4aa77a`): 201 entries become 202. Seven moved; the
   one `TooGenericExceptionCaught` for `Throwable` became three, one per class its three catch
-  sites went to; and the repository's `TooManyFunctions` is gone, as the design expected, since
-  it keeps six functions.
+  sites went to; the eighth, `TooGenericExceptionCaught …$failure: Exception`, stayed in
+  `GithubRepositoryImpl.kt` with `signOut`; and the repository's `TooManyFunctions` is gone, as
+  the design expected, since it keeps six functions.
 - **The comments say which collaborator reads the token and which forgets it on a `401`**
   (`ce03781`), from Task 9's review: the device flow writes the token and never reads or clears
   it, and the pull requests read it once and clear it only on a `401` that `get` receives. Four
