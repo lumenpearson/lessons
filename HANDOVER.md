@@ -298,7 +298,7 @@ widened from `private` to `internal` is the plan's «What is widened» table and
   (`ce03781`), from Task 9's review: the device flow writes the token and never reads or clears
   it, and the pull requests read it once and clear it only on a `401` that `get` receives. Four
   KDoc sentences, and no line of code.
-- **The counts, the documents and this close-out** (this commit): 1738 Android tests in the four
+- **The counts, the documents and this close-out** (this commit): 1740 Android tests in the four
   places that carry the Android count, a row in `docs/architecture.md`'s test table for the two
   new tests, `docs/build.md`'s baseline totals recounted from the five files, and the programme
   design's line on the workers cap pointed at `docs/build.md`.
@@ -312,9 +312,9 @@ On the merged tree at `ce03781`, from `android/`, each alone and in that order, 
   follows, and in an Android module `test` is the aggregate, so
   `:core:designsystem:testDebugUnitTest`, whose inputs had not changed, still came `FROM-CACHE`;
   it was run again alone with `--rerun`, `BUILD SUCCESSFUL in 21s`. Counted from the JUnit
-  reports: `:core:model` 125, `:core:data` 623, `:core:designsystem` 196, `:widget` 126, `:app`
-  668, **1738**, every failure and error 0. That is eight more than 1730, all in `:core:data`:
-  three in `SettingsRoundTripTest` and five in `BundleTagsAndRolesTest`. The legal parity
+  reports: `:core:model` 125, `:core:data` 625, `:core:designsystem` 196, `:widget` 126, `:app`
+  668, **1740**, every failure and error 0. That is ten more than 1730, all in `:core:data`:
+  five in `SettingsRoundTripTest` and five in `BundleTagsAndRolesTest`. The legal parity
   tests ran in it on edition 5 (`LegalDocumentsTest` 11, `LegalLinksTest` 10).
 - **`./gradlew assembleDebug`**: `BUILD SUCCESSFUL in 16s`.
 - **`./gradlew assembleRelease`**: `BUILD SUCCESSFUL in 1m 56s`, R8 and resource shrinking
@@ -2012,7 +2012,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 3332 tests, ~12 min alone on Windows
 cd server  && python -m mypy                             # clean, 240 modules
-cd android && ./gradlew test                             # 1738 tests across the five modules
+cd android && ./gradlew test                             # 1740 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
