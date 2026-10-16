@@ -4,16 +4,16 @@ version = "0.1.0"
 description = "API + Telegram admin bot for the Lessons school diary app"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.142.2",
+    "fastapi>=0.143.0",
     "uvicorn[standard]>=0.30",
     # 3.31 is the floor, not a preference: it is the first release to carry
     # Bot API 9.3's ``InlineKeyboardButton.style``, and on anything older every
     # coloured keyboard in ``app/bot/button_style.py`` raises at construction
     # rather than quietly drawing grey. requirements.txt already said 3.31.
     "aiogram>=3.31.0",
-    "sqlalchemy[asyncio]>=2.1.2",
+    "sqlalchemy[asyncio]>=2.1.4",
     "aiosqlite>=0.20",
-    "asyncpg>=0.31.0",
+    "asyncpg>=0.32.0",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     # The container both shells draw a session from (app/di.py). Wanted for
