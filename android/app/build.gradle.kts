@@ -187,8 +187,34 @@ val legalBaseUrl: String =
  * definition. They live here rather than in the source because they change
  * every build, and a source file that changed every build would make every
  * build a dirty tree.
+ *
+ * The repository is more than a badge (#469): the update check, the bug report,
+ * the guide, a translation's pull request, the developer mode's question and
+ * «Исходный код» are all built from it (`GithubProject` in :core:data), so a
+ * fork's APK, which `apk.yml` tells its own repository, offers the fork's
+ * releases and files in the fork's tracker. Empty means this repository there,
+ * and still no badge. Anything that is not `owner/name` — GitHub's own shape
+ * for `github.repository` — stops the build: it becomes the path of every one
+ * of those addresses, and buildConfigField splices it into Java source, where a
+ * stray quote is a compile error minutes later instead of this sentence now.
  */
-val buildRepository = signingSecret("LESSONS_BUILD_REPOSITORY", "lessons.build.repository") ?: ""
+val buildRepository: String =
+    (signingSecret("LESSONS_BUILD_REPOSITORY", "lessons.build.repository") ?: "").trim().also { raw ->
+        // GitHub's shape: the owner letters, digits and inner hyphens, the name
+        // those with dots and underscores — but never dots alone, because `.`
+        // and `..` walk the path. GithubProject.fromBuild applies the same
+        // rule, and BuildPropertyReachTest runs this very pattern against it.
+        val ownerSlashName =
+            Regex("[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?/[A-Za-z0-9._-]*[A-Za-z0-9_-][A-Za-z0-9._-]*")
+        if (raw.isNotEmpty() && !ownerSlashName.matches(raw)) {
+            throw GradleException(
+                "LESSONS_BUILD_REPOSITORY / lessons.build.repository is \"$raw\"; it must be " +
+                    "the repository the APK belongs to as owner/name, like lumenpearson/lessons, " +
+                    "or empty. See docs/build.md.",
+            )
+        }
+    }
+
 val buildRef = signingSecret("LESSONS_BUILD_REF", "lessons.build.ref") ?: ""
 val buildCommit = signingSecret("LESSONS_BUILD_COMMIT", "lessons.build.commit") ?: ""
 val buildNumber = signingSecret("LESSONS_BUILD_NUMBER", "lessons.build.number") ?: ""

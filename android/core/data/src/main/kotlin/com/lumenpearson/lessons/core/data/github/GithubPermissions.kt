@@ -19,6 +19,7 @@ import kotlinx.serialization.SerializationException
 internal class GithubPermissions(
     private val preferences: GithubPreferences,
     userAgent: Lazy<String>,
+    private val project: GithubProject,
 ) {
 
     private val userAgent: String by userAgent
@@ -47,7 +48,7 @@ internal class GithubPermissions(
     }
 
     private suspend fun askPermissions(token: String, login: String): PermissionsAnswer {
-        val request = GithubApi.apiRequest(GithubApi.repoUrl(""), userAgent)
+        val request = GithubApi.apiRequest(GithubApi.repoUrl(project, ""), userAgent)
             .header("Authorization", "Bearer $token")
             .get()
             .build()

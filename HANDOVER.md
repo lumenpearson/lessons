@@ -11,28 +11,32 @@ Last updated: **17 October 2026**. **PRs #63 through #85, #128, #129, #133, #134
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
 #313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363, #366, #372,
 #376, #379, #380, #385, #388, #392, #394, #396, #398, #399, #403, #410, #413, #415, #417, #418,
-#422, #428, #430, #446–#452 and #472 are merged**, and #344's commit went in with #366 although
-GitHub marks it closed rather than merged; `main` is at `a1135d5`, the merge of #472 at 20:23:57
-UTC on 16 October 2026, which points questions and ideas at the new Discussions. Before it, the
-same day, #451 merged at 17:32:10 UTC as `8564b09` and #452 at 19:46:14 UTC as `2d6fb4f`;
-#446–#450, dependabot's five, went in through #452's branch, and GitHub closed them as merged by
-itself.
+#422, #428, #430, #446–#452, #472, #473, #539, #609 and #610 are merged**, and #344's commit
+went in with #366 although GitHub marks it closed rather than merged; `main` is at `b167b73`,
+the merge of #610 at 12:16:03 UTC on 17 October 2026, which runs a JVM test again when a file it
+reads from the tree changes. Before it, the same day: #473, the close-out of 16 October, merged
+at 10:33:03 UTC as `a5fb054`, the SHA that close-out left for this one to write; #539, thirteen
+document defects, at 12:05:22 UTC as `79af3d0`; and #609, every heavy effect off under battery
+saver, at 12:15:53 UTC as `8abf45f`. GitHub's commit status read «Vercel: success» on all four.
+On 16 October #451 merged as `8564b09`, #452 as `2d6fb4f` and #472 as `a1135d5`; #446–#450,
+dependabot's five, went in through #452's branch, and GitHub closed them as merged by itself.
 **Sub-project 3 is complete** with #396 (`80d1281`), **and its live-verification gate has
 run**, as far as a session can take it: the condition the owner set on 8 October before
 sub-project 4, checked on the development machine on the night of 10–11 October. **The four
 designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered every question
 with its recommendation on 5 October (#301, #306, #307, #308), and #410 added a seventh
 sub-project and six deployment scenarios to the programme. **Sub-project 4's pull request A is
-in `main` (#451), and the only thing open is this file's own pull request, #473**, a draft from
-`docs/handover-2026-10-16` to `main` on milestone 11, which carries this close-out and the
-refresh of the rest of this file, and nothing else: once #472 had merged, the owner asked for
-this file to go in a pull request of its own.
+in `main` (#451), and the only thing open is this file's own pull request, #622**, a draft from
+`android/report-target-469` to `main` on milestone 12, which carries #469's and #458's fixes
+and this close-out: an APK talks to the GitHub repository its build names, and the app's bug
+reports are marked by a line of their body rather than by a label.
 
 **`dev` is not level, and it is not where the work happens**: it has stood at `8d779ef`, #342's
-merge, since 5 October, 294 commits behind `main` and holding nothing `main` lacks, and no pull
+merge, since 5 October, 325 commits behind `main` and holding nothing `main` lacks, and no pull
 request has come from it since #267 on 3 October. The `github-pr` skill still names it, so the
 branch cleanup of 16 October kept it; «How to continue», at the end of section 8, says how a
-batch starts either way.
+batch starts either way. The remote holds `main`, `dev`, `pending/recovered-designs` and
+`android/report-target-469` (#622); the branches of #473, #539, #609 and #610 are gone.
 
 **`main` requires one check now**, «CI», through ruleset 24883111, which the session created
 after #428's merge with the owner's permission; the repository admin role may bypass it.
@@ -42,10 +46,10 @@ code (epic #438, milestone 12). Section 7's «Next for the programme» has the o
 
 **The schema did not move**: the head is still `0019`, on production since 16:28 UTC on 6
 October, and `EXPECTED_REVISION` did not move either. GitHub's commit status read «Vercel:
-success» on all three merges of 16 October, `8564b09`, `2d6fb4f` and `a1135d5`, and the
-`/api/v1/warmup` of the deployment this repository's maintainer runs for testing, read at 20:46
-UTC that day, answered `ok` with schema `0019` and `"v2": true`; which commit it was serving was
-not read.
+success» on all four merges of 17 October, `a5fb054`, `79af3d0`, `8abf45f` and `b167b73`, and
+the `/api/v1/warmup` of the deployment this repository's maintainer runs for testing, read at
+18:37 UTC that day, answered `ok` with schema `0019` and `"v2": true`; which commit it was
+serving was not read.
 
 The issues filed since #396 merged:
 - #402, closed by #403;
@@ -73,9 +77,10 @@ The issues filed since #396 merged:
   reports, and it sends them to Sentry;
 - #426, open in the backlog: the owner's request of 11 October to open the privacy policy and
   the terms in the app's own WebView rather than another app, recorded for later;
-- #427, open on milestone 11, filed during #428's review: the legal tests read `docs/legal`
+- #427, on milestone 11, filed during #428's review: the legal tests read `docs/legal`
   outside Gradle's inputs, so a run after an edit can be restored from the build cache and read
-  nothing, and CI's run on #428 was. Nothing since #430 has touched `docs/legal/`;
+  nothing, and CI's run on #428 was. #610 closed it on 17 October: every module's `Test` tasks
+  now declare the files their tests read from the tree;
 - #429, on milestone 12, opened from the owner's account by another session: the privacy
   policy and the terms did not say what 152-ФЗ asks an operator to publish, named two diary
   systems of the eighty-nine regions', and mis-stated when the proxy is used. #430 closed it,
@@ -104,15 +109,21 @@ The issues filed since #396 merged:
   battery saver or not and an economy mode that keeps the heavy effects off;
 - #457–#471, fifteen issues found on 16 October while the Discussions were drafted, thirteen
   defects and two chores (#460 and #471): ten on milestone 12 and five on milestone 11.
-  «What the last session added» names each. #457 closed on 17 October, when private
+  «What the session before it added» names each. #457 closed on 17 October, when private
   vulnerability reporting was switched on by the owner's word and read back
-  `{"enabled":true}`; the other fourteen are open;
-- #474 and #475, filed on 16 October by the audit behind #473, open on milestone 11: comments
-  and KDoc in the timetable cache still name `TimetableDao.replaceAll` (#474), and the
-  `github-pr` skill's milestone table stops at the pull requests of early October (#475);
-- #476, filed on 17 October, open on milestone 12: under battery saver «Размытие под шторкой»
-  reads on while no blur is drawn, nothing says why, and the other three heavy effects ignore
-  battery saver. #445 is built on it.
+  `{"enabled":true}`; #459–#468 and #470 closed with #539 the same day; #458 and #469 close
+  with #622, this file's pull request; and #471, a chore, is open;
+- #474 and #475, filed on 16 October by the audit behind #473, on milestone 11: comments
+  and KDoc in the timetable cache still named `TimetableDao.replaceAll` (#474), and the
+  `github-pr` skill's milestone table stopped at the pull requests of early October (#475).
+  Both closed with #539;
+- #476, filed on 17 October, on milestone 12: under battery saver «Размытие под шторкой»
+  read on while no blur was drawn, nothing said why, and the other three heavy effects ignored
+  battery saver. #609 closed it the same day, and #445 is built on it.
+
+Most numbers from #477 to #621 are Discussions rather than issues or pull requests: 135
+questions answered in «❓ Q&A», between #477 and #620, and their index, #621, in
+«📣 Announcements» («What the last session added»). No issue was filed on 17 October but #476.
 
 #395 closed with #396 and #397 with #399; #400 (backlog) and #401 (milestone 11), filed by 3c,
 are open. #352, #355, #357, #365, #368, #371, #375, #377, #378, #384 and #391 stay as the last
@@ -121,11 +132,13 @@ confirmed live on 10 October against a local server on PostgreSQL — `GetClass`
 answered `200` with none, and its REST twin `private, no-store`. #365's diary reads are to move
 onto the phone after sub-project 3. #118, what Preview is for, was closed by #350.
 
-The section «What the last session added» below is this batch: #451's merge, #452's five bumps,
+The section «What the last session added» below is this batch: #473's merge, #539's thirteen
+document defects, #609's battery saver, #610's test inputs, #622's repository and report line,
+the FAQ in Discussions, and #445 rewritten over #476.
+«What the session before it added» is the batch of 16 October: #451's merge, #452's five bumps,
 the branches pruned, Discussions set up and #472 pointing at them, the fifteen issues, and the
-audit that brought the rest of this file up to date.
-«What the session before it added» is sub-project 4's first pull request, #451, with #428's and
-#430's merges in its «After #428's merge». #428's section, #423, #424 and #425, is in
+audit that brought the rest of this file up to date. Sub-project 4's first pull request, #451,
+with #428's and #430's merges in its «After #428's merge», is in
 [docs/history.md](docs/history.md) now.
 
 The SHA of its own merge is for the next close-out to write.
@@ -265,7 +278,159 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: #451 merged, five dependency bumps in #452, the branches pruned, Discussions opened and pointed at (#472), fifteen issues filed, and this file brought up to date
+## What the last session added: thirteen documents corrected (#539), heavy effects off under battery saver (#609), the JVM tests' inputs declared (#610), the build's own repository and a line on the app's reports (#622), and 135 answers in Discussions
+
+Written on 17 October 2026 and carried by #622, a draft from `android/report-target-469` to
+`main` on milestone 12, which holds #469's and #458's fixes and this close-out. No revision goes
+with the batch: the schema stays at `0019`, and `EXPECTED_REVISION` with it.
+
+- **The close-out of 16 October is in `main`** (#473): merged at 10:33:03 UTC as `a5fb054`,
+  pinned to head `25adabf`, on milestone 11. It carried that batch's close-out and the refresh of
+  the rest of this file — 75 audit changes, and a review's fix round. It named itself as the only
+  thing open, and `a5fb054` is the SHA it left for this one to write.
+- **Thirteen documents say what the code does** (#539): merged at 12:05:22 UTC as `79af3d0`,
+  pinned to head `bd43d7c`, on milestone 11. It closed #459–#468, #470, #474 and #475, in a commit
+  per issue but for #461 and #467, which share one:
+  - `docs/deploy.md` tells a self-hoster that the release APK needs an `https://` address in
+    front of compose, rather than the server's plain local one (#459);
+  - the README sends a reader to the «APK» workflow on `main` rather than to CI artifacts (#460);
+  - the documents say what the GitHub client id really switches off, and that both secrets
+    `apk.yml` reads are set (#461, #467);
+  - the issue forms and SECURITY.md name every provider the app ships (#462);
+  - `CONTRIBUTING.md` and `CODEOWNERS` say production is at `0019`, `test_schema_version` now
+    reads both, and `ci.yml`'s path filter gained them (#463);
+  - `docs/deploy.md` names `SENTRY_DSN` and `GITHUB_READ_TOKEN` among the settings compose
+    hands the server, and a new `test_compose` test holds the list (#464);
+  - SECURITY.md describes the app's two network configurations and the debug key as they are
+    (#465);
+  - the README says that linking gives the app the account's role, not «makes it an editor»
+    (#466);
+  - `docs/deploy.md` says which unreadable `OWNER_IDS` stops a deployment and which passes in
+    silence (#468);
+  - Vercel is no longer called the free way to serve a class, and Hobby is described as
+    non-commercial, with an allowance (#470);
+  - the timetable cache's comments name `replaceWindow` where they named `replaceAll` (#474);
+  - the `github-pr` skill's milestone table sends its reader to this file's for what each
+    milestone holds (#475).
+
+  The server's tests went from 3332 to 3333, the one new test being `test_compose`'s.
+- **Every heavy effect is off under battery saver, and each settings row says what is drawn**
+  (#609): merged at 12:15:53 UTC as `8abf45f`, pinned to head `6d69fc6`, on milestone 12, closing
+  #476. `LocalPowerSaveMode` and `ProvidePowerSaveMode`, in `:core:designsystem`, are the one
+  source, provided at the top of `MainActivity.setContent`. Under battery saver the ripple, all
+  four motion-blur modifiers, the progressive blur and the theme reveal are off, a theme change
+  is instant, and no stored setting is written. «Размытие при прокрутке», «Волна» and «Круговая
+  смена темы» read off, cannot be pressed, and say «Выключено, пока включён режим
+  энергосбережения». «Размытие под шторкой» is the deliberate deviation («What was deliberately
+  left alone»). `:core:designsystem` gained `androidx.core.ktx` 1.19.1, the version the other
+  modules already use. An independent review said «with fixes», and the fix round showed the
+  edge lines only while the fade is on, tested every motion-blur overload, and made the receiver
+  unexported and keyed on its context. Android's tests went from 1740 to 1762.
+- **A JVM test runs again when a file it reads from the tree changes** (#610): merged at
+  12:16:03 UTC as `b167b73`, pinned to head `0c62923`, on milestone 11, closing #427. Each
+  module's `Test` tasks declare the files their tests read: `docs/legal`, `docs/app`, every
+  module's `src`, `settings.gradle.kts` and the region catalog. The defect was reproduced first —
+  on `a5fb054`, `:core:data:testDebugUnitTest` stayed UP-TO-DATE after a one-character edit of
+  `privacy.en.md` — and after the fix the same edit re-runs the task, and Gradle names the
+  changed input. `docs/build.md` gained «What the JVM tests read, Gradle watches». The count
+  stayed 1740.
+- **An APK talks to the GitHub repository its build names** (#622, #469). The repository comes
+  from `LESSONS_BUILD_REPOSITORY`, checked as `owner/name` when the app is built and
+  `lumenpearson/lessons` when it is empty, and every GitHub address is built from it: the issues,
+  the releases the update check lists, the translation pull request, the raw docs and the
+  developer mode's permission question. So a fork's APK updates from the fork and files its
+  users' reports there. `docs/build.md` says what following a fork still leaves pointing
+  upstream: the legal links, which are a setting of their own, the issue templates' links, and
+  what a default branch other than `main` does to the guide and to a translation pull request.
+- **The app's bug reports are marked by a line of their body, not a label** (#622, #458). The
+  `from-app` label is gone: GitHub drops it for anybody without push access, and the browser
+  path never sent one. Both paths end the body with «_Отправлено из приложения «Дневник»
+  <version>_», and the reports are found with `"Отправлено из приложения «Дневник»" in:body`.
+- **#622's branch** holds six commits: `9c09b0e` (#469), `00bda50` (#458), `13db276` (a test's
+  line length, kept as a commit of its own because auto mode refused the force-push that would
+  have folded it), `412bac3` (the security review's fixes), `b96cd08`, the merge of `main`, and
+  `512d98c`, the counts. The first three added 17 Android tests to a base of 1740 — `:core:data`
+  625 → 637, `:app` 668 → 673. An independent security review found nothing critical; it
+  flagged a paragraph of `docs/architecture.md` that still had the developer mode asking about
+  `lumenpearson/lessons` rather than the build's repository, tests to tighten, and the documents
+  on what a fork still points upstream, and `412bac3` applies all of it.
+- **135 questions are answered in Discussions, in fourteen topics** (between #477 and #620, in
+  «❓ Q&A»). Each answer is marked as the answer and opens with a state line: «Applies to: any
+  version», or «State: main at `a1135d5`, 16 October 2026 …» with what would change it. The
+  index, #621, «FAQ: every answered question, by topic», is in «📣 Announcements». #456, #455,
+  #453 and #621 are pinned, and there are 140 discussions in all. A workflow of 63 agents made
+  them: six audience planners, a curator, a writer per topic, a fact-check against the code and a
+  review of safety and padding per topic, and a finalizer. GitHub's secondary content limit
+  («was submitted too quickly») stopped the publishing part-way, and it resumed without a
+  duplicate.
+- **Private vulnerability reporting is on** (#457), switched on by the owner's word on 17
+  October and read back as `{"enabled":true}`; #457 is closed, and its paragraph of section 7
+  went to `docs/history.md`, «Moved out of section 7 on 17 October 2026, after #457 closed».
+- **#476 was filed, and #445 rewritten over it.** When the owner questioned #445's premise on 17
+  October, the defect underneath was filed as #476, which #609 then closed, and #445 became «A
+  feature, not a fix», built on #476 and naming the app's own rows — «Размытие под шторкой»,
+  «Волна», «Размытие при прокрутке» and «Круговая смена темы», in «Настройки → Взаимодействие →
+  Эффекты».
+- **This file**: this section on top; the batch of 16 October second; sub-project 4's first pull
+  request, #451, moved to the top of `docs/history.md`; the opening, the milestone table and
+  sections 5, 6 and 7 brought up to date; and #445's old paragraph of section 7 moved to
+  `docs/history.md`, «Moved out of section 7 on 17 October 2026, after #539, #609, #610 and
+  #622».
+
+### Gates
+
+- **#539, at `bd43d7c`**: **ruff** clean, **mypy** clean, **`pytest -n 4`** 3327 passed and 6
+  skipped, which is **3333**; **detekt** green; CI green, «Contract (Buf)» included.
+- **#609, at `6d69fc6`**: **`./gradlew test --rerun`**, **`assembleDebug`**,
+  **`assembleRelease`** and **`detekt`** green, with **1762** Android tests; CI green, with
+  «Contract (Buf)» skipped by its path filter.
+- **#610, at `0c62923`**: the before and after of the edit above, and **1740** tests, unchanged;
+  CI green, with «Contract (Buf)» skipped.
+- **#473, at `25adabf`**: CI green, with «Android» and «Contract (Buf)» skipped.
+- **#622**: **1781** Android tests — `:core:model` 125, `:core:data` 638, `:core:designsystem`
+  205, `:widget` 126, `:app` 687 — recounted from the JUnit XML on the branch merged with `main`,
+  19 more than `main`'s 1762. The counts read **3333** and **1781** in all seven places the
+  `handover` skill names. From `server/`, `test_ci_paths.py`, `test_env_example.py` and
+  `test_schema_version.py`, which read the documents, with `-p no:xdist`: **22 passed**, after
+  this close-out was written. CI on the head is read before the merge.
+
+### What was deliberately left alone
+
+- **«Размытие под шторкой» stays pressable under battery saver** (#609). Its switch also draws
+  the edge wash (`showGradientOverlay = edgeBlur`), which goes on drawing, so it keeps its stored
+  value; while it is on it explains the missing blur, under battery saver and on Samsung's
+  Android 15 and earlier, and while it is off it promises nothing. The reasoning is in a comment
+  on #476, and confirming it is the owner's (section 7).
+- **#445 is not built.** Its category, «Энергосбережение», waits for the owner's wording.
+- **#471 is open.** The deployment guide and the README still describe one deployment as the
+  project's own; #539 took the thirteen defects and not this chore.
+- **The FAQ's state lines were not rewritten** after #539, #609, #610 and #622 made some of the
+  answers out of date; the index says what a state line means (section 5).
+- **What a fork's build still points upstream** after #622 — the legal links, the issue
+  templates' links, and the guide's branch, which is still `main` — is documented in
+  `docs/build.md`, not changed.
+- **`pending/recovered-designs`**, still neither merged nor deleted, for the reasons «What the
+  session before it added» gives.
+
+### What nobody has verified in this batch
+
+- **Nothing in #609, #610 or #622 ran on a device or an emulator.** Section 5 lists what each
+  leaves unseen.
+- **#610 was seen re-running a task locally**, not in a CI log.
+- **The FAQ answers describe `main` at `a1135d5`**, and some are already out of date: the
+  battery-saver behaviour and the Hobby wording in the hosting answers, for two.
+- **Which commit is served by the deployment this repository's maintainer runs for testing** was
+  not read: its warmup answered `ok` with schema `0019` at 18:37 UTC on 17 October.
+
+### Left to the owner from this batch
+
+Three paragraphs of section 7: **confirm or reject #609's deviation**, «Размытие под шторкой»
+pressable under battery saver; **let a session merge its own pull requests in auto mode**, with
+the `autoMode.allow` snippet you were given, since the classifier refused the session's own edit
+of the settings; and **delete the three leftover worktree folders**, `lessons-476`,
+`lessons-427` and `lessons-deps`. #445's wording stays yours, as before.
+
+## What the session before it added: #451 merged, five dependency bumps in #452, the branches pruned, Discussions opened and pointed at (#472), fifteen issues filed, and this file brought up to date
 
 Written on 16 October 2026 and carried by #473, a draft from `docs/handover-2026-10-16` to
 `main` on milestone 11, which holds this close-out and the refresh of the rest of this file and
@@ -274,7 +439,8 @@ nothing else. No revision goes with the batch: the schema stays at `0019`, and
 
 - **Sub-project 4's pull request A is in `main`** (#451): merged at 17:32:10 UTC as `8564b09`,
   pinned to head `17f69ec`, and GitHub's commit status read «Vercel: success» on the merge. Its
-  own close-out rode in it and is «What the session before it added», below.
+  own close-out rode in it and is in `docs/history.md` now, «What the batch before added:
+  sub-project 4's first pull request…».
 - **The five dependabot pull requests went in as one, #452**, merged at 19:46:14 UTC as
   `2d6fb4f`, pinned to head `4fd8b75`, on milestone 7. Its branch, `deps/2026-10-16`, merged
   dependabot's own five branches, and GitHub then closed #446–#450 as merged by itself:
@@ -448,209 +614,8 @@ nothing else. No revision goes with the batch: the schema stays at `0019`, and
 Two paragraphs of section 7 as this batch wrote them: **switch on private vulnerability
 reporting (#457)**, which was off when read at 20:46 UTC on 16 October, and was switched on by
 the owner's word on 17 October — it reads `{"enabled":true}`, #457 is closed, and the paragraph
-is in `docs/history.md`, «Moved out of section 7 on 17 October 2026»; and **review the diary
-sign-in design on `pending/recovered-designs`** before #434 is built.
-
-## What the session before it added: sub-project 4's first pull request, `LessonsPreferences` and `GithubRepositoryImpl` split, and the two-worker cap
-
-Merged as #451 (`8564b09`, 16 October 2026), from `android/decomposition-a`, on milestone 11,
-`Refs #273`; it closes no issue. The branch was cut from `main` at `6354c3d`, the merge of #422, and
-merged `main` once, at `014b1c0`, as `0a8662d`, without a conflict. It carries the plan, one
-commit per task, a fix to four comments and this close-out. Written on 11 October 2026. No
-revision goes with it: the schema stays at `0019`, and nothing under `server/` changes.
-
-The design is `docs/specs/2026-10-05-android-decomposition-design.md`, approved on 5 October;
-the plan is `docs/specs/2026-10-11-android-decomposition-a-plan.md`, twelve tasks, each built
-and reviewed before the next. Every move is verbatim but for the lines the plan names, and a
-line-by-line move check, a tool outside the repository, held each commit to that. What a move
-widened from `private` to `internal` is the plan's «What is widened» table and nothing else.
-
-- **The plan** (`f431817`): pull request A in the design's order (decision 8), the two
-  characterization tests before the moves, and every count in it a grep's.
-- **Every Gradle run on the maintainer's machine carries `--max-workers=2`, and runs alone**
-  (`1d6dee5`; `docs/build.md`, «Two workers, on the maintainer's machine»). Fewer tasks at once
-  is fewer simultaneous peaks on a machine with faulty memory; it caps no memory. It goes on the
-  command line, by the owner's answer of 5 October (#306, question 1): `android/gradle.properties`
-  is CI's too, and `~/.gradle/gradle.properties` holds the signing passwords.
-- **Every setting's round trip is held before its two halves move** (`0332bb0`).
-  `SettingsRoundTripTest` writes a value that differs from the defaults in every field, reads it
-  back through a second store over the same file, and holds by reflection that the value really
-  does differ everywhere, so a field added to `AppSettings` or `AlertPreferences` without a key
-  fails; an empty file reads as `AppSettings()`. Seen failing with one key's write removed. It
-  goes through the store's internal constructor, which has been the seam since #201, so
-  `AppSettingsTest`'s note that there was none is corrected.
-- **The bundle tags, the schedule's fingerprint and the remembered roles are held before they
-  move** (`3ad874a`). `BundleTagsAndRolesTest`: a tag read back under its own signature only;
-  class 1's sweep sparing classes 12 and 100; a sweep outside a set sparing the set, the
-  fingerprint and the roles; the fingerprint forgotten on a switch of class; and a role kept per
-  class, forgotten with `null`, and gone at a sign-out while the tags stay. Seen failing with the
-  trailing separator removed. The tag sweep `docs/history.md` records as written and never run
-  has run now.
-- **The shell's and the diary's keys have files of their own** (`d687cc9`): `ShellKeys.kt` and
-  `DiaryKeys.kt`, verbatim, beside the code that reads them. Nothing was widened.
-- **The settings', the roles' and the tags' keys are `PreferenceKeys`** (`f96991f`), an
-  `internal object` shaped like `MembershipKeys`: the 62 members of the class's private
-  companion, verbatim, and its 130 references to them, on 129 lines, qualified and nothing else.
-  `rememberRole`'s line, which the qualifier took to 131 characters, names the key once in a
-  local rather than joining the baseline.
-- **The settings' two halves sit side by side in `SettingsCodec`** (`0546a05`): `toSettings`,
-  and `putSettings`, the write half of `updateSettings` with its 56 key writes. `updateSettings`
-  keeps the transaction and the read-modify-write, and calls the pair.
-- **The bundle tags and the fingerprint have a class of their own over the store** (`5bb5e30`):
-  `BundleTags`, the seven calls the sync makes, verbatim but for `store.`. It writes through
-  `LessonsPreferences.write`, so every write still refreshes the credentials; `write` and the
-  `preferences` flow become internal while `dataStore` stays private, and
-  `removeKeysStartingWith` becomes a top-level internal function. `LessonsPreferences` keeps the
-  seven as one-line delegates, so `LessonsContainer` and `SchoolAlerts` change nothing.
-- **`LessonsPreferences`' detekt findings moved with their code** (`8c2493d`):
-  `:core:data:detektBaseline` alone, read line by line. Six entries went and six came back under
-  the same rule for the same code — `updateSettings`' `LongMethod` is `putSettings`' now — and
-  the module's file holds 201, as before.
-- **`GithubRepositoryImpl` is four classes** (`284538d`): `GithubDeviceFlow` (the client id, the
-  state flow, the lock, the polling job and the login requests, with `pollUntilDecided`,
-  `PollOutcome` and `PollVerdict` beside it), `GithubPullRequests`, `GithubIssues` and
-  `GithubPermissions`. They share `GithubPreferences`, which holds no token in memory, and one
-  lazy user agent; `TAG`, `HTTP_CREATED` and `HTTP_UNAUTHORISED` are internal and top-level,
-  because four files read them. The repository builds the four and delegates, and `signOut`
-  still cancels the flow, then clears.
-- **Its detekt findings moved with it** (`d4aa77a`): 201 entries become 202. Seven moved; the
-  one `TooGenericExceptionCaught` for `Throwable` became three, one per class its three catch
-  sites went to; the eighth, `TooGenericExceptionCaught …$failure: Exception`, stayed in
-  `GithubRepositoryImpl.kt` with `signOut`; and the repository's `TooManyFunctions` is gone, as
-  the design expected, since it keeps six functions.
-- **The comments say which collaborator reads the token and which forgets it on a `401`**
-  (`ce03781`), from Task 9's review: the device flow writes the token and never reads or clears
-  it, and the pull requests read it once and clear it only on a `401` that `get` receives. Four
-  KDoc sentences, and no line of code.
-- **The counts, the documents and this close-out** (this commit): 1740 Android tests in the four
-  places that carry the Android count, a row in `docs/architecture.md`'s test table for the two
-  new tests, `docs/build.md`'s baseline totals recounted from the five files, and the programme
-  design's line on the workers cap pointed at `docs/build.md`.
-
-### Gates
-
-On the merged tree at `ce03781`, from `android/`, each alone and in that order, with
-`--max-workers=2`:
-
-- **`./gradlew test --rerun`**: `BUILD SUCCESSFUL in 1m 21s`. `--rerun` reaches only the task it
-  follows, and in an Android module `test` is the aggregate, so
-  `:core:designsystem:testDebugUnitTest`, whose inputs had not changed, still came `FROM-CACHE`;
-  it was run again alone with `--rerun`, `BUILD SUCCESSFUL in 21s`. Counted from the JUnit
-  reports: `:core:model` 125, `:core:data` 625, `:core:designsystem` 196, `:widget` 126, `:app`
-  668, **1740**, every failure and error 0. That is ten more than 1730, all in `:core:data`:
-  five in `SettingsRoundTripTest` and five in `BundleTagsAndRolesTest`. The legal parity
-  tests ran in it on edition 5 (`LegalDocumentsTest` 11, `LegalLinksTest` 10).
-- **`./gradlew assembleDebug`**: `BUILD SUCCESSFUL in 16s`.
-- **`./gradlew assembleRelease`**: `BUILD SUCCESSFUL in 1m 56s`, R8 and resource shrinking
-  included, signed with the debug key because no release key is configured on that machine.
-- **`./gradlew detekt`**: `BUILD SUCCESSFUL in 8s`, all five modules, nothing beyond their
-  baselines.
-- **What the branch touched under `android/`**: the eleven Kotlin files under `datastore/` and
-  `github/` (two modified, nine created), `SettingsRoundTripTest.kt`, `BundleTagsAndRolesTest.kt`
-  and `AppSettingsTest.kt`, and `android/core/data/detekt-baseline.xml`, the only baseline.
-- **The baselines**: 493 entries across the five files, one more than 492 — `:core:data` 202,
-  `:app` 184, `:core:designsystem` 73, `:widget` 21, `:core:model` 13 — most of them `MagicNumber`
-  (218), `ReturnCount` (81) and `MaxLineLength` (65). `docs/build.md`, «detekt», says so.
-- **No document names a moved declaration where it no longer is**: the plan's `git grep` over
-  everything but `docs/history.md` and `docs/specs/` printed nothing.
-- **The server**: no code changed. `test_env_example.py`, `test_ci_paths.py` and
-  `test_schema_version.py`, which read the documents, **22 passed** with `-p no:xdist`, after
-  the documents were written. CI's server job runs the whole suite, because `docs/*.md` and
-  `.claude/*.md` are in its path filter.
-- **CI on the head** is read before the merge.
-
-### What was deliberately left alone
-
-- **Pull request B**: `ManagementViewModel` (its state types, then per-sheet collaborators over
-  shared plumbing) and `SettingsViewModel` (its characterization test, then its collaborators;
-  decision 5).
-- **Pull request C**: `OnboardingScreen`, one file per step, with `OnboardingPromisesTest`'s path
-  and anchor (decision 3); `FloatingToolbar`'s split by concern; and `HomeShell`'s pure rules,
-  with the body left inline (decision 4).
-- **What sub-project 5 rewrites**: the network layer — the Retrofit interfaces, the v1 DTOs, the
-  failure classifiers — and the container's bindings. Nothing here splits or touches them, and
-  `GithubApi.kt` and `GithubDtos.kt` stay as they are.
-- **A seam for the GitHub client.** Making `GithubApi.client` or `API_BASE` injectable, so that a
-  mock server could reach the four classes, is a change rather than a move, and belongs to a pull
-  request of its own if anybody wants it.
-- **detekt with type resolution**, and the 93 rules it would switch on (`docs/build.md`,
-  «detekt»).
-- **The cap anywhere but the command line**: neither `android/gradle.properties`, which CI
-  reads, nor `~/.gradle/gradle.properties`, which no agent opens.
-- **`docs/history.md`'s note** that the tag sweep was written and not run. It is a record of its
-  time; `BundleTagsAndRolesTest` is what answers it now.
-- **Feature Gradle modules and the package cycles**, which the programme rejected for this
-  sub-project.
-- **`repositoryPermissions`' own KDoc**, moved verbatim, which still says a `401` forgets the
-  token «as every other call does». It is older than the split, and `ce03781` corrected only the
-  four sentences the split wrote.
-- **«Twelve» «Сетевой город» regions through the proxy**, in `CLAUDE.md`, `docs/deploy.md`,
-  three lines of this file's sections 5 and 7, and two test comments: the regions served are eleven,
-  since twelve hosts are marked `via_proxy` and Altai's takes no password. #451 touches none of
-  those lines; a documents pass does.
-
-### What nobody has verified in this batch
-
-- **No test reaches the four GitHub classes.** Their check was the compile, `DeviceFlowPollTest`,
-  the move check and review.
-- **No APK from this branch was installed** on a device or an emulator.
-- **What the workers cap saves is unmeasured.**
-
-### After #428's merge: the merge, the required check, production, #430, and the owner's order
-
-None of this is code in #451, and a close-out never gets a close-out of its own,
-so it is written here. The source is the controller's notes of 11 October 2026 and GitHub,
-read the same day.
-
-- **#428 merged by the session** at 15:10:44 UTC on 11 October 2026 as `f26fdb7`, after the five
-  checks on head `6c47cb8`: eight check runs, the new «CI» among them, and the Vercel status, all
-  success; mergeable `CLEAN`; milestone 11; the only comment the Vercel bot's. It closed #423,
-  #424 and #425. Its review, by opus, came back «with fixes»; the fix round, `6c47cb8`, made the
-  close-out true at the merge — #427, #429, #430, and CI's cached legal tests — and the re-review
-  found all of it addressed. Its close-out named itself as the only thing open; this is the SHA
-  it left for the next one.
-- **«CI»'s first real runs were green**: `gates: success success success success success`, on
-  run 38148509706 and on `6c47cb8`'s run. It has not yet met a pull request where «Host» is
-  skipped, which needs one that changes only `android/`.
-- **`main` requires «CI»**: ruleset 24883111, «main: «CI» must pass», created by the session
-  right after the merge with the owner's permission («попытайся сделать сам», 11 October).
-  Enforcement is active, on the default branch; it requires the check «CI» from GitHub Actions
-  (integration 15368, which posted «CI» on `6c47cb8`); the repository admin role may bypass it,
-  always; and strict mode is off, so a branch need not be up to date with `main`.
-- **Production deployed `f26fdb7`: READY**, read from Vercel shortly after 15:11 UTC.
-  `/api/v1/warmup` answered `ok`, schema `0019`, `"v2": true`.
-- **The board**: #423, #424, #425 and #428 are Done, and the three issues are labelled
-  `status:done`.
-- **#430 merged after #428**, as `014b1c0`, from the owner's account at 15:32 UTC on 11
-  October, on milestone 12, from the other session «Политика конфиденциальности и EULA для
-  Дневника». Its branch had merged `main` first (`1590ff3`, «keeping edition 5's legal texts over
-  edition 4's»). It made both legal texts edition 5, effective 2026-10-11, kept #425's Sentry
-  point and the `[SENTRY]` marker (checked on `main`), and closed #429 at 15:32:02 UTC. It wrote
-  no close-out of its own and left that to the next one, which is this. What its description
-  says it did not cover is in section 5 now: no lawyer has read edition 5, nobody has opened it
-  on a phone, and its counts of regions per platform will drift; the separate consent form it
-  did not write is #431.
-- **The owner's order of 11 October**, given after #428 merged: after #451 and before
-  sub-project 4's B and C, the software is to let any deployment meet 152-ФЗ without
-  changing the code. It is epic #438 on milestone 12, with #431–#437. The owner's position is
-  that the project is impersonal open source: the repository names no operator, and whoever
-  deploys a server is its operator.
-- **#435 is decided: option C**, recorded on the issue the same day. The core runs on a Russian
-  VPS, RUVDS, with PostgreSQL on it, and the bot reaches Telegram through an SSH tunnel to a
-  machine abroad; option B is C with that setting left empty. On 11 October the RUVDS VPS could
-  not open a TCP connection to `api.telegram.org`. The comparison of the options becomes
-  `docs/specs/2026-10-11-data-in-russia-design.md`, and #407's recipe is written for it.
-- **Still open**: #427 (milestone 11), the legal tests restored from the build cache, which #451
-  does not touch; #426 and #421 (Backlog).
-- **Stale lines found on `main`**: section 6 of this file named `setup-android` `v4.0.1`, while
-  both workflows pin `v4.0.4` since #166, and the programme design said the workers cap goes in
-  `gradle.properties`; both are corrected here. The «twelve regions» lines are left, as «What was
-  deliberately left alone» says.
-- **Left in place**: the plan workspace `.superpowers/sdd/2026-10-11-android-decomposition-a-plan/`,
-  which git ignores, and the move check and the test counter, in a temporary directory outside
-  the repository.
-
-Section 7's «Next for the programme» says what follows.
+is in `docs/history.md`, «Moved out of section 7 on 17 October 2026, after #457 closed»; and
+**review the diary sign-in design on `pending/recovered-designs`** before #434 is built.
 
 ## The milestones
 
@@ -660,8 +625,9 @@ and issues, and created the tenth the same day, and the eleventh, twelfth and th
 October. The older batch sections, in `docs/history.md`
 now, quote the titles of their own time, which a search no longer finds; the third column
 maps them. The
-`github-pr` skill carries a shorter copy without the third and fourth columns, whose lists
-stop well short of this one's (its eleventh at PR #305); this table is the one kept current.
+`github-pr` skill carries a shorter table that says only what each milestone is and what
+belongs in it, and points here for the lists (#475, closed by #539); this table is the one kept
+current.
 
 | # | Title | Called before 25 September | State | Covers |
 | --- | --- | --- | --- | --- |
@@ -675,8 +641,8 @@ stop well short of this one's (its eleventh at PR #305); this table is the one k
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428 and #451 (merged) and #473, this close-out (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474 and #475 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430 and #472 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471 and #476 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539 and #610 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474 and #475 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472 and #609 (merged) and #622, this close-out (open); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471 and #476 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441 and #443; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
@@ -717,8 +683,32 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
-- **#452's bumps and #472's form have been seen by their gates and CI only** («What the last
-  session added» has the detail).
+- **#609, #610 and #622 have been seen by their tests and their gates only** («What the last
+  session added» has the detail). Nothing in any of the three ran on a device or an emulator.
+  - **Battery saver has not been switched on under the app** (#609): nobody has watched the
+    ripple, the four motion blurs, the progressive blur and the theme reveal go off, read
+    «Выключено, пока включён режим энергосбережения» under the three rows, or seen «Размытие
+    под шторкой» explain the missing blur — under battery saver, or on Samsung's Android 15 and
+    earlier — while its edge wash goes on drawing.
+  - **#610's inputs were seen re-running a task locally only**: on `a5fb054` a one-character
+    edit of `privacy.en.md` left `:core:data:testDebugUnitTest` UP-TO-DATE, and after the fix the
+    same edit re-ran it with Gradle naming the input. No CI log has been read for it.
+  - **No APK has been built from a fork with `LESSONS_BUILD_REPOSITORY` set** (#622, #469):
+    the releases it lists, the issue it files, the guide it fetches, the translation pull
+    request it cuts and the developer mode's permission question are held by
+    `BuildPropertyReachTest`, `GithubProjectTest`, `UpstreamNameTest` and the compile, and by
+    nothing that reached GitHub.
+  - **No report has been filed from the app since the label went** (#622, #458): nobody has
+    seen «_Отправлено из приложения «Дневник» <version>_» end a real issue, through the API or
+    the browser, or found one with `"Отправлено из приложения «Дневник»" in:body`.
+- **The FAQ in Discussions describes `main` at `a1135d5`** wherever an answer's state line says
+  «State: main at `a1135d5`, 16 October 2026 …» rather than «Applies to: any version», and #539,
+  #609, #610 and #622 have already made some of those answers out of date: the
+  battery-saver behaviour, for one, and the Hobby wording in the hosting answers, for another.
+  The index, #621, says what a state line means; nothing has rewritten an answer since it was
+  published.
+- **#452's bumps and #472's form have been seen by their gates and CI only** («What the session
+  before it added» has the detail).
   - **No APK from #452 has been installed**: Gradle 9.8.1 and Kotlin 2.4.21 built, and passed
     the tests, the assembles and detekt, and nothing more.
   - **FastAPI 0.143.0, SQLAlchemy 2.1.4 and asyncpg 0.32.0 have not met PostgreSQL**: CI and
@@ -726,7 +716,7 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   - **The Discussions' Q&A form has not been seen rendered.** GitHub reads
     `.github/DISCUSSION_TEMPLATE/q-a.yml` from `main`, so from #472's merge on.
 - **Sub-project 4's pull request A, #451, has been seen by its tests and its gates only** (merged
-  as `8564b09`; its section above has the detail).
+  as `8564b09`; its section, in `docs/history.md` now, has the detail).
   - **No test reaches the four GitHub classes.** `GithubApi`'s HTTP client and `API_BASE` are
     global, so nothing can point `GithubDeviceFlow`, `GithubPullRequests`, `GithubIssues` or
     `GithubPermissions` at a mock server; their check was the compile, `DeviceFlowPollTest`, a
@@ -739,7 +729,8 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   now, has the detail).
   - **CI did not run the legal parity tests on edition 4** (#427): its «Android» job restored
     `:core:data:testDebugUnitTest` from the build cache. Edition 4's parity rests on a local
-    `--rerun` (11 and 10 passed).
+    `--rerun` (11 and 10 passed). #610 closed #427 on 17 October, so an edit of `docs/legal`
+    now re-runs the task; that was seen locally, not in a CI log.
   - **No client changes an event's kind yet.** The rule is v2's `UpdateEvent` and nothing calls
     it but the tests until sub-project 5.
   - **Neither edition 4 nor edition 5 (#430) of the privacy policy has been opened in the app.**
@@ -1593,7 +1584,9 @@ wrong and are written into the code rather than left to memory:
 * **A fork is identified by its parent, never by its name.** `lessons` is not a rare word.
   Asking `/repos/{login}/lessons` and reading a 200 as "the fork is there" is how this app
   would cut a branch in a stranger's unrelated repository and commit to it. The check reads
-  the body and requires `fork` with the parent's `full_name` equal to this project.
+  the body and requires `fork` with the parent's `full_name` equal to this project — since
+  #622, the repository the build names in `LESSONS_BUILD_REPOSITORY`, `lumenpearson/lessons`
+  when it names none.
 * **The branch is cut from the upstream commit, not from the fork's head.** GitHub allows a
   ref at any commit in the parent network, and a fork made once and never synced would offer
   everything merged since back as reverts.
@@ -1819,18 +1812,35 @@ comes between A and the rest. In order:
    characterization test — and C — `OnboardingScreen`, `FloatingToolbar` and `HomeShell`'s
    rules.
 
+**Confirm or reject #609's one deviation: «Размытие под шторкой» stays pressable under battery
+saver.** #609 (#476) turned the ripple, the four motion blurs, the progressive blur and the
+theme reveal off under battery saver, without writing any stored setting, and three rows —
+«Размытие при прокрутке», «Волна» and «Круговая смена темы» — read off, cannot be pressed, and
+say «Выключено, пока включён режим энергосбережения». «Размытие под шторкой» does not, because
+its switch also draws the edge wash (`showGradientOverlay = edgeBlur`), which goes on drawing:
+it keeps its stored value, and while it is on it explains the missing blur, under battery saver
+and on Samsung's Android 15 and earlier; while it is off it promises nothing. The reasoning is
+in a comment on #476. If you would rather it read off like the other three, the wash would need
+a switch of its own first.
+
 **#445's wording is yours before it is built.** You asked for it on 11 October, after #444 turned
 out to be Android's battery saver switching the edge blur off as designed. On 17 October it was
-rewritten as a feature built on #476 («A feature, not a fix»):
-- #476, the defect underneath, makes the four heavy effects in «Настройки → Взаимодействие →
-  Эффекты» — «Размытие под шторкой», «Волна», «Размытие при прокрутке» and «Круговая смена
-  темы» — follow battery saver, and each row show what is drawn;
-- #445 then gives power saving a category of its own, proposed as «Энергосбережение», with
-  «Следовать режиму энергосбережения», on by default, «Экономный режим всегда», off by default,
-  and each effect's state.
+rewritten as a feature built on #476 («A feature, not a fix»), and #476 is done (#609): #445
+gives power saving a category of its own, proposed as «Энергосбережение», with «Следовать режиму
+энергосбережения», on by default, «Экономный режим всегда», off by default, and each effect's
+state. It is on milestone 12, and the order above does not place it. The wording on #445 is a
+proposal for you to adjust.
 
-Both are on milestone 12, and the order above places neither. The wording on #445 is a proposal
-for you to adjust.
+**Let a session merge its own pull requests in auto mode, or keep merging them yourself.** Your
+standing instruction of 20 September is that a session merges its own pull request after the
+five checks of the `github-pr` skill. Auto mode's classifier refuses that merge, and on 17
+October it refused, as self-modification, the session's edit of the user settings that would
+have added an `autoMode.allow` rule for it. You were given the snippet to paste; until it is in
+place, each of those merges is yours.
+
+**Delete three leftover worktree folders.** `lessons-476`, `lessons-427` and `lessons-deps`,
+beside the repository's own clone, if they are still there. Git has already deregistered them as
+worktrees, so they hold build output only, and nothing a session needs.
 
 **Review the diary sign-in design on `pending/recovered-designs` before #434 is built.** The
 branch holds one commit, `3c60612` of 8 October, and no pull request: the design for signing in
@@ -2208,7 +2218,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 3333 tests, ~26 min alone on Windows
 cd server  && python -m mypy                             # clean, 240 modules
-cd android && ./gradlew test                             # 1762 tests across the five modules
+cd android && ./gradlew test                             # 1781 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

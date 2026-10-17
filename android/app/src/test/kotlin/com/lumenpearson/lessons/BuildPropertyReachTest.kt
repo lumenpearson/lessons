@@ -1,6 +1,9 @@
 package com.lumenpearson.lessons
 
+import com.lumenpearson.lessons.core.data.github.GithubProject
 import java.io.File
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -59,6 +62,81 @@ class BuildPropertyReachTest {
         )
     }
 
+    /**
+     * The repository the app files its reports in, lists its updates from and
+     * reads its guide from is the one the workflow ran in (#469).
+     *
+     * The property was already passed, for the about page's badge; what was
+     * missing was the rest of the wire, so a fork's APK named the fork on
+     * «О приложении» and offered this repository's releases one row below.
+     * Each link is checked: the workflow's value, the build's refusal of a
+     * value that is not `owner/name`, and the application handing the result
+     * to the graph every GitHub call is built from.
+     */
+    @Test
+    fun `the repository the app talks to is the one the workflow built in`() {
+        assertTrue(
+            "apk.yml must pass the runner's own repository, so a fork's APK names the fork",
+            Regex("""(?m)^\s+LESSONS_BUILD_REPOSITORY: \$\{\{ github\.repository }}\s*$""").containsMatchIn(workflow),
+        )
+        // CRLF folded first: Git for Windows checks text out that way, and a
+        // block cut at a blank line would find none there (#178).
+        val script = buildScript.replace("\r\n", "\n")
+        val start = script.indexOf("val buildRepository")
+        assertTrue("app/build.gradle.kts no longer declares buildRepository", start >= 0)
+        val end = script.indexOf("\n\n", start).let { if (it < 0) script.length else it }
+        val block = script.substring(start, end)
+        assertTrue(
+            "a repository that is not owner/name must stop the build, not be spliced into an address: $block",
+            "throw GradleException" in block,
+        )
+        assertTrue(script.contains("""buildConfigField("String", "BUILD_REPOSITORY", "\"${'$'}buildRepository\"")"""))
+        assertTrue(
+            "LessonsApplication must hand the build's repository to Graph.init, or every GitHub call " +
+                "falls back to the upstream repository",
+            Regex("""Graph\.init\([^)]*githubProject\s*=\s*BuildProvenance\.current\(\)\.project""")
+                .containsMatchIn(application),
+        )
+    }
+
+    /**
+     * The build's refusal is the build's own pattern, run here on the cases
+     * that matter, and it agrees with `GithubProject.fromBuild` on every one.
+     *
+     * Gradle cannot be started from a unit test, so the pattern is read out of
+     * the script and compiled. Checking only that a `throw` exists passed just
+     * as well for a pattern that let `x/..` through — and that value becomes
+     * `/repos/x/..`, which a URL resolver walks up to `/repos/`. The second half
+     * is that the two rules cannot drift: a value the build lets through and
+     * the app then quietly swaps for the upstream would send a fork's reports
+     * here again, with nothing failing anywhere.
+     */
+    @Test
+    fun `the build refuses exactly what the app would not use`() {
+        val script = buildScript.replace("\r\n", "\n")
+        val declaration = Regex("""val ownerSlashName =\s+Regex\("((?:[^"\\]|\\.)*)"\)""")
+        val literal = declaration.find(script)?.groupValues?.get(1)
+        assertTrue("app/build.gradle.kts no longer declares ownerSlashName as Regex(\"…\")", literal != null)
+        // A Kotlin string literal: the only escape the pattern may need is `\\`.
+        val pattern = Regex(checkNotNull(literal).replace("\\\\", "\\"))
+
+        val accepted = listOf(
+            "lumenpearson/lessons", "somebody/lessons-fork", "a-b/c_d.e", "x/.github", "x/a.b",
+        )
+        val refused = listOf(
+            "somebody", "a/b/c", "/lessons", "somebody/", "a b/c", "x/y?z", "x/y#z", "x/../y",
+            "x/..", "x/.", "a@b/c", "x/%2e%2e", "-a/b", "a-/b", "some/bad\"name",
+        )
+        accepted.forEach { raw ->
+            assertTrue("the build refuses $raw", pattern.matches(raw))
+            assertEquals("the app does not use $raw", raw, GithubProject.fromBuild(raw).fullName)
+        }
+        refused.forEach { raw ->
+            assertFalse("the build lets $raw through", pattern.matches(raw))
+            assertEquals("the app uses $raw", GithubProject.UPSTREAM, GithubProject.fromBuild(raw))
+        }
+    }
+
     private companion object {
 
         /** `LESSONS_…` as the first argument of `signingSecret`. */
@@ -89,6 +167,10 @@ class BuildPropertyReachTest {
         val buildScript: String by lazy { File(root, "android/app/build.gradle.kts").readText() }
 
         val workflow: String by lazy { File(root, ".github/workflows/apk.yml").readText() }
+
+        val application: String by lazy {
+            File(root, "android/app/src/main/kotlin/com/lumenpearson/lessons/LessonsApplication.kt").readText()
+        }
 
         /**
          * The names the workflow actually sets, as `NAME:` at the head of a

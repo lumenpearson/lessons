@@ -28,8 +28,6 @@ internal object GithubApi {
 
     private const val TAG = "Lessons"
 
-    const val OWNER = "lumenpearson"
-    const val REPO = "lessons"
     const val API_BASE = "https://api.github.com"
     const val WEB_BASE = "https://github.com"
     const val RAW_BASE = "https://raw.githubusercontent.com"
@@ -76,8 +74,12 @@ internal object GithubApi {
             .build()
     }
 
-    /** `/releases`, `/issues` — a path under this project's repository. */
-    fun repoUrl(path: String): String = "$API_BASE/repos/$OWNER/$REPO$path"
+    /**
+     * `/releases`, `/issues` — a path under [project], which is the repository
+     * the build names (#469) or, for a translation's fork, the reader's own.
+     */
+    fun repoUrl(project: GithubProject, path: String): String =
+        "$API_BASE/repos/${project.owner}/${project.name}$path"
 
     /**
      * A file's bytes, from the default branch.
@@ -88,7 +90,8 @@ internal object GithubApi {
      * no headers beyond the user agent — which matters, because the one caller
      * is the documentation and it asks on every visit to the screen.
      */
-    fun rawUrl(path: String): String = "$RAW_BASE/$OWNER/$REPO/$DEFAULT_BRANCH/$path"
+    fun rawUrl(project: GithubProject, path: String): String =
+        "$RAW_BASE/${project.owner}/${project.name}/$DEFAULT_BRANCH/$path"
 
     /**
      * GitHub rejects requests with no `User-Agent` and asks that it name the

@@ -374,8 +374,10 @@ A manual check in the same place also shows the notes for the version already in
 
 If none of that fits — **«Настройки → О приложении → Сообщить об ошибке»**. The report
 goes out as an issue on GitHub and already contains the table about the device and the
-version. There is no need to add the class code or anybody's surname to it: the issue is
-public.
+version, and ends with the line «_Отправлено из приложения «Дневник» …_», which is how the
+maintainers find it: GitHub lets nobody without access to the repository label an issue,
+so the app's reports are found by that line and labelled by hand. There is no need to add
+the class code or anybody's surname to it: the issue is public.
 
 A question rather than a bug goes to
 [Discussions, Q&A](https://github.com/lumenpearson/lessons/discussions/categories/q-a). It is

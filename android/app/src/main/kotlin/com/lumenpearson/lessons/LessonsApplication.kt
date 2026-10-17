@@ -8,6 +8,7 @@ import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
 import com.lumenpearson.lessons.core.data.repository.SyncArming
 import com.lumenpearson.lessons.core.data.sync.SyncScheduler
 import com.lumenpearson.lessons.ui.developer.VisualTools
+import com.lumenpearson.lessons.ui.settings.BuildProvenance
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -55,7 +56,11 @@ class LessonsApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        Graph.init(this, githubClientId = BuildConfig.GITHUB_CLIENT_ID)
+        Graph.init(
+            this,
+            githubClientId = BuildConfig.GITHUB_CLIENT_ID,
+            githubProject = BuildProvenance.current().project,
+        )
         observeSyncArming()
         // Off the main thread: it reads the cached timetable to work out what to
         // arm for, and Application.onCreate is on the critical path of every

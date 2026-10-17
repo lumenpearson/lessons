@@ -15,7 +15,6 @@ import com.lumenpearson.lessons.BuildConfig
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.github.BugReportComposer
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
-import java.net.URLEncoder
 
 /**
  * Which of the settings sheets is up.
@@ -112,7 +111,9 @@ internal fun SupportSheets(
             },
             onOpenIssuePage = { description ->
                 val draft = BugReportComposer.compose(description, null, version)
-                uriHandler.openUri(newIssueUrl(draft.title, draft.body))
+                // The build's repository, not a name written here: a fork's
+                // reader reports to the fork (#469).
+                uriHandler.openUri(BuildProvenance.current().project.newIssueUrl(draft.title, draft.body))
             },
             onEmail = { description, deviceBlock ->
                 val send = Intent(Intent.ACTION_SENDTO).apply {
@@ -128,15 +129,4 @@ internal fun SupportSheets(
             },
         )
     }
-}
-
-/**
- * GitHub's "new issue" page with the title and body filled in.
- *
- * The way to file without signing in: the browser has the user's session, so
- * the app never needs one. The body is the same block the signed-in path sends.
- */
-private fun newIssueUrl(title: String, body: String): String {
-    fun enc(value: String) = URLEncoder.encode(value, Charsets.UTF_8.name())
-    return "https://github.com/lumenpearson/lessons/issues/new?title=${enc(title)}&body=${enc(body)}"
 }

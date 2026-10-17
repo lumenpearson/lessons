@@ -25,6 +25,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
 internal class GithubPullRequests(
     private val preferences: GithubPreferences,
     userAgent: Lazy<String>,
+    /**
+     * The repository the correction is offered to: the one the build names
+     * (#469), so a fork's reader corrects the fork's strings, in the fork.
+     */
+    private val project: GithubProject,
 ) {
 
     private val userAgent: String by userAgent
@@ -43,8 +48,8 @@ internal class GithubPullRequests(
             // and does not need to: they can push a branch to it directly. This
             // is not a corner case, it is how the person who wrote the feature
             // will first try it.
-            val ownsUpstream = login.equals(GithubApi.OWNER, ignoreCase = true)
-            val head = if (ownsUpstream) GithubApi.OWNER else login
+            val ownsUpstream = login.equals(project.owner, ignoreCase = true)
+            val head = if (ownsUpstream) project.owner else login
             if (!ownsUpstream && !ensureFork(token, login)) {
                 return@withContext PullRequestResult.Failed("fork_unavailable")
             }
@@ -54,7 +59,7 @@ internal class GithubPullRequests(
             // and a branch cut from it would offer all of that back as reverts.
             // A fork's ref may be created at any commit in the parent network,
             // so this costs nothing and removes the whole class of problem.
-            val baseSha = refSha(token, GithubApi.OWNER, "heads/" + BASE_BRANCH)
+            val baseSha = refSha(token, project.owner, "heads/" + BASE_BRANCH)
                 ?: return@withContext PullRequestResult.Failed("no_base")
             val branch = BRANCH_PREFIX + System.currentTimeMillis()
             if (!createBranch(token, head, branch, baseSha)) {
@@ -69,7 +74,7 @@ internal class GithubPullRequests(
             // the same one.
             val fetched = mutableMapOf<String, Pair<String, String>?>()
             suspend fun fileAt(path: String): Pair<String, String>? =
-                fetched.getOrPut(path) { contents(token, GithubApi.OWNER, path, baseSha) }
+                fetched.getOrPut(path) { contents(token, project.owner, path, baseSha) }
 
             // Which file a key lives in is asked of the files, not guessed.
             // The key's prefix picks the module and can go no further: inside
@@ -128,7 +133,7 @@ internal class GithubPullRequests(
      */
     private suspend fun ensureFork(token: String, login: String): Boolean {
         if (repositoryExists(token, login)) return true
-        val request = GithubApi.apiRequest(GithubApi.repoUrl("/forks"), userAgent)
+        val request = GithubApi.apiRequest(GithubApi.repoUrl(project, "/forks"), userAgent)
             .header("Authorization", "Bearer $token")
             .post(EMPTY_JSON.toRequestBody(GithubApi.JSON_MEDIA_TYPE))
             .build()
@@ -149,17 +154,22 @@ internal class GithubPullRequests(
      * reader may own an unrelated one, and treating it as the fork would cut a
      * branch and commit into somebody's own work. The parent is what decides,
      * and a repository that is not a fork at all never qualifies.
+     *
+     * The parent is the build's repository (#469), so on a build of somebody's
+     * fork a reader whose fork is of `lumenpearson/lessons` never qualifies,
+     * and GitHub, which keeps one fork per account per network, answers the
+     * request for a new one with that same fork: [ensureFork] polls out and
+     * the result is «fork_unavailable», with nothing written anywhere.
+     * `docs/build.md`, "What the build is told about itself", says so too.
      */
     private suspend fun repositoryExists(token: String, login: String): Boolean {
-        val url = GithubApi.API_BASE + "/repos/" + login + "/" + GithubApi.REPO
-        val body = get(token, url) ?: return false
+        val body = get(token, GithubApi.repoUrl(under(login), "")) ?: return false
         val dto = GithubApi.json.decodeFromString(RepositoryDto.serializer(), body)
-        val upstream = GithubApi.OWNER + "/" + GithubApi.REPO
-        return dto.fork && dto.parent?.fullName.equals(upstream, ignoreCase = true)
+        return dto.fork && dto.parent?.fullName.equals(project.fullName, ignoreCase = true)
     }
 
     private suspend fun refSha(token: String, owner: String, ref: String): String? {
-        val url = GithubApi.API_BASE + "/repos/" + owner + "/" + GithubApi.REPO + "/git/ref/" + ref
+        val url = GithubApi.repoUrl(under(owner), "/git/ref/$ref")
         val body = get(token, url) ?: return null
         return GithubApi.json.decodeFromString(RefDto.serializer(), body).target.sha
             .takeIf { it.isNotBlank() }
@@ -170,7 +180,7 @@ internal class GithubPullRequests(
             CreateRefRequestDto.serializer(),
             CreateRefRequestDto(ref = "refs/heads/$branch", sha = sha),
         )
-        val url = GithubApi.API_BASE + "/repos/" + owner + "/" + GithubApi.REPO + "/git/refs"
+        val url = GithubApi.repoUrl(under(owner), "/git/refs")
         val request = GithubApi.apiRequest(url, userAgent)
             .header("Authorization", "Bearer $token")
             .post(payload.toRequestBody(GithubApi.JSON_MEDIA_TYPE))
@@ -187,8 +197,7 @@ internal class GithubPullRequests(
         path: String,
         ref: String,
     ): Pair<String, String>? {
-        val url = GithubApi.API_BASE + "/repos/" + owner + "/" + GithubApi.REPO +
-            "/contents/" + path + "?ref=" + ref
+        val url = GithubApi.repoUrl(under(owner), "/contents/$path?ref=$ref")
         val body = get(token, url) ?: return null
         val dto = GithubApi.json.decodeFromString(ContentsDto.serializer(), body)
         if (dto.content.isBlank() || dto.sha.isBlank()) return null
@@ -215,8 +224,7 @@ internal class GithubPullRequests(
                 branch = branch,
             ),
         )
-        val url = GithubApi.API_BASE + "/repos/" + owner + "/" + GithubApi.REPO +
-            "/contents/" + path
+        val url = GithubApi.repoUrl(under(owner), "/contents/$path")
         val request = GithubApi.apiRequest(url, userAgent)
             .header("Authorization", "Bearer $token")
             .put(payload.toRequestBody(GithubApi.JSON_MEDIA_TYPE))
@@ -242,11 +250,11 @@ internal class GithubPullRequests(
                 // the diff lists them, and a body that repeats it goes stale
                 // the moment a reviewer pushes a change to the branch.
                 body = "$applied correction(s) to the app's strings, sent from the app by @$login.",
-                head = if (head == GithubApi.OWNER) branch else "$head:$branch",
+                head = if (head == project.owner) branch else "$head:$branch",
                 base = BASE_BRANCH,
             ),
         )
-        val request = GithubApi.apiRequest(GithubApi.repoUrl("/pulls"), userAgent)
+        val request = GithubApi.apiRequest(GithubApi.repoUrl(project, "/pulls"), userAgent)
             .header("Authorization", "Bearer $token")
             .post(payload.toRequestBody(GithubApi.JSON_MEDIA_TYPE))
             .build()
@@ -258,6 +266,12 @@ internal class GithubPullRequests(
             ).htmlUrl.takeIf { it.isNotBlank() }
         }
     }
+
+    /**
+     * The repository of this name under [owner]: the project itself, or the
+     * reader's fork of it, which GitHub names after its parent.
+     */
+    private fun under(owner: String): GithubProject = project.copy(owner = owner)
 
     /**
      * A GET returning the body, or `null` for anything that is not a 200.

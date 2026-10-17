@@ -1239,6 +1239,14 @@ suffix that a debug build adds to `versionName` is handled separately: semver re
 pre-release, and without trimming it a debug install of the current version would offer
 itself to itself for ever.
 
+Whose releases is the build's to say, not the code's (#469). While the owner and the name
+were constants, an APK built from a fork listed this repository's releases, offered their
+version, and opened an APK signed with another key, which the installer refuses over the
+fork's install — and the fork's own releases were never offered. The list now comes from the
+repository `LESSONS_BUILD_REPOSITORY` names, which `apk.yml` fills from the repository it runs
+in, and so do the bug report, the guide, the translation pull request and the developer
+mode's question; a build told nothing falls back to this repository.
+
 The check on launch runs no more than once a day — not to economise but because GitHub's
 unauthenticated window, sixty requests an hour, is counted per address, and a classful of
 phones behind one router shares it. A failed check counts too: a refusal spends the window
@@ -1293,7 +1301,16 @@ the user's name through the API; the "new issue" page in a browser with the titl
 already filled in; an email to the address from `lessons.contactEmail` — also a build
 property, because an address in a public repository is an address in every spam list. The
 body is the same in all three cases: the description and the table about the device, in the
-same shape Essentials uses.
+same shape Essentials uses. The two that reach GitHub end with one more line,
+«_Отправлено из приложения «Дневник» <version>_» (`BugReportComposer.APP_MARK`), and carry
+no label (#458). The API path used to ask for `from-app`, and GitHub drops a label from
+`POST /issues` without a word for anybody who cannot push to the repository, which is every
+reader; the browser's new-issue page never sent one. So every report from the app arrived
+outside every label filter, the board's views and the release walk included. The line is
+the mark neither path can lose, visible text rather than an HTML comment because search is
+not known to index a comment: the app's reports are found with
+`"Отправлено из приложения «Дневник»" in:body is:issue` and given `type:bug` and a
+`status:` by hand.
 
 ## Two switches for two decorations
 

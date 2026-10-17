@@ -38,6 +38,7 @@ import com.lumenpearson.lessons.core.data.repository.SettingsRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
 import com.lumenpearson.lessons.core.data.repository.TimetableRepositoryImpl
 import com.lumenpearson.lessons.core.data.docs.DocsRepositoryImpl
+import com.lumenpearson.lessons.core.data.github.GithubProject
 import com.lumenpearson.lessons.core.data.github.GithubRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepositoryImpl
@@ -166,10 +167,15 @@ interface LessonsContainer {
  * @param githubClientId the OAuth App the GitHub sign-in talks to, or blank for
  *   a build that has none. It is the app module's build constant, which this
  *   module cannot see, so it arrives as an argument from `Application.onCreate`.
+ * @param githubProject the repository the build names, which every GitHub
+ *   address is built from (#469) — the releases, the issues, the guide, the
+ *   pull request and the permissions question. A build constant too, arriving
+ *   the same way and for the same reason.
  */
 class DefaultLessonsContainer(
     context: Context,
     private val githubClientId: String = "",
+    private val githubProject: GithubProject = GithubProject.UPSTREAM,
 ) : LessonsContainer {
 
     /** Never hold the passed-in Context: it may be an Activity. */
@@ -362,7 +368,7 @@ class DefaultLessonsContainer(
     }
 
     override val updateRepository: UpdateRepository by lazy {
-        UpdateRepositoryImpl(appContext)
+        UpdateRepositoryImpl(appContext, githubProject)
     }
 
     override val deviceLinkRepository: DeviceLinkRepository by lazy {
@@ -373,7 +379,7 @@ class DefaultLessonsContainer(
         // Only a context: the guide is fetched from GitHub with the client in
         // `GithubApi`, never through `api`, whose interceptor would rewrite the
         // host to the school server's address.
-        DocsRepositoryImpl(appContext)
+        DocsRepositoryImpl(appContext, githubProject)
     }
 
     /**
@@ -504,6 +510,7 @@ class DefaultLessonsContainer(
             context = appContext,
             clientId = githubClientId,
             scope = containerScope,
+            project = githubProject,
         )
     }
 
