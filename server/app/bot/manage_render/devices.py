@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from html import escape
 
+from app.bot.manage_render._common import cut_escaped
 from app.bot.render import clamp, more_line
 from app.models import Role
 
@@ -13,30 +13,43 @@ from app.models import Role
 #: its own.
 DEVICES_MAX = 15
 
-#: How much of a linked owner's name this page shows before cutting it with
-#: «…» (``manage_render._common.person``'s ``limit``). Unlike every other
-#: page's cap, this one is not about how many *rows* fit — it is about
-#: keeping all ``DEVICES_MAX`` of them inside ``clamp``'s ceiling at once, so
-#: the keyboard (which always draws one row per device, capped at
+#: How many *escaped* characters a linked owner's name (``manage_render.
+#: _common.person``'s ``limit``, no @username) or a device's own name
+#: (below) may draw before this page cuts it with «…»
+#: (:func:`manage_render._common.cut_escaped`). Unlike every other page's
+#: cap, these are not about how many *rows* fit — they are about keeping all
+#: ``DEVICES_MAX`` of them inside ``clamp``'s ceiling at once, so the
+#: keyboard (which always draws one row per device, capped at
 #: ``DEVICES_MAX``, never asking the text) never offers a button the page
-#: has already dropped (#352).
+#: has already dropped (#352). A *raw*-length cap does not do this: nothing
+#: stops either name from being nothing but ``&``, which is one raw
+#: character and five escaped ones, so capping the raw length still let one
+#: field or the other balloon to five times the cap once escaped - which is
+#: why both are cut by the length ``cut_escaped`` actually draws.
 #:
-#: The worst row: a device name at its column's width (120, ``String(120)``,
-#: non-escaping so it does not understate the bound already proven by
-#: ``test_the_device_page_shows_the_build_a_phone_last_sent_and_nothing_if_
-#: none``), an owner with no @username (so the full name is shown) made of
-#: the character that grows most under escaping (``&`` → ``&amp;``, five for
-#: one) up to Telegram's own limit on a display name (129 = 64 + 1 + 64), no
-#: role in the class any more (« (без роли в классе)», 20 characters - longer
-#: than any ``Role.title_ru`` including «Администратор»), the longest build
-#: a 32-bit ``client_version`` can hold (2147483647, ten digits) and the
-#: longest «был …» text («ещё не выходил на связь», 23 characters, longer
-#: than any relative time it competes with). At this cap, fifteen such rows
-#: plus the header come to 3853 of ``MESSAGE_LIMIT``'s 3900; raise the cap by
-#: one and the sum passes 3900, so ``clamp`` cuts the page to fourteen rows
-#: while the keyboard still offers fifteen buttons — the defect this cap
-#: closes. See ``test_bot_manage.py``'s worst-case devices test for the sum.
-OWNER_NAME_MAX = 10
+#: Both names must survive whole well past anything a person or a phone
+#: really carries - a two-or-three-word Cyrillic name is at most some forty
+#: characters and has no ``&``, ``<`` or ``>`` to grow under escaping, so a
+#: budget of 50 never touches it. The worst row the two budgets must still
+#: fit together: a device name and an owner's name (no @username) each made
+#: of the character that grows the most under escaping (``&`` → ``&amp;``,
+#: five for one) and cut at 50, no role left in the class (« (без роли в
+#: классе)», 20 characters - longer than any ``Role.title_ru`` including
+#: «Администратор»), the longest build a 32-bit ``client_version`` can hold
+#: (2147483647, ten digits), and the longest «был …» text («ещё не выходил
+#: на связь», 23 characters, longer than any relative time it competes
+#: with). At 50, fifteen such rows plus the header come to 2743 of
+#: ``MESSAGE_LIMIT``'s 3900 - comfortably clear, because ``cut_escaped``'s
+#: own ellipsis reservation keeps the actual escaped length a few characters
+#: under the budget it is given, not at it. Both budgets can rise to 85
+#: together before the same worst case first drops a row; 50 is held well
+#: back from that line. See ``test_bot_manage.py``'s worst-case devices test
+#: for the sum.
+OWNER_NAME_MAX = 50
+
+#: The device's own name, cut the same way and for the same reason; see
+#: ``OWNER_NAME_MAX`` just above for both budgets' arithmetic together.
+DEVICE_NAME_MAX = 50
 
 
 def _utcnow() -> datetime:
@@ -93,7 +106,7 @@ def render_devices(devices: list, owners: dict[int, tuple[str, Role | None]]) ->
         return "\n".join(lines)
 
     for device in devices[:DEVICES_MAX]:
-        name = escape(device.device_name or f"Устройство {device.id}")
+        name = cut_escaped(device.device_name or f"Устройство {device.id}", DEVICE_NAME_MAX)
         if device.telegram_id is None:
             link = "не привязан"
         else:

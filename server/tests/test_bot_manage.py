@@ -17,7 +17,6 @@ from dataclasses import dataclass, field
 from datetime import date as Date
 from datetime import datetime, timedelta
 from datetime import time as Time
-from html import escape
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -113,9 +112,15 @@ from app.bot.manage_keyboards.bells import bells_list_keyboard
 from app.bot.manage_keyboards.devices import device_keyboard
 from app.bot.manage_keyboards.holidays import DayKindAction, holiday_list_keyboard
 from app.bot.manage_keyboards.subjects import subject_list_keyboard
-from app.bot.manage_render._common import person
+from app.bot.manage_render._common import cut_escaped, person
 from app.bot.manage_render.bells import BELLS_MAX, render_bells
-from app.bot.manage_render.devices import DEVICES_MAX, OWNER_NAME_MAX, render_devices, time_ago
+from app.bot.manage_render.devices import (
+    DEVICE_NAME_MAX,
+    DEVICES_MAX,
+    OWNER_NAME_MAX,
+    render_devices,
+    time_ago,
+)
 from app.bot.manage_render.holidays import LIST_MAX, render_holidays
 from app.bot.manage_render.import_export import split_text
 from app.bot.manage_render.subjects import SUBJECTS_MAX, render_subjects
@@ -1163,42 +1168,36 @@ def test_the_device_page_shows_the_build_a_phone_last_sent_and_nothing_if_none()
     assert more.endswith("… и ещё 1")
 
 
-def test_the_device_page_with_long_owner_names_still_matches_its_keyboard():
-    """#352: the keyboard always builds one row per device, up to
-    ``DEVICES_MAX``; the text used to have no cap of its own on a linked
-    owner's name, so fifteen owners shown by a full name near Telegram's own
-    limit (129 characters, no @username) clamped the page to nine or ten rows
-    while the keyboard still offered fifteen buttons - one for a phone the
-    text no longer named.
-
-    The worst row this page can draw, all at once: a device name at its
-    column's width (120), an owner's name made of the character that grows
-    most under escaping (``&`` -> ``&amp;``, five for one) at Telegram's own
-    limit, no role left in the class (the longer of the two suffixes, longer
-    than even «Администратор»), the longest build a ``client_version`` can
-    hold, and the longest «был …» text («ещё не выходил на связь», for a
-    phone that has never phoned home). ``manage_render.devices.OWNER_NAME_MAX``
-    is the cap that keeps all fifteen such rows under the page's ceiling.
+def test_the_device_page_with_both_names_overgrown_still_matches_its_keyboard():
+    """#352, reopened: the keyboard always builds one row per device, up to
+    ``DEVICES_MAX``. Capping the owner's name by its *raw* length was not
+    enough, because nothing stops either name from being nothing but ``&``
+    - one raw character and five escaped ones - so a raw-length cap still
+    let a name balloon to five times its budget once escaped, and the
+    device's own name was not capped at all. Both are cut by the length
+    ``cut_escaped`` actually draws now, which is what this worst case holds
+    to the page's ceiling: a device name *and* an owner's name (no
+    @username) both made of the character that grows the most under
+    escaping, no role left in the class (the longer of the two suffixes,
+    longer than even «Администратор»), the longest build a
+    ``client_version`` can hold, and the longest «был …» text («ещё не
+    выходил на связь», for a phone that has never phoned home).
     """
     from app.wording import MESSAGE_LIMIT
 
-    growing_name = "&" * 129  # Telegram's own display-name limit, 64 + 1 + 64
-    who = person(growing_name, None, None, limit=OWNER_NAME_MAX)
-    # Cut before escaping: the raw characters survive uncorrupted, then «…»,
-    # rather than an escaped string sliced after the fact (which can sever an
-    # entity into something like «&am» - a refused message of its own).
-    assert who == escape(growing_name[: OWNER_NAME_MAX - 1]) + "…"
+    growing = "&" * 300  # far past either budget; cut_escaped must bound it
 
     def phone(n: int) -> SimpleNamespace:
         return SimpleNamespace(
             id=n,
-            device_name="Т" * 120,
+            device_name=growing,
             telegram_id=n,
             last_seen_at=None,
             client_version=2_147_483_647,
         )
 
     devices = [phone(n) for n in range(1, DEVICES_MAX + 1)]
+    who = person(growing, None, None, limit=OWNER_NAME_MAX)
     # No role: the longer of the two suffixes the page can print.
     owners = {device.telegram_id: (who, None) for device in devices}
 
@@ -1212,14 +1211,31 @@ def test_the_device_page_with_long_owner_names_still_matches_its_keyboard():
     assert _reachable(keyboard, [str(device.id) for device in devices]) == drawn
 
 
-def test_a_short_owner_name_is_not_cut():
-    """A name under the cap is shown whole - the cap only ever shortens, and
-    a name with room to spare keeps every character."""
-    assert person("Иван", None, 1, limit=OWNER_NAME_MAX) == "Иван"
-    # One character under the cap is still kept whole: the boundary is "more
-    # than the cap", not "at least the cap".
-    exactly = "И" * OWNER_NAME_MAX
-    assert person(exactly, None, 1, limit=OWNER_NAME_MAX) == exactly
+def test_an_ordinary_name_of_about_forty_characters_is_drawn_whole():
+    """Neither budget is so tight that a real name or device model pays for
+    the worst case nobody but an adversarial client sends. A two-or-three
+    word Cyrillic name has no ``&``, ``<`` or ``>`` to grow under escaping,
+    so its escaped length is its raw one."""
+    owner_name = "Александра Константиновна Петрова-Сидорова"[:40]
+    assert len(owner_name) == 40
+    assert person(owner_name, None, 1, limit=OWNER_NAME_MAX) == owner_name
+
+    device_name = ("Samsung Galaxy A54 5G Global Edition " + "X" * 40)[:40]
+    assert len(device_name) == 40
+    assert cut_escaped(device_name, DEVICE_NAME_MAX) == device_name
+
+
+def test_a_name_cut_by_the_budget_ends_in_an_ellipsis_with_no_broken_entity():
+    """The cut lands between whole characters, never inside the entity one
+    of them escaped to - slicing the already-escaped string can leave
+    something like «&am», which is a message Telegram refuses of its own."""
+    cut = cut_escaped("&" * (OWNER_NAME_MAX * 2), OWNER_NAME_MAX)
+    assert cut.endswith("…")
+    assert len(cut) <= OWNER_NAME_MAX
+    body = cut.removesuffix("…")
+    # Every character escaping produced is a complete entity: dropping them
+    # all leaves nothing behind.
+    assert body.replace("&amp;", "") == ""
 
 
 def test_a_long_export_is_split_on_line_boundaries():
