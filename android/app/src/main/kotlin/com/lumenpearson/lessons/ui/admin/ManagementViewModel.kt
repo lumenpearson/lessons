@@ -33,9 +33,10 @@ import kotlinx.coroutines.launch
  * thing that matters most about them: the answer to "is this page still mine".
  * The server decides that per request from the linked Telegram account, so it
  * can change between two taps, and it arrives as an ordinary `403` on whatever
- * call happened to be next. [ManagementPlumbing.note] is the single place that reads it, and it
- * empties the page for all eight at once — an admin demoted while the subjects
- * sheet is open must not be able to go back and open the devices sheet.
+ * call happened to be next. [ManagementPlumbing.note] is the single place
+ * that reads it, and it empties the page for all eight at once — an admin
+ * demoted while the subjects sheet is open must not be able to go back and
+ * open the devices sheet.
  *
  * Each sheet's work is a class of its own over one [ManagementPlumbing]:
  * [ClassCardActions], [SubjectsActions], [BellsActions], [TimetableActions],

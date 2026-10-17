@@ -92,9 +92,10 @@ class SettingsViewModel(
     private val refreshing = MutableStateFlow(false)
     private val message = MutableStateFlow<SyncMessage?>(null)
 
-    // What holds a flow of its own, each in a class of its own. Built here: after
-    // `message`, which one of them is handed, and before the combines that read
-    // their flows, which take them when they are built.
+    // What holds a flow of its own, each in a class of its own. Built here
+    // because Kotlin initializes in textual order: after `message`, which
+    // SettingsGithub is handed, and before `remote` and `uiState`, whose
+    // combines read the classes' flows the moment they are declared.
     private val settingsUpdates = SettingsUpdates(settingsRepository, updateRepository, viewModelScope)
     private val settingsGithub = SettingsGithub(githubRepository, message, viewModelScope)
     private val settingsDeviceLink = SettingsDeviceLink(sessionRepository, deviceLinkRepository, viewModelScope)
