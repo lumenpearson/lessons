@@ -86,12 +86,18 @@ own bucket. New codes are eight characters with no `O`, `0`, `I` or `1`.
 
 ### The app
 
-- Plain HTTP is allowed on purpose (`res/xml/network_security_config.xml`): the real
-  scenario is a school's server on a local address, and public CAs do not issue
-  certificates for an IP on a private network. What travels over that wire is a class code
-  and a timetable. This configuration does not touch an address with `https://`, and user
+- **The release build talks to its server over `https://` only** (#202). Its
+  `src/main/res/xml/network_security_config.xml` refuses cleartext to every host except
+  `localhost` and `127.0.0.1`, whose requests never leave the phone, and the address sheet
+  refuses an `http://` address where it is typed. The debug build's
+  `src/debug/res/xml/network_security_config.xml` keeps cleartext to every host, for
+  development against a server on the same desk. This used to say plain HTTP was allowed
+  on purpose, for a school's server on a local address, and that what crossed that wire was
+  a class code and a timetable; it was a class bearer, often a write token, the diary bearer
+  and the diary session, which is why the release build stopped allowing it. User
   certificates are not trusted, so nobody can install their own CA and intercept a
-  configured TLS connection.
+  configured TLS connection. [docs/build.md](../docs/build.md), «Why a debug build speaks
+  HTTP and a release build does not», has both files and what an `http://` wire carries.
 - Signing in through GitHub uses the device flow, with no client secret: an APK cannot keep
   a secret. The client id is set at build time, and without it the sign-in line is not
   shown.
@@ -101,9 +107,13 @@ own bucket. New codes are eight characters with no `O`, `0`, `I` or `1`.
 ## Out of scope
 
 - A release APK built without a key is signed with the **debug** key. It installs and it
-  survives R8, but it must not be published: the debug key is the same for everybody. This
-  is documented in [docs/build.md](../docs/build.md) and the run summary says so — it is a
-  known limitation, not a vulnerability.
+  survives R8, but it must not be published. Not because the key is shared — the alias and
+  the passwords are constants, but every build machine mints its own key pair and throws it
+  away, so each CI run signs with a certificate that never existed before — but because
+  nothing can ever update such a release, not even its own builder, and its certificate,
+  `CN=Android Debug`, identifies nobody. This is documented in
+  [docs/build.md](../docs/build.md), «Signing», and the run summary says so — it is a known
+  limitation, not a vulnerability.
 - The electronic diaries — Petersburg's and «Сетевой город. Образование» — and the
   DaData school directory are other people's services, the diaries undocumented. Their own
   problems are not ours; our boundary is `server/app/providers/` as a whole — `petersburg/`,
