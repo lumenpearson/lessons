@@ -990,7 +990,7 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   live diary once, on 5 October, on an emulator: an account the owner supplied was answered
   `401`, which a made-up account gets too, so it says nothing about whether the port is right
   (the section on #342).
-- **Nobody knows whether a diary accepts a session opened on a phone when our server replays
+- **Nobody knows whether a diary accepts a session opened on a phone when the server replays
   it.** The phone signs in from the family's own address, and `POST /api/v1/diary/session`
   then reads with that session from Frankfurt. A diary that ties a session to its address, or
   refuses foreign ones, answers that read with a refusal, and the server turns it into a
