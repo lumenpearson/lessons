@@ -60,6 +60,15 @@ kotlin {
     // Toolchain comes from AGP; compileOptions pins 21.
 }
 
+// Five tests read this module's `src/main` as files (its Kotlin, its layouts, its
+// strings), and with no Android resources on the test classpath an edit to a string
+// left the task UP-TO-DATE and unrun (#427).
+tasks.withType<Test>().configureEach {
+    inputs.dir(layout.projectDirectory.dir("src/main"))
+        .withPropertyName("mainSourcesAsText")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:data"))

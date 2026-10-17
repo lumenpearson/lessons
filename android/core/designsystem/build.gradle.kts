@@ -60,6 +60,18 @@ android {
     }
 }
 
+// The font, geometry and ellipsis tests read every module's `src/main` as files -
+// Kotlin as text, the fonts' tables, the licences - which Gradle would not otherwise
+// count as this task's inputs, so an edit to one left it UP-TO-DATE (#427). The
+// directories are the projects settings.gradle.kts includes, read for paths only.
+val everyModuleMain = rootProject.allprojects.map { it.layout.projectDirectory.dir("src/main") }
+
+tasks.withType<Test>().configureEach {
+    inputs.files(everyModuleMain)
+        .withPropertyName("everyModuleMain")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_21)

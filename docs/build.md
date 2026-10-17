@@ -761,6 +761,41 @@ cd android
   strips this exact spelling off an allow-list that also strips `--console=plain`, and another
   spelling, such as `-Dorg.gradle.workers.max=2`, would read as a difference from CI.
 
+### What the JVM tests read, Gradle watches
+
+Many of the JVM tests read files straight from the tree rather than from their classpath:
+the legal texts, the guide, the region catalog, and the modules' own Kotlin and resources
+as text. Gradle hashes only what a task declares, and the build cache is on
+(`org.gradle.caching=true`), so until #427 a run after editing only such a file came back
+`UP-TO-DATE` or `FROM-CACHE` having read nothing. That is how a Russian point of the privacy
+policy could pass locally without its English twin: `:core:data:testDebugUnitTest` reported
+success on edition 4 from what it had read of edition 3. CI starts from a fresh checkout
+and never had the gap.
+
+Each module's `build.gradle.kts` now declares those files as inputs of its `Test` tasks,
+beside the name of the test that reads them:
+
+| Module | Declared inputs |
+| --- | --- |
+| `:core:model` | its `src/main/kotlin` |
+| `:core:data` | `docs/legal/`, `docs/app/`, every module's `src/main` and `build.gradle.kts` |
+| `:core:designsystem` | every module's `src/main` |
+| `:widget` | its `src/main` |
+| `:app` | every module's `src` (every source set), `settings.gradle.kts`, `docs/legal/`, `server/app/catalog/data/`, its own `build.gradle.kts` and `.github/workflows/apk.yml` |
+
+The region catalog and the protocol vectors are `:core:data`'s test resources, so they
+were inputs there already. So a plain run after an edit runs what reads it, and `--rerun`
+is no longer needed for that. A new test that opens a file by path declares the file in its
+module's build script, or brings the gap back for itself.
+
+`--rerun` still has a use, to run a test whose inputs have not changed, and one limit: it
+reaches only the task it follows on the command line. In `:core:model` that is the test
+task itself; in the four Android modules `test` is an aggregate over `testDebugUnitTest`,
+so `./gradlew test --rerun` reruns the aggregate and leaves the real tasks to come
+`UP-TO-DATE` or `FROM-CACHE` — on an unchanged tree it executes `:core:model:test` and
+nothing else, which is how `:core:designsystem` was once found coming from the cache under
+it. Name the task to force it: `./gradlew :core:designsystem:testDebugUnitTest --rerun`.
+
 ### The suite on PostgreSQL
 
 `pytest` runs on SQLite, and production runs on PostgreSQL. So everything the two databases
