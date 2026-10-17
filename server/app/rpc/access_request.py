@@ -39,7 +39,6 @@ from app.models import AccessRequest as RequestRow
 from app.models import Role, SchoolClass
 from app.rpc import values
 from app.rpc.errors import Refusal
-from app.services import access as access_service
 from app.services.manage import classes as classes_service
 from app.services.manage import requests as requests_service
 
@@ -152,10 +151,9 @@ async def approve_access_request(
         actor_role=_actor_role(call),
         role=role,
     )
-    # v1's notice and the bot's, word for word: the role the request was
-    # answered with.
-    notice = access_service.approval_notice(school_class, approval.granted)
-    call.after_commit(_tell(pending.telegram_id, notice))
+    # v1's notice and the bot's, word for word, naming the role the answer
+    # names: the one held now (#368).
+    call.after_commit(_tell(pending.telegram_id, approval.notice(school_class)))
     return ApproveAccessRequestResponse(
         request_id=pending.id, role=values.role(approval.member.role), who=approval.who
     )

@@ -1933,6 +1933,32 @@ async def test_an_owner_may_grant_admin(client, session, school_class, recording
     assert member.role is Role.ADMIN
 
 
+async def test_approving_an_old_request_of_a_member_already_above_it_answers_the_role_they_keep(
+    client, session, school_class, recording_bot
+):
+    """Asked for editor, made an admin before anybody answered: the owner's yes
+    to the old request leaves them an admin, so ``role`` - the role actually
+    granted - says admin, and so does the notice (#368)."""
+    session.add(BotUser(telegram_id=ASKER_ID, class_id=school_class.id, role=Role.ADMIN))
+    await session.commit()
+    request = await _request(session, school_class, ASKER_ID)
+    token = await _linked_token(client, session, school_class, OWNER_ID, None)
+
+    response = await client.post(
+        f"/api/v1/manage/requests/{request.id}/approve", headers=_auth(token)
+    )
+    assert response.status_code == 200, response.text
+    assert (response.json()["status"], response.json()["role"]) == ("approved", "admin")
+    member = await session.scalar(select(BotUser).where(BotUser.telegram_id == ASKER_ID))
+    assert member.role is Role.ADMIN
+    assert recording_bot.sent == [
+        (
+            ASKER_ID,
+            "✅ Запрос доступа в классе <b>9А</b> закрыт: у вас уже роль <b>Администратор</b>.",
+        )
+    ]
+
+
 async def test_declining_closes_the_request_and_tells_the_asker(
     client, session, school_class, recording_bot
 ):

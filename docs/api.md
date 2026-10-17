@@ -933,7 +933,11 @@ the admins answer here or there.
 
 `POST /manage/requests/{id}/approve` grants it. The body is optional;
 `{ "role": "admin" }` grants something other than what was asked for. Answers
-`{ "id": 5, "status": "approved", "role": "editor", "who": "@petya" }`.
+`{ "id": 5, "status": "approved", "role": "editor", "who": "@petya" }`, where
+`role` is the role the member holds afterwards: an existing member is never
+lowered, so approving an old request for `editor` from somebody made an admin
+since answers `"admin"`, and the notice they get in Telegram says they are an
+admin already rather than that they were made an editor.
 
 Two guards, the bot's own: nobody may grant a role at or above their own
 (`403 cannot grant a role at or above your own`, and `owner` is granted by the

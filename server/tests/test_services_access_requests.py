@@ -106,6 +106,39 @@ async def test_an_approval_never_lowers_a_member_above_the_role_asked_for(
     )
     assert (approval.member.role, approval.who) == (Role.ADMIN, "Маша")
     assert asked.status == "approved"
+    # Nothing was granted, and the journal must not say it was (#368).
+    assert approval.already
+    await session.commit()
+    summary = await session.scalar(select(AuditEntry.summary).order_by(AuditEntry.id.desc()))
+    assert summary == "одобрен запрос на роль Редактор: Маша уже Администратор"
+
+
+async def test_an_approval_of_a_role_already_held_grants_nothing(session, school_class) -> None:
+    """Asked for editor, made an editor before anybody answered: the yes is
+    answered as held already, not as a grant, while a raise is a grant."""
+    session.add(BotUser(telegram_id=ASKER, class_id=school_class.id, role=Role.EDITOR))
+    session.add(BotUser(telegram_id=7702, class_id=school_class.id, role=Role.VIEWER))
+    await session.commit()
+    as_editor = await _asks(session, school_class)
+    as_viewer = await _asks(session, school_class, telegram_id=7702)
+    held = await requests_service.approve(
+        session, school_class, as_editor, actor_id=9001, actor_role=Role.ADMIN
+    )
+    raised = await requests_service.approve(
+        session, school_class, as_viewer, actor_id=9001, actor_role=Role.ADMIN
+    )
+    assert (held.already, held.member.role) == (True, Role.EDITOR)
+    assert (raised.already, raised.member.role) == (False, Role.EDITOR)
+
+
+def test_the_approval_notice_says_a_grant_or_the_role_already_held() -> None:
+    """Both shells send these words; the class name is typed by an admin."""
+    assert wording.approval_notice("9<А>", Role.EDITOR, already=False) == (
+        "✅ Доступ выдан: <b>Редактор</b> в классе <b>9&lt;А&gt;</b>. Откройте /start."
+    )
+    assert wording.approval_notice("9<А>", Role.ADMIN, already=True) == (
+        "✅ Запрос доступа в классе <b>9&lt;А&gt;</b> закрыт: у вас уже роль <b>Администратор</b>."
+    )
 
 
 def test_the_requests_sentences_are_v1_s() -> None:

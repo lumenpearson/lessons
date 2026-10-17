@@ -22,7 +22,7 @@ from collections.abc import Iterable
 from datetime import date as Date
 from html import escape
 
-from app.models import DayKind, EventKind
+from app.models import DayKind, EventKind, Role
 from app.schedule import DayOffReason, ResolvedDay
 
 MONTHS_GENITIVE = [
@@ -418,6 +418,26 @@ GRANT_REFUSED_ALERTS = {
     "role_too_high": "Нельзя выдать роль выше вашей",
     "member_senior": "Нельзя менять роль этого пользователя",
 }
+
+
+def approval_notice(class_name: str, role: Role, *, already: bool) -> str:
+    """What whoever asked is told in Telegram once their request is answered yes.
+
+    ``role`` is the role they hold now. ``already`` says they held it, or a
+    higher one, before the answer: a request for editor approved after an owner
+    made them an admin raises nobody, and telling an admin «Доступ выдан:
+    Редактор» told them the wrong role (#368). The bot, v1 and v2 send these
+    words alike. The class name is escaped: it is typed by an admin, and a
+    class really can be called «9<А», which Telegram answers by refusing the
+    whole message rather than the one tag.
+    """
+    name = escape(class_name)
+    if already:
+        return (
+            f"✅ Запрос доступа в классе <b>{name}</b> закрыт: "
+            f"у вас уже роль <b>{role.title_ru}</b>."
+        )
+    return f"✅ Доступ выдан: <b>{role.title_ru}</b> в классе <b>{name}</b>. Откройте /start."
 
 
 #: v1's ``GET /directory/school-regions`` and v2's ``ListSchoolRegions``, the

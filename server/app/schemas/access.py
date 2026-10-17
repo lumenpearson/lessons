@@ -53,6 +53,7 @@ class RequestDecisionIn(BaseModel):
 class RequestDecisionOut(BaseModel):
     id: int
     status: Literal["approved", "declined"]
-    # The role actually granted, or ``null`` for a declined request.
+    # The role the member holds after the approval, or ``null`` for a declined
+    # request. Never lowered, so it can be above the role granted (#368).
     role: RoleName | None = None
     who: str

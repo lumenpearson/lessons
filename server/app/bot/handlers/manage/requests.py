@@ -224,25 +224,25 @@ async def request_approve(
 ) -> None:
     """Grant the requested role through the same rules as «👥 Доступ».
 
-    Literally the same rules: `services/access.approve_request` is also what
-    `PATCH /api/v1/manage/requests/{id}/approve` calls, so a phone and this
-    button cannot come to different answers. The refusal it raises carries the
-    Russian sentence this alert shows.
+    Literally the same rules: `services/manage/requests.approve`, over
+    `services/access.approve_request`, is also what
+    `POST /api/v1/manage/requests/{id}/approve` and v2's
+    `ApproveAccessRequest` call, so a phone and this button cannot come to
+    different answers, nor name different roles in them. The refusal it
+    raises carries the Russian sentence this alert shows.
     """
     request = await _request_by_id(session, school_class, callback_data.value)
     if request is None:
         await callback.answer("Запрос уже закрыт", show_alert=True)
         return
 
-    target_role = request.requested_role
     try:
-        member = await access_service.approve_request(
+        approval = await requests_service.approve(
             session,
             school_class,
             request,
             actor_id=callback.from_user.id,
             actor_role=role,
-            role=target_role,
         )
     except access_service.GrantRefused as refused:
         # The request was read FOR UPDATE (#370), and over the webhook the
@@ -253,18 +253,22 @@ async def request_approve(
         await callback.answer(str(refused), show_alert=True)
         return
 
+    member = approval.member
     name = mr.person(member.full_name, member.username, member.telegram_id)
     await session.commit()
 
-    await _tell_requester(
-        _bot_of(callback),
-        request.telegram_id,
-        access_service.approval_notice(school_class, target_role),
-    )
-    await callback.message.edit_text(
-        f"✅ {name} — теперь <b>{target_role.title_ru}</b>.", reply_markup=back_to_menu()
-    )
-    await callback.answer("Выдано")
+    await _tell_requester(_bot_of(callback), request.telegram_id, approval.notice(school_class))
+    # The role they hold now: an admin whose old request for editor is
+    # approved stays an admin, and the card said «теперь Редактор» (#368).
+    held = member.role.title_ru
+    if approval.already:
+        card = f"✅ {name} уже <b>{held}</b> — роль не изменилась."
+        toast = "Запрос закрыт"
+    else:
+        card = f"✅ {name} — теперь <b>{held}</b>."
+        toast = "Выдано"
+    await callback.message.edit_text(card, reply_markup=back_to_menu())
+    await callback.answer(toast)
 
 
 @router.callback_query(RequestAction.filter(F.action == "decline"))

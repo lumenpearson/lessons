@@ -21,7 +21,6 @@ out land as one fact.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from html import escape
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,7 +78,9 @@ async def approve_request(
     ``can_grant``.
 
     An existing member is never lowered: a request for EDITOR approved for
-    somebody who is already an ADMIN leaves them an ADMIN.
+    somebody who is already an ADMIN leaves them an ADMIN. Whatever is said
+    about the answer names the role the returned row holds, never ``role``
+    (#368): ``requests.approve`` carries that fact to the three shells.
 
     @raises GrantRefused when the actor may not grant this role, or when the
         member is their peer or senior.
@@ -88,15 +89,11 @@ async def approve_request(
     if not can_grant(actor_role, role):
         raise GrantRefused(ROLE_TOO_HIGH)
 
-    member = await session.scalar(
-        select(BotUser).where(
-            BotUser.class_id == school_class.id,
-            BotUser.telegram_id == request.telegram_id,
-        )
-    )
+    member = await member_of(session, school_class, request.telegram_id)
     if member is not None and member.role.rank >= actor_role.rank:
         raise GrantRefused(MEMBER_SENIOR)
 
+    already = holds_already(member, role)
     if member is None:
         member = BotUser(
             telegram_id=request.telegram_id,
@@ -113,25 +110,45 @@ async def approve_request(
     request.decided_by = actor_id
     request.decided_at = datetime.now(UTC).replace(tzinfo=None)
 
+    who = member.full_name or member.telegram_id
     await audit.record(
         session,
         school_class.id,
         actor_id,
         "access.approve",
-        f"выдана роль {role.title_ru}: {member.full_name or member.telegram_id}",
+        # The journal says what happened: a yes that raised nobody granted
+        # nothing, and «выдана роль Редактор» beside an admin was untrue (#368).
+        f"одобрен запрос на роль {role.title_ru}: {who} уже {member.role.title_ru}"
+        if already
+        else f"выдана роль {role.title_ru}: {who}",
     )
     return member
 
 
-def approval_notice(school_class: SchoolClass, role: Role) -> str:
-    """What the requester is told, in the chat where they asked.
-
-    Built here so both shells send the same sentence. The class name is
-    escaped: it is typed by an admin, and a class really can be called «9<А»,
-    which Telegram answers by refusing the whole message rather than the one
-    tag.
-    """
-    return (
-        f"✅ Доступ выдан: <b>{role.title_ru}</b> в классе "
-        f"<b>{escape(school_class.name)}</b>. Откройте /start."
+async def member_of(
+    session: AsyncSession, school_class: SchoolClass, telegram_id: int
+) -> BotUser | None:
+    """The membership of ``telegram_id`` in the class, if they have one."""
+    return await session.scalar(
+        select(BotUser).where(
+            BotUser.class_id == school_class.id,
+            BotUser.telegram_id == telegram_id,
+        )
     )
+
+
+def holds_already(member: BotUser | None, role: Role) -> bool:
+    """Whether ``member`` holds ``role`` or a higher one, so granting it raises
+    nobody: :func:`approve_request` never lowers a member."""
+    return member is not None and member.role.rank >= role.rank
+
+
+def approval_notice(school_class: SchoolClass, role: Role, *, already: bool = False) -> str:
+    """What the requester is told, in the chat where they asked:
+    ``wording.approval_notice`` for this class.
+
+    ``role`` is the role they hold after the answer, and ``already`` says they
+    held it before it (``Approval.already``), so the notice never names a role
+    they were not given.
+    """
+    return wording.approval_notice(school_class.name, role, already=already)

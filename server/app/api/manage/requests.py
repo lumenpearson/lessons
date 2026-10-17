@@ -142,9 +142,11 @@ async def request_approve(
 
     await session.commit()
 
-    await _tell(request.telegram_id, access_service.approval_notice(school_class, approval.granted))
+    await _tell(request.telegram_id, approval.notice(school_class))
+    # The role the member holds now, which is not the one granted when they
+    # already held a higher one (#368).
     return RequestDecisionOut(
-        id=request_id, status="approved", role=approval.granted.value, who=approval.who
+        id=request_id, status="approved", role=approval.member.role.value, who=approval.who
     )
 
 
