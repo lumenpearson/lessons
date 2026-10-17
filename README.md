@@ -499,14 +499,20 @@ caller. And it is the one crash a real phone has reported in this project: it wa
 component that compiles, draws and is covered by tests — which is what the rest of this
 section keeps saying, and what an hour with an APK would have said sooner.
 
-**Two buttons were in no APK this repository ever built.** «Войти через GitHub» is drawn
-only when the build passes a client id, and the APK workflow passed none — so signing in,
-filing a bug report from inside the app and sending a translation correction as a pull
-request were all absent from every build, with nothing failing and nothing warning, because
-an unset property is an empty string. The same for the contact address behind «Отправить
-письмом». The wire is held by a test now, and each build reports on its summary whether the
-two are on; nothing proves a secret is actually set, so until one is registered the honest
-answer there is «off».
+**Two buttons were in no APK this repository built before 21 September 2026, and nobody has
+seen them on a phone since.** «Войти через GitHub» is drawn only when the build passes a
+client id, and the APK workflow passed none — so signing in, sending a bug report from inside
+the app, sending a translation correction as a pull request and opening the developer mode
+were all absent from every build, with nothing failing and nothing warning, because an unset
+property is an empty string. The same for the contact address behind «Отправить письмом».
+«Сообщить об ошибке» itself was never absent: its «Открыть issue на GitHub» opens GitHub's
+new-issue page in the browser with the report filled in, and needs no account in the app.
+The wire is held by a test now, and both secrets the workflow reads,
+`LESSONS_GITHUB_CLIENT_ID` and `LESSONS_CONTACT_EMAIL`, have been registered since 21
+September 2026, so every APK workflow run since should carry both buttons. What nothing has
+verified is the rest: the logs of those runs have expired, so no run summary saying «on» has
+been read since; nobody has seen «Войти через GitHub» on a phone; and nobody has completed
+the device flow with a real account.
 
 **What the nine-area audit leaves uncovered.** Six commits closed defects across the
 server, the sync layer, the calendar, the widget and the self-hosted deployment, and every
