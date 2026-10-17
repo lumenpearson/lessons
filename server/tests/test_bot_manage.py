@@ -3828,7 +3828,7 @@ async def test_approving_an_old_request_of_a_member_already_above_it_says_the_ro
     assert bot.sent == [
         (55, "✅ Запрос доступа в классе <b>9А</b> закрыт: у вас уже роль <b>Администратор</b>.")
     ]
-    assert callback.answers == [("Запрос закрыт", False)]
+    assert callback.answers == [("Роль не изменилась", False)]
 
 
 # --------------------------------------------------------------------------

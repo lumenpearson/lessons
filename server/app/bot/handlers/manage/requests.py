@@ -263,7 +263,9 @@ async def request_approve(
     held = member.role.title_ru
     if approval.already:
         card = f"✅ {name} уже <b>{held}</b> — роль не изменилась."
-        toast = "Запрос закрыт"
+        # Not «Запрос закрыт»: one word from the refusal «Запрос уже закрыт»,
+        # which means nothing was done, while here the request was answered.
+        toast = "Роль не изменилась"
     else:
         card = f"✅ {name} — теперь <b>{held}</b>."
         toast = "Выдано"
