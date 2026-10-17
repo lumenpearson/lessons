@@ -17,6 +17,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 internal class GithubIssues(
     private val preferences: GithubPreferences,
     userAgent: Lazy<String>,
+    private val project: GithubProject,
 ) {
 
     private val userAgent: String by userAgent
@@ -28,7 +29,7 @@ internal class GithubIssues(
                 IssueRequestDto.serializer(),
                 IssueRequestDto(title = draft.title, body = draft.body, labels = listOf(ISSUE_LABEL)),
             )
-            val request = GithubApi.apiRequest(GithubApi.repoUrl("/issues"), userAgent)
+            val request = GithubApi.apiRequest(GithubApi.repoUrl(project, "/issues"), userAgent)
                 .header("Authorization", "Bearer $token")
                 .post(payload.toRequestBody(GithubApi.JSON_MEDIA_TYPE))
                 .build()

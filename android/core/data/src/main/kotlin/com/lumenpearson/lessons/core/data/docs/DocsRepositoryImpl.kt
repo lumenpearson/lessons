@@ -3,6 +3,7 @@ package com.lumenpearson.lessons.core.data.docs
 import android.content.Context
 import android.util.Log
 import com.lumenpearson.lessons.core.data.github.GithubApi
+import com.lumenpearson.lessons.core.data.github.GithubProject
 import com.lumenpearson.lessons.core.data.repository.DocsFailure
 import com.lumenpearson.lessons.core.data.repository.DocsLibrary
 import com.lumenpearson.lessons.core.data.repository.DocsRepository
@@ -44,9 +45,17 @@ internal class DocsRepositoryImpl(
      * one production implementation.
      */
     private val download: (String) -> String?,
+    /**
+     * Whose `docs/app/` the guide is fetched from: the repository the build
+     * names (#469). A fork that rewrites the guide for its own deployment
+     * bundles that copy in its APK, and the first refresh would otherwise
+     * replace it with this repository's.
+     */
+    private val project: GithubProject,
 ) : DocsRepository {
 
-    constructor(context: Context) : this(DocsStore(context), githubDownloader(context))
+    constructor(context: Context, project: GithubProject) :
+        this(DocsStore(context), githubDownloader(context), project)
 
     private val mutableState = MutableStateFlow(DocsState())
     override val state: StateFlow<DocsState> = mutableState.asStateFlow()
@@ -152,7 +161,7 @@ internal class DocsRepositoryImpl(
      * copy is as old as the install.
      */
     private suspend fun fetch(language: String): Outcome {
-        val manifestText = download(GithubApi.rawUrl("$FOLDER/$MANIFEST"))
+        val manifestText = download(GithubApi.rawUrl(project, "$FOLDER/$MANIFEST"))
             ?: return Outcome.Failed(DocsFailure.OFFLINE)
         val manifest = readManifest(manifestText)
             ?: return Outcome.Failed(DocsFailure.UNREADABLE)
@@ -169,7 +178,7 @@ internal class DocsRepositoryImpl(
         }
 
         val file = manifest.files[language] ?: "guide.$language.md"
-        val markdown = download(GithubApi.rawUrl("$FOLDER/$file"))
+        val markdown = download(GithubApi.rawUrl(project, "$FOLDER/$file"))
             ?: return Outcome.Failed(DocsFailure.OFFLINE)
         val guide = DocsMarkdown.parse(markdown, language)
         // An answer that parses to nothing is an answer that is not a guide —

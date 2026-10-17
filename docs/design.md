@@ -1239,6 +1239,14 @@ suffix that a debug build adds to `versionName` is handled separately: semver re
 pre-release, and without trimming it a debug install of the current version would offer
 itself to itself for ever.
 
+Whose releases is the build's to say, not the code's (#469). While the owner and the name
+were constants, an APK built from a fork listed this repository's releases, offered their
+version, and opened an APK signed with another key, which the installer refuses over the
+fork's install — and the fork's own releases were never offered. The list now comes from the
+repository `LESSONS_BUILD_REPOSITORY` names, which `apk.yml` fills from the repository it runs
+in, and so do the bug report, the guide, the translation pull request and the developer
+mode's question; a build told nothing falls back to this repository.
+
 The check on launch runs no more than once a day — not to economise but because GitHub's
 unauthenticated window, sixty requests an hour, is counted per address, and a classful of
 phones behind one router shares it. A failed check counts too: a refusal spends the window

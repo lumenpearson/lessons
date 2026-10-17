@@ -143,7 +143,7 @@ internal fun AboutCard(
 
             Badges(serverStatus = serverStatus, build = build)
 
-            LinkPills()
+            LinkPills(build = build)
 
             Facts()
 
@@ -235,11 +235,15 @@ private data class AboutLink(
     val target: AboutTarget,
 )
 
-private const val ProjectUrl = "https://github.com/lumenpearson/lessons"
 private const val EssentialsUrl = "https://github.com/sameerasw/essentials"
 
-private val Links = listOf(
-    AboutLink(Icons.Rounded.Code, R.string.about_link_source, AboutTarget.Web(ProjectUrl)),
+/**
+ * «Исходный код» opens the repository this build names rather than a name
+ * written here (#469): a fork's APK was built from the fork's code, and the
+ * upstream's is not what its reader is running.
+ */
+private fun links(build: BuildProvenance) = listOf(
+    AboutLink(Icons.Rounded.Code, R.string.about_link_source, AboutTarget.Web(build.sourceUrl)),
     AboutLink(Icons.Rounded.Palette, R.string.about_link_essentials, AboutTarget.Web(EssentialsUrl)),
     AboutLink(
         Icons.Rounded.Gavel,
@@ -268,13 +272,13 @@ private val Links = listOf(
  * `Box` standing in for a missing one.
  */
 @Composable
-private fun LinkPills() {
+private fun LinkPills(build: BuildProvenance) {
     val legal = rememberLegalOpener()
     Column(
         verticalArrangement = Arrangement.spacedBy(PillGap),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Links.forEach { link ->
+        links(build).forEach { link ->
             LinkPill(link = link, onLegal = legal::open, modifier = Modifier.fillMaxWidth())
         }
     }

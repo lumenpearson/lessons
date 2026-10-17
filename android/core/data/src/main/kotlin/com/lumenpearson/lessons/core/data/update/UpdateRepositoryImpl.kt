@@ -3,6 +3,7 @@ package com.lumenpearson.lessons.core.data.update
 import android.content.Context
 import android.util.Log
 import com.lumenpearson.lessons.core.data.github.GithubApi
+import com.lumenpearson.lessons.core.data.github.GithubProject
 import com.lumenpearson.lessons.core.data.repository.UpdateCheck
 import com.lumenpearson.lessons.core.data.repository.UpdateRepository
 import com.lumenpearson.lessons.core.model.AppVersion
@@ -23,13 +24,18 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 
 /**
- * The update check against this project's GitHub releases.
+ * The update check against the releases of the repository the build names.
+ *
+ * That one and no other (#469): a fork's APK checked this repository's
+ * releases, offered their version, and opened an APK signed with a different
+ * key, which the installer refuses over the fork's own install — while the
+ * fork's releases were never offered at all.
  *
  * Internal because the container hands out the interface; the only thing a
  * caller could do with the class itself is build a second one, and there must
  * be one: [state] is the agreement between the settings page and the app shell.
  */
-internal class UpdateRepositoryImpl(context: Context) : UpdateRepository {
+internal class UpdateRepositoryImpl(context: Context, project: GithubProject) : UpdateRepository {
 
     private val appContext: Context = context.applicationContext
     private val preferences = UpdatePreferences(appContext)
@@ -37,6 +43,8 @@ internal class UpdateRepositoryImpl(context: Context) : UpdateRepository {
     override val installedVersion: String = GithubApi.installedVersion(appContext)
 
     private val userAgent: String = GithubApi.userAgent(installedVersion)
+
+    private val releasesUrl: String = releasesUrl(project)
 
     /**
      * Where a check runs, and why it is not the caller's scope: the automatic
@@ -142,7 +150,7 @@ internal class UpdateRepositoryImpl(context: Context) : UpdateRepository {
     }
 
     private suspend fun fetchReleases(): List<ReleaseDto> = withContext(Dispatchers.IO) {
-        val request = GithubApi.apiRequest(RELEASES_URL, userAgent).get().build()
+        val request = GithubApi.apiRequest(releasesUrl, userAgent).get().build()
         GithubApi.client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) error("GitHub returned HTTP ${response.code}")
             val body = response.body?.string() ?: error("GitHub returned no body")
@@ -179,14 +187,14 @@ internal class UpdateRepositoryImpl(context: Context) : UpdateRepository {
         return UpdateCheck.UpToDate(current?.second?.toReleaseInfo())
     }
 
-    private companion object {
-        const val TAG = "Lessons"
+    internal companion object {
+        private const val TAG = "Lessons"
 
         /**
          * Fifteen is more lines than this project will ever have live at once,
          * and when it is not, the ones that fall off the end are the oldest —
          * which is the right end.
          */
-        val RELEASES_URL = GithubApi.repoUrl("/releases?per_page=15")
+        fun releasesUrl(project: GithubProject): String = GithubApi.repoUrl(project, "/releases?per_page=15")
     }
 }

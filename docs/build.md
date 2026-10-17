@@ -98,9 +98,15 @@ The Android SDK has to be real — its path in `android/local.properties` or in
 about the app has to be configured in a file: the address of the server is typed into the
 app itself, and how to make it reachable from a phone is "Pointing the app at a server" at
 the end of this page. The class code is the one the bot hands out with `/code`, or `DEMO24`
-from the seeding script. The one build setting a **fork** has to think about is where the
-first screen's terms and privacy policy link to — "The terms and the privacy policy the app
-links", below.
+from the seeding script. A **fork** has two build settings to think about, and its own
+`apk.yml` fills both with nothing configured. One is where the first screen's terms and
+privacy policy link to — "The terms and the privacy policy the app links", below. The other
+is which repository the app talks to: `LESSONS_BUILD_REPOSITORY`, `owner/name`, which the
+update check, the bug report, the guide, a translation's pull request, the developer mode's
+question and «Исходный код» are all built from — "What the build is told about itself",
+below. A build that is not told one, such as a clone built by hand, talks to
+`lumenpearson/lessons`: it offers that repository's releases, which the installer refuses
+over an APK signed with another key, and files its bug reports in that tracker (#469).
 
 ### The other place variables live, and it is not `.env`
 
@@ -540,6 +546,19 @@ as `lessons.build.repository` and so on, or sets none of them — every badge hi
 when its value is empty, and the card says «Собрано вручную» instead of drawing a row of
 blanks.
 
+**The repository is more than a badge** (#469). Every GitHub address the app calls is built
+from it, by `GithubProject` in `:core:data`: the releases the update check lists, the
+tracker a bug report is filed in (through the API and through the browser alike), the
+`docs/app/` the guide is refreshed from, the repository a translation's pull request is
+offered to, the one the developer mode asks about, and «Исходный код» on «О приложении».
+Empty means `lumenpearson/lessons` for all of those, while the badge still hides itself. So
+a fork's APK built by the fork's workflow follows the fork, and a fork building by hand
+sets `lessons.build.repository` to its own `owner/name` — or its readers are offered this
+repository's releases, which the installer refuses over the fork's signature, and file their
+reports here. A value that is not `owner/name` stops the build with a sentence saying so,
+because it becomes the path of every one of those addresses. `UpstreamNameTest` fails on
+any Kotlin that spells this repository's name outside that one fallback.
+
 None of them is secret. On a public repository the name, the ref and the commit are public
 by definition, and they are exactly the three facts somebody holding a phone needs in order
 to match it against a pull request.
@@ -626,14 +645,16 @@ GitHub» is there or it is not. Nothing else on the phone says so, by the decisi
 **The developer mode needs the same sign-in, and one thing more.** Seven quick taps on the
 version in «О приложении» list «Для разработчиков» in the settings; its tools open only for
 an account that GitHub says has `admin`, `maintain` or `push` on this repository, which the
-app asks with one `GET /repos/lumenpearson/lessons` under the token the device flow gave it
+app asks with one `GET /repos/{owner}/{name}` of the build's repository (this one:
+`lumenpearson/lessons`) under the token the device flow gave it
 (`docs/architecture.md`, "The developer mode, and why its gate is not a lock"). So a
 developer of this project signs in from that page, and anybody else who signs in is told no.
 `public_repo` is enough for that question: GitHub answers the `permissions` of the caller to
 any authenticated request. On a repository owned by an organisation that restricts OAuth
 Apps, the organisation would first have to approve this one; this repository belongs to a
-user, so there is nothing to approve. A fork that keeps the developer mode changes the owner
-and the name in `GithubApi`, because the question is about this repository, not the fork.
+user, so there is nothing to approve. The repository asked about is the one the build names
+(`LESSONS_BUILD_REPOSITORY`, above), so a fork's APK opens the developer mode for the
+fork's own developers with nothing changed in the code (#469).
 
 ### The address for «Отправить письмом»
 

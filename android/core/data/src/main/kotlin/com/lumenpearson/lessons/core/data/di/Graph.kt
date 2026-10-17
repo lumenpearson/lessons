@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.data.di
 
 import android.content.Context
 import androidx.annotation.VisibleForTesting
+import com.lumenpearson.lessons.core.data.github.GithubProject
 
 /**
  * The process-wide service locator, initialised from `Application.onCreate`.
@@ -39,12 +40,19 @@ object Graph {
      *   that runs first in the process and the one that has the constant. A
      *   receiver or worker calling this later without it changes nothing,
      *   because by then the graph already exists.
+     * @param githubProject the repository the build names (#469), passed by
+     *   the application for the same reason; `BuildPropertyReachTest` holds
+     *   that it is, since a call without it reports to the upstream repository.
      */
-    fun init(context: Context, githubClientId: String = "") {
+    fun init(
+        context: Context,
+        githubClientId: String = "",
+        githubProject: GithubProject = GithubProject.UPSTREAM,
+    ) {
         if (instance != null) return
         synchronized(this) {
             if (instance == null) {
-                instance = DefaultLessonsContainer(context.applicationContext, githubClientId)
+                instance = DefaultLessonsContainer(context.applicationContext, githubClientId, githubProject)
             }
         }
     }

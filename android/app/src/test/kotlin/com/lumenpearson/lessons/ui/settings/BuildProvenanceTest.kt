@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.ui.settings
 
+import com.lumenpearson.lessons.core.data.github.GithubProject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -74,5 +75,22 @@ class BuildProvenanceTest {
         assertNull(empty.copy(commit = full.commit).commitUrl)
         assertNull(empty.copy(repository = "lumenpearson/lessons").commitUrl)
         assertNull(empty.repositoryUrl)
+    }
+
+    /**
+     * The badge hides itself when the build names no repository; the GitHub
+     * calls cannot, so they fall back to the upstream one (#469). A fork's APK
+     * names the fork, and every report, update and guide follows it.
+     */
+    @Test
+    fun `the repository the app talks to is the one the build names, or the upstream one`() {
+        assertEquals(GithubProject("somebody", "lessons-fork"), full.copy(repository = "somebody/lessons-fork").project)
+        assertEquals(GithubProject.UPSTREAM, empty.project)
+    }
+
+    @Test
+    fun `the source link is the build's repository`() {
+        assertEquals("https://github.com/somebody/lessons-fork", full.copy(repository = "somebody/lessons-fork").sourceUrl)
+        assertEquals("https://github.com/lumenpearson/lessons", empty.sourceUrl)
     }
 }

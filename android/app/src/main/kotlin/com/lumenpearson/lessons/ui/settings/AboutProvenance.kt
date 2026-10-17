@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.ui.settings
 
 import com.lumenpearson.lessons.BuildConfig
+import com.lumenpearson.lessons.core.data.github.GithubProject
 
 /**
  * What this particular APK can say about where it came from.
@@ -41,6 +42,21 @@ internal data class BuildProvenance(
     /** The repository's page, or null when this build was not told its name. */
     val repositoryUrl: String?
         get() = repository.takeIf { it.isNotBlank() }?.let { "https://github.com/$it" }
+
+    /**
+     * The repository the app talks to: this build's, or the upstream one when
+     * the build was told none (#469).
+     *
+     * Unlike the badges, which hide themselves on an empty field, the update
+     * check, the bug report and the guide have to go somewhere, so they take
+     * the fallback. A fork's APK is told the fork by `apk.yml` and follows it.
+     */
+    val project: GithubProject
+        get() = GithubProject.fromBuild(repository)
+
+    /** «Исходный код»: the source of the repository the app talks to. */
+    val sourceUrl: String
+        get() = project.webUrl
 
     /** That exact commit, which is the link worth having: it pins the diff. */
     val commitUrl: String?

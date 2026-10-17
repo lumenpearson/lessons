@@ -37,11 +37,14 @@ import kotlinx.coroutines.withContext
  *   user is sent to the browser to type the code, and by the time they come
  *   back the sheet may have been dismissed, rotated away or killed with the
  *   activity. The container passes a process-wide scope for exactly this.
+ * @param project the repository the build names, which the issue, the pull
+ *   request and the permissions question all go to (#469).
  */
 internal class GithubRepositoryImpl(
     context: Context,
     clientId: String,
     scope: CoroutineScope,
+    project: GithubProject,
 ) : GithubRepository {
 
     private val appContext: Context = context.applicationContext
@@ -53,9 +56,9 @@ internal class GithubRepositoryImpl(
     }
 
     private val deviceFlow = GithubDeviceFlow(clientId, scope, preferences, userAgent)
-    private val issues = GithubIssues(preferences, userAgent)
-    private val pullRequests = GithubPullRequests(preferences, userAgent)
-    private val permissions = GithubPermissions(preferences, userAgent)
+    private val issues = GithubIssues(preferences, userAgent, project)
+    private val pullRequests = GithubPullRequests(preferences, userAgent, project)
+    private val permissions = GithubPermissions(preferences, userAgent, project)
 
     override val isConfigured: Boolean = deviceFlow.isConfigured
 

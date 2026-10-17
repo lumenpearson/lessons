@@ -59,6 +59,43 @@ class BuildPropertyReachTest {
         )
     }
 
+    /**
+     * The repository the app files its reports in, lists its updates from and
+     * reads its guide from is the one the workflow ran in (#469).
+     *
+     * The property was already passed, for the about page's badge; what was
+     * missing was the rest of the wire, so a fork's APK named the fork on
+     * «О приложении» and offered this repository's releases one row below.
+     * Each link is checked: the workflow's value, the build's refusal of a
+     * value that is not `owner/name`, and the application handing the result
+     * to the graph every GitHub call is built from.
+     */
+    @Test
+    fun `the repository the app talks to is the one the workflow built in`() {
+        assertTrue(
+            "apk.yml must pass the runner's own repository, so a fork's APK names the fork",
+            Regex("""(?m)^\s+LESSONS_BUILD_REPOSITORY: \$\{\{ github\.repository }}\s*$""").containsMatchIn(workflow),
+        )
+        // CRLF folded first: Git for Windows checks text out that way, and a
+        // block cut at a blank line would find none there (#178).
+        val script = buildScript.replace("\r\n", "\n")
+        val start = script.indexOf("val buildRepository")
+        assertTrue("app/build.gradle.kts no longer declares buildRepository", start >= 0)
+        val end = script.indexOf("\n\n", start).let { if (it < 0) script.length else it }
+        val block = script.substring(start, end)
+        assertTrue(
+            "a repository that is not owner/name must stop the build, not be spliced into an address: $block",
+            "throw GradleException" in block,
+        )
+        assertTrue(script.contains("""buildConfigField("String", "BUILD_REPOSITORY", "\"${'$'}buildRepository\"")"""))
+        assertTrue(
+            "LessonsApplication must hand the build's repository to Graph.init, or every GitHub call " +
+                "falls back to the upstream repository",
+            Regex("""Graph\.init\([^)]*githubProject\s*=\s*BuildProvenance\.current\(\)\.project""")
+                .containsMatchIn(application),
+        )
+    }
+
     private companion object {
 
         /** `LESSONS_…` as the first argument of `signingSecret`. */
@@ -89,6 +126,10 @@ class BuildPropertyReachTest {
         val buildScript: String by lazy { File(root, "android/app/build.gradle.kts").readText() }
 
         val workflow: String by lazy { File(root, ".github/workflows/apk.yml").readText() }
+
+        val application: String by lazy {
+            File(root, "android/app/src/main/kotlin/com/lumenpearson/lessons/LessonsApplication.kt").readText()
+        }
 
         /**
          * The names the workflow actually sets, as `NAME:` at the head of a

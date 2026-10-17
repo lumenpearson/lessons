@@ -204,7 +204,8 @@ This server's database (Neon) keeps a history of changes for a further 6 hours, 
   DaData applies only where DADATA_TOKEN is set; without
   it the search refuses at the door and Settings.disabled_features logs it as off. The GitHub
   point holds for every build of this code: the update check and the guide are fetched from
-  lumenpearson/lessons, hard-coded in GithubApi.kt, whatever repository built the APK.
+  the repository the build names (LESSONS_BUILD_REPOSITORY, which a fork's apk.yml fills
+  with the fork), and from lumenpearson/lessons when it names none (GithubProject.kt, #469).
   «No individual contract» is a fact about the upstream on 11 October 2026: every service
   below is used on its public terms. A fork that signs one says so.
 -->

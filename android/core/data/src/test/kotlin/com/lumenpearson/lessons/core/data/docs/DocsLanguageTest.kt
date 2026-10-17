@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.docs
 
+import com.lumenpearson.lessons.core.data.github.GithubProject
 import com.lumenpearson.lessons.core.model.DocsOrigin
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -71,7 +72,7 @@ class DocsLanguageTest {
     fun `a refresh in one language does not freeze the other`() = runTest {
         val storage = FakeStorage()
         val files = FakeRepositoryFiles(version = 1)
-        val docs = DocsRepositoryImpl(storage, files::download)
+        val docs = DocsRepositoryImpl(storage, files::download, GithubProject.UPSTREAM)
 
         // September: the reader is in Russian and takes version 1.
         docs.load("ru")
