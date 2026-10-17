@@ -90,5 +90,11 @@ CI is exactly: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both 
 - Merge your own green pull request rather than asking: the owner's standing instruction,
   with the five checks and the one refusal in `.claude/skills/github-pr/SKILL.md`.
 
+- Test at the cheapest layer that can hold the question, and read a server change against the
+  APKs already installed: nothing removed or renamed in what `/api/v1` answers.
+- A new kind of test, a new CI check or a new shape of the build starts from
+  `docs/engineering.md` — the practice taken from Airbnb's published engineering, what is
+  already true here, and what is deliberately not taken.
+
 The rest — architecture, the traps each module has already produced, the migration protocol —
 is in `CLAUDE.md`, `docs/architecture.md` and `.claude/skills/`.

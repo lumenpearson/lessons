@@ -34,6 +34,21 @@ Tick what you checked. If something is broken deliberately, say why.
 - [ ] Every new Russian string has its English twin in `values-en/`
 - [ ] There is no token, class code, password or keystore path in the diff
 
+## Compatibility and rollout
+
+An APK that is already installed keeps calling this server for as long as nobody updates it,
+and a merge to `main` deploys itself. So a server change is read against the phones in the
+field, not against the app in this diff (`docs/engineering.md`, «Contracts»).
+
+- [ ] An installed app of the previous version still reads every answer it reads today: no
+      field removed or renamed in `/api/v1`, no enum value it does not know sent to it,
+      no new required field in what it posts
+- [ ] A v2 change passed `buf breaking`, or it says here why the break is safe
+- [ ] If the change can go wrong in production, it says how it is switched off without a
+      revert (a setting, `MIN_CLIENT_VERSION`, a feature the tick skips) — or that it cannot be
+- [ ] The migration's side of the merge is stated (additive before, constraint after), or
+      there is no migration
+
 ## Verification
 
 <!--
@@ -54,6 +69,8 @@ If `android/` changed:
 - [ ] `./gradlew assembleDebug`
 - [ ] `./gradlew assembleRelease` — R8 and resource shrinking break what worked in debug,
       and on a pull request that is cheaper than in an installed APK
+- [ ] A changed screen is tested at its UI state — the state built once, the screen drawn
+      from it, the press asserted with the value it carried (`android-tests` agent)
 - [ ] Checked on a device or an emulator <!-- model and Android version -->
 - [ ] The widget checked at two sizes at least <!-- which -->
 
