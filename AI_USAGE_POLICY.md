@@ -87,11 +87,12 @@ A commit has one author: the person who answers for the change. Everything else 
 message serves one purpose — that a year from now the reason for the edit can still be
 worked out.
 
-The convention this repository grew into is to **keep a `Co-Authored-By` trailer naming the
-tool** at the end of the message when one took part: the overwhelming majority of commits
-do it, and there is no reason to break the consistency of the history for a new rule. The
-trailer changes nothing about where responsibility sits: it names a tool, while the person
-who submitted the change is the one who answers for it.
+**A commit carries no attribution trailer** — no `Co-Authored-By` naming a tool, no session
+link — and neither does a pull request's description. Until 6 October 2026 most commits here
+did carry a `Co-Authored-By` trailer naming the tool that took part; since then none does, and
+that older part of the history stays as it is rather than being rewritten. Either way the
+trailer never moved responsibility: the person who submitted the change is the one who answers
+for it, whatever helped write it.
 
 What a message must not contain is promotional phrasing, or a description of the process in
 place of the result. The subject says what the change lets the project do, the body says

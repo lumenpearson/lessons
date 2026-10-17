@@ -130,10 +130,10 @@ The issues filed since #396 merged:
   read on while no blur was drawn, nothing said why, and the other three heavy effects ignored
   battery saver. #609 closed it the same day, and #445 is built on it;
 - #623, filed on 17 October by the independent review of pull request B's plan, on milestone
-  11, `needs:owner`: `CLAUDE.md`, two skills and `AI_USAGE_POLICY.md` say this history carries
-  a `Co-Authored-By` trailer, while 589 of its 906 non-merge commits do and none since `c83d532`
-  of 6 October. Which way the text reads is the owner's to say, and this file's pull request
-  does not touch it;
+  11: `CLAUDE.md`, two skills and `AI_USAGE_POLICY.md` said this history carries a
+  `Co-Authored-By` trailer, while 589 of its 906 non-merge commits do and none since `c83d532`
+  of 6 October. Left to the session on 18 October, it is closed by this file's pull request:
+  all four now say a commit carries no attribution trailer;
 - #624, filed on 17 October, on milestone 11: two of `:app`'s detekt baseline entries matched
   no code, and one could have forgiven a new finding. `eb005c3`, on this file's pull request,
   drops both and says «Closes #624», so it closes at that merge.
@@ -152,7 +152,7 @@ onto the phone after sub-project 3. #118, what Preview is for, was closed by #35
 
 The section «What the last session added» below is this batch: sub-project 4's pull request B,
 `ManagementViewModel` and `SettingsViewModel` split into collaborators, #624's two stale
-baseline entries, and #623 filed. «What the session before it added» is the batch of 17
+baseline entries, and #623's four documents brought level with the history. «What the session before it added» is the batch of 17
 October: #473's merge, #539's thirteen document defects, #609's battery saver, #610's test
 inputs, #622's repository and report line, the FAQ in Discussions, and #445 rewritten over
 #476. The batch of 16 October — #451's merge, #452's five bumps, the branches pruned,
@@ -397,7 +397,6 @@ nothing under `server/` changes. Every public name the screens call stays, so no
 - **What sub-project 5 rewrites**: the audit log's paging, the school search's transport and
   the failure classifiers, which `LogActions` and `ClassCardActions` carry verbatim.
 - **A screen test over the real `SettingsViewModel`.** It would test the rows, not the split.
-- **#623**, filed and not fixed: which way the text about the trailer reads is the owner's.
 
 ### Where it departs from its design and its plan
 
@@ -429,10 +428,8 @@ nothing under `server/` changes. Every public name the screens call stays, so no
 
 ### Left to the owner from this batch
 
-**#623**: whether the documents should say the history carries no `Co-Authored-By` trailer, or
-the trailer should come back. And, from section 7 as before, **let a session merge its own pull
-requests in auto mode, or merge this one yourself**: if the session's permissions refuse the
-merge, it waits on you.
+Nothing new. The merge of a session's own pull request now has an `autoMode.allow` rule in the
+user settings (section 7).
 
 ## What the session before it added: thirteen documents corrected (#539), heavy effects off under battery saver (#609), the JVM tests' inputs declared (#610), the build's own repository and a line on the app's reports (#622), and 135 answers in Discussions
 
@@ -1818,12 +1815,12 @@ gives power saving a category of its own, proposed as «Энергосбереж
 state. It is on milestone 12, and the order above does not place it. The wording on #445 is a
 proposal for you to adjust.
 
-**Let a session merge its own pull requests in auto mode, or keep merging them yourself.** Your
+**A session merges its own pull requests in auto mode.** Your
 standing instruction of 20 September is that a session merges its own pull request after the
 five checks of the `github-pr` skill. Auto mode's classifier refuses that merge, and on 17
 October it refused, as self-modification, the session's edit of the user settings that would
-have added an `autoMode.allow` rule for it. You were given the snippet to paste; until it is in
-place, each of those merges is yours.
+have added an `autoMode.allow` rule for it. You pasted the rule yourself the same day, so a
+session merges its own pull request after the five checks, pinned to the head it checked.
 
 **Delete three leftover worktree folders.** `lessons-476`, `lessons-427` and `lessons-deps`,
 beside the repository's own clone, if they are still there. Git has already deregistered them as
