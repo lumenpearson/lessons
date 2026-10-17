@@ -4,7 +4,8 @@ v1's ``/manage/requests``, over the same services. The list is the class's
 open requests, oldest first, each named as an admin reads them; v1 wrote when
 each was asked as the class's wall time, v2 writes an instant.
 
-Answering is ``requests_service.approve`` and ``decline``, which v1 calls too:
+Answering is ``requests_service.approve`` and ``decline``, which the bot's
+«✅ Одобрить» and «Отклонить» and v1 call too:
 the ladder of «👥 Доступ» decides what an admin may grant, and a request
 already answered is ``RESOURCE_NOT_FOUND``. Two admins cannot answer one
 twice because ``requests_service.pending_one`` reads the row locked

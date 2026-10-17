@@ -1937,8 +1937,8 @@ async def test_approving_an_old_request_of_a_member_already_above_it_answers_the
     client, session, school_class, recording_bot
 ):
     """Asked for editor, made an admin before anybody answered: the owner's yes
-    to the old request leaves them an admin, so ``role`` - the role actually
-    granted - says admin, and so does the notice (#368)."""
+    to the old request leaves them an admin, so ``role`` - the role held
+    afterwards - says admin, and so does the notice (#368)."""
     session.add(BotUser(telegram_id=ASKER_ID, class_id=school_class.id, role=Role.ADMIN))
     await session.commit()
     request = await _request(session, school_class, ASKER_ID)

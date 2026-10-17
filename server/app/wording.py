@@ -409,7 +409,7 @@ UNKNOWN_ACCESS_REQUEST_DETAIL = "Unknown request"
 #: Why ``services/access.approve_request`` refused a grant, by the ``why`` its
 #: refusal carries: a role at or above the grantor's own, and a member who is
 #: the grantor's peer or senior. The English is v1's 403 and v2's
-#: ``ROLE_GRANT_REFUSED``; the Russian is the bot's alert on «✅ Выдать».
+#: ``ROLE_GRANT_REFUSED``; the Russian is the bot's alert on «✅ Одобрить».
 GRANT_REFUSED_DETAILS = {
     "role_too_high": "cannot grant a role at or above your own",
     "member_senior": "cannot change this member's role",

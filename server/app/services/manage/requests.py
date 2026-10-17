@@ -3,8 +3,9 @@
 Granting is :func:`app.services.access.approve_request`, which both shells
 already shared; this is the rest of what they wrote twice - finding a request
 that is still open, answering yes with the role sent or the one asked for
-(:func:`approve`, which v1's router held and v2's ``ApproveAccessRequest``
-applies too), and saying no - and what only the bot does, because only
+(:func:`approve`, which v1's router held and which the bot's «✅ Одобрить», v1
+and v2's ``ApproveAccessRequest`` all call, so the three name the same role
+held afterwards), and saying no - and what only the bot does, because only
 Telegram can be asked in: raising a request, and finding who to tell.
 """
 

@@ -677,6 +677,9 @@ async def test_approving_a_request_grants_the_editor_role(session, school_class)
     await session.refresh(request)
     assert request.status == "approved"
     assert not callback.alerted
+    # Whole lines: «Редактор» is in the card that says nothing changed too (#368).
+    assert callback.message.last == "✅ 55 — теперь <b>Редактор</b>."
+    assert callback.answers == [("Выдано", False)]
 
 
 async def test_approving_is_refused_when_the_actor_cannot_grant_that_role(session, school_class):
@@ -3794,7 +3797,7 @@ async def test_approving_an_old_request_of_a_member_already_above_it_says_the_ro
     session, school_class
 ):
     """A viewer asked for editor, was made an admin in «👥 Доступ» before
-    anybody answered, and the owner then pressed «✅ Выдать» on the old
+    anybody answered, and the owner then pressed «✅ Одобрить» on the old
     request. They stay an admin, and neither the card nor the notice may say
     they are now an editor (#368)."""
     session.add(BotUser(telegram_id=55, class_id=school_class.id, role=Role.ADMIN))

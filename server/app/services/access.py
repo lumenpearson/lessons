@@ -110,19 +110,33 @@ async def approve_request(
     request.decided_by = actor_id
     request.decided_at = datetime.now(UTC).replace(tzinfo=None)
 
-    who = member.full_name or member.telegram_id
     await audit.record(
         session,
         school_class.id,
         actor_id,
         "access.approve",
-        # The journal says what happened: a yes that raised nobody granted
-        # nothing, and «выдана роль Редактор» beside an admin was untrue (#368).
-        f"одобрен запрос на роль {role.title_ru}: {who} уже {member.role.title_ru}"
-        if already
-        else f"выдана роль {role.title_ru}: {who}",
+        _journal_line(request.requested_role, role, member, already=already),
     )
     return member
+
+
+def _journal_line(asked: Role, granted: Role, member: BotUser, *, already: bool) -> str:
+    """The journal's line for a yes, which says what happened.
+
+    A yes that raised nobody granted nothing, and «выдана роль Редактор»
+    beside an admin was untrue (#368). v1 and v2 may answer with another role
+    than the one asked for, so the line names the role asked for as asked for
+    and the role answered with as granted, and never one in the other's place.
+    """
+    who = member.full_name or member.telegram_id
+    if already:
+        answered = "" if granted is asked else f" с ролью {granted.title_ru}"
+        return (
+            f"одобрен запрос на роль {asked.title_ru}{answered}: "
+            f"{who} уже {member.role.title_ru}"
+        )
+    instead = "" if granted is asked else f" (запрошена {asked.title_ru})"
+    return f"выдана роль {granted.title_ru}{instead}: {who}"
 
 
 async def member_of(
