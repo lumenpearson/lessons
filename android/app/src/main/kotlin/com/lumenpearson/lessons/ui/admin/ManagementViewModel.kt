@@ -13,13 +13,11 @@ import com.lumenpearson.lessons.core.data.repository.ClassEdit
 import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
-import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.data.repository.ManageRepository
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SubjectForm
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
@@ -35,9 +33,15 @@ import kotlinx.coroutines.launch
  * thing that matters most about them: the answer to "is this page still mine".
  * The server decides that per request from the linked Telegram account, so it
  * can change between two taps, and it arrives as an ordinary `403` on whatever
- * call happened to be next. [note] is the single place that reads it, and it
+ * call happened to be next. [ManagementPlumbing.note] is the single place that reads it, and it
  * empties the page for all eight at once — an admin demoted while the subjects
  * sheet is open must not be able to go back and open the devices sheet.
+ *
+ * Each sheet's work is a class of its own over one [ManagementPlumbing]:
+ * [ClassCardActions], [SubjectsActions], [BellsActions], [TimetableActions],
+ * [DevicesActions], [LogActions] and [RequestsActions]. Every public method
+ * here hands its call on in one line, so the sheets and the tests take this
+ * class as they did.
  *
  * Nothing here caches. Every sheet loads when it opens; see
  * [ManageRepository] for why a management surface with a cache would be a
@@ -49,8 +53,19 @@ class ManagementViewModel(
     private val session: SessionRepository,
 ) : ViewModel() {
 
-    private val state = MutableStateFlow(ManagementUiState())
-    val uiState: StateFlow<ManagementUiState> = state.asStateFlow()
+    /** Built first, so the seven classes after it always take one that exists. */
+    private val plumbing = ManagementPlumbing(viewModelScope)
+    val uiState: StateFlow<ManagementUiState> = plumbing.state.asStateFlow()
+
+    // Each sheet's work, over the one plumbing: built before init, so that
+    // nothing the view model runs can reach one that is not there yet.
+    private val classCardActions = ClassCardActions(plumbing, repository, session, viewModelScope)
+    private val subjectsActions = SubjectsActions(plumbing, repository)
+    private val bellsActions = BellsActions(plumbing, repository)
+    private val timetableActions = TimetableActions(plumbing, repository)
+    private val devicesActions = DevicesActions(plumbing, repository)
+    private val logActions = LogActions(plumbing, repository)
+    private val requestsActions = RequestsActions(plumbing, repository)
 
     init {
         // Everything in this state belongs to one class, and this object
@@ -82,472 +97,102 @@ class ManagementViewModel(
                 // The first emission is the class this view model was built
                 // for; resetting on it would wipe a load already in flight.
                 .drop(1)
-                .collect { state.value = ManagementUiState() }
+                .collect { plumbing.state.value = ManagementUiState() }
         }
     }
 
     // -- the class card -----------------------------------------------------
 
-    fun loadClass() = read({ it.copy(classCard = it.classCard.copy(loading = true, failure = null)) }) {
-        val result = repository.classCard()
-        finish(result) { current, value, failure ->
-            current.copy(classCard = Remote(value ?: current.classCard.value, false, failure))
-        }
-    }
+    fun loadClass() = classCardActions.loadClass()
 
-    /**
-     * Saves the four boxes against the card they were filled in from.
-     *
-     * The card comes out of the state rather than off the screen: the
-     * repository needs it to send only the fields that actually changed, and
-     * the state is where the form's own initial values came from.
-     */
-    fun saveClass(edit: ClassEdit) = write {
-        val before = state.value.classCard.value ?: return@write Result.success(Unit)
-        val result = repository.updateClass(before, edit)
-        result.onSuccess { card ->
-            state.update {
-                it.copy(classCard = Remote(card), notice = ManagementNotice.ClassSaved)
-            }
-        }
-        result
-    }
+    /** @see ClassCardActions.saveClass */
+    fun saveClass(edit: ClassEdit) = classCardActions.saveClass(edit)
 
-    /**
-     * Turns personal invites on, or gives the class code back.
-     *
-     * Its own write and not part of [saveClass] for the reason
-     * [ManageRepository.setJoinMode] is its own call: this is a row that is
-     * tapped, not a form that is filled in. The answer replaces the card rather
-     * than being merged into it — the server has just re-read the class, so its
-     * copy is newer than the one the tap was made against.
-     */
-    fun setJoinMode(mode: ClassJoinMode) = write {
-        val result = repository.setJoinMode(mode)
-        result.onSuccess { card ->
-            state.update {
-                it.copy(
-                    classCard = Remote(card),
-                    // The card the server answered with, not the mode that was
-                    // asked for: if those two ever differ, the screen must show
-                    // what the class is rather than what was requested.
-                    notice = ManagementNotice.JoinModeChanged(card.joinMode),
-                )
-            }
-        }
-        result
-    }
+    /** @see ClassCardActions.setJoinMode */
+    fun setJoinMode(mode: ClassJoinMode) = classCardActions.setJoinMode(mode)
 
     // -- the school directory -----------------------------------------------
 
-    /**
-     * Searches, once, and keeps everything it found.
-     *
-     * Not a `write`: nothing of ours changes, and the page's one write flag is
-     * what stops two edits of the same class at once — a search that took it
-     * would grey out «Сохранить» while somebody was looking for their school.
-     */
-    fun searchSchools(query: String) {
-        if (state.value.gone != null) return
-        state.update {
-            it.copy(
-                schoolSearch = it.schoolSearch.copy(
-                    query = query,
-                    searching = true,
-                    failure = null,
-                    unavailable = null,
-                ),
-            )
-        }
-        viewModelScope.launch {
-            val result = repository.searchSchools(query)
-            val failure = result.exceptionOrNull()?.let(ManageFailure::of)
-            if (note(failure)) return@launch
-            val found = result.getOrNull()
-            state.update {
-                if (it.gone != null || it.schoolSearch.query != query) {
-                    // A later query is already on screen; this answer is about a
-                    // search the person has moved on from.
-                    it
-                } else {
-                    it.copy(
-                        schoolSearch = it.schoolSearch.copy(
-                            results = found?.items.orEmpty(),
-                            page = 1,
-                            total = found?.total ?: 0,
-                            truncated = found?.truncated == true,
-                            searching = false,
-                            searched = true,
-                            // A directory that is off is not a failure to draw
-                            // in red: it is the sentence telling somebody to
-                            // type the name, which is what the box above is for.
-                            unavailable = (failure as? ManageFailure.Unavailable)
-                                ?.let { off -> off.detail ?: off.message },
-                            failure = failure.takeIf { f -> f !is ManageFailure.Unavailable },
-                        ),
-                    )
-                }
-            }
-        }
-    }
+    /** @see ClassCardActions.searchSchools */
+    fun searchSchools(query: String) = classCardActions.searchSchools(query)
 
-    fun showSchoolPage(page: Int) {
-        state.update {
-            val search = it.schoolSearch
-            it.copy(schoolSearch = search.copy(page = page.coerceIn(1, search.pages)))
-        }
-    }
+    fun showSchoolPage(page: Int) = classCardActions.showSchoolPage(page)
 
-    /** Forgets the last search — the sheet closed, or a school was chosen. */
-    fun clearSchoolSearch() {
-        state.update { it.copy(schoolSearch = SchoolSearch()) }
-    }
+    /** @see ClassCardActions.clearSchoolSearch */
+    fun clearSchoolSearch() = classCardActions.clearSchoolSearch()
 
-    /**
-     * Deletes the class, and with it this phone's own token.
-     *
-     * [classDeleted] is set rather than the page being reloaded: there is
-     * nothing left to load, and the next call would be a `401` that would be
-     * shown as "you were signed out" — true, but a strange thing to tell
-     * somebody who has just deliberately deleted their class.
-     *
-     * The session is *not* dropped here, so that the sheet can say what
-     * happened before the app leaves; [leaveDeletedClass] does it when that
-     * sheet is dismissed. Nothing depends on the user pressing the button
-     * though — the token is already gone server-side, so the next sync's `401`
-     * drops the session anyway.
-     */
-    fun deleteClass(confirmName: String) = write {
-        val result = repository.deleteClass(confirmName)
-        result.onSuccess { state.update { it.copy(classDeleted = true) } }
-        result
-    }
+    /** @see ClassCardActions.deleteClass */
+    fun deleteClass(confirmName: String) = classCardActions.deleteClass(confirmName)
 
-    /**
-     * Leaves the class that was just deleted: token gone, cache gone.
-     *
-     * Without this the app kept the session and the whole cached timetable of
-     * a class that no longer existed — it said «класс удалён» and then went on
-     * drawing its lessons, never reached the join screen, and so never ran the
-     * wipe that joining a new class does on the way in. The old class was then
-     * still on screen after joining a new one.
-     *
-     * The class that was deleted and no other. A phone may hold several, and
-     * an admin deleting one of their classes must not be signed out of the
-     * ones they only attend: `signOut` would drop every token on the device,
-     * and the only way back into the others is another join code from their
-     * admins.
-     */
-    fun leaveDeletedClass() {
-        if (!state.value.classDeleted) return
-        viewModelScope.launch { session.leaveActive() }
-    }
+    /** @see ClassCardActions.leaveDeletedClass */
+    fun leaveDeletedClass() = classCardActions.leaveDeletedClass()
 
     // -- subjects -----------------------------------------------------------
 
-    fun loadSubjects() = read({ it.copy(subjects = it.subjects.copy(loading = true, failure = null)) }) {
-        val result = repository.subjects()
-        finish(result) { current, value, failure ->
-            current.copy(subjects = Remote(value ?: current.subjects.value, false, failure))
-        }
-    }
+    fun loadSubjects() = subjectsActions.loadSubjects()
 
-    fun addSubject(form: SubjectForm) = write {
-        val result = repository.createSubject(form)
-        result.onSuccess { saved ->
-            state.update { it.copy(notice = ManagementNotice.SubjectAdded(saved.subject.name)) }
-            loadSubjects()
-        }
-        result
-    }
+    fun addSubject(form: SubjectForm) = subjectsActions.addSubject(form)
 
-    /**
-     * Saves an edit, and says what a rename cost.
-     *
-     * [ManagementNotice.SubjectRenamed] is raised only when rows actually moved,
-     * because «строк обновлено: 0» after changing a teacher's name would read as
-     * a warning about something that did not happen.
-     */
-    fun saveSubject(before: ManagedSubject, form: SubjectForm) = write {
-        val result = repository.updateSubject(before, form)
-        result.onSuccess { saved ->
-            state.update {
-                it.copy(
-                    notice = if (saved.moved > 0) {
-                        ManagementNotice.SubjectRenamed(saved.subject.name, saved.moved)
-                    } else {
-                        ManagementNotice.SubjectSaved(saved.subject.name)
-                    },
-                )
-            }
-            loadSubjects()
-        }
-        result
-    }
+    /** @see SubjectsActions.saveSubject */
+    fun saveSubject(before: ManagedSubject, form: SubjectForm) = subjectsActions.saveSubject(before, form)
 
-    fun deleteSubject(subject: ManagedSubject) = write {
-        val result = repository.deleteSubject(subject.id)
-        result.onSuccess {
-            state.update { it.copy(notice = ManagementNotice.SubjectDeleted(subject.name)) }
-            loadSubjects()
-        }
-        result
-    }
+    fun deleteSubject(subject: ManagedSubject) = subjectsActions.deleteSubject(subject)
 
     // -- bells --------------------------------------------------------------
 
-    fun loadBells() = read({ it.copy(bells = it.bells.copy(loading = true, failure = null)) }) {
-        val result = repository.bells()
-        finish(result) { current, value, failure ->
-            current.copy(bells = Remote(value ?: current.bells.value, false, failure))
-        }
-    }
+    fun loadBells() = bellsActions.loadBells()
 
-    fun addBellSchedule(name: String, periods: List<BellPeriod>) = write {
-        val result = repository.createBellSchedule(name, periods)
-        result.onSuccess { schedule ->
-            state.update { it.copy(notice = ManagementNotice.BellsSaved(schedule.name)) }
-            loadBells()
-        }
-        result
-    }
+    fun addBellSchedule(name: String, periods: List<BellPeriod>) = bellsActions.addBellSchedule(name, periods)
 
-    fun renameBellSchedule(id: Long, name: String) = write {
-        val result = repository.renameBellSchedule(id, name)
-        result.onSuccess { schedule ->
-            state.update { it.copy(notice = ManagementNotice.BellsSaved(schedule.name)) }
-            loadBells()
-        }
-        result
-    }
+    fun renameBellSchedule(id: Long, name: String) = bellsActions.renameBellSchedule(id, name)
 
-    fun makeBellScheduleDefault(id: Long) = write {
-        val result = repository.makeBellScheduleDefault(id)
-        result.onSuccess { written ->
-            state.update {
-                it.copy(
-                    notice = ManagementNotice.BellsDefault(
-                        written.schedule.name,
-                        written.silencedLessons,
-                    ),
-                )
-            }
-            loadBells()
-        }
-        result
-    }
+    fun makeBellScheduleDefault(id: Long) = bellsActions.makeBellScheduleDefault(id)
 
-    fun saveBellPeriods(id: Long, periods: List<BellPeriod>) = write {
-        val result = repository.writeBellPeriods(id, periods)
-        result.onSuccess { written ->
-            state.update {
-                it.copy(
-                    notice = ManagementNotice.BellsSaved(
-                        written.schedule.name,
-                        written.silencedLessons,
-                    ),
-                )
-            }
-            loadBells()
-        }
-        result
-    }
+    fun saveBellPeriods(id: Long, periods: List<BellPeriod>) = bellsActions.saveBellPeriods(id, periods)
 
-    fun deleteBellSchedule(schedule: BellSchedule) = write {
-        val result = repository.deleteBellSchedule(schedule.id)
-        result.onSuccess {
-            state.update { it.copy(notice = ManagementNotice.BellsDeleted(schedule.name)) }
-            loadBells()
-        }
-        result
-    }
+    fun deleteBellSchedule(schedule: BellSchedule) = bellsActions.deleteBellSchedule(schedule)
 
     // -- export and import --------------------------------------------------
 
-    /**
-     * Reads the export — and drops any consent that was waiting on it.
-     *
-     * This is the read «📥 Импорт» makes when it opens, and a [pendingImport] is
-     * an agreement about a paste that lives in the sheet's own text box. The
-     * box goes when the sheet does; the agreement used to stay, so reopening
-     * the sheet landed on «Заменить» offering to delete a week on behalf of
-     * text nowhere on screen. The two calls that import something clear it
-     * themselves before reloading, so nothing live is thrown away here.
-     */
-    fun loadTimetable() = read({
-        it.copy(
-            pendingImport = null,
-            timetable = it.timetable.copy(loading = true, failure = null),
-        )
-    }) {
-        val result = repository.timetable()
-        finish(result) { current, value, failure ->
-            current.copy(timetable = Remote(value ?: current.timetable.value, false, failure))
-        }
-    }
+    /** @see TimetableActions.loadTimetable */
+    fun loadTimetable() = timetableActions.loadTimetable()
 
-    /**
-     * The first tap: parse and apply, unless something would be overwritten.
-     *
-     * A refusal is not a failure and is not reported as one. `applied: false`
-     * with conflicts is the preview the bot draws before «Применить», and it
-     * lands in [PendingImport] so the sheet can ask.
-     */
-    fun importTimetable(text: String) = write {
-        val result = repository.importTimetable(text, replace = false)
-        result.onSuccess { outcome ->
-            state.update {
-                if (outcome.applied) {
-                    it.copy(
-                        pendingImport = null,
-                        importRejected = outcome.rejected,
-                        notice = ManagementNotice.Imported(
-                            days = outcome.days.size,
-                            lessons = outcome.lessons,
-                            bells = outcome.bells,
-                        ),
-                    )
-                } else {
-                    it.copy(
-                        pendingImport = PendingImport(text = text, conflicts = outcome.conflicts),
-                        importRejected = outcome.rejected,
-                    )
-                }
-            }
-            if (outcome.applied) loadTimetable()
-        }
-        result
-    }
+    /** @see TimetableActions.importTimetable */
+    fun importTimetable(text: String) = timetableActions.importTimetable(text)
 
-    /** The second tap: the same text, with consent. */
-    fun replacePendingImport() {
-        val pending = state.value.pendingImport ?: return
-        write {
-            val result = repository.importTimetable(pending.text, replace = true)
-            result.onSuccess { outcome ->
-                state.update {
-                    it.copy(
-                        pendingImport = null,
-                        importRejected = outcome.rejected,
-                        notice = ManagementNotice.Imported(
-                            days = outcome.days.size,
-                            lessons = outcome.lessons,
-                            bells = outcome.bells,
-                        ),
-                    )
-                }
-                loadTimetable()
-            }
-            result
-        }
-    }
+    /** @see TimetableActions.replacePendingImport */
+    fun replacePendingImport() = timetableActions.replacePendingImport()
 
-    /** Cancels it. Nothing was written, so there is nothing to undo. */
-    fun cancelPendingImport() {
-        state.update { it.copy(pendingImport = null) }
-    }
+    /** @see TimetableActions.cancelPendingImport */
+    fun cancelPendingImport() = timetableActions.cancelPendingImport()
 
     // -- devices ------------------------------------------------------------
 
-    fun loadDevices(includeRevoked: Boolean = state.value.showRevokedDevices) =
-        read({
-            it.copy(
-                showRevokedDevices = includeRevoked,
-                devices = it.devices.copy(loading = true, failure = null),
-            )
-        }) {
-            val result = repository.devices(includeRevoked)
-            finish(result) { current, value, failure ->
-                // Dropped when the switch has moved on since this was asked.
-                // «Показывать отключённые» is the one control on this page that
-                // changes what a read *asks for*, so flipping it twice leaves
-                // two answers racing, and the loser is the one the user changed
-                // their mind about — it would list a revoked phone under a
-                // switch that says revoked phones are hidden.
-                if (current.showRevokedDevices != includeRevoked) {
-                    current
-                } else {
-                    current.copy(devices = Remote(value ?: current.devices.value, false, failure))
-                }
-            }
-        }
+    fun loadDevices(includeRevoked: Boolean = plumbing.state.value.showRevokedDevices) =
+        devicesActions.loadDevices(includeRevoked)
 
-    fun revokeDevice(device: ManagedDevice) = write {
-        val result = repository.revokeDevice(device.id)
-        result.onSuccess {
-            state.update { it.copy(notice = ManagementNotice.DeviceRevoked) }
-            loadDevices()
-        }
-        result
-    }
+    fun revokeDevice(device: ManagedDevice) = devicesActions.revokeDevice(device)
 
-    fun unlinkDevice(device: ManagedDevice) = write {
-        val result = repository.unlinkDevice(device.id)
-        result.onSuccess {
-            state.update { it.copy(notice = ManagementNotice.DeviceUnlinked) }
-            loadDevices()
-        }
-        result
-    }
+    fun unlinkDevice(device: ManagedDevice) = devicesActions.unlinkDevice(device)
 
     // -- the log ------------------------------------------------------------
 
-    fun loadLog(offset: Int = 0) =
-        read({ it.copy(log = it.log.copy(loading = true, failure = null)) }) {
-            val result = repository.log(offset = offset)
-            finish(result) { current, value, failure ->
-                current.copy(log = Remote(value ?: current.log.value, false, failure))
-            }
-        }
+    fun loadLog(offset: Int = 0) = logActions.loadLog(offset)
 
-    /** One page forward, or one back; both are the same read at a new offset. */
-    fun showNextLogPage() {
-        val page = state.value.log.value ?: return
-        if (!page.hasMore) return
-        loadLog(page.offset + page.limit)
-    }
+    /** @see LogActions.showNextLogPage */
+    fun showNextLogPage() = logActions.showNextLogPage()
 
-    fun showPreviousLogPage() {
-        val page = state.value.log.value ?: return
-        if (page.offset <= 0) return
-        loadLog((page.offset - page.limit).coerceAtLeast(0))
-    }
+    fun showPreviousLogPage() = logActions.showPreviousLogPage()
 
     // -- stats and requests -------------------------------------------------
 
-    fun loadStats() = read({ it.copy(stats = it.stats.copy(loading = true, failure = null)) }) {
-        val result = repository.stats()
-        finish(result) { current, value, failure ->
-            current.copy(stats = Remote(value ?: current.stats.value, false, failure))
-        }
-    }
+    fun loadStats() = requestsActions.loadStats()
 
-    fun loadRequests() = read({ it.copy(requests = it.requests.copy(loading = true, failure = null)) }) {
-        val result = repository.requests()
-        finish(result) { current, value, failure ->
-            current.copy(requests = Remote(value ?: current.requests.value, false, failure))
-        }
-    }
+    fun loadRequests() = requestsActions.loadRequests()
 
-    fun approveRequest(request: AccessRequest, role: ClassRole?) = write {
-        val result = repository.approveRequest(request.id, role)
-        result.onSuccess { decision ->
-            state.update {
-                it.copy(notice = ManagementNotice.RequestApproved(decision.who, decision.role))
-            }
-            loadRequests()
-        }
-        result
-    }
+    fun approveRequest(request: AccessRequest, role: ClassRole?) = requestsActions.approveRequest(request, role)
 
-    fun declineRequest(request: AccessRequest) = write {
-        val result = repository.declineRequest(request.id)
-        result.onSuccess { decision ->
-            state.update { it.copy(notice = ManagementNotice.RequestDeclined(decision.who)) }
-            loadRequests()
-        }
-        result
-    }
+    fun declineRequest(request: AccessRequest) = requestsActions.declineRequest(request)
 
     // -- the page itself ----------------------------------------------------
 
@@ -560,11 +205,11 @@ class ManagementViewModel(
      * `GET /manage/class` again would be the same refusal, forever.
      */
     fun recheckRole() {
-        if (state.value.recheckingRole) return
+        if (plumbing.state.value.recheckingRole) return
         viewModelScope.launch {
-            state.update { it.copy(recheckingRole = true) }
+            plumbing.state.update { it.copy(recheckingRole = true) }
             val link = deviceLinks.refresh().getOrNull()
-            state.update {
+            plumbing.state.update {
                 it.copy(
                     recheckingRole = false,
                     // Only a role that manages clears it. Anything else — a
@@ -577,78 +222,11 @@ class ManagementViewModel(
     }
 
     fun consumeNotice() {
-        if (state.value.notice != null) state.update { it.copy(notice = null) }
+        if (plumbing.state.value.notice != null) plumbing.state.update { it.copy(notice = null) }
     }
 
     fun dismissWriteFailure() {
-        if (state.value.writeFailure != null) state.update { it.copy(writeFailure = null) }
-    }
-
-    // -- the plumbing under all of it ---------------------------------------
-
-    /** A read: mark it in flight, run it, and let [note] see whatever it answers. */
-    private fun read(
-        begin: (ManagementUiState) -> ManagementUiState,
-        block: suspend () -> Unit,
-    ) {
-        if (state.value.gone != null) return
-        state.update(begin)
-        viewModelScope.launch { block() }
-    }
-
-    /**
-     * A write: one at a time, and its failure kept where the screen can show it.
-     *
-     * Refused rather than queued while another write is in flight, because two
-     * of these change the same row and the second would be answered against a
-     * class the user has not seen yet.
-     */
-    private fun write(block: suspend () -> Result<*>) {
-        if (state.value.gone != null || state.value.working) return
-        state.update { it.copy(working = true, writeFailure = null) }
-        viewModelScope.launch {
-            val failure = block().exceptionOrNull()?.let(ManageFailure::of)
-            // [note] rewrites the whole state when it recognises the refusal, so
-            // it runs before this update rather than inside it: an update that
-            // updates again is one of the two that loses.
-            if (!note(failure)) {
-                state.update { it.copy(working = false, writeFailure = failure) }
-            }
-        }
-    }
-
-    /** Stores a read's answer, after [note] has had its say about the failure. */
-    private fun <T> finish(
-        result: Result<T>,
-        apply: (ManagementUiState, T?, ManageFailure?) -> ManagementUiState,
-    ) {
-        val failure = result.exceptionOrNull()?.let(ManageFailure::of)
-        note(failure)
-        // Nothing is written once the page has gone — whether this very failure
-        // took it away or one that landed while this read was in flight. A read
-        // started under the old role answers about a class that is no longer
-        // this user's, and [note] having emptied the state would be undone by
-        // the answer arriving a moment behind it: invisible until «Проверить
-        // снова» succeeded, at which point the page came back holding the
-        // previous administrator's subjects.
-        state.update { if (it.gone != null) it else apply(it, result.getOrNull(), failure) }
-    }
-
-    /**
-     * The one place a refusal is read as "the page is no longer yours".
-     *
-     * @return whether it was one, so the caller can drop the failure instead of
-     *   also drawing it next to the button: the page is about to say the whole
-     *   of it, once, and an error card underneath would be the same news twice.
-     */
-    private fun note(failure: ManageFailure?): Boolean {
-        if (failure == null || !failure.endsTheSession) return false
-        state.update {
-            // Nothing that was read under the old role is shown again: it was
-            // true for somebody who is not this user any more.
-            ManagementUiState(gone = failure)
-        }
-        return true
+        if (plumbing.state.value.writeFailure != null) plumbing.state.update { it.copy(writeFailure = null) }
     }
 
     companion object {
