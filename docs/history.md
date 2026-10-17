@@ -176,8 +176,8 @@ written here. The source is the controller's notes of 11 October 2026.
   git ignores; its rulings are in #422's body and in #406's section, in `docs/history.md` now.
 - **Draft #430 merged after #428**, as `014b1c0`, from the owner's account at 15:32 UTC on 11
   October 2026: edition 5 of both legal texts, which kept #425's Sentry point and closed #429.
-  It wrote no close-out of its own; «After #428's merge», in the section on sub-project 4's
-  first pull request (#451), records it.
+  It wrote no close-out of its own; «After #428's merge», in `HANDOVER.md`'s section on
+  sub-project 4's first pull request (#451), records it.
 
 `HANDOVER.md`'s section 7, «Next for the programme», says what follows.
 
@@ -9186,8 +9186,10 @@ your brief for a lawyer, makes it 5; every change to what the texts say raises i
 «CI» has met a skipped «Host» on GitHub's runners since #428 merged, in both directions:
 dependabot's Android-only #449 and #450 ran on 13 October with «Server (API + bot)», «Host»
 and «Contract (Buf)» skipped and «CI» passed (runs 38484096532 and 38484136922), and on #446 a
-failed «Server (API + bot)» failed «CI» (run 38483411159). So `HANDOVER.md`'s section 5 no
-longer says the job has not met that case. As the sub-bullet stood until then, under «#423,
+failed «Server (API + bot)» failed «CI» (run 38483411159). Those three were read through
+`gh pr checks` on 16 October; on 17 October GitHub no longer listed them, nor any run created
+from 2 to 15 October, so none of the three can be opened any more. So `HANDOVER.md`'s section 5
+no longer says the job has not met that case. As the sub-bullet stood until then, under «#423,
 #424 and #425 have been seen only by their tests», where «this pull request» was sub-project
 4's pull request A, #451:
 
@@ -9196,6 +9198,202 @@ longer says the job has not met that case. As the sub-bullet stood until then, u
     case the job exists for rests on the test's run of its script under Git Bash. This pull
     request does not meet it either: it changes documents the server job reads, so «Host»
     runs. The ruleset that requires «CI», 24883111, exists since #428's merge.
+
+The audit behind #473 found that runs, emulator walks, the live gate of 10–11 October and the
+merges since had checked or overtaken part of what the bullets below said, so each was narrowed
+or corrected in place in `HANDOVER.md`'s section 5 on 16 October. As they stood until then, in
+the order they stood in; a section number, «above» or «below» in them is `HANDOVER.md`'s, and
+the one sub-bullet, «on production, only after #342's promote», stood under «v2 as #342, …
+serve it has been asked little outside the test client»:
+
+- **The launcher icon of #388 has run on no device and no emulator.** Every claim about it is a
+  JVM test's, and the launcher that draws it is another app. Unseen:
+  - any real launcher: how Pixel Launcher, One UI and MIUI place, re-index and clip the icon
+    when the alias changes;
+  - themed (monochrome) icons on Android 13 and later;
+  - the edge-to-edge styles under a launcher mask smaller than the standard circle;
+  - whether the app stays open, and stays in Recents, after «Применить» disables the alias it
+    was started through;
+  - whether «Значок приложения» stutters when it opens on a low-end phone, since its 64 tiles
+    inflate vector drawables on the main thread;
+  - whether the 112 dp preview is sharp, now that each drawn icon has its own drawable state;
+  - the home-screen shortcut lost on an update from a build where `MainActivity` was the
+    launcher entry. That one is expected, and only development installs meet it, because
+    nothing has been released.
+
+  Section 7 has the owner's pass on two emulators that starts on it.
+- **The new CI filter (#295) has been seen on a GitHub runner twice**: in #305's own CI, and in
+  #311's, whose first commit (`66c7ba1`) touched only `CLAUDE.md`, `.claude/` and
+  `docs/build.md` and started the server job with the Android and contract jobs skipped. Nobody
+  has seen a commit confined to `proto/` start it on its own. Its guard, `test_ci_paths.py`, sees only the first part of a path, so a new file
+  under a root already listed (`.github/dependabot.yml`, say) is caught only by adding it to
+  the guard's written list.
+  - **on production, only after #342's promote**: on 5 October `/api/v1/warmup` reported
+    `status` `ok`, schema `0017` and `"v2": true`; REST `/api/v2/diary/capabilities` answered
+    `200` with `private, no-store`; Connect answered `200` in JSON and in binary; native gRPC
+    got `415`; and `/api/v2/me` without a token answered `401 DEVICE_TOKEN_INVALID`. The nine
+    methods of 3b-1 were asked once after #350's merge, without a token: REST
+    `/class/auditEntries`, `/class/devices` and `/class/subjects` answered `401`
+    `DEVICE_TOKEN_INVALID`, and Connect `SubjectService/ListSubjects` answered `401`
+    `unauthenticated`. The fifteen of 3b-2 were asked once after #356's merge, without a
+    token: REST `/class`, `/class/bellSchedules`, `/class/timetable` and `/class/terms`
+    answered `401` `DEVICE_TOKEN_INVALID`, and Connect `BellService/ListBellSchedules`
+    answered `401` `unauthenticated`. The five of 3b-3 were asked once after #372's merge,
+    without a token: REST `/class/accessRequests` and `/schools` answered `401`
+    `DEVICE_TOKEN_INVALID`, `/schoolRegions` with a query too short to be counted `400`
+    `VALIDATION_FAILED`, and Connect `AccessRequestService/ListAccessRequests` `401`
+    `unauthenticated`. The eleven of 3b-4 were asked once after #376's merge, without a
+    token: REST `/me/tasks`, `/me/calendarFeed`, `/me/linkCodes` and
+    `/me/homeworkTicks/1` answered `401` `DEVICE_TOKEN_INVALID`, and Connect
+    `MeService/ListTasks` `401` `unauthenticated`. The ten of 3b-5 were asked once after
+    #380's merge, without a token: REST `/class/homework` (`GET`), `/class/events` (`GET`),
+    `POST /class/homework` and `DELETE /class/events/1` answered `401` `DEVICE_TOKEN_INVALID`,
+    and Connect `HomeworkService/ListHomework` and `EventService/ListEvents` answered `401`
+    `unauthenticated`. The seven of 3b-6 were asked once after #385's merge, without a token:
+    REST `GET` and `PATCH ?allowMissing=true` on `/class/days/2026-09-14`, `GET` and `POST
+    /class/substitutions`, and `DELETE /class/substitutions/1` answered `401`
+    `DEVICE_TOKEN_INVALID`, and Connect `SubstitutionService/ListSubstitutions` `401`
+    `unauthenticated`; the ten of 3b-7 are asked after #392's merge, once, without a token;
+    the four of 3b-8 are asked after #394's merge, once, without a token;
+- **Buf's unauthenticated rate limit has not been met.** CI's «Contract (Buf)» job fetches two
+  remote plugins without a token; one run, 37230983817, was not throttled. If it ever is,
+  either step can be the one that fails (the buf-action step fetches `googleapis` from the
+  Schema Registry before generate runs, and says nothing of what to do), and the remedy is the
+  same `BUF_TOKEN` (section 7).
+- **`buf breaking` has refused a change only locally.**
+  - Locally, it compared a scratch copy of the contract with `main` at `45f0680` over 25
+    mutations (#300, which found #298).
+  - In CI it has compared once, on #300 (run 37239214776), and found nothing breaking, as
+    there was none. No CI run has yet refused a breaking change.
+  - Buf reads no options (#299), so a binding, a credential or a role changed in `proto/` is
+    caught by the resource map in `test_contract.py` and by nothing in Buf.
+- **The developer mode (#237) past its door has been seen by nobody.** #257's session saw
+  the reveal on an API 37 emulator, along with the toast, the section in the settings, the
+  signed-out page and hiding it again; that walk is what found #255 and #256. Everything
+  behind the GitHub sign-in is still unseen: the Keystore round trip, the connectivity,
+  notification, alarm and widget checks, the grid, the large text, the stretched strings.
+  The GitHub permission call has not met a real account. An APK built without
+  `LESSONS_GITHUB_CLIENT_ID` cannot get past the door, and every build here so far is one.
+  The mode is also the first tool for most of this section: its checks run from the phone's
+  own network, and its records name the leg a sign-in is stuck on.
+- **Not one route in `docs/diaries/` has been seen answering.** #134's 1916 routes
+  were read from client code and two official apps, and cross-checked against each other.
+  No diary host answers a cloud session, so none was ever called. A route marked *current*
+  means that a client active in 2025 or 2026 sends it, not that a server accepts it today.
+  ТОР «Моя школа» rests on one app build, 5.0.0.454, and its first-wave list rests on one
+  official post. The first live session on any platform will correct its page. Whoever has
+  it should edit the page by hand, because the generator is not in the repository — and,
+  where the edit touches `docs/diaries/regions.md`, regenerate the region catalog with
+  `scripts/region_catalog.py`, which a test insists on.
+- **The «Сетевой город» provider has met live servers only through its school search.** #140
+  wrote the client, the mapper, the keep-alive and the school search from open-source clients
+  and hand-written test payloads. On 10 October the server's own client,
+  `NetSchoolClient.schools_search`, asked four regional servers for «школа» with no account and
+  got their schools back (Амурская 33, Ленинградская 199, Коми 98, Алтайский край 77), which
+  found #412, above; Primorye's did not answer from the development machine. Every other
+  upstream shape — the salted-MD5 sign-in, `/webapi/context`, the weekly diary — is what a
+  client sends, not what a server was seen to accept. The refresh-token grant (LoginType 9) and
+  the Госуслуги refusal path (`SignInUnsupported`) are the least exercised of all. The sign-in
+  needs an account, which the gate did not have, so the first live sign-in on it is still the
+  owner's, #121's caveat a second time.
+- **The terms of use and the privacy policy have never been read by a lawyer.** They
+  describe what the code does and claim compliance with nothing: whether naming a GitHub
+  account as operator satisfies 152-ФЗ, the transfer to hosting in Frankfurt, the age line
+  and parental consent are open. No gate a session runs can answer them. The owner wrote a
+  brief for a lawyer on 11 October, kept outside the repository, and another session wrote
+  edition 5 of both texts from it: draft #430, which closes #429 and is to be rebased onto
+  edition 4 (#425) once #428 merges. A session wrote it, not a lawyer.
+- **The tab arranging has been seen on an emulator only, and it is a gesture.** #84 is a
+  long press, a wobble and a drag; #85 is the drag actually reporting where it landed. What
+  the 39 tests prove is arithmetic and contracts: where a drag of so many pixels lands, that
+  the gesture reports the slot it computed, that a move is a permutation, that the stored
+  order repairs itself, that the shell's one back rule leaves the mode before it leaves the
+  app. #186 saw it work on an emulator (#114), and made it one gesture (#181). What nobody
+  has felt: whether the wobble is plausible, whether half a slot is the right threshold
+  under a real thumb, whether a hold that picks the tab up at once is too eager for someone
+  who only meant to look, and whether the haptic lands where the mode opens. **The APK built for #84 predates the fix and does not
+  rearrange anything**; the first install worth an evening is one built after #186, as
+  section 7 says, because #181 made the gesture one touch.
+- **The drag is driven from a test now, and how far it goes is the whole reason it can be.**
+  #84 left it undriven on the ground that Robolectric reports its own densities, so a
+  synthetic swipe of «half a slot» measures the environment. True, and it hid a defect for a
+  batch: a drag of ten thousand pixels parks at the end under any density, which is what
+  `ToolbarDragTest` does and what caught it. Anything *between* two slots is still not asked
+  of a composition, and `ToolbarReorderTest` asks it in pixels instead.
+- **The server badge has been drawn against a real server once, on an emulator** — «Сервер:
+  база и код разошлись» from a local `create_all` database, correctly — and not yet from a
+  phone on a school's wifi. `ServerStatus` has four
+  states and a test for each, all of them from a fake; nothing in the suite opens a socket.
+  What that leaves unchecked is the shape of a real answer — whether `/api/v1/warmup` from
+  a phone on a school's wifi resolves into `Ok`, `Degraded` or `Unreachable` as intended,
+  and how long it takes to say so. It is also the first thing in this app that makes a
+  network request from the settings page, so it is the first that can make that page wait.
+- **No Compose test was actually made to hang**, so `MarqueeClockTest` — the guard #83 added
+  for the trap that costs a whole Gradle run — is reasoned from `MarqueeText`'s
+  `Int.MAX_VALUE` iteration count and from the list of files that call `createComposeRule`.
+  It is the honest status of a meta-test: what it proves is that thirteen files say in their
+  own words why they cannot overflow, not that the fourteenth would have hung.
+- **There is one `androidTest` in the project, and it is about one gesture.** Until #187
+  there was none, because until #186 no session had an emulator: the cloud containers have no
+  `/dev/kvm`. `ToolbarOnDeviceTest` (#110) drags the tab bar's arranging gesture at a
+  device's own density, on demand and never in CI; every other screen is still asked on the
+  JVM only.
+  **But "nobody has pressed it" is untrue for a good deal of the app by now.** Robolectric
+  runs Compose's test harness on the JVM (`:core:designsystem` already lived this way), and
+  `:app` has twelve files that compose a real screen and press it: the class group, the
+  join-mode switch, the code screen's refusals, the bell rows, the schedule sheet, the term
+  label, the onboarding reveal, the debug report, the translation session, the edge fade and
+  the Telegram card's failure — 43 tests between them. It started at three screens and 21
+  tests, which is what this paragraph said for several batches after it had stopped being
+  true. Those are real presses on real strings rather than stubs: the locale is pinned to
+  `ru-rRU`, or Robolectric takes `values-en/` and the test checks the translation instead of
+  the source.
+  What this does **not** prove: how it looks. Not the layout, not the dark theme, not the
+  animations, not dynamic colours, and not the widget — about which what is proved is exactly
+  that the size ladder is monotonic over real sizes.
+- **Every card in the bot is now drawn**, and that found eight defects in one pass
+  (section 4, in `docs/history.md` now). The hole that is left is exactly where it was: the
+  tests assert what is
+  written on a card rather than how it looks in a client. A live Telegram has shown these
+  cards once, in #186's walk — `/start`, «📱 Подключить телефон» and the class «11А» driven
+  from the owner's chat — which recorded what the bot did and not how a card looked.
+  **Nobody draws the widget.** Glance has `glance-appwidget-testing` at the same version as
+  the Glance in this project (`1.3.0-alpha02`) — the twelve rungs of the size ladder could be
+  rendered and compared with no device. Not done, and the live gate of 10–11 October did not
+  reach the widget either.
+- **The build-chain bumps have been looked at only as far as #186's walk goes.** AGP
+  9.3.1 → 9.4.0 → 9.4.1, Gradle 9.5.0 → 9.7.1 and compose-bom 2026.06.01 → 2026.09.00 are
+  proved by every test passing and both assembles building — locally and on the runner.
+  The same goes for the two Python floors raised the same way, sqlalchemy 2.0.54 and
+  pydantic 2.13.5: the suite passes on them and nobody read either changelog. The
+  compose-bom is **the app's entire rendering**, and one of its effects already surfaced by
+  itself (`OverlayLayerTest`, section 6). Both builds #186 walked on an emulator —
+  `bd7c816`'s release and its own branch's debug — are on all three, and the one defect it
+  filed that names any of them is #185, AGP 9.4's warnings about `srcDirs`: a build
+  message, not a screen. Nobody has set a screen beside one from a build before them, so
+  what the compose-bom changed where there is no test, nobody knows. On a phone, that is
+  the first reason on the list to open the APK.
+- **#62, the batch that stopped text being cut off, has been seen moving only in the reports
+  #80 answered**: on a phone, a line that scrolled beside one that had spent its three passes
+  and parked, which #80 made endless. Robolectric composes the marquee but advances no
+  animation and reads no frame, so what is proven is that a line which fits is laid out
+  exactly as before, that a line which does not stays inside its box rather than pushing
+  the row apart, and that the whole string is present either way. Whether it reads well
+  scrolling needs the APK. The same for the other direction: nobody has seen what an uncapped block does with a long string. **A five-line
+  lesson note now makes a five-line row**, and whether an uncapped heading pushes a sheet's
+  first control too far down is a question only a screen can answer.
+- **The fade widths are chosen, not measured.** 8 dp at each end, narrower on a segment
+  because a segment is narrow; nobody has looked at them beside the Essentials original they
+  came from.
+- **The guide has never been fetched.** The parser, the two languages' parity and the choice
+  between a stored and a bundled copy are tested; the four steps between the app and
+  `raw.githubusercontent.com` are written and have never run. Nor has the bundled fallback
+  been read at runtime — the assets are proven only by listing the built APK, because
+  `:core:data`'s tests have no `Context`. The pager, the loader on the guide, the banner
+  naming its version and the arrow that leaves it have been looked at by nobody: one of
+  #186's screenshots caught the guide open, where the owner had left it on the shared
+  emulator, and what it showed — or whether it had come from GitHub or from the APK — was
+  not recorded.
 
 ## Moved out of section 7 on 16 October 2026, after #451, #452 and #472
 
@@ -9209,3 +9407,57 @@ the walk of the launcher icon that stays there. As the paragraph stood until the
 aliases and 192 resources. `android/logo/export_android.py` now writes only the kept styles. A
 phone that had chosen a removed icon is moved back to «Классика · Мята» by the reconcile on the
 update. That has not yet been seen on a device.
+
+#451 merged, #435's issue was read for the owner's second position, and #461 found that both
+secrets `apk.yml` reads have been registered since 21 September 2026. So `HANDOVER.md`'s
+section 7 drops #451's merge from the order, says what #435 leaves to an operator, and asks for
+an APK with the developer mode to be opened rather than given a client id. As the three
+paragraphs stood until then, where «this pull request» was sub-project 4's pull request A, #451:
+
+**Next for the programme: this pull request, then the 152-ФЗ work, then sub-project 4's B and
+C.** Sub-project 3 is complete (#396), its live-verification gate ran on the night of 10–11
+October, and #406 (#422), #428 and #430 followed it. Sub-project 4, the Android decomposition
+per `docs/specs/2026-10-05-android-decomposition-design.md`, has begun with this pull request,
+A of three («What the last session added»). By your order of 11 October, the work that lets
+any deployment meet 152-ФЗ without changing the code, epic #438 on milestone 12, comes between
+A and the rest. In order:
+1. This pull request's merge.
+2. #435's design, option C, as `docs/specs/2026-10-11-data-in-russia-design.md` with your
+   choices and the open questions for a lawyer, and its plan; then #407's recipe for it — the
+   host target on RUVDS with PostgreSQL on the same VPS, and the bot's Telegram calls through
+   an SSH tunnel to a machine abroad. #407 is open on milestone 11, with nothing written for it
+   yet.
+3. #431–#434 and #436–#437: the consent, the retention terms, the invited phones, the diary
+   sign-in on the diary's own side, the legal texts as a template, and the guide for whoever
+   deploys.
+4. Sub-project 4's pull request B — `ManagementViewModel`, and `SettingsViewModel` after its
+   characterization test — and C — `OnboardingScreen`, `FloatingToolbar` and `HomeShell`'s
+   rules.
+
+**#435 is decided: option C**, recorded on the issue on 11 October. The core runs on a Russian
+VPS, RUVDS, with PostgreSQL on the same VPS, and the bot's calls to Telegram go out through an
+SSH tunnel to a machine abroad, which sees only encrypted bytes; option B is C with that egress
+setting left empty. On RUVDS the egress is required: the same day, the VPS resolved
+`api.telegram.org` but could not open a TCP connection to it — three HTTPS attempts each timed
+out after 15 s — while it reaches Petersburg's diary in about 0.2 s.
+
+**Give the APK a GitHub client id, or the developer mode stays shut.** The mode (#237) opens
+through «Войти через GitHub», which a build without `LESSONS_GITHUB_CLIENT_ID` hides
+(`docs/build.md`). Then, on a phone: seven taps on the version, sign in as an account with
+push to this repository, and run the checks once from a phone's own network — the first
+answer to whether Petersburg's host answers a Russian mobile network at all.
+
+## Moved out of section 7 on 17 October 2026, after #457 closed
+
+Private vulnerability reporting was switched on by the owner's word on 17 October 2026: the
+repository answers `{"enabled":true}`, and #457 is closed. So the paragraph left `HANDOVER.md`'s
+section 7, where the close-out of 16 October had put it. As it stood until then:
+
+**Switch on private vulnerability reporting (#457).** SECURITY.md, CODE_OF_CONDUCT.md and the
+issue chooser send a private report to a security-advisory form, and that form is switched off
+for everybody outside the repository: read at 20:46 UTC on 16 October 2026, the repository
+answered `{"enabled":false}`. Switch it on in Settings → Advanced Security → Private
+vulnerability reporting, or with
+`gh api -X PUT repos/lumenpearson/lessons/private-vulnerability-reporting`, and read it back as
+`{"enabled":true}`. Until then, the only private route in SECURITY.md, CODE_OF_CONDUCT.md and
+the chooser is closed to everybody outside the repository.

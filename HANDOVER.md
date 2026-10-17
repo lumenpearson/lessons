@@ -6,7 +6,7 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **16 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
+Last updated: **17 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
 #313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363, #366, #372,
@@ -42,9 +42,10 @@ code (epic #438, milestone 12). Section 7's «Next for the programme» has the o
 
 **The schema did not move**: the head is still `0019`, on production since 16:28 UTC on 6
 October, and `EXPECTED_REVISION` did not move either. GitHub's commit status read «Vercel:
-success» on all three merges of 16 October, `8564b09`, `2d6fb4f` and `a1135d5`, and
-production's `/api/v1/warmup`, read at 20:46 UTC that day, answered `ok` with schema `0019` and
-`"v2": true`; which commit it was serving was not read.
+success» on all three merges of 16 October, `8564b09`, `2d6fb4f` and `a1135d5`, and the
+`/api/v1/warmup` of the deployment this repository's maintainer runs for testing, read at 20:46
+UTC that day, answered `ok` with schema `0019` and `"v2": true`; which commit it was serving was
+not read.
 
 The issues filed since #396 merged:
 - #402, closed by #403;
@@ -98,11 +99,20 @@ The issues filed since #396 merged:
   backlog); a class that admits only the devices its admins approve, each bound to a hardware
   key, with scoped and expiring access (#442, milestone 12, added to #438's track); the edge
   blur gone from the screen (#444), closed as not planned because battery saver switches it
-  off by design; and its follow-up, which locks the heavy visual effects while battery saver
-  is on and gives power saving a settings category of its own (#445, milestone 12);
-- #457–#471, fifteen defects found on 16 October while the Discussions were drafted, all open:
-  ten on milestone 12 and five on milestone 11. «What the last session added» names each, and
-  section 7 has the one only the owner can close, #457.
+  off by design; and its follow-up (#445, milestone 12), rewritten on 17 October as a feature
+  built on #476: a settings category of its own for power saving, with a switch to follow
+  battery saver or not and an economy mode that keeps the heavy effects off;
+- #457–#471, fifteen issues found on 16 October while the Discussions were drafted, thirteen
+  defects and two chores (#460 and #471): ten on milestone 12 and five on milestone 11.
+  «What the last session added» names each. #457 closed on 17 October, when private
+  vulnerability reporting was switched on by the owner's word and read back
+  `{"enabled":true}`; the other fourteen are open;
+- #474 and #475, filed on 16 October by the audit behind #473, open on milestone 11: comments
+  and KDoc in the timetable cache still name `TimetableDao.replaceAll` (#474), and the
+  `github-pr` skill's milestone table stops at the pull requests of early October (#475);
+- #476, filed on 17 October, open on milestone 12: under battery saver «Размытие под шторкой»
+  reads on while no blur is drawn, nothing says why, and the other three heavy effects ignore
+  battery saver. #445 is built on it.
 
 #395 closed with #396 and #397 with #399; #400 (backlog) and #401 (milestone 11), filed by 3c,
 are open. #352, #355, #357, #365, #368, #371, #375, #377, #378, #384 and #391 stay as the last
@@ -234,7 +244,7 @@ section describes, **#120–#122** are the owner's alone, and **#126** collects 
 things carried deliberately, so that a later session does not re-discover a decision as if
 it were an oversight.
 
-**Two hundred and fifty-eight have been filed since, to #471 on 16 October 2026**; the
+**Two hundred and sixty-one have been filed since, to #476 on 17 October 2026**; the
 early ones are named here, and the tracker has the rest. #130 was the survey #134 closed, and
 #131 and #132 the two defects #133 closed. #135 is the owner's decision about the second
 diary; #136–#139 and #141 are the work #140 carried; #142–#144 are its deliberate follow-ups,
@@ -255,7 +265,7 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: #451 merged, five dependency bumps in #452, the branches pruned, Discussions opened and pointed at (#472), fifteen defects filed, and this file brought up to date
+## What the last session added: #451 merged, five dependency bumps in #452, the branches pruned, Discussions opened and pointed at (#472), fifteen issues filed, and this file brought up to date
 
 Written on 16 October 2026 and carried by #473, a draft from `docs/handover-2026-10-16` to
 `main` on milestone 11, which holds this close-out and the refresh of the rest of this file and
@@ -273,8 +283,9 @@ nothing else. No revision goes with the batch: the schema stays at `0019`, and
   - #446, SQLAlchemy ≥ 2.1.4, #447, asyncpg 0.32.0, and #448, FastAPI 0.143.0, each in
     `requirements.in` and the lock as dependabot wrote them.
 
-  The second of those merges conflicted on neighbouring lines of `requirements.in`, and the
-  resolution kept both floors.
+  The merge of #447's branch, asyncpg's, conflicted with the merge of #446's, SQLAlchemy's,
+  just before it, on neighbouring lines of `requirements.in`, and the resolution kept both
+  floors.
 - **`server/pyproject.toml` carries the same three floors** (`4fd8b75`). Dependabot never
   touches that file, so all three server pull requests had been red on
   `test_requirements_mirror`, which the old file reproduced locally as 1 failed, 7 passed. The
@@ -316,12 +327,14 @@ nothing else. No revision goes with the batch: the schema stays at `0019`, and
   «Where to start» a row; and a new form, `.github/DISCUSSION_TEMPLATE/q-a.yml`, asks who is
   asking, the question and the version, with two required checkboxes: no class data, and no
   secret.
-- **Fifteen defects found while the Discussions were drafted are issues, #457–#471.** Each was
+- **Fifteen issues found while the Discussions were drafted are filed, #457–#471**: thirteen
+  defects and two chores, #460 and #471. Each was
   checked by an independent agent against `main` at `8564b09`, none is a duplicate, and all are
   on board 6 with Status, Priority, Size, Estimate and a start date of 16 October 2026. All are
   P2 but #457 and #469, which are P1. Ten are on milestone 12:
   - #457: the only private channel for vulnerability and conduct reports is a security-advisory
-    form, switched off for everyone outside the repository (section 7);
+    form, switched off for everyone outside the repository; closed on 17 October, when it was
+    switched on;
   - #458: bug reports sent from the app arrive with no label at all, because GitHub drops
     `from-app` for anyone without push access and the browser path never sends one;
   - #459: `docs/deploy.md`'s Option 2 says phones can reach the server at its plain local
@@ -358,10 +371,10 @@ nothing else. No revision goes with the batch: the schema stays at `0019`, and
   for once #472 had merged: the close-out of this batch, and a refresh of every current-state
   claim in the file. Before it was written, thirteen auditors checked 654 claims in this file
   against `main` and GitHub, and a skeptic per chunk challenged each proposed change: 75 changes
-  were confirmed and one refuted. The 75 are applied — two by their stated intent, because
+  were confirmed and one reached no verdict. The 75 are applied — two by their stated intent, because
   their replacement text had been copied from the change beside them, and two reconciled with
-  what GitHub said on a re-read («What nobody has verified in this batch») — and the refuted
-  one is not. One fact the audit corrected in section 7, that no route in `docs/diaries/` had
+  what GitHub said on a re-read («What nobody has verified in this batch») — and the one
+  without a verdict is not. One fact the audit corrected in section 7, that no route in `docs/diaries/` had
   been seen answering, stood in section 5 too and is corrected there as well. #428's section
   moved to `docs/history.md`, and two paragraphs to its new parts «Moved out of section 5 on 16
   October 2026, after #451, #452 and #472» and «Moved out of section 7 on 16 October 2026,
@@ -394,16 +407,17 @@ nothing else. No revision goes with the batch: the schema stays at `0019`, and
   the owner approved on 5 October, its written text waiting for the owner's review; and the
   notes on the languages of Russia. Merging it would publish an unreviewed design in
   `docs/specs/` as if agreed, and a Russian working note in `docs/`; deleting it would lose
-  both. It is stale against `main` in three places, to reconcile when it is picked up, though a
-  trial merge is free of conflicts: its `SIGN_IN_METHOD` numbering against `SESSION_ADOPT = 2`
-  at `proto/lessons/v2/diary.proto:208`, its revision numbering against head `0019`, and its
-  milestone, v0.9.0, against #434's, v1.0.0.
+  both. Two things in it are to reconcile when it is picked up, though a trial merge is free
+  of conflicts: whether its new `SIGN_IN_METHOD_PROVIDER_PAGE = 3`, the next free value, is
+  needed beside `SIGN_IN_METHOD_SESSION_ADOPT = 2` (`proto/lessons/v2/diary.proto:208`), which
+  already names a session the phone opened elsewhere; and its milestone, v0.9.0, against
+  #434's, v1.0.0.
 - **`delete_branch_on_merge`**, still `false`: nobody changed it, so a merged branch stays until
   somebody deletes it.
 - **`docs/app/`, the in-app guide**, which #472 did not touch: a change there needs Russian and
   English text and a manifest bump.
 - **The fifteen issues**, filed and not fixed. #473 corrects only what #461 says of this file.
-- **The refuted change**: section 6's sentence that rewriting the history would move «the
+- **The change that reached no verdict**: section 6's sentence that rewriting the history would move «the
   release tags» was challenged and reached no verdict, so it stands as written.
 - **What the audit found stale outside this file**: the `github-pr` skill's copy of the
   milestone table, which stops far short of the one below, and the KDoc in
@@ -418,8 +432,9 @@ nothing else. No revision goes with the batch: the schema stays at `0019`, and
 - **No APK from #452 has been installed** on a device or an emulator.
 - **The Q&A form has not been seen rendered.** GitHub reads `q-a.yml` from `main`, so it applies
   only from #472's merge on.
-- **Which commit production serves** was not read: the warmup answered at 20:46 UTC, after the
-  commit status of `a1135d5` read «Vercel: success».
+- **Which commit is served by the deployment this repository's maintainer runs for testing**
+  was not read: its warmup answered at 20:46 UTC, after the commit status of `a1135d5` read
+  «Vercel: success».
 - **The audit's changes rest on its auditors' and skeptics' reads** of `main` and GitHub on 16
   October. This session read again the three merges and their commit statuses, the remote
   branches, the fifteen issues, milestone 7, the «APK» runs, the private-reporting setting and
@@ -430,9 +445,11 @@ nothing else. No revision goes with the batch: the schema stays at `0019`, and
 
 ### Left to the owner from this batch
 
-Two paragraphs of section 7: **switch on private vulnerability reporting (#457)**, which was
-off when read at 20:46 UTC on 16 October; and **review the diary sign-in design on
-`pending/recovered-designs`** before #434 is built.
+Two paragraphs of section 7 as this batch wrote them: **switch on private vulnerability
+reporting (#457)**, which was off when read at 20:46 UTC on 16 October, and was switched on by
+the owner's word on 17 October — it reads `{"enabled":true}`, #457 is closed, and the paragraph
+is in `docs/history.md`, «Moved out of section 7 on 17 October 2026»; and **review the diary
+sign-in design on `pending/recovered-designs`** before #434 is built.
 
 ## What the session before it added: sub-project 4's first pull request, `LessonsPreferences` and `GithubRepositoryImpl` split, and the two-worker cap
 
@@ -632,10 +649,6 @@ read the same day.
 - **Left in place**: the plan workspace `.superpowers/sdd/2026-10-11-android-decomposition-a-plan/`,
   which git ignores, and the move check and the test counter, in a temporary directory outside
   the repository.
-- **#451 merged on 16 October 2026**, at 17:32:10 UTC as `8564b09`, pinned to head `17f69ec`,
-  and GitHub's commit status read «Vercel: success» on the merge. Its close-out named itself as
-  the only thing open; this is the SHA it left for the next one, «What the last session added»,
-  above.
 
 Section 7's «Next for the programme» says what follows.
 
@@ -663,7 +676,7 @@ stop well short of this one's (its eleventh at PR #305); this table is the one k
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
 | 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428 and #451 (merged) and #473, this close-out (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474 and #475 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430 and #472 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467 and #469–#471 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430 and #472 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471 and #476 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441 and #443; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
@@ -825,7 +838,7 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   a no-break space is whitespace to `str.split`, and nobody has sent one.
 - **v2 as #342, #350, #356, #372, #376, #380, #385, #392, #394 and #396 serve it has been
   asked little outside the test client** (stages 3a, 3b-1, 3b-2, 3b-3, 3b-4, 3b-5, 3b-6, 3b-7,
-  3b-8 and 3c; their sections above, or in `docs/history.md`, have the detail):
+  3b-8 and 3c; their sections, in `docs/history.md`, have the detail):
   - **on production, only after #342's promote**: on 5 October `/api/v1/warmup` reported
     `status` `ok`, schema `0017` and `"v2": true`; REST `/api/v2/diary/capabilities` answered
     `200` with `private, no-store`; Connect answered `200` in JSON and in binary; native gRPC
@@ -856,7 +869,8 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     /diary/sessions/current`, `/diary/students`, `…/students/1/scheduleDays` and
     `…/students/1/turnstileEvents` `401` `DIARY_TOKEN_INVALID`, and Connect
     `DiaryService/ListStudents` `401` `unauthenticated`. The four of 3b-8, asked after #394's
-    merge, answered `501` until production deployed them at 09:12 UTC on 10 October, and then
+    merge, answered `501` until the deployment this repository's maintainer runs for testing
+    carried them, at 09:12 UTC on 10 October, and then
     `401` `DIARY_TOKEN_INVALID` on all four REST routes and all four Connect methods. Stage 3c's
     `WatchClass`, asked over Connect without a token after #396's merge, answered `200` ending
     `unauthenticated` with `DEVICE_TOKEN_INVALID`, and native gRPC `415` under `/api/rpc`;
@@ -911,9 +925,10 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
 - **`buf breaking` has refused a change only locally.**
   - Locally, it compared a scratch copy of the contract with `main` at `45f0680` over 25
     mutations (#300, which found #298).
-  - In CI it compared first on #300 (run 37239214776), and then on each of the twelve pull
-    requests that changed `proto/` after it, #342 to #428 (11 October); the merge records that
-    name the job have it green, and GitHub no longer keeps those runs. No CI run is known to
+  - In CI it compared first on #300 (run 37239214776), and then on every pull request after it
+    that started the contract job: the eleven that changed `proto/`, #350 to #428 (11 October),
+    and #342, which changed `buf.gen.yaml` and the generated code; the merge records that name
+    the job have it green, and GitHub no longer keeps those runs. No CI run is known to
     have refused a breaking change.
   - Buf reads no options (#299), so a binding, a credential or a role changed in `proto/` is
     caught by the resource map in `test_contract.py` and by nothing in Buf.
@@ -939,9 +954,9 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   notification, alarm and widget checks, the grid, the large text, the stretched strings.
   The GitHub permission call has not met a real account. An APK built without
   `LESSONS_GITHUB_CLIENT_ID` cannot get past the door, but `apk.yml` reads that secret and it
-  has been registered since 21 September 2026, so every «APK» run since should carry it: twelve
-  on `main` to 1 October, and run #41, the branch build the gate of 10–11 October installed on
-  the emulator. The runs of `main` have lost their logs and run #41 is no longer listed, so no
+  has been registered since 21 September 2026, so every «APK» run since should carry it: the
+  twelve that succeeded on `main` to 1 October, one on `dev` (#23), and run #41, the branch
+  build the gate of 10–11 October installed on the emulator. The runs of `main` have lost their logs and run #41 is no longer listed, so no
   run summary can show it any more, and nobody has signed in through the door (#461).
   The mode is also the first tool for most of this section: its checks run from the phone's
   own network, and its records name the leg a sign-in is stuck on.
@@ -1716,15 +1731,6 @@ label `needs:owner`. #119 (`/api/v1/warmup` and
 `/start`) and #156 (the backup) were answered by #186 and closed at its merge on 26 September
 2026.
 
-**Switch on private vulnerability reporting (#457).** SECURITY.md, CODE_OF_CONDUCT.md and the
-issue chooser send a private report to a security-advisory form, and that form is switched off
-for everybody outside the repository: read at 20:46 UTC on 16 October 2026, the repository
-answered `{"enabled":false}`. Switch it on in Settings → Advanced Security → Private
-vulnerability reporting, or with
-`gh api -X PUT repos/lumenpearson/lessons/private-vulnerability-reporting`, and read it back as
-`{"enabled":true}`. Until then, the only private route in SECURITY.md, CODE_OF_CONDUCT.md and
-the chooser is closed to everybody outside the repository.
-
 **The release signing passwords stay as they are: rotating them is not important, by your
 decision of 11 October 2026.** On 5 October 2026 an agent of the session that wrote #311 read
 `~/.gradle/gradle.properties` and printed a signing password into that session's transcript.
@@ -1814,22 +1820,27 @@ comes between A and the rest. In order:
    rules.
 
 **#445's wording is yours before it is built.** You asked for it on 11 October, after #444 turned
-out to be Android's battery saver switching the edge blur off as designed. It does two things:
-- while battery saver is on, the heavy effects are locked and off: «Размытие под шторкой»,
-  «Размытие при прокрутке», «Волна» and «Круговая смена темы»;
-- power saving gets a settings category of its own, proposed as «Энергосбережение».
+out to be Android's battery saver switching the edge blur off as designed. On 17 October it was
+rewritten as a feature built on #476 («A feature, not a fix»):
+- #476, the defect underneath, makes the four heavy effects in «Настройки → Взаимодействие →
+  Эффекты» — «Размытие под шторкой», «Волна», «Размытие при прокрутке» and «Круговая смена
+  темы» — follow battery saver, and each row show what is drawn;
+- #445 then gives power saving a category of its own, proposed as «Энергосбережение», with
+  «Следовать режиму энергосбережения», on by default, «Экономный режим всегда», off by default,
+  and each effect's state.
 
-It is on milestone 12, P1 on the board, and the order above does not place it. Its design is on
-the issue, and the category's wording there is a proposal for you to adjust.
+Both are on milestone 12, and the order above places neither. The wording on #445 is a proposal
+for you to adjust.
 
 **Review the diary sign-in design on `pending/recovered-designs` before #434 is built.** The
 branch holds one commit, `3c60612` of 8 October, and no pull request: the design for signing in
 on the diary's own side, whose sections 1–5 you approved on 5 October and whose written text
 waits for your review, beside the notes on the languages of Russia. It is the only copy of
 both, which is why the branch cleanup of 16 October kept it rather than merging it as if agreed
-or deleting it. Three things in it are behind `main` and are reconciled when it is picked up:
-its `SIGN_IN_METHOD` numbering against `SESSION_ADOPT = 2` in `proto/lessons/v2/diary.proto`,
-its revision numbering against head `0019`, and its milestone, v0.9.0, against #434's, v1.0.0.
+or deleting it. Two things in it are reconciled when it is picked up: whether its new
+`SIGN_IN_METHOD_PROVIDER_PAGE = 3`, the next free value, is needed beside
+`SIGN_IN_METHOD_SESSION_ADOPT = 2` in `proto/lessons/v2/diary.proto`, which already names a
+session the phone opened elsewhere; and its milestone, v0.9.0, against #434's, v1.0.0.
 
 **The project is impersonal open source, by your position of 11 October**: the repository
 names no operator, and whoever deploys a server is its operator. #436 makes the legal texts a
@@ -1955,7 +1966,7 @@ decided.
 itself.** Build an APK from `main`, which has carried #140 since 26 September, install it on
 a phone in no class, and take the diary path twice: a «Сетевой город» region that takes a
 password, and Петербург. Whether the import arrives, or the phone says the diary refused the
-session from our server's address — the `409` — decides whether the phone-registered path
+session from the server's address — the `409` — decides whether the phone-registered path
 works for that diary at all. It is #121's first live session, for both diaries at once. For
 Петербург the server reaches the diary through the proxy since 5 October, so the answer is no
 longer «Дневник не отвечает» before the phone is picked up; try the account on the diary's
@@ -2015,7 +2026,7 @@ owner's.** `docs/diaries.md` is the map:
   emulator, and the server's own client against four regional servers in the live gate of
   10–11 October, which found #412; its sign-in and its diary have not.
 - **How a family signs in** — with its password, typed into the app's own form and sent to
-  the diary alone; on that path the session, not the password, reaches our server. Two older
+  the diary alone; on that path the session, not the password, reaches the server. Two older
   paths still pass a password through it — the bot's `/diary/signin` page and
   `POST /api/v1/diary/login` (#434). Госуслуги is not driven and no token is carried over
   from a browser, because a Госуслуги session is the person's whole state-services account.
