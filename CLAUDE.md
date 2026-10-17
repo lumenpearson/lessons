@@ -416,8 +416,9 @@ points Hilt does not inject cleanly.
 - **Commit messages are English sentences that say what the change makes the project do** —
   "Let the class be run from the phone, by the same rules as from the bot". No Conventional
   Commits prefix (none of the 288 commits has one), and the body explains the reasoning and
-  names what is left uncovered. Unlike the owner's other repositories, this history does
-  carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
+  names what is left uncovered. No attribution trailer: commits up to 6 October 2026 mostly
+  carry a `Co-Authored-By: Claude …` line, none since does, and a new commit adds none
+  (`AI_USAGE_POLICY.md`, «Attribution in commits»).
 - **Every pull request carries a milestone**, set when it is opened, and so does every
   issue. A remote session can neither create a milestone nor list one, and a local one with
   `gh` could, but creating one is the owner's decision either way — when none of the

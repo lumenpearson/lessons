@@ -143,7 +143,6 @@
     <ID>MaxLineLength:ProviderStep.kt:correctedString(R.string.onboarding_provider_subtitle, localized(it.regionRu, it.regionEn).orEmpty())</ID>
     <ID>MaxLineLength:ProviderStep.kt:val month = surveyMonthText(why.surveyMonth, if (russian) java.util.Locale.forLanguageTag("ru") else java.util.Locale.ENGLISH)</ID>
     <ID>MaxLineLength:RegionFinder.kt:is DirectoryProblem.Throttled -&gt; SchoolAnswer.Failed(DirectoryFailure.WAIT, minutesOf(problem.retryAfterSeconds))</ID>
-    <ID>MaxLineLength:RegionStep.kt:SectionHeader(title = correctedString(R.string.onboarding_region_school_section, search.query.trim()))</ID>
     <ID>MaxLineLength:RegionStep.kt:if (search.query.isBlank()) R.string.onboarding_region_all else R.string.onboarding_region_found</ID>
     <ID>MaxLineLength:RegionStep.kt:pluralStringResource(R.plurals.onboarding_region_school_count, hit.schools, hit.schools)</ID>
     <ID>MaxLineLength:RegionStep.kt:val collator = Collator.getInstance(if (russian) java.util.Locale.forLanguageTag("ru") else java.util.Locale.ENGLISH)</ID>
@@ -152,7 +151,6 @@
     <ID>MaxLineLength:WayInStep.kt:subtitle = correctedString(if (code) R.string.onboarding_way_code_text else R.string.onboarding_way_school_text)</ID>
     <ID>MaxLineLength:WayInStep.kt:text = correctedString(if (code) R.string.onboarding_way_code_badge else R.string.onboarding_way_school_badge)</ID>
     <ID>NestedBlockDepth:PermissionPromptTest.kt:PermissionPromptTest$@Test fun `every combination resolves to exactly one action`</ID>
-    <ID>ReturnCount:AppCorrections.kt:AppCorrections$override fun correctionOf: String</ID>
     <ID>ReturnCount:BellsSheet.kt:internal fun bellsModeOf: BellsMode</ID>
     <ID>ReturnCount:BellsSheet.kt:internal fun decodeBellRows: List&lt;Pair&lt;Int, Int&gt;&gt;?</ID>
     <ID>ReturnCount:DeviceClockTest.kt:DeviceClockTest.Companion$fun isExplained: Boolean</ID>

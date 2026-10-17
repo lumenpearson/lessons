@@ -28,6 +28,193 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: #451 merged, five dependency bumps in #452, the branches pruned, Discussions opened and pointed at (#472), fifteen issues filed, and this file brought up to date
+
+Written on 16 October 2026 and carried by #473, a draft from `docs/handover-2026-10-16` to
+`main` on milestone 11, which holds this close-out and the refresh of the rest of this file and
+nothing else. No revision goes with the batch: the schema stays at `0019`, and
+`EXPECTED_REVISION` with it.
+
+- **Sub-project 4's pull request A is in `main`** (#451): merged at 17:32:10 UTC as `8564b09`,
+  pinned to head `17f69ec`, and GitHub's commit status read «Vercel: success» on the merge. Its
+  own close-out rode in it and is in `docs/history.md` now, «What the batch before added:
+  sub-project 4's first pull request…».
+- **The five dependabot pull requests went in as one, #452**, merged at 19:46:14 UTC as
+  `2d6fb4f`, pinned to head `4fd8b75`, on milestone 7. Its branch, `deps/2026-10-16`, merged
+  dependabot's own five branches, and GitHub then closed #446–#450 as merged by itself:
+  - #450, the Gradle wrapper 9.8.0 → 9.8.1, the jar and the distribution URL;
+  - #449, Kotlin 2.4.20 → 2.4.21; KSP 2.3.12 is versioned on its own and did not move;
+  - #446, SQLAlchemy ≥ 2.1.4, #447, asyncpg 0.32.0, and #448, FastAPI 0.143.0, each in
+    `requirements.in` and the lock as dependabot wrote them.
+
+  The merge of #447's branch, asyncpg's, conflicted with the merge of #446's, SQLAlchemy's,
+  just before it, on neighbouring lines of `requirements.in`, and the resolution kept both
+  floors.
+- **`server/pyproject.toml` carries the same three floors** (`4fd8b75`). Dependabot never
+  touches that file, so all three server pull requests had been red on
+  `test_requirements_mirror`, which the old file reproduced locally as 1 failed, 7 passed. The
+  commit changes no lock, and the host lock pins none of the three.
+- **The merged branches are gone, and the unmerged ones were kept for a reason.** The owner
+  asked for the merged branches deleted and the finished ones merged. 44 remote branches were
+  deleted, each only after `git merge-base --is-ancestor` showed its head in `origin/main`, so
+  every commit stays reachable from `main`, and the local merged branches went with them. Kept:
+  `main`; `dev`, which the `github-pr` skill names; and `pending/recovered-designs`, neither
+  merged nor deleted («What was deliberately left alone»). `deps/2026-10-16` and
+  `docs/discussions-and-closeout` were deleted after their merges, and dependabot's five were
+  gone by 20:46 UTC, so the remote holds `main`, `dev`, `pending/recovered-designs` and
+  `docs/handover-2026-10-16` (#473). `delete_branch_on_merge` is still `false` on the
+  repository.
+- **Discussions are open, with three categories and four posts**, set up and filled «без
+  воды», as the owner asked:
+  - «📣 Announcements», an announcement category: «Releases and news from maintainers. What a
+    server must do on an upgrade is in the release notes and docs/deploy.md.»;
+  - «💡 Ideas», open-ended: «An idea not yet ready for the Proposal issue form. Once it can fill
+    that form, it becomes an issue.»;
+  - «❓ Q&A», answerable: «Vulnerabilities: SECURITY.md, never here. Bugs: issues. Ask here
+    about using the app, keeping a class, building the APK or running a server.»
+
+  General, Polls and Show and tell were deleted: they were empty, and there is no traffic yet.
+  Categories are edited in the web UI alone, because there is no API for them; the posts went
+  through GraphQL's `createDiscussion`; and pinning is the UI's alone. The posts are #456,
+  «Start here: what goes where», and #455, «Status on 16 October 2026: nothing released yet»,
+  both in Announcements and pinned; #453, «How do I run my own server?», in Q&A, pinned and
+  answered; and #454, «How does a family connect the app to a class?», in Q&A, answered. They
+  are in English, drafted from facts four readers gathered, then each fact-checked, cut for
+  length and checked for public safety: no operator named, no secret, and vulnerabilities sent
+  to SECURITY.md. **#455 is dated** and describes `main` at `8564b09`: when the README's
+  «Honest status» moves, the post is replaced rather than left to drift.
+- **Questions and ideas are pointed at Discussions from every page a reader asks from**
+  (#472), merged at 20:23:57 UTC as `a1135d5`, pinned to head `5bb5e17`, on milestone 12, and
+  GitHub's commit status read «Vercel: success» on the merge. The issue chooser has contact
+  links for Q&A and Ideas; the README's «Documentation», `CONTRIBUTING.md` and
+  `docs/guide.md`'s «If something is wrong» each have a paragraph, and `docs/README.md`'s
+  «Where to start» a row; and a new form, `.github/DISCUSSION_TEMPLATE/q-a.yml`, asks who is
+  asking, the question and the version, with two required checkboxes: no class data, and no
+  secret.
+- **Fifteen issues found while the Discussions were drafted are filed, #457–#471**: thirteen
+  defects and two chores, #460 and #471. Each was
+  checked by an independent agent against `main` at `8564b09`, none is a duplicate, and all are
+  on board 6 with Status, Priority, Size, Estimate and a start date of 16 October 2026. All are
+  P2 but #457 and #469, which are P1. Ten are on milestone 12:
+  - #457: the only private channel for vulnerability and conduct reports is a security-advisory
+    form, switched off for everyone outside the repository; closed on 17 October, when it was
+    switched on;
+  - #458: bug reports sent from the app arrive with no label at all, because GitHub drops
+    `from-app` for anyone without push access and the browser path never sends one;
+  - #459: `docs/deploy.md`'s Option 2 says phones can reach the server at its plain local
+    address, which the release APK refuses;
+  - #460: the README sends readers to CI artifacts for the APK without saying that they expire
+    after a day and that no debug-signed build updates another;
+  - #462: the issue forms and the security policy name only the Petersburg diary, not «Сетевой
+    город» or the school directory;
+  - #465: SECURITY.md says the app allows plain HTTP to every host, though since #202 the
+    release build refuses cleartext except to localhost, and that the debug key is the same for
+    everybody, though `apk.yml` makes a new one per build;
+  - #467: the documents and the APK run summary say a build without «Войти через GitHub» cannot
+    file a bug report, while «Открыть issue на GitHub» works in every build;
+  - #469: an APK built from a fork offers this repository's releases as its updates, and files
+    its users' bug reports in this repository's tracker;
+  - #470: `docs/deploy.md` presents Vercel's Hobby plan as the free way to serve a class, without
+    saying that Hobby is for personal, non-commercial use or that its allowance runs out;
+  - #471: the deployment guide and the README describe one deployment as the project's own —
+    its proxy provider, its cron job, its Sentry and its Vercel accounts.
+
+  Five are on milestone 11:
+  - #461: the README and this file say «Войти через GitHub» and «Отправить письмом» are in no
+    build, though both secrets `apk.yml` reads have been registered; #473 corrects this file's
+    half, in sections 5 and 7, and the README's is still open;
+  - #463: `CONTRIBUTING.md` says production is at revision `0017` and `CODEOWNERS` says `0013`,
+    while the head is `0019`, and the head-revision test reads neither file;
+  - #464: `docs/deploy.md`'s list of the settings compose forwards leaves out `SENTRY_DSN` and
+    `GITHUB_READ_TOKEN`;
+  - #466: the README says that linking a phone to Telegram makes the app an editor, but the app
+    has no way to add homework, substitutions or events;
+  - #468: `docs/deploy.md` says an `OWNER_IDS` that reads as no id is announced nowhere, but
+    Vercel and the host target refuse to start on it.
+- **This file is brought up to date in a pull request of its own, #473**, which the owner asked
+  for once #472 had merged: the close-out of this batch, and a refresh of every current-state
+  claim in the file. Before it was written, thirteen auditors checked 654 claims in this file
+  against `main` and GitHub, and a skeptic per chunk challenged each proposed change: 75 changes
+  were confirmed and one reached no verdict. The 75 are applied — two by their stated intent, because
+  their replacement text had been copied from the change beside them, and two reconciled with
+  what GitHub said on a re-read («What nobody has verified in this batch») — and the one
+  without a verdict is not. One fact the audit corrected in `HANDOVER.md`'s section 7, that no route in `docs/diaries/` had
+  been seen answering, stood in its section 5 too and is corrected there as well. #428's section
+  moved to `docs/history.md`, and two paragraphs to its new parts «Moved out of section 5 on 16
+  October 2026, after #451, #452 and #472» and «Moved out of section 7 on 16 October 2026,
+  after #451, #452 and #472».
+
+### Gates
+
+- **#452, at `4fd8b75`**, in that worktree's own venv installed from the lock (FastAPI 0.143.0,
+  SQLAlchemy 2.1.4, asyncpg 0.32.0): **ruff** clean; **mypy**, no issues in **240** source
+  files; **`pytest -q -n auto`**, **3326 passed, 6 skipped**, which is **3332**. Android, with
+  `--max-workers=2` and one task at a time: **`./gradlew test --rerun`**, `:core:model` 125,
+  `:core:data` 625, `:core:designsystem` 196, `:widget` 126, `:app` 668, **1740**, no failure;
+  **`assembleDebug`**, **`assembleRelease`** and **`detekt`**, each `BUILD SUCCESSFUL`. CI on
+  `4fd8b75` was green, with «Contract (Buf)» skipped by its path filter.
+- **#472, at `5bb5e17`**: CI green, with «Android» and «Contract (Buf)» skipped by their path
+  filters.
+- **#473**: from `server/`, `test_ci_paths.py`, `test_env_example.py` and
+  `test_schema_version.py`, which read the documents, with `-p no:xdist`: **22 passed**, after
+  the documents were written. CI's server job runs the whole suite on the push, because
+  `docs/*.md` is in its path filter.
+- **The counts did not move**: 3332 on the server and 1740 on Android, in the seven places the
+  `handover` skill names, all of which already said so.
+
+### What was deliberately left alone
+
+- **`pending/recovered-designs`, neither merged nor deleted.** One reviewer and two independent
+  skeptics judged it. It holds one commit, `3c60612` of 8 October, with three files under
+  `docs/specs/pending/` and no pull request, and it is the only copy of two documents: the
+  design for signing in on the diary's own side, which #434 points at and whose sections 1–5
+  the owner approved on 5 October, its written text waiting for the owner's review; and the
+  notes on the languages of Russia. Merging it would publish an unreviewed design in
+  `docs/specs/` as if agreed, and a Russian working note in `docs/`; deleting it would lose
+  both. Two things in it are to reconcile when it is picked up, though a trial merge is free
+  of conflicts: whether its new `SIGN_IN_METHOD_PROVIDER_PAGE = 3`, the next free value, is
+  needed beside `SIGN_IN_METHOD_SESSION_ADOPT = 2` (`proto/lessons/v2/diary.proto:208`), which
+  already names a session the phone opened elsewhere; and its milestone, v0.9.0, against
+  #434's, v1.0.0.
+- **`delete_branch_on_merge`**, still `false`: nobody changed it, so a merged branch stays until
+  somebody deletes it.
+- **`docs/app/`, the in-app guide**, which #472 did not touch: a change there needs Russian and
+  English text and a manifest bump.
+- **The fifteen issues**, filed and not fixed. #473 corrects only what #461 says of this file.
+- **The change that reached no verdict**: `HANDOVER.md`'s section 6's sentence that rewriting the history would move «the
+  release tags» was challenged and reached no verdict, so it stands as written.
+- **What the audit found stale outside this file**: the `github-pr` skill's copy of the
+  milestone table, which stops far short of the one under `HANDOVER.md`'s «The milestones», and the KDoc in
+  `SchoolDayWithDetails.kt` and `TimetableRepositoryImpl.kt` that still names `replaceAll`.
+  #473 edits `HANDOVER.md` and `docs/history.md` alone, so both are filed instead: #475 for
+  the skill's table and #474 for the KDoc, on milestone 11.
+
+### What nobody has verified in this batch
+
+- **FastAPI 0.143.0, SQLAlchemy 2.1.4 and asyncpg 0.32.0 have not met PostgreSQL**: CI and the
+  local run are SQLite, and #411's PostgreSQL run was not repeated.
+- **No APK from #452 has been installed** on a device or an emulator.
+- **The Q&A form has not been seen rendered.** GitHub reads `q-a.yml` from `main`, so it applies
+  only from #472's merge on.
+- **Which commit is served by the deployment this repository's maintainer runs for testing**
+  was not read: its warmup answered at 20:46 UTC, after the commit status of `a1135d5` read
+  «Vercel: success».
+- **The audit's changes rest on its auditors' and skeptics' reads** of `main` and GitHub on 16
+  October. This session read again the three merges and their commit statuses, the remote
+  branches, the fifteen issues, milestone 7, the «APK» runs, the private-reporting setting and
+  the warmup, and nothing else of the 654 claims. Those reads changed two of the audit's
+  texts: the «APK» workflow lists no run after 1 October, so run #41, which the gate of 10–11
+  October installed on the emulator, can no longer be read, and «no APK from Actions holds the
+  developer mode» is said of the runs of `main` only.
+
+### Left to the owner from this batch
+
+Two paragraphs of `HANDOVER.md`'s section 7 as this batch wrote them: **switch on private vulnerability
+reporting (#457)**, which was off when read at 20:46 UTC on 16 October, and was switched on by
+the owner's word on 17 October — it reads `{"enabled":true}`, #457 is closed, and the paragraph
+is in `docs/history.md`, «Moved out of section 7 on 17 October 2026, after #457 closed»; and
+**review the diary sign-in design on `pending/recovered-designs`** before #434 is built.
+
 ## What the batch before added: sub-project 4's first pull request, `LessonsPreferences` and `GithubRepositoryImpl` split, and the two-worker cap
 
 Merged as #451 (`8564b09`, 16 October 2026), from `android/decomposition-a`, on milestone 11,

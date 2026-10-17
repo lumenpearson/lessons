@@ -11,16 +11,11 @@ import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.DeviceFlow
 import com.lumenpearson.lessons.core.data.repository.GithubAccount
 import com.lumenpearson.lessons.core.data.repository.ClassRole
-import com.lumenpearson.lessons.core.data.repository.DeviceLink
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.GithubRepository
-import com.lumenpearson.lessons.core.data.repository.PullRequestResult
 import com.lumenpearson.lessons.core.data.repository.TranslationChange
-import com.lumenpearson.lessons.ui.translate.TranslationMode
 import com.lumenpearson.lessons.ui.translate.TranslationSubmit
 import com.lumenpearson.lessons.core.data.repository.IssueDraft
-import com.lumenpearson.lessons.core.data.repository.IssueResult
-import com.lumenpearson.lessons.core.data.repository.Session
 import com.lumenpearson.lessons.core.data.repository.ServerStatus
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
@@ -35,7 +30,6 @@ import com.lumenpearson.lessons.core.model.HomeTab
 import com.lumenpearson.lessons.core.model.ThemeMode
 import com.lumenpearson.lessons.core.model.TodayLayout
 import com.lumenpearson.lessons.core.model.WeekStart
-import com.lumenpearson.lessons.ui.common.DefaultAppSettings
 import com.lumenpearson.lessons.ui.common.SyncMessage
 import com.lumenpearson.lessons.ui.common.toMessageOrNull
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,58 +37,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
-/**
- * @property session `null` right after signing out, for the frame before the app
- *   shell navigates away.
- * @property isRefreshing an "обновить сейчас" run is in flight.
- */
-data class SettingsUiState(
-    val settings: AppSettings = DefaultAppSettings,
-    val session: Session? = null,
-    /**
-     * Every class this device has joined, the one in [session] among them.
-     *
-     * Kept beside [session] rather than replacing it because the two answer
-     * different questions: the rest of the screen wants "which class am I
-     * looking at", and only the class group wants "which could I look at".
-     */
-    val sessions: List<Session> = emptyList(),
-    val isRefreshing: Boolean = false,
-    val message: SyncMessage? = null,
-    /** Where the last update check stands; see [UpdateCheck]. */
-    val update: UpdateCheck = UpdateCheck.Idle,
-    /** The signed-in GitHub account, or `null`. */
-    val github: GithubAccount? = null,
-    /** Where the Telegram link of this phone stands; see [DeviceLinkState]. */
-    val deviceLink: DeviceLinkState = DeviceLinkState.Idle,
-    /** The role the server gave this class last time, from disk; see [effectiveRole]. */
-    val cachedRole: ClassRole? = null,
-    /** Whether this build can sign in at all; the row hides otherwise. */
-    val githubConfigured: Boolean = false,
-    /** The device flow, for the sign-in sheet. */
-    val signIn: DeviceFlow = DeviceFlow.Idle,
-    /** An issue is on its way to GitHub. */
-    val isFilingIssue: Boolean = false,
-    /**
-     * The release sheet is up. Held here rather than in a screen because two
-     * places raise it — the updates page on a tap, the shell when the check at
-     * launch finds something — and one host in the shell shows it for both.
-     */
-    val showReleaseSheet: Boolean = false,
-    /** How the bound server answered, for the about card's badge. */
-    val serverStatus: ServerStatus = ServerStatus.Checking,
-)
 
 /**
  * Settings state holder.
@@ -105,6 +55,11 @@ data class SettingsUiState(
  * the sync interval likewise only writes the number —
  * [com.lumenpearson.lessons.LessonsApplication] observes it and reschedules the
  * work, which keeps WorkManager out of the UI layer entirely.
+ *
+ * What holds a flow of its own is a class of its own: [SettingsUpdates],
+ * [SettingsGithub] and [SettingsDeviceLink]. This one builds them, reads
+ * their flows in its combines, and hands each call on in one line, so every
+ * screen takes this class as it did.
  */
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
@@ -136,8 +91,14 @@ class SettingsViewModel(
 
     private val refreshing = MutableStateFlow(false)
     private val message = MutableStateFlow<SyncMessage?>(null)
-    private val filingIssue = MutableStateFlow(false)
-    private val releaseSheet = MutableStateFlow(false)
+
+    // What holds a flow of its own, each in a class of its own. Built here
+    // because Kotlin initializes in textual order: after `message`, which
+    // SettingsGithub is handed, and before `remote` and `uiState`, whose
+    // combines read the classes' flows the moment they are declared.
+    private val settingsUpdates = SettingsUpdates(settingsRepository, updateRepository, viewModelScope)
+    private val settingsGithub = SettingsGithub(githubRepository, message, viewModelScope)
+    private val settingsDeviceLink = SettingsDeviceLink(sessionRepository, deviceLinkRepository, viewModelScope)
 
     /** The installed version, with build suffixes stripped. */
     val installedVersion: String get() = updateRepository.installedVersion
@@ -164,13 +125,11 @@ class SettingsViewModel(
         updateRepository.state,
         githubRepository.account,
         githubRepository.flow,
-        filingIssue,
-        releaseSheet,
+        settingsGithub.filingIssue,
+        settingsUpdates.releaseSheet,
     ) { update, account, signIn, filing, sheet ->
         Remote(update, account, signIn, filing, sheet)
     }
-
-    private val deviceLink = MutableStateFlow<DeviceLinkState>(DeviceLinkState.Idle)
 
     /**
      * The server's own answer, refreshed on demand rather than on a timer.
@@ -192,7 +151,7 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = combine(
         local,
         remote,
-        deviceLink,
+        settingsDeviceLink.deviceLink,
         serverStatus,
         cachedRole,
     ) { state, remote, link, server, cached ->
@@ -242,54 +201,15 @@ class SettingsViewModel(
                 .map { it?.classId }
                 .distinctUntilChanged()
                 .drop(1)
-                .collect { deviceLink.value = DeviceLinkState.Idle }
+                .collect { settingsDeviceLink.deviceLink.value = DeviceLinkState.Idle }
         }
     }
 
-    /**
-     * Asks the server whether this phone is tied to a Telegram account.
-     *
-     * Called when the class page opens, and again whenever the class on it
-     * changes. Cheap to repeat: the server hands out the same link code until
-     * it is used, so opening the page twice does not invalidate the code the
-     * user is halfway through typing into the bot.
-     */
-    fun refreshDeviceLink() {
-        if (deviceLink.value is DeviceLinkState.Loading) return
-        val known = deviceLink.value.known
-        deviceLink.value = DeviceLinkState.Loading(known)
-        viewModelScope.launch {
-            val asked = sessionRepository.current()?.classId
-            val result = deviceLinkRepository.refresh()
-            // A reply about the class the user has just switched away from is
-            // not a slow answer, it is the wrong one. The request carried that
-            // class's bearer, so nothing about it describes the class now on
-            // screen; the switch has already reset the state to Idle and the
-            // refresh it triggered is the one that will answer.
-            if (asked != sessionRepository.current()?.classId) return@launch
-            result
-                .onSuccess {
-                    deviceLink.value = DeviceLinkState.Ready(it)
-                    asked?.let { id -> deviceLinkRepository.rememberRole(id, it.role) }
-                }
-                .onFailure { deviceLink.value = DeviceLinkState.Failed(it, known) }
-        }
-    }
+    /** @see SettingsDeviceLink.refreshDeviceLink */
+    fun refreshDeviceLink() = settingsDeviceLink.refreshDeviceLink()
 
-    /** Unties the phone from its Telegram account; read-only afterwards. */
-    fun unlinkDevice() {
-        val known = deviceLink.value.known
-        deviceLink.value = DeviceLinkState.Loading(known)
-        viewModelScope.launch {
-            val classId = sessionRepository.current()?.classId
-            deviceLinkRepository.unlink()
-                .onSuccess {
-                    deviceLink.value = DeviceLinkState.Ready(it)
-                    classId?.let { id -> deviceLinkRepository.rememberRole(id, it.role) }
-                }
-                .onFailure { deviceLink.value = DeviceLinkState.Failed(it, known) }
-        }
-    }
+    /** @see SettingsDeviceLink.unlinkDevice */
+    fun unlinkDevice() = settingsDeviceLink.unlinkDevice()
 
     /** Light, dark, or whatever the system is doing. */
     fun setThemeMode(mode: ThemeMode) = update { it.copy(themeMode = mode) }
@@ -481,109 +401,31 @@ class SettingsViewModel(
         message.value = null
     }
 
-    /**
-     * Asks GitHub whether there is something newer, and shows the answer.
-     *
-     * Manual: the pre-release setting is read at the moment of the tap, so
-     * flipping the switch and tapping "проверить" does what it looks like it
-     * does. The sheet is raised whatever the verdict — "всё актуально" with the
-     * installed release's notes is an answer too, and the one Essentials gives.
-     */
-    fun checkForUpdates() {
-        viewModelScope.launch {
-            val includePrerelease = settingsRepository.settings.first().includePrerelease
-            updateRepository.check(includePrerelease)
-            releaseSheet.value = true
-        }
-    }
+    /** @see SettingsUpdates.checkForUpdates */
+    fun checkForUpdates() = settingsUpdates.checkForUpdates()
 
-    /**
-     * The check the app runs on its own at launch.
-     *
-     * Quieter than [checkForUpdates] in every way: it only runs when the
-     * setting allows, at most once a day, and it raises the sheet only for a
-     * release that is new, wanted, and not one the user has already said
-     * "позже" to. A failure is not shown at all — nobody asked.
-     */
-    fun checkForUpdatesAtLaunch() {
-        viewModelScope.launch {
-            val settings = settingsRepository.settings.first()
-            if (!settings.autoCheckUpdates) return@launch
-            val last = updateRepository.lastCheckMillis() ?: 0L
-            if (System.currentTimeMillis() - last < AUTO_CHECK_INTERVAL_MILLIS) return@launch
-            val verdict = updateRepository.check(settings.includePrerelease)
-            if (verdict !is UpdateCheck.Available || !settings.notifyNewUpdates) return@launch
-            if (verdict.release.tag == updateRepository.dismissedTag.value) return@launch
-            releaseSheet.value = true
-        }
-    }
+    /** @see SettingsUpdates.checkForUpdatesAtLaunch */
+    fun checkForUpdatesAtLaunch() = settingsUpdates.checkForUpdatesAtLaunch()
 
-    /** Raises the release sheet over whatever the last check found. */
-    fun showReleaseSheet() {
-        releaseSheet.value = true
-        // A sheet over "ещё не проверялось" would be a sheet about nothing.
-        if (updateRepository.state.value == UpdateCheck.Idle) checkForUpdates()
-    }
+    /** @see SettingsUpdates.showReleaseSheet */
+    fun showReleaseSheet() = settingsUpdates.showReleaseSheet()
 
-    fun hideReleaseSheet() {
-        releaseSheet.value = false
-    }
+    fun hideReleaseSheet() = settingsUpdates.hideReleaseSheet()
 
-    /** "Позже": stops the automatic check from raising this tag again. */
-    fun dismissUpdate(tag: String) {
-        releaseSheet.value = false
-        viewModelScope.launch { updateRepository.dismiss(tag) }
-    }
+    /** @see SettingsUpdates.dismissUpdate */
+    fun dismissUpdate(tag: String) = settingsUpdates.dismissUpdate(tag)
 
-    /**
-     * Turning pre-releases on is followed by a check straight away, so the
-     * switch has a visible consequence rather than waiting for the next launch.
-     */
-    fun enablePrereleases() {
-        viewModelScope.launch {
-            settingsRepository.update { it.copy(includePrerelease = true) }
-            updateRepository.check(includePrerelease = true)
-            releaseSheet.value = true
-        }
-    }
+    /** @see SettingsUpdates.enablePrereleases */
+    fun enablePrereleases() = settingsUpdates.enablePrereleases()
 
-    private val mutableSubmit = MutableStateFlow<TranslationSubmit>(TranslationSubmit.Idle)
+    /** @see SettingsGithub.translationSubmit */
+    internal val translationSubmit: StateFlow<TranslationSubmit> = settingsGithub.translationSubmit
 
-    /** How the last attempt to send a session of corrections is going. */
-    internal val translationSubmit: StateFlow<TranslationSubmit> = mutableSubmit.asStateFlow()
+    /** @see SettingsGithub.submitCorrections */
+    fun submitCorrections(changes: List<TranslationChange>) = settingsGithub.submitCorrections(changes)
 
-    /**
-     * Offers the session of corrections as a pull request.
-     *
-     * Launched here rather than from the sheet because the sheet can be
-     * dismissed while GitHub is still forking, and a `rememberCoroutineScope`
-     * would take the work with it — possibly after the branch had been created,
-     * which leaves a stray branch and no pull request. `viewModelScope` lives
-     * as long as the settings screen, which is long enough.
-     *
-     * The session is cleared only on a pull request that exists, and by the
-     * thing that knows it exists. Essentials clears it on a posted comment,
-     * which is not the same event.
-     */
-    fun submitCorrections(changes: List<TranslationChange>) {
-        if (mutableSubmit.value is TranslationSubmit.Sending) return
-        mutableSubmit.value = TranslationSubmit.Sending
-        viewModelScope.launch {
-            mutableSubmit.value = when (val result =
-                githubRepository.openTranslationPullRequest(changes)) {
-                is PullRequestResult.Opened -> {
-                    TranslationMode.clear()
-                    TranslationSubmit.Opened(result.htmlUrl, result.refused)
-                }
-                is PullRequestResult.Failed -> TranslationSubmit.Failed
-            }
-        }
-    }
-
-    /** Called once the pull request has been shown, so it is not opened twice. */
-    fun acknowledgeSubmission() {
-        mutableSubmit.value = TranslationSubmit.Idle
-    }
+    /** @see SettingsGithub.acknowledgeSubmission */
+    fun acknowledgeSubmission() = settingsGithub.acknowledgeSubmission()
 
     fun signInWithGithub() = githubRepository.signIn()
 
@@ -593,24 +435,8 @@ class SettingsViewModel(
         viewModelScope.launch { githubRepository.signOut() }
     }
 
-    /**
-     * Files a bug report as the signed-in user.
-     *
-     * @param onFiled called with the new issue's page on success, so the sheet
-     *   can offer to open it. Failure surfaces as a snackbar.
-     */
-    fun fileIssue(draft: IssueDraft, onFiled: (url: String) -> Unit) {
-        if (filingIssue.value) return
-        viewModelScope.launch {
-            filingIssue.value = true
-            val result = githubRepository.fileIssue(draft)
-            filingIssue.value = false
-            when (result) {
-                is IssueResult.Filed -> onFiled(result.htmlUrl)
-                is IssueResult.Failed -> message.value = SyncMessage.IssueFailed
-            }
-        }
-    }
+    /** @see SettingsGithub.fileIssue */
+    fun fileIssue(draft: IssueDraft, onFiled: (url: String) -> Unit) = settingsGithub.fileIssue(draft, onFiled)
 
     private fun update(transform: (AppSettings) -> AppSettings) {
         viewModelScope.launch { settingsRepository.update(transform) }
@@ -618,9 +444,6 @@ class SettingsViewModel(
 
     companion object {
         private const val STOP_TIMEOUT_MILLIS = 5_000L
-
-        /** Once a day is plenty for a school app; see `UpdateRepository.lastCheckMillis`. */
-        private const val AUTO_CHECK_INTERVAL_MILLIS = 24L * 60L * 60L * 1000L
 
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -646,71 +469,3 @@ private data class Remote(
     val filing: Boolean,
     val sheet: Boolean,
 )
-
-/**
- * The Telegram link as the class page sees it.
- *
- * [Loading] and [Failed] carry the last good answer so a refresh that is in
- * flight, or one that failed, does not blank a card that was showing a code
- * the user may be typing into the bot right now.
- */
-sealed interface DeviceLinkState {
-    /** Nobody has asked yet; the page asks when it opens. */
-    data object Idle : DeviceLinkState
-
-    data class Loading(override val known: DeviceLink?) : DeviceLinkState
-
-    data class Ready(val link: DeviceLink) : DeviceLinkState
-
-    data class Failed(val cause: Throwable, override val known: DeviceLink?) : DeviceLinkState
-
-    /**
-     * The last good answer, whichever state is carrying it.
-     *
-     * Asked here rather than at each call site, because each call site asked
-     * `as? Ready` and therefore threw the code away on exactly the press that
-     * exists to recover from a failure: «Повторить» on a failed check blanked
-     * the card, and a phone still without signal never got it back. The card
-     * was showing a code somebody was halfway through typing into the bot.
-     */
-    val known: DeviceLink?
-        get() = when (this) {
-            Idle -> null
-            is Loading -> known
-            is Ready -> link
-            is Failed -> known
-        }
-}
-
-/**
- * The role the server last reported, whatever the state is doing right now.
- *
- * A refresh in flight and a refresh that failed both still know who this phone
- * is, from the answer before — which is what keeps the management page from
- * flickering out of the list every time the page reloads, or the moment the
- * train goes into a tunnel. It is `null` only when nothing has ever been
- * answered, or when the phone is tied to no account at all.
- */
-val DeviceLinkState.role: ClassRole?
-    get() = when (this) {
-        DeviceLinkState.Idle -> null
-        is DeviceLinkState.Loading -> known?.role
-        is DeviceLinkState.Ready -> link.role
-        is DeviceLinkState.Failed -> known?.role
-    }
-
-/**
- * The role to draw with: the server's answer once this launch has one, and
- * until then the one it gave last time for this class.
- *
- * What decides whether the settings root has its debug button, and the page
- * its «Управление классом» row. Read from [DeviceLinkState.role] alone, both
- * started every launch as «no role» and waited for `/me` — a moment late when
- * it answered, and until the page was opened again when it did not (#228). A
- * fresh answer wins over the remembered one, «no role» included.
- */
-val SettingsUiState.effectiveRole: ClassRole?
-    get() = when (val link = deviceLink) {
-        is DeviceLinkState.Ready -> link.link.role
-        else -> link.role ?: cachedRole
-    }

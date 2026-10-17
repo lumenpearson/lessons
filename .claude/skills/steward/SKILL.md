@@ -67,8 +67,8 @@ this suite is deterministic and runs on `-n auto` in CI by design.
 
 English sentences that say what the change makes the project do — "Let the class be run from
 the phone, by the same rules as from the bot". No Conventional Commits prefix; none of this
-history has one. The body explains the reasoning and names what is left uncovered. Keep the
-`Co-Authored-By: Claude …` trailer the history carries.
+history has one. The body explains the reasoning and names what is left uncovered. No
+`Co-Authored-By` or other attribution trailer (`AI_USAGE_POLICY.md`, «Attribution in commits»).
 
 ## Never in a comment, a commit or a report
 
