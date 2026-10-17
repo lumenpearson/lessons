@@ -13,6 +13,31 @@ from app.models import Role
 #: its own.
 DEVICES_MAX = 15
 
+#: How much of a linked owner's name this page shows before cutting it with
+#: «…» (``manage_render._common.person``'s ``limit``). Unlike every other
+#: page's cap, this one is not about how many *rows* fit — it is about
+#: keeping all ``DEVICES_MAX`` of them inside ``clamp``'s ceiling at once, so
+#: the keyboard (which always draws one row per device, capped at
+#: ``DEVICES_MAX``, never asking the text) never offers a button the page
+#: has already dropped (#352).
+#:
+#: The worst row: a device name at its column's width (120, ``String(120)``,
+#: non-escaping so it does not understate the bound already proven by
+#: ``test_the_device_page_shows_the_build_a_phone_last_sent_and_nothing_if_
+#: none``), an owner with no @username (so the full name is shown) made of
+#: the character that grows most under escaping (``&`` → ``&amp;``, five for
+#: one) up to Telegram's own limit on a display name (129 = 64 + 1 + 64), no
+#: role in the class any more (« (без роли в классе)», 20 characters - longer
+#: than any ``Role.title_ru`` including «Администратор»), the longest build
+#: a 32-bit ``client_version`` can hold (2147483647, ten digits) and the
+#: longest «был …» text («ещё не выходил на связь», 23 characters, longer
+#: than any relative time it competes with). At this cap, fifteen such rows
+#: plus the header come to 3853 of ``MESSAGE_LIMIT``'s 3900; raise the cap by
+#: one and the sum passes 3900, so ``clamp`` cuts the page to fourteen rows
+#: while the keyboard still offers fifteen buttons — the defect this cap
+#: closes. See ``test_bot_manage.py``'s worst-case devices test for the sum.
+OWNER_NAME_MAX = 10
+
 
 def _utcnow() -> datetime:
     """Naive UTC, matching the naive ``DateTime`` columns the model declares."""

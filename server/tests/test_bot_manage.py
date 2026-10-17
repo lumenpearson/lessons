@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import date as Date
 from datetime import datetime, timedelta
 from datetime import time as Time
+from html import escape
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -112,8 +113,9 @@ from app.bot.manage_keyboards.bells import bells_list_keyboard
 from app.bot.manage_keyboards.devices import device_keyboard
 from app.bot.manage_keyboards.holidays import DayKindAction, holiday_list_keyboard
 from app.bot.manage_keyboards.subjects import subject_list_keyboard
+from app.bot.manage_render._common import person
 from app.bot.manage_render.bells import BELLS_MAX, render_bells
-from app.bot.manage_render.devices import DEVICES_MAX, render_devices, time_ago
+from app.bot.manage_render.devices import DEVICES_MAX, OWNER_NAME_MAX, render_devices, time_ago
 from app.bot.manage_render.holidays import LIST_MAX, render_holidays
 from app.bot.manage_render.import_export import split_text
 from app.bot.manage_render.subjects import SUBJECTS_MAX, render_subjects
@@ -1159,6 +1161,65 @@ def test_the_device_page_shows_the_build_a_phone_last_sent_and_nothing_if_none()
     more = render_devices([*crowd, phone(99, "Т" * 120, 2_100_000_000)], owners)
     assert more.count("📱 <b>") == DEVICES_MAX
     assert more.endswith("… и ещё 1")
+
+
+def test_the_device_page_with_long_owner_names_still_matches_its_keyboard():
+    """#352: the keyboard always builds one row per device, up to
+    ``DEVICES_MAX``; the text used to have no cap of its own on a linked
+    owner's name, so fifteen owners shown by a full name near Telegram's own
+    limit (129 characters, no @username) clamped the page to nine or ten rows
+    while the keyboard still offered fifteen buttons - one for a phone the
+    text no longer named.
+
+    The worst row this page can draw, all at once: a device name at its
+    column's width (120), an owner's name made of the character that grows
+    most under escaping (``&`` -> ``&amp;``, five for one) at Telegram's own
+    limit, no role left in the class (the longer of the two suffixes, longer
+    than even «Администратор»), the longest build a ``client_version`` can
+    hold, and the longest «был …» text («ещё не выходил на связь», for a
+    phone that has never phoned home). ``manage_render.devices.OWNER_NAME_MAX``
+    is the cap that keeps all fifteen such rows under the page's ceiling.
+    """
+    from app.wording import MESSAGE_LIMIT
+
+    growing_name = "&" * 129  # Telegram's own display-name limit, 64 + 1 + 64
+    who = person(growing_name, None, None, limit=OWNER_NAME_MAX)
+    # Cut before escaping: the raw characters survive uncorrupted, then «…»,
+    # rather than an escaped string sliced after the fact (which can sever an
+    # entity into something like «&am» - a refused message of its own).
+    assert who == escape(growing_name[: OWNER_NAME_MAX - 1]) + "…"
+
+    def phone(n: int) -> SimpleNamespace:
+        return SimpleNamespace(
+            id=n,
+            device_name="Т" * 120,
+            telegram_id=n,
+            last_seen_at=None,
+            client_version=2_147_483_647,
+        )
+
+    devices = [phone(n) for n in range(1, DEVICES_MAX + 1)]
+    # No role: the longer of the two suffixes the page can print.
+    owners = {device.telegram_id: (who, None) for device in devices}
+
+    page = render_devices(devices, owners)
+    keyboard = device_keyboard(devices)
+    drawn = page.count("📱 <b>")
+
+    assert drawn == DEVICES_MAX
+    assert "и ещё" not in page
+    assert len(page) <= MESSAGE_LIMIT
+    assert _reachable(keyboard, [str(device.id) for device in devices]) == drawn
+
+
+def test_a_short_owner_name_is_not_cut():
+    """A name under the cap is shown whole - the cap only ever shortens, and
+    a name with room to spare keeps every character."""
+    assert person("Иван", None, 1, limit=OWNER_NAME_MAX) == "Иван"
+    # One character under the cap is still kept whole: the boundary is "more
+    # than the cap", not "at least the cap".
+    exactly = "И" * OWNER_NAME_MAX
+    assert person(exactly, None, 1, limit=OWNER_NAME_MAX) == exactly
 
 
 def test_a_long_export_is_split_on_line_boundaries():
