@@ -98,6 +98,13 @@ dependencies {
     // Only used internally, by the expressive MaterialShapes badge in StateHeroCard.
     implementation(libs.androidx.graphics.shapes)
 
+    // For ContextCompat.registerReceiver, which registers the battery-saver
+    // receiver (PowerSaveMode.kt) unexported on every API level the app runs
+    // on. Compose brings an androidx.core of its own, too old to have it; this
+    // is the version :app, :widget and :core:data already resolve, so the APK
+    // gains nothing.
+    implementation(libs.androidx.core.ktx)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // The rows in this module are what every tap in the app lands on, and until

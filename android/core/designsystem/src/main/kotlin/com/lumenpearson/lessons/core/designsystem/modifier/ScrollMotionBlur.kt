@@ -99,8 +99,15 @@ private const val DecayFactor = 0.45f
  * app already has the value in a settings flow, and passing it in removes both
  * the disk read and the listener.
  *
- * Requires Android 13 (AGSL runtime shaders); below that, and whenever
- * [enabled] is false, this is `Modifier` and nothing is drawn differently.
+ * Requires Android 13 (AGSL runtime shaders); below that, whenever [enabled]
+ * is false, and while battery saver is on ([LocalPowerSaveMode]), this is
+ * `Modifier` and nothing is drawn differently.
+ *
+ * Battery saver is asked here, under every overload, rather than by the
+ * settings wrappers in `Locals.kt`: it is the platform asking apps to stop
+ * exactly this kind of per-frame work, and the blur under the status bar
+ * already listened while this one, over every list, did not (#476). The stored
+ * choice is untouched, so the blur is back the moment battery saver ends.
  */
 fun Modifier.scrollMotionBlur(
     state: LazyListState,
@@ -108,7 +115,7 @@ fun Modifier.scrollMotionBlur(
     scale: Float = 1f,
     isHorizontal: Boolean = false,
 ): Modifier = composed {
-    if (!enabled || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+    if (!enabled || LocalPowerSaveMode.current || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
         return@composed Modifier
     }
     val velocity = remember { Animatable(0f) }
@@ -137,7 +144,7 @@ fun Modifier.scrollMotionBlur(
     scale: Float = 1f,
     isHorizontal: Boolean = false,
 ): Modifier = composed {
-    if (!enabled || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+    if (!enabled || LocalPowerSaveMode.current || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
         return@composed Modifier
     }
     val velocity = remember { Animatable(0f) }
@@ -162,7 +169,7 @@ fun Modifier.scrollMotionBlur(
     enabled: Boolean = true,
     scale: Float = 1f,
 ): Modifier = composed {
-    if (!enabled || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+    if (!enabled || LocalPowerSaveMode.current || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
         return@composed Modifier
     }
     val velocity = remember { Animatable(0f) }
@@ -209,7 +216,7 @@ fun Modifier.slideMotionBlur(
     enabled: Boolean = true,
     scale: Float = 1f,
 ): Modifier = composed {
-    if (!enabled || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+    if (!enabled || LocalPowerSaveMode.current || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
         return@composed Modifier
     }
     val travelPx = with(LocalDensity.current) { travel.toPx() }

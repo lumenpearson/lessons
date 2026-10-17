@@ -69,4 +69,23 @@ class PowerSaveModeTest {
         rule.waitForIdle()
         rule.onNodeWithText("full").assertExists()
     }
+
+    /**
+     * What the root provides is this live reading, so the effects and the
+     * settings rows that read [LocalPowerSaveMode] see a change while the app
+     * is open, as the blur alone used to (#476).
+     */
+    @Test
+    fun `the root's provider publishes the live reading`() {
+        setPowerSave(false)
+        rule.setContent {
+            ProvidePowerSaveMode { Text(if (LocalPowerSaveMode.current) "saving" else "full") }
+        }
+        rule.onNodeWithText("full").assertExists()
+
+        setPowerSave(true)
+
+        rule.waitForIdle()
+        rule.onNodeWithText("saving").assertExists()
+    }
 }

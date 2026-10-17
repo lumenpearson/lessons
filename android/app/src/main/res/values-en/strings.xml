@@ -282,6 +282,10 @@ The phone keeps an access key and copies of the timetable and the diary, so the 
     <string name="settings_motion_blur_description">Lists smear along the direction they move in.</string>
     <string name="settings_motion_blur_amount">Blur amount</string>
     <string name="settings_blur_unavailable">Available on Android 13 and newer.</string>
+    <!-- #476: what an effect's row says when the effect is switched on and not drawn. -->
+    <string name="settings_power_save_off">Off while battery saver is on</string>
+    <string name="settings_edge_blur_power_save">No blur while battery saver is on — content still melts away softly at the edges.</string>
+    <string name="settings_edge_blur_problematic">Blur makes the screen flicker on this phone, so it is left out — content still melts away softly at the edges.</string>
 
     <string name="settings_content">Content</string>
     <string name="settings_show_teacher">Show the teacher</string>
