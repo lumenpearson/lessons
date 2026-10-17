@@ -163,14 +163,30 @@ class EffectsPowerSaveTest {
         assertEquals(emptyList<String>(), written)
     }
 
-    /** What is off by choice reads off by choice: no line blames battery saver for it. */
+    /** Without battery saver, what is off by choice reads off by choice, with no line about it. */
     @Test
-    fun `a row switched off by the user does not blame battery saver`() {
+    fun `without battery saver a row switched off by the user carries no battery-saver line`() {
         saving = false
         show(allOn.copy(themeReveal = false))
 
         compose.onNodeWithText(THEME_REVEAL).assertIsOff().assertIsEnabled()
         compose.onAllNodesWithText(POWER_SAVE_LINE).assertCountEquals(0)
+    }
+
+    /**
+     * Under battery saver a row the user had switched off carries the line too.
+     * That is the behaviour wanted, not an oversight: the row cannot be pressed
+     * then, and a switch that refuses to move needs its reason beside it whatever
+     * it was set to. «Выключено» is true either way, and nothing is written.
+     */
+    @Test
+    fun `under battery saver a row switched off by the user says why it cannot be pressed`() {
+        saving = true
+        show(allOn.copy(themeReveal = false))
+
+        compose.onNodeWithText(THEME_REVEAL).assertIsOff().assertIsNotEnabled().performClick()
+        compose.onAllNodesWithText(POWER_SAVE_LINE).assertCountEquals(3)
+        assertEquals(emptyList<String>(), written)
     }
 
     /**
