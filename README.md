@@ -136,10 +136,11 @@ editor by phone number: an admin sends the number, the person presses «Поде
 
 ### The app
 
-You do not have to build the APK by hand: **Actions → APK → Run workflow**, and a few
-minutes later it is in the run's artifacts. A `v*` tag additionally creates a GitHub
-Release with the APK attached, and the app itself can check those releases and offer an
-update.
+You do not have to build the APK by hand: **Actions → APK → Run workflow** on `main`, and a
+few minutes later it is in the run's artifacts — for as long as the repository's artifact
+retention keeps it, which here is one day, so download it the same day. A `v*` tag
+additionally creates a GitHub Release with the APK attached, and the app itself can check
+those releases and offer an update.
 
 Locally:
 
@@ -154,8 +155,13 @@ Cyrillic — chained so that each draws what it can. Android 8.0 and 9.0 cannot 
 custom chain and are set in Onest alone.
 
 With no keystore configured, the release build is signed with the debug key: it installs
-on a phone, but it must not be published. How to plug in your own key and how to tell the app where the server is, is in
-[docs/build.md](docs/build.md).
+on a phone, but it must not be published, and **no debug-signed APK ever installs as an
+update of another one**, nor of one signed with a real key — every build mints a key of its
+own. That is every CI artifact, and every APK workflow run off `main` or without the four
+signing secrets, a fork's included until it sets them. Moving from one to the next means
+uninstalling, which takes the joined class, the device token, the diary session and the
+corrections with it ([docs/build.md](docs/build.md#signing), «Signing»). How to plug in your
+own key and how to tell the app where the server is, is in [docs/build.md](docs/build.md).
 
 On first run the app walks through five steps — the last of them «Как подключиться?» — and
 offers two ways in. **By the class code**, the one the bot hands out with `/code`: a class
@@ -566,8 +572,10 @@ The full list is in that section.
 * The widget stays on the system font: Glance passes `fontFamily` as the name of a system
   family rather than as a resource.
 
-**What to do first.** Download the APK from the CI artifacts or build it yourself, install
-it on a phone, add the widget and live with it for one school day. After that the only
+**What to do first.** Build the APK with **Actions → APK → Run workflow** on `main`, which
+signs it with the release key, or build it yourself; not from the CI artifacts, which expire
+after a day and are debug-signed, so no later build installs over them. Install it on a
+phone, add the widget and live with it for one school day. After that the only
 questions left are about runtime and layout, and those are invisible from anywhere except
 a real screen.
 
