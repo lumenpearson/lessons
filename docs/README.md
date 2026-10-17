@@ -1,6 +1,6 @@
 # Documentation
 
-Nine documents, a history, the reference pages one of them keeps in a folder of its own,
+Ten documents, a history, the reference pages one of them keeps in a folder of its own,
 designs agreed before they were built, and two folders the app itself reads. Each answers its own question, and none retells a
 neighbour — if the answer is not here it is in the code, and there is usually a link to it.
 
@@ -14,6 +14,7 @@ neighbour — if the answer is not here it is in the code, and there is usually 
 | want to build the APK | [build.md](build.md) |
 | are deploying the server | [deploy.md](deploy.md) |
 | are writing code | [architecture.md](architecture.md), then [CLAUDE.md](../CLAUDE.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) |
+| are proposing a new kind of test, a new check in CI or a new shape of the build | [engineering.md](engineering.md) |
 | are writing a client for the API | [api.md](api.md) |
 | want to connect a diary other than Petersburg's | [diaries.md](diaries.md) |
 | are picking up the work | [HANDOVER.md](../HANDOVER.md), then [history.md](history.md) for every batch before its last two |
@@ -30,6 +31,7 @@ neighbour — if the answer is not here it is in the code, and there is usually 
 | [deploy.md](deploy.md) | Vercel plus Neon, your own server, or the host target — the whole app over HTTP/2, with native gRPC and the streaming beta — the webhook, migrations, why the server has no clock of its own, and what tells the owner when something is wrong |
 | [api.md](api.md) | the whole `/api/v1` contract, and at its end the v2 contract, served beside v1, every unary method of it: reads, writes, class management, the electronic diary — Petersburg and «Сетевой город» behind one contract, signed into by this server or registered from a session the client opened itself — and the anonymous school directory |
 | [architecture.md](architecture.md) | why the bot is the backend, the timetable resolution model, the five Android modules, the three homes a phone can have and the first run's state, the developer mode, why its gate is not a lock, and its request console, the service layer, the diary on both sides — the server's providers and the phone's sign-in, `diary.db` and import — the tests |
+| [engineering.md](engineering.md) | how the project is tested, checked, delivered and changed, read against the practice Airbnb has published for its Android app and its services: what each practice is and why, what this repository does today, what is left (epic #626), and what is deliberately not taken |
 | [design.md](design.md) | the design system: what was taken from Essentials, what was fixed, and the reasoning behind every visible decision in the interface |
 | [diaries.md](diaries.md) | which electronic diary every region of Russia runs in September 2026, how a client signs in to each platform, and what that means for a second provider; **not about this project's own code** — the survey a future provider is written from — except for one section, the region catalog the server and the app read, which is generated from this survey |
 | [history.md](history.md) | **not a reference — the record.** Every batch [HANDOVER.md](../HANDOVER.md) no longer carries, newest first, in the words of its close-out, and what `HANDOVER.md`'s numbered sections no longer need. True of the commit each section names and never brought up to date, so it is the one document here that is not checked against today's code |
