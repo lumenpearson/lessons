@@ -119,7 +119,7 @@ If a phrase reads badly, it can be fixed without leaving the app: Settings → A
 
 On its own the app only reads. To give it any rights, link it to a Telegram account: Settings → Class → Telegram.
 
-A six-character code appears there, next to an “Open the bot” button. Send the bot /link with that code and the app can do exactly what you can do in the bot. Rights are checked on the server at the moment you tap, so the phone holds no rights of its own: if the bot demotes you to a viewer, the app becomes read-only in the same second.
+A six-character code appears there, next to an “Open the bot” button. Send the bot /link with that code and the app acts with your role in the class: for an administrator or an owner that opens “Managing the class”, while homework, replacements and events are still entered in the bot, whatever your role. Rights are checked on the server at the moment you tap, so the phone holds no rights of its own: if the bot demotes you to a viewer, the app becomes read-only in the same second.
 
 “Unlink” puts the app back into reading mode; it goes on showing the timetable exactly as it did before the link.
 
