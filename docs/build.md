@@ -559,6 +559,29 @@ reports here. A value that is not `owner/name` stops the build with a sentence s
 because it becomes the path of every one of those addresses. `UpstreamNameTest` fails on
 any Kotlin that spells this repository's name outside that one fallback.
 
+What following the fork does **not** change, and a fork should know before it ships:
+
+- **The legal links are a second setting.** `lessons.build.repository` moves the GitHub
+  addresses and nothing else; the first screen's terms and privacy policy still come from
+  `lessons.legal.baseUrl`. A fork's `apk.yml` derives both from the repository it runs in,
+  but a fork building by hand that sets only the repository still links this repository's
+  legal texts — set both ("The terms and the privacy policy the app links", below).
+- **The fork's tracker inherits `.github/ISSUE_TEMPLATE/config.yml`**, whose contact links —
+  the security advisory, Discussions, this page — all point here. A fork that files its
+  readers' reports in its own tracker edits those links too.
+- **The default branch is assumed to be `main`.** The guide is refreshed from
+  `raw.githubusercontent.com/{owner}/{name}/main/docs/app/`, and a translation's pull
+  request is cut from and aimed at `main`. In a fork whose default branch has another name,
+  the guide's refresh fails and the reader keeps the copy bundled in the APK (or the last one
+  fetched), and a translation's pull request ends in «no_base» before anything is written.
+- **A translation's pull request from a build of somebody's fork can end in
+  «fork_unavailable».** The reader's own fork has to be a fork of the repository the build
+  names, and GitHub gives an account one fork per network: a reader who already forked
+  `lumenpearson/lessons` is handed that fork back when the app asks to fork the fork, it
+  never qualifies, and the app gives up after about half a minute. Nothing is written
+  anywhere in that case — no branch, no file, no pull request — so the failure is the whole
+  of the cost.
+
 None of them is secret. On a public repository the name, the ref and the commit are public
 by definition, and they are exactly the three facts somebody holding a phone needs in order
 to match it against a pull request.

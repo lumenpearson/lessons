@@ -154,6 +154,13 @@ internal class GithubPullRequests(
      * reader may own an unrelated one, and treating it as the fork would cut a
      * branch and commit into somebody's own work. The parent is what decides,
      * and a repository that is not a fork at all never qualifies.
+     *
+     * The parent is the build's repository (#469), so on a build of somebody's
+     * fork a reader whose fork is of `lumenpearson/lessons` never qualifies,
+     * and GitHub, which keeps one fork per account per network, answers the
+     * request for a new one with that same fork: [ensureFork] polls out and
+     * the result is «fork_unavailable», with nothing written anywhere.
+     * `docs/build.md`, "What the build is told about itself", says so too.
      */
     private suspend fun repositoryExists(token: String, login: String): Boolean {
         val body = get(token, GithubApi.repoUrl(under(login), "")) ?: return false

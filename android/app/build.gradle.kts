@@ -200,9 +200,13 @@ val legalBaseUrl: String =
  */
 val buildRepository: String =
     (signingSecret("LESSONS_BUILD_REPOSITORY", "lessons.build.repository") ?: "").trim().also { raw ->
-        val ownerSlashName = Regex("[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?/[A-Za-z0-9._-]+")
-        val walksThePath = raw.endsWith("/.") || raw.endsWith("/..")
-        if (raw.isNotEmpty() && (!ownerSlashName.matches(raw) || walksThePath)) {
+        // GitHub's shape: the owner letters, digits and inner hyphens, the name
+        // those with dots and underscores — but never dots alone, because `.`
+        // and `..` walk the path. GithubProject.fromBuild applies the same
+        // rule, and BuildPropertyReachTest runs this very pattern against it.
+        val ownerSlashName =
+            Regex("[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?/[A-Za-z0-9._-]*[A-Za-z0-9_-][A-Za-z0-9._-]*")
+        if (raw.isNotEmpty() && !ownerSlashName.matches(raw)) {
             throw GradleException(
                 "LESSONS_BUILD_REPOSITORY / lessons.build.repository is \"$raw\"; it must be " +
                     "the repository the APK belongs to as owner/name, like lumenpearson/lessons, " +

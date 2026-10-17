@@ -37,8 +37,26 @@ class GithubProjectTest {
         // The build refuses these before anything compiles; this is the second
         // line, so that a value which somehow got past it builds no address
         // with a path, a query or a host of its own in it.
-        listOf("somebody", "a/b/c", "/lessons", "somebody/", "a b/c", "x/y?z", "x/y#z", "x/../y")
-            .forEach { raw -> assertEquals(raw, GithubProject.UPSTREAM, GithubProject.fromBuild(raw)) }
+        listOf(
+            "somebody", "a/b/c", "/lessons", "somebody/", "a b/c", "x/y?z", "x/y#z", "x/../y",
+            "a@b/c", "x/%2e%2e", "-a/b",
+        ).forEach { raw -> assertEquals(raw, GithubProject.UPSTREAM, GithubProject.fromBuild(raw)) }
+    }
+
+    /**
+     * `.` and `..` are made of characters a repository name may hold, so the
+     * character rules let them through and only the guard against them stands
+     * between `x/..` and `/repos/x/..`, which a URL resolver walks up to
+     * `/repos/` — an address of somebody else's choosing.
+     */
+    @Test
+    fun `a name that is only dots is refused, though every dot is allowed`() {
+        listOf("x/..", "x/.").forEach { raw ->
+            assertEquals(raw, GithubProject.UPSTREAM, GithubProject.fromBuild(raw))
+        }
+        // The dot itself is not the problem: GitHub names like these exist.
+        assertEquals(GithubProject("x", ".github"), GithubProject.fromBuild("x/.github"))
+        assertEquals(GithubProject("x", "a.b"), GithubProject.fromBuild("x/a.b"))
     }
 
     @Test

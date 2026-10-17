@@ -517,11 +517,14 @@ phone ask the phone what a cable and a laptop used to be needed for. It is found
 Android's own developer options are: seven quick taps on the version in «О приложении», a
 pause of more than three seconds starting the count again (`RevealTaps`). Finding it grants
 nothing. Its tools open only for a GitHub account, signed in through the device flow the
-translation mode already uses, that has `admin`, `maintain` or `push` on this repository —
+translation mode already uses, that has `admin`, `maintain` or `push` on the repository the
+build names (`LESSONS_BUILD_REPOSITORY`, `lumenpearson/lessons` when it names none; #469) —
 the people who can deploy, since a merge to `main` deploys the server and `apk.yml` needs
-write access to run. The app asks with one `GET /repos/lumenpearson/lessons`, whose
-`permissions` object describes the caller, so no collaborator list is ever fetched
-(`GithubRepository.repositoryPermissions`). The verdict is kept in its own preferences file,
+write access to run. The app asks with one `GET /repos/{owner}/{name}` of that repository,
+whose `permissions` object describes the caller, so no collaborator list is ever fetched
+(`GithubRepository.repositoryPermissions`). On a fork's APK, then, the fork's pushers open
+«Для разработчиков» and the upstream's do not; that is safe, because the gate is not a lock
+(below, and #237). The verdict is kept in its own preferences file,
 stands for a day and for that login only, and is asked again at most once a day, at launch or
 when the page opens. A failure to ask leaves a standing yes standing. GitHub being down for an
 hour must not switch the tools off in the middle of the investigation they were switched on

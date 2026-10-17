@@ -46,8 +46,16 @@ class UpstreamNameTest {
 
     private companion object {
 
-        /** An address on GitHub under the upstream owner, or the owner as a literal. */
-        val UPSTREAM = Regex("""github\.com/lumenpearson|githubusercontent\.com/lumenpearson|"lumenpearson"""")
+        /**
+         * An address on GitHub under the upstream owner, the owner as a literal,
+         * the full name — which is what a `fromBuild("lumenpearson/lessons")`
+         * would carry — or an API path built by hand. A package path never
+         * matches: it is written with dots, `com.lumenpearson.lessons`.
+         */
+        val UPSTREAM = Regex(
+            """github\.com/lumenpearson|githubusercontent\.com/lumenpearson|"lumenpearson"|""" +
+                """lumenpearson/lessons|repos/lumenpearson""",
+        )
 
         /** KDoc and line comments may quote the name; only code builds an address. */
         val COMMENT = Regex("""^\s*(\*|//|/\*)""")

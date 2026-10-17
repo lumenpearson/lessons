@@ -1,6 +1,9 @@
 package com.lumenpearson.lessons
 
+import com.lumenpearson.lessons.core.data.github.GithubProject
 import java.io.File
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -94,6 +97,44 @@ class BuildPropertyReachTest {
             Regex("""Graph\.init\([^)]*githubProject\s*=\s*BuildProvenance\.current\(\)\.project""")
                 .containsMatchIn(application),
         )
+    }
+
+    /**
+     * The build's refusal is the build's own pattern, run here on the cases
+     * that matter, and it agrees with `GithubProject.fromBuild` on every one.
+     *
+     * Gradle cannot be started from a unit test, so the pattern is read out of
+     * the script and compiled. Checking only that a `throw` exists passed just
+     * as well for a pattern that let `x/..` through — and that value becomes
+     * `/repos/x/..`, which a URL resolver walks up to `/repos/`. The second half
+     * is that the two rules cannot drift: a value the build lets through and
+     * the app then quietly swaps for the upstream would send a fork's reports
+     * here again, with nothing failing anywhere.
+     */
+    @Test
+    fun `the build refuses exactly what the app would not use`() {
+        val script = buildScript.replace("\r\n", "\n")
+        val declaration = Regex("""val ownerSlashName =\s+Regex\("((?:[^"\\]|\\.)*)"\)""")
+        val literal = declaration.find(script)?.groupValues?.get(1)
+        assertTrue("app/build.gradle.kts no longer declares ownerSlashName as Regex(\"…\")", literal != null)
+        // A Kotlin string literal: the only escape the pattern may need is `\\`.
+        val pattern = Regex(checkNotNull(literal).replace("\\\\", "\\"))
+
+        val accepted = listOf(
+            "lumenpearson/lessons", "somebody/lessons-fork", "a-b/c_d.e", "x/.github", "x/a.b",
+        )
+        val refused = listOf(
+            "somebody", "a/b/c", "/lessons", "somebody/", "a b/c", "x/y?z", "x/y#z", "x/../y",
+            "x/..", "x/.", "a@b/c", "x/%2e%2e", "-a/b", "a-/b", "some/bad\"name",
+        )
+        accepted.forEach { raw ->
+            assertTrue("the build refuses $raw", pattern.matches(raw))
+            assertEquals("the app does not use $raw", raw, GithubProject.fromBuild(raw).fullName)
+        }
+        refused.forEach { raw ->
+            assertFalse("the build lets $raw through", pattern.matches(raw))
+            assertEquals("the app uses $raw", GithubProject.UPSTREAM, GithubProject.fromBuild(raw))
+        }
     }
 
     private companion object {
