@@ -178,10 +178,13 @@ texts are in [docs/legal/](docs/legal/) and bundled in the APK.
 ### A phone that does more than read
 
 By default the app reads. Linking it to Telegram («Настройки → Класс → Telegram», a code,
-`/link <code>` to the bot) makes it an editor exactly as far as you are an editor
-yourself: the rights are checked on the server against the account's role **at the moment
-of the request**, so there is no second permission system on the phone and nothing to go
-stale. An administrator gets the class management page in the same place.
+`/link <code>` to the bot) gives it your account's role in the class: the rights are checked
+on the server against that role **at the moment of the request**, so there is no second
+permission system on the phone and nothing to go stale. For an administrator or an owner
+that opens «Управление» in the same place — the class, its subjects, bells and timetable,
+the phones and the access requests. Homework, substitutions and events are still made in the
+bot, whatever your role: the app has no form for them, so for an editor or an observer
+linking adds nothing the app can do ([docs/guide.md](docs/guide.md#linking-the-phone-to-telegram)).
 
 ## Documentation
 
