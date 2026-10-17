@@ -28,6 +28,207 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: sub-project 4's first pull request, `LessonsPreferences` and `GithubRepositoryImpl` split, and the two-worker cap
+
+Merged as #451 (`8564b09`, 16 October 2026), from `android/decomposition-a`, on milestone 11,
+`Refs #273`; it closes no issue. The branch was cut from `main` at `6354c3d`, the merge of #422, and
+merged `main` once, at `014b1c0`, as `0a8662d`, without a conflict. It carries the plan, one
+commit per task, a fix to four comments and this close-out. Written on 11 October 2026. No
+revision goes with it: the schema stays at `0019`, and nothing under `server/` changes.
+
+The design is `docs/specs/2026-10-05-android-decomposition-design.md`, approved on 5 October;
+the plan is `docs/specs/2026-10-11-android-decomposition-a-plan.md`, twelve tasks, each built
+and reviewed before the next. Every move is verbatim but for the lines the plan names, and a
+line-by-line move check, a tool outside the repository, held each commit to that. What a move
+widened from `private` to `internal` is the plan's «What is widened» table and nothing else.
+
+- **The plan** (`f431817`): pull request A in the design's order (decision 8), the two
+  characterization tests before the moves, and every count in it a grep's.
+- **Every Gradle run on the maintainer's machine carries `--max-workers=2`, and runs alone**
+  (`1d6dee5`; `docs/build.md`, «Two workers, on the maintainer's machine»). Fewer tasks at once
+  is fewer simultaneous peaks on a machine with faulty memory; it caps no memory. It goes on the
+  command line, by the owner's answer of 5 October (#306, question 1): `android/gradle.properties`
+  is CI's too, and `~/.gradle/gradle.properties` holds the signing passwords.
+- **Every setting's round trip is held before its two halves move** (`0332bb0`).
+  `SettingsRoundTripTest` writes a value that differs from the defaults in every field, reads it
+  back through a second store over the same file, and holds by reflection that the value really
+  does differ everywhere, so a field added to `AppSettings` or `AlertPreferences` without a key
+  fails; an empty file reads as `AppSettings()`. Seen failing with one key's write removed. It
+  goes through the store's internal constructor, which has been the seam since #201, so
+  `AppSettingsTest`'s note that there was none is corrected.
+- **The bundle tags, the schedule's fingerprint and the remembered roles are held before they
+  move** (`3ad874a`). `BundleTagsAndRolesTest`: a tag read back under its own signature only;
+  class 1's sweep sparing classes 12 and 100; a sweep outside a set sparing the set, the
+  fingerprint and the roles; the fingerprint forgotten on a switch of class; and a role kept per
+  class, forgotten with `null`, and gone at a sign-out while the tags stay. Seen failing with the
+  trailing separator removed. The tag sweep `docs/history.md` records as written and never run
+  has run now.
+- **The shell's and the diary's keys have files of their own** (`d687cc9`): `ShellKeys.kt` and
+  `DiaryKeys.kt`, verbatim, beside the code that reads them. Nothing was widened.
+- **The settings', the roles' and the tags' keys are `PreferenceKeys`** (`f96991f`), an
+  `internal object` shaped like `MembershipKeys`: the 62 members of the class's private
+  companion, verbatim, and its 130 references to them, on 129 lines, qualified and nothing else.
+  `rememberRole`'s line, which the qualifier took to 131 characters, names the key once in a
+  local rather than joining the baseline.
+- **The settings' two halves sit side by side in `SettingsCodec`** (`0546a05`): `toSettings`,
+  and `putSettings`, the write half of `updateSettings` with its 56 key writes. `updateSettings`
+  keeps the transaction and the read-modify-write, and calls the pair.
+- **The bundle tags and the fingerprint have a class of their own over the store** (`5bb5e30`):
+  `BundleTags`, the seven calls the sync makes, verbatim but for `store.`. It writes through
+  `LessonsPreferences.write`, so every write still refreshes the credentials; `write` and the
+  `preferences` flow become internal while `dataStore` stays private, and
+  `removeKeysStartingWith` becomes a top-level internal function. `LessonsPreferences` keeps the
+  seven as one-line delegates, so `LessonsContainer` and `SchoolAlerts` change nothing.
+- **`LessonsPreferences`' detekt findings moved with their code** (`8c2493d`):
+  `:core:data:detektBaseline` alone, read line by line. Six entries went and six came back under
+  the same rule for the same code — `updateSettings`' `LongMethod` is `putSettings`' now — and
+  the module's file holds 201, as before.
+- **`GithubRepositoryImpl` is four classes** (`284538d`): `GithubDeviceFlow` (the client id, the
+  state flow, the lock, the polling job and the login requests, with `pollUntilDecided`,
+  `PollOutcome` and `PollVerdict` beside it), `GithubPullRequests`, `GithubIssues` and
+  `GithubPermissions`. They share `GithubPreferences`, which holds no token in memory, and one
+  lazy user agent; `TAG`, `HTTP_CREATED` and `HTTP_UNAUTHORISED` are internal and top-level,
+  because four files read them. The repository builds the four and delegates, and `signOut`
+  still cancels the flow, then clears.
+- **Its detekt findings moved with it** (`d4aa77a`): 201 entries become 202. Seven moved; the
+  one `TooGenericExceptionCaught` for `Throwable` became three, one per class its three catch
+  sites went to; the eighth, `TooGenericExceptionCaught …$failure: Exception`, stayed in
+  `GithubRepositoryImpl.kt` with `signOut`; and the repository's `TooManyFunctions` is gone, as
+  the design expected, since it keeps six functions.
+- **The comments say which collaborator reads the token and which forgets it on a `401`**
+  (`ce03781`), from Task 9's review: the device flow writes the token and never reads or clears
+  it, and the pull requests read it once and clear it only on a `401` that `get` receives. Four
+  KDoc sentences, and no line of code.
+- **The counts, the documents and this close-out** (this commit): 1740 Android tests in the four
+  places that carry the Android count, a row in `docs/architecture.md`'s test table for the two
+  new tests, `docs/build.md`'s baseline totals recounted from the five files, and the programme
+  design's line on the workers cap pointed at `docs/build.md`.
+
+### Gates
+
+On the merged tree at `ce03781`, from `android/`, each alone and in that order, with
+`--max-workers=2`:
+
+- **`./gradlew test --rerun`**: `BUILD SUCCESSFUL in 1m 21s`. `--rerun` reaches only the task it
+  follows, and in an Android module `test` is the aggregate, so
+  `:core:designsystem:testDebugUnitTest`, whose inputs had not changed, still came `FROM-CACHE`;
+  it was run again alone with `--rerun`, `BUILD SUCCESSFUL in 21s`. Counted from the JUnit
+  reports: `:core:model` 125, `:core:data` 625, `:core:designsystem` 196, `:widget` 126, `:app`
+  668, **1740**, every failure and error 0. That is ten more than 1730, all in `:core:data`:
+  five in `SettingsRoundTripTest` and five in `BundleTagsAndRolesTest`. The legal parity
+  tests ran in it on edition 5 (`LegalDocumentsTest` 11, `LegalLinksTest` 10).
+- **`./gradlew assembleDebug`**: `BUILD SUCCESSFUL in 16s`.
+- **`./gradlew assembleRelease`**: `BUILD SUCCESSFUL in 1m 56s`, R8 and resource shrinking
+  included, signed with the debug key because no release key is configured on that machine.
+- **`./gradlew detekt`**: `BUILD SUCCESSFUL in 8s`, all five modules, nothing beyond their
+  baselines.
+- **What the branch touched under `android/`**: the eleven Kotlin files under `datastore/` and
+  `github/` (two modified, nine created), `SettingsRoundTripTest.kt`, `BundleTagsAndRolesTest.kt`
+  and `AppSettingsTest.kt`, and `android/core/data/detekt-baseline.xml`, the only baseline.
+- **The baselines**: 493 entries across the five files, one more than 492 — `:core:data` 202,
+  `:app` 184, `:core:designsystem` 73, `:widget` 21, `:core:model` 13 — most of them `MagicNumber`
+  (218), `ReturnCount` (81) and `MaxLineLength` (65). `docs/build.md`, «detekt», says so.
+- **No document names a moved declaration where it no longer is**: the plan's `git grep` over
+  everything but `docs/history.md` and `docs/specs/` printed nothing.
+- **The server**: no code changed. `test_env_example.py`, `test_ci_paths.py` and
+  `test_schema_version.py`, which read the documents, **22 passed** with `-p no:xdist`, after
+  the documents were written. CI's server job runs the whole suite, because `docs/*.md` and
+  `.claude/*.md` are in its path filter.
+- **CI on the head** is read before the merge.
+
+### What was deliberately left alone
+
+- **Pull request B**: `ManagementViewModel` (its state types, then per-sheet collaborators over
+  shared plumbing) and `SettingsViewModel` (its characterization test, then its collaborators;
+  decision 5).
+- **Pull request C**: `OnboardingScreen`, one file per step, with `OnboardingPromisesTest`'s path
+  and anchor (decision 3); `FloatingToolbar`'s split by concern; and `HomeShell`'s pure rules,
+  with the body left inline (decision 4).
+- **What sub-project 5 rewrites**: the network layer — the Retrofit interfaces, the v1 DTOs, the
+  failure classifiers — and the container's bindings. Nothing here splits or touches them, and
+  `GithubApi.kt` and `GithubDtos.kt` stay as they are.
+- **A seam for the GitHub client.** Making `GithubApi.client` or `API_BASE` injectable, so that a
+  mock server could reach the four classes, is a change rather than a move, and belongs to a pull
+  request of its own if anybody wants it.
+- **detekt with type resolution**, and the 93 rules it would switch on (`docs/build.md`,
+  «detekt»).
+- **The cap anywhere but the command line**: neither `android/gradle.properties`, which CI
+  reads, nor `~/.gradle/gradle.properties`, which no agent opens.
+- **`docs/history.md`'s note** that the tag sweep was written and not run. It is a record of its
+  time; `BundleTagsAndRolesTest` is what answers it now.
+- **Feature Gradle modules and the package cycles**, which the programme rejected for this
+  sub-project.
+- **`repositoryPermissions`' own KDoc**, moved verbatim, which still says a `401` forgets the
+  token «as every other call does». It is older than the split, and `ce03781` corrected only the
+  four sentences the split wrote.
+- **«Twelve» «Сетевой город» regions through the proxy**, in `CLAUDE.md`, `docs/deploy.md`,
+  three lines of `HANDOVER.md`'s sections 5 and 7, and two test comments: the regions served are eleven,
+  since twelve hosts are marked `via_proxy` and Altai's takes no password. #451 touches none of
+  those lines; a documents pass does.
+
+### What nobody has verified in this batch
+
+- **No test reaches the four GitHub classes.** Their check was the compile, `DeviceFlowPollTest`,
+  the move check and review.
+- **No APK from this branch was installed** on a device or an emulator.
+- **What the workers cap saves is unmeasured.**
+
+### After #428's merge: the merge, the required check, production, #430, and the owner's order
+
+None of this is code in #451, and a close-out never gets a close-out of its own,
+so it is written here. The source is the controller's notes of 11 October 2026 and GitHub,
+read the same day.
+
+- **#428 merged by the session** at 15:10:44 UTC on 11 October 2026 as `f26fdb7`, after the five
+  checks on head `6c47cb8`: eight check runs, the new «CI» among them, and the Vercel status, all
+  success; mergeable `CLEAN`; milestone 11; the only comment the Vercel bot's. It closed #423,
+  #424 and #425. Its review, by opus, came back «with fixes»; the fix round, `6c47cb8`, made the
+  close-out true at the merge — #427, #429, #430, and CI's cached legal tests — and the re-review
+  found all of it addressed. Its close-out named itself as the only thing open; this is the SHA
+  it left for the next one.
+- **«CI»'s first real runs were green**: `gates: success success success success success`, on
+  run 38148509706 and on `6c47cb8`'s run. It has not yet met a pull request where «Host» is
+  skipped, which needs one that changes only `android/`.
+- **`main` requires «CI»**: ruleset 24883111, «main: «CI» must pass», created by the session
+  right after the merge with the owner's permission («попытайся сделать сам», 11 October).
+  Enforcement is active, on the default branch; it requires the check «CI» from GitHub Actions
+  (integration 15368, which posted «CI» on `6c47cb8`); the repository admin role may bypass it,
+  always; and strict mode is off, so a branch need not be up to date with `main`.
+- **Production deployed `f26fdb7`: READY**, read from Vercel shortly after 15:11 UTC.
+  `/api/v1/warmup` answered `ok`, schema `0019`, `"v2": true`.
+- **The board**: #423, #424, #425 and #428 are Done, and the three issues are labelled
+  `status:done`.
+- **#430 merged after #428**, as `014b1c0`, from the owner's account at 15:32 UTC on 11
+  October, on milestone 12, from the other session «Политика конфиденциальности и EULA для
+  Дневника». Its branch had merged `main` first (`1590ff3`, «keeping edition 5's legal texts over
+  edition 4's»). It made both legal texts edition 5, effective 2026-10-11, kept #425's Sentry
+  point and the `[SENTRY]` marker (checked on `main`), and closed #429 at 15:32:02 UTC. It wrote
+  no close-out of its own and left that to the next one, which is this. What its description
+  says it did not cover is in `HANDOVER.md`'s section 5 now: no lawyer has read edition 5, nobody has opened it
+  on a phone, and its counts of regions per platform will drift; the separate consent form it
+  did not write is #431.
+- **The owner's order of 11 October**, given after #428 merged: after #451 and before
+  sub-project 4's B and C, the software is to let any deployment meet 152-ФЗ without
+  changing the code. It is epic #438 on milestone 12, with #431–#437. The owner's position is
+  that the project is impersonal open source: the repository names no operator, and whoever
+  deploys a server is its operator.
+- **#435 is decided: option C**, recorded on the issue the same day. The core runs on a Russian
+  VPS, RUVDS, with PostgreSQL on it, and the bot reaches Telegram through an SSH tunnel to a
+  machine abroad; option B is C with that setting left empty. On 11 October the RUVDS VPS could
+  not open a TCP connection to `api.telegram.org`. The comparison of the options becomes
+  `docs/specs/2026-10-11-data-in-russia-design.md`, and #407's recipe is written for it.
+- **Still open**: #427 (milestone 11), the legal tests restored from the build cache, which #451
+  does not touch; #426 and #421 (Backlog).
+- **Stale lines found on `main`**: section 6 of `HANDOVER.md` named `setup-android` `v4.0.1`, while
+  both workflows pin `v4.0.4` since #166, and the programme design said the workers cap goes in
+  `gradle.properties`; both are corrected here. The «twelve regions» lines are left, as «What was
+  deliberately left alone» says.
+- **Left in place**: the plan workspace `.superpowers/sdd/2026-10-11-android-decomposition-a-plan/`,
+  which git ignores, and the move check and the test counter, in a temporary directory outside
+  the repository.
+
+`HANDOVER.md`'s section 7, «Next for the programme», says what follows.
+
 ## What the batch before added: an event's kind carries «covers the lesson», one required check, and Sentry in the privacy policy (#423, #424, #425)
 
 Merged as #428 (`f26fdb7`, 11 October 2026), from `fix/kind-ci-sentry`, on milestone 11. It
@@ -9461,3 +9662,23 @@ vulnerability reporting, or with
 `gh api -X PUT repos/lumenpearson/lessons/private-vulnerability-reporting`, and read it back as
 `{"enabled":true}`. Until then, the only private route in SECURITY.md, CODE_OF_CONDUCT.md and
 the chooser is closed to everybody outside the repository.
+
+## Moved out of section 7 on 17 October 2026, after #539, #609, #610 and #622
+
+#609 merged on 17 October 2026 and closed #476, the first half of the paragraph below, so
+`HANDOVER.md`'s section 7 keeps #445's wording as the owner's and asks the owner, in a paragraph
+of its own, to confirm the one deviation #609 made. As the paragraph stood until then, where
+«the order above» is section 7's «Next for the programme»:
+
+**#445's wording is yours before it is built.** You asked for it on 11 October, after #444 turned
+out to be Android's battery saver switching the edge blur off as designed. On 17 October it was
+rewritten as a feature built on #476 («A feature, not a fix»):
+- #476, the defect underneath, makes the four heavy effects in «Настройки → Взаимодействие →
+  Эффекты» — «Размытие под шторкой», «Волна», «Размытие при прокрутке» and «Круговая смена
+  темы» — follow battery saver, and each row show what is drawn;
+- #445 then gives power saving a category of its own, proposed as «Энергосбережение», with
+  «Следовать режиму энергосбережения», on by default, «Экономный режим всегда», off by default,
+  and each effect's state.
+
+Both are on milestone 12, and the order above places neither. The wording on #445 is a proposal
+for you to adjust.
