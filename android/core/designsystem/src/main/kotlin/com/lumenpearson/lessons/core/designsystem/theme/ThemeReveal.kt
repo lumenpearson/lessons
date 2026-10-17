@@ -440,9 +440,9 @@ private fun View.photograph(scale: Float): ImageBitmap? = runCatching {
     val targetHeight = (height * scale).toInt()
     if (targetWidth <= 0 || targetHeight <= 0) return null
 
-    // The platform factory rather than the androidx extension: this module does
-    // not depend on androidx.core, and a one-line convenience is not worth a
-    // dependency that only the release variant would go looking for.
+    // The platform factory rather than androidx.core's `createBitmap`
+    // extension: the extension is this same call with defaulted arguments, and
+    // the platform's says which config the photograph is taken in.
     val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bitmap)
     canvas.scale(scale, scale)

@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 
 /**
  * Whether Android's battery saver is on, for everything that draws a heavy
@@ -63,14 +64,23 @@ internal fun rememberPowerSaveMode(): Boolean {
     val power = remember(context) { context.getSystemService(PowerManager::class.java) }
     var isPowerSave by remember(power) { mutableStateOf(power?.isPowerSaveMode == true) }
 
-    DisposableEffect(power) {
+    // Keyed on the context too: the receiver is registered on it and must be
+    // unregistered from the same one, so a new context is a new registration.
+    DisposableEffect(context, power) {
         if (power == null) return@DisposableEffect onDispose {}
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 isPowerSave = power.isPowerSaveMode
             }
         }
-        context.registerReceiver(receiver, IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED))
+        // Not exported: only the system sends this, and a receiver that other
+        // apps could reach is one they could lie to about battery saver.
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         // Re-read on the way in as well: the mode can have changed between the
         // remember above and the registration, and that gap is a whole frame.
         isPowerSave = power.isPowerSaveMode
