@@ -5,8 +5,11 @@ import android.provider.Settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +28,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.ScrollBlurSettings
 import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealHost
 import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealState
 import com.lumenpearson.lessons.core.designsystem.theme.appScrollMotionBlur
+import com.lumenpearson.lessons.core.designsystem.theme.appSlideMotionBlur
 import com.lumenpearson.lessons.core.designsystem.theme.rememberThemeRevealState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -92,28 +96,91 @@ class PowerSaveEffectsTest {
             }
         }
 
-        compose.runOnIdle { ripple.fire(Offset.Unspecified) }
         assertFalse("the wave is drawn under battery saver", drawsALayer())
 
         batterySaver(false)
         assertTrue("the wave did not come back when battery saver ended", drawsALayer())
     }
 
+    /**
+     * A tap under battery saver plays nothing, then or later.
+     *
+     * The wave's state belongs to the shell and outlives the modifier, so the
+     * modifier coming back when battery saver ends finds a counter that moved
+     * while it was away — and a counter it has not seen is what a tap looks
+     * like. Replayed, that is a wave from a tap made minutes ago, somewhere else.
+     *
+     * Asked through the clock: with `autoAdvance` on, `waitForIdle` runs the
+     * clock for as long as anything is animating, so a wave played is the clock
+     * moved by the wave's length, and none is a frame or two. The second half is
+     * the control — a tap after battery saver ends does play, and the clock
+     * shows it.
+     */
     @Test
-    fun `the scroll blur draws nothing under battery saver and returns after`() {
+    fun `a wave fired under battery saver is not played when it ends`() {
+        val ripple = LiquidRippleState()
+        compose.setContent {
+            CompositionLocalProvider(LocalPowerSaveMode provides saving) {
+                Box(Modifier.size(100.dp).testTag(Tag).liquidRipple(ripple, enabled = true))
+            }
+        }
+        compose.runOnIdle { ripple.fire(Offset.Unspecified) }
+
+        val before = compose.mainClock.currentTime
+        batterySaver(false)
+        val replayed = compose.mainClock.currentTime - before
+
+        compose.runOnIdle { ripple.fire(Offset.Unspecified) }
+        val start = compose.mainClock.currentTime
+        compose.waitForIdle()
+        val played = compose.mainClock.currentTime - start
+
+        assertTrue("a fresh wave did not run, so the clock proves nothing: $played ms", played >= WaveMillis)
+        assertTrue("the wave fired under battery saver ran when it ended: $replayed ms", replayed < WaveMillis)
+    }
+
+    @Test
+    fun `the scroll blur on a plain column draws nothing under battery saver and returns after`() {
+        assertMotionBlurSteps { Modifier.appScrollMotionBlur(rememberScrollState()) }
+    }
+
+    @Test
+    fun `the scroll blur on a lazy list draws nothing under battery saver and returns after`() {
+        assertMotionBlurSteps { Modifier.appScrollMotionBlur(rememberLazyListState()) }
+    }
+
+    @Test
+    fun `the swipe blur on a pager draws nothing under battery saver and returns after`() {
+        assertMotionBlurSteps { Modifier.appScrollMotionBlur(rememberPagerState { 3 }) }
+    }
+
+    @Test
+    fun `the slide blur draws nothing under battery saver and returns after`() {
+        assertMotionBlurSteps {
+            Modifier.appSlideMotionBlur(moving = { false }, fraction = { 0f }, travel = 100.dp)
+        }
+    }
+
+    /**
+     * One motion-blur overload, switched on in settings, under battery saver
+     * and then without it. Each overload carries its own check, so each is
+     * asked on its own: one that lost it would go on blurring every list of
+     * its kind while the others passed.
+     */
+    private fun assertMotionBlurSteps(blur: @Composable () -> Modifier) {
         compose.setContent {
             CompositionLocalProvider(
                 LocalPowerSaveMode provides saving,
                 LocalScrollBlur provides ScrollBlurSettings(enabled = true),
             ) {
-                Box(Modifier.size(100.dp).testTag(Tag).appScrollMotionBlur(rememberScrollState()))
+                Box(Modifier.size(100.dp).testTag(Tag).then(blur()))
             }
         }
 
-        assertFalse("the scroll blur is drawn under battery saver", drawsALayer())
+        assertFalse("the motion blur is drawn under battery saver", drawsALayer())
 
         batterySaver(false)
-        assertTrue("the scroll blur did not come back when battery saver ended", drawsALayer())
+        assertTrue("the motion blur did not come back when battery saver ended", drawsALayer())
     }
 
     /** The one effect that already listened, now listening to the same source as the rest. */
@@ -170,6 +237,9 @@ class PowerSaveEffectsTest {
 
     private companion object {
         const val Tag = "effect"
+
+        /** `RippleMillis`, the length of one wave; a played wave moves the clock this far. */
+        const val WaveMillis = 1500L
 
         /** What `Modifier.graphicsLayer` puts on a node; one element, so the modifier is it. */
         val LayerElement: Class<*> = Modifier.graphicsLayer {}.javaClass
