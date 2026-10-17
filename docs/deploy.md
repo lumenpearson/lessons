@@ -638,9 +638,10 @@ used to say `server/.env`, which compose never reads, so `up` stopped at «set B
 
 **Every setting the server reads reaches the container.** Besides `BOT_TOKEN`, `OWNER_IDS`
 and `TIMEZONE`, the file hands it `WEBHOOK_SECRET`, `CRON_SECRET`, `BOT_USERNAME`,
-`DIARY_SECRET`, `DADATA_TOKEN`, `DIARY_PROXY_URL`, `DIARY_EGRESS`, `PUBLIC_BASE_URL`,
-`MIN_CLIENT_VERSION`, `RUN_BOT`, `TRUSTED_PROXY_HOPS` and `LESSONS_STREAMING` from the same
-`.env`, each arriving as its own default when unset. This image speaks HTTP/1.1, so
+`DIARY_SECRET`, `DADATA_TOKEN`, `DIARY_PROXY_URL`, `DIARY_EGRESS`, `GITHUB_READ_TOKEN`,
+`PUBLIC_BASE_URL`, `SENTRY_DSN`, `MIN_CLIENT_VERSION`, `RUN_BOT`, `TRUSTED_PROXY_HOPS` and
+`LESSONS_STREAMING` from the same `.env`, each arriving as its own default when unset, and
+`server/tests/test_compose.py` holds this sentence to the file's list. This image speaks HTTP/1.1, so
 `WatchClass` streams over Connect there and native gRPC is option 3's alone. Until #191 none of those was
 passed, and a container sees only what the file lists: a compose deployment had no diary,
 no digests and no calendar link whatever `.env` said. What they are for is the table under
