@@ -103,6 +103,29 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+// Files these tests read straight from the tree rather than from the test classpath,
+// so Gradle would not count them as inputs and a run after editing only them came
+// UP-TO-DATE or FROM-CACHE having read nothing (#427): `docs/legal/` and `docs/app/`
+// (LegalDocumentsTest, DocsGuideParityTest; the guide is a main asset, which a library's
+// JVM tests never see), and every module's `src/main` and build script
+// (SyncWorkerSourceTest). The catalog and the vectors are test resources already.
+val everyModule = rootProject.allprojects.map { it.layout.projectDirectory }
+
+tasks.withType<Test>().configureEach {
+    inputs.dir(rootProject.layout.projectDirectory.dir("../docs/legal"))
+        .withPropertyName("legalDocuments")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.layout.projectDirectory.dir("../docs/app"))
+        .withPropertyName("guide")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(everyModule.map { it.dir("src/main") })
+        .withPropertyName("everyModuleMain")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(everyModule.map { it.file("build.gradle.kts") })
+        .withPropertyName("everyModuleBuildScript")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 dependencies {
     // `api`, not `implementation`: every repository signature in this module is
     // expressed in :core:model types, so consumers need them transitively.

@@ -25,6 +25,14 @@ kotlin {
     jvmToolchain(21)
 }
 
+// `StabilityPromiseTest` reads this module's Kotlin as text, and Gradle otherwise
+// hashes only the classes compiled from it, which not every edit changes (#427).
+tasks.withType<Test>().configureEach {
+    inputs.dir(layout.projectDirectory.dir("src/main/kotlin"))
+        .withPropertyName("mainSourcesAsText")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 dependencies {
     testImplementation(libs.junit)
 }
