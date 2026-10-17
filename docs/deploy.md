@@ -3,17 +3,23 @@
 ## In short
 
 There are two honest options, and choosing between them is not about technology but about
-whether you are willing to pay €4 a month.
+whom you would rather pay, and how much.
 
-| | Free: Vercel + Neon | ~€4/mo: a small VPS |
+| | Vercel + Neon | ~€4/mo: a small VPS |
 | --- | --- | --- |
+| Cost | Hobby is free, but for personal, non-commercial use, and pauses a project past its monthly allowance; a class that relies on it wants a paid plan («Which Vercel plan», below) | about €4 a month |
 | Changes to the code | webhook instead of polling, Postgres, FSM in the database | none |
 | The bot's response | 1–3 s on a cold start | instant |
-| Reliability | depends on two other people's free plans | depends on you |
+| Reliability | depends on two other companies' plans and their limits | depends on you |
 | Complexity | noticeable | `docker compose up` |
 
-If being free is a hard requirement, take the first. If four euros a month are acceptable,
-the second is simpler, faster and requires rewriting nothing.
+**Vercel is not the free way to serve a class.** This page used to head that column «Free»
+and say to take it if being free was a hard requirement. Vercel offers its free plan, Hobby,
+for personal, non-commercial use, and this backend spends Hobby's monthly allowance on its
+own; past it the project is paused, and the bot, the digests and every phone's sync stop
+together. Hobby is enough to try the project out by yourself. For a deployment others rely
+on, take the first on a plan with higher function limits, a spend limit and an alert, or
+take the second, which is simpler, faster and requires rewriting nothing.
 
 A third, the host target, is for what neither serves: native gRPC and the class's changes
 streamed to a phone as they happen. It is a beta, deployed nowhere yet («Option 3: the host
@@ -47,9 +53,41 @@ progress. 24 tests cover both mechanisms.
 ### What you need
 
 1. A [Neon](https://neon.tech) account — free Postgres.
-2. A [Vercel](https://vercel.com) account, the Hobby plan.
+2. A [Vercel](https://vercel.com) account, on a plan that fits what it will serve: Hobby
+   to try the project out by yourself, a plan with higher function limits for a class that
+   relies on it («Which Vercel plan», below).
 3. A bot token from [@BotFather](https://t.me/BotFather).
 4. Your Telegram id from [@userinfobot](https://t.me/userinfobot).
+
+### Which Vercel plan
+
+**Hobby is offered for personal, non-commercial use**, by Vercel's own fair-use guidelines,
+and it includes a fixed amount of usage a month. On 11 October 2026
+[vercel.com/docs/plans/hobby](https://vercel.com/docs/plans/hobby) gave 1,000,000 function
+invocations, 4 CPU-hours of Active CPU and 360 GB-hours of provisioned memory. **Past any of
+them, that feature of a Hobby project is paused until 30 days have passed** — and for this
+backend the feature is the function, which is all of it. Read the page again before you
+choose: the figures are Vercel's to change.
+
+This backend spends that allowance by itself, before anybody uses anything:
+
+- the external cron calls the tick every five minutes («The clock», below), about 8,600
+  calls a month;
+- the self-check runs inside every tick, probing the diary's proxy and every «Сетевой город»
+  region in use («The self-check, in every tick», below), so each tick holds the function
+  for longer than the digests alone would;
+- a warm-up ping, if you keep one («If even that is slow», below), is as many again.
+
+Then come the people: every message to the bot is a webhook call, and every phone's sync and
+every v2 call is another. The more classes a deployment serves, the sooner the month's
+allowance is gone, and when it is, the bot, the digests and every phone's sync stop at once,
+with nothing on the phone or in the chat saying why.
+
+So **a deployment others rely on wants a plan with higher function limits** — on 11 October
+2026 that was Pro, at $20 per developer seat a month, with spend management — **and a spend
+limit with an alert set on it**, so that a busy month raises a warning rather than a pause.
+Or it wants the VPS of option 2, which has no allowance to run out of. Hobby is enough to try
+the project out by yourself.
 
 ### Secrets
 
@@ -594,7 +632,7 @@ only for local SQLite, never for Postgres.
 
 ### If even that is slow
 
-Both delays are the architecture of the free path rather than a bug: serverless deliberately
+Both delays are the architecture of the serverless path rather than a bug: serverless deliberately
 keeps nothing permanently running, which is what you are not paying for. There are two ways
 to remove them entirely.
 
@@ -613,12 +651,13 @@ at that one, every 4–5 minutes.
 curl https://<your-project>.vercel.app/api/v1/warmup
 ```
 
-That is extra function invocations — once every few minutes, round the clock — so it is worth
-checking against Vercel's free-plan limit on invocations, if there is one when you read this.
+That is extra function invocations — about 8,600 a month at one every five minutes, on top
+of the tick's own — and on Hobby they count against an allowance that pauses the project
+when it runs out («Which Vercel plan», above).
 
 **Do not try not to sleep.** A `~€4/mo VPS` (option 2 below) does not sleep at all, because
 the process is not serverless — nothing to rewrite, the same code, just different hosting. If
-the cold start bothers you more than the free plan is worth, that is a simpler answer than
+the cold start bothers you more than serverless is worth, that is a simpler answer than
 maintaining an external ping for ever.
 
 ## Option 2: your own server
@@ -786,10 +825,12 @@ when `LESSONS_STREAMING=true`.
 ## Which to choose
 
 For one class and one person maintaining it, **a VPS is simpler**: fewer moving parts, no
-cold starts, and no dependence on other people's free plans, which change.
+cold starts, and no dependence on other companies' plans and their allowances, which change.
 
-**Vercel plus Neon** is justified if paying is not an option, or if there will be many
-classes and you would rather not think about a server at all.
+**Vercel plus Neon** is justified if there will be many classes and you would rather not
+think about a server at all — on a plan with higher function limits, a spend limit and an
+alert, because many classes are exactly what spends Hobby's allowance soonest. It is not the
+way to avoid paying: Hobby is for personal, non-commercial use («Which Vercel plan», above).
 
 ## The clock: the server has none, and GitHub's will not do
 
