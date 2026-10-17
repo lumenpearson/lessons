@@ -82,15 +82,17 @@ class BuildProvenanceTest {
      * calls cannot, so they fall back to the upstream one (#469). A fork's APK
      * names the fork, and every report, update and guide follows it.
      */
+    private val fork = full.copy(repository = "somebody/lessons-fork")
+
     @Test
     fun `the repository the app talks to is the one the build names, or the upstream one`() {
-        assertEquals(GithubProject("somebody", "lessons-fork"), full.copy(repository = "somebody/lessons-fork").project)
+        assertEquals(GithubProject("somebody", "lessons-fork"), fork.project)
         assertEquals(GithubProject.UPSTREAM, empty.project)
     }
 
     @Test
     fun `the source link is the build's repository`() {
-        assertEquals("https://github.com/somebody/lessons-fork", full.copy(repository = "somebody/lessons-fork").sourceUrl)
+        assertEquals("https://github.com/somebody/lessons-fork", fork.sourceUrl)
         assertEquals("https://github.com/lumenpearson/lessons", empty.sourceUrl)
     }
 }
