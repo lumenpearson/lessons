@@ -190,7 +190,9 @@ not draw: the widget's caption in the launcher's list, and its preview.
 The same place holds the theme (light, dark, as in the system, plus a "black background"
 for OLED), colours from the wallpaper, the typeface and its size. The theme changes as a
 circle spreading from under your finger; if that makes you queasy, the circle and the wave
-can be switched off separately under «Эффекты».
+can be switched off separately under «Эффекты». While the phone's battery saver is on, the
+circle, the wave and both blurs switch themselves off, and the rows under «Эффекты» say so;
+what you chose stays as it is and comes back when battery saver ends.
 
 ### If there is a mistake in the app's text
 

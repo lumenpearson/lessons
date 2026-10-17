@@ -123,7 +123,7 @@ call a deployed server.
 | `KEYSTORE_PASSWORD` | `apk.yml` | as above: all four are needed together, and Gradle treats three of four as no key at all |
 | `KEY_ALIAS` | `apk.yml` | as above |
 | `KEY_PASSWORD` | `apk.yml` | as above |
-| `LESSONS_GITHUB_CLIENT_ID` | `apk.yml` | «Войти через GitHub» is hidden, and with it the only way to file a bug report from inside the app — and the developer mode, whose gate is that sign-in, cannot be opened |
+| `LESSONS_GITHUB_CLIENT_ID` | `apk.yml` | «Войти через GitHub» is hidden, and with it sending a bug report from inside the app and sending translation corrections as a pull request — and the developer mode, whose gate is that sign-in, cannot be opened. «Открыть issue на GitHub» on the bug-report sheet stays: it needs no account |
 | `LESSONS_CONTACT_EMAIL` | `apk.yml` | «Отправить письмом» is hidden |
 | `SERVER_URL` | `reminders.yml` | the fallback tick skips with a notice rather than failing — see [deploy.md](deploy.md), "The clock" |
 | `CRON_SECRET` | `reminders.yml` | the same skip |
@@ -587,9 +587,14 @@ by definition, and they are exactly the three facts somebody holding a phone nee
 to match it against a pull request.
 
 `LESSONS_GITHUB_CLIENT_ID` and `LESSONS_CONTACT_EMAIL` are optional, and each one is a
-button. Without the first, «Войти через GitHub» is not on «О приложении» at all — and with
-it goes the only way to file a bug report from inside the app, because that is what the
-account is for. Without the second, «Отправить письмом» is not on the bug-report sheet.
+button. Without the first, «Войти через GitHub» is not on «О приложении» at all, and with
+it go the three things the account is for: the bug-report sheet's «Отправить», which files
+the issue as the signed-in user; the translation corrections sent as a pull request; and the
+developer mode, whose gate is that sign-in. The bug report itself stays — «Сообщить об
+ошибке» is drawn in every build, and its «Открыть issue на GitHub» opens GitHub's new-issue
+page in the browser with the title and the body already filled in, no account in the app
+needed (`BugReportSheet.kt`). Without the second, «Отправить письмом» is not on the
+bug-report sheet.
 A report filed from the app carries no label — GitHub drops one asked for by anybody without
 push access, and the browser path has none to send — so it ends with the line
 «_Отправлено из приложения «Дневник» <version>_» instead, and whoever triages the tracker
@@ -809,6 +814,41 @@ cd android
   to pass this one spelling to every Gradle run it starts: its check that its gates are CI's
   strips this exact spelling off an allow-list that also strips `--console=plain`, and another
   spelling, such as `-Dorg.gradle.workers.max=2`, would read as a difference from CI.
+
+### What the JVM tests read, Gradle watches
+
+Many of the JVM tests read files straight from the tree rather than from their classpath:
+the legal texts, the guide, the region catalog, and the modules' own Kotlin and resources
+as text. Gradle hashes only what a task declares, and the build cache is on
+(`org.gradle.caching=true`), so until #427 a run after editing only such a file came back
+`UP-TO-DATE` or `FROM-CACHE` having read nothing. That is how a Russian point of the privacy
+policy could pass locally without its English twin: `:core:data:testDebugUnitTest` reported
+success on edition 4 from what it had read of edition 3. CI starts from a fresh checkout
+and never had the gap.
+
+Each module's `build.gradle.kts` now declares those files as inputs of its `Test` tasks,
+beside the name of the test that reads them:
+
+| Module | Declared inputs |
+| --- | --- |
+| `:core:model` | its `src/main/kotlin` |
+| `:core:data` | `docs/legal/`, `docs/app/`, every module's `src/main` and `build.gradle.kts` |
+| `:core:designsystem` | every module's `src/main` |
+| `:widget` | its `src/main` |
+| `:app` | every module's `src` (every source set), `settings.gradle.kts`, `docs/legal/`, `server/app/catalog/data/`, its own `build.gradle.kts` and `.github/workflows/apk.yml` |
+
+The region catalog and the protocol vectors are `:core:data`'s test resources, so they
+were inputs there already. So a plain run after an edit runs what reads it, and `--rerun`
+is no longer needed for that. A new test that opens a file by path declares the file in its
+module's build script, or brings the gap back for itself.
+
+`--rerun` still has a use, to run a test whose inputs have not changed, and one limit: it
+reaches only the task it follows on the command line. In `:core:model` that is the test
+task itself; in the four Android modules `test` is an aggregate over `testDebugUnitTest`,
+so `./gradlew test --rerun` reruns the aggregate and leaves the real tasks to come
+`UP-TO-DATE` or `FROM-CACHE` — on an unchanged tree it executes `:core:model:test` and
+nothing else, which is how `:core:designsystem` was once found coming from the cache under
+it. Name the task to force it: `./gradlew :core:designsystem:testDebugUnitTest --rerun`.
 
 ### The suite on PostgreSQL
 

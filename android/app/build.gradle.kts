@@ -335,12 +335,33 @@ android {
 // either left the task UP-TO-DATE and the check unrun, which for a test whose
 // whole subject is a wire nobody noticed was broken is the same failure twice.
 // CI gets a fresh checkout and would have run it anyway; a laptop would not.
+//
+// The same holds for everything else these tests read from the tree rather than
+// the classpath (#427): every module's `src`, every source set, as text (the
+// string, clock, marquee and correction scans), settings.gradle.kts
+// (DeviceClockTest), `docs/legal/` (LegalBuildPropertyTest) and the region
+// catalog (DiaryCatalogTest, the onboarding tests). The module directories are
+// the projects settings.gradle.kts includes, read for paths only.
+val everyModuleSrc = rootProject.allprojects.map { it.layout.projectDirectory.dir("src") }
+
 tasks.withType<Test>().configureEach {
     inputs.file(layout.projectDirectory.file("build.gradle.kts"))
         .withPropertyName("appBuildScript")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.layout.projectDirectory.file("../.github/workflows/apk.yml"))
         .withPropertyName("apkWorkflow")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(everyModuleSrc)
+        .withPropertyName("everyModuleSrc")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.layout.projectDirectory.file("settings.gradle.kts"))
+        .withPropertyName("settingsScript")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.layout.projectDirectory.dir("../docs/legal"))
+        .withPropertyName("legalDocuments")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.layout.projectDirectory.dir("../server/app/catalog/data"))
+        .withPropertyName("regionCatalog")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 

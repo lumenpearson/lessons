@@ -102,15 +102,17 @@ jobs:
             case "$file" in
               # Server tests read files outside `server/`, and a commit touching
               # only one of them ran nothing and came back green (#159, #295).
-              # Every Markdown file a reader learns the migration head from —
-              # `README.md`, `CLAUDE.md`, `AGENTS.md`,
-              # `.github/copilot-instructions.md`, and all of `docs/` and
-              # `.claude/` but `docs/history.md` — is read by
+              # Every file a reader learns the migration head from —
+              # `README.md`, `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`,
+              # `.github/copilot-instructions.md`, `.github/CODEOWNERS` (both of
+              # the last two say where production stands, #463), and all of
+              # `docs/` and `.claude/` but `docs/history.md` — is read by
               # test_schema_version, which fails on one that names an old head;
               # `docs/*.md` and `.claude/*.md` reach every depth, because a
               # `case` `*` crosses `/`. Among them `docs/build.md` is also read
               # by test_env_example, `docs/deploy.md` by
-              # test_corrections_per_child_revision, and `docs/diaries.md` and
+              # test_corrections_per_child_revision and test_compose, and
+              # `docs/diaries.md` and
               # `docs/diaries/` are the region catalog's input
               # (test_region_catalog). `proto/` is read by test_contract,
               # test_contract_json and test_contract_mirror, which read the
@@ -128,7 +130,7 @@ jobs:
               # are read by test_vercel_entry, `.vercelignore` by
               # test_region_catalog. server/tests/test_ci_paths.py fails on a
               # file the suite reads that this line does not match.
-              server/*|api/*|vercel.json|.vercelignore|requirements.txt|requirements.in|.python-version|docker-compose.yml|Dockerfile|.dockerignore|proto/*|buf.yaml|buf.lock|buf.gen.yaml|README.md|CLAUDE.md|AGENTS.md|.github/copilot-instructions.md|docs/*.md|.claude/*.md|.github/workflows/*) server=true ;;
+              server/*|api/*|vercel.json|.vercelignore|requirements.txt|requirements.in|.python-version|docker-compose.yml|Dockerfile|.dockerignore|proto/*|buf.yaml|buf.lock|buf.gen.yaml|README.md|CLAUDE.md|AGENTS.md|CONTRIBUTING.md|.github/copilot-instructions.md|.github/CODEOWNERS|docs/*.md|.claude/*.md|.github/workflows/*) server=true ;;
             esac
             case "$file" in
               # The v2 contract and what is generated from it: the job below.

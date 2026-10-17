@@ -24,9 +24,9 @@ internal data class SchoolDayWithDetails(
 /**
  * A day about to be written, before its row id exists.
  *
- * Children carry `dayId = 0` until [TimetableDao.replaceAll] inserts the parent
+ * Children carry `dayId = 0` until [TimetableDao.replaceWindow] inserts the parent
  * and stamps the generated id onto them; keeping that in one small type is what
- * lets `replaceAll` stay a single flat transaction.
+ * lets `replaceWindow` stay a single flat transaction.
  */
 internal data class SchoolDayRecord(
     val day: SchoolDayEntity,

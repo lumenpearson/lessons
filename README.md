@@ -136,10 +136,11 @@ editor by phone number: an admin sends the number, the person presses «Поде
 
 ### The app
 
-You do not have to build the APK by hand: **Actions → APK → Run workflow**, and a few
-minutes later it is in the run's artifacts. A `v*` tag additionally creates a GitHub
-Release with the APK attached, and the app itself can check those releases and offer an
-update.
+You do not have to build the APK by hand: **Actions → APK → Run workflow** on `main`, and a
+few minutes later it is in the run's artifacts — for as long as the repository's artifact
+retention keeps it, which here is one day, so download it the same day. A `v*` tag
+additionally creates a GitHub Release with the APK attached, and the app itself can check
+those releases and offer an update.
 
 Locally:
 
@@ -154,8 +155,13 @@ Cyrillic — chained so that each draws what it can. Android 8.0 and 9.0 cannot 
 custom chain and are set in Onest alone.
 
 With no keystore configured, the release build is signed with the debug key: it installs
-on a phone, but it must not be published. How to plug in your own key and how to tell the app where the server is, is in
-[docs/build.md](docs/build.md).
+on a phone, but it must not be published, and **no debug-signed APK ever installs as an
+update of another one**, nor of one signed with a real key — every build mints a key of its
+own. That is every CI artifact, and every APK workflow run off `main` or without the four
+signing secrets, a fork's included until it sets them. Moving from one to the next means
+uninstalling, which takes the joined class, the device token, the diary session and the
+corrections with it ([docs/build.md](docs/build.md#signing), «Signing»). How to plug in your
+own key and how to tell the app where the server is, is in [docs/build.md](docs/build.md).
 
 On first run the app walks through five steps — the last of them «Как подключиться?» — and
 offers two ways in. **By the class code**, the one the bot hands out with `/code`: a class
@@ -172,10 +178,13 @@ texts are in [docs/legal/](docs/legal/) and bundled in the APK.
 ### A phone that does more than read
 
 By default the app reads. Linking it to Telegram («Настройки → Класс → Telegram», a code,
-`/link <code>` to the bot) makes it an editor exactly as far as you are an editor
-yourself: the rights are checked on the server against the account's role **at the moment
-of the request**, so there is no second permission system on the phone and nothing to go
-stale. An administrator gets the class management page in the same place.
+`/link <code>` to the bot) gives it your account's role in the class: the rights are checked
+on the server against that role **at the moment of the request**, so there is no second
+permission system on the phone and nothing to go stale. For an administrator or an owner
+that opens «Управление» in the same place — the class, its subjects, bells and timetable,
+the phones and the access requests. Homework, substitutions and events are still made in the
+bot, whatever your role: the app has no form for them, so for an editor or an observer
+linking adds nothing the app can do ([docs/guide.md](docs/guide.md#linking-the-phone-to-telegram)).
 
 ## Documentation
 
@@ -212,12 +221,12 @@ Read this before planning a release.
 | --- | --- |
 | `ruff check app tests scripts migrations` | clean |
 | `python -m mypy` | clean, 240 modules — asks whether anything reaches for an attribute that does not exist |
-| `pytest -q -n auto` | 3332 tests, green, about four minutes — the command CI runs, on SQLite; on PostgreSQL by hand only (below) |
+| `pytest -q -n auto` | 3333 tests, green, about four minutes — the command CI runs, on SQLite; on PostgreSQL by hand only (below) |
 | buf lint, buf breaking, the generated-code check | CI's «Contract (Buf)» job, only when the contract changes. Its first run was this sub-project's pull request, where breaking was skipped because main had no contract yet |
 | v2 over REST and Connect | seventy-five methods served beside v1, every unary one: `GetScheduleWindow`, `GetMe`, `GetDiaryCapabilities` and `CreateDevice` (3a), the journal, the class's phones and the subjects (3b-1), the bells, the timetable and the class with its terms (3b-2), the access requests, whose Telegram notice goes out after the commit, and the school directory (3b-3), a phone's own: its link, the calendar feed, its tasks and its homework ticks (3b-4), the homework and the events, whose notices to the class go out after the commit (3b-5), the days and the substitutions, told to the class the same way (3b-6), a diary session and the reads of one pupil, with what each diary has declared from the registry's table (3b-7), and the family's corrections over the diary, a batch at a time, all or none (3b-8), each tested both ways in-process and against v1's own answer where v1 has one; no APK calls them yet |
 | The host target and `WatchClass` | `python -m app.host`, under pyvoy and under hypercorn, started on SQLite by CI's «Host» job and asked over native gRPC: a unary call, a method the contract lacks, `WatchClass` hearing an ORM write, a bulk write and a bell change, a revoked phone cut off, and a forged `X-Forwarded-For` throttled all the same; the bus and the stream are tested in-process too. The image was built and run by hand once (at `261450e`, with a throwaway PostgreSQL 18: the same six live tests passed under both servers, and grpcurl was answered over native gRPC), and nothing builds it routinely; the host is deployed nowhere, and no phone streams yet |
 | Monitoring | the tick's self-check of the schema, v2, the diary's proxy and the deploy, and of each «Сетевой город» region in use by its own route (#406, deployed on 11 October 2026 with no region in use, so no region has been probed live yet), the owner's alerts on a change, Sentry's scrubbing and «📊 Проект» — tested in-process with the outside world faked, and the scrubbing on an event built from a real request in a fresh interpreter. In production since 6 October 2026, where a real failure reached the owner's chat; Sentry has received a transaction, and no error event has been seen arriving |
-| `./gradlew test` | 1740 tests, green, all five modules |
+| `./gradlew test` | 1762 tests, green, all five modules |
 | `./gradlew detekt` | no finding beyond each module's baseline, all five modules |
 | `./gradlew assembleDebug` | the APK builds |
 | `./gradlew assembleRelease` | the APK builds; R8 and resource shrinking pass |
@@ -493,14 +502,20 @@ caller. And it is the one crash a real phone has reported in this project: it wa
 component that compiles, draws and is covered by tests — which is what the rest of this
 section keeps saying, and what an hour with an APK would have said sooner.
 
-**Two buttons were in no APK this repository ever built.** «Войти через GitHub» is drawn
-only when the build passes a client id, and the APK workflow passed none — so signing in,
-filing a bug report from inside the app and sending a translation correction as a pull
-request were all absent from every build, with nothing failing and nothing warning, because
-an unset property is an empty string. The same for the contact address behind «Отправить
-письмом». The wire is held by a test now, and each build reports on its summary whether the
-two are on; nothing proves a secret is actually set, so until one is registered the honest
-answer there is «off».
+**Two buttons were in no APK this repository built before 21 September 2026, and nobody has
+seen them on a phone since.** «Войти через GitHub» is drawn only when the build passes a
+client id, and the APK workflow passed none — so signing in, sending a bug report from inside
+the app, sending a translation correction as a pull request and opening the developer mode
+were all absent from every build, with nothing failing and nothing warning, because an unset
+property is an empty string. The same for the contact address behind «Отправить письмом».
+«Сообщить об ошибке» itself was never absent: its «Открыть issue на GitHub» opens GitHub's
+new-issue page in the browser with the report filled in, and needs no account in the app.
+The wire is held by a test now, and both secrets the workflow reads,
+`LESSONS_GITHUB_CLIENT_ID` and `LESSONS_CONTACT_EMAIL`, have been registered since 21
+September 2026, so every APK workflow run since should carry both buttons. What nothing has
+verified is the rest: the logs of those runs have expired, so no run summary saying «on» has
+been read since; nobody has seen «Войти через GitHub» on a phone; and nobody has completed
+the device flow with a real account.
 
 **What the nine-area audit leaves uncovered.** Six commits closed defects across the
 server, the sync layer, the calendar, the widget and the self-hosted deployment, and every
@@ -566,8 +581,10 @@ The full list is in that section.
 * The widget stays on the system font: Glance passes `fontFamily` as the name of a system
   family rather than as a resource.
 
-**What to do first.** Download the APK from the CI artifacts or build it yourself, install
-it on a phone, add the widget and live with it for one school day. After that the only
+**What to do first.** Build the APK with **Actions → APK → Run workflow** on `main`, which
+signs it with the release key, or build it yourself; not from the CI artifacts, which expire
+after a day and are debug-signed, so no later build installs over them. Install it on a
+phone, add the widget and live with it for one school day. After that the only
 questions left are about runtime and layout, and those are invisible from anywhere except
 a real screen.
 

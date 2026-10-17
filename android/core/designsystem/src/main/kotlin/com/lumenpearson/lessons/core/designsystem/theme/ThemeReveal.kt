@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.IntSize
 import com.lumenpearson.lessons.core.designsystem.modifier.ControlCentre
 import com.lumenpearson.lessons.core.designsystem.modifier.LocalControlCentre
 import com.lumenpearson.lessons.core.designsystem.modifier.LocalLiquidRipple
+import com.lumenpearson.lessons.core.designsystem.modifier.LocalPowerSaveMode
 import com.lumenpearson.lessons.core.designsystem.modifier.centreInRoot
 import kotlin.math.hypot
 import kotlinx.coroutines.CoroutineScope
@@ -267,7 +268,8 @@ val LocalThemeReveal = staticCompositionLocalOf<ThemeRevealState?> { null }
  * not part of the composition the host wraps: their icons are tinted through the
  * window, above the theme, so whoever sets that tint has to know whether a
  * photograph is currently covering the screen. Create it above `MaterialTheme`,
- * pass it down.
+ * pass it down. Below `ProvidePowerSaveMode`, though, because a theme change
+ * under battery saver is instant.
  */
 @Composable
 fun rememberThemeRevealState(enabled: Boolean = true): ThemeRevealState {
@@ -278,8 +280,11 @@ fun rememberThemeRevealState(enabled: Boolean = true): ThemeRevealState {
     // Read through a state holder rather than captured: the state is remembered
     // once per view and the setting changes underneath it, and a wipe that ran
     // on the old value of a switch the user had just turned off would be the
-    // one wipe they specifically asked not to see.
-    val wanted = rememberUpdatedState(enabled)
+    // one wipe they specifically asked not to see. Battery saver goes through
+    // the same holder, for the same reason: it comes on while the app is open,
+    // and the change is then instant — no full-window photograph held on the
+    // heap and no half-second of redrawing it (#476).
+    val wanted = rememberUpdatedState(enabled && !LocalPowerSaveMode.current)
 
     return remember(view) {
         ThemeRevealState(
@@ -435,9 +440,9 @@ private fun View.photograph(scale: Float): ImageBitmap? = runCatching {
     val targetHeight = (height * scale).toInt()
     if (targetWidth <= 0 || targetHeight <= 0) return null
 
-    // The platform factory rather than the androidx extension: this module does
-    // not depend on androidx.core, and a one-line convenience is not worth a
-    // dependency that only the release variant would go looking for.
+    // The platform factory rather than androidx.core's `createBitmap`
+    // extension: the extension is this same call with defaulted arguments, and
+    // the platform's says which config the photograph is taken in.
     val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
     val canvas = android.graphics.Canvas(bitmap)
     canvas.scale(scale, scale)

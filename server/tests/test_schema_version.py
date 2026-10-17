@@ -87,6 +87,12 @@ _HEAD_SENTENCES = (
     re.compile(r"[Hh]ead is \**`(\d{4})`"),
     re.compile(r"expects `(\d{4})`"),
 )
+#: Where production stands, as CONTRIBUTING.md and `.github/CODEOWNERS` say
+#: it — «Production is at `0019`», «production is already at 0019». Read in
+#: those two alone: elsewhere the words turn up in records of an older head,
+#: a plan's quoted edit among them, which are true of their day.
+_PRODUCTION_SENTENCE = re.compile(r"[Pp]roduction is (?:already )?at `?(\d{4})")
+_PRODUCTION_DOCUMENTS = ("CONTRIBUTING.md", ".github/CODEOWNERS")
 #: The answer `/warmup` gives when all is well, as the reference documents
 #: print it. Only under docs/: the README quotes the last answer production
 #: gave, with its date, and a dated answer is a record rather than a claim
@@ -132,6 +138,8 @@ def test_every_document_that_names_the_head_names_this_one(head_documents):
         patterns = list(_HEAD_SENTENCES)
         if document.is_relative_to(REPOSITORY / "docs"):
             patterns.append(_WARMUP_OK)
+        if document.relative_to(REPOSITORY).as_posix() in _PRODUCTION_DOCUMENTS:
+            patterns.append(_PRODUCTION_SENTENCE)
         for pattern in patterns:
             for revision in pattern.findall(text):
                 named.setdefault(revision, set()).add(str(document.relative_to(REPOSITORY)))

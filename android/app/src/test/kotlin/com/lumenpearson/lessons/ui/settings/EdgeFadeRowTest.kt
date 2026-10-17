@@ -1,7 +1,10 @@
 package com.lumenpearson.lessons.ui.settings
 
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
@@ -56,14 +59,30 @@ class EdgeFadeRowTest {
         assertEquals(listOf(false), written)
     }
 
+    /**
+     * «На этом содержимое всё равно мягко тает у краёв» is the wash, and the
+     * wash follows the switch: with it off, the line would promise an edge that
+     * is not drawn (#476).
+     */
+    @Test
+    fun `switched off, the row promises no fade`() {
+        showStored(checked = false)
+
+        compose.onNodeWithText(TITLE).assertIsOff()
+        compose.onNodeWithText(DESCRIPTION).assertExists()
+        compose.onAllNodesWithText(NO_SHADER_LINE).assertCountEquals(0)
+    }
+
+    private fun showStoredOn(): List<Boolean> = showStored(checked = true)
+
     /** @return what the row asked to be stored, in order. */
-    private fun showStoredOn(): List<Boolean> {
+    private fun showStored(checked: Boolean): List<Boolean> {
         val written = mutableListOf<Boolean>()
         compose.setContent {
             LessonsTheme {
                 RoundedCardContainer {
                     EdgeFadeRow(
-                        checked = true,
+                        checked = checked,
                         tone = accentTone(0),
                         onCheckedChange = { written += it },
                     )
@@ -76,5 +95,12 @@ class EdgeFadeRowTest {
     private companion object {
         /** `settings_edge_blur`, quoted so a rename shows up here as a failure. */
         const val TITLE = "Размытие под шторкой"
+
+        /** `settings_edge_blur_description`. */
+        const val DESCRIPTION = "Содержимое плавно тает под строкой состояния."
+
+        /** `settings_edge_blur_no_shader`. */
+        const val NO_SHADER_LINE =
+            "Размытие есть на Android 13 и новее — на этом содержимое всё равно мягко тает у краёв."
     }
 }

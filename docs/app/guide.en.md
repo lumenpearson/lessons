@@ -108,7 +108,7 @@ Russian or English, or “same as the phone”. It is switched under Appearance 
 
 > Below Android 13 the only things that stay in the phone's language are the ones the app does not draw: the widget's name in the launcher's picker and its preview.
 
-The same page carries the theme (light, dark, follow the system, plus a black background for OLED), wallpaper colours, the typeface and its size. The theme changes as a circle spreading from under your finger; if that is too much, the circle and the ripple can be switched off separately under “Effects” on the Interaction page.
+The same page carries the theme (light, dark, follow the system, plus a black background for OLED), wallpaper colours, the typeface and its size. The theme changes as a circle spreading from under your finger; if that is too much, the circle and the ripple can be switched off separately under “Effects” on the Interaction page. While the phone's battery saver is on, the circle, the ripple and both blurs switch themselves off, and the rows under “Effects” say so; your choices stay as they are and come back when battery saver ends.
 
 If a phrase reads badly, it can be fixed without leaving the app: Settings → About → Correction mode. While the mode is on, a long press on any text opens an editor for it, and the “Corrections” row collects everything you changed into a list — copy it as ready XML or send it through Share.
 
@@ -119,7 +119,7 @@ If a phrase reads badly, it can be fixed without leaving the app: Settings → A
 
 On its own the app only reads. To give it any rights, link it to a Telegram account: Settings → Class → Telegram.
 
-A six-character code appears there, next to an “Open the bot” button. Send the bot /link with that code and the app can do exactly what you can do in the bot. Rights are checked on the server at the moment you tap, so the phone holds no rights of its own: if the bot demotes you to a viewer, the app becomes read-only in the same second.
+A six-character code appears there, next to an “Open the bot” button. Send the bot /link with that code and the app acts with your role in the class: for an administrator or an owner that opens “Managing the class”, while homework, replacements and events are still entered in the bot, whatever your role. Rights are checked on the server at the moment you tap, so the phone holds no rights of its own: if the bot demotes you to a viewer, the app becomes read-only in the same second.
 
 “Unlink” puts the app back into reading mode; it goes on showing the timetable exactly as it did before the link.
 

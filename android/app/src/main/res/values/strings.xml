@@ -282,6 +282,10 @@
     <string name="settings_motion_blur_description">Списки смазываются по направлению движения.</string>
     <string name="settings_motion_blur_amount">Сила размытия</string>
     <string name="settings_blur_unavailable">Доступно на Android 13 и новее.</string>
+    <!-- #476: what an effect's row says when the effect is switched on and not drawn. -->
+    <string name="settings_power_save_off">Выключено, пока включён режим энергосбережения</string>
+    <string name="settings_edge_blur_power_save">Размытия нет, пока включён режим энергосбережения, — содержимое всё равно мягко тает у краёв.</string>
+    <string name="settings_edge_blur_problematic">На этом телефоне размытие заставляет экран мерцать, поэтому его нет — содержимое всё равно мягко тает у краёв.</string>
 
     <string name="settings_content">Содержимое</string>
     <string name="settings_show_teacher">Показывать учителя</string>

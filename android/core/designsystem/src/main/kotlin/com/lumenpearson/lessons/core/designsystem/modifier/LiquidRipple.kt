@@ -129,8 +129,9 @@ private const val RippleMillis = 1500
  * and it is the right one here, because the thing being answered is a tap — a
  * boolean would have no way to say "again".
  *
- * Requires Android 13 (AGSL runtime shaders); below that, and whenever [enabled]
- * is false, this is `Modifier` and nothing is drawn differently.
+ * Requires Android 13 (AGSL runtime shaders); below that, whenever [enabled]
+ * is false, and while battery saver is on ([LocalPowerSaveMode]), this is
+ * `Modifier` and nothing is drawn differently.
  *
  * @param trigger increment to fire; zero and below never fires, so the effect
  *   does not run itself on the first composition.
@@ -155,7 +156,12 @@ fun Modifier.liquidRipple(
     speed: Dp = 1400.dp,
     reverse: Boolean = false,
 ): Modifier = composed {
-    if (!enabled || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+    // Battery saver is asked here rather than folded into [enabled] by each
+    // caller: a whole-window shader is exactly what the platform is asking
+    // apps to stop drawing, and a caller that forgot would draw it (#476).
+    // Leaving returns `Modifier` and coming back re-enters below, so a wave
+    // fired meanwhile is not replayed when battery saver ends — see enteredAt.
+    if (!enabled || LocalPowerSaveMode.current || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
         return@composed Modifier
     }
     val density = LocalDensity.current
