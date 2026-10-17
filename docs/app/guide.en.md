@@ -108,7 +108,7 @@ Russian or English, or “same as the phone”. It is switched under Appearance 
 
 > Below Android 13 the only things that stay in the phone's language are the ones the app does not draw: the widget's name in the launcher's picker and its preview.
 
-The same page carries the theme (light, dark, follow the system, plus a black background for OLED), wallpaper colours, the typeface and its size. The theme changes as a circle spreading from under your finger; if that is too much, the circle and the ripple can be switched off separately under “Effects” on the Interaction page.
+The same page carries the theme (light, dark, follow the system, plus a black background for OLED), wallpaper colours, the typeface and its size. The theme changes as a circle spreading from under your finger; if that is too much, the circle and the ripple can be switched off separately under “Effects” on the Interaction page. While the phone's battery saver is on, the circle, the ripple and both blurs switch themselves off, and the rows under “Effects” say so; your choices stay as they are and come back when battery saver ends.
 
 If a phrase reads badly, it can be fixed without leaving the app: Settings → About → Correction mode. While the mode is on, a long press on any text opens an editor for it, and the “Corrections” row collects everything you changed into a list — copy it as ready XML or send it through Share.
 

@@ -1,6 +1,7 @@
 package com.lumenpearson.lessons.ui.settings
 
 import android.os.Build
+import androidx.annotation.StringRes
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Animation
@@ -20,6 +21,8 @@ import com.lumenpearson.lessons.core.designsystem.component.GroupSegmentedItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSliderItem
 import com.lumenpearson.lessons.core.designsystem.component.GroupSwitchItem
 import com.lumenpearson.lessons.core.designsystem.modifier.LiquidRippleAnchor
+import com.lumenpearson.lessons.core.designsystem.modifier.LocalPowerSaveMode
+import com.lumenpearson.lessons.core.designsystem.modifier.isBlurProblematicDevice
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.AccentTone
 import com.lumenpearson.lessons.core.designsystem.theme.accentTone
@@ -136,6 +139,15 @@ internal fun LazyListScope.feelRows(
 /**
  * «Эффекты»: the four heavy effects and the strength of one of them.
  *
+ * Each row shows what is drawn rather than what is stored (#476). Under
+ * Android's battery saver every effect here switches itself off without
+ * touching the stored choice, so a row that read the choice alone showed its
+ * switch on over an effect that was not there and gave no reason — which is how
+ * #444 came to be filed. Under battery saver the three rows that switch a whole effect
+ * read off, cannot be pressed and say why; when it ends they read what was set,
+ * because nothing was written. «Размытие под шторкой» is the exception, for the
+ * reason [EdgeFadeRow] gives.
+ *
  * A composable of its own, over the settings and one callback per row rather
  * than the view model, so that a test can press every row and count what it
  * asked to be stored.
@@ -149,6 +161,11 @@ internal fun EffectsGroup(
     onRipple: (Boolean) -> Unit,
     onThemeReveal: (Boolean) -> Unit,
 ) {
+    // What each shader row can do on this phone right now: the API level is
+    // fixed, battery saver comes and goes while the page is open.
+    val saving = LocalPowerSaveMode.current
+    val shaders = SupportsShaders && !saving
+
     SettingsGroup(title = correctedString(R.string.settings_effects_group)) {
         EdgeFadeRow(
             checked = settings.edgeBlur,
@@ -157,18 +174,14 @@ internal fun EffectsGroup(
         )
         GroupSwitchItem(
             title = correctedString(R.string.settings_motion_blur),
-            subtitle = if (SupportsShaders) {
-                correctedString(R.string.settings_motion_blur_description)
-            } else {
-                correctedString(R.string.settings_blur_unavailable)
-            },
+            subtitle = shaderRowLine(saving, R.string.settings_motion_blur_description),
             icon = Icons.Rounded.BlurOn,
             tone = accentTone(5),
-            enabled = SupportsShaders,
-            checked = settings.motionBlur && SupportsShaders,
+            enabled = shaders,
+            checked = settings.motionBlur && shaders,
             onCheckedChange = onMotionBlur,
         )
-        Reveal(visible = settings.motionBlur && SupportsShaders) {
+        Reveal(visible = settings.motionBlur && shaders) {
             GroupSliderItem(
                 title = correctedString(R.string.settings_motion_blur_amount),
                 icon = Icons.Rounded.MotionPhotosOn,
@@ -182,7 +195,8 @@ internal fun EffectsGroup(
         }
         // The two whole-screen ornaments, each on its own switch. The
         // ripple is a shader and shares the blur rows' availability; the
-        // wipe is a bitmap and runs on anything, so it is never disabled.
+        // wipe is a bitmap and runs on anything, so only battery saver
+        // disables it.
         // Turning the wave on plays one, from the switch that turned it
         // on. A setting whose whole subject is a visual effect can answer
         // "what is this?" by doing it once, and the answer is only honest
@@ -193,15 +207,11 @@ internal fun EffectsGroup(
         LiquidRippleAnchor { fire ->
             GroupSwitchItem(
                 title = correctedString(R.string.settings_ripple),
-                subtitle = if (SupportsShaders) {
-                    correctedString(R.string.settings_ripple_description)
-                } else {
-                    correctedString(R.string.settings_blur_unavailable)
-                },
+                subtitle = shaderRowLine(saving, R.string.settings_ripple_description),
                 icon = Icons.Rounded.Waves,
                 tone = accentTone(2),
-                enabled = SupportsShaders,
-                checked = settings.rippleEffects && SupportsShaders,
+                enabled = shaders,
+                checked = settings.rippleEffects && shaders,
                 onCheckedChange = { on ->
                     onRipple(on)
                     if (on) fire()
@@ -210,14 +220,33 @@ internal fun EffectsGroup(
         }
         GroupSwitchItem(
             title = correctedString(R.string.settings_theme_reveal),
-            subtitle = correctedString(R.string.settings_theme_reveal_description),
+            subtitle = if (saving) {
+                correctedString(R.string.settings_power_save_off)
+            } else {
+                correctedString(R.string.settings_theme_reveal_description)
+            },
             icon = Icons.Rounded.Contrast,
             tone = accentTone(4),
-            checked = settings.themeReveal,
+            enabled = !saving,
+            checked = settings.themeReveal && !saving,
             onCheckedChange = onThemeReveal,
         )
     }
 }
+
+/**
+ * The line under a shader row: why it is off when it is off for the phone's
+ * reasons, its own description otherwise. Below Android 13 there is no shader
+ * to have, which outranks battery saver — that one will not come back.
+ */
+@Composable
+private fun shaderRowLine(saving: Boolean, @StringRes description: Int): String = correctedString(
+    when {
+        !SupportsShaders -> R.string.settings_blur_unavailable
+        saving -> R.string.settings_power_save_off
+        else -> description
+    },
+)
 
 /** Label of a haptic level in the segmented picker. */
 private val HapticStrength.labelRes: Int
@@ -248,6 +277,16 @@ private val HapticStrength.labelRes: Int
  * settings page's said nothing at all. One row now, and the sentence it carries
  * where there is no blur says what the switch still does rather than that it
  * does nothing.
+ *
+ * **The same holds where the blur is switched off for the phone, not by it**
+ * (#476): under battery saver, and on the Samsung builds
+ * [isBlurProblematicDevice] covers, the wash is still drawn and the blur is
+ * not. So this row, unlike the other three effects, neither reads off nor
+ * refuses a press there — reading off over a wash it still draws is the defect
+ * above, inverted — and says instead which of the two took the blur away. The
+ * phone's own reason outranks battery saver: on those builds the blur does not
+ * come back when battery saver ends, and a line saying «пока» would promise it.
+ * Both callers, «Эффекты» and the first-run flow, get this from here.
  */
 @Composable
 internal fun EdgeFadeRow(
@@ -257,11 +296,14 @@ internal fun EdgeFadeRow(
 ) {
     GroupSwitchItem(
         title = correctedString(R.string.settings_edge_blur),
-        subtitle = if (SupportsShaders) {
-            correctedString(R.string.settings_edge_blur_description)
-        } else {
-            correctedString(R.string.settings_edge_blur_no_shader)
-        },
+        subtitle = correctedString(
+            when {
+                !SupportsShaders -> R.string.settings_edge_blur_no_shader
+                isBlurProblematicDevice() -> R.string.settings_edge_blur_problematic
+                LocalPowerSaveMode.current -> R.string.settings_edge_blur_power_save
+                else -> R.string.settings_edge_blur_description
+            },
+        ),
         icon = Icons.Rounded.BlurLinear,
         tone = tone,
         checked = checked,

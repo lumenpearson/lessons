@@ -129,10 +129,12 @@ const val TopBlurRampPx: Float = 72f
  * toolbar instead of being sliced off by it.
  *
  * Ported from Essentials, including its two escape hatches: the shader is
- * skipped in battery-saver mode, and on the Samsung builds whose blur
- * implementation makes the whole window flicker. The gradient tint is drawn
- * either way, so the strip still reads as a soft edge on the devices and API
- * levels that get no blur at all.
+ * skipped in battery-saver mode ([LocalPowerSaveMode], the one answer every
+ * heavy effect asks), and on the Samsung builds whose blur implementation makes
+ * the whole window flicker. The gradient tint is drawn either way, so the strip
+ * still reads as a soft edge on the devices and API levels that get no blur at
+ * all — which is also why the settings row that switches this keeps its stored
+ * value in both cases and says why the blur is missing instead of reading off.
  *
  * Apply this to the scrolling content only. Applied to a parent that also holds
  * the toolbar, the bottom fade would dissolve the toolbar itself.
@@ -155,7 +157,7 @@ fun Modifier.progressiveBlur(
     val baseOverlay = MaterialTheme.colorScheme.surfaceContainer
     val topOverlayColor = baseOverlay.copy(alpha = OverlayAlpha * fraction)
     val bottomOverlayColor = baseOverlay.copy(alpha = OverlayAlpha)
-    val isPowerSave = rememberPowerSaveMode()
+    val isPowerSave = LocalPowerSaveMode.current
 
     val blur = if (
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -209,6 +211,11 @@ fun Modifier.progressiveBlur(
  * Essentials keeps the same check in `DeviceUtils.isBlurProblematicDevice`. It
  * is a vendor check rather than a capability check because there is nothing to
  * query: the API reports success and then draws wrong.
+ *
+ * Public because the settings row has to say so (#476). While only the blur
+ * asked, a phone this covers drew no blur under a switch that read on and said
+ * nothing — indistinguishable, from the outside, from the blur being broken.
+ * Read per call rather than once, which is what lets a test stand in a Samsung.
  */
 fun isBlurProblematicDevice(): Boolean {
     if (!Build.MANUFACTURER.equals("samsung", ignoreCase = true)) return false
