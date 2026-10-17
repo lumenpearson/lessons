@@ -180,10 +180,16 @@ read at all:
 | one per line | **nothing** |
 | `111,222x,333` | **`111, 333`** |
 
-The last three rows are where people get burnt. The mistake is announced nowhere: the bot
-starts, writes nothing to the log, and simply nobody (or one particular person) has owner
-rights. The parsing is in `app/config.py`, `Settings.owner_id_list`: anything that does not
-look like a number is quietly dropped.
+The last three rows are where people get burnt, and not all three the same way. On Vercel
+and on the host target, a value that reads as **nothing** — the space-separated list, one
+id per line — stops the deployment at the door with `DeploymentNotConfigured`, naming
+`OWNER_IDS` («What is missing is said at the door», above). What is still silent is the
+last row: a list that is partly readable is not empty, so nothing refuses, the bot starts,
+writes nothing to the log, and one particular person simply has no owner rights. So is
+your own server (option 2), where neither `VERCEL` nor `LESSONS_TARGET` is set and the
+check is not switched on at all: there an unreadable list starts a bot in which nobody is
+an owner. The parsing is in `app/config.py`, `Settings.owner_id_list`: anything that does
+not look like a number is quietly dropped.
 
 **The variable is read at build time.** An edit does not reach a deployment that is already
 running — after changing the list you need a Redeploy, or the owners stay as they were.
