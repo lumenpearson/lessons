@@ -298,6 +298,11 @@ internal fun EdgeFadeRow(
         title = correctedString(R.string.settings_edge_blur),
         subtitle = correctedString(
             when {
+                // Each of the three ends «содержимое всё равно мягко тает у
+                // краёв», which is the wash — and the shell draws the wash from
+                // this same switch. Off, there is no edge to promise, so the row
+                // says what it would turn on, as it does on any other phone.
+                !checked -> R.string.settings_edge_blur_description
                 !SupportsShaders -> R.string.settings_edge_blur_no_shader
                 isBlurProblematicDevice() -> R.string.settings_edge_blur_problematic
                 LocalPowerSaveMode.current -> R.string.settings_edge_blur_power_save

@@ -190,6 +190,35 @@ class EffectsPowerSaveTest {
         compose.onNodeWithText(EDGE).assertIsOn().assertIsEnabled()
     }
 
+    /**
+     * Both edge lines end «содержимое всё равно мягко тает у краёв», and that is
+     * only true while the switch is on: the shell draws the wash from the same
+     * stored choice. Switched off, there is no wash to promise, so the row says
+     * what it would turn on, as it does anywhere else.
+     */
+    @Test
+    fun `switched off, the edge row promises no fade under battery saver`() {
+        ShadowBuild.setManufacturer("Google")
+        saving = true
+        show(allOn.copy(edgeBlur = false))
+
+        compose.onNodeWithText(EDGE).assertIsOff().assertIsEnabled()
+        compose.onNodeWithText(EDGE_DESCRIPTION).assertExists()
+        compose.onAllNodesWithText(EDGE_POWER_SAVE_LINE).assertCountEquals(0)
+    }
+
+    /** The same on the Samsung builds whose blur is switched off for flickering. */
+    @Test
+    fun `switched off, the edge row promises no fade on a flickering phone either`() {
+        ShadowBuild.setManufacturer("samsung")
+        saving = false
+        show(allOn.copy(edgeBlur = false))
+
+        compose.onNodeWithText(EDGE).assertIsOff().assertIsEnabled()
+        compose.onNodeWithText(EDGE_DESCRIPTION).assertExists()
+        compose.onAllNodesWithText(EDGE_PROBLEMATIC_LINE).assertCountEquals(0)
+    }
+
     @Test
     fun `elsewhere the edge row carries its own description`() {
         ShadowBuild.setManufacturer("Google")
