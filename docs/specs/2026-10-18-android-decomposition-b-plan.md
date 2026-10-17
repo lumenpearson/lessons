@@ -146,7 +146,7 @@ The design left these open. Each was decided here.
     - **In `ManagementViewModel`:** `plumbing` replaces `state`'s line, then come `uiState` and the seven classes, then `init`.
     - **In `SettingsViewModel`:** the three classes come right after `message` (`settingsGithub` is handed it), and before `local`, `remote` and `uiState`, which read their flows.
 
-    Kotlin builds properties in the order they are written. A combine or a constructor handed one that is not built yet gets `null`, and that compiles.
+    Kotlin builds properties in the order they are written. A *direct* read of a property declared below it in the same class is very likely a compile error (`UNINITIALIZED_VARIABLE`), not a quiet `null` — this is an inference, not yet compiled. Only an *indirect* read, through a function, a lambda run later or a leaked `this`, would see `null`; no case in this plan takes that shape. The order is still written down above the properties, so a reader does not have to work this out again.
 13. **The baselines are rewritten with `:app:detektBaseline`, not `detektBaseline`, and are expected not to change.**
     - The two entries that name these files are `TooManyFunctions:ManagementViewModel.kt:ManagementViewModel : ViewModel` and `TooManyFunctions:SettingsViewModel.kt:SettingsViewModel : ViewModel`. Their signatures do not change.
     - The view models keep 35 and 58 functions, over detekt's 11. The largest new class, `ClassCardActions`, has 8.
@@ -228,9 +228,10 @@ The design left these open. Each was decided here.
 These are the five likeliest ways a pure move silently changes behaviour here, each with what pins it.
 
 1. **Init order: a flow or a collaborator read before it is built.**
-   - **Constructing the view model fails at once** if `uiState` is declared above `plumbing`, or `uiState`'s combine above `settingsDeviceLink`. Every one of the 47 tests that builds `ManagementViewModel` (`ManagementViewModelTest`'s 18, `SchoolSearchTest`'s 10, `ClassJoinModeScreenTest`'s 7 and Task 1's 3) or `SettingsViewModel` (Task 5's 13) fails with an NPE.
-   - **The quiet one** is `settingsGithub` declared above `message`. It compiles, and hands the class `null`, which only surfaces when a report fails. `SettingsViewModelTest`'s `a bug report GitHub refuses writes the same message, and one report goes at a time` catches it.
+   - **Every misorder named here is a direct read**: `plumbing` read by `uiState` above it, `settingsDeviceLink` read by `uiState`'s combine above it, and `settingsGithub(githubRepository, message, …)` reading `message` above it. Kotlin very likely refuses each of these at compile time (`UNINITIALIZED_VARIABLE`) rather than building and handing back `null` — an inference, not yet compiled (Rulings, 12). None of the three is expected to compile wrong.
+   - **The order is still written down** (Rulings, 12), because getting it wrong is a build failure the whole branch would show, not a quiet one a single test would have to catch.
    - **`init`'s two launches stay in the view model, in today's order** (decision 5). Tasks 3 and 7 check by count that `init {` appears once, in each view model, and in none of the eleven new files. The move checker shows `init`'s body unchanged but for one qualifier.
+   - Every one of the **51** tests that builds `ManagementViewModel` (`ManagementViewModelTest`'s 18, `SchoolSearchTest`'s 10, `ClassJoinModeScreenTest`'s 7 and Task 1's 3) or `SettingsViewModel` (Task 5's 13) would simply fail to build if the order slipped, rather than failing one at a time.
 2. **Scope: a collaborator that launches somewhere other than `viewModelScope`** outlives the screen.
    - **The tests:**
      - `ManagementAcrossSheetsTest`'s `a search still out when the view model is cleared does not land`;
@@ -279,8 +280,8 @@ These are the five likeliest ways a pure move silently changes behaviour here, e
 - **Sub-project 5 rewrites two of these classes later** (design, «Risks»): `LogActions`, when the log pages by a token, and `ClassCardActions`, when the search moves to `ListSchools`. That is why both stay pure moves here.
 - **Line endings.** The working tree is CRLF (`core.autocrlf=true`), and the scripts write LF. Git normalises on commit, and its warning is harmless.
 - **HANDOVER's order.** Section 7 says the owner ordered the 152-ФЗ work (epic #438, milestone 12) to come after #451 and before sub-project 4's B and C.
-  - This plan was written at the controller's request and does not overrule that.
-  - Task 0, Step 1 has the session confirm the order with the owner, or record where the owner changed it, before anything is built.
+  - On 17 October 2026 the owner said, in Russian, «продолжай с PR B подпроекта 4» («continue with sub-project 4's PR B»), which puts B ahead of that order for this pull request.
+  - Task 0, Step 1 records that word. Task 9, Step 15's merge is conditional on it: without it recorded, the pull request stays open and the owner is asked, rather than merging under the standing instruction.
 - **The machine.** A crash mid-commit has zero-filled the index before. The recovery is in «Global Constraints».
 
 ## What was verified while writing this plan (17 October 2026, worktree `lessons-b`, `1cc30fe`)
@@ -409,7 +410,7 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
   - the branch is `android/decomposition-b`;
   - the last commit is `1cc30fe Merge pull request #622 from lumenpearson/android/report-target-469`.
 
-  Then read `HANDOVER.md`'s section 7, «Next for the programme». It puts epic #438 before this pull request. Confirm with the owner that B goes ahead now, or find where they changed the order, and note which in the close-out (Task 9).
+  Then read `HANDOVER.md`'s section 7, «Next for the programme». It puts epic #438 before this pull request. The owner's word overrides that order: on 17 October 2026 the owner said, in Russian, «продолжай с PR B подпроекта 4» («continue with sub-project 4's PR B»), given directly for this session. Record that B goes ahead of epic #438 by that word, in the close-out (Task 9); it is also what Task 9, Step 15's merge depends on.
 
 - [ ] **Step 2: The move checker, pull request A's, byte for byte.**
   ```bash
@@ -588,7 +589,9 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
           model.searchSchools("лицей")
 
           store.clear()
-          repository.answer(0, Result.success(SchoolPage(emptyList(), page = 1, pages = 1, total = 0, truncated = false)))
+          repository.answer(0, Result.success(
+              SchoolPage(emptyList(), page = 1, pages = 1, total = 0, truncated = false),
+          ))
 
           assertTrue(model.uiState.value.schoolSearch.searching)
           assertFalse(model.uiState.value.schoolSearch.searched)
@@ -747,6 +750,9 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
   detekt's baseline is rewritten after the next commit, in a commit of its
   own if it moves at all.
 
+  Not covered: detekt is not run in this commit, and nothing here runs on a
+  device.
+
   Refs #273.
   ```
 
@@ -869,13 +875,13 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
 
   at = lines.index("    private val state = MutableStateFlow(ManagementUiState())")
   lines[at : at + 1] = [
-      "    /** Built before anything that reads it: see [ManagementPlumbing]. */",
+      "    /** Built first, so the seven classes after it always take one that exists. */",
       "    private val plumbing = ManagementPlumbing(viewModelScope)",
   ]
   assert lines[at + 2] == "    val uiState: StateFlow<ManagementUiState> = state.asStateFlow()"
   lines[at + 3 : at + 3] = [
       "",
-      "    // Each sheet's work, over the one plumbing. Built before init, so that",
+      "    // Each sheet's work, over the one plumbing: built before init, so that",
       "    // nothing the view model runs can reach one that is not there yet.",
       "    private val classCardActions = ClassCardActions(plumbing, repository, session, viewModelScope)",
       "    private val subjectsActions = SubjectsActions(plumbing, repository)",
@@ -1066,9 +1072,10 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
   Each sheet's work moves verbatim to a class named after it, not after the
   sheet: ClassCardActions (the card, the join mode, the school directory and
   deleting the class), SubjectsActions, BellsActions, TimetableActions,
-  DevicesActions, LogActions and RequestsActions (with the statistics). In
-  them the plumbing's names are qualified, 72 references, and nothing else
-  changes; return@write keeps its label. The scope parameter is named
+  DevicesActions, LogActions and RequestsActions (with the statistics). The
+  plumbing's names are qualified, 63 references in the seven classes and 9
+  in the view model, and nothing else changes; return@write keeps its label.
+  The scope parameter is named
   viewModelScope, the view model's own, and no class makes one.
 
   The view model keeps its constructor, init, recheckRole, consumeNotice,
@@ -1234,9 +1241,9 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
       private fun model() = SettingsViewModel(settings, sessions, timetables, updates, github, links, developer)
 
       /** The page on screen: `uiState` is shared while subscribed, so something subscribes. */
-      private fun TestScope.watched(model: SettingsViewModel = model()): SettingsViewModel {
-          backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.uiState.collect {} }
-          return model
+      private fun TestScope.watched(built: SettingsViewModel = model()): SettingsViewModel {
+          backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { built.uiState.collect {} }
+          return built
       }
 
       @Test
@@ -1629,17 +1636,19 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
   - If a case fails on the unsplit code, it describes the code wrongly: correct the test, not the code. If the code is what is wrong, it is a defect: stop, and file it before going on.
   - If `ViewModelProvider(store, …)` does not compile, use `ViewModelProvider.create(store, factoryOf(model()))[SettingsViewModel::class]` (Risks).
 
-- [ ] **Step 3: See it fail, in one run.** Make three temporary edits in `SettingsViewModel.kt`:
+- [ ] **Step 3: See it fail, in one run.** Make four temporary edits in `SettingsViewModel.kt`:
   - **M1.** In `uiState`'s `stateIn`, the second `SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS)` in the file, write `SharingStarted.Eagerly`.
   - **M2.** Change `is IssueResult.Failed -> message.value = SyncMessage.IssueFailed` to `is IssueResult.Failed -> Unit`.
   - **M3.** Delete the line `if (asked != sessionRepository.current()?.classId) return@launch`.
+  - **M4.** In `fileIssue`, change `viewModelScope.launch {` to `kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {`.
 
-  Run Step 2's command. Expected: `BUILD FAILED`, with these three failing:
+  Run Step 2's command. Expected: `BUILD FAILED`, with these four failing:
   - `nothing is published until the page is watched, …`, at `assertEquals(SettingsUiState(), …)`;
   - `a bug report GitHub refuses writes the same message, …`, at `IssueFailed`;
-  - `an answer about the class switched away from is dropped`, at `Idle` against `Ready`.
+  - `an answer about the class switched away from is dropped`, at `Idle` against `Ready`;
+  - `work still out when the view model is cleared does not land`, because the default `IssueResult.Filed` reaches `onFiled` after `store.clear()`.
 
-  The other ten pass. If another fails as well, find out why before restoring.
+  The other nine pass. If another fails as well, find out why before restoring.
 
   Restore with `git -C /c/Users/lumen/StudioProjects/lessons-b checkout -- android/app/src/main/kotlin/com/lumenpearson/lessons/ui/settings/SettingsViewModel.kt`.
 
@@ -1661,7 +1670,8 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
   when the class changes, and an answer about the class switched away from
   dropped; and work still out when the view model is cleared not landing.
   Seen failing with stateIn started eagerly, with the refused report's
-  message removed, and with the class guard removed.
+  message removed, with the class guard removed, and with the issue filing's
+  launch moved to a scope of its own.
 
   The settings, session and device-link fakes are reused where they can
   answer what is asked; the updates, GitHub, developer-mode and timetable
@@ -1760,6 +1770,9 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
   types import them by package and name and change nothing. The private
   Remote stays beside the combine that builds it, so it is not widened
   either.
+
+  Not covered: detekt is not run in this commit, and nothing here runs on a
+  device.
 
   Refs #273.
   ```
@@ -1862,8 +1875,7 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
       "",
       "    // What holds a flow of its own, each in a class of its own. Built here: after",
       "    // `message`, which one of them is handed, and before the combines that read",
-      "    // their flows, because properties are built in the order they are written and",
-      "    // one read before it is built is null.",
+      "    // their flows, which take them when they are built.",
       "    private val settingsUpdates = SettingsUpdates(settingsRepository, updateRepository, viewModelScope)",
       "    private val settingsGithub = SettingsGithub(githubRepository, message, viewModelScope)",
       "    private val settingsDeviceLink = SettingsDeviceLink(sessionRepository, deviceLinkRepository, viewModelScope)",
@@ -1977,11 +1989,11 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
   - **The three collaborator properties** stand after `message` and before `installedVersion`, `local`, `remote` and `uiState`.
   - **`init`'s two launches are in today's order**: the server status, then the reset.
   - **`signInWithGithub`, `cancelGithubSignIn` and `signOutOfGithub`** are still in the view model, unchanged.
-  - **Line lengths:**
+  - **Line lengths**, over the four files this task writes, not the whole package (`UpdateSheet.kt` carries release-note sample text long enough to trip a package-wide check):
     ```bash
-    cd /c/Users/lumen/StudioProjects/lessons-b && awk 'length($0) > 120 {print FILENAME": "FNR": "length($0)}' android/app/src/main/kotlin/com/lumenpearson/lessons/ui/settings/*.kt
+    cd /c/Users/lumen/StudioProjects/lessons-b/android/app/src/main/kotlin/com/lumenpearson/lessons/ui/settings && awk 'length($0) > 120 {print FILENAME": "FNR": "length($0)}' SettingsViewModel.kt SettingsUpdates.kt SettingsGithub.kt SettingsDeviceLink.kt
     ```
-    Expected: no output. The longest new line is `settingsDeviceLink`'s property, at 111.
+    Expected: no output. The longest new line is the `fileIssue` delegate, at 111; `settingsDeviceLink`'s property is 112.
 
 - [ ] **Step 3: Check it was a move.**
   ```bash
@@ -2052,6 +2064,9 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
   as a one-line delegate, so no screen changes. SettingsViewModelTest, written
   before this commit, holds it unchanged.
 
+  Not covered: detekt is not run in this commit, and nothing here runs on a
+  device.
+
   Refs #273.
   ```
 
@@ -2067,7 +2082,7 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
 - `AUTO_CHECK_INTERVAL_MILLIS` is a constant in a companion, which `MagicNumber` ignores.
 - `SettingsViewModelTest` is excluded from `MagicNumber` and `TooManyFunctions` as a test. Its private classes do not count for `MatchingDeclarationName`, and its lines are under 120.
 
-- [ ] **Steps 1–4:** Task 4's, word for word. If an entry carries over, the commit message reads «Carry SettingsViewModel's detekt finding over its split», with the pair named. With an empty diff there is no commit.
+- [ ] **Steps 1–4:** Task 4's, word for word — but for the entry count, which is the count Task 4 left, not necessarily 184 (Task 4 may have committed a re-rendering). If an entry carries over, the commit message reads «Carry SettingsViewModel's detekt finding over its split», with the pair named. With an empty diff there is no commit.
 
 ---
 
@@ -2164,7 +2179,7 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
   - **The counts:** the cheat-sheet's, from Step 8.
   - **Section 5** gains the «not verified» items above.
   - **Section 7, «Next for the programme».**
-    - Record what Task 0, Step 1 found: the owner's word that B goes before the 152-ФЗ work, and where it was given; or that B was built ahead of it at the session's brief and the order is the owner's to confirm.
+    - Record the owner's word of 17 October 2026, in Russian, «продолжай с PR B подпроекта 4» («continue with sub-project 4's PR B») — recorded at Task 0, Step 1 — which puts B ahead of epic #438 and the 152-ФЗ work for this pull request.
     - Then what is next: C (`OnboardingScreen`, `FloatingToolbar`, `HomeShell`'s rules), and epic #438 where it stands.
 
 - [ ] **Step 13: Commit.** Stage the five files by path, plus `docs/build.md` if Step 7 changed it.
@@ -2196,14 +2211,14 @@ The «lines» counts are each member's KDoc and body, without the blank lines be
     - «Boundaries»: no new Russian string, and no token, code, password or keystore path in the diff;
     - «Verification»: the real summary lines of Steps 1–5, `count.sh`'s output, and the two baseline readings. Server: no code changed, and the three document-reading tests passed;
     - «What is NOT covered»: Step 12's three items;
+    - «Departures from the design», the four in Self-review: `message` handed to one collaborator, not «both»; a test added before `ManagementViewModel`'s split too; Tasks 4 and 8 likely committing nothing; and `loadDevices`' delegate wrapped over two lines;
     - end the body with `Refs #273` on a line of its own.
   - **The board.** Add the pull request to project 6, and fill Priority, Size, Estimate and the dates by the project's README, as the `github-pr` skill's «The board» says. Read it back.
 
-- [ ] **Step 15: Merge.**
-  - After CI is green on the exact head, run the `github-pr` skill's five checks.
-  - Then mark the pull request ready and merge it with `expectedHeadSha` pinned.
-  - If the session's permissions refuse it, ask the owner.
-  - The next close-out writes this merge's SHA.
+- [ ] **Step 15: Merge, conditional on Task 0, Step 1's recorded word.**
+  - **If** Task 0, Step 1 recorded the owner's word that B goes ahead of epic #438 (the 17 October 2026 «продолжай с PR B подпроекта 4»): after CI is green on the exact head, run the `github-pr` skill's five checks, then mark the pull request ready and merge it with `expectedHeadSha` pinned. If the session's permissions refuse it, ask the owner.
+  - **Otherwise:** leave the pull request open, as a draft or ready, and ask the owner. A pull request the owner ordered built later is outside «a pull request of this session's own work is merged without asking».
+  - The next close-out writes this merge's SHA, or says it is still waiting on the owner.
 
 ---
 
