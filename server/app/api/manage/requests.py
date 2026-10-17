@@ -2,9 +2,9 @@
 
 Part of :mod:`app.api.manage`; the rules every endpoint of it
 follows are in that package's docstring. Answering yes is
-``services/manage/requests.approve``, which v2's ``ApproveAccessRequest``
-applies too, and the sentences the refusals answer with are
-``app/wording.py``'s.
+``services/manage/requests.approve``, which the bot's «✅ Одобрить» and v2's
+``ApproveAccessRequest`` apply too, and the sentences the refusals answer
+with are ``app/wording.py``'s.
 """
 
 from __future__ import annotations
@@ -116,12 +116,12 @@ async def request_approve(
 ) -> RequestDecisionOut:
     """Grant the role, through the same rules as «👥 Доступ» in the bot.
 
-    Literally the same rules: `services/access.approve_request` is what the
-    bot's own «✅ Выдать» calls, so the two surfaces cannot drift apart, and
-    `services/manage/requests.approve` around it is what v2's
-    `ApproveAccessRequest` calls. The only thing this one does differently
-    from the bot is let an admin answer with a role other than the one asked
-    for - which `can_grant` still gates, inside the service.
+    Literally the same rules: `services/manage/requests.approve`, over
+    `services/access.approve_request`, is what the bot's «✅ Одобрить» calls,
+    and v2's `ApproveAccessRequest`, so the surfaces cannot drift apart. The
+    only thing this one does differently from the bot is let an admin answer
+    with a role other than the one asked for - which `can_grant` still
+    gates, inside the service.
 
     The requester is told in Telegram, because that is where they asked.
     """
@@ -142,9 +142,11 @@ async def request_approve(
 
     await session.commit()
 
-    await _tell(request.telegram_id, access_service.approval_notice(school_class, approval.granted))
+    await _tell(request.telegram_id, approval.notice(school_class))
+    # The role the member holds now, which is not the one granted when they
+    # already held a higher one (#368).
     return RequestDecisionOut(
-        id=request_id, status="approved", role=approval.granted.value, who=approval.who
+        id=request_id, status="approved", role=approval.member.role.value, who=approval.who
     )
 
 

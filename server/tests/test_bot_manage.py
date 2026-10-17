@@ -677,6 +677,9 @@ async def test_approving_a_request_grants_the_editor_role(session, school_class)
     await session.refresh(request)
     assert request.status == "approved"
     assert not callback.alerted
+    # Whole lines: «Редактор» is in the card that says nothing changed too (#368).
+    assert callback.message.last == "✅ 55 — теперь <b>Редактор</b>."
+    assert callback.answers == [("Выдано", False)]
 
 
 async def test_approving_is_refused_when_the_actor_cannot_grant_that_role(session, school_class):
@@ -3788,6 +3791,44 @@ async def test_approving_a_request_from_somebody_not_in_the_class_adds_them(
     assert member.role is Role.EDITOR
     assert member.granted_by == 42
     assert "Редактор" in callback.message.last
+
+
+async def test_approving_an_old_request_of_a_member_already_above_it_says_the_role_they_keep(
+    session, school_class
+):
+    """A viewer asked for editor, was made an admin in «👥 Доступ» before
+    anybody answered, and the owner then pressed «✅ Одобрить» on the old
+    request. They stay an admin, and neither the card nor the notice may say
+    they are now an editor (#368)."""
+    session.add(BotUser(telegram_id=55, class_id=school_class.id, role=Role.ADMIN))
+    request = AccessRequest(
+        class_id=school_class.id,
+        telegram_id=55,
+        requested_role=Role.EDITOR,
+        status="pending",
+    )
+    session.add(request)
+    await session.commit()
+
+    bot = FakeBot()
+    callback = FakeCallback(message=FakeEditable(), bot=bot)
+    await request_approve(
+        callback,
+        SimpleNamespace(action="approve", value=str(request.id)),
+        session,
+        school_class,
+        Role.OWNER,
+    )
+
+    member = await session.scalar(select(BotUser).where(BotUser.telegram_id == 55))
+    assert member.role is Role.ADMIN
+    await session.refresh(request)
+    assert request.status == "approved"
+    assert callback.message.last == "✅ 55 уже <b>Администратор</b> — роль не изменилась."
+    assert bot.sent == [
+        (55, "✅ Запрос доступа в классе <b>9А</b> закрыт: у вас уже роль <b>Администратор</b>.")
+    ]
+    assert callback.answers == [("Роль не изменилась", False)]
 
 
 # --------------------------------------------------------------------------
