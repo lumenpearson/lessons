@@ -1008,9 +1008,9 @@ with the host.
 
 ## Testing
 
-3333 tests on the server, 1781 on Android; `pytest -q -n auto` and `./gradlew test`, both
+3333 tests on the server, 1797 on Android; `pytest -q -n auto` and `./gradlew test`, both
 offline, both in CI. On Android that is `:core:model` 125, `:core:data` 638,
-`:core:designsystem` 205, `:widget` 126, `:app` 687 (#325).
+`:core:designsystem` 205, `:widget` 126, `:app` 703 (#325).
 
 The table below is the load-bearing part of that rather than the whole of it:
 
@@ -1052,6 +1052,7 @@ The table below is the load-bearing part of that rather than the whole of it:
 | `android/core/data/.../datastore/SettingsRoundTripTest.kt`, `BundleTagsAndRolesTest.kt` | an empty file reading as the defaults; every setting written coming back; a value that differs from the defaults in every field (held by reflection, so a field added without a key fails); the key names pinned against a rename, which round-trips fine on its own; and every boolean kept off the key of any other holding the same value, which a crossing also round-trips on its own — a bundle tag read under its own signature only, class 1's sweep sparing classes 12 and 100, a sweep outside a set sparing the set, the fingerprint and the roles, the fingerprint forgotten on a switch of class, and a role kept per class and gone at a sign-out | JVM JUnit |
 | `android/app/.../RootGateTest.kt`, `SyncArmingTest.kt` | which home each mode opens on, and that the class sync is armed in a class only | JVM JUnit |
 | `android/app/.../ui/onboarding/OnboardingFlowTest.kt`, `OnboardingViewModelTest.kt` | the first run's routes, dots and resume, and that the saved state never carries a credential | JVM JUnit |
+| `android/app/.../ui/admin/ManagementAcrossSheetsTest.kt`, `ui/settings/SettingsViewModelTest.kt` | the management page's one write at a time across sheets, the devices' switch read at the call, and a search still out when the view model is cleared not landing; the settings view model's whole published state and nothing before it is watched, the message a failed sync and a refused bug report both write, the update check's switch read at the tap and the launch check's switch and its put-off tag, GitHub's account, sign-in and pull request, and the Telegram link's reset when the class changes, with an answer about the old class dropped | JVM JUnit |
 
 A device is covered by one source set, on demand: `ToolbarOnDeviceTest`, the project's
 only `androidTest` (#110), drags the tab bar's arranging gesture by fractions of a slot at
