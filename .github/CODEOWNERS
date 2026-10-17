@@ -9,7 +9,7 @@
 /server/app/services/           @lumenpearson
 /server/app/api/                @lumenpearson
 
-# The schema and its migrations: production is already at 0013, and there are
+# The schema and its migrations: production is already at 0019, and there are
 # no rollbacks there.
 /server/app/models.py           @lumenpearson
 /server/migrations/             @lumenpearson

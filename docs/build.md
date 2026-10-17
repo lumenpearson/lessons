@@ -117,7 +117,7 @@ call a deployed server.
 | `KEYSTORE_PASSWORD` | `apk.yml` | as above: all four are needed together, and Gradle treats three of four as no key at all |
 | `KEY_ALIAS` | `apk.yml` | as above |
 | `KEY_PASSWORD` | `apk.yml` | as above |
-| `LESSONS_GITHUB_CLIENT_ID` | `apk.yml` | «Войти через GitHub» is hidden, and with it the only way to file a bug report from inside the app — and the developer mode, whose gate is that sign-in, cannot be opened |
+| `LESSONS_GITHUB_CLIENT_ID` | `apk.yml` | «Войти через GitHub» is hidden, and with it sending a bug report from inside the app and sending translation corrections as a pull request — and the developer mode, whose gate is that sign-in, cannot be opened. «Открыть issue на GitHub» on the bug-report sheet stays: it needs no account |
 | `LESSONS_CONTACT_EMAIL` | `apk.yml` | «Отправить письмом» is hidden |
 | `SERVER_URL` | `reminders.yml` | the fallback tick skips with a notice rather than failing — see [deploy.md](deploy.md), "The clock" |
 | `CRON_SECRET` | `reminders.yml` | the same skip |
@@ -545,9 +545,14 @@ by definition, and they are exactly the three facts somebody holding a phone nee
 to match it against a pull request.
 
 `LESSONS_GITHUB_CLIENT_ID` and `LESSONS_CONTACT_EMAIL` are optional, and each one is a
-button. Without the first, «Войти через GitHub» is not on «О приложении» at all — and with
-it goes the only way to file a bug report from inside the app, because that is what the
-account is for. Without the second, «Отправить письмом» is not on the bug-report sheet.
+button. Without the first, «Войти через GitHub» is not on «О приложении» at all, and with
+it go the three things the account is for: the bug-report sheet's «Отправить», which files
+the issue as the signed-in user; the translation corrections sent as a pull request; and the
+developer mode, whose gate is that sign-in. The bug report itself stays — «Сообщить об
+ошибке» is drawn in every build, and its «Открыть issue на GitHub» opens GitHub's new-issue
+page in the browser with the title and the body already filled in, no account in the app
+needed (`BugReportSheet.kt`). Without the second, «Отправить письмом» is not on the
+bug-report sheet.
 Nothing in the app explains either absence: the row about a build the reader did not make
 would be a row about the wrong subject, which is a deliberate decision and is written down
 in `docs/design.md`.

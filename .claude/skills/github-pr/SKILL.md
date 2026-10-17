@@ -72,21 +72,28 @@ matched pull request's body in full.
 
 ### The milestones that exist
 
-| # | Title | Covers |
+**Which pull requests and issues each one holds is not kept here.** It was, and by 16
+October 2026 rows 11 and 12 stopped at the pull requests of early October, because nobody
+keeps this copy and every close-out keeps the other (#475). The current lists are
+`HANDOVER.md`, «The milestones», and the milestones page itself
+(`gh api 'repos/lumenpearson/lessons/milestones?state=all'`, or a milestone's issue list);
+this table says only what each one is and what belongs in it.
+
+| # | Title | What belongs in it |
 | --- | --- | --- |
-| 1 | `v0.1.0 — App, widget, admin bot and read API` | PRs #1–#14; issues #86, #88, #89, #278–#281 |
-| 2 | `v0.2.0 — Petersburg e-diary, class run from bot and phone` | PRs #15–#17, #28–#31; issues #87, #90, #91, #102, #282, #283 |
-| 3 | `v0.3.0 — School year, terms, school search, several classes` | PRs #27, #32–#35, #43; issue #92 |
-| 4 | `v0.4.0 — 67-defect sweep, first audit, app-wide correction mode` | PRs #44, #45, #50; issues #93, #94 |
-| 5 | `v0.5.0 — Public repo: secrets audit, English docs, font licence` | PRs #46–#49, #51, #55–#57, #59; issue #95 |
-| 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | PRs #60–#74; issues #96, #97, #99, #101, #103, #104, #284–#291 |
+| 1 | `v0.1.0 — App, widget, admin bot and read API` | closed; nothing new goes here |
+| 2 | `v0.2.0 — Petersburg e-diary, class run from bot and phone` | closed; nothing new goes here |
+| 3 | `v0.3.0 — School year, terms, school search, several classes` | closed; nothing new goes here |
+| 4 | `v0.4.0 — 67-defect sweep, first audit, app-wide correction mode` | closed; nothing new goes here |
+| 5 | `v0.5.0 — Public repo: secrets audit, English docs, font licence` | closed; nothing new goes here |
+| 6 | `v0.6.0 — Dishka DI, scrolling text, in-app guide from the repo` | closed; nothing new goes here |
 | 7 | `Dependencies — dependabot bumps` | every dependabot bump; deliberately not a version, and open for good |
-| 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
-| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 — **open**, the first whose work needs an emulator or a phone |
-| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | PRs #140, #214, #218, #303; issues #135–#139, #141, #145–#165, #190–#213, #235, #236, #302 — **open** |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | PRs #274, #277, #294, #296, #297, #300, #301, #305; issues #268–#273, #275, #276, #293, #295, #298, #299, #304 — **open**, the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | PRs #329, #333, #359, #363, #388; issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#365, #386, #387 — **open**, the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | issues #118, #123–#126, #143; deliberately not a version, like 7 — known gaps and decisions no release is waiting for, each saying why it was left |
+| 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | closed; nothing new goes here |
+| 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | **open**: the first work that needs an emulator or a phone, and the survey of the regions' diaries |
+| 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | **open**: «Сетевой город», the first run through the school's own diary, and the external audit of 27 September 2026 |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | **open**, and the one being worked on: the programme of `docs/specs/2026-10-03-one-contract-design.md` (epic #273) |
+| 12 | `v1.0.0 — A build somebody else can install` | **open**: the steps epic #127 names between one class on one phone and a build a second family could use |
+| 13 | `Backlog — not scheduled` | deliberately not a version, like 7 — known gaps and decisions no release is waiting for, each saying why it was left |
 
 The eleventh, twelfth and thirteenth were created on 3 October 2026 under the names they
 have — 12 and 13 for the twelve open issues that had no milestone at all, on the owner's

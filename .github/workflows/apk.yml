@@ -311,16 +311,16 @@ jobs:
           LESSONS_KEY_PASSWORD: ${{ steps.keystore.outputs.signed == 'true' && secrets.KEY_PASSWORD || '' }}
           LESSONS_VERSION_NAME: ${{ steps.version.outputs.name }}
           LESSONS_VERSION_CODE: ${{ steps.version.outputs.code }}
-          # Two optional build properties that each switch a button on, and
-          # switch nothing else. Neither was passed here for the whole life of
-          # this workflow, so every APK it has ever built had both empty: the
-          # «Войти через GitHub» row was hidden by `githubConfigured`, and with
-          # it the only way to file a bug report from inside the app, and
-          # «Отправить письмом» was hidden too. Nothing said so — that is what
-          # the summary below is for. The client id is not a secret (the device
-          # flow has none, and an APK could not keep one), but it is the
-          # builder's to give, so it lives in the repository's secrets beside
-          # the address.
+          # Two optional build properties that each switch a button on. Neither
+          # was passed here for the first months of this workflow, so every APK
+          # it built until then had both empty: the «Войти через GitHub» row was
+          # hidden by `githubConfigured`, and with it sending a bug report from
+          # inside the app, the translation pull request and the developer mode,
+          # and «Отправить письмом» was hidden too. «Открыть issue на GitHub»
+          # never was: it needs no account. Nothing said so — that is what the
+          # summary below is for. The client id is not a secret (the device flow
+          # has none, and an APK could not keep one), but it is the builder's to
+          # give, so it lives in the repository's secrets beside the address.
           LESSONS_GITHUB_CLIENT_ID: ${{ secrets.LESSONS_GITHUB_CLIENT_ID }}
           LESSONS_CONTACT_EMAIL: ${{ secrets.LESSONS_CONTACT_EMAIL }}
           # Where this APK came from, for the about page's badges. A build
@@ -443,7 +443,7 @@ jobs:
           if [ -n "$GITHUB_CLIENT_ID" ]; then
             SIGN_IN="on"
           else
-            SIGN_IN="**off** - no \`LESSONS_GITHUB_CLIENT_ID\` secret, so «Войти через GitHub» and filing a bug report from the app are not in this build"
+            SIGN_IN="**off** - no \`LESSONS_GITHUB_CLIENT_ID\` secret, so «Войти через GitHub», sending a bug report from the app, the translation pull request and the developer mode are not in this build; «Открыть issue на GitHub» still is"
           fi
           if [ -n "$CONTACT_EMAIL" ]; then
             EMAIL="on"

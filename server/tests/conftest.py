@@ -506,9 +506,13 @@ def _head_documents(repository: Path = _REPOSITORY) -> list[Path]:
     """Everything a person or an agent reads to learn the head — not
     HANDOVER.md or docs/history.md, which between them hold every head
     there has been, and not `.claude/worktrees/`, which holds other
-    branches' checkouts rather than this one's."""
-    found = [repository / name for name in ("README.md", "CLAUDE.md", "AGENTS.md")]
+    branches' checkouts rather than this one's. CONTRIBUTING.md and
+    `.github/CODEOWNERS` say where production stands, and went stale
+    unread twice (#317, #463)."""
+    found = [repository / name
+             for name in ("README.md", "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md")]
     found.append(repository / ".github" / "copilot-instructions.md")
+    found.append(repository / ".github" / "CODEOWNERS")
     found += sorted((repository / "docs").rglob("*.md"))
     worktrees = repository / ".claude" / "worktrees"
     found += sorted(document for document in (repository / ".claude").rglob("*.md")

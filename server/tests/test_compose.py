@@ -107,3 +107,18 @@ def test_a_setting_nobody_set_reaches_the_server_as_its_own_default():
             f"not the setting's own default {Settings.model_fields[field].default!r}"
         )
     assert forwarded, "no optional setting is forwarded at all"
+
+
+def test_the_deployment_guide_names_every_setting_the_server_is_handed():
+    """#464. `docs/deploy.md`, «Option 2», tells a self-hoster what the `.env`
+    beside the compose file can configure, by naming what the file hands the
+    server, and the compose file's header sends them there. Twice that list
+    fell behind the file — `DIARY_PROXY_URL` (#336), then `SENTRY_DSN` and
+    `GITHUB_READ_TOKEN` — and a name missing from it reads as a setting a
+    compose deployment cannot have."""
+    guide = (ROOT / "docs" / "deploy.md").read_text("utf-8")
+    start = guide.index("**Every setting the server reads reaches the container.**")
+    paragraph = guide[start : guide.index("\n\n", start)]
+    handed = set(_services()["server"]["environment"]) - {"DATABASE_URL"}
+    missing = sorted(name for name in handed if f"`{name}`" not in paragraph)
+    assert not missing, f"docs/deploy.md's compose paragraph does not name {missing}"
