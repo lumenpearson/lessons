@@ -9,7 +9,14 @@ import kotlinx.coroutines.withContext
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
- * An issue filed as the signed-in account, labelled as sent from the app.
+ * An issue filed as the signed-in account.
+ *
+ * With no label (#458). It used to ask for `from-app`, and GitHub drops a label
+ * from this request without a word for anybody who cannot push to the
+ * repository — every reader — so not one report ever carried it, and the label
+ * itself was never even created. What marks a report as the app's is the last
+ * line of its body, [BugReportComposer.APP_MARK], which the browser path
+ * carries too; a maintainer labels it by hand.
  *
  * Reads the token from [GithubPreferences] on every call, and clears it on a
  * `401` itself, as [GithubPullRequests] and [GithubPermissions] do.
@@ -25,10 +32,7 @@ internal class GithubIssues(
     suspend fun fileIssue(draft: IssueDraft): IssueResult = withContext(Dispatchers.IO) {
         try {
             val token = preferences.token() ?: return@withContext IssueResult.Failed("signed_out")
-            val payload = GithubApi.json.encodeToString(
-                IssueRequestDto.serializer(),
-                IssueRequestDto(title = draft.title, body = draft.body, labels = listOf(ISSUE_LABEL)),
-            )
+            val payload = requestBody(draft)
             val request = GithubApi.apiRequest(GithubApi.repoUrl(project, "/issues"), userAgent)
                 .header("Authorization", "Bearer $token")
                 .post(payload.toRequestBody(GithubApi.JSON_MEDIA_TYPE))
@@ -62,8 +66,11 @@ internal class GithubIssues(
         }
     }
 
-    private companion object {
-        /** So issues from the app can be told from ones typed on the site. */
-        const val ISSUE_LABEL = "from-app"
+    internal companion object {
+        /** The JSON this sends: the title and the body, and nothing to be dropped. */
+        fun requestBody(draft: IssueDraft): String = GithubApi.json.encodeToString(
+            IssueRequestDto.serializer(),
+            IssueRequestDto(title = draft.title, body = draft.body),
+        )
     }
 }

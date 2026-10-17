@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.github
 
+import com.lumenpearson.lessons.core.data.repository.IssueDraft
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -62,5 +63,59 @@ class BugReportComposerTest {
         val line = "а".repeat(cut - 1) + " " + "б".repeat(20)
 
         assertEquals("а".repeat(cut - 1) + "…", BugReportComposer.shorten(line))
+    }
+
+    /** A fixed device, so the body does not depend on the JVM's empty `Build`. */
+    private val device = listOf("Model" to "Pixel 8", "AppVersionName" to "0.9.0")
+
+    /**
+     * Both ways a report reaches GitHub carry one mark in the body (#458).
+     *
+     * The `from-app` label was never it: GitHub drops a label from
+     * `POST /issues` without a word for anybody who cannot push here, which
+     * is every reader, and the browser's new-issue page was never sent one.
+     * So every app report arrived with no label at all, outside every filter
+     * the board and the release walk read. A line of the body is the one thing
+     * neither path can lose, and full-text search finds it.
+     */
+    @Test
+    fun `the report ends with the mark that says it came from the app`() {
+        val withContact = BugReportComposer.compose("Виджет пуст", "me@example.com", "0.9.0", device)
+        val withoutContact = BugReportComposer.compose("Виджет пуст", null, "0.9.0", device)
+
+        val mark = "_Отправлено из приложения «Дневник» 0.9.0_"
+        assertEquals(mark, withContact.body.lines().last())
+        assertEquals(mark, withoutContact.body.lines().last())
+        assertTrue(withContact.body.contains("Контакт: me@example.com"))
+    }
+
+    @Test
+    fun `the mark is the same words in every report, so one search finds them all`() {
+        val older = BugReportComposer.compose("", null, "0.8.0", device)
+        val newer = BugReportComposer.compose("Что-то", null, "1.0.0-rc.1", device)
+
+        assertTrue(older.body.lines().last().startsWith("_" + BugReportComposer.APP_MARK + " "))
+        assertTrue(newer.body.lines().last().startsWith("_" + BugReportComposer.APP_MARK + " "))
+        assertEquals("Отправлено из приложения «Дневник»", BugReportComposer.APP_MARK)
+    }
+
+    @Test
+    fun `the browser path carries the mark too`() {
+        val draft = BugReportComposer.compose("Виджет пуст", null, "0.9.0", device)
+
+        val url = GithubProject.UPSTREAM.newIssueUrl(draft.title, draft.body)
+
+        val body = java.net.URLDecoder.decode(url.substringAfter("&body="), Charsets.UTF_8.name())
+        assertTrue(body, body.endsWith("_Отправлено из приложения «Дневник» 0.9.0_"))
+        assertFalse(url, url.contains("labels="))
+    }
+
+    @Test
+    fun `the signed-in path asks for no label, which GitHub would drop anyway`() {
+        val payload = GithubIssues.requestBody(IssueDraft(title = "t", body = "b"))
+
+        assertFalse(payload, payload.contains("labels"))
+        assertFalse(payload, payload.contains("from-app"))
+        assertEquals("""{"title":"t","body":"b"}""", payload)
     }
 }

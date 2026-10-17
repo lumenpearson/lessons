@@ -1301,7 +1301,16 @@ the user's name through the API; the "new issue" page in a browser with the titl
 already filled in; an email to the address from `lessons.contactEmail` — also a build
 property, because an address in a public repository is an address in every spam list. The
 body is the same in all three cases: the description and the table about the device, in the
-same shape Essentials uses.
+same shape Essentials uses. The two that reach GitHub end with one more line,
+«_Отправлено из приложения «Дневник» <version>_» (`BugReportComposer.APP_MARK`), and carry
+no label (#458). The API path used to ask for `from-app`, and GitHub drops a label from
+`POST /issues` without a word for anybody who cannot push to the repository, which is every
+reader; the browser's new-issue page never sent one. So every report from the app arrived
+outside every label filter, the board's views and the release walk included. The line is
+the mark neither path can lose, visible text rather than an HTML comment because search is
+not known to index a comment: the app's reports are found with
+`"Отправлено из приложения «Дневник»" in:body is:issue` and given `type:bug` and a
+`status:` by hand.
 
 ## Two switches for two decorations
 

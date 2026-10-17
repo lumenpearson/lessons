@@ -48,7 +48,6 @@ internal data class UserDto(
 internal data class IssueRequestDto(
     @SerialName("title") val title: String,
     @SerialName("body") val body: String,
-    @SerialName("labels") val labels: List<String>,
 )
 
 /** Response of the same: the page to open once the issue exists. */

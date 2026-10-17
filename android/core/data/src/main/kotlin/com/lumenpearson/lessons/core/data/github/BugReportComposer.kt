@@ -23,11 +23,32 @@ object BugReportComposer {
     private const val FALLBACK_TITLE = "Отчёт из приложения"
 
     /**
+     * The last line of every report, as the words a search is typed with
+     * (#458): `"Отправлено из приложения «Дневник»" in:body`.
+     *
+     * A line of the body because it is the one mark both paths keep. A label
+     * on `POST /issues` is dropped for anybody without push access, which is
+     * every reader, and the browser's new-issue page has none to send. Visible
+     * text rather than an HTML comment, because GitHub's search is not known
+     * to index what a comment hides. Fixed words, followed by the version, so
+     * one search finds every report whatever build sent it; Russian like the
+     * rest of the body.
+     */
+    const val APP_MARK = "Отправлено из приложения «Дневник»"
+
+    /**
      * @param contactEmail included only when non-blank. The repository is
      *   public, so this lands in a public issue; the sheet says so next to the
      *   field, and leaving it empty is the default.
+     * @param device the block [deviceInfoLines] builds, a parameter only so a
+     *   JVM test, where every `Build` field is empty, can hand in its own.
      */
-    fun compose(description: String, contactEmail: String?, installedVersion: String): IssueDraft {
+    fun compose(
+        description: String,
+        contactEmail: String?,
+        installedVersion: String,
+        device: List<Pair<String, String>> = deviceInfoLines(installedVersion),
+    ): IssueDraft {
         val text = description.trim()
         val title = text.lineSequence()
             .map { it.trim() }
@@ -42,7 +63,7 @@ object BugReportComposer {
             }
             appendLine("| Параметр | Значение |")
             appendLine("| --- | --- |")
-            deviceInfoLines(installedVersion).forEach { (key, value) ->
+            device.forEach { (key, value) ->
                 appendLine("| $key | ${value.replace("|", "\\|")} |")
             }
             val email = contactEmail?.trim().orEmpty()
@@ -50,6 +71,8 @@ object BugReportComposer {
                 appendLine()
                 appendLine("Контакт: $email")
             }
+            appendLine()
+            append("_$APP_MARK ${installedVersion}_")
         }.trimEnd()
 
         return IssueDraft(title = title, body = body)

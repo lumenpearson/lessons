@@ -567,6 +567,11 @@ to match it against a pull request.
 button. Without the first, «Войти через GitHub» is not on «О приложении» at all — and with
 it goes the only way to file a bug report from inside the app, because that is what the
 account is for. Without the second, «Отправить письмом» is not on the bug-report sheet.
+A report filed from the app carries no label — GitHub drops one asked for by anybody without
+push access, and the browser path has none to send — so it ends with the line
+«_Отправлено из приложения «Дневник» <version>_» instead, and whoever triages the tracker
+finds those with `"Отправлено из приложения «Дневник»" in:body is:issue` and labels them by
+hand (#458).
 Nothing in the app explains either absence: the row about a build the reader did not make
 would be a row about the wrong subject, which is a deliberate decision and is written down
 in `docs/design.md`.

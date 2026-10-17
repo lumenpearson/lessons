@@ -1,7 +1,10 @@
 # The blank issue is left enabled deliberately: the app can open "new issue" in a browser
-# with the title and body already filled in (SupportSheets.kt, issues/new?title=&body=),
+# with the title and body already filled in (GithubProject.newIssueUrl, issues/new?title=&body=),
 # and a template chooser would sit across that path exactly where the person has already
-# written their text.
+# written their text. A blank issue gets no labels, and neither does one the app files
+# through the API (GitHub drops them for anybody without push access), so the app's reports
+# end with the line «_Отправлено из приложения «Дневник» <version>_»: search for
+# "Отправлено из приложения «Дневник»" in:body and label them by hand (#458).
 blank_issues_enabled: true
 
 contact_links:
