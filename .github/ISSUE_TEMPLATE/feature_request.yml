@@ -28,7 +28,9 @@ body:
         - App — notifications
         - Telegram bot
         - Server / API
-        - Petersburg electronic diary
+        - Electronic diary — Petersburg
+        - Electronic diary — «Сетевой город. Образование»
+        - School search (the directory)
         - Documentation
         - Several at once
     validations:

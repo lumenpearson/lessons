@@ -33,7 +33,9 @@ body:
         - App — screens
         - App — widget
         - App — notifications
-        - App — Petersburg electronic diary
+        - Electronic diary — Petersburg
+        - Electronic diary — «Сетевой город. Образование»
+        - School search (the directory)
         - Telegram bot
         - Server / API
         - APK build, Actions

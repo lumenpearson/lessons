@@ -17,8 +17,9 @@ branch is supported; an APK from an old Actions run is neither updated nor fixed
 
 In the report, state:
 
-- what is affected — `server/app/api`, `server/app/bot`,
-  `server/app/providers/petersburg`, `android/…` or the build;
+- what is affected — `server/app/api`, `server/app/rpc` or `server/app/rest` (v1 and
+  v2), `server/app/bot`, `server/app/providers/…` (`petersburg/`, `netschool/`, `dadata/`
+  or the shared `diary/`), `android/…` or the build;
 - the commit or the version (`versionName` is visible in the app, under "About");
 - the steps to reproduce and the impact you expect;
 - whether you want attribution in the advisory.
@@ -103,9 +104,12 @@ own bucket. New codes are eight characters with no `O`, `0`, `I` or `1`.
   survives R8, but it must not be published: the debug key is the same for everybody. This
   is documented in [docs/build.md](../docs/build.md) and the run summary says so — it is a
   known limitation, not a vulnerability.
-- The Petersburg electronic diary is somebody else's undocumented service. Its own problems
-  are not ours; our boundary is `server/app/providers/petersburg/`, and a vulnerability in
-  that (leaking somebody else's session, reaching for somebody else's `student_id`) is
+- The electronic diaries — Petersburg's and «Сетевой город. Образование» — and the
+  DaData school directory are other people's services, the diaries undocumented. Their own
+  problems are not ours; our boundary is `server/app/providers/` as a whole — `petersburg/`,
+  `netschool/`, `dadata/` and the shared `diary/` — together with the app's own diary
+  client, and a vulnerability in that (leaking somebody else's session, reaching for
+  somebody else's `student_id`, sending a credential to a host it does not belong to) is
   worth reporting to us.
 - Somebody with administrator access to the bot can ruin a timetable. That is a role, not a
   vulnerability; the vulnerability would be their getting that role around `can_grant`.
