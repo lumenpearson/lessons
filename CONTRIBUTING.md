@@ -81,7 +81,7 @@ so read them as conditions rather than as wishes.
    endpoint are two thin shells over it. Two implementations of "rename a subject" would
    disagree within a month, and the one that disagrees quietly is the one that wins.
 3. **The schema changes through an Alembic revision.** No `create_all` after `0001`.
-   Production is at `0017`, and a column will not appear there on its own. Mind the
+   Production is at `0019`, and a column will not appear there on its own. Mind the
    direction: an additive revision goes on **before** the merge that deploys the code, a
    `UNIQUE` or a `NOT NULL` **after** it.
 4. **Nothing on the server happens by itself.** On Vercel nothing runs between requests:
