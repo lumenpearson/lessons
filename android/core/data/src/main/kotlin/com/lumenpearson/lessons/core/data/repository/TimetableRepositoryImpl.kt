@@ -152,8 +152,8 @@ internal class TimetableRepositoryImpl(
 
     override suspend fun snapshot(): Timetable? = withContext(ioDispatcher) {
         val classId = activeClassId.first() ?: return@withContext null
-        // One transaction for all three reads: `replaceAll` swaps the class row
-        // and the days together, and a reader interleaved between two separate
+        // One transaction for all three reads: `replaceWindow` swaps the class row
+        // and a year's days together, and a reader interleaved between two separate
         // statements can take the class from before the swap and the days from
         // after it. The widget redraws on the sync broadcast, i.e. by
         // construction at exactly that moment.
@@ -217,12 +217,13 @@ internal class TimetableRepositoryImpl(
      *
      * The window is the year exactly — `SchoolYear.boundsOf(openingYear)` — and
      * nothing anchors it to today any more. The Monday anchor that used to be
-     * here existed for one reason: `replaceAll` wiped the whole class, so a
-     * sync mid-week destroyed the days already past unless the request reached
-     * back to cover them. Replacing a window instead of a class takes that away
-     * with it, and takes the summer bug with it too — the anchor applied in
-     * July reached back far enough to ask for some 320 days, past what the
-     * server accepts, and the window came back silently clipped in April.
+     * here existed for one reason: the write `replaceWindow` replaced wiped the
+     * whole class, so a sync mid-week destroyed the days already past unless
+     * the request reached back to cover them. Replacing a window instead of a
+     * class takes that away with it, and takes the summer bug with it too — the
+     * anchor applied in July reached back far enough to ask for some 320 days,
+     * past what the server accepts, and the window came back silently clipped
+     * in April.
      *
      * Resolving a year costs the server the same handful of queries as
      * resolving a month: the weekly template is loaded once and the rest is
@@ -466,10 +467,12 @@ internal class TimetableRepositoryImpl(
      * date, and the window this date picks is a school year: `SchoolYear`
      * changes windows between 31 May and 1 June. A class in Kaliningrad seen
      * from a phone left on a zone to the east therefore asks, at ten in the
-     * evening on the last day of school, for *next* September–May — and since
-     * `replaceAll` wipes the table before writing, the app and the widget both
-     * fall to «Нет данных» for the rest of that day and stay there until the
-     * device's own date rolls over.
+     * evening on the last day of school, for *next* September–May. While the
+     * write before `replaceWindow` wiped the whole class first, the app and the
+     * widget both fell to «Нет данных» for the rest of that day and stayed there
+     * until the device's own date rolled over. `replaceWindow` replaces only the
+     * year it is handed, so today's year now survives that, but the refresh still
+     * fetches next year in its place.
      *
      * The zone is already cached beside the timetable this call is about to
      * replace, which is one indexed single-row read against a network round
