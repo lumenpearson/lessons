@@ -122,74 +122,100 @@ internal fun LazyListScope.feelRows(
     }
 
     item(key = "effects") {
-        SettingsGroup(title = correctedString(R.string.settings_effects_group)) {
-            EdgeFadeRow(
-                checked = state.settings.edgeBlur,
-                tone = accentTone(0),
-                onCheckedChange = viewModel::setEdgeBlur,
+        EffectsGroup(
+            settings = state.settings,
+            onEdgeBlur = viewModel::setEdgeBlur,
+            onMotionBlur = viewModel::setMotionBlur,
+            onMotionBlurScale = viewModel::setMotionBlurScale,
+            onRipple = viewModel::setRippleEffects,
+            onThemeReveal = viewModel::setThemeReveal,
+        )
+    }
+}
+
+/**
+ * «Эффекты»: the four heavy effects and the strength of one of them.
+ *
+ * A composable of its own, over the settings and one callback per row rather
+ * than the view model, so that a test can press every row and count what it
+ * asked to be stored.
+ */
+@Composable
+internal fun EffectsGroup(
+    settings: AppSettings,
+    onEdgeBlur: (Boolean) -> Unit,
+    onMotionBlur: (Boolean) -> Unit,
+    onMotionBlurScale: (Float) -> Unit,
+    onRipple: (Boolean) -> Unit,
+    onThemeReveal: (Boolean) -> Unit,
+) {
+    SettingsGroup(title = correctedString(R.string.settings_effects_group)) {
+        EdgeFadeRow(
+            checked = settings.edgeBlur,
+            tone = accentTone(0),
+            onCheckedChange = onEdgeBlur,
+        )
+        GroupSwitchItem(
+            title = correctedString(R.string.settings_motion_blur),
+            subtitle = if (SupportsShaders) {
+                correctedString(R.string.settings_motion_blur_description)
+            } else {
+                correctedString(R.string.settings_blur_unavailable)
+            },
+            icon = Icons.Rounded.BlurOn,
+            tone = accentTone(5),
+            enabled = SupportsShaders,
+            checked = settings.motionBlur && SupportsShaders,
+            onCheckedChange = onMotionBlur,
+        )
+        Reveal(visible = settings.motionBlur && SupportsShaders) {
+            GroupSliderItem(
+                title = correctedString(R.string.settings_motion_blur_amount),
+                icon = Icons.Rounded.MotionPhotosOn,
+                tone = accentTone(3),
+                value = settings.motionBlurScale,
+                onValueChange = onMotionBlurScale,
+                valueRange = AppSettings.MOTION_BLUR_SCALE_RANGE,
+                increment = 0.1f,
+                valueFormatter = { amount -> "%.1f×".format(amount) },
             )
+        }
+        // The two whole-screen ornaments, each on its own switch. The
+        // ripple is a shader and shares the blur rows' availability; the
+        // wipe is a bitmap and runs on anything, so it is never disabled.
+        // Turning the wave on plays one, from the switch that turned it
+        // on. A setting whose whole subject is a visual effect can answer
+        // "what is this?" by doing it once, and the answer is only honest
+        // if it starts where the finger was — which is what the anchor is
+        // for. Switching it off plays nothing: the modifier is already
+        // disabled by the time the wave would be drawn, and a wave
+        // acknowledging its own removal would be a lie about the setting.
+        LiquidRippleAnchor { fire ->
             GroupSwitchItem(
-                title = correctedString(R.string.settings_motion_blur),
+                title = correctedString(R.string.settings_ripple),
                 subtitle = if (SupportsShaders) {
-                    correctedString(R.string.settings_motion_blur_description)
+                    correctedString(R.string.settings_ripple_description)
                 } else {
                     correctedString(R.string.settings_blur_unavailable)
                 },
-                icon = Icons.Rounded.BlurOn,
-                tone = accentTone(5),
+                icon = Icons.Rounded.Waves,
+                tone = accentTone(2),
                 enabled = SupportsShaders,
-                checked = state.settings.motionBlur && SupportsShaders,
-                onCheckedChange = viewModel::setMotionBlur,
-            )
-            Reveal(visible = state.settings.motionBlur && SupportsShaders) {
-                GroupSliderItem(
-                    title = correctedString(R.string.settings_motion_blur_amount),
-                    icon = Icons.Rounded.MotionPhotosOn,
-                    tone = accentTone(3),
-                    value = state.settings.motionBlurScale,
-                    onValueChange = viewModel::setMotionBlurScale,
-                    valueRange = AppSettings.MOTION_BLUR_SCALE_RANGE,
-                    increment = 0.1f,
-                    valueFormatter = { amount -> "%.1f×".format(amount) },
-                )
-            }
-            // The two whole-screen ornaments, each on its own switch. The
-            // ripple is a shader and shares the blur rows' availability; the
-            // wipe is a bitmap and runs on anything, so it is never disabled.
-            // Turning the wave on plays one, from the switch that turned it
-            // on. A setting whose whole subject is a visual effect can answer
-            // "what is this?" by doing it once, and the answer is only honest
-            // if it starts where the finger was — which is what the anchor is
-            // for. Switching it off plays nothing: the modifier is already
-            // disabled by the time the wave would be drawn, and a wave
-            // acknowledging its own removal would be a lie about the setting.
-            LiquidRippleAnchor { fire ->
-                GroupSwitchItem(
-                    title = correctedString(R.string.settings_ripple),
-                    subtitle = if (SupportsShaders) {
-                        correctedString(R.string.settings_ripple_description)
-                    } else {
-                        correctedString(R.string.settings_blur_unavailable)
-                    },
-                    icon = Icons.Rounded.Waves,
-                    tone = accentTone(2),
-                    enabled = SupportsShaders,
-                    checked = state.settings.rippleEffects && SupportsShaders,
-                    onCheckedChange = { on ->
-                        viewModel.setRippleEffects(on)
-                        if (on) fire()
-                    },
-                )
-            }
-            GroupSwitchItem(
-                title = correctedString(R.string.settings_theme_reveal),
-                subtitle = correctedString(R.string.settings_theme_reveal_description),
-                icon = Icons.Rounded.Contrast,
-                tone = accentTone(4),
-                checked = state.settings.themeReveal,
-                onCheckedChange = viewModel::setThemeReveal,
+                checked = settings.rippleEffects && SupportsShaders,
+                onCheckedChange = { on ->
+                    onRipple(on)
+                    if (on) fire()
+                },
             )
         }
+        GroupSwitchItem(
+            title = correctedString(R.string.settings_theme_reveal),
+            subtitle = correctedString(R.string.settings_theme_reveal_description),
+            icon = Icons.Rounded.Contrast,
+            tone = accentTone(4),
+            checked = settings.themeReveal,
+            onCheckedChange = onThemeReveal,
+        )
     }
 }
 

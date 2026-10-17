@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lumenpearson.lessons.core.data.diagnostics.CrashReporter
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
+import com.lumenpearson.lessons.core.designsystem.modifier.ProvidePowerSaveMode
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsTheme
 import com.lumenpearson.lessons.core.designsystem.theme.ThemeRevealHost
 import com.lumenpearson.lessons.core.designsystem.theme.rememberThemeRevealState
@@ -99,119 +100,125 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         pendingDate.value = intent?.consumeRequestedDate()
         setContent {
-            val shellViewModel: AppShellViewModel = viewModel(factory = AppShellViewModel.Factory)
-            val shell by shellViewModel.uiState.collectAsStateWithLifecycle()
-            val openDate by pendingDate.collectAsStateWithLifecycle()
+            // Outermost, because the theme reveal's state below is created
+            // above the theme and has to know about battery saver too: one
+            // listener for the window, which every heavy effect and every row
+            // describing one reads (#476).
+            ProvidePowerSaveMode {
+                val shellViewModel: AppShellViewModel = viewModel(factory = AppShellViewModel.Factory)
+                val shell by shellViewModel.uiState.collectAsStateWithLifecycle()
+                val openDate by pendingDate.collectAsStateWithLifecycle()
 
-            // Haptics are a process-wide gate rather than a parameter threaded
-            // through every component, so the stored preference is pushed into
-            // it here — the one place that already observes the settings flow.
-            LaunchedEffect(shell.settings.hapticsEnabled, shell.settings.hapticStrength) {
-                LessonsHaptics.enabled.value = shell.settings.hapticsEnabled
-                LessonsHaptics.strength.value = shell.settings.hapticStrength
-            }
+                // Haptics are a process-wide gate rather than a parameter threaded
+                // through every component, so the stored preference is pushed into
+                // it here — the one place that already observes the settings flow.
+                LaunchedEffect(shell.settings.hapticsEnabled, shell.settings.hapticStrength) {
+                    LessonsHaptics.enabled.value = shell.settings.hapticsEnabled
+                    LessonsHaptics.strength.value = shell.settings.hapticStrength
+                }
 
-            // Same shape, same reason: a process-wide gate fed from the one place
-            // that already observes the settings flow.
-            LaunchedEffect(shell.settings.debugMode) {
-                CrashReporter.setEnabled(shell.settings.debugMode)
-            }
+                // Same shape, same reason: a process-wide gate fed from the one place
+                // that already observes the settings flow.
+                LaunchedEffect(shell.settings.debugMode) {
+                    CrashReporter.setEnabled(shell.settings.debugMode)
+                }
 
-            // The stored language, applied to whatever this device can apply it
-            // with. Below 33 this recreates the activity — the base context is
-            // set once, in attachBaseContext, so there is no other way to change
-            // the language of a screen that is already drawn; on 33 and up the
-            // system does the restarting itself. Either way the user gets the
-            // new language without leaving the settings page.
-            //
-            // `languageToApply`, not `shell.settings.language`: until the
-            // settings flow has answered, that field is the placeholder the
-            // state is constructed with — AppLanguage.SYSTEM — while
-            // `attachedLanguage` already holds the real stored value, read
-            // synchronously in attachBaseContext. Comparing the two made every
-            // launch by somebody who had chosen a language look like a language
-            // change, and below API 33 `applyTo` answers one with `recreate()`.
-            //
-            // That is not a wasted frame, which is why this reads a flag rather
-            // than trusting the ordering. The recreation re-enters onCreate with
-            // an Intent `consumeRequestedDate` has already emptied, and with a
-            // fresh `pendingDate`: a tap on a day in the home-screen widget is
-            // taken out of the Intent and then thrown away with the activity
-            // that was holding it, so the app opens on the default tab and the
-            // date is gone. The shell never gets a chance to act on it, because
-            // while this effect runs the splash is still up.
-            //
-            // The key is the answer itself, so the effect runs again — once —
-            // when the placeholder is replaced by what is stored.
-            val language = shell.languageToApply
-            LaunchedEffect(language) {
-                if (language == null) return@LaunchedEffect
-                AppLocales.applyTo(
-                    activity = this@MainActivity,
-                    language = language,
-                    attached = attachedLanguage,
-                )
-            }
+                // The stored language, applied to whatever this device can apply it
+                // with. Below 33 this recreates the activity — the base context is
+                // set once, in attachBaseContext, so there is no other way to change
+                // the language of a screen that is already drawn; on 33 and up the
+                // system does the restarting itself. Either way the user gets the
+                // new language without leaving the settings page.
+                //
+                // `languageToApply`, not `shell.settings.language`: until the
+                // settings flow has answered, that field is the placeholder the
+                // state is constructed with — AppLanguage.SYSTEM — while
+                // `attachedLanguage` already holds the real stored value, read
+                // synchronously in attachBaseContext. Comparing the two made every
+                // launch by somebody who had chosen a language look like a language
+                // change, and below API 33 `applyTo` answers one with `recreate()`.
+                //
+                // That is not a wasted frame, which is why this reads a flag rather
+                // than trusting the ordering. The recreation re-enters onCreate with
+                // an Intent `consumeRequestedDate` has already emptied, and with a
+                // fresh `pendingDate`: a tap on a day in the home-screen widget is
+                // taken out of the Intent and then thrown away with the activity
+                // that was holding it, so the app opens on the default tab and the
+                // date is gone. The shell never gets a chance to act on it, because
+                // while this effect runs the splash is still up.
+                //
+                // The key is the answer itself, so the effect runs again — once —
+                // when the placeholder is replaced by what is stored.
+                val language = shell.languageToApply
+                LaunchedEffect(language) {
+                    if (language == null) return@LaunchedEffect
+                    AppLocales.applyTo(
+                        activity = this@MainActivity,
+                        language = language,
+                        attached = attachedLanguage,
+                    )
+                }
 
-            // Created here, above the theme, because the tint below needs to
-            // know when a photograph is on screen and the bars are not part of
-            // the composition the host wraps.
-            val themeReveal = rememberThemeRevealState(enabled = shell.settings.themeReveal)
+                // Created here, above the theme, because the tint below needs to
+                // know when a photograph is on screen and the bars are not part of
+                // the composition the host wraps.
+                val themeReveal = rememberThemeRevealState(enabled = shell.settings.themeReveal)
 
-            // Which way to tint the clock, the battery and the gesture bar.
-            //
-            // `enableEdgeToEdge()` on its own reads the *system* night mode to
-            // decide, and the whole point of the theme setting is that the app
-            // may disagree with the system: a light app under a dark system was
-            // drawing white status-bar icons onto a white page. Re-applied
-            // whenever the answer changes, which is the supported way to do it —
-            // the call is idempotent.
-            //
-            // Held while the reveal is running. The bars are painted by the
-            // window, above everything the circle wipes, so re-tinting them when
-            // the setting changes puts dark icons over a photograph that is
-            // still light — for as long as the wavefront takes to reach the top
-            // of the screen, which from a switch in «Оформление» is most of the
-            // animation. Waiting costs nothing: until the wave arrives the old
-            // tint is the correct one for what is actually drawn up there.
-            val darkTheme = shell.settings.themeMode.resolvesToDark()
-            LaunchedEffect(darkTheme, themeReveal.revealing) {
-                if (themeReveal.revealing) return@LaunchedEffect
-                val bars = SystemBarStyle.auto(
-                    lightScrim = Color.TRANSPARENT,
-                    darkScrim = Color.TRANSPARENT,
-                ) { darkTheme }
-                enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
-            }
+                // Which way to tint the clock, the battery and the gesture bar.
+                //
+                // `enableEdgeToEdge()` on its own reads the *system* night mode to
+                // decide, and the whole point of the theme setting is that the app
+                // may disagree with the system: a light app under a dark system was
+                // drawing white status-bar icons onto a white page. Re-applied
+                // whenever the answer changes, which is the supported way to do it —
+                // the call is idempotent.
+                //
+                // Held while the reveal is running. The bars are painted by the
+                // window, above everything the circle wipes, so re-tinting them when
+                // the setting changes puts dark icons over a photograph that is
+                // still light — for as long as the wavefront takes to reach the top
+                // of the screen, which from a switch in «Оформление» is most of the
+                // animation. Waiting costs nothing: until the wave arrives the old
+                // tint is the correct one for what is actually drawn up there.
+                val darkTheme = shell.settings.themeMode.resolvesToDark()
+                LaunchedEffect(darkTheme, themeReveal.revealing) {
+                    if (themeReveal.revealing) return@LaunchedEffect
+                    val bars = SystemBarStyle.auto(
+                        lightScrim = Color.TRANSPARENT,
+                        darkScrim = Color.TRANSPARENT,
+                    ) { darkTheme }
+                    enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+                }
 
-            LessonsTheme(
-                themeMode = shell.settings.themeMode,
-                dynamicColor = shell.settings.dynamicColor,
-                pitchBlack = shell.settings.pitchBlack,
-                font = shell.settings.appFont,
-                // The developer mode's large text (#237) overrides the stored
-                // scale while it is on, and the stored one is back when it is off.
-                textScale = if (VisualTools.largeText) LargeTextScale else shell.settings.textScale,
-            ) {
-                // Wraps the app rather than living inside a screen: the circle
-                // has to cross the whole window, and the still it wipes away is
-                // a photograph of the whole window.
-                ThemeRevealHost(state = themeReveal) {
-                    // Inside the theme, because the editor it hosts is a
-                    // themed sheet; around everything else, because correction
-                    // mode is meant to reach every screen and every sheet the
-                    // app can put up, and a text block outside this is a text
-                    // block a proofreader cannot fix.
-                    CorrectionHost {
-                        // Around the app, inside the correction host: the grid
-                        // is drawn over every screen and every sheet's content.
-                        DeveloperOverlay {
-                            LessonsApp(
-                                shell = shell.shell,
-                                settings = shell.settings,
-                                openDate = openDate,
-                                onDateOpened = { pendingDate.value = null },
-                            )
+                LessonsTheme(
+                    themeMode = shell.settings.themeMode,
+                    dynamicColor = shell.settings.dynamicColor,
+                    pitchBlack = shell.settings.pitchBlack,
+                    font = shell.settings.appFont,
+                    // The developer mode's large text (#237) overrides the stored
+                    // scale while it is on, and the stored one is back when it is off.
+                    textScale = if (VisualTools.largeText) LargeTextScale else shell.settings.textScale,
+                ) {
+                    // Wraps the app rather than living inside a screen: the circle
+                    // has to cross the whole window, and the still it wipes away is
+                    // a photograph of the whole window.
+                    ThemeRevealHost(state = themeReveal) {
+                        // Inside the theme, because the editor it hosts is a
+                        // themed sheet; around everything else, because correction
+                        // mode is meant to reach every screen and every sheet the
+                        // app can put up, and a text block outside this is a text
+                        // block a proofreader cannot fix.
+                        CorrectionHost {
+                            // Around the app, inside the correction host: the grid
+                            // is drawn over every screen and every sheet's content.
+                            DeveloperOverlay {
+                                LessonsApp(
+                                    shell = shell.shell,
+                                    settings = shell.settings,
+                                    openDate = openDate,
+                                    onDateOpened = { pendingDate.value = null },
+                                )
+                            }
                         }
                     }
                 }

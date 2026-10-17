@@ -3,19 +3,10 @@ package com.lumenpearson.lessons.core.designsystem.modifier
 import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
 import android.os.Build
-import android.os.PowerManager
 import androidx.annotation.RequiresApi
 import androidx.compose.material3.MaterialTheme
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
@@ -23,7 +14,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.intellij.lang.annotations.Language
@@ -212,40 +202,6 @@ fun Modifier.progressiveBlur(
 }
 
 /**
- * Whether the device is in battery-saver mode, kept up to date while this is in
- * the composition.
- *
- * Read once and remembered, which is what this used to be, the escape hatch only
- * ever worked for somebody who had switched battery saver on *before* the screen
- * was composed — and it is switched on precisely when a phone has been running
- * for a while, which is to say while the app is already open. The platform
- * announces the change; listening costs one registered receiver per blurred
- * surface, and the surface is the shell, not a list row.
- */
-@Composable
-internal fun rememberPowerSaveMode(): Boolean {
-    val context = LocalContext.current
-    val power = remember(context) { context.getSystemService(PowerManager::class.java) }
-    var isPowerSave by remember(power) { mutableStateOf(power?.isPowerSaveMode == true) }
-
-    DisposableEffect(power) {
-        if (power == null) return@DisposableEffect onDispose {}
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                isPowerSave = power.isPowerSaveMode
-            }
-        }
-        context.registerReceiver(receiver, IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED))
-        // Re-read on the way in as well: the mode can have changed between the
-        // remember above and the registration, and that gap is a whole frame.
-        isPowerSave = power.isPowerSaveMode
-        onDispose { runCatching { context.unregisterReceiver(receiver) } }
-    }
-
-    return isPowerSave
-}
-
-/**
  * Samsung's One UI 7 and earlier ship a render-effect implementation that
  * flickers the whole window when a runtime shader is attached to a scrolling
  * layer.
@@ -254,7 +210,7 @@ internal fun rememberPowerSaveMode(): Boolean {
  * is a vendor check rather than a capability check because there is nothing to
  * query: the API reports success and then draws wrong.
  */
-private fun isBlurProblematicDevice(): Boolean {
+fun isBlurProblematicDevice(): Boolean {
     if (!Build.MANUFACTURER.equals("samsung", ignoreCase = true)) return false
     // One UI 7 shipped on Android 15; anything newer than that is fixed.
     return Build.VERSION.SDK_INT <= Build.VERSION_CODES.VANILLA_ICE_CREAM
