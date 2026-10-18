@@ -4,7 +4,8 @@ v1's ``/manage/requests``, over the same services. The list is the class's
 open requests, oldest first, each named as an admin reads them; v1 wrote when
 each was asked as the class's wall time, v2 writes an instant.
 
-Answering is ``requests_service.approve`` and ``decline``, which v1 calls too:
+Answering is ``requests_service.approve`` and ``decline``, which the bot's
+«✅ Одобрить» and «Отклонить» and v1 call too:
 the ladder of «👥 Доступ» decides what an admin may grant, and a request
 already answered is ``RESOURCE_NOT_FOUND``. Two admins cannot answer one
 twice because ``requests_service.pending_one`` reads the row locked
@@ -39,7 +40,6 @@ from app.models import AccessRequest as RequestRow
 from app.models import Role, SchoolClass
 from app.rpc import values
 from app.rpc.errors import Refusal
-from app.services import access as access_service
 from app.services.manage import classes as classes_service
 from app.services.manage import requests as requests_service
 
@@ -152,10 +152,9 @@ async def approve_access_request(
         actor_role=_actor_role(call),
         role=role,
     )
-    # v1's notice and the bot's, word for word: the role the request was
-    # answered with.
-    notice = access_service.approval_notice(school_class, approval.granted)
-    call.after_commit(_tell(pending.telegram_id, notice))
+    # v1's notice and the bot's, word for word, naming the role the answer
+    # names: the one held now (#368).
+    call.after_commit(_tell(pending.telegram_id, approval.notice(school_class)))
     return ApproveAccessRequestResponse(
         request_id=pending.id, role=values.role(approval.member.role), who=approval.who
     )

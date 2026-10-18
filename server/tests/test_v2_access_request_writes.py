@@ -221,7 +221,13 @@ async def test_an_owner_saying_yes_to_an_admin_s_old_request_answers_the_role_th
     assert (answer.message.role, answer.message.who) == (ProtoRole.ADMIN, "@masha")
     assert await _role_of(session, school_class, ASKER) is Role.ADMIN
     assert await _status(session, asked.id) == "approved"
-    assert len(telegram.sent) == 1
+    # The notice says the same as the answer, not the role asked for (#368).
+    assert [(chat, text) for chat, text, _ in telegram.sent] == [
+        (
+            ASKER,
+            "✅ Запрос доступа в классе <b>9А</b> закрыт: у вас уже роль <b>Администратор</b>.",
+        )
+    ]
 
 
 async def test_a_request_answered_or_of_another_class_is_not_found_and_tells_nobody(

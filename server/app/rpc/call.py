@@ -39,6 +39,17 @@ themselves keep doing so, and their writes stay when the call is refused:
 
 Each has a test over v2.
 
+**A row deleted under the call is not found** (#384). A handler that read a
+row and changed it meets, at the commit or at a flush before it, the
+``StaleDataError`` SQLAlchemy raises when somebody else deleted the row in
+between. Nothing is written, as on any refusal, and the answer is the
+``RESOURCE_NOT_FOUND`` the method's own resource answers for an id that names
+nothing (:func:`gone`), here once rather than in every handler: it is what the
+same call a moment later would have said. A term has no such answer and is
+refused as ``UpdateTerm`` refuses a term the year does not have. A method
+whose resource has neither stays ``INTERNAL``, logged, as anything the table
+does not know is.
+
 **A stream holds no session** (decision 13). :func:`stream` serves a
 server-streaming method: the gate runs in a scope of its own, committed and
 closed before the first message, and again in another each time the handler
@@ -51,7 +62,8 @@ answer, worded by the one table as every refusal is.
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+import re
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from contextlib import aclosing
 from dataclasses import dataclass, field
 from typing import Any
@@ -60,15 +72,18 @@ from connectrpc.code import Code
 from connectrpc.errors import ConnectError
 from protobuf import Message
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.exc import StaleDataError
 
-from app import di
+from app import di, wording
 from app.api.deps import caller_bucket
 from app.config import Settings
+from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.models import DeviceToken, DiarySession, Role, SchoolClass
-from app.rpc import gate
-from app.rpc.errors import connect_error
+from app.rpc import gate, substitution
+from app.rpc.errors import Refusal, connect_error
 from app.rpc.handlers import HANDLERS, STREAMS
 from app.rpc.methods import Method
+from app.services import terms as terms_service
 
 log = logging.getLogger(__name__)
 
@@ -78,6 +93,60 @@ log = logging.getLogger(__name__)
 NOT_IMPLEMENTED = "Not implemented"
 
 Effect = Callable[[], Awaitable[None]]
+
+#: What a method answers when a row it read was deleted by another writer
+#: before its commit (#384): its resource's ``RESOURCE_NOT_FOUND``, word for
+#: word what the handlers answer for an id that names nothing, but for a day's
+#: mark, whose refusal is advice the race makes untrue. Keyed by the
+#: resource a method's name gives after its verb — ``UpdateSubstitution``,
+#: ``DeleteBellSchedule``, ``RevokeClassDevice``, ``DeleteHomeworkTick``,
+#: ``BatchUpdateCorrections`` — and ``test_stale_writes.py`` holds every key
+#: to a method that has it. The class is the row ``UpdateTermScheme`` and
+#: ``UnlinkMe`` meet: deleted, it takes the year's terms and the phone's
+#: device with it (#654).
+GONE: Mapping[str, tuple[str, str]] = {
+    "AccessRequest": ("access_request", wording.UNKNOWN_ACCESS_REQUEST_DETAIL),
+    "BellSchedule": ("bell_schedule", wording.UNKNOWN_BELL_SCHEDULE_DETAIL),
+    "Class": ("class", gate.CLASS_GONE),
+    "ClassDevice": ("device", wording.UNKNOWN_DEVICE_DETAIL),
+    # Taken off by another reset or clear; not made again, as a day's mark
+    # is not.
+    "Corrections": ("correction", wording.CORRECTION_GONE_DETAIL),
+    # Not UpdateDay's own refusal, which advises allow_missing: a caller that
+    # set it meets this too, and the mark is gone either way.
+    "Day": ("day", wording.DAY_NOT_MARKED_DETAIL),
+    "Event": ("event", wording.UNKNOWN_EVENT_DETAIL),
+    "Homework": ("homework", wording.UNKNOWN_HOMEWORK_DETAIL),
+    "HomeworkTick": ("homework", wording.UNKNOWN_HOMEWORK_DETAIL),
+    "Me": ("class", gate.CLASS_GONE),
+    "Subject": ("subject", wording.UNKNOWN_SUBJECT_DETAIL),
+    "Substitution": ("substitution", substitution.UNKNOWN_SUBSTITUTION),
+    "Task": ("task", wording.UNKNOWN_TASK_DETAIL),
+    "TermScheme": ("class", gate.CLASS_GONE),
+}
+
+#: The resource whose «not found» is no ``RESOURCE_NOT_FOUND``: a term the
+#: year does not have is ``UpdateTerm``'s ``TERM_BOUNDS_REFUSED``, in the
+#: sentence errors.proto quotes, and so is a term a scheme change replaced
+#: under the write (#654). Keyed as :data:`GONE` is.
+TERM_GONE: Mapping[str, str] = {"Term": terms_service.NO_SUCH_TERM}
+
+#: A method's verb: the first word of its name, and ``Batch`` with the next.
+_VERB = re.compile(r"^(?:Batch)?[A-Z][a-z]+")
+
+
+def gone(method: Method) -> Refusal | None:
+    """The refusal of ``method`` for a row deleted under it, or ``None`` when
+    the resource it names has no «not found» of its own."""
+    noun = _VERB.sub("", method.name, count=1)
+    found = GONE.get(noun)
+    if found is not None:
+        resource, sentence = found
+        return Refusal(ErrorReason.RESOURCE_NOT_FOUND, sentence, resource=resource)
+    term = TERM_GONE.get(noun)
+    if term is not None:
+        return Refusal(ErrorReason.TERM_BOUNDS_REFUSED, term)
+    return None
 
 
 @dataclass
@@ -244,5 +313,8 @@ async def invoke(
             return response
     except ConnectError:
         raise
+    except StaleDataError as failure:
+        refusal = gone(method)
+        raise connect_error(refusal if refusal is not None else failure) from None
     except Exception as failure:
         raise connect_error(failure) from None

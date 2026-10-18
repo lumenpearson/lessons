@@ -3,8 +3,9 @@
 Granting is :func:`app.services.access.approve_request`, which both shells
 already shared; this is the rest of what they wrote twice - finding a request
 that is still open, answering yes with the role sent or the one asked for
-(:func:`approve`, which v1's router held and v2's ``ApproveAccessRequest``
-applies too), and saying no - and what only the bot does, because only
+(:func:`approve`, which v1's router held and which the bot's «✅ Одобрить», v1
+and v2's ``ApproveAccessRequest`` all call, so the three name the same role
+held afterwards), and saying no - and what only the bot does, because only
 Telegram can be asked in: raising a request, and finding who to tell.
 """
 
@@ -112,12 +113,23 @@ class Approval:
     """What answering yes did."""
 
     #: The membership as it now stands: made, raised, or left where it was,
-    #: because an existing member is never lowered.
+    #: because an existing member is never lowered. ``member.role`` is the
+    #: role every word about the answer names.
     member: BotUser
-    #: The role the request was answered with: the one sent, else the one asked for.
+    #: The role the request was answered with: the one sent, else the one asked
+    #: for. Not what the member holds when ``already`` is true, so it is never
+    #: the role an answer or a notice reports (#368).
     granted: Role
     #: The member as an admin reads them (``classes.display_name``).
     who: str
+    #: They held ``granted`` or a higher role before the answer, so it raised
+    #: nobody: an admin whose old request for editor was approved is told they
+    #: are an admin still, not that they were made an editor.
+    already: bool
+
+    def notice(self, school_class: SchoolClass) -> str:
+        """What whoever asked is told in Telegram, by every shell alike."""
+        return access.approval_notice(school_class, self.member.role, already=self.already)
 
 
 async def approve(
@@ -140,6 +152,11 @@ async def approve(
     @raises app.services.access.GrantRefused when the ladder does not allow it.
     """
     granted = role if role is not None else request.requested_role
+    # Read before the grant raises them: afterwards a member raised to
+    # ``granted`` and one who already held it look the same.
+    already = access.holds_already(
+        await access.member_of(session, school_class, request.telegram_id), granted
+    )
     member = await access.approve_request(
         session,
         school_class,
@@ -152,6 +169,7 @@ async def approve(
         member=member,
         granted=granted,
         who=classes.display_name(member.full_name, member.username, member.telegram_id),
+        already=already,
     )
 
 

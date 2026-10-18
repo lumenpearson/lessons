@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models import DeviceToken, SchoolClass
 from app.security import client_bucket, hash_token
+from app.wording import CLASS_GONE_DETAIL
 
 log = logging.getLogger(__name__)
 
@@ -259,5 +260,5 @@ async def current_class(
     # session holds, and this is the object the endpoint is about to read.
     school_class = await session.get(SchoolClass, device.class_id)
     if school_class is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class no longer exists")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=CLASS_GONE_DETAIL)
     return school_class

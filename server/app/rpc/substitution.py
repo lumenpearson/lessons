@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app import telegram_send
+from app import telegram_send, wording
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.contract.lessons.v2.substitution_pb import (
     CreateSubstitutionRequest,
@@ -52,9 +52,9 @@ _ACTIONS = {
 }
 _PROTO_ACTIONS = {model: proto for proto, model in _ACTIONS.items()}
 
-#: No substitution of this class has that id. v2's sentence: v1 named a
-#: substitution by its date and number, and never answered 404.
-UNKNOWN_SUBSTITUTION = "Unknown substitution"
+#: No substitution of this class has that id. v2's sentence, which v1 says
+#: only of a substitution deleted between its read and its commit (#384).
+UNKNOWN_SUBSTITUTION = wording.UNKNOWN_SUBSTITUTION_DETAIL
 
 #: What a write reads of a ``Substitution``, as v1's ``OverrideIn`` takes it:
 #: the id is the server's.

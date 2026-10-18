@@ -63,7 +63,7 @@ async def test_a_refused_grant_says_why_and_keeps_each_shell_s_words(session, sc
 async def test_an_approval_grants_the_role_asked_for_and_names_the_member(
     session, school_class
 ) -> None:
-    """No role sent is the role asked for, as «✅ Выдать» grants it; a role sent
+    """No role sent is the role asked for, as «✅ Одобрить» grants it; a role sent
     goes through the same ladder. The name is the one an admin reads: the
     @username of a member the class knows, else the numeric id."""
     session.add(
@@ -106,6 +106,63 @@ async def test_an_approval_never_lowers_a_member_above_the_role_asked_for(
     )
     assert (approval.member.role, approval.who) == (Role.ADMIN, "Маша")
     assert asked.status == "approved"
+    # Nothing was granted, and the journal must not say it was (#368).
+    assert approval.already
+    await session.commit()
+    summary = await session.scalar(select(AuditEntry.summary).order_by(AuditEntry.id.desc()))
+    assert summary == "одобрен запрос на роль Редактор: Маша уже Администратор"
+
+
+async def test_an_approval_of_a_role_already_held_grants_nothing(session, school_class) -> None:
+    """Asked for editor, made an editor before anybody answered: the yes is
+    answered as held already, not as a grant, while a raise is a grant."""
+    session.add(BotUser(telegram_id=ASKER, class_id=school_class.id, role=Role.EDITOR))
+    session.add(BotUser(telegram_id=7702, class_id=school_class.id, role=Role.VIEWER))
+    await session.commit()
+    as_editor = await _asks(session, school_class)
+    as_viewer = await _asks(session, school_class, telegram_id=7702)
+    held = await requests_service.approve(
+        session, school_class, as_editor, actor_id=9001, actor_role=Role.ADMIN
+    )
+    raised = await requests_service.approve(
+        session, school_class, as_viewer, actor_id=9001, actor_role=Role.ADMIN
+    )
+    assert (held.already, held.member.role) == (True, Role.EDITOR)
+    assert (raised.already, raised.member.role) == (False, Role.EDITOR)
+
+
+async def test_the_journal_names_the_role_asked_for_and_the_role_answered_with(
+    session, school_class
+) -> None:
+    """v1 and v2 may answer with another role than the one asked for, and the
+    journal keeps the two apart: the role asked for is called asked for, the
+    role answered with is called granted, and neither stands in for the other."""
+    session.add(BotUser(telegram_id=7702, class_id=school_class.id, role=Role.EDITOR))
+    await session.commit()
+    newcomer = await _asks(session, school_class)
+    held = await _asks(session, school_class, telegram_id=7702, role=Role.ADMIN)
+    await requests_service.approve(
+        session, school_class, newcomer, actor_id=9001, actor_role=Role.ADMIN, role=Role.VIEWER
+    )
+    await requests_service.approve(
+        session, school_class, held, actor_id=9001, actor_role=Role.OWNER, role=Role.EDITOR
+    )
+    await session.commit()
+    summaries = await session.scalars(select(AuditEntry.summary).order_by(AuditEntry.id))
+    assert list(summaries) == [
+        "выдана роль Наблюдатель (запрошена Редактор): 7701",
+        "одобрен запрос на роль Администратор с ролью Редактор: 7702 уже Редактор",
+    ]
+
+
+def test_the_approval_notice_says_a_grant_or_the_role_already_held() -> None:
+    """Both shells send these words; the class name is typed by an admin."""
+    assert wording.approval_notice("9<А>", Role.EDITOR, already=False) == (
+        "✅ Доступ выдан: <b>Редактор</b> в классе <b>9&lt;А&gt;</b>. Откройте /start."
+    )
+    assert wording.approval_notice("9<А>", Role.ADMIN, already=True) == (
+        "✅ Запрос доступа в классе <b>9&lt;А&gt;</b> закрыт: у вас уже роль <b>Администратор</b>."
+    )
 
 
 def test_the_requests_sentences_are_v1_s() -> None:

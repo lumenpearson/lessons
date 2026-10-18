@@ -112,8 +112,15 @@ from app.bot.manage_keyboards.bells import bells_list_keyboard
 from app.bot.manage_keyboards.devices import device_keyboard
 from app.bot.manage_keyboards.holidays import DayKindAction, holiday_list_keyboard
 from app.bot.manage_keyboards.subjects import subject_list_keyboard
+from app.bot.manage_render._common import cut_escaped, person
 from app.bot.manage_render.bells import BELLS_MAX, render_bells
-from app.bot.manage_render.devices import DEVICES_MAX, render_devices, time_ago
+from app.bot.manage_render.devices import (
+    DEVICE_NAME_MAX,
+    DEVICES_MAX,
+    OWNER_NAME_MAX,
+    render_devices,
+    time_ago,
+)
 from app.bot.manage_render.holidays import LIST_MAX, render_holidays
 from app.bot.manage_render.import_export import split_text
 from app.bot.manage_render.subjects import SUBJECTS_MAX, render_subjects
@@ -677,6 +684,9 @@ async def test_approving_a_request_grants_the_editor_role(session, school_class)
     await session.refresh(request)
     assert request.status == "approved"
     assert not callback.alerted
+    # Whole lines: «Редактор» is in the card that says nothing changed too (#368).
+    assert callback.message.last == "✅ 55 — теперь <b>Редактор</b>."
+    assert callback.answers == [("Выдано", False)]
 
 
 async def test_approving_is_refused_when_the_actor_cannot_grant_that_role(session, school_class):
@@ -1159,6 +1169,76 @@ def test_the_device_page_shows_the_build_a_phone_last_sent_and_nothing_if_none()
     more = render_devices([*crowd, phone(99, "Т" * 120, 2_100_000_000)], owners)
     assert more.count("📱 <b>") == DEVICES_MAX
     assert more.endswith("… и ещё 1")
+
+
+def test_the_device_page_with_both_names_overgrown_still_matches_its_keyboard():
+    """#352, reopened: the keyboard always builds one row per device, up to
+    ``DEVICES_MAX``. Capping the owner's name by its *raw* length was not
+    enough, because nothing stops either name from being nothing but ``&``
+    - one raw character and five escaped ones - so a raw-length cap still
+    let a name balloon to five times its budget once escaped, and the
+    device's own name was not capped at all. Both are cut by the length
+    ``cut_escaped`` actually draws now, which is what this worst case holds
+    to the page's ceiling: a device name *and* an owner's name (no
+    @username) both made of the character that grows the most under
+    escaping, no role left in the class (the longer of the two suffixes,
+    longer than even «Администратор»), the longest build a
+    ``client_version`` can hold, and the longest «был …» text («ещё не
+    выходил на связь», for a phone that has never phoned home).
+    """
+    from app.wording import MESSAGE_LIMIT
+
+    growing = "&" * 300  # far past either budget; cut_escaped must bound it
+
+    def phone(n: int) -> SimpleNamespace:
+        return SimpleNamespace(
+            id=n,
+            device_name=growing,
+            telegram_id=n,
+            last_seen_at=None,
+            client_version=2_147_483_647,
+        )
+
+    devices = [phone(n) for n in range(1, DEVICES_MAX + 1)]
+    who = person(growing, None, None, limit=OWNER_NAME_MAX)
+    # No role: the longer of the two suffixes the page can print.
+    owners = {device.telegram_id: (who, None) for device in devices}
+
+    page = render_devices(devices, owners)
+    keyboard = device_keyboard(devices)
+    drawn = page.count("📱 <b>")
+
+    assert drawn == DEVICES_MAX
+    assert "и ещё" not in page
+    assert len(page) <= MESSAGE_LIMIT
+    assert _reachable(keyboard, [str(device.id) for device in devices]) == drawn
+
+
+def test_an_ordinary_name_of_about_forty_characters_is_drawn_whole():
+    """Neither budget is so tight that a real name or device model pays for
+    the worst case nobody but an adversarial client sends. A two-or-three
+    word Cyrillic name has no ``&``, ``<`` or ``>`` to grow under escaping,
+    so its escaped length is its raw one."""
+    owner_name = "Александра Константиновна Петрова-Сидорова"[:40]
+    assert len(owner_name) == 40
+    assert person(owner_name, None, 1, limit=OWNER_NAME_MAX) == owner_name
+
+    device_name = ("Samsung Galaxy A54 5G Global Edition " + "X" * 40)[:40]
+    assert len(device_name) == 40
+    assert cut_escaped(device_name, DEVICE_NAME_MAX) == device_name
+
+
+def test_a_name_cut_by_the_budget_ends_in_an_ellipsis_with_no_broken_entity():
+    """The cut lands between whole characters, never inside the entity one
+    of them escaped to - slicing the already-escaped string can leave
+    something like «&am», which is a message Telegram refuses of its own."""
+    cut = cut_escaped("&" * (OWNER_NAME_MAX * 2), OWNER_NAME_MAX)
+    assert cut.endswith("…")
+    assert len(cut) <= OWNER_NAME_MAX
+    body = cut.removesuffix("…")
+    # Every character escaping produced is a complete entity: dropping them
+    # all leaves nothing behind.
+    assert body.replace("&amp;", "") == ""
 
 
 def test_a_long_export_is_split_on_line_boundaries():
@@ -3788,6 +3868,44 @@ async def test_approving_a_request_from_somebody_not_in_the_class_adds_them(
     assert member.role is Role.EDITOR
     assert member.granted_by == 42
     assert "Редактор" in callback.message.last
+
+
+async def test_approving_an_old_request_of_a_member_already_above_it_says_the_role_they_keep(
+    session, school_class
+):
+    """A viewer asked for editor, was made an admin in «👥 Доступ» before
+    anybody answered, and the owner then pressed «✅ Одобрить» on the old
+    request. They stay an admin, and neither the card nor the notice may say
+    they are now an editor (#368)."""
+    session.add(BotUser(telegram_id=55, class_id=school_class.id, role=Role.ADMIN))
+    request = AccessRequest(
+        class_id=school_class.id,
+        telegram_id=55,
+        requested_role=Role.EDITOR,
+        status="pending",
+    )
+    session.add(request)
+    await session.commit()
+
+    bot = FakeBot()
+    callback = FakeCallback(message=FakeEditable(), bot=bot)
+    await request_approve(
+        callback,
+        SimpleNamespace(action="approve", value=str(request.id)),
+        session,
+        school_class,
+        Role.OWNER,
+    )
+
+    member = await session.scalar(select(BotUser).where(BotUser.telegram_id == 55))
+    assert member.role is Role.ADMIN
+    await session.refresh(request)
+    assert request.status == "approved"
+    assert callback.message.last == "✅ 55 уже <b>Администратор</b> — роль не изменилась."
+    assert bot.sent == [
+        (55, "✅ Запрос доступа в классе <b>9А</b> закрыт: у вас уже роль <b>Администратор</b>.")
+    ]
+    assert callback.answers == [("Роль не изменилась", False)]
 
 
 # --------------------------------------------------------------------------
