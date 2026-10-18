@@ -1666,8 +1666,10 @@ and a header or a query string that is not UTF-8, which is read as Latin-1, as v
 and judged where it is used.
 
 On every transport, too, the answers no cache may keep say so: `Cache-Control: private,
-no-store` goes on the success of every diary read (each `DiaryService` method bound to a REST
-`GET`), of `GetCalendarFeed` and `CreateCalendarFeed` (their answer is a secret URL), of
+no-store` goes on the success of every diary answer (every `DiaryService` method, the
+corrections' writes among them, since they answer with the rows they corrected), of the three
+lists that name the class's members (`ListClassDevices`, `ListAccessRequests` and
+`ListAuditEntries`, #652), of `GetCalendarFeed` and `CreateCalendarFeed` (their answer is a secret URL), of
 `GetClass` and `UpdateClass` (their answer is the class card, whose join code admits a
 phone), of `CreateDevice` and `CreateDiarySession` (their answer is a device token or a diary
 token) and of `CreateLinkCode` (its answer links the phone to whoever sends it to the bot).

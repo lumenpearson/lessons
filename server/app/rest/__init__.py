@@ -32,8 +32,9 @@ sentence that quotes what was sent.
 (:data:`CREATED`), ``200`` for every other success, with the response as
 canonical JSON; ``304`` and no body when the response says ``not_modified``;
 its ``etag`` as ``ETag``; ``Cache-Control: private, no-store`` on every method of
-``rpc/caching.py``'s ``NEVER_STORED`` — the diary's reads, ``GetCalendarFeed`` and
-``GetClass``, and the answers that carry a credential — the table the Connect adapters
+``rpc/caching.py``'s ``NEVER_STORED`` — every diary answer, the lists that name the
+class's members, ``GetCalendarFeed`` and ``GetClass``, and the answers that carry a
+credential — the table the Connect adapters
 read too, so the two transports cannot disagree about it (#357); no CORS header at all
 (question 5). A refusal is Google's error body (``rest/errors.py``).
 """

@@ -23,6 +23,17 @@ NO_STORE_ALSO = frozenset(
     {"lessons.v2.MeService/GetCalendarFeed", "lessons.v2.ClassService/GetClass"}
 )
 
+#: Reads that name the class's members: the phones' owners, who asked for a
+#: role and what they wrote, who did what in the journal. They are as much a
+#: person's as the diary is, so no cache keeps them either (#652).
+NO_STORE_NAMES = frozenset(
+    {
+        "lessons.v2.ClassDeviceService/ListClassDevices",
+        "lessons.v2.AccessRequestService/ListAccessRequests",
+        "lessons.v2.AuditService/ListAuditEntries",
+    }
+)
+
 #: Writes whose *answer* is a credential: the token a phone will use for good,
 #: the class card ``UpdateClass`` answers with, join code included, the code
 #: that links a phone to whoever sends it to the bot, until it is used, the
@@ -42,15 +53,17 @@ NO_STORE_CREDENTIAL = frozenset(
 
 
 def _never_stored(method: Method) -> bool:
-    # «A read» is a method whose REST binding is a GET: a family's marks are
-    # nobody's cache's, so every diary read is in, and so is what
-    # NO_STORE_ALSO names. The binding is a fact of the contract, so Connect
-    # asks the same question of a method whatever verb its caller used.
-    if method.key in NO_STORE_CREDENTIAL:
+    # Every diary answer, whatever its verb: a family's marks are nobody's
+    # cache's, and a correction answers with the rows it corrected, which a
+    # rule about reads alone let through (#652). Beside it, the reads
+    # NO_STORE_ALSO and NO_STORE_NAMES name, asked of the REST binding's verb,
+    # which is a fact of the contract, so Connect asks the same question of a
+    # method whatever verb its caller used.
+    if method.key in NO_STORE_CREDENTIAL or method.service == "lessons.v2.DiaryService":
         return True
     if method.binding is None or method.binding.verb != "get":
         return False
-    return method.service == "lessons.v2.DiaryService" or method.key in NO_STORE_ALSO
+    return method.key in NO_STORE_ALSO or method.key in NO_STORE_NAMES
 
 
 #: Every method whose successful answer says :data:`NO_STORE`, keyed as

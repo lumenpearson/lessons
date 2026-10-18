@@ -135,7 +135,39 @@ async def test_every_method_is_kept_from_caches_alike_on_both_transports(monkeyp
 
 def test_every_name_the_table_writes_by_hand_is_a_method() -> None:
     """A misspelt key would keep nothing from any cache, silently."""
-    from app.rpc.caching import NO_STORE_ALSO, NO_STORE_CREDENTIAL
+    from app.rpc.caching import NO_STORE_ALSO, NO_STORE_CREDENTIAL, NO_STORE_NAMES
     from app.rpc.methods import METHODS
 
-    assert (NO_STORE_ALSO | NO_STORE_CREDENTIAL) - METHODS.keys() == set()
+    assert (NO_STORE_ALSO | NO_STORE_CREDENTIAL | NO_STORE_NAMES) - METHODS.keys() == set()
+
+
+def test_the_table_is_exactly_these_methods() -> None:
+    """Agreement between the transports says nothing about what is in the set.
+
+    Named one by one, so that a method leaving it, or one joining it, is a
+    line in a diff somebody reads: a rule that silently stopped matching a
+    diary write is how the corrections' answers were left out (#652).
+    """
+    from app.rpc.caching import NEVER_STORED
+
+    diary = {
+        f"lessons.v2.DiaryService/{name}"
+        for name in (
+            "BatchUpdateCorrections", "ClearCorrections", "CreateDiarySession",
+            "DeleteDiarySession", "GetDiaryCapabilities", "ListCorrections",
+            "ListDiaryHomework", "ListDiarySubjects", "ListMarks", "ListPeriods",
+            "ListScheduleDays", "ListStudents", "ListTeachers", "ListTurnstileEvents",
+            "ResetCorrections",
+        )
+    }
+    assert NEVER_STORED == diary | {
+        "lessons.v2.AccessRequestService/ListAccessRequests",
+        "lessons.v2.AuditService/ListAuditEntries",
+        "lessons.v2.ClassDeviceService/ListClassDevices",
+        "lessons.v2.ClassService/GetClass",
+        "lessons.v2.ClassService/UpdateClass",
+        "lessons.v2.DeviceService/CreateDevice",
+        "lessons.v2.MeService/CreateCalendarFeed",
+        "lessons.v2.MeService/CreateLinkCode",
+        "lessons.v2.MeService/GetCalendarFeed",
+    }
