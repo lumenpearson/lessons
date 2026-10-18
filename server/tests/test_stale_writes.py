@@ -29,6 +29,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import wording
+from app.bot.handlers.content import homework as homework_bot
 from app.bot.handlers.content.overrides import SUBSTITUTION_GONE, override_cancel, override_subject
 from app.bot.handlers.manage.holidays import (
     DAY_GONE,
@@ -659,6 +660,39 @@ async def test_the_bots_period_over_a_mark_deleted_meanwhile_says_so_and_writes_
     async with SessionLocal() as fresh:
         kinds = list(await fresh.scalars(select(DayOverride.kind).order_by(DayOverride.date)))
     assert (kinds, await _count(AuditEntry)) == ([DayKind.HOLIDAY], 0)
+    await session.commit()
+
+
+# --------------------------------------------------------------------------
+# The bot's other screens (#654)
+#
+# Each changes a row it has read and commits it; each meets the race with the
+# sentence it already says for a row that is not there, drops its form, and
+# writes nothing. The delete is staged before the handler's first write: on
+# SQLite a transaction that has written holds the whole database, so a delete
+# staged later waits out the busy timeout instead of racing.
+# --------------------------------------------------------------------------
+
+
+async def test_the_bot_says_homework_deleted_meanwhile_is_gone_and_clears_the_state(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    """Re-sending a day's subject updates its assignment, and one deleted
+    between the update's read and its commit is not made again."""
+    row = Homework(class_id=school_class.id, due_date=MONDAY, subject_name="Алгебра", text="№ 1")
+    session.add(row)
+    await session.commit()
+    raced = _deleted_meanwhile(monkeypatch, audit, "record", Homework, row.id)
+    state = FakeState(data={"due": MONDAY.isoformat(), "subject": "Алгебра"})
+    message = FakeMessage(text="№ 2")
+
+    await homework_bot.homework_text(message, state, session, school_class, Role.EDITOR)
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert message.last == f"{homework_bot.HOMEWORK_GONE}."
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(Homework), await _count(AuditEntry)) == (0, 0)
+    # The session is usable again: the middleware commits it after the handler.
     await session.commit()
 
 

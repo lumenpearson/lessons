@@ -31,7 +31,7 @@ from app.bot.render import WEEKDAYS_SHORT, clamp, human_date, relative_day_name
 from app.bot.states import AddHomework
 from app.models import Homework, Role, SchoolClass
 from app.schedule import ResolvedDay, ScheduleResolver
-from app.services import audit, notify
+from app.services import audit, gone, notify
 from app.services import homework as homework_service
 from app.services import tasks as task_service
 
@@ -44,6 +44,11 @@ router = Router(name="content.homework")
 #: `tasks` used to offer these two handlers updates, not with `router` above:
 #: the comment there says why.
 ticks = Router(name="content.homework.ticks")
+
+#: The assignment is gone: deleted before the press, or by somebody else between
+#: this screen's read and its commit (#654). An alert says it as it stands, a
+#: message with a full stop. Not made again: whoever deleted it meant it gone.
+HOMEWORK_GONE = "Это задание уже удалено"
 
 
 def _int_or_none(raw: str) -> int | None:
@@ -243,7 +248,12 @@ async def homework_text(
         "homework.save",
         f"{verb} ДЗ: {subject} на {due:%d.%m}",
     )
-    await session.commit()
+    # An update can find the assignment deleted between its read and this
+    # commit (#654): nothing is written, nobody is told, and the form goes.
+    if not await gone.committed(session):
+        await state.clear()
+        await message.answer(f"{HOMEWORK_GONE}.", reply_markup=back_to_menu())
+        return
     await state.clear()
 
     today = _today(school_class)
@@ -396,7 +406,7 @@ async def homework_toggle(
         else None
     )
     if homework is None:
-        await callback.answer("Это задание уже удалено", show_alert=True)
+        await callback.answer(HOMEWORK_GONE, show_alert=True)
         text, keyboard = await homework_view(
             session, school_class, callback.from_user.id, role
         )
