@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import date as Date
 from typing import TYPE_CHECKING
 
-from app import telegram_send
+from app import telegram_send, wording
 from app.contract.lessons.v2 import common_pb
 from app.contract.lessons.v2.day_pb import (
     Day,
@@ -50,7 +50,7 @@ _KINDS = {common_pb.DayKind[kind.name]: kind for kind in DayKind}
 
 #: ``UpdateDay`` without ``allow_missing`` on a date nobody marked: there is
 #: no mark to change (AIP-134). v2's sentence: v1's ``PUT`` always upserted.
-DAY_NOT_MARKED = "this date has no mark; set allow_missing to mark it"
+DAY_NOT_MARKED = f"{wording.DAY_NOT_MARKED_DETAIL}; set allow_missing to mark it"
 
 
 def _message(day: Date, mark: DayOverride | None) -> Day:
