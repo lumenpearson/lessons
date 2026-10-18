@@ -64,6 +64,20 @@ SERVERS = ("pyvoy", "hypercorn")
 #: output today, but is not what decides it.
 _HCM_TYPE_SUFFIX = ".HttpConnectionManager"
 
+#: How often Envoy sends an HTTP/2 PING to a quiet downstream connection
+#: (``Http2ProtocolOptions.connection_keepalive.interval``), and how long it
+#: waits for the ACK before deciding the connection is dead
+#: (``.timeout``) — Envoy's own field names and its ``google.protobuf.Duration``
+#: string form, both read from ``envoy/config/core/v3/protocol.proto``. The
+#: interval matches ``rpc.watch.HEARTBEAT_SECONDS``, so the PING rides the
+#: same thirty-second rhythm that already wakes a ``WatchClass`` stream; the
+#: timeout is a third of that, long enough to outlast one round trip on a
+#: slow mobile link, short enough that a phone that vanished — no FIN, no
+#: RST, nothing — is found in tens of seconds rather than in the roughly
+#: fifteen minutes Linux's default TCP retransmission takes to give up (#400).
+_KEEPALIVE_INTERVAL = "30s"
+_KEEPALIVE_TIMEOUT = "10s"
+
 
 def _main_app() -> Any:
     # Imported on the first call rather than with this module, so that the
@@ -124,11 +138,27 @@ def envoy_config(config: dict[str, Any]) -> dict[str, Any]:
     reason this module cannot know — and Envoy takes none beside
     ``use_remote_address`` anyway. So a pyvoy that wrote either could not
     start a host whose throttles a forged header walks past.
+
+    The same managers also get an HTTP/2 ``connection_keepalive``
+    (:data:`_KEEPALIVE_INTERVAL`, :data:`_KEEPALIVE_TIMEOUT`), which pyvoy
+    1.3.0 writes on no manager at all: without it, Envoy learns a downstream
+    connection is dead only when the kernel's own TCP retransmission gives
+    up, about fifteen minutes on Linux's defaults, and a ``WatchClass``
+    stream from a phone that vanished — killed, out of signal, never closed
+    — is held open for the whole of that (#400). hypercorn, the fallback
+    server, has no equivalent setting, so a host run that way keeps the gap.
     """
     managers = [
         chain_filter["typed_config"]
         for listener in config.get("static_resources", {}).get("listeners", [])
-        for chain in listener.get("filter_chains", [])
+        # A listener's manager can sit in either shape Envoy's ``Listener``
+        # allows: the repeated ``filter_chains`` pyvoy 1.3.0 writes, or the
+        # single ``default_filter_chain`` (field 25) it does not write yet —
+        # walking only the first is #395's own gap, noted at its review (#400).
+        for chain in (
+            *listener.get("filter_chains", []),
+            *([listener["default_filter_chain"]] if listener.get("default_filter_chain") else []),
+        )
         for chain_filter in chain.get("filters", [])
         if chain_filter.get("typed_config", {}).get("@type", "").endswith(_HCM_TYPE_SUFFIX)
     ]
@@ -146,6 +176,13 @@ def envoy_config(config: dict[str, Any]) -> dict[str, Any]:
         manager["use_remote_address"] = True
         manager["skip_xff_append"] = True
         manager["xff_num_trusted_hops"] = 0
+        # setdefault rather than assignment, so a later pyvoy's own
+        # http2_protocol_options (a frame limit, a window size) keeps every
+        # field beside connection_keepalive instead of being thrown away.
+        http2_options = manager.setdefault("http2_protocol_options", {})
+        keepalive = http2_options.setdefault("connection_keepalive", {})
+        keepalive["interval"] = _KEEPALIVE_INTERVAL
+        keepalive["timeout"] = _KEEPALIVE_TIMEOUT
     return config
 
 
