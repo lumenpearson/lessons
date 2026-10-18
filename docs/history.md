@@ -28,6 +28,159 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: thirteen documents corrected (#539), heavy effects off under battery saver (#609), the JVM tests' inputs declared (#610), the build's own repository and a line on the app's reports (#622), and 135 answers in Discussions
+
+Merged as #622 (`1cc30fe`, 17 October 2026), from `android/report-target-469`, on milestone 12.
+Written on 17 October 2026; #622 held #469's and #458's fixes and this close-out. No revision
+goes with the batch: the schema stays at `0019`, and `EXPECTED_REVISION` with it.
+
+- **The close-out of 16 October is in `main`** (#473): merged at 10:33:03 UTC as `a5fb054`,
+  pinned to head `25adabf`, on milestone 11. It carried that batch's close-out and the refresh of
+  the rest of this file — 75 audit changes, and a review's fix round. It named itself as the only
+  thing open, and `a5fb054` is the SHA it left for this one to write.
+- **Thirteen documents say what the code does** (#539): merged at 12:05:22 UTC as `79af3d0`,
+  pinned to head `bd43d7c`, on milestone 11. It closed #459–#468, #470, #474 and #475, in a commit
+  per issue but for #461 and #467, which share one:
+  - `docs/deploy.md` tells a self-hoster that the release APK needs an `https://` address in
+    front of compose, rather than the server's plain local one (#459);
+  - the README sends a reader to the «APK» workflow on `main` rather than to CI artifacts (#460);
+  - the documents say what the GitHub client id really switches off, and that both secrets
+    `apk.yml` reads are set (#461, #467);
+  - the issue forms and SECURITY.md name every provider the app ships (#462);
+  - `CONTRIBUTING.md` and `CODEOWNERS` say production is at `0019`, `test_schema_version` now
+    reads both, and `ci.yml`'s path filter gained them (#463);
+  - `docs/deploy.md` names `SENTRY_DSN` and `GITHUB_READ_TOKEN` among the settings compose
+    hands the server, and a new `test_compose` test holds the list (#464);
+  - SECURITY.md describes the app's two network configurations and the debug key as they are
+    (#465);
+  - the README says that linking gives the app the account's role, not «makes it an editor»
+    (#466);
+  - `docs/deploy.md` says which unreadable `OWNER_IDS` stops a deployment and which passes in
+    silence (#468);
+  - Vercel is no longer called the free way to serve a class, and Hobby is described as
+    non-commercial, with an allowance (#470);
+  - the timetable cache's comments name `replaceWindow` where they named `replaceAll` (#474);
+  - the `github-pr` skill's milestone table sends its reader to this file's for what each
+    milestone holds (#475).
+
+  The server's tests went from 3332 to 3333, the one new test being `test_compose`'s.
+- **Every heavy effect is off under battery saver, and each settings row says what is drawn**
+  (#609): merged at 12:15:53 UTC as `8abf45f`, pinned to head `6d69fc6`, on milestone 12, closing
+  #476. `LocalPowerSaveMode` and `ProvidePowerSaveMode`, in `:core:designsystem`, are the one
+  source, provided at the top of `MainActivity.setContent`. Under battery saver the ripple, all
+  four motion-blur modifiers, the progressive blur and the theme reveal are off, a theme change
+  is instant, and no stored setting is written. «Размытие при прокрутке», «Волна» and «Круговая
+  смена темы» read off, cannot be pressed, and say «Выключено, пока включён режим
+  энергосбережения». «Размытие под шторкой» is the deliberate deviation («What was deliberately
+  left alone»). `:core:designsystem` gained `androidx.core.ktx` 1.19.1, the version the other
+  modules already use. An independent review said «with fixes», and the fix round showed the
+  edge lines only while the fade is on, tested every motion-blur overload, and made the receiver
+  unexported and keyed on its context. Android's tests went from 1740 to 1762.
+- **A JVM test runs again when a file it reads from the tree changes** (#610): merged at
+  12:16:03 UTC as `b167b73`, pinned to head `0c62923`, on milestone 11, closing #427. Each
+  module's `Test` tasks declare the files their tests read: `docs/legal`, `docs/app`, every
+  module's `src`, `settings.gradle.kts` and the region catalog. The defect was reproduced first —
+  on `a5fb054`, `:core:data:testDebugUnitTest` stayed UP-TO-DATE after a one-character edit of
+  `privacy.en.md` — and after the fix the same edit re-runs the task, and Gradle names the
+  changed input. `docs/build.md` gained «What the JVM tests read, Gradle watches». The count
+  stayed 1740.
+- **An APK talks to the GitHub repository its build names** (#622, #469). The repository comes
+  from `LESSONS_BUILD_REPOSITORY`, checked as `owner/name` when the app is built and
+  `lumenpearson/lessons` when it is empty, and every GitHub address is built from it: the issues,
+  the releases the update check lists, the translation pull request, the raw docs and the
+  developer mode's permission question. So a fork's APK updates from the fork and files its
+  users' reports there. `docs/build.md` says what following a fork still leaves pointing
+  upstream: the legal links, which are a setting of their own, the issue templates' links, and
+  what a default branch other than `main` does to the guide and to a translation pull request.
+- **The app's bug reports are marked by a line of their body, not a label** (#622, #458). The
+  `from-app` label is gone: GitHub drops it for anybody without push access, and the browser
+  path never sent one. Both paths end the body with «_Отправлено из приложения «Дневник»
+  <version>_», and the reports are found with `"Отправлено из приложения «Дневник»" in:body`.
+- **#622's branch** holds six commits: `9c09b0e` (#469), `00bda50` (#458), `13db276` (a test's
+  line length, kept as a commit of its own because auto mode refused the force-push that would
+  have folded it), `412bac3` (the security review's fixes), `b96cd08`, the merge of `main`, and
+  `512d98c`, the counts. The first three added 17 Android tests to a base of 1740 — `:core:data`
+  625 → 637, `:app` 668 → 673. An independent security review found nothing critical; it
+  flagged a paragraph of `docs/architecture.md` that still had the developer mode asking about
+  `lumenpearson/lessons` rather than the build's repository, tests to tighten, and the documents
+  on what a fork still points upstream, and `412bac3` applies all of it.
+- **135 questions are answered in Discussions, in fourteen topics** (between #477 and #620, in
+  «❓ Q&A»). Each answer is marked as the answer and opens with a state line: «Applies to: any
+  version», or «State: main at `a1135d5`, 16 October 2026 …» with what would change it. The
+  index, #621, «FAQ: every answered question, by topic», is in «📣 Announcements». #456, #455,
+  #453 and #621 are pinned, and there are 140 discussions in all. A workflow of 63 agents made
+  them: six audience planners, a curator, a writer per topic, a fact-check against the code and a
+  review of safety and padding per topic, and a finalizer. GitHub's secondary content limit
+  («was submitted too quickly») stopped the publishing part-way, and it resumed without a
+  duplicate.
+- **Private vulnerability reporting is on** (#457), switched on by the owner's word on 17
+  October and read back as `{"enabled":true}`; #457 is closed, and its paragraph of `HANDOVER.md`'s section 7
+  went to `docs/history.md`, «Moved out of section 7 on 17 October 2026, after #457 closed».
+- **#476 was filed, and #445 rewritten over it.** When the owner questioned #445's premise on 17
+  October, the defect underneath was filed as #476, which #609 then closed, and #445 became «A
+  feature, not a fix», built on #476 and naming the app's own rows — «Размытие под шторкой»,
+  «Волна», «Размытие при прокрутке» and «Круговая смена темы», in «Настройки → Взаимодействие →
+  Эффекты».
+- **This file**: this section on top; the batch of 16 October second; sub-project 4's first pull
+  request, #451, moved to the top of `docs/history.md`; the opening, the milestone table and
+  sections 5, 6 and 7 brought up to date; and #445's old paragraph of section 7 moved to
+  `docs/history.md`, «Moved out of section 7 on 17 October 2026, after #539, #609, #610 and
+  #622».
+
+### Gates
+
+- **#539, at `bd43d7c`**: **ruff** clean, **mypy** clean, **`pytest -n 4`** 3327 passed and 6
+  skipped, which is **3333**; **detekt** green; CI green, «Contract (Buf)» included.
+- **#609, at `6d69fc6`**: **`./gradlew test --rerun`**, **`assembleDebug`**,
+  **`assembleRelease`** and **`detekt`** green, with **1762** Android tests; CI green, with
+  «Contract (Buf)» skipped by its path filter.
+- **#610, at `0c62923`**: the before and after of the edit above, and **1740** tests, unchanged;
+  CI green, with «Contract (Buf)» skipped.
+- **#473, at `25adabf`**: CI green, with «Android» and «Contract (Buf)» skipped.
+- **#622**: **1781** Android tests — `:core:model` 125, `:core:data` 638, `:core:designsystem`
+  205, `:widget` 126, `:app` 687 — recounted from the JUnit XML on the branch merged with `main`,
+  19 more than `main`'s 1762. The counts read **3333** and **1781** in all seven places the
+  `handover` skill names. From `server/`, `test_ci_paths.py`, `test_env_example.py` and
+  `test_schema_version.py`, which read the documents, with `-p no:xdist`: **22 passed**, after
+  #622's close-out was written. GitHub's checks on #622's merge, `1cc30fe`, read success, with
+  «Contract (Buf)» skipped by its path filter, and its commit status «Vercel: success».
+
+### What was deliberately left alone
+
+- **«Размытие под шторкой» stays pressable under battery saver** (#609). Its switch also draws
+  the edge wash (`showGradientOverlay = edgeBlur`), which goes on drawing, so it keeps its stored
+  value; while it is on it explains the missing blur, under battery saver and on Samsung's
+  Android 15 and earlier, and while it is off it promises nothing. The reasoning is in a comment
+  on #476, and confirming it is the owner's (`HANDOVER.md`'s section 7).
+- **#445 is not built.** Its category, «Энергосбережение», waits for the owner's wording.
+- **#471 is open.** The deployment guide and the README still describe one deployment as the
+  project's own; #539 took the thirteen defects and not this chore.
+- **The FAQ's state lines were not rewritten** after #539, #609, #610 and #622 made some of the
+  answers out of date; the index says what a state line means (`HANDOVER.md`'s section 5).
+- **What a fork's build still points upstream** after #622 — the legal links, the issue
+  templates' links, and the guide's branch, which is still `main` — is documented in
+  `docs/build.md`, not changed.
+- **`pending/recovered-designs`**, still neither merged nor deleted, for the reasons the batch
+  of 16 October gives, in `docs/history.md` now.
+
+### What nobody has verified in this batch
+
+- **Nothing in #609, #610 or #622 ran on a device or an emulator.** `HANDOVER.md`'s section 5 lists what each
+  leaves unseen.
+- **#610 was seen re-running a task locally**, not in a CI log.
+- **The FAQ answers describe `main` at `a1135d5`**, and some are already out of date: the
+  battery-saver behaviour and the Hobby wording in the hosting answers, for two.
+- **Which commit is served by the deployment this repository's maintainer runs for testing** was
+  not read: its warmup answered `ok` with schema `0019` at 18:37 UTC on 17 October.
+
+### Left to the owner from this batch
+
+Three paragraphs of `HANDOVER.md`'s section 7 as this batch wrote them: **confirm or reject #609's deviation**, «Размытие под шторкой»
+pressable under battery saver; **let a session merge its own pull requests in auto mode**, with
+the `autoMode.allow` snippet you were given, since the classifier refused the session's own edit
+of the settings; and **delete the three leftover worktree folders**, `lessons-476`,
+`lessons-427` and `lessons-deps`. #445's wording stays yours, as before.
+
 ## What the batch before added: #451 merged, five dependency bumps in #452, the branches pruned, Discussions opened and pointed at (#472), fifteen issues filed, and this file brought up to date
 
 Written on 16 October 2026 and carried by #473, a draft from `docs/handover-2026-10-16` to

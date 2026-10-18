@@ -11,54 +11,59 @@ Last updated: **18 October 2026**. **PRs #63 through #85, #128, #129, #133, #134
 #263, #267, #274, #277, #294, #296, #297, #300, #301, #303, #305, #306, #307, #308, #311,
 #313, #319, #328, #329, #332, #333, #335, #342, #345, #346, #350, #356, #359, #363, #366, #372,
 #376, #379, #380, #385, #388, #392, #394, #396, #398, #399, #403, #410, #413, #415, #417, #418,
-#422, #428, #430, #446–#452, #472, #473, #539, #609, #610 and #622 are merged**, and #344's
-commit went in with #366 although GitHub marks it closed rather than merged; `main` is at
-`1cc30fe`, the merge of #622 at 18:54:47 UTC on 17 October 2026, which carried #469's and
-#458's fixes and the close-out of 17 October: an APK talks to the GitHub repository its build
-names, and the app's bug reports are marked by a line of their body rather than by a label.
-`1cc30fe` is the SHA that close-out left for this one to write. GitHub read `success` on it:
-the commit status «Vercel: success», and the checks «Android», «CI», «Server (API + bot)»,
-«Host (pyvoy)», «Host (hypercorn)», «What changed» and «Call the reminder tick», with
-«Contract (Buf)» skipped because no proto changed. Before it, the same day: #473, the close-out
-of 16 October, merged at 10:33:03 UTC as `a5fb054`; #539, thirteen document defects, at 12:05:22
-UTC as `79af3d0`; #609, every heavy effect off under battery saver, at 12:15:53 UTC as
-`8abf45f`; and #610, a JVM test run again when a file it reads changes, at 12:16:03 UTC as
-`b167b73`. On 16 October #451 merged as `8564b09`, #452 as `2d6fb4f` and #472 as `a1135d5`;
-#446–#450, dependabot's five, went in through #452's branch, and GitHub closed them as merged
-by itself.
+#422, #428, #430, #446–#452, #472, #473, #539, #609, #610, #622, #625, #650, #651, #653 and
+#655 are merged**, and #344's commit went in with #366 although GitHub marks it closed rather
+than merged; `main` is at `ee1dce0`, the merge of #655 at 02:46:11 UTC on 18 October 2026: a
+write whose row another writer deleted mid-write answers «not found» instead of a server error.
+Before it, on the night of 17–18 October: #625, sub-project 4's pull request B and the close-out
+that rode in it, merged at 22:41:34 UTC on 17 October as `81a6201`, pinned to head `2ba842e`, the
+SHA that close-out left for this one to write; #650, an approval that says the role the member
+holds after it, at 23:09:48 UTC as `94d95f8`; #651, «📱 Устройства» drawing a button for every
+phone it lists, at 00:48:40 UTC on 18 October as `472ae6d`; and #653, every secret or personal
+v2 answer kept out of caches on every transport, at 01:50:26 UTC as `112982e`. All five went in
+with CI green on the exact head they were pinned to, on milestone 11, with their board items set
+to Done and their remote branches deleted. Earlier, on 17 October: #622 merged at 18:54:47 UTC
+as `1cc30fe`, #473 at 10:33:03 UTC as `a5fb054`, #539 at 12:05:22 UTC as `79af3d0`, #609 at
+12:15:53 UTC as `8abf45f` and #610 at 12:16:03 UTC as `b167b73`; on 16 October #451 merged as
+`8564b09`, #452 as `2d6fb4f` and #472 as `a1135d5`, and #446–#450, dependabot's five, went in
+through #452's branch, which GitHub closed as merged by itself.
 **Sub-project 3 is complete** with #396 (`80d1281`), **and its live-verification gate has
 run**, as far as a session can take it: the condition the owner set on 8 October before
 sub-project 4, checked on the development machine on the night of 10–11 October. **The four
 designs of sub-projects 3 to 6 are approved and on `main`**: the owner answered every question
 with its recommendation on 5 October (#301, #306, #307, #308), and #410 added a seventh
-sub-project and six deployment scenarios to the programme. **Sub-project 4's pull request A is
-in `main` (#451), and the only thing open is this file's own pull request**, from
-`android/decomposition-b` to `main` on milestone 11, `Refs #273`: sub-project 4's pull request
-B, the second of its three, which splits `ManagementViewModel` and `SettingsViewModel` into
-collaborators behind one view model each, drops two stale detekt baseline entries (#624), and
-carries this close-out.
+sub-project and six deployment scenarios to the programme. **Sub-project 4's pull requests A
+(#451) and B (#625) are in `main`, and of this batch's work the only thing open is this file's
+own pull request**, from `server/host-keepalive-400` to `main`, `Refs #273`: the host's Envoy
+pinging a quiet HTTP/2 connection, so that a vanished phone's `WatchClass` stream is found in
+tens of seconds (#400), and this close-out. Open beside it, and not this batch's: pull request
+#649 and issues #626–#648, from another session's branch `agents/airbnb-practices`, which this
+batch neither read nor touched.
 
 **`dev` is not level, and it is not where the work happens**: it has stood at `8d779ef`, #342's
-merge, since 5 October, 333 commits behind `main` and holding nothing `main` lacks, and no pull
+merge, since 5 October, 359 commits behind `main` and holding nothing `main` lacks, and no pull
 request has come from it since #267 on 3 October. The `github-pr` skill still names it, so the
 branch cleanup of 16 October kept it; «How to continue», at the end of section 8, says how a
 batch starts either way. The remote holds `main`, `dev`, `pending/recovered-designs` and
-`android/decomposition-b`, read on 18 October 2026; `android/report-target-469`, #622's branch,
-is gone.
+`agents/airbnb-practices`, read on 18 October 2026, before this file's branch was pushed; the
+branches of #625, #650, #651, #653 and #655 are gone.
 
 **`main` requires one check now**, «CI», through ruleset 24883111, which the session created
 after #428's merge with the owner's permission; the repository admin role may bypass it.
 **And the owner ordered a 152-ФЗ track on 11 October**: after #451 and before sub-project 4's
 pull requests B and C, the software is to let any deployment meet 152-ФЗ without changing the
 code (epic #438, milestone 12). **On 17 October the owner put B first**, «продолжай с PR B
-подпроекта 4» («continue with sub-project 4's PR B»), and this file's pull request is B. Section
-7's «Next for the programme» has the order.
+подпроекта 4» («continue with sub-project 4's PR B»), and B is #625. **After it, on 18 October,
+the owner chose the open bugs**, «Баги status:next», out of four offers (the bugs, pull request
+C, the 152-ФЗ work, or the bugs and then C), and this batch is the first of them. Section 7's
+«Next for the programme» has the order.
 
 **The schema did not move**: the head is still `0019`, on production since 16:28 UTC on 6
-October, and `EXPECTED_REVISION` did not move either. The `/api/v1/warmup` of the deployment
-this repository's maintainer runs for testing, read at 18:37 UTC on 17 October, before #622's
-merge, answered `ok` with schema `0019` and `"v2": true`; it was not read again for this
-batch, and which commit it was serving was not read.
+October, and `EXPECTED_REVISION` did not move either; no revision went with any of the night's
+pull requests. The `/api/v1/warmup` of the deployment this repository's maintainer runs for
+testing, read at 18:37 UTC on 17 October, before #622's merge, answered `ok` with schema `0019`
+and `"v2": true`; it was not read again for this batch, and which commit it is serving was not
+read.
 
 The issues filed since #396 merged:
 - #402, closed by #403;
@@ -132,32 +137,44 @@ The issues filed since #396 merged:
 - #623, filed on 17 October by the independent review of pull request B's plan, on milestone
   11: `CLAUDE.md`, two skills and `AI_USAGE_POLICY.md` said this history carries a
   `Co-Authored-By` trailer, while 589 of its 906 non-merge commits do and none since `c83d532`
-  of 6 October. Left to the session on 18 October, it is closed by this file's pull request:
-  all four now say a commit carries no attribution trailer;
+  of 6 October. Left to the session on 18 October, the owner answered «не важно, реши как лучше
+  и исправь» («it does not matter, decide what is best and fix it»), and #625 closed it: all four
+  now say a commit carries no attribution trailer;
 - #624, filed on 17 October, on milestone 11: two of `:app`'s detekt baseline entries matched
-  no code, and one could have forgiven a new finding. `eb005c3`, on this file's pull request,
-  drops both and says «Closes #624», so it closes at that merge.
+  no code, and one could have forgiven a new finding. `eb005c3` dropped both, and #624 closed at
+  #625's merge;
+- #652, filed on 18 October by #653's security review, on milestone 11: four v2 answers that
+  carry people's data — the three lists that name members and the diary's corrections — could
+  be stored by a cache. #653 fixed it before its merge and closed it;
+- #654, filed on 18 October, on milestone 11 and open, `status:next`, on the board as Ready, P2,
+  size M, estimate 5: writes #655 did not reach still answer a server error on the race #384
+  describes — v1's `/manage/terms` (two routes),
+  `/manage/timetable/import`, the diary overrides and `/me/unlink`; v2's `UpdateTerm`,
+  `UpdateTermScheme`, `ImportTimetable`, `BatchUpdateCorrections` and `UnlinkMe`; and the bot's
+  homework, events, subjects, bells, tasks, the timetable's button editor, «🗓 Четверти», the
+  class card and the diary corrections.
 
 Most numbers from #477 to #621 are Discussions rather than issues or pull requests: 135
 questions answered in «❓ Q&A», between #477 and #620, and their index, #621, in
-«📣 Announcements» («What the session before it added»). The issues filed on 17 October are
-#476, #623 and #624.
+«📣 Announcements» (the batch of 17 October, in `docs/history.md` now). The issues filed on 17
+October are #476, #623 and #624, and this batch's are #652 and #654. #626–#648 and #649 are
+another session's (above).
 
-#395 closed with #396 and #397 with #399; #400 (backlog) and #401 (milestone 11), filed by 3c,
-are open. #352, #355, #357, #365, #368, #371, #375, #377, #378, #384 and #391 stay as the last
-close-out left them, with one update: #357, Connect GET answers carrying no `Cache-Control`, was
-confirmed live on 10 October against a local server on PostgreSQL — `GetClass` over Connect GET
-answered `200` with none, and its REST twin `private, no-store`. #365's diary reads are to move
-onto the phone after sub-project 3. #118, what Preview is for, was closed by #350.
+#395 closed with #396 and #397 with #399; #401 (milestone 11), filed by 3c, is open, and #400
+(backlog), filed with it, closes with this file's pull request. Of #352, #355, #357, #365, #368,
+#371, #375, #377, #378, #384 and #391, which the close-outs since 3c left as they were, four
+closed on the night of 17–18 October: #368 with #650, #352 with #651, #357 with #653 and #384
+with #655. The other seven stay as they were; #365's diary reads are to move onto the phone
+after sub-project 3. #118, what Preview is for, was closed by #350.
 
-The section «What the last session added» below is this batch: sub-project 4's pull request B,
-`ManagementViewModel` and `SettingsViewModel` split into collaborators, #624's two stale
-baseline entries, and #623's four documents brought level with the history. «What the session before it added» is the batch of 17
-October: #473's merge, #539's thirteen document defects, #609's battery saver, #610's test
-inputs, #622's repository and report line, the FAQ in Discussions, and #445 rewritten over
-#476. The batch of 16 October — #451's merge, #452's five bumps, the branches pruned,
-Discussions set up and #472 pointing at them, the fifteen issues, and the audit that brought
-the rest of this file up to date — is in [docs/history.md](docs/history.md) now, at its top.
+The section «What the last session added» below is this batch: #625's merge, the four bug fixes
+of the night (#650, #651, #653, #655), #400's keepalive on this file's own pull request, and
+#654 filed for the writes #655 left. «What the session before it added» is sub-project 4's pull
+request B, #625: `ManagementViewModel` and `SettingsViewModel` split into collaborators, #624's
+two stale baseline entries, and #623's four documents brought level with the history. The batch
+of 17 October — #473's merge, #539's thirteen document defects, #609's battery saver, #610's
+test inputs, #622's repository and report line, the FAQ in Discussions, and #445 rewritten over
+#476 — is in [docs/history.md](docs/history.md) now, at its top.
 
 The SHA of its own merge is for the next close-out to write.
 
@@ -296,10 +313,116 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: sub-project 4's second pull request, `ManagementViewModel` and `SettingsViewModel` split into collaborators
+## What the last session added: four bug fixes merged overnight (#650, #651, #653, #655), the host's keepalive (#400), and #625's merge
 
 Written on 18 October 2026 and carried by this file's own pull request, from
-`android/decomposition-b` to `main` on milestone 11, `Refs #273`: the second of sub-project 4's
+`server/host-keepalive-400` to `main`, `Refs #273`, which holds #400's fix (`c5b989e`), the
+merge of `main` at `ee1dce0` (`afe058d`) and this close-out. The batch began after #625's merge,
+on the owner's word of 18 October, «Баги status:next», and ran through the night on their order,
+«продолжай до утра, по крайней мере, пока машина не упадёт» («keep going till morning, at least
+until the machine goes down»); the owner also allowed an automatic fix round on pull requests
+(«можно»). Every fix is on the server; nothing under `android/`, `proto/` or
+`server/migrations/` changed, so the schema stays at `0019`, `EXPECTED_REVISION` with it, and the
+Android count stays at 1797.
+
+- **Sub-project 4's pull request B is in `main`** (#625): merged at 22:41:34 UTC on 17 October as
+  `81a6201`, pinned to head `2ba842e`, on milestone 11, closing #623 and #624. Its close-out rode
+  in it and is «What the session before it added» below; `81a6201` is the SHA it left for this
+  one to write.
+- **An approval says the role the member holds after it, not the role asked for** (#650, `94d95f8`,
+  from `server/approve-held-role-368`, closing #368): the bot's card and toast — «Роль не
+  изменилась» when the approval changes nothing — v1's `role`, and the Telegram notice that the
+  bot, v1 and v2 all send through `wording.approval_notice`; the journal line names the role asked
+  for and the role granted apart. The bot's «✅ Одобрить» now goes through
+  `services/manage/requests.approve`, as v1 and v2 already did.
+- **«📱 Устройства» draws a button for every phone it lists** (#651, `472ae6d`, from
+  `server/device-page-names-352`, closing #352): the owner's and the device's names are cut by
+  their escaped length (`manage_render/_common.cut_escaped`, with `OWNER_NAME_MAX` and
+  `DEVICE_NAME_MAX` both 50), so fifteen rows always fit; the worst case is 2742 characters of
+  the page's 3900.
+- **No cache may keep a secret or personal v2 answer, on any transport** (#653, `112982e`, from
+  `server/connect-no-store-357`, closing #357 and #652): one table, `rpc/caching.py`'s
+  `NEVER_STORED`, read by the REST transcoder and the Connect adapters alike, so a Connect answer,
+  POST or GET, carries `Cache-Control: private, no-store` as its REST twin does, and gRPC-Web and
+  native gRPC carry it as a header. The table holds every `DiaryService` answer and the three
+  lists that name members, `ListClassDevices`, `ListAccessRequests` and `ListAuditEntries`, beside
+  the class card, the calendar feed and the writes whose answer is a credential. #652 is what
+  #653's security review found, and #653 fixed it before its merge.
+- **A write whose row another writer deleted mid-write answers «not found», not a server error**
+  (#655, `ee1dce0`, from `server/stale-write-not-found-384`, closing #384): v2 in `rpc/call.py`'s
+  `invoke`, by its table `GONE`, as `RESOURCE_NOT_FOUND`; v1 in `api/routing.py`'s route class,
+  which rolls back and answers `404` on the paths its own `GONE` names; and the bot through
+  `services/gone.committed`, for substitutions, special days and «📆 Период», with two new
+  sentences, `SUBSTITUTION_GONE` and `PERIOD_GONE`. Nothing is written in that case, and an upsert
+  does not re-create the row: whoever deleted it meant it to be gone.
+- **#654 is filed for the writes #655 did not reach** (opening above has the list): open, on
+  milestone 11, `status:next`, on the board as Ready, P2, M, 5.
+- **The host finds a vanished phone's `WatchClass` stream in tens of seconds** (#400, `c5b989e`,
+  this file's pull request): `app.host.envoy_config` sets `connection_keepalive` on every HTTP
+  connection manager it corrects, an interval of 30 s, the stream's own heartbeat, and a timeout
+  of 10 s, so pyvoy's Envoy pings a quiet HTTP/2 connection instead of waiting about fifteen
+  minutes for the kernel to give up on it. #395's guard, and the correction with it, now walk
+  `default_filter_chain` as well as `filter_chains`. hypercorn, the fallback, has no such setting
+  and keeps the gap; `docs/deploy.md` says so. Four new tests in `tests/test_host.py`.
+- **This close-out**: 3366 server tests and 242 mypy modules in every place that carries them;
+  `CLAUDE.md`'s `rpc/`, `services/` and `api/` bullets brought level with `rpc/caching.py`,
+  `call.py`'s `GONE`, `services/gone.py` and the route class's `404`; and this file — this section
+  on top, #625's batch second, the batch of 17 October moved to the top of `docs/history.md`, and
+  the opening, the milestone table and sections 5 and 7 brought up to date.
+
+### Gates
+
+- **#650, #651, #653 and #655**: CI green on the exact head each was merged at, pinned with
+  `--match-head-commit`. On #655's head the server job ran **3356 passed, 6 skipped**, which is
+  **3362**.
+- **This file's branch**, at `afe058d` with the documents edited: **3366** tests collected
+  (`pytest --collect-only`), 3362 and #400's four, six of them skipped unless a host runs; the
+  suite itself was not run for this close-out. **mypy**, no issues in **242** source files, two
+  more than the 240 every document said, for `rpc/caching.py` and `services/gone.py`. **ruff**
+  clean. From `server/`, `test_env_example.py`, `test_ci_paths.py` and `test_schema_version.py`,
+  which read the documents, with `-p no:xdist`: **22 passed**, after this close-out was written.
+  CI on this pull request's head is read before the merge.
+- **Android**: nothing changed under `android/`, and nothing was run; the count stays **1797**.
+
+### What was deliberately left alone
+
+- **#654's writes.** #655 answers «not found» on the writes it names above; the rest are #654,
+  open and `status:next`, so it is among the next bugs.
+- **#270, the app matching English error text**: it belongs to sub-project 5, when the app moves
+  to v2's `ErrorInfo.reason`.
+- **#401, `watch.proto`'s comment on a newer stream ending the older one**: the fix needs
+  `buf generate`, Buf 1.73.0 is not installed where this batch ran, and the generated code is never
+  edited by hand. Fetching the binary waits on the owner (section 7).
+- **#268 and #269 were not looked at**: whether either was left deliberately is to be read first.
+- **hypercorn's gap** (#400): it has no keepalive setting, so `--server hypercorn` keeps finding a
+  vanished stream only when the kernel does.
+- **Pull request #649 and issues #626–#648**, another session's, not read.
+
+### What nobody has verified in this batch
+
+- **Nothing ran in Telegram or on a device**: the approval card and its toast, «📱 Устройства» at
+  fifteen long names, and the «not found» answers of substitutions, special days and «📆 Период»
+  have been seen by their tests only.
+- **#655 ran on SQLite only**: the race against PostgreSQL's own `UPDATE` was not run.
+- **#400 was measured on no live host**: the interval and timeout come from the heartbeat's
+  cadence, not from a running deployment, because the host is deployed nowhere yet.
+- **No test exercises gRPC-Web or native gRPC for #653's header**: Connect over HTTP is what the
+  tests ask.
+- **Nothing was deployed by hand**: Vercel deploys `main` itself, and neither the deployment's
+  warmup nor which commit it serves was read for this batch.
+- **CI on this pull request's head** had not been read when this was written.
+
+### Left to the owner from this batch
+
+**Let a session fetch Buf 1.73.0 for #401**, or run `buf generate` yourself (section 7). Optionally,
+look at the approval card and «📱 Устройства» in a real chat, since nothing here has.
+
+## What the session before it added: sub-project 4's second pull request, `ManagementViewModel` and `SettingsViewModel` split into collaborators
+
+Merged as #625 (`81a6201`, at 22:41:34 UTC on 17 October 2026, already 18 October in Moscow),
+pinned to head `2ba842e`, from
+`android/decomposition-b`, on milestone 11, closing #623 and #624, with CI green on that head.
+Written on 18 October 2026 and carried by #625 itself, `Refs #273`: the second of sub-project 4's
 three pull requests, per `docs/specs/2026-10-05-android-decomposition-design.md`, with its plan
 at `docs/specs/2026-10-18-android-decomposition-b-plan.md`. The branch was cut from `main` at
 `1cc30fe`, #622's merge. It was built on the owner's word of 17 October 2026, «продолжай с PR B
@@ -431,159 +554,6 @@ nothing under `server/` changes. Every public name the screens call stays, so no
 Nothing new. The merge of a session's own pull request now has an `autoMode.allow` rule in the
 user settings (section 7).
 
-## What the session before it added: thirteen documents corrected (#539), heavy effects off under battery saver (#609), the JVM tests' inputs declared (#610), the build's own repository and a line on the app's reports (#622), and 135 answers in Discussions
-
-Merged as #622 (`1cc30fe`, 17 October 2026), from `android/report-target-469`, on milestone 12.
-Written on 17 October 2026; #622 held #469's and #458's fixes and this close-out. No revision
-goes with the batch: the schema stays at `0019`, and `EXPECTED_REVISION` with it.
-
-- **The close-out of 16 October is in `main`** (#473): merged at 10:33:03 UTC as `a5fb054`,
-  pinned to head `25adabf`, on milestone 11. It carried that batch's close-out and the refresh of
-  the rest of this file — 75 audit changes, and a review's fix round. It named itself as the only
-  thing open, and `a5fb054` is the SHA it left for this one to write.
-- **Thirteen documents say what the code does** (#539): merged at 12:05:22 UTC as `79af3d0`,
-  pinned to head `bd43d7c`, on milestone 11. It closed #459–#468, #470, #474 and #475, in a commit
-  per issue but for #461 and #467, which share one:
-  - `docs/deploy.md` tells a self-hoster that the release APK needs an `https://` address in
-    front of compose, rather than the server's plain local one (#459);
-  - the README sends a reader to the «APK» workflow on `main` rather than to CI artifacts (#460);
-  - the documents say what the GitHub client id really switches off, and that both secrets
-    `apk.yml` reads are set (#461, #467);
-  - the issue forms and SECURITY.md name every provider the app ships (#462);
-  - `CONTRIBUTING.md` and `CODEOWNERS` say production is at `0019`, `test_schema_version` now
-    reads both, and `ci.yml`'s path filter gained them (#463);
-  - `docs/deploy.md` names `SENTRY_DSN` and `GITHUB_READ_TOKEN` among the settings compose
-    hands the server, and a new `test_compose` test holds the list (#464);
-  - SECURITY.md describes the app's two network configurations and the debug key as they are
-    (#465);
-  - the README says that linking gives the app the account's role, not «makes it an editor»
-    (#466);
-  - `docs/deploy.md` says which unreadable `OWNER_IDS` stops a deployment and which passes in
-    silence (#468);
-  - Vercel is no longer called the free way to serve a class, and Hobby is described as
-    non-commercial, with an allowance (#470);
-  - the timetable cache's comments name `replaceWindow` where they named `replaceAll` (#474);
-  - the `github-pr` skill's milestone table sends its reader to this file's for what each
-    milestone holds (#475).
-
-  The server's tests went from 3332 to 3333, the one new test being `test_compose`'s.
-- **Every heavy effect is off under battery saver, and each settings row says what is drawn**
-  (#609): merged at 12:15:53 UTC as `8abf45f`, pinned to head `6d69fc6`, on milestone 12, closing
-  #476. `LocalPowerSaveMode` and `ProvidePowerSaveMode`, in `:core:designsystem`, are the one
-  source, provided at the top of `MainActivity.setContent`. Under battery saver the ripple, all
-  four motion-blur modifiers, the progressive blur and the theme reveal are off, a theme change
-  is instant, and no stored setting is written. «Размытие при прокрутке», «Волна» and «Круговая
-  смена темы» read off, cannot be pressed, and say «Выключено, пока включён режим
-  энергосбережения». «Размытие под шторкой» is the deliberate deviation («What was deliberately
-  left alone»). `:core:designsystem` gained `androidx.core.ktx` 1.19.1, the version the other
-  modules already use. An independent review said «with fixes», and the fix round showed the
-  edge lines only while the fade is on, tested every motion-blur overload, and made the receiver
-  unexported and keyed on its context. Android's tests went from 1740 to 1762.
-- **A JVM test runs again when a file it reads from the tree changes** (#610): merged at
-  12:16:03 UTC as `b167b73`, pinned to head `0c62923`, on milestone 11, closing #427. Each
-  module's `Test` tasks declare the files their tests read: `docs/legal`, `docs/app`, every
-  module's `src`, `settings.gradle.kts` and the region catalog. The defect was reproduced first —
-  on `a5fb054`, `:core:data:testDebugUnitTest` stayed UP-TO-DATE after a one-character edit of
-  `privacy.en.md` — and after the fix the same edit re-runs the task, and Gradle names the
-  changed input. `docs/build.md` gained «What the JVM tests read, Gradle watches». The count
-  stayed 1740.
-- **An APK talks to the GitHub repository its build names** (#622, #469). The repository comes
-  from `LESSONS_BUILD_REPOSITORY`, checked as `owner/name` when the app is built and
-  `lumenpearson/lessons` when it is empty, and every GitHub address is built from it: the issues,
-  the releases the update check lists, the translation pull request, the raw docs and the
-  developer mode's permission question. So a fork's APK updates from the fork and files its
-  users' reports there. `docs/build.md` says what following a fork still leaves pointing
-  upstream: the legal links, which are a setting of their own, the issue templates' links, and
-  what a default branch other than `main` does to the guide and to a translation pull request.
-- **The app's bug reports are marked by a line of their body, not a label** (#622, #458). The
-  `from-app` label is gone: GitHub drops it for anybody without push access, and the browser
-  path never sent one. Both paths end the body with «_Отправлено из приложения «Дневник»
-  <version>_», and the reports are found with `"Отправлено из приложения «Дневник»" in:body`.
-- **#622's branch** holds six commits: `9c09b0e` (#469), `00bda50` (#458), `13db276` (a test's
-  line length, kept as a commit of its own because auto mode refused the force-push that would
-  have folded it), `412bac3` (the security review's fixes), `b96cd08`, the merge of `main`, and
-  `512d98c`, the counts. The first three added 17 Android tests to a base of 1740 — `:core:data`
-  625 → 637, `:app` 668 → 673. An independent security review found nothing critical; it
-  flagged a paragraph of `docs/architecture.md` that still had the developer mode asking about
-  `lumenpearson/lessons` rather than the build's repository, tests to tighten, and the documents
-  on what a fork still points upstream, and `412bac3` applies all of it.
-- **135 questions are answered in Discussions, in fourteen topics** (between #477 and #620, in
-  «❓ Q&A»). Each answer is marked as the answer and opens with a state line: «Applies to: any
-  version», or «State: main at `a1135d5`, 16 October 2026 …» with what would change it. The
-  index, #621, «FAQ: every answered question, by topic», is in «📣 Announcements». #456, #455,
-  #453 and #621 are pinned, and there are 140 discussions in all. A workflow of 63 agents made
-  them: six audience planners, a curator, a writer per topic, a fact-check against the code and a
-  review of safety and padding per topic, and a finalizer. GitHub's secondary content limit
-  («was submitted too quickly») stopped the publishing part-way, and it resumed without a
-  duplicate.
-- **Private vulnerability reporting is on** (#457), switched on by the owner's word on 17
-  October and read back as `{"enabled":true}`; #457 is closed, and its paragraph of section 7
-  went to `docs/history.md`, «Moved out of section 7 on 17 October 2026, after #457 closed».
-- **#476 was filed, and #445 rewritten over it.** When the owner questioned #445's premise on 17
-  October, the defect underneath was filed as #476, which #609 then closed, and #445 became «A
-  feature, not a fix», built on #476 and naming the app's own rows — «Размытие под шторкой»,
-  «Волна», «Размытие при прокрутке» and «Круговая смена темы», in «Настройки → Взаимодействие →
-  Эффекты».
-- **This file**: this section on top; the batch of 16 October second; sub-project 4's first pull
-  request, #451, moved to the top of `docs/history.md`; the opening, the milestone table and
-  sections 5, 6 and 7 brought up to date; and #445's old paragraph of section 7 moved to
-  `docs/history.md`, «Moved out of section 7 on 17 October 2026, after #539, #609, #610 and
-  #622».
-
-### Gates
-
-- **#539, at `bd43d7c`**: **ruff** clean, **mypy** clean, **`pytest -n 4`** 3327 passed and 6
-  skipped, which is **3333**; **detekt** green; CI green, «Contract (Buf)» included.
-- **#609, at `6d69fc6`**: **`./gradlew test --rerun`**, **`assembleDebug`**,
-  **`assembleRelease`** and **`detekt`** green, with **1762** Android tests; CI green, with
-  «Contract (Buf)» skipped by its path filter.
-- **#610, at `0c62923`**: the before and after of the edit above, and **1740** tests, unchanged;
-  CI green, with «Contract (Buf)» skipped.
-- **#473, at `25adabf`**: CI green, with «Android» and «Contract (Buf)» skipped.
-- **#622**: **1781** Android tests — `:core:model` 125, `:core:data` 638, `:core:designsystem`
-  205, `:widget` 126, `:app` 687 — recounted from the JUnit XML on the branch merged with `main`,
-  19 more than `main`'s 1762. The counts read **3333** and **1781** in all seven places the
-  `handover` skill names. From `server/`, `test_ci_paths.py`, `test_env_example.py` and
-  `test_schema_version.py`, which read the documents, with `-p no:xdist`: **22 passed**, after
-  #622's close-out was written. GitHub's checks on #622's merge, `1cc30fe`, read success, with
-  «Contract (Buf)» skipped by its path filter, and its commit status «Vercel: success».
-
-### What was deliberately left alone
-
-- **«Размытие под шторкой» stays pressable under battery saver** (#609). Its switch also draws
-  the edge wash (`showGradientOverlay = edgeBlur`), which goes on drawing, so it keeps its stored
-  value; while it is on it explains the missing blur, under battery saver and on Samsung's
-  Android 15 and earlier, and while it is off it promises nothing. The reasoning is in a comment
-  on #476, and confirming it is the owner's (section 7).
-- **#445 is not built.** Its category, «Энергосбережение», waits for the owner's wording.
-- **#471 is open.** The deployment guide and the README still describe one deployment as the
-  project's own; #539 took the thirteen defects and not this chore.
-- **The FAQ's state lines were not rewritten** after #539, #609, #610 and #622 made some of the
-  answers out of date; the index says what a state line means (section 5).
-- **What a fork's build still points upstream** after #622 — the legal links, the issue
-  templates' links, and the guide's branch, which is still `main` — is documented in
-  `docs/build.md`, not changed.
-- **`pending/recovered-designs`**, still neither merged nor deleted, for the reasons the batch
-  of 16 October gives, in `docs/history.md` now.
-
-### What nobody has verified in this batch
-
-- **Nothing in #609, #610 or #622 ran on a device or an emulator.** Section 5 lists what each
-  leaves unseen.
-- **#610 was seen re-running a task locally**, not in a CI log.
-- **The FAQ answers describe `main` at `a1135d5`**, and some are already out of date: the
-  battery-saver behaviour and the Hobby wording in the hosting answers, for two.
-- **Which commit is served by the deployment this repository's maintainer runs for testing** was
-  not read: its warmup answered `ok` with schema `0019` at 18:37 UTC on 17 October.
-
-### Left to the owner from this batch
-
-Three paragraphs of section 7: **confirm or reject #609's deviation**, «Размытие под шторкой»
-pressable under battery saver; **let a session merge its own pull requests in auto mode**, with
-the `autoMode.allow` snippet you were given, since the classifier refused the session's own edit
-of the settings; and **delete the three leftover worktree folders**, `lessons-476`,
-`lessons-427` and `lessons-deps`. #445's wording stays yours, as before.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -608,9 +578,9 @@ current.
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539 and #610 (merged) and this pull request, from `android/decomposition-b` (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623 and #624 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
-| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471 and #476 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441 and #443; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653 and #655 (merged) and this pull request, from `server/host-keepalive-400` (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652 and #654 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, and PR #649 (open); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
@@ -650,8 +620,21 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
-- **Sub-project 4's pull request B, this file's own pull request, has been seen by its tests and
-  its gates only** («What the last session added» has the detail).
+- **The night's four bug fixes and #400 have been seen by their tests and CI only** («What the
+  last session added» has the detail).
+  - **Nothing ran in Telegram or on a device** (#650, #651, #655): nobody has pressed «✅
+    Одобрить» on a request for a role the member already holds and read «Роль не изменилась»,
+    drawn «📱 Устройства» with fifteen long names, or seen a substitution, a special day or
+    «📆 Период» answer «not found» after its row was deleted under it.
+  - **#655's race ran on SQLite only**: the `StaleDataError` it catches was raised by SQLite's
+    `UPDATE` matching nothing, never by PostgreSQL's.
+  - **No test exercises gRPC-Web or native gRPC for #653's `Cache-Control`**: the tests ask REST
+    and Connect over HTTP.
+  - **#400's keepalive was measured on no live host**: a 30 s interval and a 10 s timeout are
+    chosen from the stream's heartbeat, and nobody has watched Envoy drop a phone that vanished.
+    Under `--server hypercorn` the gap of about fifteen minutes stays.
+- **Sub-project 4's pull request B, #625, merged as `81a6201`, has been seen by its tests and its
+  gates only** («What the session before it added» has the detail).
   - **No APK from `android/decomposition-b` has been installed** on a device or an emulator;
     nobody has opened the management sheets or the settings page over the split view models.
   - **No screen test composes a settings row over a real `SettingsViewModel`**: the rows'
@@ -663,8 +646,9 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     Telegram link when the view model is cleared.
   - **The scripts that moved the code in `3a8792c` and `4df9759`** were checked by the move
     checker, the counts and the tests; the plan's dry run of them was condensed.
-- **#609, #610 and #622 have been seen by their tests and their gates only** («What the session
-  before it added» has the detail). Nothing in any of the three ran on a device or an emulator.
+- **#609, #610 and #622 have been seen by their tests and their gates only** (the batch of 17
+  October, in `docs/history.md` now, has the detail). Nothing in any of the three ran on a device
+  or an emulator.
   - **Battery saver has not been switched on under the app** (#609): nobody has watched the
     ripple, the four motion blurs, the progressive blur and the theme reveal go off, read
     «Выключено, пока включён режим энергосбережения» under the three rows, or seen «Размытие
@@ -1748,6 +1732,12 @@ job reads no secret today. If its log says Buf refused an unauthenticated reques
 resource exhausted), create a token at buf.build and pass it to the job as `BUF_TOKEN`;
 `docs/build.md`, «The v2 contract and Buf», says where. Nothing is needed until then.
 
+**Let a session fetch Buf 1.73.0, or regenerate the contract yourself, for #401.** #401 corrects
+`watch.proto`'s comment on a newer stream ending the older one, and a proto edit has to be
+committed with what `buf generate` writes into `server/app/contract/`, which is never edited by
+hand. Buf is not installed where the batch of 17–18 October ran, and fetching a binary onto that
+machine was left to you; `docs/build.md`, «The v2 contract and Buf», says how it is fetched.
+
 **Optional: give the Postman collection a device token.** The second folder of «lessons — API
 smoke (read-only)», «With a device token», skips itself until the environment «lessons —
 production» has a **current value** for `deviceToken`; type one there from a phone joined to
@@ -1773,17 +1763,21 @@ first run. Section 5 has what is likeliest to look wrong. If the stretched weekd
 round small FAB read wrong, each goes back in one place: `WeekdayTileGap` and the fit check in
 `CalendarGrids.kt`, and the FAB's `shape` in `DayRibbonView.kt`.
 
-**Next for the programme: the 152-ФЗ work and sub-project 4's C, in the order you choose.**
-Sub-project 3 is complete (#396), its live-verification gate ran on the night of 10–11 October,
-and #406 (#422), #428 and #430 followed it. Sub-project 4, the Android decomposition per
-`docs/specs/2026-10-05-android-decomposition-design.md`, has two of its three pull requests: A,
-#451, merged as `8564b09` on 16 October 2026, and B, this file's own pull request from
-`android/decomposition-b`, `ManagementViewModel` and `SettingsViewModel` split into
-collaborators. Your order of 11 October put the work that lets any deployment meet 152-ФЗ
-without changing the code, epic #438 on milestone 12, between A and the rest. On 17 October
-2026 you said «продолжай с PR B подпроекта 4» («continue with sub-project 4's PR B»), which put
-B ahead of epic #438 and the 152-ФЗ work; it said nothing of C, so the order of 11 October
-still stands for C until you say otherwise. As it stands:
+**Next for the programme: the open bugs marked `status:next`, then the 152-ФЗ work and
+sub-project 4's C, in the order you choose.** Sub-project 3 is complete (#396), its
+live-verification gate ran on the night of 10–11 October, and #406 (#422), #428 and #430
+followed it. Sub-project 4, the Android decomposition per
+`docs/specs/2026-10-05-android-decomposition-design.md`, has two of its three pull requests in
+`main`: A, #451, merged as `8564b09` on 16 October 2026, and B, #625, merged as `81a6201` on 17
+October, `ManagementViewModel` and `SettingsViewModel` split into collaborators. Your order of 11
+October put the work that lets any deployment meet 152-ФЗ without changing the code, epic #438
+on milestone 12, between A and the rest. On 17 October 2026 you said «продолжай с PR B
+подпроекта 4» («continue with sub-project 4's PR B»), which put B ahead of epic #438, and on 18
+October, offered the bugs, pull request C, the 152-ФЗ work, or the bugs and then C, you chose
+«Баги status:next». The night of 17–18 October closed four bugs (#368, #352, #357 and #384),
+is closing #400 with this file's pull request, and filed #654, open and `status:next`. Neither
+answer placed C, so the order
+of 11 October still stands for C until you say otherwise. After the bugs, as it stands:
 1. #435's design, option C, as `docs/specs/2026-10-11-data-in-russia-design.md` with your
    choices and the open questions for a lawyer, and its plan; then #407's recipe for it — the
    host target on RUVDS with PostgreSQL on the same VPS, and the bot's Telegram calls through
@@ -2200,8 +2194,8 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3333 tests, ~26 min alone on Windows
-cd server  && python -m mypy                             # clean, 240 modules
+cd server  && pytest -q -n auto                          # 3366 tests, ~26 min alone on Windows
+cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1797 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles

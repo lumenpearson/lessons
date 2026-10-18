@@ -276,6 +276,85 @@ def test_a_configuration_with_nothing_to_correct_is_refused_rather_than_served()
         host.envoy_config(bare)
 
 
+def test_envoy_pings_a_quiet_connection_so_a_vanished_phone_is_found_quickly() -> None:
+    """Without a keepalive, Envoy only learns a connection is dead when the
+    kernel gives up retransmitting — about fifteen minutes on Linux's
+    defaults (#400) — and a ``WatchClass`` stream from a phone that vanished
+    is held for all of that. ``KeepaliveSettings.interval`` matches
+    ``rpc.watch.HEARTBEAT_SECONDS``, so the PING rides the same thirty-second
+    rhythm that already wakes the stream, and ``.timeout`` is short enough
+    that a dead connection is found within tens of seconds rather than
+    minutes, while still outlasting one round trip on a slow mobile link."""
+    corrected = host.envoy_config(copy.deepcopy(PYVOY_CONFIG))
+    managers = [
+        chain["filters"][0]["typed_config"]
+        for listener in corrected["static_resources"]["listeners"]
+        for chain in listener["filter_chains"]
+    ]
+    assert len(managers) == 2
+    for manager in managers:
+        keepalive = manager["http2_protocol_options"]["connection_keepalive"]
+        assert keepalive["interval"] == host._KEEPALIVE_INTERVAL
+        assert keepalive["timeout"] == host._KEEPALIVE_TIMEOUT
+
+
+def test_the_keepalive_correction_merges_into_pyvoys_own_http2_protocol_options() -> None:
+    """A later pyvoy that sets an HTTP/2 option of its own (a frame limit,
+    say) must keep it: the correction adds ``connection_keepalive`` to
+    whatever dict is already there, rather than replacing it with a fresh
+    one that would throw the rest away."""
+    carrying = copy.deepcopy(PYVOY_CONFIG)
+    manager = carrying["static_resources"]["listeners"][0]["filter_chains"][0]["filters"][0][
+        "typed_config"
+    ]
+    manager["http2_protocol_options"] = {"max_concurrent_streams": 100}
+    corrected = host.envoy_config(carrying)
+    options = corrected["static_resources"]["listeners"][0]["filter_chains"][0]["filters"][0][
+        "typed_config"
+    ]["http2_protocol_options"]
+    assert options["max_concurrent_streams"] == 100
+    assert options["connection_keepalive"]["interval"] == host._KEEPALIVE_INTERVAL
+    assert options["connection_keepalive"]["timeout"] == host._KEEPALIVE_TIMEOUT
+
+
+def test_a_listener_with_only_a_default_filter_chain_is_still_corrected() -> None:
+    """#395's guard, and the keepalive correction travelling with it, must
+    not be fooled by a later pyvoy that writes ``default_filter_chain`` (a
+    single chain, field 25 of Envoy's ``Listener``) instead of
+    ``filter_chains`` (repeated, field 3) — the proto allows either, or
+    both, and pyvoy 1.3.0 happens to write only the second today."""
+    solo = copy.deepcopy(PYVOY_CONFIG)
+    listener = solo["static_resources"]["listeners"][0]
+    listener["default_filter_chain"] = listener.pop("filter_chains")[0]
+    corrected = host.envoy_config(solo)
+    manager = corrected["static_resources"]["listeners"][0]["default_filter_chain"]["filters"][0][
+        "typed_config"
+    ]
+    assert manager["use_remote_address"] is True
+    assert manager["http2_protocol_options"]["connection_keepalive"]["interval"] == (
+        host._KEEPALIVE_INTERVAL
+    )
+
+
+def test_a_default_filter_chain_with_nothing_to_correct_is_refused_rather_than_served() -> None:
+    """The same refusal as
+    :func:`test_a_configuration_with_nothing_to_correct_is_refused_rather_than_served`,
+    for a configuration where every manager sits in a ``default_filter_chain``
+    rather than in ``filter_chains`` — the guard has to walk both, or a pyvoy
+    that moved there could start a host whose throttles a forged header
+    walks past."""
+    bare = copy.deepcopy(PYVOY_CONFIG)
+    for listener in bare["static_resources"]["listeners"]:
+        listener["default_filter_chain"] = listener.pop("filter_chains")[0]
+        chain_filter = listener["default_filter_chain"]["filters"][0]
+        chain_filter["name"] = "envoy.filters.network.tcp_proxy"
+        chain_filter["typed_config"]["@type"] = (
+            "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy"
+        )
+    with pytest.raises(RuntimeError, match="client's address"):
+        host.envoy_config(bare)
+
+
 async def test_pyvoy_is_given_its_own_stdout_and_stderr_rather_than_pyvoys_default(
     monkeypatch,
 ) -> None:
