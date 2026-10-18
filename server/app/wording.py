@@ -22,7 +22,7 @@ from collections.abc import Iterable
 from datetime import date as Date
 from html import escape
 
-from app.models import DayKind, EventKind
+from app.models import DayKind, EventKind, Role
 from app.schedule import DayOffReason, ResolvedDay
 
 MONTHS_GENITIVE = [
@@ -343,6 +343,14 @@ CORRECTION_TARGET_REFUSED_DETAIL = "Эту запись нельзя испра�
 CORRECTION_FIELD_REFUSED_DETAIL = "Это поле нельзя исправить"
 CORRECTION_VALUE_EMPTY_DETAIL = "Это поле не может быть пустым"
 
+#: v1's ``PUT /diary/students/{id}/overrides`` (a ``409``) and v2's
+#: ``BatchUpdateCorrections`` when a correction they change was taken off by
+#: another write between their read and their commit (#654): a reset or a
+#: clear by somebody else who sees the child. Not made again, as a
+#: substitution and a day's mark are not (#384). A correction is named by its
+#: target and field rather than an id, so the sentence says what is there now.
+CORRECTION_GONE_DETAIL = "this field has no correction"
+
 #: v1's ``POST /join`` and v2's ``CreateDevice``, for each refusal of
 #: ``services/join.py``: too many wrong codes, a code that names nothing, a
 #: class that takes personal codes only, and a class at its phone limit.
@@ -409,7 +417,7 @@ UNKNOWN_ACCESS_REQUEST_DETAIL = "Unknown request"
 #: Why ``services/access.approve_request`` refused a grant, by the ``why`` its
 #: refusal carries: a role at or above the grantor's own, and a member who is
 #: the grantor's peer or senior. The English is v1's 403 and v2's
-#: ``ROLE_GRANT_REFUSED``; the Russian is the bot's alert on «✅ Выдать».
+#: ``ROLE_GRANT_REFUSED``; the Russian is the bot's alert on «✅ Одобрить».
 GRANT_REFUSED_DETAILS = {
     "role_too_high": "cannot grant a role at or above your own",
     "member_senior": "cannot change this member's role",
@@ -418,6 +426,26 @@ GRANT_REFUSED_ALERTS = {
     "role_too_high": "Нельзя выдать роль выше вашей",
     "member_senior": "Нельзя менять роль этого пользователя",
 }
+
+
+def approval_notice(class_name: str, role: Role, *, already: bool) -> str:
+    """What whoever asked is told in Telegram once their request is answered yes.
+
+    ``role`` is the role they hold now. ``already`` says they held it, or a
+    higher one, before the answer: a request for editor approved after an owner
+    made them an admin raises nobody, and telling an admin «Доступ выдан:
+    Редактор» told them the wrong role (#368). The bot, v1 and v2 send these
+    words alike. The class name is escaped: it is typed by an admin, and a
+    class really can be called «9<А», which Telegram answers by refusing the
+    whole message rather than the one tag.
+    """
+    name = escape(class_name)
+    if already:
+        return (
+            f"✅ Запрос доступа в классе <b>{name}</b> закрыт: "
+            f"у вас уже роль <b>{role.title_ru}</b>."
+        )
+    return f"✅ Доступ выдан: <b>{role.title_ru}</b> в классе <b>{name}</b>. Откройте /start."
 
 
 #: v1's ``GET /directory/school-regions`` and v2's ``ListSchoolRegions``, the
@@ -446,6 +474,24 @@ UNKNOWN_HOMEWORK_DETAIL = "Unknown homework"
 #: v1's ``DELETE /events/{id}`` and v2's ``EventService``: no event of this
 #: class has that id.
 UNKNOWN_EVENT_DETAIL = "Unknown event"
+
+#: v1's ``current_class`` and v2's gate: the class a phone joined was deleted.
+#: v1's ``/manage/class`` says it too of a class deleted between a write's
+#: read and its commit (#384), and so do ``/manage/terms/scheme`` and
+#: ``/me``, v2's ``UpdateTermScheme`` and ``UnlinkMe`` (#654).
+CLASS_GONE_DETAIL = "Class no longer exists"
+
+#: v2's ``SubstitutionService``: no substitution of this class has that id;
+#: and v1's ``PUT /overrides`` when the substitution it changes was deleted
+#: by another write between its read and its commit (#384). v1 names a
+#: substitution by its date and number, and otherwise never answers 404.
+UNKNOWN_SUBSTITUTION_DETAIL = "Unknown substitution"
+
+#: A date with no mark of the class: v1's ``PUT /days`` when the mark it
+#: changes was taken off by another write between its read and its commit
+#: (#384), and the first half of v2's ``UpdateDay`` refusal of a date nobody
+#: marked, which goes on to name ``allow_missing``.
+DAY_NOT_MARKED_DETAIL = "this date has no mark"
 
 #: v1's ``PUT /days`` and v2's ``UpdateDay``: a ``bell_schedule_id`` that names
 #: no bell schedule of this class, and a shortened day that names none. A

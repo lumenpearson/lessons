@@ -52,6 +52,13 @@ class TermError(ValueError):
     """A change a school year cannot hold. Carries the Russian explanation."""
 
 
+#: :func:`set_bounds`'s refusal of an index the year does not have. Named,
+#: because v1's route class and v2's ``invoke`` answer it too for a term
+#: another write deleted between this write's read and its commit — a scheme
+#: change reseeds the year (#654).
+NO_SUCH_TERM = "Такого периода нет."
+
+
 def opening_year_of(on: Date) -> int:
     """The year the school year containing ``on`` opened in."""
     return school_year_bounds(on)[0].year
@@ -255,7 +262,7 @@ async def set_bounds(
     terms = await read(session, school_class.id, year)
     target = next((t for t in terms if t.index == index), None)
     if target is None:
-        raise TermError("Такого периода нет.")
+        raise TermError(NO_SUCH_TERM)
 
     if ends_on < starts_on:
         raise TermError("Конец периода раньше его начала.")

@@ -68,7 +68,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3333 tests in about four minutes, six of them skipped unless a
+- **`pytest -q -n auto`** — 3366 tests in about four minutes, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
@@ -77,7 +77,7 @@ Server, from `server/`:
   there. That shipped once. `tests/test_test_imports.py` now refuses a test module
   that imports another one at all — a shared fixture belongs in `conftest.py`, which
   pytest loads by path rather than by import
-- **`python -m mypy`** — one question, of all 240 modules, in seconds: does anything reach
+- **`python -m mypy`** — one question, of all 242 modules, in seconds: does anything reach
   for an attribute its type does not have? Configured in `pyproject.toml`, where every
   other error code is switched off by name with its count and its reason. A CI step since
   27 September 2026, right after ruff, because the owner asked for it through that day's
@@ -261,6 +261,10 @@ Server modules:
   homework's, the events', the days' and the substitutions' refusals, and the notices to the
   class) are
   `app/wording.py`'s.
+  `gone.py` is what a row another writer deleted between a write's read and its commit
+  means to every shell (#384): «not found», never a server error and never a reason to make
+  the row again; its `committed` is the bot's commit, which rolls back and answers `False`
+  on a `StaleDataError` rather than raising out of the handler.
   The tick runs `health.py`'s self-check after the digests and the sweeps and before the
   diary keep-alive: four fixed checks and one per «Сетевой город» region in use, each by its
   route, what each said last in `health_checks`, and the owner's alerts on a change; the
@@ -274,7 +278,8 @@ Server modules:
   `from __future__ import annotations` FastAPI could not resolve an endpoint's
   `-> Response` and took the name for a response model — a 204 route made that an
   `AssertionError` at import, and every route without an explicit `response_model=` would
-  have had a schema built from a string)
+  have had a schema built from a string; it also rolls back a write whose row another writer
+  deleted mid-write and answers the `404` its own `GONE` names for that path, #384)
 - `bot/` — aiogram routers, roles, keyboards, renderers. «⚙️ Класс» is `handlers/manage/`,
   one module per screen, each with a router of its own included in one written-down order
   by the package's `__init__`. `handlers/start/` and `handlers/content/` are packages the
@@ -312,7 +317,10 @@ Server modules:
   (client version, then the bearer, the link and the role), `call.py` (`invoke`: the gate,
   one dishka scope, the handler, the one commit, then the effects; and `stream`, which serves
   `WatchClass` with the gate in a scope of its own for every check and no session held
-  between), `errors.py` (the one error
+  between; and `GONE`, which answers a row deleted mid-write `RESOURCE_NOT_FOUND`, #384),
+  `caching.py` (`NEVER_STORED`, the one table of answers no cache may keep, which the REST
+  transcoder and the Connect adapters both read, so a Connect answer says
+  `private, no-store` exactly where its REST twin does, #357, #652), `errors.py` (the one error
   table), `masks.py` (one reading of an `update_mask`, AIP-134), `dates.py` (a list's window,
   a written date's bound, and the date a day is named by, read as v1 reads them) and
   `handlers.py` (which methods are served, and `STREAMS`). A handler never commits and never
@@ -416,8 +424,9 @@ points Hilt does not inject cleanly.
 - **Commit messages are English sentences that say what the change makes the project do** —
   "Let the class be run from the phone, by the same rules as from the bot". No Conventional
   Commits prefix (none of the 288 commits has one), and the body explains the reasoning and
-  names what is left uncovered. Unlike the owner's other repositories, this history does
-  carry a `Co-Authored-By: Claude …` trailer; keep doing what the history does.
+  names what is left uncovered. No attribution trailer: commits up to 6 October 2026 mostly
+  carry a `Co-Authored-By: Claude …` line, none since does, and a new commit adds none
+  (`AI_USAGE_POLICY.md`, «Attribution in commits»).
 - **Every pull request carries a milestone**, set when it is opened, and so does every
   issue. A remote session can neither create a milestone nor list one, and a local one with
   `gh` could, but creating one is the owner's decision either way — when none of the

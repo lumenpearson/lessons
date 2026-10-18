@@ -217,10 +217,18 @@ def _parse_day(raw: str, today: Date) -> Date | None:
     return result
 
 
-async def _member_names(session: AsyncSession, class_id: int) -> dict[int, str]:
-    """Telegram id -> the name to show, already escaped by ``manage_render``."""
+async def _member_names(
+    session: AsyncSession, class_id: int, *, limit: int | None = None
+) -> dict[int, str]:
+    """Telegram id -> the name to show, already escaped by ``manage_render``.
+
+    ``limit`` is forwarded to :func:`manage_render._common.person`, for a
+    caller whose page draws one row per name regardless of how long it is.
+    """
     members = await classes_service.members(session, class_id)
     return {
-        member.telegram_id: mr.person(member.full_name, member.username, member.telegram_id)
+        member.telegram_id: mr.person(
+            member.full_name, member.username, member.telegram_id, limit=limit
+        )
         for member in members
     }

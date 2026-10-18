@@ -135,7 +135,12 @@ A viewer who needs to write sends `/request` (with or without a note:
   second painted red rather than given an icon),
   swallowing one blocked recipient rather than failing the request;
 * on approval grants **Редактор** through `can_grant` and the same rank guard
-  «👥 Доступ» uses, writes the log line, and tells the requester;
+  «👥 Доступ» uses, writes the log line, and tells the requester; a member who
+  already holds that role or a higher one — made an admin while the request
+  waited, say — keeps it, and both sides are told so: the card reads «✅ … уже
+  <b>Администратор</b> — роль не изменилась.» and the requester gets «✅ Запрос
+  доступа в классе <b>9А</b> закрыт: у вас уже роль <b>Администратор</b>.»,
+  never a grant of the lower role;
 * on refusal tells the requester too, so nobody waits on silence.
 
 Pending requests also sit at the top of **👥 Доступ**, above the member list —

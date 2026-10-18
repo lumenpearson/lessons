@@ -36,7 +36,7 @@ from app.bot.manage_keyboards.holidays import (
 from app.bot.manage_render import holidays as mr
 from app.bot.manage_states import AddHoliday
 from app.models import DayKind, Role, SchoolClass
-from app.services import audit
+from app.services import audit, gone
 from app.services.manage import bells as bells_service
 from app.services.manage import special_days
 
@@ -55,6 +55,19 @@ NOTE_MAX = 300
 SHORTENED_WITHOUT_BELLS = (
     "Сокращённому дню нужно расписание звонков, а в основном нет ни одного урока — "
     "заполните «🔔 Звонки» и отметьте день снова."
+)
+
+#: The day's mark is gone: taken off before the press, or by somebody else
+#: between this screen's read and its commit (#384). An alert says it as it
+#: stands, a message with a full stop.
+DAY_GONE = "День уже не отмечен"
+
+#: «📆 Период» met a day whose mark somebody else took off while the period
+#: was being written (#384). Nothing of the period is written, and the form is
+#: dropped, so the way on is the screen's own start.
+PERIOD_GONE = (
+    "Пока период отмечался, отметку одного из его дней сняли, и период не записан. "
+    "Начните заново: /holidays"
 )
 
 
@@ -275,7 +288,10 @@ async def holiday_kind(
         session, school_class.id, callback.from_user.id, "dayoverride.set",
         f"{day:%d.%m}: {_KIND_SUMMARY[kind]}",
     )
-    await session.commit()
+    if not await gone.committed(session):
+        await state.clear()
+        await callback.answer(DAY_GONE, show_alert=True)
+        return
 
     if kind is DayKind.SHORTENED:
         schedules = await bells_service.schedules_of(session, school_class.id)
@@ -320,7 +336,7 @@ async def holiday_bells(
 
     override = await special_days.mark_on(session, school_class.id, day)
     if override is None:
-        await callback.answer("День уже не отмечен", show_alert=True)
+        await callback.answer(DAY_GONE, show_alert=True)
         return
 
     schedule_id = _int_or_none(raw_id)
@@ -358,7 +374,10 @@ async def holiday_bells(
     await audit.record(
         session, school_class.id, callback.from_user.id, "dayoverride.bells", summary
     )
-    await session.commit()
+    if not await gone.committed(session):
+        await state.clear()
+        await callback.answer(DAY_GONE, show_alert=True)
+        return
     await _ask_note(callback.message, state, day, DayKind.SHORTENED)
     await callback.answer()
 
@@ -382,7 +401,7 @@ async def holiday_note(
     override = await special_days.mark_on(session, school_class.id, day)
     if override is None:
         await state.clear()
-        await message.answer("День уже не отмечен.", reply_markup=back_to_menu())
+        await message.answer(f"{DAY_GONE}.", reply_markup=back_to_menu())
         return
 
     raw = " ".join((message.text or "").split())
@@ -392,7 +411,10 @@ async def holiday_note(
             session, school_class.id, message.from_user.id, "dayoverride.note",
             f"{day:%d.%m}: заметка «{override.note}»",
         )
-        await session.commit()
+        if not await gone.committed(session):
+            await state.clear()
+            await message.answer(f"{DAY_GONE}.", reply_markup=back_to_menu())
+            return
 
     await state.clear()
     text, keyboard = await _holiday_view(session, school_class, role)
@@ -517,15 +539,22 @@ async def holiday_period_apply(
     data = await state.get_data()
     kind = _day_kind_or_none(str(data.get("period_kind", ""))) or DayKind.HOLIDAY
 
-    await special_days.mark_period(session, school_class, first, span, kind)
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        "dayoverride.period",
-        f"{kind.value}: {first:%d.%m}–{last:%d.%m}, дней: {span}",
-    )
-    await session.commit()
+    async def write() -> None:
+        await special_days.mark_period(session, school_class, first, span, kind)
+        await audit.record(
+            session,
+            school_class.id,
+            message.from_user.id,
+            "dayoverride.period",
+            f"{kind.value}: {first:%d.%m}–{last:%d.%m}, дней: {span}",
+        )
+
+    # The period, and not only its commit: each day's read flushes the day
+    # before, so a mark taken off meanwhile surfaces inside the loop (#384).
+    if not await gone.committed(session, write):
+        await state.clear()
+        await message.answer(PERIOD_GONE, reply_markup=back_to_menu())
+        return
     await state.clear()
 
     await message.answer(mr.render_period_result(first, last, span, kind))

@@ -209,7 +209,8 @@ a `UNIQUE` or `NOT NULL` after. See the `migration` skill.
 
 English sentences saying what the change makes the project do. No Conventional Commits
 prefix — none of this history has one. The body explains the reasoning and names what is left
-uncovered. Keep the `Co-Authored-By: Claude …` trailer this history carries.
+uncovered. No `Co-Authored-By` or other attribution trailer, in a commit or a pull request
+body (`AI_USAGE_POLICY.md`, «Attribution in commits»).
 
 ## Dependabot's pull requests
 

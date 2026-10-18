@@ -786,12 +786,14 @@ docker run -p 8000:8000 --env-file host.env lessons-host
 - **One stream per phone.** A phone that opens `WatchClass` again under the same device
   token ends the stream that token held, so the host holds at most one stream per token
   that has ever opened one — not one per live phone: a phone that joins again mints a new
-  token, and the old token's stream stands as an orphan rather than closing. A phone that
-  drops off the network without closing its connection keeps its stream until the host's
-  kernel gives up on it, about a quarter of an hour on Linux's defaults, by calculation, or
-  until the same token opens a new one: neither server, as the host runs it, pings a silent
-  HTTP/2 peer. Meanwhile that stream asks the database for its gate every thirty seconds, on
-  the one pool every request shares.
+  token, and the old token's stream stands as an orphan rather than closing. Under pyvoy,
+  `app.host.envoy_config` sets an HTTP/2 `connection_keepalive` on Envoy (a thirty-second
+  interval, to match the stream's own heartbeat, and a ten-second timeout), so a phone that
+  drops off the network without closing its connection is found in tens of seconds rather
+  than kept until the kernel gives up on it — about a quarter of an hour on Linux's
+  defaults, by calculation (#400). Under `--server hypercorn`, the fallback, there is no
+  equivalent setting, so that gap stands. Meanwhile that stream asks the database for its
+  gate every thirty seconds, on the one pool every request shares.
 - **HTTP/2 the whole way.** The host serves HTTP/1.1 and HTTP/2 with prior knowledge on one
   plain port and terminates no TLS, so it sits behind something that does. For native gRPC
   that proxy must speak HTTP/2 to it: one that downgrades to HTTP/1.1 gets the `415` Vercel

@@ -28,6 +28,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import wording
 from app.api.deps import bearer, find_device, header, touch_last_seen
 from app.config import Settings
 from app.contract.lessons.v2.errors_pb import ErrorReason
@@ -61,7 +62,7 @@ TABLE: dict[str, tuple[AuthKind, ProtoRole | None]] = {
 MISSING_BEARER = "Missing bearer token"
 UNKNOWN_DEVICE = "Invalid token"
 UNKNOWN_DIARY_SESSION = "Diary session is not valid"
-CLASS_GONE = "Class no longer exists"
+CLASS_GONE = wording.CLASS_GONE_DETAIL
 NOT_LINKED = "device is not linked"
 #: New in v2, so English like v1's own generic answers.
 BAD_CLIENT_HEADER = f"X-Lessons-Client must be a whole number between 1 and {MAX_CLIENT_VERSION}"

@@ -35,7 +35,7 @@ router = Router(name="manage.devices")
 
 async def _device_view(session: AsyncSession, school_class: SchoolClass):
     devices = await linking.devices_of(session, school_class.id)
-    names = await _member_names(session, school_class.id)
+    names = await _member_names(session, school_class.id, limit=mr.OWNER_NAME_MAX)
     owners: dict[int, tuple[str, Role | None]] = {
         telegram_id: (names.get(telegram_id, str(telegram_id)), owner_role)
         for telegram_id, owner_role in (
