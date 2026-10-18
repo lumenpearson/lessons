@@ -29,6 +29,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import wording
+from app.bot.handlers import diary as diary_bot
 from app.bot.handlers import editor as editor_bot
 from app.bot.handlers import tasks as tasks_bot
 from app.bot.handlers.content import homework as homework_bot
@@ -57,6 +58,7 @@ from app.contract.lessons.v2.school_class_pb import (
     UpdateTermSchemeRequest,
 )
 from app.contract.lessons.v2.substitution_pb import Substitution, UpdateSubstitutionRequest
+from app.crypto import seal
 from app.db import Base, SessionLocal
 from app.models import (
     AuditEntry,
@@ -65,6 +67,7 @@ from app.models import (
     DayKind,
     DayOverride,
     DiaryOverride,
+    DiarySession,
     EventKind,
     Homework,
     LessonOverride,
@@ -79,8 +82,10 @@ from app.models import (
 )
 from app.providers.petersburg import client as pbclient
 from app.providers.petersburg import provider as pbprovider
+from app.providers.petersburg.models import Student
 from app.rpc.day import DAY_NOT_MARKED
 from app.rpc.substitution import UNKNOWN_SUBSTITUTION
+from app.security import hash_token
 from app.services import audit, linking, structure
 from app.services import homework as homework_service
 from app.services import subjects as dictionary
@@ -1059,6 +1064,57 @@ async def test_the_bots_canteen_on_bells_taken_away_meanwhile_says_there_are_non
     assert callback.answers[-1] == (editor_bot.NO_BELLS, True)
     assert (await _count(BellSchedule), await _count(AuditEntry)) == (0, 0)
     await session.commit()
+
+
+async def test_the_bots_diary_says_a_session_signed_out_meanwhile_is_signed_out(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable
+) -> None:
+    """The bot's diary writes one thing, the child it shows; it corrects
+    nothing (``handlers/diary._body``). A session «Выйти» took away between a
+    press's read and that write is signed out — not «the diary answered
+    something unexpected», over a session the middleware cannot commit."""
+    school_class.diary_provider = diary_bot.PETERSBURG
+    row = DiarySession(
+        token_hash=hash_token("bot-654"),
+        upstream_token=seal("upstream"),
+        login="parent@example.com",
+        telegram_id=42,
+        class_id=school_class.id,
+        student_id=PUPIL,
+    )
+    session.add(row)
+    await session.commit()
+
+    class Upstream:
+        """The diary, minus the network: one account, two children."""
+
+        def __init__(self, *_: Any) -> None:
+            pass
+
+        async def students(self) -> list[Student]:
+            return [
+                Student(id=1, first_name="Пётр", last_name="Иванов", education_id=PUPIL),
+                Student(id=2, first_name="Аня", last_name="Иванова", education_id=PUPIL + 1),
+            ]
+
+    monkeypatch.setattr(diary_bot.diary_service, "DiaryService", Upstream)
+    # Nothing is called between the child's change and its commit.
+    raced = _deleted_at_commit(monkeypatch, DiarySession, row.id)
+    callback = FakeCallback(message=FakeEditable())
+
+    await diary_bot.diary_view(
+        callback,
+        diary_bot.DiaryAction(view="day", offset=0, student=PUPIL + 1),
+        session,
+        school_class,
+    )
+
+    assert raced, "the delete never happened, so nothing was tested"
+    # The middleware commits next: a session left failed raises
+    # PendingRollbackError there, outside anything that answers.
+    await session.commit()
+    assert (diary_bot.SIGNED_OUT, True) in callback.answers
+    assert await _count(DiarySession) == 0
 
 
 # --------------------------------------------------------------------------
