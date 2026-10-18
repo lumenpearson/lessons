@@ -19,16 +19,58 @@ an explicit ``response_model=`` would have been a schema built from a name.
 So the annotation is resolved here, once, before the wrapping — against the
 globals that actually contain it. Everything downstream then sees the class
 FastAPI would have seen without any of this.
+
+The route class is also where v1 says, once, that a row another writer
+deleted between a write's read and its commit is not found (#384): the
+``StaleDataError`` of a flush whose ``UPDATE`` matched nothing becomes the
+``404`` the route's resource answers for a row that is not there
+(:data:`GONE`), rather than a ``500``. Nothing was written, and an upsert —
+``PUT /overrides``, ``PUT /days`` — does not make the row again
+(``services/gone.py`` says why). A path :data:`GONE` does not name lets the
+error through, as it did.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import re
+from collections.abc import Callable, Coroutine, Mapping
 from inspect import Signature, signature
 from typing import Any
 
 from dishka.integrations.fastapi import DishkaRoute
+from fastapi import HTTPException, Request, Response, status
 from fastapi.dependencies.utils import get_typed_return_annotation
+from sqlalchemy.orm.exc import StaleDataError
+
+from app import wording
+
+#: The resource a v1 path names: its first segment, and its second under
+#: ``/manage``.
+_RESOURCE = re.compile(r"/api/v1/((?:manage/)?[a-z]+)")
+
+#: What a write under each resource answers when the row it changed was
+#: deleted by another writer before its commit: the route's own ``404`` for a
+#: row that is not there, and for a substitution and a day's mark, which v1
+#: names by date and never answered ``404`` for, the sentence v2 says.
+GONE: Mapping[str, str] = {
+    "homework": wording.UNKNOWN_HOMEWORK_DETAIL,
+    "overrides": wording.UNKNOWN_SUBSTITUTION_DETAIL,
+    "events": wording.UNKNOWN_EVENT_DETAIL,
+    "days": wording.DAY_NOT_MARKED_DETAIL,
+    "tasks": wording.UNKNOWN_TASK_DETAIL,
+    "manage/subjects": wording.UNKNOWN_SUBJECT_DETAIL,
+    "manage/bells": wording.UNKNOWN_BELL_SCHEDULE_DETAIL,
+    "manage/devices": wording.UNKNOWN_DEVICE_DETAIL,
+    "manage/requests": wording.UNKNOWN_ACCESS_REQUEST_DETAIL,
+    "manage/class": wording.CLASS_GONE_DETAIL,
+}
+
+
+def gone_detail(path: str) -> str | None:
+    """The ``404`` sentence for a row deleted under a write to ``path``, or
+    ``None`` when the path names no resource :data:`GONE` holds."""
+    found = _RESOURCE.match(path)
+    return GONE.get(found.group(1)) if found is not None else None
 
 
 class DishkaAnnotatedRoute(DishkaRoute):
@@ -43,3 +85,19 @@ class DishkaAnnotatedRoute(DishkaRoute):
                 return_annotation=get_typed_return_annotation(endpoint),
             )
         super().__init__(path, endpoint, **kwargs)
+
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        handler = super().get_route_handler()
+
+        async def answer(request: Request) -> Response:
+            try:
+                return await handler(request)
+            except StaleDataError:
+                detail = gone_detail(request.url.path)
+                if detail is None:
+                    raise
+                # The session is closed with the request scope, which rolls
+                # back what the failed flush left.
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from None
+
+        return answer

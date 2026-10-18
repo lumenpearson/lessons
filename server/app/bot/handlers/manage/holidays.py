@@ -36,7 +36,7 @@ from app.bot.manage_keyboards.holidays import (
 from app.bot.manage_render import holidays as mr
 from app.bot.manage_states import AddHoliday
 from app.models import DayKind, Role, SchoolClass
-from app.services import audit
+from app.services import audit, gone
 from app.services.manage import bells as bells_service
 from app.services.manage import special_days
 
@@ -56,6 +56,11 @@ SHORTENED_WITHOUT_BELLS = (
     "Сокращённому дню нужно расписание звонков, а в основном нет ни одного урока — "
     "заполните «🔔 Звонки» и отметьте день снова."
 )
+
+#: The day's mark is gone: taken off before the press, or by somebody else
+#: between this screen's read and its commit (#384). An alert says it as it
+#: stands, a message with a full stop.
+DAY_GONE = "День уже не отмечен"
 
 
 # --------------------------------------------------------------------------
@@ -275,7 +280,10 @@ async def holiday_kind(
         session, school_class.id, callback.from_user.id, "dayoverride.set",
         f"{day:%d.%m}: {_KIND_SUMMARY[kind]}",
     )
-    await session.commit()
+    if not await gone.committed(session):
+        await state.clear()
+        await callback.answer(DAY_GONE, show_alert=True)
+        return
 
     if kind is DayKind.SHORTENED:
         schedules = await bells_service.schedules_of(session, school_class.id)
@@ -320,7 +328,7 @@ async def holiday_bells(
 
     override = await special_days.mark_on(session, school_class.id, day)
     if override is None:
-        await callback.answer("День уже не отмечен", show_alert=True)
+        await callback.answer(DAY_GONE, show_alert=True)
         return
 
     schedule_id = _int_or_none(raw_id)
@@ -358,7 +366,10 @@ async def holiday_bells(
     await audit.record(
         session, school_class.id, callback.from_user.id, "dayoverride.bells", summary
     )
-    await session.commit()
+    if not await gone.committed(session):
+        await state.clear()
+        await callback.answer(DAY_GONE, show_alert=True)
+        return
     await _ask_note(callback.message, state, day, DayKind.SHORTENED)
     await callback.answer()
 
@@ -382,7 +393,7 @@ async def holiday_note(
     override = await special_days.mark_on(session, school_class.id, day)
     if override is None:
         await state.clear()
-        await message.answer("День уже не отмечен.", reply_markup=back_to_menu())
+        await message.answer(f"{DAY_GONE}.", reply_markup=back_to_menu())
         return
 
     raw = " ".join((message.text or "").split())
@@ -392,7 +403,10 @@ async def holiday_note(
             session, school_class.id, message.from_user.id, "dayoverride.note",
             f"{day:%d.%m}: заметка «{override.note}»",
         )
-        await session.commit()
+        if not await gone.committed(session):
+            await state.clear()
+            await message.answer(f"{DAY_GONE}.", reply_markup=back_to_menu())
+            return
 
     await state.clear()
     text, keyboard = await _holiday_view(session, school_class, role)

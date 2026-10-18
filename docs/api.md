@@ -110,7 +110,7 @@ to the log.
 | --- | --- |
 | `401` | Missing, malformed, unknown or revoked token — **the client must drop its session**, not merely report it |
 | `403` | The device is not linked, or its account lacks the role (`detail` says which). On `/join` it is the one refusal below that is not about the code being wrong: the class takes personal invites only |
-| `404` | Join code, class, homework, task or event does not exist - or is not this class's |
+| `404` | Join code, class, homework, task or event does not exist - or is not this class's. On a write, also a row another write deleted between this one's read and its commit (#384), with the sentence that row's own `404` says; nothing is written |
 | `409` | On `/join`: the class already holds as many live phones as its class code admits. The code is right; a personal code from the bot still joins |
 | `422` | Parameter out of range or body invalid |
 | `429` | Too many failed join attempts |
@@ -541,6 +541,10 @@ no calendar feed. There are three of them.
 *added* to a day — and `clear` is always allowed, because it is how a class gets
 out of a row it should not have.
 
+A `replace` or a `cancel` of a substitution that another write deletes between this
+one's read and its commit is a `404` (`Unknown substitution`, #384), and nothing is
+written: the row is not made again behind the back of whoever took it off.
+
 ### `PUT /api/v1/events` → `201 {"id": 42}`
 
 ```json
@@ -570,7 +574,9 @@ as well (#321): the times are what «сокращённые» claims, and withou
 day would announce shortened lessons and draw the usual ones. Answers the stored
 row. Four kinds are accepted here — `normal`, `holiday`, `shortened`, `remote` —
 while a day in the bundle can come back as any of six; `self_study` and `day_off`
-are marked from the bot only.
+are marked from the bot only. A mark that another write takes off between this
+one's read and its commit is a `404` (`this date has no mark`, #384), and nothing is
+written: the mark is not made again behind the back of whoever took it off.
 
 ## Managing the class
 
@@ -2053,6 +2059,12 @@ The reasons are `ErrorReason` in `errors.proto`: thirty-three of them, each with
 its metadata and what v1 sent instead. A failure the server does not know is `INTERNAL`, with
 a fixed sentence and no detail: what went wrong is logged, never sent, because an exception's
 own text can carry what was typed.
+
+A write whose row another write deletes between its read and its commit is
+`RESOURCE_NOT_FOUND` for the resource the method names, in the words and with the `resource`
+an id that names nothing gets — `UpdateDay` with `allow_missing` included, which does not
+make the mark again (#384). Nothing is written. A method whose resource has no such answer,
+a term's among them, is still `INTERNAL`.
 
 Over Connect the error is its JSON body, under the same status: `{"code": "permission_denied",
 "message": …, "details": [{"type": "google.rpc.ErrorInfo", "value": <base64>, "debug": {…}}]}`.

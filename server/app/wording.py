@@ -467,6 +467,23 @@ UNKNOWN_HOMEWORK_DETAIL = "Unknown homework"
 #: class has that id.
 UNKNOWN_EVENT_DETAIL = "Unknown event"
 
+#: v1's ``current_class`` and v2's gate: the class a phone joined was deleted.
+#: v1's ``/manage/class`` says it too of a class deleted between a write's
+#: read and its commit (#384).
+CLASS_GONE_DETAIL = "Class no longer exists"
+
+#: v2's ``SubstitutionService``: no substitution of this class has that id;
+#: and v1's ``PUT /overrides`` when the substitution it changes was deleted
+#: by another write between its read and its commit (#384). v1 names a
+#: substitution by its date and number, and otherwise never answers 404.
+UNKNOWN_SUBSTITUTION_DETAIL = "Unknown substitution"
+
+#: A date with no mark of the class: v1's ``PUT /days`` when the mark it
+#: changes was taken off by another write between its read and its commit
+#: (#384), and the first half of v2's ``UpdateDay`` refusal of a date nobody
+#: marked, which goes on to name ``allow_missing``.
+DAY_NOT_MARKED_DETAIL = "this date has no mark"
+
 #: v1's ``PUT /days`` and v2's ``UpdateDay``: a ``bell_schedule_id`` that names
 #: no bell schedule of this class, and a shortened day that names none. A
 #: schedule that rings nothing is ``EMPTY_BELL_SCHEDULE_DETAIL``, above.
