@@ -110,8 +110,8 @@ to the log.
 | --- | --- |
 | `401` | Missing, malformed, unknown or revoked token — **the client must drop its session**, not merely report it |
 | `403` | The device is not linked, or its account lacks the role (`detail` says which). On `/join` it is the one refusal below that is not about the code being wrong: the class takes personal invites only |
-| `404` | Join code, class, homework, task or event does not exist - or is not this class's. On a write to homework, a substitution, an event, a day, a task, `/me`, a diary correction, or `/manage`'s subjects, bell schedules, devices, access requests, class and term scheme, also a row another write deleted between this one's read and its commit (#384, #654), with the sentence that row's own `404` says — for `/me` and the scheme the class, deleted with its devices and its terms; nothing is written. A term moved by `PUT /manage/terms/{index}` answers that race with its own `422`, «Такого периода нет.». The timetable import meets a class deleted under it as a foreign key rather than this race, and still answers `500`; so do the bot's editors (#654) |
-| `409` | On `/join`: the class already holds as many live phones as its class code admits. The code is right; a personal code from the bot still joins |
+| `404` | Join code, class, homework, task or event does not exist - or is not this class's. On a write to homework, a substitution, an event, a day, a task, `/me`, or `/manage`'s subjects, bell schedules, devices, access requests, class and term scheme, also a row another write deleted between this one's read and its commit (#384, #654), with the sentence a request for a missing row of that kind gets — `Class no longer exists` for `/me` and the scheme, whose class was deleted with its devices and its terms; nothing is written. Two writes answer that race with another status: a term moved by `PUT /manage/terms/{index}` with its own `422`, «Такого периода нет.», and a diary correction with a `409` (below). The timetable import meets a class deleted under it as a foreign key rather than this race, and still answers `500` (#657) |
+| `409` | On `/join`: the class already holds as many live phones as its class code admits. The code is right; a personal code from the bot still joins. On `PUT /diary/students/{id}/overrides`: the correction was reset or cleared by another write between this one's read and its commit (#654) |
 | `422` | Parameter out of range or body invalid |
 | `429` | Too many failed join attempts |
 
@@ -1290,8 +1290,11 @@ diary inside a window whose limit is ten. The same holds for `/join` and the dir
 account may see**: somebody else's id answers 404 rather than somebody else's data.
 
 A `PUT /overrides` whose correction somebody else resets or clears between this write's read
-and its commit is a `404` (`this field has no correction`, #654), and nothing is written: the
-correction is not made again behind the back of whoever took it off.
+and its commit is a `409` (`this field has no correction`, #654), and nothing is written: the
+correction is not made again behind the back of whoever took it off. A `409` and not the
+`404` the other writes answer that race with, because on this family a `404` already means
+one thing, a child not on this account, and the app reads it so whatever `detail` says: a
+parent whose relative had just cleared a correction would be told the child is not theirs.
 
 ### A mark is not always a mark
 

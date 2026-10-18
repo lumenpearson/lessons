@@ -343,7 +343,7 @@ CORRECTION_TARGET_REFUSED_DETAIL = "Эту запись нельзя испра�
 CORRECTION_FIELD_REFUSED_DETAIL = "Это поле нельзя исправить"
 CORRECTION_VALUE_EMPTY_DETAIL = "Это поле не может быть пустым"
 
-#: v1's ``PUT /diary/students/{id}/overrides`` and v2's
+#: v1's ``PUT /diary/students/{id}/overrides`` (a ``409``) and v2's
 #: ``BatchUpdateCorrections`` when a correction they change was taken off by
 #: another write between their read and their commit (#654): a reset or a
 #: clear by somebody else who sees the child. Not made again, as a

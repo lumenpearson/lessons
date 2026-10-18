@@ -293,8 +293,10 @@ async def test_v1_a_correction_taken_off_meanwhile_is_not_found_and_not_made_aga
     )
 
     assert raced, "the delete never happened, so nothing was tested"
+    # Not a 404: on the diary's routes the app reads every 404 as a child not
+    # on the account, whatever the detail says.
     assert (answer.status_code, answer.json()) == (
-        404,
+        409,
         {"detail": wording.CORRECTION_GONE_DETAIL},
     )
     assert await _count(DiaryOverride) == 0
@@ -721,7 +723,7 @@ def test_every_resource_v1_answers_a_deleted_row_for_is_a_path_it_serves() -> No
     assert gone_answer("/api/v1/manage/terms/2") == (422, terms_service.NO_SUCH_TERM)
     assert gone_answer("/api/v1/manage/terms/scheme") == (404, wording.CLASS_GONE_DETAIL)
     assert gone_answer("/api/v1/diary/students/4021/overrides") == (
-        404,
+        409,
         wording.CORRECTION_GONE_DETAIL,
     )
     assert gone_answer("/api/v1/diary/students") is None

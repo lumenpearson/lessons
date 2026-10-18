@@ -24,8 +24,8 @@ The route class is also where v1 says, once, that a row another writer
 deleted between a write's read and its commit is not found (#384): the
 ``StaleDataError`` of a flush whose ``UPDATE`` matched nothing becomes the
 ``404`` the route's resource answers for a row that is not there
-(:data:`GONE`), rather than a ``500`` — or, for a term, the ``422`` that
-route answers for a term the year does not have (:data:`GONE_STATUS`).
+(:data:`GONE`), rather than a ``500`` — or, for a term and a diary
+correction, the status :data:`GONE_STATUS` gives them.
 Nothing was written, and an upsert — ``PUT /overrides``, ``PUT /days``, a
 diary correction — does not make the row again (``services/gone.py`` says
 why). A path :data:`GONE` does not name lets the error through, as it did.
@@ -75,12 +75,16 @@ GONE: Mapping[str, str] = {
     "manage/terms/scheme": wording.CLASS_GONE_DETAIL,
 }
 
-#: The status of a :data:`GONE` key that does not answer ``404``: a term's,
-#: whose own refusal of a term the year does not have is the ``422``
-#: ``PUT /manage/terms/{index}`` answers every ``TermError`` with, and which
-#: v2's ``TERM_BOUNDS_REFUSED`` names as its v1 twin.
+#: The status of a :data:`GONE` key that does not answer ``404``. A term's is
+#: the ``422`` ``PUT /manage/terms/{index}`` answers every ``TermError`` with,
+#: which v2's ``TERM_BOUNDS_REFUSED`` names as its v1 twin. A correction's is
+#: a ``409``, because a ``404`` on the diary's routes means a child not on the
+#: account, and the app reads it so whatever ``detail`` says: it would tell a
+#: parent whose relative had cleared a correction that the child is not theirs.
+#: A ``409`` it shows as a failure to save, with the form left open (#654).
 GONE_STATUS: Mapping[str, int] = {
     "manage/terms": status.HTTP_422_UNPROCESSABLE_CONTENT,
+    "diary/students/overrides": status.HTTP_409_CONFLICT,
 }
 
 
