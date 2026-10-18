@@ -45,8 +45,10 @@ row and changed it meets, at the commit or at a flush before it, the
 between. Nothing is written, as on any refusal, and the answer is the
 ``RESOURCE_NOT_FOUND`` the method's own resource answers for an id that names
 nothing (:func:`gone`), here once rather than in every handler: it is what the
-same call a moment later would have said. A method whose resource has no such
-answer stays ``INTERNAL``, logged, as anything the table does not know is.
+same call a moment later would have said. A term has no such answer and is
+refused as ``UpdateTerm`` refuses a term the year does not have. A method
+whose resource has neither stays ``INTERNAL``, logged, as anything the table
+does not know is.
 
 **A stream holds no session** (decision 13). :func:`stream` serves a
 server-streaming method: the gate runs in a scope of its own, committed and
@@ -81,6 +83,7 @@ from app.rpc import gate, substitution
 from app.rpc.errors import Refusal, connect_error
 from app.rpc.handlers import HANDLERS, STREAMS
 from app.rpc.methods import Method
+from app.services import terms as terms_service
 
 log = logging.getLogger(__name__)
 
@@ -96,36 +99,54 @@ Effect = Callable[[], Awaitable[None]]
 #: word what the handlers answer for an id that names nothing, but for a day's
 #: mark, whose refusal is advice the race makes untrue. Keyed by the
 #: resource a method's name gives after its verb — ``UpdateSubstitution``,
-#: ``DeleteBellSchedule``, ``RevokeClassDevice``, ``DeleteHomeworkTick`` — and
-#: ``test_stale_writes.py`` holds every key to a method that has it.
+#: ``DeleteBellSchedule``, ``RevokeClassDevice``, ``DeleteHomeworkTick``,
+#: ``BatchUpdateCorrections`` — and ``test_stale_writes.py`` holds every key
+#: to a method that has it. The class is the row ``UpdateTermScheme`` and
+#: ``UnlinkMe`` meet: deleted, it takes the year's terms and the phone's
+#: device with it (#654).
 GONE: Mapping[str, tuple[str, str]] = {
     "AccessRequest": ("access_request", wording.UNKNOWN_ACCESS_REQUEST_DETAIL),
     "BellSchedule": ("bell_schedule", wording.UNKNOWN_BELL_SCHEDULE_DETAIL),
     "Class": ("class", gate.CLASS_GONE),
     "ClassDevice": ("device", wording.UNKNOWN_DEVICE_DETAIL),
+    # Taken off by another reset or clear; not made again, as a day's mark
+    # is not.
+    "Corrections": ("correction", wording.CORRECTION_GONE_DETAIL),
     # Not UpdateDay's own refusal, which advises allow_missing: a caller that
     # set it meets this too, and the mark is gone either way.
     "Day": ("day", wording.DAY_NOT_MARKED_DETAIL),
     "Event": ("event", wording.UNKNOWN_EVENT_DETAIL),
     "Homework": ("homework", wording.UNKNOWN_HOMEWORK_DETAIL),
     "HomeworkTick": ("homework", wording.UNKNOWN_HOMEWORK_DETAIL),
+    "Me": ("class", gate.CLASS_GONE),
     "Subject": ("subject", wording.UNKNOWN_SUBJECT_DETAIL),
     "Substitution": ("substitution", substitution.UNKNOWN_SUBSTITUTION),
     "Task": ("task", wording.UNKNOWN_TASK_DETAIL),
+    "TermScheme": ("class", gate.CLASS_GONE),
 }
 
-#: A method's verb: the first word of its name.
-_VERB = re.compile(r"^[A-Z][a-z]+")
+#: The resource whose «not found» is no ``RESOURCE_NOT_FOUND``: a term the
+#: year does not have is ``UpdateTerm``'s ``TERM_BOUNDS_REFUSED``, in the
+#: sentence errors.proto quotes, and so is a term a scheme change replaced
+#: under the write (#654). Keyed as :data:`GONE` is.
+TERM_GONE: Mapping[str, str] = {"Term": terms_service.NO_SUCH_TERM}
+
+#: A method's verb: the first word of its name, and ``Batch`` with the next.
+_VERB = re.compile(r"^(?:Batch)?[A-Z][a-z]+")
 
 
 def gone(method: Method) -> Refusal | None:
     """The refusal of ``method`` for a row deleted under it, or ``None`` when
     the resource it names has no «not found» of its own."""
-    found = GONE.get(_VERB.sub("", method.name, count=1))
-    if found is None:
-        return None
-    resource, sentence = found
-    return Refusal(ErrorReason.RESOURCE_NOT_FOUND, sentence, resource=resource)
+    noun = _VERB.sub("", method.name, count=1)
+    found = GONE.get(noun)
+    if found is not None:
+        resource, sentence = found
+        return Refusal(ErrorReason.RESOURCE_NOT_FOUND, sentence, resource=resource)
+    term = TERM_GONE.get(noun)
+    if term is not None:
+        return Refusal(ErrorReason.TERM_BOUNDS_REFUSED, term)
+    return None
 
 
 @dataclass
