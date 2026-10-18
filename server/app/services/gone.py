@@ -19,19 +19,34 @@ it was meant to.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
 
 
-async def committed(session: AsyncSession) -> bool:
-    """Commit ``session``, or roll it back and answer ``False`` when a row its
-    write changed was deleted by another writer since it was read.
+async def committed(
+    session: AsyncSession, write: Callable[[], Awaitable[object]] | None = None
+) -> bool:
+    """Run ``write``, if given, and commit ``session``; or roll it back and
+    answer ``False`` when a row the write changed was deleted by another
+    writer since it was read.
+
+    ``write`` is for a write that reads again after it has changed a row —
+    «📆 Период» marks one day after another, and each day's read flushes the
+    change to the day before — so that the error can surface before the
+    commit, by autoflush, and is caught there too.
 
     Rolled back here, so that the session can be used again — the bot's
     middleware commits it once the handler returns, and a session whose flush
-    failed refuses every statement until it is rolled back.
+    failed refuses every statement until it is rolled back. The rollback
+    expires every instance the session holds, the class included: past a
+    ``False``, read nothing through them, because an expired attribute loads
+    lazily, and under asyncio that is a ``MissingGreenlet``.
     """
     try:
+        if write is not None:
+            await write()
         await session.commit()
     except StaleDataError:
         await session.rollback()

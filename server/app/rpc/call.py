@@ -77,7 +77,7 @@ from app.api.deps import caller_bucket
 from app.config import Settings
 from app.contract.lessons.v2.errors_pb import ErrorReason
 from app.models import DeviceToken, DiarySession, Role, SchoolClass
-from app.rpc import day, gate, substitution
+from app.rpc import gate, substitution
 from app.rpc.errors import Refusal, connect_error
 from app.rpc.handlers import HANDLERS, STREAMS
 from app.rpc.methods import Method
@@ -93,7 +93,8 @@ Effect = Callable[[], Awaitable[None]]
 
 #: What a method answers when a row it read was deleted by another writer
 #: before its commit (#384): its resource's ``RESOURCE_NOT_FOUND``, word for
-#: word what the handlers answer for an id that names nothing. Keyed by the
+#: word what the handlers answer for an id that names nothing, but for a day's
+#: mark, whose refusal is advice the race makes untrue. Keyed by the
 #: resource a method's name gives after its verb — ``UpdateSubstitution``,
 #: ``DeleteBellSchedule``, ``RevokeClassDevice``, ``DeleteHomeworkTick`` — and
 #: ``test_stale_writes.py`` holds every key to a method that has it.
@@ -102,7 +103,9 @@ GONE: Mapping[str, tuple[str, str]] = {
     "BellSchedule": ("bell_schedule", wording.UNKNOWN_BELL_SCHEDULE_DETAIL),
     "Class": ("class", gate.CLASS_GONE),
     "ClassDevice": ("device", wording.UNKNOWN_DEVICE_DETAIL),
-    "Day": ("day", day.DAY_NOT_MARKED),
+    # Not UpdateDay's own refusal, which advises allow_missing: a caller that
+    # set it meets this too, and the mark is gone either way.
+    "Day": ("day", wording.DAY_NOT_MARKED_DETAIL),
     "Event": ("event", wording.UNKNOWN_EVENT_DETAIL),
     "Homework": ("homework", wording.UNKNOWN_HOMEWORK_DETAIL),
     "HomeworkTick": ("homework", wording.UNKNOWN_HOMEWORK_DETAIL),

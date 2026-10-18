@@ -26,7 +26,14 @@ from sqlalchemy import delete, func, select
 
 from app import wording
 from app.bot.handlers.content.overrides import SUBSTITUTION_GONE, override_cancel, override_subject
-from app.bot.handlers.manage.holidays import DAY_GONE, holiday_bells, holiday_kind, holiday_note
+from app.bot.handlers.manage.holidays import (
+    DAY_GONE,
+    PERIOD_GONE,
+    holiday_bells,
+    holiday_kind,
+    holiday_note,
+    holiday_period_apply,
+)
 from app.contract.lessons.v2.day_pb import Day, UpdateDayRequest
 from app.contract.lessons.v2.event_pb import Event, UpdateEventRequest
 from app.contract.lessons.v2.homework_pb import Homework as HomeworkMessage
@@ -48,6 +55,7 @@ from app.rpc.day import DAY_NOT_MARKED
 from app.rpc.substitution import UNKNOWN_SUBSTITUTION
 from app.services import audit
 from app.services import homework as homework_service
+from app.services.manage import special_days
 
 #: A Monday of the school year: the class's template has lessons 1 to 3 on a
 #: Monday, and its bells ring 1 to 7.
@@ -59,16 +67,19 @@ def _auth(token: str) -> dict[str, str]:
 
 
 def _deleted_meanwhile(
-    monkeypatch, owner: Any, name: str, model: type[Base], row_id: int
+    monkeypatch, owner: Any, name: str, model: type[Base], row_id: int, *, call: int = 1
 ) -> list[bool]:
     """Delete ``model`` row ``row_id`` from a session of its own, and commit,
-    just before ``owner.name`` runs for the first time — a point after the
-    write has read its row and before it commits. The list says it happened."""
+    just before ``owner.name`` runs for the ``call``-th time — a point after
+    the write has read its row and before it commits. The list says it
+    happened."""
     real: Callable[..., Awaitable[Any]] = getattr(owner, name)
+    calls: list[bool] = []
     done: list[bool] = []
 
     async def first_somebody_deletes(*args: Any, **kwargs: Any) -> Any:
-        if not done:
+        calls.append(True)
+        if not done and len(calls) == call:
             done.append(True)
             async with SessionLocal() as other:
                 await other.execute(delete(model).where(model.id == row_id))
@@ -199,8 +210,11 @@ async def test_v2_a_day_mark_deleted_meanwhile_is_not_found_over_rest(
         "NOT_FOUND",
         "RESOURCE_NOT_FOUND",
         {"resource": "day"},
-        DAY_NOT_MARKED,
+        wording.DAY_NOT_MARKED_DETAIL,
     )
+    # Not UpdateDay's refusal of an unmarked date, which tells the caller to
+    # set the allow_missing this one already set.
+    assert DAY_NOT_MARKED != wording.DAY_NOT_MARKED_DETAIL
     assert (await _count(DayOverride), await _count(AuditEntry)) == (0, 0)
 
 
@@ -370,6 +384,32 @@ async def test_the_bots_bells_for_a_day_mark_deleted_meanwhile_says_so_too(
     assert callback.answers[-1] == (DAY_GONE, True)
     assert (state.cleared, state.data) == (True, {})
     assert (await _count(DayOverride), await _count(AuditEntry)) == (0, 0)
+    await session.commit()
+
+
+async def test_the_bots_period_over_a_mark_deleted_meanwhile_says_so_and_writes_nothing(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    """«📆 Период» marks each day through ``put_day``, whose read of the next
+    day flushes the change to the one before: the race surfaces inside the
+    loop, by autoflush, before the commit is ever reached."""
+    monday = await _mark(session, school_class)
+    session.add(DayOverride(class_id=school_class.id, date=date(2026, 9, 15), kind=DayKind.HOLIDAY))
+    await session.commit()
+    # Monday's mark is read and changed by the first call; it goes before the
+    # second, whose read of Tuesday flushes Monday's change.
+    raced = _deleted_meanwhile(monkeypatch, special_days, "put_day", DayOverride, monday.id, call=2)
+    state = FakeState(data={"period_kind": DayKind.REMOTE.value})
+    message = FakeMessage(text="14.09.2026-16.09.2026")
+
+    await holiday_period_apply(message, state, session, school_class, Role.ADMIN)
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert message.last == PERIOD_GONE
+    assert (state.cleared, state.data) == (True, {})
+    async with SessionLocal() as fresh:
+        kinds = list(await fresh.scalars(select(DayOverride.kind).order_by(DayOverride.date)))
+    assert (kinds, await _count(AuditEntry)) == ([DayKind.HOLIDAY], 0)
     await session.commit()
 
 

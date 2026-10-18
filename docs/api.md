@@ -110,7 +110,7 @@ to the log.
 | --- | --- |
 | `401` | Missing, malformed, unknown or revoked token — **the client must drop its session**, not merely report it |
 | `403` | The device is not linked, or its account lacks the role (`detail` says which). On `/join` it is the one refusal below that is not about the code being wrong: the class takes personal invites only |
-| `404` | Join code, class, homework, task or event does not exist - or is not this class's. On a write, also a row another write deleted between this one's read and its commit (#384), with the sentence that row's own `404` says; nothing is written |
+| `404` | Join code, class, homework, task or event does not exist - or is not this class's. On a write to homework, a substitution, an event, a day, a task, or `/manage`'s subjects, bell schedules, devices, access requests and class, also a row another write deleted between this one's read and its commit (#384), with the sentence that row's own `404` says; nothing is written. The other writes still answer `500` on that race (#654) |
 | `409` | On `/join`: the class already holds as many live phones as its class code admits. The code is right; a personal code from the bot still joins |
 | `422` | Parameter out of range or body invalid |
 | `429` | Too many failed join attempts |
@@ -2062,9 +2062,11 @@ own text can carry what was typed.
 
 A write whose row another write deletes between its read and its commit is
 `RESOURCE_NOT_FOUND` for the resource the method names, in the words and with the `resource`
-an id that names nothing gets — `UpdateDay` with `allow_missing` included, which does not
-make the mark again (#384). Nothing is written. A method whose resource has no such answer,
-a term's among them, is still `INTERNAL`.
+an id that names nothing gets (#384). Nothing is written. A day's mark is the one exception
+to the words: `UpdateDay`, `allow_missing` or not, answers «this date has no mark» without
+the advice to set `allow_missing`, and does not make the mark again. A method whose resource
+has no such answer — a term's, the timetable import's, the diary's corrections', `UnlinkMe`'s —
+is still `INTERNAL` (#654).
 
 Over Connect the error is its JSON body, under the same status: `{"code": "permission_denied",
 "message": …, "details": [{"type": "google.rpc.ErrorInfo", "value": <base64>, "debug": {…}}]}`.

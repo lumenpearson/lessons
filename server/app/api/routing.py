@@ -40,6 +40,7 @@ from typing import Any
 from dishka.integrations.fastapi import DishkaRoute
 from fastapi import HTTPException, Request, Response, status
 from fastapi.dependencies.utils import get_typed_return_annotation
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
 
 from app import wording
@@ -96,8 +97,11 @@ class DishkaAnnotatedRoute(DishkaRoute):
                 detail = gone_detail(request.url.path)
                 if detail is None:
                     raise
-                # The session is closed with the request scope, which rolls
-                # back what the failed flush left.
+                # Rolled back before the answer, as v2 and the bot do: the
+                # request scope closes the session only once the 404 is sent,
+                # and on SQLite the failed transaction holds the write lock
+                # until then.
+                await (await request.state.dishka_container.get(AsyncSession)).rollback()
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail) from None
 
         return answer
