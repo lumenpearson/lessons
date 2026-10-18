@@ -110,8 +110,8 @@ to the log.
 | --- | --- |
 | `401` | Missing, malformed, unknown or revoked token — **the client must drop its session**, not merely report it |
 | `403` | The device is not linked, or its account lacks the role (`detail` says which). On `/join` it is the one refusal below that is not about the code being wrong: the class takes personal invites only |
-| `404` | Join code, class, homework, task or event does not exist - or is not this class's. On a write to homework, a substitution, an event, a day, a task, or `/manage`'s subjects, bell schedules, devices, access requests and class, also a row another write deleted between this one's read and its commit (#384), with the sentence that row's own `404` says; nothing is written. The other writes still answer `500` on that race (#654) |
-| `409` | On `/join`: the class already holds as many live phones as its class code admits. The code is right; a personal code from the bot still joins |
+| `404` | Join code, class, homework, task or event does not exist - or is not this class's. On a write to homework, a substitution, an event, a day, a task, `/me`, or `/manage`'s subjects, bell schedules, devices, access requests, class and term scheme, also a row another write deleted between this one's read and its commit (#384, #654), with the sentence a request for a missing row of that kind gets — `Class no longer exists` for `/me` and the scheme, whose class was deleted with its devices and its terms; nothing is written. Two writes answer that race with another status: a term moved by `PUT /manage/terms/{index}` with its own `422`, «Такого периода нет.», and a diary correction with a `409` (below). The timetable import meets a class deleted under it as a foreign key rather than this race, and still answers `500` (#657) |
+| `409` | On `/join`: the class already holds as many live phones as its class code admits. The code is right; a personal code from the bot still joins. On `PUT /diary/students/{id}/overrides`: the correction was reset or cleared by another write between this one's read and its commit (#654) |
 | `422` | Parameter out of range or body invalid |
 | `429` | Too many failed join attempts |
 
@@ -332,7 +332,8 @@ second permission system to keep in step.
 ### `POST /api/v1/me/unlink`
 
 Back to read-only. Answers `{"linked": false}`; the next `/me` issues a fresh
-code. Idempotent.
+code. Idempotent. A class deleted between the read and the write — the phone's device
+with it — is the `404` `Class no longer exists` (#654).
 
 ## Homework
 
@@ -1288,6 +1289,13 @@ diary inside a window whose limit is ten. The same holds for `/join` and the dir
 `{id}` is a child's identifier from `/students`, and it is **checked against the list this
 account may see**: somebody else's id answers 404 rather than somebody else's data.
 
+A `PUT /overrides` whose correction somebody else resets or clears between this write's read
+and its commit is a `409` (`this field has no correction`, #654), and nothing is written: the
+correction is not made again behind the back of whoever took it off. A `409` and not the
+`404` the other writes answer that race with, because on this family a `404` already means
+one thing, a child not on this account, and the app reads it so whatever `detail` says: a
+parent whose relative had just cleared a correction would be told the child is not theirs.
+
 ### A mark is not always a mark
 
 The service puts marks, absences, late arrivals and remarks into one list and tells them
@@ -1469,6 +1477,11 @@ it starts, runs outside the school year or overlaps its neighbour. A sentence ra
 per-field error, because what is broken is the relation between this period and the year or
 its neighbours, and «Пересекается с периодом 2 (01.11 — 31.12)» is what is worth putting on
 the screen.
+
+A period another write replaces between this one's read and its commit — a scheme change
+recreates the year — is that same `422` with «Такого периода нет.», the answer for a period
+the year does not have (#654); a scheme change in a class deleted meanwhile is the `404`
+`Class no longer exists`. Nothing is written either way.
 
 ## The schools registry
 
@@ -2075,9 +2088,14 @@ A write whose row another write deletes between its read and its commit is
 `RESOURCE_NOT_FOUND` for the resource the method names, in the words and with the `resource`
 an id that names nothing gets (#384). Nothing is written. A day's mark is the one exception
 to the words: `UpdateDay`, `allow_missing` or not, answers «this date has no mark» without
-the advice to set `allow_missing`, and does not make the mark again. A method whose resource
-has no such answer — a term's, the timetable import's, the diary's corrections', `UnlinkMe`'s —
-is still `INTERNAL` (#654).
+the advice to set `allow_missing`, and does not make the mark again. `UpdateTermScheme` and
+`UnlinkMe` meet the class itself deleted, its terms and devices with it, and answer its
+`"class"`; `BatchUpdateCorrections` meets a correction somebody reset or cleared and answers
+`"correction"` with «this field has no correction», making none of the batch (#654). A term
+has no `RESOURCE_NOT_FOUND`: `UpdateTerm` on a term a scheme change replaced is the
+`TERM_BOUNDS_REFUSED` «Такого периода нет.» it answers for a term the year does not have.
+`ImportTimetable` meets a class deleted under it as a foreign key, never as this race, and is
+still `INTERNAL` (#654).
 
 Over Connect the error is its JSON body, under the same status: `{"code": "permission_denied",
 "message": …, "details": [{"type": "google.rpc.ErrorInfo", "value": <base64>, "debug": {…}}]}`.

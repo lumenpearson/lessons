@@ -343,6 +343,14 @@ CORRECTION_TARGET_REFUSED_DETAIL = "Эту запись нельзя испра�
 CORRECTION_FIELD_REFUSED_DETAIL = "Это поле нельзя исправить"
 CORRECTION_VALUE_EMPTY_DETAIL = "Это поле не может быть пустым"
 
+#: v1's ``PUT /diary/students/{id}/overrides`` (a ``409``) and v2's
+#: ``BatchUpdateCorrections`` when a correction they change was taken off by
+#: another write between their read and their commit (#654): a reset or a
+#: clear by somebody else who sees the child. Not made again, as a
+#: substitution and a day's mark are not (#384). A correction is named by its
+#: target and field rather than an id, so the sentence says what is there now.
+CORRECTION_GONE_DETAIL = "this field has no correction"
+
 #: v1's ``POST /join`` and v2's ``CreateDevice``, for each refusal of
 #: ``services/join.py``: too many wrong codes, a code that names nothing, a
 #: class that takes personal codes only, and a class at its phone limit.
@@ -469,7 +477,8 @@ UNKNOWN_EVENT_DETAIL = "Unknown event"
 
 #: v1's ``current_class`` and v2's gate: the class a phone joined was deleted.
 #: v1's ``/manage/class`` says it too of a class deleted between a write's
-#: read and its commit (#384).
+#: read and its commit (#384), and so do ``/manage/terms/scheme`` and
+#: ``/me``, v2's ``UpdateTermScheme`` and ``UnlinkMe`` (#654).
 CLASS_GONE_DETAIL = "Class no longer exists"
 
 #: v2's ``SubstitutionService``: no substitution of this class has that id;
