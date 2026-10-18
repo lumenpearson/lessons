@@ -46,7 +46,7 @@ from app.models import (
     TimetableEntry,
     WeekParity,
 )
-from app.services import audit, subjects, timetable_edit, timetable_io
+from app.services import audit, gone, subjects, timetable_edit, timetable_io
 
 router = Router(name="editor")
 
@@ -57,6 +57,14 @@ router = Router(name="editor")
 #: presser's own client, and re-checking costs one comparison.
 READ_MINIMUM = Role.VIEWER
 EDIT_MINIMUM = Role.ADMIN
+
+#: The lesson is gone: another admin's «🗑 Удалить урок», or a paste over the
+#: day, before the press or between this screen's read and its commit (#654).
+LESSON_GONE = "Урока уже нет — откройте расписание заново."
+
+#: The class has no bells to put the canteen between: none set, or the
+#: schedule taken away between this press's read and its commit (#654).
+NO_BELLS = "Звонков нет"
 
 
 async def _entries(session: AsyncSession, class_id: int, weekday: int) -> list[TimetableEntry]:
@@ -307,7 +315,11 @@ async def editor_parity(
             "timetable.parity",
             f"{WEEKDAY_FULL[callback_data.day - 1]}: урок {callback_data.index} {note}",
         )
-        await session.commit()
+        # The row it changed may have been deleted since it was read (#654).
+        # The rollback expired the class, so the day is not redrawn.
+        if not await gone.committed(session):
+            await callback.answer(LESSON_GONE, show_alert=True)
+            return
     await _draw_day(
         callback, session, school_class, callback_data.day, callback_data.flags, role
     )
@@ -359,7 +371,7 @@ async def editor_set_canteen(
 
     schedule, periods = await _bells(session, school_class)
     if schedule is None:
-        await callback.answer("Звонков нет", show_alert=True)
+        await callback.answer(NO_BELLS, show_alert=True)
         return
 
     # The canteen falls on a *break*, and a break needs a bell on both sides of
@@ -386,7 +398,9 @@ async def editor_set_canteen(
         "bells.canteen",
         f"столовая: {where}",
     )
-    await session.commit()
+    if not await gone.committed(session):
+        await callback.answer(NO_BELLS, show_alert=True)
+        return
     await _draw_day(
         callback, session, school_class, callback_data.day, callback_data.flags, role
     )
@@ -604,7 +618,7 @@ async def _write_lesson(
             # carried a «timetable.edit» line for a change that never
             # happened. ``editor_slot`` already says this in the same words.
             await state.clear()
-            await message.answer("Урока уже нет — откройте расписание заново.")
+            await message.answer(LESSON_GONE)
             return
         action, note = "timetable.edit", f"урок {index}: {subject}"
 
@@ -615,7 +629,12 @@ async def _write_lesson(
         action,
         f"{WEEKDAY_FULL[day - 1]}: {note}",
     )
-    await session.commit()
+    # An edit rewrites a row it read, which another admin may have deleted
+    # since (#654): the answer a slot found gone before the write gets.
+    if not await gone.committed(session):
+        await state.clear()
+        await message.answer(LESSON_GONE)
+        return
     await state.clear()
 
     entries = await _entries(session, school_class.id, day)

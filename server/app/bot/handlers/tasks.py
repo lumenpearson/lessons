@@ -35,6 +35,7 @@ from app.bot.tasks_keyboard import (
 )
 from app.bot.tasks_render import render_task_list, render_task_saved
 from app.models import PersonalTask, Role, SchoolClass
+from app.services import gone
 from app.services import tasks as task_service
 
 router = Router(name="tasks")
@@ -48,6 +49,10 @@ TASK_HELP = (
 )
 
 NO_ACCESS = "Нет доступа. Откройте /start, чтобы получить его."
+
+#: The task is gone: deleted before the press, from here or from the phone, or
+#: between this press's read and its commit (#654).
+TASK_GONE = "Задача уже удалена"
 
 
 def _now(school_class: SchoolClass) -> datetime:
@@ -148,13 +153,16 @@ async def task_toggle_done(
         else None
     )
     if task is None:
-        await callback.answer("Задача уже удалена", show_alert=True)
+        await callback.answer(TASK_GONE, show_alert=True)
         return
 
     await task_service.set_done(session, task, not task.done)
     # Committed before Telegram is told: the middleware commits after the
     # handler, and an edit Telegram refuses would roll the tick back with it.
-    await session.commit()
+    # A task deleted between this press's read and the commit is gone (#654).
+    if not await gone.committed(session):
+        await callback.answer(TASK_GONE, show_alert=True)
+        return
     text, keyboard = await task_view(
         session, school_class, callback.from_user.id, bool(callback_data.show_done)
     )
@@ -308,7 +316,7 @@ async def task_set_reminder(
         else None
     )
     if task is None:
-        await callback.answer("Задача уже удалена", show_alert=True)
+        await callback.answer(TASK_GONE, show_alert=True)
         return
 
     remind_at = remind_at_for(task, kind)
@@ -321,7 +329,9 @@ async def task_set_reminder(
         return
 
     task.remind_at = remind_at
-    await session.commit()
+    if not await gone.committed(session):
+        await callback.answer(TASK_GONE, show_alert=True)
+        return
 
     today = now.date()
     when = human_date(remind_at.date(), today)
@@ -387,7 +397,7 @@ async def task_delete_confirm_prompt(
         else None
     )
     if task is None:
-        await callback.answer("Задача уже удалена", show_alert=True)
+        await callback.answer(TASK_GONE, show_alert=True)
         return
     await callback.message.edit_text(
         f"Удалить задачу <b>{escape(task.title)}</b>?",
@@ -421,7 +431,7 @@ async def task_delete(
         session, school_class, callback.from_user.id, bool(callback_data.show_done)
     )
     await callback.message.edit_text(text, reply_markup=keyboard)
-    await callback.answer("Удалено" if task is not None else "Задача уже удалена")
+    await callback.answer("Удалено" if task is not None else TASK_GONE)
 
 
 __all__ = ["router", "task_view"]

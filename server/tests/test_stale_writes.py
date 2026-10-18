@@ -18,7 +18,7 @@ devices and its terms with it, and the write that read them meets nothing.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -29,6 +29,8 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import wording
+from app.bot.handlers import editor as editor_bot
+from app.bot.handlers import tasks as tasks_bot
 from app.bot.handlers.content import homework as homework_bot
 from app.bot.handlers.content.overrides import SUBSTITUTION_GONE, override_cancel, override_subject
 from app.bot.handlers.manage import subjects as subjects_bot
@@ -58,6 +60,7 @@ from app.contract.lessons.v2.substitution_pb import Substitution, UpdateSubstitu
 from app.db import Base, SessionLocal
 from app.models import (
     AuditEntry,
+    BellSchedule,
     DayEvent,
     DayKind,
     DayOverride,
@@ -66,10 +69,13 @@ from app.models import (
     Homework,
     LessonOverride,
     OverrideAction,
+    PersonalTask,
     Role,
     SchoolClass,
     Subject,
     Term,
+    TimetableEntry,
+    WeekParity,
 )
 from app.providers.petersburg import client as pbclient
 from app.providers.petersburg import provider as pbprovider
@@ -77,6 +83,8 @@ from app.rpc.day import DAY_NOT_MARKED
 from app.rpc.substitution import UNKNOWN_SUBSTITUTION
 from app.services import audit, linking, structure
 from app.services import homework as homework_service
+from app.services import subjects as dictionary
+from app.services import tasks as task_service
 from app.services import terms as terms_service
 from app.services.manage import special_days
 from app.services.manage import terms as terms_manage
@@ -131,6 +139,26 @@ def _deleted_at_flush(monkeypatch, model: type[Base], row_id: int) -> list[bool]
         await real(self, *args, **kwargs)
 
     monkeypatch.setattr(AsyncSession, "flush", first_somebody_deletes)
+    return done
+
+
+def _deleted_at_commit(monkeypatch, model: type[Base], row_id: int) -> list[bool]:
+    """Delete ``model`` row ``row_id`` as :func:`_deleted_meanwhile` does, just
+    before the first commit of a session holding a changed ``model`` row: for a
+    write that changes its row and commits with neither a call nor a flush of
+    its own in between. The list says it happened."""
+    real = AsyncSession.commit
+    done: list[bool] = []
+
+    async def first_somebody_deletes(self: AsyncSession) -> None:
+        if not done and any(isinstance(row, model) for row in self.dirty):
+            done.append(True)
+            async with SessionLocal() as other:
+                await other.execute(delete(model).where(model.id == row_id))
+                await real(other)
+        await real(self)
+
+    monkeypatch.setattr(AsyncSession, "commit", first_somebody_deletes)
     return done
 
 
@@ -838,6 +866,198 @@ async def test_the_bots_scheme_change_in_a_class_deleted_meanwhile_says_the_clas
     assert callback.answers[-1] == (terms_bot.CLASS_GONE, True)
     assert state.cleared
     assert (await _count(SchoolClass), await _count(Term)) == (0, 0)
+    await session.commit()
+
+
+async def _task(session, school_class, **due: Any) -> PersonalTask:
+    """One of the presser's own tasks: ``FakeCallback``'s user is 42."""
+    row = await task_service.add_task(session, school_class.id, 42, "Купить тетрадь", **due)
+    await session.commit()
+    return row
+
+
+async def test_the_bots_tick_on_a_task_deleted_meanwhile_says_it_is_gone(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable
+) -> None:
+    row = await _task(session, school_class)
+    raced = _deleted_meanwhile(monkeypatch, task_service, "set_done", PersonalTask, row.id)
+    callback = FakeCallback(message=FakeEditable())
+
+    await tasks_bot.task_toggle_done(
+        callback,
+        SimpleNamespace(action="done", value=str(row.id), show_done=0),
+        session,
+        school_class,
+        Role.VIEWER,
+    )
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert callback.answers[-1] == (tasks_bot.TASK_GONE, True)
+    assert await _count(PersonalTask) == 0
+    await session.commit()
+
+
+async def test_the_bots_reminder_on_a_task_deleted_meanwhile_says_it_is_gone(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable
+) -> None:
+    due = datetime.now(school_class.tz).date() + timedelta(days=5)
+    row = await _task(session, school_class, due_date=due)
+    # Nothing is called between the change and the commit to stage it at.
+    raced = _deleted_at_commit(monkeypatch, PersonalTask, row.id)
+    callback = FakeCallback(message=FakeEditable())
+
+    await tasks_bot.task_set_reminder(
+        callback,
+        SimpleNamespace(action="remind", value=f"{row.id}_morning", show_done=0),
+        session,
+        school_class,
+        Role.VIEWER,
+    )
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert callback.answers[-1] == (tasks_bot.TASK_GONE, True)
+    assert await _count(PersonalTask) == 0
+    await session.commit()
+
+
+async def _lesson(session, index: int = 2) -> TimetableEntry:
+    """The fixture's Monday lesson ``index``, as the editor reads it."""
+    row = await session.scalar(
+        select(TimetableEntry).where(TimetableEntry.weekday == 1, TimetableEntry.index == index)
+    )
+    assert row is not None
+    return row
+
+
+#: The button editor's cursor on Monday's second lesson, as «✏️» leaves it.
+EDITING = {"day": 1, "index": 2, "flags": 0, "parity": 0, "mode": "edit"}
+
+
+async def test_the_bots_editor_says_a_lesson_deleted_mid_edit_is_gone_and_clears_the_state(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    lesson = await _lesson(session)
+    # After the row is read and before ``canonical``, which may found the
+    # typed subject in the dictionary: the edit's first write.
+    raced = _deleted_meanwhile(monkeypatch, dictionary, "canonical", TimetableEntry, lesson.id)
+    state = FakeState(data=dict(EDITING))
+    message = FakeMessage(text="Химия, 214")
+
+    await editor_bot.editor_take_lesson(message, state, session, school_class, Role.ADMIN)
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert message.last == editor_bot.LESSON_GONE
+    assert (state.cleared, state.data) == (True, {})
+    # Nor the dictionary entry the typed subject founded on the way.
+    written = (await _count(TimetableEntry), await _count(Subject), await _count(AuditEntry))
+    assert written == (2, 0, 0)
+    await session.commit()
+
+
+async def test_the_bots_editor_answers_a_picked_subject_for_a_lesson_deleted_meanwhile(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable, FakeState
+) -> None:
+    lesson = await _lesson(session)
+    chemistry = await _subject(session, school_class)
+    raced = _deleted_meanwhile(monkeypatch, dictionary, "canonical", TimetableEntry, lesson.id)
+    state = FakeState(data=dict(EDITING))
+    callback = FakeCallback(message=FakeEditable())
+
+    await editor_bot.editor_pick_subject(
+        callback,
+        SimpleNamespace(subject=chemistry.id, day=1, flags=0),
+        state,
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert callback.message.last == editor_bot.LESSON_GONE
+    assert callback.answers[-1] == (None, False)  # and the press is answered
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(TimetableEntry), await _count(AuditEntry)) == (2, 0)
+    await session.commit()
+
+
+async def test_the_bots_split_of_a_lesson_deleted_meanwhile_says_it_is_gone(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable
+) -> None:
+    lesson = await _lesson(session)
+    raced = _deleted_meanwhile(monkeypatch, audit, "record", TimetableEntry, lesson.id)
+    callback = FakeCallback(message=FakeEditable())
+
+    await editor_bot.editor_parity(
+        callback,
+        SimpleNamespace(action="split", day=1, index=2, flags=0, arg=0),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert callback.answers[-1] == (editor_bot.LESSON_GONE, True)
+    # Nor the second half the split would have added beside it.
+    assert (await _count(TimetableEntry), await _count(AuditEntry)) == (2, 0)
+    await session.commit()
+
+
+async def test_the_bots_merge_onto_a_half_deleted_meanwhile_says_it_is_gone(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable
+) -> None:
+    odd = await _lesson(session)
+    odd.parity = WeekParity.ODD
+    session.add(
+        TimetableEntry(
+            class_id=school_class.id,
+            weekday=1,
+            index=2,
+            subject_name="Химия",
+            parity=WeekParity.EVEN,
+        )
+    )
+    await session.commit()
+    # The half kept goes at the merge's first statement, the other half's
+    # delete, which it flushes before the kept one becomes «каждую неделю».
+    raced = _deleted_meanwhile(monkeypatch, AsyncSession, "delete", TimetableEntry, odd.id)
+    callback = FakeCallback(message=FakeEditable())
+
+    await editor_bot.editor_parity(
+        callback,
+        SimpleNamespace(action="merge", day=1, index=2, flags=0, arg=0),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert callback.answers[-1] == (editor_bot.LESSON_GONE, True)
+    # The other half's delete is rolled back with it.
+    assert (await _count(TimetableEntry), await _count(AuditEntry)) == (3, 0)
+    await session.commit()
+
+
+async def test_the_bots_canteen_on_bells_taken_away_meanwhile_says_there_are_none(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable
+) -> None:
+    """The class's default schedule, which no shell deletes while it is the
+    default: another writer moved the default and deleted it in between."""
+    raced = _deleted_meanwhile(
+        monkeypatch, audit, "record", BellSchedule, school_class.bell_schedule_id
+    )
+    callback = FakeCallback(message=FakeEditable())
+
+    await editor_bot.editor_set_canteen(
+        callback,
+        SimpleNamespace(action="eat", day=1, index=3, flags=0, arg=0),
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert callback.answers[-1] == (editor_bot.NO_BELLS, True)
+    assert (await _count(BellSchedule), await _count(AuditEntry)) == (0, 0)
     await session.commit()
 
 
