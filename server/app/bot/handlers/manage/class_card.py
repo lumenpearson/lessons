@@ -15,6 +15,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.handlers.manage._common import (
+    CLASS_GONE,
     NEED_OWNER,
     _int_or_none,
     needs,
@@ -243,7 +244,7 @@ async def class_switch_to(
 
     target = await classes_service.class_of(session, class_id)
     if target is None:
-        await callback.answer("Класс не найден", show_alert=True)
+        await callback.answer(CLASS_GONE, show_alert=True)
         return
 
     storage = DatabaseStorage(SessionLocal)

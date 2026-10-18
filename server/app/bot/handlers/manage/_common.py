@@ -26,6 +26,9 @@ NO_ACCESS = "Нет доступа. Откройте /start, чтобы полу
 NEED_ADMIN = "Только для администраторов"
 NEED_EDITOR = "Нужна роль редактора"
 NEED_OWNER = "Только для владельца класса"
+#: The class is gone: deleted by its owner, from here or from a phone, before
+#: the press or between a screen's read and its commit (#654).
+CLASS_GONE = "Класс не найден"
 
 
 # --------------------------------------------------------------------------

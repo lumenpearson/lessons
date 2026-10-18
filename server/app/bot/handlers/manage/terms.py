@@ -14,11 +14,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot.handlers.manage._common import _int_or_none, needs
+from app.bot.handlers.manage._common import CLASS_GONE, _int_or_none, needs
 from app.bot.keyboards import back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards.terms import TermAction, terms_menu
 from app.bot.manage_states import EditTerm
 from app.models import Role, SchoolClass, TermKind
+from app.services import gone
 from app.services import terms as terms_service
 from app.services.manage import terms as terms_manage
 
@@ -91,8 +92,16 @@ async def terms_scheme(
     role: Role,
 ) -> None:
     wanted = TermKind.SEMESTER if callback_data.value == "semester" else TermKind.QUARTER
-    await terms_manage.change_scheme(session, school_class, callback.from_user.id, wanted)
-    await session.commit()
+
+    async def write() -> None:
+        await terms_manage.change_scheme(session, school_class, callback.from_user.id, wanted)
+
+    # The change and not only its commit: the year's first read flushes the
+    # class's new scheme, so a class deleted meanwhile surfaces there (#654).
+    if not await gone.committed(session, write):
+        await state.clear()
+        await callback.answer(CLASS_GONE, show_alert=True)
+        return
     await state.clear()
 
     text, keyboard = await _terms_card(session, school_class)
@@ -150,16 +159,29 @@ async def term_edit_apply(
         )
         return
 
-    try:
+    starts_on, ends_on = span
+
+    async def write() -> None:
         await terms_manage.move_term(
-            session, school_class, message.from_user.id, index, span[0], span[1]
+            session, school_class, message.from_user.id, index, starts_on, ends_on
         )
+
+    try:
+        # The move and not only its commit: ``set_bounds`` flushes it, so a
+        # period a scheme change replaced meanwhile surfaces there (#654).
+        written = await gone.committed(session, write)
     except terms_service.TermError as error:
         # The message is the rule, in Russian, and the prompt stays open: the
         # admin has one date to correct, not a form to start again.
         await message.answer(str(error))
         return
-    await session.commit()
+    if not written:
+        # The year's periods were replaced under the write, so the index may
+        # name another one now: the form goes, with the answer v1 and v2 give
+        # for the same race.
+        await state.clear()
+        await message.answer(terms_service.NO_SUCH_TERM, reply_markup=back_to_menu())
+        return
     await state.clear()
 
     text, keyboard = await _terms_card(session, school_class)

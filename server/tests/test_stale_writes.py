@@ -31,6 +31,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import wording
 from app.bot.handlers.content import homework as homework_bot
 from app.bot.handlers.content.overrides import SUBSTITUTION_GONE, override_cancel, override_subject
+from app.bot.handlers.manage import subjects as subjects_bot
+from app.bot.handlers.manage import terms as terms_bot
 from app.bot.handlers.manage.holidays import (
     DAY_GONE,
     PERIOD_GONE,
@@ -66,13 +68,14 @@ from app.models import (
     OverrideAction,
     Role,
     SchoolClass,
+    Subject,
     Term,
 )
 from app.providers.petersburg import client as pbclient
 from app.providers.petersburg import provider as pbprovider
 from app.rpc.day import DAY_NOT_MARKED
 from app.rpc.substitution import UNKNOWN_SUBSTITUTION
-from app.services import audit, linking
+from app.services import audit, linking, structure
 from app.services import homework as homework_service
 from app.services import terms as terms_service
 from app.services.manage import special_days
@@ -693,6 +696,148 @@ async def test_the_bot_says_homework_deleted_meanwhile_is_gone_and_clears_the_st
     assert (state.cleared, state.data) == (True, {})
     assert (await _count(Homework), await _count(AuditEntry)) == (0, 0)
     # The session is usable again: the middleware commits it after the handler.
+    await session.commit()
+
+
+async def _subject(session, school_class, name: str = "Химия") -> Subject:
+    """A dictionary entry no lesson uses, so nothing refuses to touch it."""
+    row = Subject(class_id=school_class.id, name=name)
+    session.add(row)
+    await session.commit()
+    return row
+
+
+async def test_the_bots_rename_of_a_subject_deleted_meanwhile_says_so_and_moves_nothing(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    row = await _subject(session, school_class)
+    session.add(
+        Homework(class_id=school_class.id, due_date=MONDAY, subject_name="Химия", text="§ 3")
+    )
+    await session.commit()
+    # Before the rename's bulk statements, which are its first write.
+    raced = _deleted_meanwhile(monkeypatch, structure, "rename_subject", Subject, row.id)
+    state = FakeState(data={"subject_id": row.id})
+    message = FakeMessage(text="Биология")
+
+    await subjects_bot.subject_rename(message, state, session, school_class, Role.ADMIN)
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert message.last == f"{subjects_bot.SUBJECT_GONE}."
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(Subject), await _count(AuditEntry)) == (0, 0)
+    # The homework the rename moved is taken back with it.
+    async with SessionLocal() as fresh:
+        assert list(await fresh.scalars(select(Homework.subject_name))) == ["Химия"]
+    await session.commit()
+
+
+@pytest.mark.parametrize("step", ["subject_short_name", "subject_teacher"])
+async def test_the_bots_detail_for_a_subject_deleted_meanwhile_says_so_too(
+    step, session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    row = await _subject(session, school_class)
+    raced = _deleted_meanwhile(monkeypatch, audit, "record", Subject, row.id)
+    state = FakeState(data={"subject_id": row.id})
+    message = FakeMessage(text="Хим.")
+
+    await getattr(subjects_bot, step)(message, state, session, school_class, Role.ADMIN)
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert message.last == f"{subjects_bot.SUBJECT_GONE}."
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(Subject), await _count(AuditEntry)) == (0, 0)
+    await session.commit()
+
+
+async def test_the_bots_colour_button_for_a_subject_deleted_meanwhile_says_so_too(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable, FakeState
+) -> None:
+    row = await _subject(session, school_class)
+    raced = _deleted_meanwhile(monkeypatch, audit, "record", Subject, row.id)
+    state = FakeState(data={"subject_id": row.id})
+    callback = FakeCallback(message=FakeEditable())
+
+    await subjects_bot.subject_colour_pick(
+        callback,
+        SimpleNamespace(action="colour", value=f"{row.id}:5B6ABF"),
+        state,
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert callback.answers[-1] == (subjects_bot.SUBJECT_GONE, True)
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(Subject), await _count(AuditEntry)) == (0, 0)
+    await session.commit()
+
+
+async def test_the_bots_typed_colour_for_a_subject_deleted_meanwhile_says_so_too(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    row = await _subject(session, school_class)
+    raced = _deleted_meanwhile(monkeypatch, audit, "record", Subject, row.id)
+    state = FakeState(data={"subject_id": row.id})
+    message = FakeMessage(text="#5B6ABF")
+
+    await subjects_bot.subject_colour_typed(message, state, session, school_class, Role.ADMIN)
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert message.last == f"{subjects_bot.SUBJECT_GONE}."
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(Subject), await _count(AuditEntry)) == (0, 0)
+    await session.commit()
+
+
+async def test_the_bots_term_moved_while_a_scheme_change_replaced_it_says_it_is_gone(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    """A scheme change reseeds the year, deleting the term this step has
+    read; ``set_bounds`` flushes the move, so the race surfaces there."""
+    first = (await _terms(session, school_class))[0]
+    raced = _deleted_at_flush(monkeypatch, Term, first.id)
+    state = FakeState(data={"term_index": 1})
+    message = FakeMessage(
+        text=f"{first.starts_on + timedelta(days=1):%d.%m.%Y} - {first.ends_on:%d.%m.%Y}"
+    )
+
+    await terms_bot.term_edit_apply(message, state, session, school_class, Role.ADMIN)
+
+    assert raced, "the delete never happened, so nothing was tested"
+    # What v1 and v2 answer for the same race, and for a term the year lacks.
+    assert message.last == terms_service.NO_SUCH_TERM
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(Term), await _count(AuditEntry)) == (3, 0)
+    await session.commit()
+
+
+async def test_the_bots_scheme_change_in_a_class_deleted_meanwhile_says_the_class_is_gone(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable, FakeState
+) -> None:
+    """The year's first read flushes the class's new scheme, before any
+    journal line is staged: the class's own ``UPDATE`` meets the race."""
+    await _terms(session, school_class)
+    raced = _deleted_meanwhile(
+        monkeypatch, terms_service, "set_scheme", SchoolClass, school_class.id
+    )
+    state = FakeState()
+    callback = FakeCallback(message=FakeEditable())
+
+    await terms_bot.terms_scheme(
+        callback,
+        SimpleNamespace(action="scheme", value="semester"),
+        state,
+        session,
+        school_class,
+        Role.ADMIN,
+    )
+
+    assert raced, "the delete never happened, so nothing was tested"
+    assert callback.answers[-1] == (terms_bot.CLASS_GONE, True)
+    assert state.cleared
+    assert (await _count(SchoolClass), await _count(Term)) == (0, 0)
     await session.commit()
 
 
