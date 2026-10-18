@@ -19,6 +19,9 @@ logged traceback:
   reads it;
 - a body that does not decode is ``invalid_argument`` /
   ``REQUEST_UNDECODABLE``, through codecs that wrap the library's own.
+
+A unary answer of a method in ``rpc/caching.py``'s ``NEVER_STORED`` carries
+``Cache-Control: private, no-store``, as its REST twin does (#357).
 """
 
 from __future__ import annotations
@@ -36,6 +39,7 @@ from connectrpc.errors import ConnectError
 from starlette.responses import PlainTextResponse, Response
 
 from app.api.deps import peer_host
+from app.rpc.caching import NEVER_STORED, NO_STORE
 from app.rpc.call import invoke, stream
 from app.rpc.errors import INTERNAL_MESSAGE, connect_error, undecodable
 from app.rpc.methods import METHODS, Method
@@ -123,13 +127,25 @@ COMPRESSIONS: tuple[Compression, ...] = (_Decompressing(GzipCompression()),)
 
 
 def _unary(method: Method) -> Callable[..., Awaitable[Any]]:
+    never_stored = method.key in NEVER_STORED
+
     async def call(self: object, request: Any, ctx: Any) -> Any:
-        return await invoke(
+        response = await invoke(
             method,
             request,
             headers=list(ctx.request_headers.allitems()),
             peer=peer_host(ctx.client_address),
         )
+        # The no-store header is set here, on the context's response headers,
+        # rather than by a middleware around the mount reading the method off
+        # the path: the adapter already knows its method, ``connectrpc`` sends
+        # these headers on a unary answer whatever the verb, POST or GET, and a
+        # middleware would have to parse the path ``_Services`` already parses
+        # and rewrite ``http.response.start`` on every call. Only on success,
+        # as REST sets it: a refusal carries nothing worth keeping (#357).
+        if never_stored:
+            ctx.response_headers["cache-control"] = NO_STORE
+        return response
 
     return call
 

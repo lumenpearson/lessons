@@ -1665,6 +1665,20 @@ that claims `Content-Encoding: gzip` and is not gzip, a JSON string holding a lo
 and a header or a query string that is not UTF-8, which is read as Latin-1, as v1 reads it,
 and judged where it is used.
 
+On every transport, too, the answers no cache may keep say so: `Cache-Control: private,
+no-store` goes on the success of every diary answer (every `DiaryService` method, the
+corrections' writes among them, since they answer with the rows they corrected), of the three
+lists that name the class's members (`ListClassDevices`, `ListAccessRequests` and
+`ListAuditEntries`, #652), of `GetCalendarFeed` and `CreateCalendarFeed` (their answer is a secret URL), of
+`GetClass` and `UpdateClass` (their answer is the class card, whose join code admits a
+phone), of `CreateDevice` and `CreateDiarySession` (their answer is a device token or a diary
+token) and of `CreateLinkCode` (its answer links the phone to whoever sends it to the bot).
+That is REST's answer, and Connect's whether the call came as a `POST` or as a `GET`, and
+gRPC-Web's and native gRPC's as a response header. Both transports read one table,
+`server/app/rpc/caching.py`'s `NEVER_STORED`; until #357 only REST did, so a Connect `GET` of
+`GetClass` could leave the join code in a private cache. No other answer carries a
+`Cache-Control` of its own, and a refusal carries none.
+
 The transports differ in what a body may be. Connect takes gzip (`Content-Encoding: gzip`) as
 well as uncompressed bodies. REST takes uncompressed bodies only: one with any
 `Content-Encoding` but `identity` is `REQUEST_UNDECODABLE`, and so is one whose `Content-Type`
@@ -1724,12 +1738,9 @@ page answers differently there but three things.
   with `not_modified` set is a `304` with its `ETag` and no body; any other response with an
   `etag` sends it as `ETag`. `GetScheduleWindow`'s tag is a strong SHA-256 of the window's
   canonical JSON without `generatedAt`, and its answer carries an `ETag` and no
-  `Cache-Control`, as v1's `/bundle` does. `Cache-Control: private, no-store` goes on every
-  diary `GET`, on `GetCalendarFeed` and `CreateCalendarFeed` (their answer is a secret URL),
-  on `GetClass` and `UpdateClass` (their answer is the class card, whose join code admits a
-  phone), on `CreateDevice` and `CreateDiarySession` (their answer is a device token or a
-  diary token) and on `CreateLinkCode` (its answer links the phone to whoever sends it to the
-  bot).
+  `Cache-Control`, as v1's `/bundle` does. The answers that must not be stored carry
+  `Cache-Control: private, no-store` here as over Connect («One contract, three ways to call
+  it», above).
 - **No CORS header**, on any answer: v2 answers apps, not pages on other sites.
 - **A failure to write an answer** is Google's `INTERNAL` body like any other refusal, never
   plain text.
@@ -1915,7 +1926,7 @@ page answers differently there but three things.
   provider, validated by v1's own schema, so the two versions refuse the same sessions; a
   violation is named as v2 spells the field (`netschool.cookies.ns_session_id`), never with
   what was sent. The diary reads with it once from this server's address, and the token it
-  answers with is never cached over REST (Connect's answers carry no such header yet, #357).
+  answers with is never cached, over either transport.
   A region this server does not serve is `VALIDATION_FAILED` on `region` before anything is
   counted or sent. An attempt is counted as v1 counts it, on one
   budget with v1 for the same caller: `DIARY_CREDENTIALS_REJECTED` (the diary would not take

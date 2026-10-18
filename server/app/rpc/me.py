@@ -124,7 +124,7 @@ async def create_link_code(call: Call, request: CreateLinkCodeRequest) -> Create
     """The code to send the bot, minted on the first ask and the same until it
     is used, which is the code v1's ``/me`` shows too; none for a phone that is
     linked already. The deep link is there when the deployment names its bot.
-    Never cached (``rest.NO_STORE_CREDENTIAL``): it links the phone to whoever
+    Never cached (``caching.NO_STORE_CREDENTIAL``): it links the phone to whoever
     sends it."""
     device, _school_class = call.device_and_class()
     code = await linking.link_code_for(call.session, device)
@@ -169,7 +169,7 @@ async def create_calendar_feed(
     and the same address on every ask after (``calendar.ensure_calendar_token``,
     which v1 and the bot call too). Asks for a linked account, where v1 let any
     phone of the class mint it; no rotation, since the feed is the whole
-    class's. Never cached (``rest.NO_STORE_CREDENTIAL``)."""
+    class's. Never cached (``caching.NO_STORE_CREDENTIAL``)."""
     _device, school_class = call.device_and_class()
     origin = _feed_origin(call)
     secret = await calendar_service.ensure_calendar_token(call.session, school_class)
