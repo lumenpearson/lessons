@@ -30,7 +30,7 @@ from app.bot.render import human_date, relative_day_name
 from app.bot.states import AddOverride
 from app.models import OverrideAction, Role, SchoolClass
 from app.schedule import ScheduleResolver
-from app.services import audit, notify, substitutions
+from app.services import audit, gone, notify, substitutions
 
 router = Router(name="content.overrides")
 
@@ -49,6 +49,11 @@ ADDED_BY_SUBSTITUTION = (
     "Урок №{index} добавлен заменой — в расписании его нет, отменять нечего. "
     "Чтобы убрать его, нажмите «♻️ Вернуть по расписанию»."
 )
+
+#: The substitution being changed was taken off by somebody else between
+#: this screen's read and its commit (#384). Nothing is written, and it is not
+#: made again: whoever took it off meant the lesson to go by the timetable.
+SUBSTITUTION_GONE = "Эту замену только что сняли — откройте «🔄 Замены» заново."
 
 
 # --------------------------------------------------------------------------
@@ -262,7 +267,10 @@ async def override_subject(
         "override.replace",
         f"замена {day:%d.%m}, урок №{index}: {subject}",
     )
-    await session.commit()
+    if not await gone.committed(session):
+        await state.clear()
+        await message.answer(SUBSTITUTION_GONE, reply_markup=back_to_menu())
+        return
     await state.clear()
 
     today = _today(school_class)
@@ -317,7 +325,10 @@ async def override_cancel(
         "override.cancel",
         f"отменён урок №{index} {day:%d.%m}",
     )
-    await session.commit()
+    if not await gone.committed(session):
+        await state.clear()
+        await callback.answer(SUBSTITUTION_GONE, show_alert=True)
+        return
     await state.clear()
 
     today = _today(school_class)
