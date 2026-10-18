@@ -22,6 +22,13 @@ service WatchService {
   // REST cannot carry a stream. A target without streaming answers
   // FEATURE_UNSUPPORTED; a device revoked, or its class deleted, ends the
   // stream with DEVICE_TOKEN_INVALID.
+  //
+  // One device holds one stream. A newer stream opened with the same device
+  // token ends the older one cleanly, with no error, and a clean end is not
+  // a reason to reopen: two consumers sharing one token, an app and its
+  // widget say, that each reopened on every end would end each other's
+  // stream for ever, each reopen costing a full check of the token. Reopen
+  // after an error or a dropped connection, never after a clean end.
   rpc WatchClass(WatchClassRequest) returns (stream WatchClassResponse) {
     option (lessons.v2.auth) = AUTH_KIND_DEVICE;
     option (lessons.v2.min_role) = ROLE_VIEWER;

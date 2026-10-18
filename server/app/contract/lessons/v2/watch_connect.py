@@ -38,6 +38,13 @@ class WatchService(Protocol):
         REST cannot carry a stream. A target without streaming answers
         FEATURE_UNSUPPORTED; a device revoked, or its class deleted, ends the
         stream with DEVICE_TOKEN_INVALID.
+
+        One device holds one stream. A newer stream opened with the same device
+        token ends the older one cleanly, with no error, and a clean end is not
+        a reason to reopen: two consumers sharing one token, an app and its
+        widget say, that each reopened on every end would end each other's
+        stream for ever, each reopen costing a full check of the token. Reopen
+        after an error or a dropped connection, never after a clean end.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -99,6 +106,13 @@ class WatchServiceClient(ConnectClient):
         REST cannot carry a stream. A target without streaming answers
         FEATURE_UNSUPPORTED; a device revoked, or its class deleted, ends the
         stream with DEVICE_TOKEN_INVALID.
+
+        One device holds one stream. A newer stream opened with the same device
+        token ends the older one cleanly, with no error, and a clean end is not
+        a reason to reopen: two consumers sharing one token, an app and its
+        widget say, that each reopened on every end would end each other's
+        stream for ever, each reopen costing a full check of the token. Reopen
+        after an error or a dropped connection, never after a clean end.
         """
         return self.execute_server_stream(
             request=request,
@@ -124,6 +138,13 @@ class WatchServiceSync(Protocol):
         REST cannot carry a stream. A target without streaming answers
         FEATURE_UNSUPPORTED; a device revoked, or its class deleted, ends the
         stream with DEVICE_TOKEN_INVALID.
+
+        One device holds one stream. A newer stream opened with the same device
+        token ends the older one cleanly, with no error, and a clean end is not
+        a reason to reopen: two consumers sharing one token, an app and its
+        widget say, that each reopened on every end would end each other's
+        stream for ever, each reopen costing a full check of the token. Reopen
+        after an error or a dropped connection, never after a clean end.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -183,6 +204,13 @@ class WatchServiceClientSync(ConnectClientSync):
         REST cannot carry a stream. A target without streaming answers
         FEATURE_UNSUPPORTED; a device revoked, or its class deleted, ends the
         stream with DEVICE_TOKEN_INVALID.
+
+        One device holds one stream. A newer stream opened with the same device
+        token ends the older one cleanly, with no error, and a clean end is not
+        a reason to reopen: two consumers sharing one token, an app and its
+        widget say, that each reopened on every end would end each other's
+        stream for ever, each reopen costing a full check of the token. Reopen
+        after an error or a dropped connection, never after a clean end.
         """
         return self.execute_server_stream(
             request=request,
