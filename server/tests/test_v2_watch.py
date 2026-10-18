@@ -347,6 +347,12 @@ async def test_a_stream_from_another_phone_of_the_class_is_untouched(
             assert await newer.next() is not None
             assert await older.end() == []
             assert streaming.watchers(school_class.id) == 2
+            # Ending the viewer's older stream is no change of the class: the
+            # editor's stream must not be woken by it, only by the publish.
+            # Without this wait a spurious wake would pass, since the publish
+            # below wakes it anyway (#401).
+            with pytest.raises(TimeoutError):
+                await other.next(timeout=0.5)
             streaming.publish([school_class.id])
             latest = streaming.revision(school_class.id)
             for stream in (other, newer):
