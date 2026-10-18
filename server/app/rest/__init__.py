@@ -31,11 +31,11 @@ sentence that quotes what was sent.
 **Answering**: ``201`` for the eight methods whose proto comment promises it
 (:data:`CREATED`), ``200`` for every other success, with the response as
 canonical JSON; ``304`` and no body when the response says ``not_modified``;
-its ``etag`` as ``ETag``; ``Cache-Control: private, no-store`` on diary reads, on
-``GetCalendarFeed`` and the class card (:data:`NO_STORE_ALSO`) and on the answers that
-carry a credential (:data:`NO_STORE_CREDENTIAL`) — this transcoder's header, which
-Connect's answers do not carry yet (#357); no CORS header at all (question 5). A refusal is
-Google's error body (``rest/errors.py``).
+its ``etag`` as ``ETag``; ``Cache-Control: private, no-store`` on every method of
+``rpc/caching.py``'s ``NEVER_STORED`` — the diary's reads, ``GetCalendarFeed`` and
+``GetClass``, and the answers that carry a credential — the table the Connect adapters
+read too, so the two transports cannot disagree about it (#357); no CORS header at all
+(question 5). A refusal is Google's error body (``rest/errors.py``).
 """
 
 from __future__ import annotations
@@ -62,6 +62,7 @@ from starlette.responses import Response
 from starlette.routing import Route
 
 from app.rest.errors import error_response
+from app.rpc.caching import NEVER_STORED, NO_STORE
 from app.rpc.call import invoke
 from app.rpc.errors import Refusal, connect_error, undecodable
 from app.rpc.methods import METHODS, Method
@@ -79,33 +80,6 @@ CREATED = frozenset(
         "lessons.v2.MeService/CreateTask",
         "lessons.v2.SubjectService/CreateSubject",
         "lessons.v2.SubstitutionService/CreateSubstitution",
-    }
-)
-
-#: What every diary read answers with: a family's marks are nobody's cache's.
-NO_STORE = "private, no-store"
-
-#: Reads outside the diary that are as private: the class's calendar
-#: subscription URL is a secret, and so is the class card's join code, which
-#: admits a phone to an open class; a shared cache must keep neither.
-NO_STORE_ALSO = frozenset(
-    {"lessons.v2.MeService/GetCalendarFeed", "lessons.v2.ClassService/GetClass"}
-)
-
-#: Writes whose *answer* is a credential: the token a phone will use for good,
-#: the class card ``UpdateClass`` answers with, join code included, the code
-#: that links a phone to whoever sends it to the bot, until it is used, the
-#: class's secret calendar address, which ``GetCalendarFeed`` keeps from
-#: caches too, and the diary token ``CreateDiarySession`` answers with. Nobody
-#: asked a cache to keep a POST or a PATCH, but the answer says so anyway, as
-#: defence in depth.
-NO_STORE_CREDENTIAL = frozenset(
-    {
-        "lessons.v2.DeviceService/CreateDevice",
-        "lessons.v2.ClassService/UpdateClass",
-        "lessons.v2.MeService/CreateLinkCode",
-        "lessons.v2.MeService/CreateCalendarFeed",
-        "lessons.v2.DiaryService/CreateDiarySession",
     }
 )
 
@@ -314,10 +288,7 @@ def _answer(method: Method, response: Message) -> Response:
     etag = response[fields["etag"]] if "etag" in fields else ""
     if etag:
         headers["ETag"] = etag
-    if method.binding is not None and method.binding.verb == "get":
-        if method.service == "lessons.v2.DiaryService" or method.key in NO_STORE_ALSO:
-            headers["Cache-Control"] = NO_STORE
-    if method.key in NO_STORE_CREDENTIAL:
+    if method.key in NEVER_STORED:
         headers["Cache-Control"] = NO_STORE
     if "not_modified" in fields and response[fields["not_modified"]]:
         return Response(status_code=304, headers=headers)

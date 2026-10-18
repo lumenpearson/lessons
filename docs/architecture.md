@@ -120,8 +120,10 @@ adapters and the REST transcoder both call one `invoke` (`rpc/call.py`), which r
 gate, opens the call's dishka scope the way the bot's middleware does, runs the handler,
 commits, and only then runs the call's effects. A handler never checks a credential and
 never commits, and every refusal is worded by one table (`rpc/errors.py`), so the two
-transports cannot disagree about a rule. The rules v1's routers held and v2 needs moved into
-`services/` first — the join flow, the window's tag, the clock and the bounds, then the
+transports cannot disagree about a rule. Which answers no cache may keep is one table too
+(`rpc/caching.py`), read by REST's writer and Connect's adapters alike, since while it was
+REST's alone a Connect `GET` of the class card carried no `Cache-Control` (#357). The rules
+v1's routers held and v2 needs moved into `services/` first — the join flow, the window's tag, the clock and the bounds, then the
 member names, the class's wall clock, the dictionary read, the subject patch and the
 journal's page keyed on its last line, then the bells' patch, the timetable's import and
 the class card's patch, then the answer to an access request and the anonymous directory's
