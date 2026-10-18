@@ -1,20 +1,25 @@
 # Engineering practice
 
 How this project is built, tested and changed, read against the engineering practice Airbnb
-has published for its Android app and its services. Airbnb is not the model because it is
-large — almost nothing about a company of thousands of engineers transfers to one owner and
-a handful of agents — but because it has written down, with numbers, which practices paid
-for themselves at scale, and several of those are exactly the ones a small team cannot
-afford to learn the hard way.
+has published for its Android app and its services — with one standard: **a practice is
+taken only where it beats what is already here, and what is already here is pushed further
+where it can be.** Airbnb is not the model. Almost nothing about a company of thousands of
+engineers transfers to one owner and a handful of agents, and several of its practices are
+weaker than this repository's own. It is the comparison because it has written down, with
+numbers, which practices paid for themselves, which makes it possible to say of each one
+whether it would pay here.
 
 Each section says **what Airbnb does**, with the source; **what this repository does
-today**, checked against the tree; and **what is left**, as an issue under epic #626. A
-practice adopted here is a rule in `CLAUDE.md`, a test, a gate or an agent, not a sentence in
-this file — this file is where the reason for it is kept, and the place an agent reads before
-proposing a new kind of test, a new check or a new shape of the build.
+today**, checked against the tree; **where this project is already ahead**, when it is; and
+**what is left**, as an issue under epic #626. A practice adopted here is a rule in
+`CLAUDE.md`, a test, a gate or an agent, not a sentence in this file — this file is where
+the reason for it is kept, and the place an agent reads before proposing a new kind of test,
+a new check or a new shape of the build.
 
-What is deliberately **not** taken is said too, in the last section, because a practice
-rejected for a reason is a decision, and a decision nobody wrote down is rediscovered as an
+Two sections at the end are as load-bearing as the rest. «Where this project is already
+ahead» names the practices here that no Airbnb post matches, and the issue that takes each
+one further. «Dropped from the analysis» names the Airbnb practices judged weaker than what
+is here, or bound to Airbnb's size, so that a later reader finds a decision rather than an
 oversight.
 
 ## Testing
@@ -43,8 +48,13 @@ and no test presses every control a state draws.
 **The rule this project takes.** Test at the cheapest layer that can hold the question — the
 model, then the view model, then the screen at a fixed state, then an interaction — and write
 the screen's states once, so that the preview, the screenshot and the interaction test draw
-the same thing. The `android-tests` agent carries the layering. Left: the screens' states
-(#628) and the presses over them (#629).
+the same thing. The `android-tests` agent carries the layering.
+
+**Where this goes past Airbnb.** Airbnb enforces the mocks with a lint rule on screen naming;
+here the test that wants them *discovers* every screen, the way `ResourceTranslationTest`
+already discovers every module that ships strings instead of listing them, and a mock is
+proven rather than declared — a view-model test shows the view model can produce each named
+state. Left: the screens' states (#628) and the presses over them (#629).
 
 ### Screenshots are a test, not a picture
 
@@ -61,7 +71,9 @@ permutations — dark, right-to-left, font scale — from the previews themselve
 a device (milestone 9); a regression between two such walks is invisible. The way to get
 screenshots without a device is a JVM screenshot library over the Robolectric tests the
 project already runs, which is a decision about one dependency and its version — copied from
-a project that builds, like every version here. Left: #627.
+a project that builds, like every version here. The goldens are committed and reviewed in the
+pull request that changes them, which is approval testing without a service to approve in:
+the diff is in the review, where every other change of this repository already is. Left: #627.
 
 ### A flaky test is a defect
 
@@ -76,13 +88,6 @@ that, stability was measured as a *flip rate* from hourly runs of the suite
 filed (#355) rather than retried — but finding it depends on somebody reading a red run. No
 job reruns the suites to find the tests that disagree with themselves, and no report is kept
 from which a rate could be read. Left: #645.
-
-### The test is proven by the fix
-
-None of Airbnb's posts above states this rule, and this project already has it: a test is
-kept only once it has been seen red on the code without the fix (`server-tests` and
-`android-tests` agents). Nothing is borrowed; it is recorded so that a later reader does not
-take its absence from this file for its absence from the project.
 
 ## Contracts
 
@@ -122,18 +127,18 @@ attributed to Airbnb and is not in anything it has published, so it is not cited
 shapes, not the answers. No test asks a v1 read and its v2 twin the same question over the
 same database and compares what comes back. Left: #640.
 
-### The interface definition is reviewed as an interface
+### One file both sides read
 
-**Airbnb.** The IDL is the contract: Airbnb's compiler generates the server resources and
-the clients, in two languages, with retries, validation and request context built in, and
-adds date types so that nobody falls back to strings ([Building services, part 1][svc1]).
-Its standards are built into the platform on the stated ground that documenting them alone
-does not work ([part 2][svc2]).
+**Airbnb.** Per-endpoint fixtures are validated against the schema and reused as the client's
+mocks and the producer's contract test ([Building services, part 4][svc4]) — two consumers of
+one file, kept honest by a deploy that locks on a mismatch.
 
-**Here.** Already true at this project's size: the contract is one set of files under
-`proto/`, linted with the STANDARD rules, the resource map of
-`docs/specs/2026-10-04-contract-v2-design.md` is held by a test, and an edit to that map is a
-breaking change by rule. Nothing to take; recorded for the same reason as above.
+**Here.** `tests/vectors/diary_protocol.json` already does this for the two diaries' sign-in
+protocols: the server's `test_diary_protocol_vectors.py` and the phone's
+`DiaryProtocolVectorsTest` read the same bytes, so neither side can drift alone. The app's
+other DTO tests decode copies written by hand (`BundleJsonTest`). The vectors are the pattern
+that beats Airbnb's — no deploy pipeline needed, a test on each side is the lock — and #639
+extends it to every payload the app reads.
 
 ## Delivery
 
@@ -167,7 +172,10 @@ schema-checked in CI, reviewed, rolled out by stages with a fast rollback, and h
 emergency path ([dynamic configuration][sitar]).
 
 **Here.** On the server, every optional integration is off until its setting is set, and the
-startup log says which are off (`Settings.disabled_features`). On the phone, nothing can be
+startup log says which are off (`Settings.disabled_features`) — a stronger rule than a flag
+service, because a switch here cannot exist without saying what «off» means and announcing
+itself. #637 carries that rule to the phone: a switch with a compiled-in default, read from the
+bundle, logged by the app like the server logs its own. On the phone, nothing can be
 switched off after install: a feature that misbehaves on an installed APK is fixed by a new
 APK, and nothing in this project has ever been released, so there is no channel to ship one
 through yet (#127). Left: #637.
@@ -205,44 +213,19 @@ and a `grep` for Russian in Kotlin that a person has to remember to run (#315). 
 `CLAUDE.md` lists for Kotlin — `LocalDateTime.now()`, `ZoneId.systemDefault()`, a
 `pointerInput(Unit)` that closes over a plain `val` — are caught by reading. Android lint is
 not a gate, no Kotlin formatter is checked, and on the server ruff selects five rule families
-and mypy asks one question. Left: custom detekt rules for the traps (#632), Android lint
-as a gate (#633), a baseline that cannot grow (#635), more ruff families (#644) and mypy
-ratcheted (#643).
+and mypy asks one question.
 
-### Format is not a review comment
+**Where this goes past Airbnb.** Airbnb's rules encode its standards. The rules here encode
+this project's *defects*: each is born from an issue, its message names the issue and the
+right call, and it ships with a test that is red on the code that produced the defect — the
+suites' own «seen red without the fix» rule, applied to the linter. The one principle worth
+keeping from Airbnb's style guides ([Swift guide][swift]) — a rule a tool can fix, the tool
+fixes — is a condition on every rule added, not a project of its own. Left: the rules for the
+Kotlin traps, with the two Android Lint checks that matter folded in (#632), a baseline that
+cannot grow (#635), the time-zone and async families in ruff (#644) and mypy ratcheted a code
+at a time (#643).
 
-**Airbnb.** Airbnb's style guides are enforced by tools — `eslint-config-airbnb`,
-`rubocop-airbnb`, and the Swift guide's formatter, which says a rule that only affects
-formatting must be autocorrectable and that autocorrection must never change behaviour, so
-that review stays on the logic ([Swift guide][swift]; [JavaScript guide][js]). Its open-source
-Kotlin library runs detekt with autocorrection on locally and off in CI
-([Mavericks' detekt setup][mvdetekt]). It publishes no Kotlin style guide.
-
-**Here.** `.editorconfig` and `kotlin.code.style=official` say what the format is; nothing
-checks it in Kotlin, and `ruff format` is not a gate in Python. Neither half has produced a
-defect from formatting, which is why this is a chore rather than a bug: the cost is review
-attention spent on whitespace, and a diff that mixes a reformat with a change. Left: #634.
-
-## Build
-
-### The build is code, and it is written once
-
-**Airbnb.** The Android app has over two thousand modules, each of a declared *type* that
-fixes what it may depend on: feature modules never depend on one another, and each has a
-small navigation module through which others reach it ([Trio, part II][trio2]; the iOS
-codebase documents twelve such types, [iOS productivity][ios]). CI tests the modules a change
-affects and their dependents, and everything when the one file of dependency versions changes
-([part 7][bat7]). The JVM monorepo's move to Bazel generated build files from the imports and
-kept the old build runnable beside the new one until the end ([Bazel][bazel]). Gradle
-convention plugins in the app itself are not documented in anything Airbnb has published.
-
-**Here.** Five modules, each `build.gradle.kts` repeating its detekt block and its JVM
-target by hand, with the same comment above each copy, and the three Compose modules their
-compiler's stability settings. The
-module graph is small and its one written rule — `:core:data` must not depend on `:widget` —
-is held by Gradle itself, since `:widget` depends on `:core:data` and a cycle does not build.
-`:app` holds 34 thousand lines and every screen; the decompositions of sub-project 4 split its
-classes, not yet the module. Left: convention plugins (#630), then feature modules (#631).
+## Changing a lot at once
 
 ### Large changes are a pipeline
 
@@ -288,17 +271,76 @@ iOS module types are documented in source control beside the code they govern
 the owning team reviewing ([engineering culture][culture]).
 
 **Here.** Designs are agreed before they are built and kept under `docs/specs/`, dated, with a
-plan per sub-project; every defect gets an issue before its fix; and the agent configuration
-is one agent per area that has produced a defect. The cost this repository pays that a
-company does not is context: `CLAUDE.md` is read by every session and is long enough that a
-third of it is the record of how a rule was learnt rather than the rule. Left: #648.
+plan per sub-project; every defect gets an issue before its fix; the agent configuration is
+one agent per area that has produced a defect; and the server's tests read the documents —
+the migration head in every one of them (`test_schema_version.py`), the CI paths against what
+the suite reads (`test_ci_paths.py`). None of that is in anything Airbnb has published. The
+cost this repository pays that a company does not is context: `CLAUDE.md` is read by every
+session and is long enough that a third of it is the record of how a rule was learnt rather
+than the rule.
+
+**Where this goes past Airbnb.** Airbnb's Swift skill keeps the rules a formatter cannot fix.
+The rule here is sharper and checkable: **a trap that a test or a lint rule holds is one line
+in `CLAUDE.md`, pointing at what holds it; only a trap nothing holds gets its paragraph.** The
+pull request template now asks, for every fix, what holds it — a test, a rule, or «nothing
+can, because …» — so the answer exists when the paragraph is cut. And the documents that
+agents read get the tests the other documents already have: that every file, test and command
+an agent names exists (#661), that the gate commands are one list across `CLAUDE.md`,
+`settings.json` and `ci.yml` (#659; bare `pytest` was in two of the three), and that the test
+counts are one generated fact rather than seven hand-edited copies (#660). Left: the cut
+itself (#648).
+
+## Where this project is already ahead
+
+Practices here that no Airbnb post matches, each with the issue that takes it further. They
+are listed so that nobody proposes replacing one with a weaker import.
+
+| Practice | Where it is | Further |
+| --- | --- | --- |
+| A test is kept only once it has been seen red on the code without the fix | `server-tests`, `android-tests` agents | the same rule for every lint rule added (#632) |
+| A defect gets an issue before a fix, with the failure scenario, and the pull request closes it | `CLAUDE.md`, `github-pr` skill | the fix says what holds it (the template; #648) |
+| The documents are read by tests: the migration head, the CI paths, what «CI» needs | `test_schema_version.py`, `test_ci_paths.py`, `test_ci_required.py` | the agents' names (#661), the gate commands (#659), the counts (#660) |
+| One file both sides read | `tests/vectors/diary_protocol.json` | every payload the app reads (#639) |
+| A switch cannot exist without saying what «off» means and announcing itself | `Settings.disabled_features` | the phone's switches (#637) |
+| A migration declares which side of the merge it goes on | the `migration` skill, each revision's docstring | declared in code and checked (#642) |
+| Discover, do not list | `ResourceTranslationTest` over every module | the screens' mocks (#628) |
+| «Written, never run» is a legitimate status, and a false claim of verification is not | README «Honest status», the template | the counts it quotes held by CI (#660) |
+| Versions are copied from a project that builds, never guessed | `libs.versions.toml`'s header | every dependency the issues above add |
+
+## Dropped from the analysis
+
+Airbnb practices read and set aside, with the reason — either weaker than what is here, or
+an answer to a size this project does not have. Each was an issue for a day (#630, #631,
+#633, #634, #647) and is closed with the same sentence, so that the decision has a number.
+
+- **Two thousand typed modules, affected-module CI, Bazel** ([Trio, part II][trio2];
+  [part 7][bat7]; [Bazel][bazel]). Answers to a build that took twenty minutes. Five modules
+  build in one; sub-project 4's decompositions are the right scale of split, and a
+  feature-module cut before they finish moves the same classes twice. Reopen when `:app`
+  still hurts after them (#631).
+- **Convention plugins.** Build hygiene Airbnb has published nothing on; the one duplicated
+  setting that can bite — detekt falling back to its defaults in silence — is held by a test
+  in #632 instead (#630).
+- **Formatting as a gate, Android lint as a gate** ([JavaScript guide][js];
+  [Mavericks' detekt setup][mvdetekt]). Neither half has produced a defect from formatting,
+  and generic lint is one more baseline to ratchet; the two lint checks that matter here go
+  in with the project's own rules (#633, #634).
+- **Happo, Showkase, Mavericks, Epoxy, Trio.** Each is a library carrying Airbnb's View-era
+  history or its scale. The idea under each — committed goldens, generated permutations, one
+  state per screen — is taken without the dependency.
+- **ERF, Safe Deploys, Spinnaker canaries.** Experimentation and staged rollout need traffic
+  to measure; one deployment with one class has none. A deployment is checked by asking it
+  (#641), and a feature is switched off by a setting that announces itself (#637).
+- **Objectives and alert backtesting.** A dashboard for one deployment and one owner is a
+  dashboard nobody reads; the self-check alerts on a change, and the one promise with a
+  number is kept by the external cron (#647, #120).
+- **A merge queue.** Right, and unavailable: GitHub offers it to organization-owned
+  repositories only. The strict «up to date» policy on «CI» is what is in reach (#646).
+- **Server-driven UI, a service per domain, a DI framework.** The reasons are in the next
+  section.
 
 ## What is deliberately not taken
 
-- **Mavericks, Epoxy and the rest of Airbnb's Android libraries.** They solve a codebase with
-  hundreds of screens and a decade of View-based UI; this one is Compose from the first line,
-  with view models exposing one state each, which is the part of Mavericks that matters. A
-  library would add a dependency whose versions nobody here has copied from a build.
 - **Dependency injection by framework.** `Graph` is hand-written because the widget and the
   worker need repositories from entry points Hilt does not inject cleanly (`CLAUDE.md`,
   «Architecture»). Airbnb's scale is the reason for its DI; this project's scale is the reason
@@ -309,7 +351,6 @@ third of it is the record of how a rule was learnt rather than the rule. Left: #
 - **A service per domain.** The server is one process on purpose — one cold start, one
   database, one set of services both shells call. What Airbnb's move to services teaches that
   does transfer is the comparison of old and new on the same traffic, which is above.
-- **Buck, Bazel or a monorepo build tool.** Two builds — Gradle and pip — and five modules.
 
 ## Sources
 

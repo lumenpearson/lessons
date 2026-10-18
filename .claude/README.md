@@ -36,14 +36,16 @@ decompositions are; it is Airbnb's LLM-migration method with the model left out.
 
 ## Borrowed practice, and where it is written
 
-`docs/engineering.md` collects the engineering practices this project took from Airbnb's
-published work — the state-driven screen tests, the contract kept compatible with the phones
+`docs/engineering.md` reads this project against the engineering practice Airbnb has
+published — the state-driven screen tests, the contract kept compatible with the phones
 already installed, the gate that every step of a large change ends at, the lint rule that
-encodes a lesson instead of a paragraph — each with its source and with what this repository
-does about it today. It is the one document an agent here should read before proposing a new
-kind of test, a new check in CI or a restructuring of the build, so that the proposal starts
-from what has already been decided rather than from a blog post. What is not yet done is filed
-under epic #<EPIC> and linked from there.
+encodes a lesson instead of a paragraph — under one standard: taken only where it beats what
+is already here. Each practice carries its source and what this repository does about it
+today; a table says where this project is already ahead, and a list says what was dropped and
+why. It is the one document an agent here should read before proposing a new kind of test, a
+new check in CI or a restructuring of the build, so that the proposal starts from what has
+already been decided rather than from a blog post. What is not yet done is filed under epic
+#626 and linked from there.
 
 ## The two hooks
 

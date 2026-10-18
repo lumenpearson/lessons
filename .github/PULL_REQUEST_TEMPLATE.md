@@ -74,6 +74,14 @@ If `android/` changed:
 - [ ] Checked on a device or an emulator <!-- model and Android version -->
 - [ ] The widget checked at two sizes at least <!-- which -->
 
+## What holds it
+
+<!--
+For every defect this pull request fixes: the test, lint rule or check that goes red if it
+comes back — by name. "Nothing can, because …" is an honest answer and is written out.
+A fix held by a paragraph in CLAUDE.md alone is a fix the next refactor undoes.
+-->
+
 ## What is NOT covered
 
 <!--

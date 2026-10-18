@@ -93,8 +93,10 @@ CI is exactly: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both 
 - Test at the cheapest layer that can hold the question, and read a server change against the
   APKs already installed: nothing removed or renamed in what `/api/v1` answers.
 - A new kind of test, a new CI check or a new shape of the build starts from
-  `docs/engineering.md` — the practice taken from Airbnb's published engineering, what is
-  already true here, and what is deliberately not taken.
+  `docs/engineering.md` — what was taken from Airbnb's published engineering because it beats
+  what is here, where this project is already ahead, and what was dropped and why.
+- A fix says what holds it: the test or rule that goes red if the defect returns, or «nothing
+  can, because …». A trap that is held is one line in `CLAUDE.md`, not a paragraph.
 
 The rest — architecture, the traps each module has already produced, the migration protocol —
 is in `CLAUDE.md`, `docs/architecture.md` and `.claude/skills/`.

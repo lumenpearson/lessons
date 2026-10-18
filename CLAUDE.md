@@ -484,11 +484,14 @@ points Hilt does not inject cleanly.
   verified when it was not is not.
 - **A new kind of test, a new CI check or a new shape of the build starts from
   `docs/engineering.md`.** It reads this project against the engineering practice Airbnb has
-  published — tests written against a screen's state, a contract the installed phones can
-  still read, a gate at the end of every step of a large change, a lint rule in place of a
-  warning paragraph — says what is already true here, files what is not under epic #626,
-  and names what is deliberately not taken and why. A proposal that brings back a rejected
-  one says why its reason no longer holds.
+  published under one standard — a practice is taken only where it beats what is already
+  here — and says where this project is already ahead, what is left under epic #626, and
+  what was dropped and why. A proposal that brings back a dropped one says why its reason no
+  longer holds.
+- **A trap that a test or a lint rule holds is one line here, naming what holds it.** Only a
+  trap nothing holds gets its paragraph, and the pull request that fixes a defect says «what
+  holds it» — a test, a rule, or «nothing can, because …» (the template). #648 is the cut of
+  this file to that rule.
 - **Test at the cheapest layer that can hold the question.** `:core:model` before a view
   model, a view model before a screen, a screen at a state built by hand before an
   interaction, and never a Compose test for arithmetic. The `android-tests` agent has the
