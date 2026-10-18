@@ -88,9 +88,12 @@ class ErrorReason(Enum):
         RESOURCE_NOT_FOUND:
             NOT_FOUND. metadata `resource`: "class", "subject", "bell_schedule",
             "homework", "substitution", "event", "task", "device", "access_request",
-            "student", or "day" for a date nobody marked, changed without
-            allow_missing. An id from another class finds nothing, by design.
-            v1: every other 404.
+            "student", "day" for a date nobody marked, changed without allow_missing,
+            or whose mark another writer took off mid-write, or "correction" for a
+            diary field whose correction another writer reset or cleared mid-write.
+            An id from another class finds nothing, by design. v1: every other 404;
+            a correction gone mid-write is v1's 409 instead, because the app reads
+            every diary 404 as a child the account does not have.
 
             ```proto
             RESOURCE_NOT_FOUND = 9
