@@ -352,10 +352,202 @@ an answer to a size this project does not have. Each was an issue for a day (#63
   database, one set of services both shells call. What Airbnb's move to services teaches that
   does transfer is the comparison of old and new on the same traffic, which is above.
 
+## How Airbnb's automation runs, end to end
+
+The sections above take Airbnb's practices one at a time. This one shows how they join into
+three loops, because the joins are where the automation is: a rule that nobody has to
+remember, because a machine runs it at a fixed point. Each loop ends with what this project
+has in its place, by issue. The diagrams are Mermaid, which GitHub renders.
+
+### The Android loop: a pull request
+
+A developer does not write a UI test. They declare the states a screen can be in, and the
+pipeline writes the tests, decides which to run, runs them on real devices in parallel, and
+reports back as a diff a person approves.
+
+```mermaid
+flowchart TD
+    PR[Pull request] --> AM[Affected modules<br/>changed files → modules → dependents]
+    AM --> GEN[Generated tests<br/>one JUnit method per screen]
+    AM --> MOCK[Mock states<br/>default + named variants]
+    AM --> LINT[Custom lint<br/>naming, no unmocked state]
+    GEN --> FTL[Firebase Test Lab<br/>Flank shards of ~3 minutes]
+    MOCK --> FTL
+    FTL --> SS[Screenshots<br/>every mock → Happo]
+    FTL --> IT[Interaction records<br/>every press → JSON → Happo]
+    FTL --> COV[Coverage<br/>JaCoCo, merged]
+    SS --> C[Keyed PR comment<br/>blocked until the diff is approved]
+    IT --> C
+    COV --> C
+```
+
+**How the tests are written without anybody writing them** ([part 7][bat7]). At the start of
+the CI job, before the project builds, a Kotlin script walks the source and asks the Kotlin
+compiler for the AST of every file, collecting the names of the screen classes — a lint rule
+holds them to a naming convention so that a name is enough to find them, and a screen that
+turns out not to be a Mavericks one is skipped at run time. KotlinPoet then writes one JUnit
+file into the instrumented source set: one test function per screen, named from the screen's
+fully qualified name, whose body only hands that name to a base test class; the base class
+(one test activity, [part 5][bat5]) loads every mock state of the screen, screenshots it,
+walks its presses and records what each did. Parameterised JUnit tests were rejected for one
+reason — «parameterized tests do not work with test sharding» — and annotation processing
+for another: a test file that cannot be generated statically cannot be chosen before the
+build. The script sees each file alone and cannot follow references, so it makes best
+guesses, in seconds, and the mock variants are not enumerated — each function runs all of
+them, split into script-readable groups when a screen has too many.
+
+**Which tests run.** The pipeline diffs the branch against its base, maps the changed files to
+their modules, adds every module that depends on them through the dependency graph, and the
+script leaves out every screen in a module not on that list — for speed and «to save money
+on Firebase costs». One file holds every dependency version; a change to it runs everything.
+Before the APKs build, the pipeline asks the Firebase status API whether Test Lab has an
+incident and, if so, says so in a pull request comment rather than failing opaquely. Flank
+shards the run across physical devices (emulators were slower; a Pixel 3 ran the suite about
+twice as fast as a Pixel), and about two hours of tests finish in a few minutes.
+
+**How the result comes back.** Flank's JUnit report is parsed for failed matrices and a
+comment links to them. Each shard uploads a partial Happo report and Happo merges them; since
+only affected screens ran, a script copies the unchanged screens' entries from `master`'s
+latest report into the new one — as the very last step, so that a `master` job still running
+after a rebase cannot be copied half-done — and the developer approves the diff before the
+merge. JaCoCo coverage from the unit and the instrumented pipelines is combined. Every
+comment goes through an in-house service that stores a GitHub comment id under a string key,
+deletes the old comment and posts the new one, and deletes it outright when it no longer
+applies — which is what keeps a rerun from leaving three stale verdicts on one pull request.
+
+Flakiness is not fixed per test: asynchronous work goes only through entry points a test can
+block, time is read through a wrapper a test can freeze, `postDelayed` is forbidden by lint,
+storage is cleared after each mock, and Espresso suites were dropped as too flaky to keep
+([part 6][bat6]).
+
+**Here.** None of the loop exists: no mock states (#628), no screenshots (#627), no walk of
+the presses (#629), and `./gradlew test` runs every module on every change. What this
+project has instead is the layer below it — a domain in pure JVM, Robolectric at a phone's
+width in Russian — and the discipline that a test is seen red before it is kept. The loop is
+worth building here in its JVM form: Robolectric where Airbnb has devices, committed goldens
+where it has Happo, the discovery test of #628 where it has lint-enforced naming.
+
+### The server loop: from the contract to production
+
+The unit of automation is the IDL file. Everything a service needs to be a service — the
+server resources, the clients, the compatibility check, the fixtures, the alerts — is derived
+from it, so that a standard cannot be skipped by not reading it.
+
+```mermaid
+flowchart TD
+    IDL[Thrift IDL<br/>one file is the contract] --> CG[Code generation<br/>server resources, Java and Ruby clients]
+    IDL --> SC[Schema check in CI<br/>incompatible change = red build]
+    IDL --> FX[YAML fixtures<br/>validated against the schema]
+    IDL --> AL[Alerts generated<br/>p95, p99, error rate per method]
+    CG --> CI[CI: shallow integration tests<br/>one service, dependencies mocked]
+    SC --> CI
+    FX --> CI
+    CI --> EV[Evergreen merge queue<br/>every commit as if merged alone]
+    EV --> AIT[AIT in the deploy pipeline<br/>the service against its own fixtures]
+    AIT --> CAN[Spinnaker canary<br/>automated analysis, on by default]
+    CAN --> PROD[Production<br/>Sitar config staged, alerts as code]
+```
+
+**The schema check** ([part 4][svc4]). Two checks share one engine that builds and walks the
+AST of every changed IDL file, shipped as a linter binary that plugs into any build: the
+backwards-compatibility check — a changed field type or field id is a red build — and a
+schema linter, whose stated example is an enum declared with no values, «a ticking time bomb»
+for serialisation. Both block before the merge, which is exactly where `buf breaking` and
+`buf lint` sit here.
+
+**The fixtures.** The API Data Factory is a set of language-agnostic YAML files, each bound
+to one endpoint — the binding is what lets the schema be enforced on them — with shared
+data, flexible matching, and *assertion annotations* on fields that carry the check the
+field must pass. Validation runs locally or in CI and points at the line and column;
+fixtures can be generated from anonymised production traffic. The same fixtures serve the
+generated clients' *mock mode*, switched on «with a config flag or request context header»,
+which answers a request with the first fixture whose request is a subset of it, can be
+stubbed to a chosen response, and can simulate latency — so a client's unit tests and the
+shallow integration tests (one service deployed, its dependencies mocked) run against the
+same data the producer is held to.
+
+**AIT, the lock.** A service owner writes a few lines of configuration tying validations to
+fixtures. The running service exposes an *API Validation Gateway* as a system endpoint,
+through which auto-generated requests, one per endpoint, are sent to the live service in the
+deploy pipeline, and the fixtures' assertions are run on the live answers: «the same
+assertion logic must also pass». A mismatch means «the provider service is locked from
+deploying till the issue is resolved». The post names neither the pipeline stage nor the lock's
+mechanism; what it does state is the principle — the consumer's mock and the producer's
+reality are checked against one artifact, and a drift stops the deploy rather than the
+consumer.
+
+Two more layers sit on top. Dynamic configuration (Sitar) is code in Git: schema-checked in
+CI, rolled out by zone and percentage, with a fast rollback and an audited emergency path
+([Sitar][sitar]). Alerts are code too: a pull request shows the alert diff and backtests it
+against historical data with a noisiness score, which cut alert volume by nine tenths
+([alert development][alerts]). Incidents open a ticket, a channel and a page from one Slack
+command, and their follow-ups carry deadlines ([incident management][incidents]).
+
+**Here.** The loop exists for v2 and not for v1. `buf lint` and `buf breaking` on every pull
+request that touches `proto/` are the schema check; `test_contract.py` holds what Buf cannot
+read; `tests/vectors/diary_protocol.json`, read by both halves, is the fixture pattern
+without the deploy pipeline. v1 — what every installed APK reads — has no schema check
+(#638) and its fixtures are copies (#639). There is no AIT because there is no deploy
+pipeline: a merge deploys itself, and nothing asks the deployment anything (#641). Alerts
+come from the tick's self-check rather than from the contract, which at one deployment is
+the right size.
+
+### The migration loop: many files, one rule
+
+The unit is one file, and the loop is a state machine around a model rather than the model
+itself. A step that passes stamps the file; a step that fails hands its own errors back, up
+to a cap; a file that will not pass is left for a person. The success rate is raised between
+sweeps, on a sample, by changing what goes into the context — not the wording.
+
+```mermaid
+flowchart LR
+    R[Refactor<br/>codemod] --> J[Jest<br/>tests pass]
+    J --> L[Lint<br/>ESLint clean]
+    L --> T[TypeScript<br/>tsc clean]
+    T --> D[Done<br/>file stamped with its step]
+    R -. fails .-> M[LLM gets the step's errors<br/>and the related files]
+    J -. fails .-> M
+    L -. fails .-> M
+    T -. fails .-> M
+    M -- retry, ≤10 --> R
+    M -- still failing --> H[Manual tail<br/>about 3 per cent]
+```
+
+**The same loop for data** ([@generateMock][genmock]). A `@generateMock` directive on a GraphQL
+operation, fragment or field — with an optional name, free-text hints («include travel
+entries for Barcelona, Paris, and Kyoto») and a design URL — makes the code generator ask a
+model for mock JSON, giving it the marked definitions, a pruned subset of the schema with its
+documentation, a snapshot of the design, the platform, and a list of real image URLs so none
+is invented. The output is validated by handing the schema, the document and the JSON to
+`graphqlSync`; errors — an invented enum value, a missing required field — are aggregated and
+fed back with the data, and only validated JSON is written. Each file embeds a hash of the
+query document and a hash of the directive's arguments: on the next run a match is skipped, a
+mismatch regenerates with the old mock and a diff of the query in context so unrelated fields
+keep their manual edits, and every client codebase has a check that fails a submission whose
+hashes are stale. `@respondWithMock` then lets a client answer a field from the mock while
+the rest comes from the server, so a screen is built before its backend exists. Over seven
+hundred mocks have landed that way across the three clients.
+
+**Here.** The decompositions of sub-project 4 run this loop by hand — a plan with a checklist,
+a gate per task, a baseline that may only move — and the `large-refactor` skill writes it
+down with the cap, the sample-tune-sweep step and the written-down tail. The `@generateMock`
+idea — a generated artifact that carries a hash of what it was generated from, so that CI can
+tell when it is stale — is what #639's goldens and #660's counts do for their own facts.
+
+### What is deliberately not carried over from the loops
+
+Firebase Test Lab and physical devices (Robolectric on the JVM is enough for five modules
+and costs no device farm); Happo as an approval service (committed goldens put the diff where
+every other review here already is); Spinnaker and canaries (one deployment has nothing to
+compare against — asking it `/warmup` is the check, #641); Evergreen (GitHub's merge queue
+is organization-only; the strict «up to date» policy is what is in reach, #646).
+
 ## Sources
 
 Read on 18 October 2026. Medium refuses direct fetches, so the Medium posts were
-read through a mirror of their text and are cited at their canonical address. A practice
+read through a mirror of their text (Freedium, cross-checked against the Wayback Machine for
+part 7) and are cited at their canonical address; the two gists part 7 embeds are preserved by
+neither mirror, so what they showed is described from the surrounding prose only. A practice
 attributed to Airbnb that none of these supports is not attributed here.
 
 | Source | What this document takes from it |
@@ -366,7 +558,7 @@ attributed to Airbnb that none of these supports is not attributed here.
 | Building services at Airbnb, parts [1][svc1], [2][svc2] and [4][svc4]; [the test pipeline][pipeline] | the IDL as the contract, standards built into the platform, schema compatibility, shared fixtures |
 | [Ghost Platform][gp], [Viaduct][viaduct], [replay testing][replay] | app-store adoption as the problem; old and new side by side; replaying traffic against both |
 | [Continuous delivery][cd], [ERF][erf], [safeguarding changes][safe], [Sitar][sitar], [Evergreen][evergreen], [engineering culture][culture] | checked deploys, switches, a main line that stays green, small batches |
-| [LLM test migration][llm], [ts-migrate][tsm] | the per-file pipeline of the `large-refactor` skill; suppressions that can be counted |
+| [LLM test migration][llm], [ts-migrate][tsm], [@generateMock][genmock] | the per-file pipeline of the `large-refactor` skill; suppressions that can be counted; a generated artifact that carries the hash of what it was made from |
 | [Alert development][alerts], [incident management][incidents] | alerts as code; incidents with follow-ups |
 | [Swift guide][swift], [JavaScript guide][js], [Mavericks' detekt setup][mvdetekt] | formatting by tool, autocorrect locally and check in CI, a skill for the rules a tool cannot fix |
 
@@ -399,6 +591,7 @@ attributed to Airbnb that none of these supports is not attributed here.
 [bazel]: https://airbnb.tech/infrastructure/migrating-airbnbs-jvm-monorepo-to-bazel/
 [llm]: https://airbnb.tech/infrastructure/accelerating-large-scale-test-migration-with-llms/
 [tsm]: https://medium.com/airbnb-engineering/ts-migrate-a-tool-for-migrating-to-typescript-at-scale-cd23bfeb5cc
+[genmock]: https://airbnb.tech/infrastructure/graphql-data-mocking-at-scale-with-llms-and-generatemock/
 [alerts]: https://airbnb.tech/infrastructure/it-wasnt-a-culture-problem-upleveling-alert-development-at-airbnb/
 [incidents]: https://medium.com/airbnb-engineering/incident-management-ae863dc5d47f
 [swift]: https://github.com/airbnb/swift
