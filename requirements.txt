@@ -91,7 +91,7 @@ pyqwest==0.11.0
     # via connectrpc
 python-dotenv==1.2.3
     # via pydantic-settings
-sentry-sdk==2.71.0
+sentry-sdk==2.72.0
     # via -r requirements.in
 sqlalchemy==2.1.4
     # via -r requirements.in
