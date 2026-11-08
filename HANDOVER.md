@@ -359,8 +359,9 @@ changed. Existing API stale-row mappings from #654 were already present. The
 bot's event creation and bell-row/default edits meet foreign keys instead, as
 #662 describes; timetable import's analogous race is #657. The current bot has
 no diary-correction form. These gaps do not become fixed by adding a broad
-IntegrityError handler. PostgreSQL concurrency and a real Telegram conversation
-were not exercised by these SQLite handler tests.
+IntegrityError handler. The complete stale-write module also passed on a local
+PostgreSQL 16 instance: **34 passed, two warnings in 12.33 seconds**. A real
+Telegram conversation was not exercised.
 
 ### Previous batch: #649, its review correction and the main deployment
 
