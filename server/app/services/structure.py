@@ -124,14 +124,17 @@ async def rename_subject(
 ) -> int:
     """Rename the dictionary entry and every row that spells the old name.
 
-    The timetable, the homework and the substitutions store the subject as text, not
-    as a foreign key - deliberately, so a lesson keeps its name when a subject
-    is deleted. The price is that a rename has to be a cascade, and it has to
+    The timetable stores both the dictionary link and the spelling; homework
+    and substitutions store the spelling alone. Deleting a subject clears the
+    timetable's link but keeps each lesson's name. A rename has to be a cascade, and it has to
     happen in the caller's transaction: a half-applied rename would leave the
     class with two subjects where it had one and no way to tell which rows
     belong to which. Returns how many rows moved.
     """
     old_name = subject.name
+    # A deleted parent must fail before the cascade writes its id into a child (#673).
+    subject.name = new_name
+    await session.flush()
     moved = 0
 
     # The timetable is matched on the link first and the old spelling second.
@@ -160,7 +163,6 @@ async def rename_subject(
         )
         moved += rows_affected(result)
 
-    subject.name = new_name
     return moved
 
 

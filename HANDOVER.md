@@ -6,52 +6,23 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-**PR #649 review preparation, 8 November 2026.** The dated state below is preserved as
-the preceding batch's record; it is not a fresh reading of production or `main`. PR #649
-was reviewed from head `abdda437`, on `agents/airbnb-practices`. It adds
-`docs/engineering.md` and its three automation loops, the `android-tests` agent, the
-`large-refactor` skill, compatibility and regression-holder sections in the PR template,
-and the corresponding agent instructions and command permissions. Epic #626 and its
-follow-ups are planning work, not implementations shipped by this PR.
+Last updated: **8 November 2026**. `main` is at `d4f7725c`, the merge of
+#649, on 8 November. Its post-merge CI passed: the server suite (3368 passed,
+six host-only skips), both live-host jobs and the required summary; production
+deployment is READY at that commit. Production `/api/v1/warmup` answered HTTP 200,
+`status: ok`, schema `0019`, `v2: true` during this session. No migration moved.
 
-The local review restores both APK assemblies to the new agent's completion gates and
-marks #628, #632, #639 and #660's proposed checks as proposals in the engineering document.
-The linked issues were read on 8 November: #630, #631, #633, #634 and #647 are closed;
-#627–#629, #632, #635–#646, #648 and #659–#661 remain open. No follow-up is closed by
-these documentation changes.
+The owner requested work on the next priority issues until **14:00 Moscow on
+9 November**. The current batch is on `server/stale-bot-writes-654`, based on that
+merge, in milestone 11. It covers the bot's remaining stale-row writes from #654
+and the staged rename and half-swap defects #673 and #674. #654 remains open;
+the foreign-key races #657 and #662 are separate, not disguised as stale updates.
+The PR carrying this close-out is the batch's own PR. Its merge SHA is left for
+the next batch rather than generating a close-out of a close-out.
 
-At the reviewed head, ruff passed and mypy checked 242 source files successfully. The
-24 tests in `test_ci_paths.py`, `test_schema_version.py` and `test_ci_required.py` passed
-with Git Bash first in the process PATH. The initial run had three failures because
-Windows resolved `bash` to the WSL launcher and `/bin/bash` was absent. This is evidence
-for those three failures only, not an explanation of the full-suite hang mentioned in
-the PR description. The GitHub diagnostics returned no check runs or statuses for this
-head; an empty result is not a green CI verdict. Android builds and external article claims are not certified by this review. No migration or
-production operation was performed.
-
-Full server verification on 8 November completed with Python 3.12.13 and Git Bash first
-in PATH: `pytest -q -n auto -o faulthandler_timeout=60` returned 3368 passed, 6 skipped,
-551 warnings in 1394.77 seconds (23m14s), exit code 0. The skipped tests require a running
-host. No diagnostic timeout fired and the previous hang was not reproduced. Ruff passed;
-mypy passed on 242 source files. The warnings were not treated as failures. Android and
-Buf were not run because their inputs did not change. The complete server suite is now
-verified locally; Linux CI and live-host verification remain separate checks.
-
-The missing assemblies are tracked by #671, in milestone 13. These corrections are
-included in PR #649 for review; this preparation does not certify
-production. The previous 403 issue-creation limitation was resolved by selecting the
-LumenPearson connection explicitly.
-
-CI at `5b176bee` exposed #672: pytest's attribute-patch teardown deletes Starlette
-State's dynamically stored flags. A sequential local run of health-tick, RPC and schema
-tests reproduced all three failures (41 passed, three failed). The correction patches
-the backing mapping for `v2_mounted` and `v2_services` in the health-tick and host tests,
-so teardown restores their original values. Runtime code and the mounted-v2/warmup
-assertions are unchanged. After correction, all 62 tests in the health-tick, host, RPC
-and schema modules passed sequentially in 69.29 seconds; ruff and mypy also passed.
-Both host jobs and Vercel passed at that head; Server and the
-summary failed. This close-out is carried inside #649; its final CI and merge identity
-are checked through GitHub, and the next batch records the merge SHA.
+**Historical opening, recorded on 18 October.** The dated context below is
+preserved for the programme's decisions; the current commit, verification and
+batch above supersede its branch and open-PR claims.
 
 Last updated: **18 October 2026**. **PRs #63 through #85, #128, #129, #133, #134, #140,
 #166, #186, #187, #189, #214, #218, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261,
@@ -360,7 +331,87 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: four bug fixes merged overnight (#650, #651, #653, #655), the host's keepalive (#400), and #625's merge
+## What the last session added: the bot answers stale writes, and renames and moves roll back as a whole
+
+- Homework, subject details and colours, personal-task completion and reminders,
+  term bounds and lesson edits now use `services/gone.committed`. If another
+  writer deleted the row, the bot answers in the screen's existing missing-row
+  terms, drops an open form, writes no audit or success notice and leaves the
+  session usable by middleware. The staged races extend `test_stale_writes.py`.
+- #673: a subject rename flushes the parent change before its timetable cascade.
+  Otherwise the cascade writes a deleted subject id and raises on the foreign
+  key before the stale update can be refused. The bot guards the service call
+  as well as the commit. Runtime integrity errors are not caught wholesale.
+- #674: moving a slot checks that both bulk-update halves matched rows. A
+  disappearing moving slot or neighbour raises the existing stale-write shape;
+  the caller rolls the movement back, leaves the survivor at its old number,
+  adds no audit line and answers the press. Both cases were seen red first.
+- Twelve new staged-deletion cases were seen red before their corresponding
+  fixes. The first affected-module run passed 299 tests; ruff and mypy (242
+  modules) passed. The completed full gate returned **3380 passed, six skipped,
+  551 warnings in 1368.06 seconds (22m48s)**, exit code 0: **3386 tests**
+  collected. The six skips require a running host; no timeout fired.
+
+### What was deliberately left alone
+
+No schema, contract, Android source, dependency or deployment configuration
+changed. Existing API stale-row mappings from #654 were already present. The
+bot's event creation and bell-row/default edits meet foreign keys instead, as
+#662 describes; timetable import's analogous race is #657. The current bot has
+no diary-correction form. These gaps do not become fixed by adding a broad
+IntegrityError handler. PostgreSQL concurrency and a real Telegram conversation
+were not exercised by these SQLite handler tests.
+
+### Previous batch: #649, its review correction and the main deployment
+
+**PR #649 review preparation, 8 November 2026.** The dated state below is preserved as
+the preceding batch's record; it is not a fresh reading of production or `main`. PR #649
+was reviewed from head `abdda437`, on `agents/airbnb-practices`. It adds
+`docs/engineering.md` and its three automation loops, the `android-tests` agent, the
+`large-refactor` skill, compatibility and regression-holder sections in the PR template,
+and the corresponding agent instructions and command permissions. Epic #626 and its
+follow-ups are planning work, not implementations shipped by this PR.
+
+The local review restores both APK assemblies to the new agent's completion gates and
+marks #628, #632, #639 and #660's proposed checks as proposals in the engineering document.
+The linked issues were read on 8 November: #630, #631, #633, #634 and #647 are closed;
+#627–#629, #632, #635–#646, #648 and #659–#661 remain open. No follow-up is closed by
+these documentation changes.
+
+At the reviewed head, ruff passed and mypy checked 242 source files successfully. The
+24 tests in `test_ci_paths.py`, `test_schema_version.py` and `test_ci_required.py` passed
+with Git Bash first in the process PATH. The initial run had three failures because
+Windows resolved `bash` to the WSL launcher and `/bin/bash` was absent. This is evidence
+for those three failures only, not an explanation of the full-suite hang mentioned in
+the PR description. The GitHub diagnostics returned no check runs or statuses for this
+head; an empty result is not a green CI verdict. Android builds and external article claims are not certified by this review. No migration or
+production operation was performed.
+
+Full server verification on 8 November completed with Python 3.12.13 and Git Bash first
+in PATH: `pytest -q -n auto -o faulthandler_timeout=60` returned 3368 passed, 6 skipped,
+551 warnings in 1394.77 seconds (23m14s), exit code 0. The skipped tests require a running
+host. No diagnostic timeout fired and the previous hang was not reproduced. Ruff passed;
+mypy passed on 242 source files. The warnings were not treated as failures. Android and
+Buf were not run because their inputs did not change. The complete server suite is now
+verified locally; Linux CI and live-host verification remain separate checks.
+
+The missing assemblies are tracked by #671, in milestone 13. These corrections are
+included in PR #649 for review; this preparation does not certify
+production. The previous 403 issue-creation limitation was resolved by selecting the
+LumenPearson connection explicitly.
+
+CI at `5b176bee` exposed #672: pytest's attribute-patch teardown deletes Starlette
+State's dynamically stored flags. A sequential local run of health-tick, RPC and schema
+tests reproduced all three failures (41 passed, three failed). The correction patches
+the backing mapping for `v2_mounted` and `v2_services` in the health-tick and host tests,
+so teardown restores their original values. Runtime code and the mounted-v2/warmup
+assertions are unchanged. After correction, all 62 tests in the health-tick, host, RPC
+and schema modules passed sequentially in 69.29 seconds; ruff and mypy also passed.
+Both host jobs and Vercel passed at that head; Server and the
+summary failed. This close-out is carried inside #649; its final CI and merge identity
+are checked through GitHub, and the next batch records the merge SHA.
+
+## What the session before it added: four bug fixes merged overnight (#650, #651, #653, #655), the host's keepalive (#400), and #625's merge
 
 Written on 18 October 2026 and carried by this file's own pull request, from
 `server/host-keepalive-400` to `main`, `Refs #273`, which holds #400's fix (`c5b989e`), the
@@ -464,143 +515,6 @@ Android count stays at 1797.
 **Let a session fetch Buf 1.73.0 for #401**, or run `buf generate` yourself (section 7). Optionally,
 look at the approval card and «📱 Устройства» in a real chat, since nothing here has.
 
-## What the session before it added: sub-project 4's second pull request, `ManagementViewModel` and `SettingsViewModel` split into collaborators
-
-Merged as #625 (`81a6201`, at 22:41:34 UTC on 17 October 2026, already 18 October in Moscow),
-pinned to head `2ba842e`, from
-`android/decomposition-b`, on milestone 11, closing #623 and #624, with CI green on that head.
-Written on 18 October 2026 and carried by #625 itself, `Refs #273`: the second of sub-project 4's
-three pull requests, per `docs/specs/2026-10-05-android-decomposition-design.md`, with its plan
-at `docs/specs/2026-10-18-android-decomposition-b-plan.md`. The branch was cut from `main` at
-`1cc30fe`, #622's merge. It was built on the owner's word of 17 October 2026, «продолжай с PR B
-подпроекта 4» («continue with sub-project 4's PR B»), which put it ahead of epic #438 (section
-7). No revision goes with it: the schema stays at `0019`, `EXPECTED_REVISION` with it, and
-nothing under `server/` changes. Every public name the screens call stays, so no screen changes.
-
-- **The plan** (`5cab74d`): the second Android split, `ManagementViewModel` and
-  `SettingsViewModel` into collaborators, written read-only against `1cc30fe`.
-- **The plan, corrected after its independent review** (`65a1976`): nothing blocking, five
-  things that would have misled whoever ran it, and nine of eleven smaller corrections; it
-  records the owner's word on the order. The same review found what #623 says.
-- **What the management sheets share is held before their work moves out of the view model**
-  (`a2ba880`): `ManagementAcrossSheetsTest`, three tests — the page's one write at a time
-  across sheets, the devices' switch read at the call, and a search still out when the view
-  model is cleared not landing. Each was seen failing under a mutation of its own.
-- **The management page's state types have a file of their own** (`3c3a0de`):
-  `ManagementState.kt`, and `ManagementViewModel.kt` goes from 821 lines to 665.
-- **The management page's sheets are seven classes over one plumbing, behind one-line
-  delegates** (`3a8792c`): `ManagementPlumbing` holds the page's state and the four ways every
-  sheet touches it, `read`, `write`, `finish` and `note`; `ClassCardActions`, `SubjectsActions`,
-  `BellsActions`, `TimetableActions`, `DevicesActions`, `LogActions` and `RequestsActions` hold
-  each sheet's work verbatim, over the view model's `viewModelScope`. The view model keeps its
-  constructor, `init`, `recheckRole`, `consumeNotice`, `dismissWriteFailure` and the factory,
-  and every other public method as a one-line delegate where it stood. The only widening is
-  `state` and the plumbing's four functions, from private to members of an internal class.
-- **Two of `:app`'s detekt baseline entries that no code matched any more are gone** (`eb005c3`,
-  #624): `RegionStep`'s `MaxLineLength` and `AppCorrections.correctionOf`'s `ReturnCount`, both
-  from the first baseline, `9181796`. The second mattered, because an entry is matched by its
-  signature and would have forgiven a new `ReturnCount` in that function. `:app`'s baseline
-  goes from 184 entries to 182, and the split's own entry did not move. The commit says
-  «Closes #624», so #624 closes at this pull request's merge.
-- **What the settings view model publishes and writes is held before it is split** (`2ab80b5`):
-  `SettingsViewModelTest`, thirteen tests, where nothing had tested `SettingsViewModel` — the
-  whole state it publishes while watched and nothing before, the message a failed sync and a
-  refused bug report both write, the update check's switch read at the tap, the launch check's
-  switch and its put-off tag, GitHub's account, sign-in and pull request, and the Telegram
-  link's reset when the class changes, with an answer about the old class dropped. Four
-  mutations each failed exactly the test named for it.
-- **The settings page's state types have a file of their own** (`15edc9a`):
-  `SettingsState.kt`, and `SettingsViewModel.kt` goes from 716 lines to 603.
-- **The settings page's update check, GitHub work and Telegram link are classes of their own**
-  (`4df9759`): `SettingsUpdates`, `SettingsGithub` and `SettingsDeviceLink`, over the view
-  model's `viewModelScope`. The view model keeps both combines and both `stateIn`s, both `init`
-  launches in their order, `message`, the sync, the setters and the calls that only forward to
-  a repository; `SettingsGithub` is handed `message`, because the sync writes it too. The only
-  widening is `releaseSheet`, `filingIssue` and `deviceLink`, from private to members of
-  internal classes.
-- **Why the settings collaborators are built where they are is said in words a reader can
-  follow** (`8415fca`): comments only, from the whole-branch review — Kotlin initializes in
-  textual order, so the three classes stand after `message` and before the combines that read
-  them; `ManagementViewModel`'s header KDoc is rewrapped.
-- **This close-out**: 1797 Android tests in the four places that carry the Android count, a
-  row in `docs/architecture.md`'s test table for the two new test classes, `docs/build.md`'s
-  baseline count at 491 after #624, and this file — this section on top, #622's batch second,
-  the batch of 16 October moved to the top of `docs/history.md`, and the opening, the
-  milestone table and sections 5 and 7 brought up to date.
-
-### Gates
-
-- **On `4df9759`, 18 October 2026**, every Gradle command with `--max-workers=2` and alone:
-  - **`./gradlew test`**, `BUILD SUCCESSFUL` in 10s;
-  - **each module's real test task forced** — `:core:model:test --rerun`, and
-    `testDebugUnitTest --rerun` in `:core:data`, `:core:designsystem`, `:widget` and `:app` —
-    `BUILD SUCCESSFUL` in 49s, all five executed. Counted from the JUnit XML: `:core:model` 125,
-    `:core:data` 638, `:core:designsystem` 205, `:widget` 126, `:app` 703, **1797**, with no
-    failure, error or skip: sixteen more than `main`'s 1781, three in
-    `ManagementAcrossSheetsTest` and thirteen in `SettingsViewModelTest`;
-  - **`assembleDebug`**, `BUILD SUCCESSFUL` in 14s, and **`assembleRelease`**, in 1m 48s;
-  - **`detektBaseline`** for all five modules, no diff, so no other module holds a stale entry
-    and #624 is whole with `:app`'s two; then **`detekt`**, `BUILD SUCCESSFUL`.
-- **The two baseline readings in `:app`**: after `ManagementViewModel`'s split, two stale
-  entries dropped (`eb005c3`) and the split's own entry unchanged; after `SettingsViewModel`'s
-  split, no diff, so the plan's Task 8 committed nothing. The five baselines hold **491**
-  entries, 493 less #624's two: `MagicNumber` 218, `ReturnCount` 80, `MaxLineLength` 64.
-- **On `8415fca`**, comments only: `:app`'s tests and `:app:detekt` ran again, green, 703.
-- **Server**: no code changed. From `server/`, `test_env_example.py`, `test_ci_paths.py` and
-  `test_schema_version.py`, which read the documents, with `-p no:xdist`: **22 passed** before
-  the documents were edited and again after this close-out was written, in a venv made with
-  `uv`. CI on this pull request's head is read before the merge.
-
-### What was deliberately left alone
-
-- **Pull request C**: `OnboardingScreen`, with `OnboardingPromisesTest`'s path and anchor;
-  `FloatingToolbar`'s split by concern; and `HomeShell`'s pure rules, with its body left
-  inline. Section 7 has where it stands in the order.
-- **What the classes do.** No class gets an interface, an injected dispatcher or a test seam of
-  its own; each is reached through its view model, as the screens reach it.
-- **`signInWithGithub`, `cancelGithubSignIn`, `signOutOfGithub`, `installedVersion` and
-  `refreshNow` stay in `SettingsViewModel`.** The first four only forward to a repository, so
-  moving them would add a second one-liner each and split nothing; `refreshNow` writes
-  `refreshing`, which the view model's own combine reads, and `message`.
-- **The view models' `TooManyFunctions` entries stay.** The public surface is the screens'
-  contract, and a move keeps it.
-- **What sub-project 5 rewrites**: the audit log's paging, the school search's transport and
-  the failure classifiers, which `LogActions` and `ClassCardActions` carry verbatim.
-- **A screen test over the real `SettingsViewModel`.** It would test the rows, not the split.
-
-### Where it departs from its design and its plan
-
-- **`message` is handed to one collaborator, `SettingsGithub`**, where the design said «both»:
-  the sync writes it too, and the sync is not a collaborator.
-- **`ManagementViewModel` got a test before its split too**, though the design asked for one
-  only before `SettingsViewModel`'s.
-- **The plan's Task 4 committed a baseline**, `eb005c3`, but for #624's two stale entries, not
-  for the split; Task 8 committed nothing.
-- **`loadDevices`' delegate is one statement over two lines**, wrapped where its signature was.
-- **`3a8792c`'s body says 9 `plumbing.` references in the view model where there are 10**, 73
-  in all; the commit is pushed and stays as written.
-- **The settings test's commit was amended before it was pushed**, for a sentence about the
-  fakes that was not accurate.
-
-### What nobody has verified in this batch
-
-- **No APK from `android/decomposition-b` was installed** on a device or an emulator.
-- **No screen test composes a settings row over a real `SettingsViewModel`**: the rows' wiring
-  to the delegates is held by the compile.
-- **The scripts that moved the code in `3a8792c` and `4df9759`** were checked by the move
-  checker and the counts; the plan's dry run of them was condensed.
-- **Branches that moved verbatim with no test reaching them**: the launch check's once-a-day
-  interval and its notification switch, the Telegram link's in-flight guard and its failure
-  paths, and work still out in the update check or the Telegram link when the view model is
-  cleared (`2ab80b5`'s «Not covered»).
-- **CI on this pull request's head** had not been read when this was written.
-- **The warmup was not read for this batch**: the last reading is 18:37 UTC on 17 October.
-
-### Left to the owner from this batch
-
-Nothing new. The merge of a session's own pull request now has an `autoMode.allow` rule in the
-user settings (section 7).
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -625,9 +539,9 @@ current.
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653 and #655 (merged) and this pull request, from `server/host-keepalive-400` (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652 and #654 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655 and #656 (merged), and the current `server/stale-bot-writes-654` pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #673 and #674 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, and PR #649 (open); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, and PR #649 (merged as `d4f7725c` on 8 November); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
@@ -2241,7 +2155,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3366 tests, ~26 min alone on Windows
+cd server  && pytest -q -n auto                          # 3386 tests, ~23 min alone on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1797 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

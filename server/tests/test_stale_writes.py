@@ -135,6 +135,112 @@ async def _count(model: type[Base]) -> int:
         return await fresh.scalar(select(func.count()).select_from(model)) or 0
 
 
+@pytest.mark.parametrize("field", ["short_name", "teacher", "colour_typed", "colour_pick"])
+async def test_subject_detail_deleted_mid_write_does_not_leave_a_form_or_audit(
+    session, school_class, monkeypatch, FakeMessage, FakeCallback, FakeEditable, FakeState, field
+) -> None:
+    from app.bot.handlers.manage import subjects
+    from app.models import Subject
+
+    row = Subject(class_id=school_class.id, name="Физика")
+    session.add(row)
+    await session.commit()
+    row_id = row.id
+    raced = _deleted_meanwhile(monkeypatch, audit, "record", Subject, row_id)
+    state = FakeState(data={"subject_id": row_id})
+    if field == "colour_pick":
+        callback = FakeCallback(message=FakeEditable())
+        await subjects.subject_colour_pick(
+            callback, SimpleNamespace(value=f"{row_id}:#112233"), state,
+            session, school_class, Role.ADMIN,
+        )
+        assert callback.answers[-1] == ("Предмет уже удалён", True)
+    else:
+        handler = getattr(subjects, f"subject_{field}")
+        message = FakeMessage(text="#112233" if field == "colour_typed" else "Новое")
+        await handler(message, state, session, school_class, Role.ADMIN)
+        assert message.last == "Предмет уже удалён."
+    assert raced
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(Subject), await _count(AuditEntry)) == (0, 0)
+    await session.commit()
+
+
+async def test_homework_deleted_mid_write_clears_the_form_without_announcing_success(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    from app.bot.handlers.content.homework import homework_text
+
+    row = Homework(class_id=school_class.id, due_date=MONDAY, subject_name="Физика", text="Старое")
+    session.add(row)
+    await session.commit()
+    raced = _deleted_meanwhile(monkeypatch, audit, "record", Homework, row.id)
+    state = FakeState(data={"due": MONDAY.isoformat(), "subject": "Физика"})
+    message = FakeMessage(text="Новое задание")
+    await homework_text(message, state, session, school_class, Role.EDITOR)
+    assert raced
+    assert message.last == "Задание уже удалено. Начните заново."
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(Homework), await _count(AuditEntry)) == (0, 0)
+    await session.commit()
+
+
+async def test_subject_rename_deleted_before_cascade_is_gone_and_rolls_back(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    from app.bot.handlers.manage.subjects import subject_rename
+    from app.models import Subject
+    from app.services import structure
+
+    row = Subject(class_id=school_class.id, name="Физика")
+    session.add(row)
+    await session.commit()
+    raced = _deleted_meanwhile(monkeypatch, structure, "rename_subject", Subject, row.id)
+    state = FakeState(data={"subject_id": row.id})
+    message = FakeMessage(text="Астрономия")
+    await subject_rename(message, state, session, school_class, Role.ADMIN)
+    assert raced
+    assert message.last == "Предмет уже удалён."
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(Subject), await _count(AuditEntry)) == (0, 0)
+    await session.commit()
+
+
+@pytest.mark.parametrize("action", ["toggle", "reminder"])
+async def test_task_deleted_mid_write_answers_the_press_without_editing_the_list(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable, action
+) -> None:
+    from datetime import datetime
+
+    from app.bot.handlers import tasks
+    from app.models import PersonalTask
+
+    row = PersonalTask(
+        class_id=school_class.id, telegram_id=42, title="Тетрадь",
+        due_date=MONDAY, due_time=time(15),
+    )
+    session.add(row)
+    await session.commit()
+    raced = _deleted_meanwhile(monkeypatch, session, "commit", PersonalTask, row.id)
+    callback = FakeCallback(message=FakeEditable())
+    if action == "toggle":
+        await tasks.task_toggle_done(
+            callback, SimpleNamespace(value=str(row.id), show_done=False),
+            session, school_class, Role.VIEWER,
+        )
+    else:
+        monkeypatch.setattr(tasks, "_now", lambda _: datetime(2026, 9, 14, 10))
+        await tasks.task_set_reminder(
+            callback, SimpleNamespace(value=f"{row.id}_hour"),
+            session, school_class, Role.VIEWER,
+        )
+    assert raced
+    assert callback.answers[-1] == ("Задача уже удалена", True)
+    assert not callback.message.replies
+    assert await _count(PersonalTask) == 0
+    await session.commit()
+
+
 async def _substitution(session, school_class, index: int = 2) -> LessonOverride:
     row = LessonOverride(
         class_id=school_class.id,
@@ -161,6 +267,81 @@ async def _terms(session, school_class) -> list[Term]:
     rows = await terms_service.ensure(session, school_class, year)
     await session.commit()
     return rows
+
+
+async def test_term_replaced_by_scheme_mid_write_clears_the_bot_form(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    from app.bot.handlers.manage.terms import term_edit_apply
+
+    row = (await _terms(session, school_class))[0]
+    state = FakeState(data={"term_index": row.index})
+    message = FakeMessage(
+        text=f"{row.starts_on:%d.%m.%Y} - {row.ends_on - timedelta(days=1):%d.%m.%Y}"
+    )
+    raced = _deleted_at_flush(monkeypatch, Term, row.id)
+    await term_edit_apply(message, state, session, school_class, Role.ADMIN)
+    assert raced
+    assert message.last == terms_service.NO_SUCH_TERM
+    assert (state.cleared, state.data) == (True, {})
+    assert await _count(AuditEntry) == 0
+    await session.commit()
+
+
+async def test_lesson_deleted_after_editor_read_drops_the_prompt_and_audit(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    from app.bot.handlers.editor import editor_take_lesson
+    from app.models import Subject, TimetableEntry
+
+    subject = Subject(class_id=school_class.id, name="Физика")
+    session.add(subject)
+    await session.commit()
+    row = await session.scalar(select(TimetableEntry).where(TimetableEntry.index == 2))
+    raced = _deleted_meanwhile(monkeypatch, audit, "record", TimetableEntry, row.id)
+    state = FakeState(data={"day": 1, "index": 2, "flags": 0, "mode": "edit"})
+    message = FakeMessage(text="Физика, 404")
+    await editor_take_lesson(message, state, session, school_class, Role.ADMIN)
+    assert raced
+    assert message.last == "Урока уже нет — откройте расписание заново."
+    assert (state.cleared, state.data) == (True, {})
+    assert await _count(AuditEntry) == 0
+    await session.commit()
+
+
+@pytest.mark.parametrize("deleted_index", [2, 3])
+async def test_editor_move_whose_slot_was_deleted_does_not_move_its_neighbour(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable, deleted_index
+) -> None:
+    from app.bot.handlers.editor import editor_move
+    from app.models import TimetableEntry
+    from app.services import timetable_edit
+
+    real = timetable_edit._indexes
+    raced: list[bool] = []
+
+    async def indexes_then_delete(*args):
+        result = await real(*args)
+        async with SessionLocal() as other:
+            await other.execute(delete(TimetableEntry).where(TimetableEntry.index == deleted_index))
+            await other.commit()
+        raced.append(True)
+        return result
+
+    monkeypatch.setattr(timetable_edit, "_indexes", indexes_then_delete)
+    callback = FakeCallback(message=FakeEditable())
+    await editor_move(
+        callback, SimpleNamespace(arg=1, day=1, index=2, flags=0),
+        session, school_class, Role.ADMIN,
+    )
+    assert raced
+    assert callback.answers[-1] == ("Урока уже нет — откройте расписание заново.", True)
+    assert await _count(AuditEntry) == 0
+    remaining = list(
+        await session.scalars(select(TimetableEntry.index).order_by(TimetableEntry.index))
+    )
+    assert remaining == [i for i in [1, 2, 3] if i != deleted_index]
+    await session.commit()
 
 
 def _moved(term: Term) -> tuple[str, str]:

@@ -28,6 +28,7 @@ from app.bot.manage_render import subjects as mr
 from app.bot.manage_states import EditSubject
 from app.bot.render import plural
 from app.models import Role, SchoolClass, Subject
+from app.services import gone
 from app.services.manage import subjects as subjects_service
 
 router = Router(name="manage.subjects")
@@ -204,10 +205,19 @@ async def subject_rename(
         return
 
     old_name = subject.name
-    try:
+    moved: int | None = None
+
+    async def write() -> None:
+        nonlocal moved
         moved = await subjects_service.rename(
             session, school_class.id, message.from_user.id, subject, name
         )
+
+    try:
+        if not await gone.committed(session, write):
+            await state.clear()
+            await message.answer("Предмет уже удалён.", reply_markup=back_to_menu())
+            return
     except subjects_service.SubjectExists:
         await message.answer(
             f"Предмет <b>{escape(name)}</b> уже есть. Придумайте другое название:"
@@ -227,7 +237,6 @@ async def subject_rename(
         await state.clear()
         await message.answer("Название не изменилось.", reply_markup=back_to_menu())
         return
-    await session.commit()
     await state.clear()
 
     await message.answer(
@@ -257,7 +266,10 @@ async def _save_subject_text(
     await subjects_service.set_detail(
         session, school_class.id, message.from_user.id, subject, field, value
     )
-    await session.commit()
+    if not await gone.committed(session):
+        await state.clear()
+        await message.answer("Предмет уже удалён.", reply_markup=back_to_menu())
+        return
     await state.clear()
     await message.answer(
         mr.render_subject_card(subject), reply_markup=subject_card_keyboard(subject.id)
@@ -294,11 +306,11 @@ async def _apply_colour(
     subject: Subject,
     telegram_id: int,
     colour: str | None,
-) -> None:
+) -> bool:
     await subjects_service.set_detail(
         session, school_class.id, telegram_id, subject, "color", colour
     )
-    await session.commit()
+    return await gone.committed(session)
 
 
 @router.callback_query(SubjectAction.filter(F.action == "colour"))
@@ -326,7 +338,10 @@ async def subject_colour_pick(
             return
         colour = f"#{match.group(1).upper()}"
 
-    await _apply_colour(session, school_class, subject, callback.from_user.id, colour)
+    if not await _apply_colour(session, school_class, subject, callback.from_user.id, colour):
+        await state.clear()
+        await callback.answer("Предмет уже удалён", show_alert=True)
+        return
     await state.clear()
     await callback.message.edit_text(
         mr.render_subject_card(subject), reply_markup=subject_card_keyboard(subject.id)
@@ -363,7 +378,10 @@ async def subject_colour_typed(
             return
         colour = f"#{match.group(1).upper()}"
 
-    await _apply_colour(session, school_class, subject, message.from_user.id, colour)
+    if not await _apply_colour(session, school_class, subject, message.from_user.id, colour):
+        await state.clear()
+        await message.answer("Предмет уже удалён.", reply_markup=back_to_menu())
+        return
     await state.clear()
     await message.answer(
         mr.render_subject_card(subject), reply_markup=subject_card_keyboard(subject.id)

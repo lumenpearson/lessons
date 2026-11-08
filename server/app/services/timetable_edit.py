@@ -30,6 +30,7 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.exc import StaleDataError
 
 from app import watch
 from app.db import rows_affected
@@ -463,6 +464,9 @@ async def move_lesson(
     ``None`` when there is no neighbour that way — the caller says «уже первый»
     rather than redrawing an unchanged day, because a button that visibly does
     nothing is read as a broken button.
+
+    A slot deleted after that read raises ``StaleDataError``; the caller rolls
+    back the whole swap rather than leaving the surviving slot in its place.
     """
     used = await _indexes(session, class_id, weekday)
     if index not in used:
@@ -484,8 +488,11 @@ async def move_lesson(
             .values(index=to_index)
         )
 
-    await session.execute(_set(index, PARK))
-    await session.execute(_set(neighbour, index))
+    # Both halves must still exist; a half-swap silently moves the survivor (#674).
+    if not rows_affected(await session.execute(_set(index, PARK))):
+        raise StaleDataError("The moving timetable slot was deleted")
+    if not rows_affected(await session.execute(_set(neighbour, index))):
+        raise StaleDataError("The neighbouring timetable slot was deleted")
     await session.execute(_set(PARK, neighbour))
     watch.touch(session, class_id)
     return neighbour
