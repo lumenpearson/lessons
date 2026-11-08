@@ -447,12 +447,120 @@ def _touches(scope: ast.AST) -> bool:
     )
 
 
+def _identity_update(
+    call: ast.Call, tree: ast.Module, parents: dict[ast.AST, ast.AST], modules: set[str]
+) -> bool:
+    """Only a fully visible self-assignment without automatic column changes is quiet.
+
+    Unknown targets and fluent methods still need a touch: a locking UPDATE must
+    not become an escape hatch for a real window write.
+    """
+    updates = {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        and (node.module or "").split(".")[0] == "sqlalchemy"
+        for alias in node.names
+        if alias.name == "update"
+    }
+    func = call.func
+    if not (
+        isinstance(func, ast.Name) and func.id in updates
+        or isinstance(func, ast.Attribute)
+        and isinstance(func.value, ast.Name)
+        and func.value.id in modules
+        and func.attr == "update"
+    ):
+        return False
+    if len(call.args) != 1 or not isinstance(call.args[0], ast.Name):
+        return False
+    target = call.args[0].id
+    models = {mapper.class_.__name__: mapper.local_table for mapper in Base.registry.mappers}
+
+    def annotated_models(node: ast.expr | None) -> set[str]:
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+            left, right = annotated_models(node.left), annotated_models(node.right)
+            return left | right if left and right else set()
+        if (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "type"
+            and isinstance(node.slice, ast.Name)
+            and node.slice.id in models
+        ):
+            return {node.slice.id}
+        return set()
+
+    candidates = {target} if target in models else set()
+    scope: ast.AST = call
+    while scope in parents:
+        scope = parents[scope]
+        if isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
+            if any(
+                isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store) and node.id == target
+                for node in ast.walk(scope)
+            ):
+                return False
+            arguments = [
+                *scope.args.posonlyargs, *scope.args.args, *scope.args.kwonlyargs,
+            ]
+            arguments += [arg for arg in (scope.args.vararg, scope.args.kwarg) if arg is not None]
+            argument = next((arg for arg in arguments if arg.arg == target), None)
+            if argument is not None:
+                candidates = annotated_models(argument.annotation)
+                break
+    if not candidates or any(
+        column.onupdate is not None or column.server_onupdate is not None
+        for name in candidates
+        for column in models[name].columns
+    ):
+        return False
+    current: ast.AST = call
+    assigned = False
+    while isinstance(parents.get(current), ast.Attribute):
+        attribute = parents[current]
+        following = parents.get(attribute)
+        if not isinstance(attribute, ast.Attribute) or not isinstance(following, ast.Call):
+            return False
+        if following.func is not attribute or attribute.attr not in {
+            "where", "values", "execution_options"
+        }:
+            return False
+        if attribute.attr == "values":
+            if following.args or not following.keywords:
+                return False
+            for keyword in following.keywords:
+                value = keyword.value
+                if not (
+                    keyword.arg is not None
+                    and all(keyword.arg in models[name].columns for name in candidates)
+                    and isinstance(value, ast.Attribute)
+                    and isinstance(value.value, ast.Name)
+                    and value.value.id == target
+                    and value.attr == keyword.arg
+                ):
+                    return False
+            assigned = True
+        current = following
+    execution = parents.get(current)
+    return (
+        assigned
+        and isinstance(execution, ast.Call)
+        and isinstance(execution.func, ast.Attribute)
+        and execution.func.attr == "execute"
+        and len(execution.args) == 1
+        and not execution.keywords
+        and execution.args[0] is current
+    )
+
+
 def bulk_writes(source: str, tables: dict[str, str]) -> list[tuple[str, int, bool]]:
     """Each bulk statement on a window table in ``source``: the top-level
     function or method it is built in, its line, and whether that function
     touches the bus. A helper defined inside the function is the function's."""
     tree = ast.parse(source)
     functions, texts, modules = _bulk_names(tree)
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
     scopes: list[tuple[str, ast.AST]] = []
     for node in tree.body:
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -472,6 +580,7 @@ def bulk_writes(source: str, tables: dict[str, str]) -> list[tuple[str, int, boo
         if isinstance(call, ast.Call)
         and _is_bulk(call, functions, texts, modules)
         and _on_a_window_table(call, tables)
+        and not _identity_update(call, tree, parents, modules)
     ]
 
 
@@ -570,6 +679,94 @@ async def kept(session, class_id):
         ("raw_unread", False),
         ("kept", True),
     ]
+
+
+def test_the_walk_exempts_only_provable_identity_updates_without_automatic_changes() -> None:
+    source = """
+from sqlalchemy import insert, update
+
+async def typed(model: type[SchoolClass] | type[BellSchedule], row_id):
+    await session.execute(update(model).where(model.id == row_id).values(name=model.name))
+
+async def concrete():
+    await session.execute(update(SchoolClass).values(name=SchoolClass.name, city=SchoolClass.city))
+
+async def unknown(model):
+    await session.execute(update(model).values(name=model.name))
+
+async def automatic():
+    await session.execute(update(Homework).values(text=Homework.text))
+
+async def different():
+    await session.execute(update(SchoolClass).values(name=BellSchedule.name))
+
+async def mixed():
+    await session.execute(update(SchoolClass).values(name=SchoolClass.name, city="new"))
+
+async def overwritten():
+    await session.execute(update(SchoolClass).values(name=SchoolClass.name).values(name="new"))
+
+async def ordered():
+    await session.execute(update(SchoolClass).values(name=SchoolClass.name)
+                          .ordered_values((SchoolClass.city, "new")))
+
+async def unknown_union(model: type[SchoolClass] | type[Unknown]):
+    await session.execute(update(model).values(name=model.name))
+
+async def nested(model: type[SchoolClass]):
+    async def inner(model):
+        await session.execute(update(model).values(name=model.name))
+
+async def shadowed(SchoolClass):
+    await session.execute(update(SchoolClass).values(name=SchoolClass.name))
+
+async def inserted():
+    await session.execute(insert(SchoolClass).values(name=SchoolClass.name))
+
+async def deferred():
+    statement = update(SchoolClass).values(name=SchoolClass.name)
+    await session.execute(statement.values(name="new"))
+
+async def rebound(model: type[SchoolClass]):
+    model = Homework
+    await session.execute(update(model).values(text=model.text))
+
+async def parameters():
+    await session.execute(update(SchoolClass).values(name=SchoolClass.name), params={"city": "new"})
+"""
+    assert [(scope, touched) for scope, _line, touched in bulk_writes(source, _tables())] == [
+        ("unknown", False),
+        ("automatic", False),
+        ("different", False),
+        ("mixed", False),
+        ("overwritten", False),
+        ("ordered", False),
+        ("unknown_union", False),
+        ("nested", False),
+        ("shadowed", False),
+        ("inserted", False),
+        ("deferred", False),
+        ("rebound", False),
+        ("parameters", False),
+    ]
+
+
+@pytest.mark.parametrize("parent", ["class", "schedule"])
+async def test_a_committed_parent_lock_without_changed_data_wakes_nobody(
+    bus, session, school_class, parent
+) -> None:
+    from app.services import gone
+
+    class_id = school_class.id
+    model, row_id = (
+        (SchoolClass, class_id)
+        if parent == "class"
+        else (BellSchedule, school_class.bell_schedule_id)
+    )
+    start = bus.changes(class_id)
+    await gone.lock_parent(session, model, row_id)
+    await session.commit()
+    assert bus.changes(class_id) == start
 
 
 @pytest.mark.parametrize(

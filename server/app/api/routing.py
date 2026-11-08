@@ -73,6 +73,7 @@ GONE: Mapping[str, str] = {
     "manage/class": wording.CLASS_GONE_DETAIL,
     "manage/terms": terms_service.NO_SUCH_TERM,
     "manage/terms/scheme": wording.CLASS_GONE_DETAIL,
+    "manage/timetable": wording.UNKNOWN_BELL_SCHEDULE_DETAIL,
 }
 
 #: The status of a :data:`GONE` key that does not answer ``404``. A term's is

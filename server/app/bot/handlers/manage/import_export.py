@@ -20,7 +20,7 @@ from app.bot.manage_keyboards.import_export import ImportAction, import_keyboard
 from app.bot.manage_render import import_export as mr
 from app.bot.manage_states import ImportTimetable
 from app.models import Role, SchoolClass
-from app.services import timetable_io
+from app.services import gone, structure, timetable_io
 from app.services.manage import timetable as timetable_service
 
 router = Router(name="manage.import_export")
@@ -169,13 +169,24 @@ async def import_apply(
         await callback.answer("Нечего применять — начните заново: /import", show_alert=True)
         return
 
-    result = await timetable_service.apply(
-        session, school_class, callback.from_user.id, days, bells
-    )
+    result: structure.TimetableImport | None = None
+
+    async def write() -> None:
+        nonlocal result
+        result = await timetable_service.apply(
+            session, school_class, callback.from_user.id, days, bells
+        )
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await callback.answer(
+            "Класс или звонки уже удалены. Начните импорт заново.", show_alert=True
+        )
+        return
+    assert result is not None
     total = result.written
     schedule = result.schedule
     unrung = result.unrung
-    await session.commit()
     if schedule is not None:
         await session.refresh(schedule, ["periods"])
     await state.clear()

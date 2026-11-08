@@ -9,6 +9,11 @@ that meets it says «not found» too, because whoever deleted the row meant it
 to be gone, and a write that re-created it would undo them without either
 side being told.
 
+For guarded class or bell references, :func:`lock_parent` runs before the
+first child write. A parent already removed has the same stale-row refusal;
+one still present is kept through commit rather than failing a foreign key later.
+No unrelated integrity failure is caught.
+
 Each shell says it once, in its own words: v1 in the route class every router
 is built with (``api/routing.py``), v2 in ``rpc/call.invoke``, and the bot's
 screens through :func:`committed`, each with the sentence it already says for
@@ -21,8 +26,48 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.exc import StaleDataError
+
+from app.db import rows_affected
+from app.models import BellSchedule, SchoolClass
+
+
+async def lock_parent(
+    session: AsyncSession,
+    model: type[SchoolClass] | type[BellSchedule],
+    row_id: int,
+    *,
+    exclusive: bool = False,
+) -> None:
+    """Keep a referenced parent until this transaction ends, or refuse a deleted one.
+
+    PostgreSQL's key-share lock protects the identity without blocking ordinary
+    parent edits. SQLite ignores FOR UPDATE, so a checked no-op UPDATE holds its
+    write lock instead. Pending children must not autoflush before this check.
+    A cascading delete takes the exclusive parent lock before touching children.
+    """
+    with session.no_autoflush:
+        if session.get_bind().dialect.name == "postgresql":
+            exists = (
+                await session.scalar(
+                    select(model.id)
+                    .where(model.id == row_id)
+                    .with_for_update(read=not exclusive, key_share=not exclusive)
+                )
+                is not None
+            )
+        else:
+            result = await session.execute(
+                update(model)
+                .where(model.id == row_id)
+                .values(name=model.name)
+                .execution_options(synchronize_session=False)
+            )
+            exists = bool(rows_affected(result))
+    if not exists:
+        raise StaleDataError("The referenced parent was deleted")
 
 
 async def committed(

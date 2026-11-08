@@ -123,6 +123,8 @@ GONE: Mapping[str, tuple[str, str]] = {
     "Substitution": ("substitution", substitution.UNKNOWN_SUBSTITUTION),
     "Task": ("task", wording.UNKNOWN_TASK_DETAIL),
     "TermScheme": ("class", gate.CLASS_GONE),
+    # An import refuses a lost default rather than recreating the deleted schedule.
+    "Timetable": ("bell_schedule", wording.UNKNOWN_BELL_SCHEDULE_DETAIL),
 }
 
 #: The resource whose «not found» is no ``RESOURCE_NOT_FOUND``: a term the

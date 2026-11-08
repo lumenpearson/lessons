@@ -33,7 +33,7 @@ from app.bot.keyboards import (
 from app.bot.render import MESSAGE_LIMIT, clamp, more_line, plural
 from app.bot.states import EditBells, EditTimetable
 from app.models import BellPeriod, BellSchedule, Role, SchoolClass, TimetableEntry, WeekParity
-from app.services import audit, structure, timetable_io
+from app.services import audit, gone, structure, timetable_io
 
 #: Rejected lines echoed back before «… и ещё N».
 #:
@@ -214,15 +214,20 @@ async def timetable_apply(
         # Through the service that writes the template, as a paste is below: a
         # weekday named with nothing under it is emptied, and the service is
         # what tells a host's watchers that the class changed (app/watch.py).
-        await structure.apply_timetable(session, school_class, {weekday: []}, [])
-        await audit.record(
-            session,
-            school_class.id,
-            message.from_user.id,
-            "timetable.clear",
-            f"{WEEKDAY_FULL[weekday - 1]}: расписание очищено",
-        )
-        await session.commit()
+        async def write_clear() -> None:
+            await structure.apply_timetable(session, school_class, {weekday: []}, [])
+            await audit.record(
+                session,
+                school_class.id,
+                message.from_user.id,
+                "timetable.clear",
+                f"{WEEKDAY_FULL[weekday - 1]}: расписание очищено",
+            )
+
+        if not await gone.committed(session, write_clear):
+            await state.clear()
+            await message.answer("Класс уже удалён. Откройте /start.", reply_markup=back_to_menu())
+            return
         await state.clear()
         await message.answer(
             f"🧹 {WEEKDAY_FULL[weekday - 1]}: расписание очищено.", reply_markup=back_to_menu()
@@ -259,25 +264,35 @@ async def timetable_apply(
     # 8», listed all eight, and the eighth was on no phone. Replacing the whole
     # weekday in one transaction is still what happens; it is the service that
     # does it now, exactly as the week import does.
-    result = await structure.apply_timetable(session, school_class, {weekday: parsed}, [])
+    result: structure.TimetableImport | None = None
+
+    async def write() -> None:
+        nonlocal result
+        result = await structure.apply_timetable(session, school_class, {weekday: parsed}, [])
+        total = result.written
+
+        summary = f"{WEEKDAY_FULL[weekday - 1]}: уроков {total}"
+        if result.dropped:
+            # Rows, not numbers — a number repeats within one weekday too, because
+            # «3. Алгебра (чёт)» and «3. Геометрия (нечёт)» are two rows, and if
+            # the class does not ring a third lesson both are gone while this line
+            # counted one.
+            summary += f", без звонка пропущено {len(result.dropped)}"
+        await audit.record(
+            session,
+            school_class.id,
+            message.from_user.id,
+            "timetable.set",
+            summary,
+        )
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await message.answer("Класс уже удалён. Откройте /start.", reply_markup=back_to_menu())
+        return
+    assert result is not None
     total = result.written
     unrung = result.unrung
-
-    summary = f"{WEEKDAY_FULL[weekday - 1]}: уроков {total}"
-    if result.dropped:
-        # Rows, not numbers — a number repeats within one weekday too, because
-        # «3. Алгебра (чёт)» and «3. Геометрия (нечёт)» are two rows, and if
-        # the class does not ring a third lesson both are gone while this line
-        # counted one.
-        summary += f", без звонка пропущено {len(result.dropped)}"
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        "timetable.set",
-        summary,
-    )
-    await session.commit()
     await state.clear()
 
     # Read back rather than echoed: what is printed is then what is stored,
@@ -369,33 +384,46 @@ async def bells_apply(
         )
         return
 
-    schedule = None
-    if school_class.bell_schedule_id:
-        schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
-    if schedule is None:
-        schedule = BellSchedule(
-            class_id=school_class.id, name=structure.DEFAULT_SCHEDULE_NAME
-        )
-        session.add(schedule)
-        await session.flush()
-        school_class.bell_schedule_id = schedule.id
+    silenced: list[tuple[int, int]] = []
 
-    # Through the service, which is the half that answers «which lessons stop
-    # ringing». Writing the rows here by hand is what this handler used to do,
-    # and it is why a five-row paste could take lessons 6 and 7 off every phone
-    # in the class under «✅ Звонки сохранены: 5 уроков» and not a word more.
-    silenced = await structure.write_bell_periods(session, schedule, parsed)
-    summary = f"звонки «{schedule.name}»: {len(parsed)} уроков"
-    if silenced:
-        summary += f", перестали звонить уроков: {len(silenced)}"
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        "bells.edit",
-        summary,
-    )
-    await session.commit()
+    async def write() -> None:
+        nonlocal silenced
+        await gone.lock_parent(session, SchoolClass, school_class.id)
+        if school_class.bell_schedule_id is not None:
+            await gone.lock_parent(session, BellSchedule, school_class.bell_schedule_id)
+        schedule = None
+        if school_class.bell_schedule_id:
+            schedule = await session.get(BellSchedule, school_class.bell_schedule_id)
+        if schedule is None:
+            schedule = BellSchedule(
+                class_id=school_class.id, name=structure.DEFAULT_SCHEDULE_NAME
+            )
+            session.add(schedule)
+            await session.flush()
+            school_class.bell_schedule_id = schedule.id
+
+        # Through the service, which is the half that answers «which lessons stop
+        # ringing». Writing the rows here by hand is what this handler used to do,
+        # and it is why a five-row paste could take lessons 6 and 7 off every phone
+        # in the class under «✅ Звонки сохранены: 5 уроков» and not a word more.
+        silenced = await structure.write_bell_periods(session, schedule, parsed)
+        summary = f"звонки «{schedule.name}»: {len(parsed)} уроков"
+        if silenced:
+            summary += f", перестали звонить уроков: {len(silenced)}"
+        await audit.record(
+            session,
+            school_class.id,
+            message.from_user.id,
+            "bells.edit",
+            summary,
+        )
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await message.answer(
+            "Класс или расписание уже удалены. Откройте /start.", reply_markup=back_to_menu()
+        )
+        return
     await state.clear()
 
     lines = [f"✅ Звонки сохранены: {plural(len(parsed), 'урок', 'урока', 'уроков')}."]

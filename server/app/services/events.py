@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import wording
 from app.models import DayEvent, EventKind, SchoolClass
-from app.services import audit, clock
+from app.services import audit, clock, gone
 
 #: What stands in for the lessons it overlaps when nobody says: a
 #: «мероприятие» or a trip does, and a canteen break sits in a break. The
@@ -87,6 +87,7 @@ async def create(
     (:data:`COVERS_BY_DEFAULT`). Flushed, so that the caller can answer the
     id; not committed.
     """
+    await gone.lock_parent(session, SchoolClass, school_class.id)
     event = DayEvent(
         class_id=school_class.id,
         date=date,
