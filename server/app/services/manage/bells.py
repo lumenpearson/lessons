@@ -17,9 +17,10 @@ from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.models import BellPeriod, BellSchedule, DayOverride, SchoolClass
-from app.services import audit, structure
+from app.services import audit, gone, structure
 from app.services.structure import BellRow
 
 
@@ -113,6 +114,7 @@ async def create(
     order to be pointed at by particular days, and making it the default the
     moment it exists would move every day onto it.
     """
+    await gone.lock_parent(session, SchoolClass, school_class.id)
     schedule = BellSchedule(class_id=school_class.id, name=name)
     session.add(schedule)
     await session.flush()
@@ -171,6 +173,8 @@ async def make_default(
     if school_class.bell_schedule_id == schedule.id:
         return []
 
+    await gone.lock_parent(session, SchoolClass, school_class.id)
+    await gone.lock_parent(session, BellSchedule, schedule.id)
     was = await rung_by_default(session, school_class)
     silenced = await structure.lessons_silenced_by(
         session, school_class.id, was, {period.index for period in schedule.periods}
@@ -288,6 +292,14 @@ async def delete(
         raise ScheduleInUse(used)
 
     name = schedule.name
+    await gone.lock_parent(session, SchoolClass, school_class.id)
+    try:
+        await gone.lock_parent(session, BellSchedule, schedule.id, exclusive=True)
+    except StaleDataError:
+        # A delete that lost its target has already achieved its result.
+        return name
+    # An editor may have replaced the eagerly loaded rows while this lock waited.
+    await session.refresh(schedule, ["periods"])
     await session.delete(schedule)
     await audit.record(
         session, school_class.id, actor_id, "bells.delete", f"удалено расписание звонков «{name}»"

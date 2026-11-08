@@ -28,7 +28,7 @@ from app.bot.keyboards import Menu, back_to_menu, cancel_keyboard
 from app.bot.render import human_date, relative_day_name
 from app.bot.states import AddEvent
 from app.models import DayEvent, EventKind, Role, SchoolClass
-from app.services import audit, notify
+from app.services import audit, gone, notify
 
 router = Router(name="content.events")
 
@@ -173,26 +173,33 @@ async def event_title(
     data = await state.get_data()
     kind = EventKind(data["kind"])
     day = Date.fromisoformat(data["date"])
-    session.add(
-        DayEvent(
-            class_id=school_class.id,
-            date=day,
-            starts_at=time.fromisoformat(data["start"]),
-            ends_at=time.fromisoformat(data["end"]),
-            title=title,
-            kind=kind,
-            # Only «мероприятие» and «экскурсия» usually replace a lesson.
-            covers_lesson=kind in {EventKind.EVENT, EventKind.TRIP},
+
+    async def write() -> None:
+        await gone.lock_parent(session, SchoolClass, school_class.id)
+        session.add(
+            DayEvent(
+                class_id=school_class.id,
+                date=day,
+                starts_at=time.fromisoformat(data["start"]),
+                ends_at=time.fromisoformat(data["end"]),
+                title=title,
+                kind=kind,
+                # Only «мероприятие» and «экскурсия» usually replace a lesson.
+                covers_lesson=kind in {EventKind.EVENT, EventKind.TRIP},
+            )
         )
-    )
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        "event.add",
-        f"событие {day:%d.%m} {data['start'][:5]}: {title}",
-    )
-    await session.commit()
+        await audit.record(
+            session,
+            school_class.id,
+            message.from_user.id,
+            "event.add",
+            f"событие {day:%d.%m} {data['start'][:5]}: {title}",
+        )
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await message.answer("Класс уже удалён. Откройте /start.", reply_markup=back_to_menu())
+        return
     await state.clear()
 
     today = _today(school_class)

@@ -28,6 +28,87 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: the bot answers stale writes, and renames and moves roll back as a whole
+
+- Homework, subject details and colours, personal-task completion and reminders,
+  term bounds and lesson edits now use `services/gone.committed`. If another
+  writer deleted the row, the bot answers in the screen's existing missing-row
+  terms, drops an open form, writes no audit or success notice and leaves the
+  session usable by middleware. The staged races extend `test_stale_writes.py`.
+- #673: a subject rename flushes the parent change before its timetable cascade.
+  Otherwise the cascade writes a deleted subject id and raises on the foreign
+  key before the stale update can be refused. The bot guards the service call
+  as well as the commit. Runtime integrity errors are not caught wholesale.
+- #674: moving a slot checks that both bulk-update halves matched rows. A
+  disappearing moving slot or neighbour raises the existing stale-write shape;
+  the caller rolls the movement back, leaves the survivor at its old number,
+  adds no audit line and answers the press. Both cases were seen red first.
+- Twelve new staged-deletion cases were seen red before their corresponding
+  fixes. The first affected-module run passed 299 tests; ruff and mypy (242
+  modules) passed. The completed full gate returned **3380 passed, six skipped,
+  551 warnings in 1368.06 seconds (22m48s)**, exit code 0: **3386 tests**
+  collected. The six skips require a running host; no timeout fired.
+
+### What was deliberately left alone
+
+No schema, contract, Android source, dependency or deployment configuration
+changed. Existing API stale-row mappings from #654 were already present. The
+bot's event creation and bell-row/default edits meet foreign keys instead, as
+#662 describes; timetable import's analogous race is #657. The current bot has
+no diary-correction form. These gaps do not become fixed by adding a broad
+IntegrityError handler. The complete stale-write module also passed on a local
+PostgreSQL 16 instance: **34 passed, two warnings in 12.33 seconds**. A real
+Telegram conversation was not exercised.
+
+### Previous batch: #649, its review correction and the main deployment
+
+**PR #649 review preparation, 8 November 2026.** The dated state below is preserved as
+the preceding batch's record; it is not a fresh reading of production or `main`. PR #649
+was reviewed from head `abdda437`, on `agents/airbnb-practices`. It adds
+`docs/engineering.md` and its three automation loops, the `android-tests` agent, the
+`large-refactor` skill, compatibility and regression-holder sections in the PR template,
+and the corresponding agent instructions and command permissions. Epic #626 and its
+follow-ups are planning work, not implementations shipped by this PR.
+
+The local review restores both APK assemblies to the new agent's completion gates and
+marks #628, #632, #639 and #660's proposed checks as proposals in the engineering document.
+The linked issues were read on 8 November: #630, #631, #633, #634 and #647 are closed;
+#627–#629, #632, #635–#646, #648 and #659–#661 remain open. No follow-up is closed by
+these documentation changes.
+
+At the reviewed head, ruff passed and mypy checked 242 source files successfully. The
+24 tests in `test_ci_paths.py`, `test_schema_version.py` and `test_ci_required.py` passed
+with Git Bash first in the process PATH. The initial run had three failures because
+Windows resolved `bash` to the WSL launcher and `/bin/bash` was absent. This is evidence
+for those three failures only, not an explanation of the full-suite hang mentioned in
+the PR description. The GitHub diagnostics returned no check runs or statuses for this
+head; an empty result is not a green CI verdict. Android builds and external article claims are not certified by this review. No migration or
+production operation was performed.
+
+Full server verification on 8 November completed with Python 3.12.13 and Git Bash first
+in PATH: `pytest -q -n auto -o faulthandler_timeout=60` returned 3368 passed, 6 skipped,
+551 warnings in 1394.77 seconds (23m14s), exit code 0. The skipped tests require a running
+host. No diagnostic timeout fired and the previous hang was not reproduced. Ruff passed;
+mypy passed on 242 source files. The warnings were not treated as failures. Android and
+Buf were not run because their inputs did not change. The complete server suite is now
+verified locally; Linux CI and live-host verification remain separate checks.
+
+The missing assemblies are tracked by #671, in milestone 13. These corrections are
+included in PR #649 for review; this preparation does not certify
+production. The previous 403 issue-creation limitation was resolved by selecting the
+LumenPearson connection explicitly.
+
+CI at `5b176bee` exposed #672: pytest's attribute-patch teardown deletes Starlette
+State's dynamically stored flags. A sequential local run of health-tick, RPC and schema
+tests reproduced all three failures (41 passed, three failed). The correction patches
+the backing mapping for `v2_mounted` and `v2_services` in the health-tick and host tests,
+so teardown restores their original values. Runtime code and the mounted-v2/warmup
+assertions are unchanged. After correction, all 62 tests in the health-tick, host, RPC
+and schema modules passed sequentially in 69.29 seconds; ruff and mypy also passed.
+Both host jobs and Vercel passed at that head; Server and the
+summary failed. This close-out is carried inside #649; its final CI and merge identity
+are checked through GitHub, and the next batch records the merge SHA.
+
 ## What the batch before added: four bug fixes merged overnight (#650, #651, #653, #655), the host's keepalive (#400), and #625's merge
 
 Written on 18 October 2026 and carried by this file's own pull request, from

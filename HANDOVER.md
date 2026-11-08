@@ -6,24 +6,21 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **9 November 2026**. `main` is at `71ff33c0`, the merge of
-#675, pinned to checked head `806bb16e`. Its PR CI passed (server and both live
-hosts); post-merge main CI also passed (run 42521078809). Production is READY at the
-merge, its production aliases point there, and `/api/v1/warmup` answered HTTP 200,
-`status: ok`, schema `0019`, `v2: true`. The inspected post-deploy runtime window
-had no errors. No migration moved. Local `dev` was fast-forwarded and pushed.
-The public project-6 board shows #673, #674 and #675 in Done; no access grant
-was needed to verify it.
-The previous batch's extra full PostgreSQL 16 run returned **3379 passed,
-seven skipped, 551 warnings in 359.60 seconds**: six host-only tests and the
-SQLite-only busy-timeout test were skipped, with zero failures or errors.
+Last updated: **9 November 2026**. `main` is at `6a733f31`, the merge of
+#676, pinned to checked head `22936695`. Its PR and post-merge main CI passed
+(server, both live hosts and the required summary; main run 42524546356).
+Production is READY at that merge, all production aliases point there, and
+`/api/v1/warmup` answered HTTP 200, status ok, schema `0019`, v2 true. The checked
+post-deploy runtime window had no errors. The public project-6 board shows #676
+in Done. The original checkout's `dev` was fast-forwarded and pushed.
 
 The owner requested autonomous priority work until **14:00 Moscow on 9 November**.
-The current milestone-11 batch is `server/class-audit-races-662`, based on that
-merge. It fixes the class-card part of #662; #662 remains open for bells/events,
-and #657 and the scope reconciliation of #654 remain separate. This batch's
-close-out travels inside its own still-open pull request; its merge SHA belongs
-to the next batch, without a close-out pull request of its own.
+The current milestone-11 batch is `server/bell-parent-races-662` in a managed
+worktree with its own Python 3.12 environment, based on that merge. It closes
+#657, the review-found #677 and the gate-found #679, and advances #662 without
+closing its unproved remaining scope. #677 was filed before the fix and linked under #662. This
+close-out belongs to the batch's own pull request; its merge SHA is left for
+the next batch, without a close-out pull request of its own.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -336,7 +333,75 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: class updates meet a deleted parent before their audit row
+## What the last session added: parent references survive their writes, and bell deletion locks before its children
+
+- #657: timetable imports keep the class and expected default schedule until
+  commit. A lost parent is refused through the v1/v2 stale-write boundary as
+  `Unknown bell schedule`; no weekday or replacement schedule is persisted.
+  Imports starting without a default protect the class before creating one.
+- More of #662: bell-row replacement, default changes and creation, event
+  creation, weekday paste/clear, the legacy bells form and the bot import
+  confirmation guard their parents before child writes. Bot refusals cover the
+  whole service call and commit, clear an open form and avoid expired ORM reads.
+- PostgreSQL uses KEY SHARE for referenced identities, allowing unrelated
+  metadata edits; SQLite's checked no-op UPDATE supplies its database write lock.
+  Neither path catches unrelated IntegrityError failures.
+- Independent review reproduced #677 in the unmerged first implementation:
+  the editor held the parent while ORM deletion held children. Deletion now
+  takes the exclusive schedule lock before ORM children, then refreshes the
+  periods an editor may have replaced while the lock waited. An already-deleted
+  target remains idempotent success without a duplicate audit row.
+- The added cases were seen red before their corresponding fixes. Removing the
+  PostgreSQL lock makes the two retained-parent tests red; removing the early
+  class check makes four no-default imports red. The actual ORM overlap test
+  also refuses SQLAlchemy warnings, holding the post-wait collection refresh.
+  Targeted SQLite module: **93 passed, two PostgreSQL-only skips, two warnings
+  in 24.38 seconds**. Targeted PostgreSQL module before the final collection
+  refresh: **95 passed**, exposing the stale-child warning; the final affected
+  PostgreSQL run passed **481 tests, 12 warnings in 33.39 seconds**.
+- Re-review found no remaining actionable introduced defects and independently
+  passed ten PostgreSQL lock/deletion checks in 7.44 seconds on its own database.
+- The first full PostgreSQL run exposed #679: the WatchClass bulk-write AST
+  guard demanded a notification for SQLite's locking-only identity UPDATE
+  (**one failed, 3439 passed, seven skipped in 334.93 seconds**). The guard now
+  exempts only directly executed, visible same-column assignments on known
+  mapped models without automatic update columns. Unknown targets, additional
+  changed values, deferred statements and execution parameters still require a
+  touch. Independent review reproduced the execution-parameter bypass before
+  it was closed and held by the same AST regression. Committed parent-lock
+  tests also prove neither class nor schedule locks wake a watcher.
+  Focused Watch module: **33 PostgreSQL tests passed in 15.78 seconds**;
+  final SQLite AST/quiet-lock selection: **five passed in 24.30 seconds**.
+  The first SQLite full run had the same single guard failure (**3438 passed,
+  eight skipped, 551 warnings in 1426.91 seconds**). A final-source PostgreSQL
+  attempt was interrupted when the owned local container exited with code 255:
+  **3383 passed, seven skipped and 60 setup connection errors in 379.43 seconds**.
+  Neither is a green gate. The container was restarted; the PostgreSQL repeat
+  uses four workers to reduce the concurrent full runs' memory pressure.
+  Final full runs:
+  SQLite: **3442 passed, eight skipped, 551 warnings in 1521.58 seconds**
+  (25 minutes, 21 seconds), exit code 0. JUnit: **3450 tests, zero failures
+  and zero errors**; no diagnostic timeout.
+  PostgreSQL: **3443 passed, seven skipped, 551 warnings in 317.79 seconds**
+  (five minutes, 17 seconds), exit code 0. JUnit: **3450 tests, zero failures
+  and zero errors**. The exact `pytest -q -n auto` command ran with
+  `PYTEST_XDIST_AUTO_NUM_WORKERS=4`; no diagnostic timeout in this repeat.
+  After the count and scope documentation updates, the CI-path, required-summary,
+  schema-version, test-import and service-layer checks passed **35 tests, two
+  warnings in 128.03 seconds**. Ruff is clean and mypy passed all **242 modules**.
+
+### What remains open
+
+#662 remains open for other class/bell parent references outside these named
+paths; #654 still needs its remaining no-op and scope reconciliation. The existing
+bell-deletion default/special-day prechecks retain their older concurrency limits,
+now reproduced on `main` and tracked as #678 for the next batch.
+No real Telegram conversation, installed APK or native-gRPC concurrency race was
+exercised. No migration, schema, contract, dependency, Android or production
+configuration change is included; the local throwaway PostgreSQL has fsync off,
+which is only a test setting from docs/build.md.
+
+## What the session before it added: class updates meet a deleted parent before their audit row
 
 - The class-card part of #662 is fixed in shared `classes.set_field`,
   `set_timezone` and `set_join_mode`: the class UPDATE is flushed before the
@@ -364,87 +429,6 @@ analogous timetable-import race, not fixed by reordering the class audit.
 No broad IntegrityError mapping, schema, contract, Android, dependency or
 production configuration change is included. No real Telegram interaction ran.
 
-## What the session before it added: the bot answers stale writes, and renames and moves roll back as a whole
-
-- Homework, subject details and colours, personal-task completion and reminders,
-  term bounds and lesson edits now use `services/gone.committed`. If another
-  writer deleted the row, the bot answers in the screen's existing missing-row
-  terms, drops an open form, writes no audit or success notice and leaves the
-  session usable by middleware. The staged races extend `test_stale_writes.py`.
-- #673: a subject rename flushes the parent change before its timetable cascade.
-  Otherwise the cascade writes a deleted subject id and raises on the foreign
-  key before the stale update can be refused. The bot guards the service call
-  as well as the commit. Runtime integrity errors are not caught wholesale.
-- #674: moving a slot checks that both bulk-update halves matched rows. A
-  disappearing moving slot or neighbour raises the existing stale-write shape;
-  the caller rolls the movement back, leaves the survivor at its old number,
-  adds no audit line and answers the press. Both cases were seen red first.
-- Twelve new staged-deletion cases were seen red before their corresponding
-  fixes. The first affected-module run passed 299 tests; ruff and mypy (242
-  modules) passed. The completed full gate returned **3380 passed, six skipped,
-  551 warnings in 1368.06 seconds (22m48s)**, exit code 0: **3386 tests**
-  collected. The six skips require a running host; no timeout fired.
-
-### What was deliberately left alone
-
-No schema, contract, Android source, dependency or deployment configuration
-changed. Existing API stale-row mappings from #654 were already present. The
-bot's event creation and bell-row/default edits meet foreign keys instead, as
-#662 describes; timetable import's analogous race is #657. The current bot has
-no diary-correction form. These gaps do not become fixed by adding a broad
-IntegrityError handler. The complete stale-write module also passed on a local
-PostgreSQL 16 instance: **34 passed, two warnings in 12.33 seconds**. A real
-Telegram conversation was not exercised.
-
-### Previous batch: #649, its review correction and the main deployment
-
-**PR #649 review preparation, 8 November 2026.** The dated state below is preserved as
-the preceding batch's record; it is not a fresh reading of production or `main`. PR #649
-was reviewed from head `abdda437`, on `agents/airbnb-practices`. It adds
-`docs/engineering.md` and its three automation loops, the `android-tests` agent, the
-`large-refactor` skill, compatibility and regression-holder sections in the PR template,
-and the corresponding agent instructions and command permissions. Epic #626 and its
-follow-ups are planning work, not implementations shipped by this PR.
-
-The local review restores both APK assemblies to the new agent's completion gates and
-marks #628, #632, #639 and #660's proposed checks as proposals in the engineering document.
-The linked issues were read on 8 November: #630, #631, #633, #634 and #647 are closed;
-#627–#629, #632, #635–#646, #648 and #659–#661 remain open. No follow-up is closed by
-these documentation changes.
-
-At the reviewed head, ruff passed and mypy checked 242 source files successfully. The
-24 tests in `test_ci_paths.py`, `test_schema_version.py` and `test_ci_required.py` passed
-with Git Bash first in the process PATH. The initial run had three failures because
-Windows resolved `bash` to the WSL launcher and `/bin/bash` was absent. This is evidence
-for those three failures only, not an explanation of the full-suite hang mentioned in
-the PR description. The GitHub diagnostics returned no check runs or statuses for this
-head; an empty result is not a green CI verdict. Android builds and external article claims are not certified by this review. No migration or
-production operation was performed.
-
-Full server verification on 8 November completed with Python 3.12.13 and Git Bash first
-in PATH: `pytest -q -n auto -o faulthandler_timeout=60` returned 3368 passed, 6 skipped,
-551 warnings in 1394.77 seconds (23m14s), exit code 0. The skipped tests require a running
-host. No diagnostic timeout fired and the previous hang was not reproduced. Ruff passed;
-mypy passed on 242 source files. The warnings were not treated as failures. Android and
-Buf were not run because their inputs did not change. The complete server suite is now
-verified locally; Linux CI and live-host verification remain separate checks.
-
-The missing assemblies are tracked by #671, in milestone 13. These corrections are
-included in PR #649 for review; this preparation does not certify
-production. The previous 403 issue-creation limitation was resolved by selecting the
-LumenPearson connection explicitly.
-
-CI at `5b176bee` exposed #672: pytest's attribute-patch teardown deletes Starlette
-State's dynamically stored flags. A sequential local run of health-tick, RPC and schema
-tests reproduced all three failures (41 passed, three failed). The correction patches
-the backing mapping for `v2_mounted` and `v2_services` in the health-tick and host tests,
-so teardown restores their original values. Runtime code and the mounted-v2/warmup
-assertions are unchanged. After correction, all 62 tests in the health-tick, host, RPC
-and schema modules passed sequentially in 69.29 seconds; ruff and mypy also passed.
-Both host jobs and Vercel passed at that head; Server and the
-summary failed. This close-out is carried inside #649; its final CI and merge identity
-are checked through GitHub, and the next batch records the merge SHA.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -469,7 +453,7 @@ current.
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655 and #656 (merged), and #675 (merged), and the current `server/class-audit-races-662` pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #673 and #674 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675 and #676 (merged), and the current `server/bell-parent-races-662` pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678 and #679 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, and PR #649 (merged as `d4f7725c` on 8 November); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -493,6 +477,11 @@ numbers, because the documents, the skills and the history refer to them by numb
 
 ## 5. What nobody has verified
 
+- **The parent-race fixes use automated callers.** The bot cases use the shared fake
+  message/FSM fixtures; no real Telegram conversation or native-gRPC concurrency race
+  was exercised. SQLite and PostgreSQL regressions cover the transaction boundaries
+  named by #657/#662/#677; they do not certify every other parent reference.
+
 This is the main thing worth knowing: **all of this work is proved by tests and by nothing
 else.**
 
@@ -511,8 +500,8 @@ bullet below. The rest wait for an APK on a phone. The prose here is kept becaus
 bullets it answered say so in place, and what an emulator
 cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — is still here.
 
-- **The night's four bug fixes and #400 have been seen by their tests and CI only** («What the
-  last session added» has the detail).
+- **The night's four bug fixes and #400 have been seen by their tests and CI only** (the
+  overnight bug-fix and host-keepalive batch in `docs/history.md` has the detail).
   - **Nothing ran in Telegram or on a device** (#650, #651, #655): nobody has pressed «✅
     Одобрить» on a request for a role the member already holds and read «Роль не изменилась»,
     drawn «📱 Устройства» with fifteen long names, or seen a substitution, a special day or
@@ -523,7 +512,7 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     chosen from the stream's heartbeat, and nobody has watched Envoy drop a phone that vanished.
     Under `--server hypercorn` the gap of about fifteen minutes stays.
 - **Sub-project 4's pull request B, #625, merged as `81a6201`, has been seen by its tests and its
-  gates only** («What the session before it added» has the detail).
+  gates only** (the overnight bug-fix and host-keepalive batch in `docs/history.md` has the detail).
   - **No APK from `android/decomposition-b` has been installed** on a device or an emulator;
     nobody has opened the management sheets or the settings page over the split view models.
   - **No screen test composes a settings row over a real `SettingsViewModel`**: the rows'
@@ -2081,7 +2070,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3401 tests, ~25 min on Windows
+cd server  && pytest -q -n auto                          # 3450 tests, ~25 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1797 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

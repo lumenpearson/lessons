@@ -23,7 +23,7 @@ from app.bot.manage_render import bells as mr
 from app.bot.manage_states import EditBellRows, NewBellSchedule
 from app.bot.render import clamp, more_line, plural
 from app.models import BellSchedule, Role, SchoolClass
-from app.services import timetable_io
+from app.services import gone, timetable_io
 from app.services.manage import bells as bells_service
 
 router = Router(name="manage.bells")
@@ -154,10 +154,18 @@ async def bells_rows_apply(
         )
         return
 
-    orphaned = await bells_service.replace_rows(
-        session, school_class, message.from_user.id, schedule, rows
-    )
-    await session.commit()
+    orphaned: list[tuple[int, int]] = []
+
+    async def write() -> None:
+        nonlocal orphaned
+        orphaned = await bells_service.replace_rows(
+            session, school_class, message.from_user.id, schedule, rows
+        )
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await message.answer("Расписание уже удалено.", reply_markup=back_to_menu())
+        return
     await session.refresh(schedule, ["periods"])
     await state.clear()
 
@@ -242,10 +250,19 @@ async def bells_new_rows(
 
     # The name step already held it to 64 characters; the cut is for a state
     # written by anything else.
-    schedule = await bells_service.create(
-        session, school_class, message.from_user.id, name[:64], rows
-    )
-    await session.commit()
+    schedule: BellSchedule | None = None
+
+    async def write() -> None:
+        nonlocal schedule
+        schedule = await bells_service.create(
+            session, school_class, message.from_user.id, name[:64], rows
+        )
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await message.answer("Класс уже удалён. Откройте /start.", reply_markup=back_to_menu())
+        return
+    assert schedule is not None
     await session.refresh(schedule, ["periods"])
     await state.clear()
 
@@ -288,10 +305,18 @@ async def bells_make_default(
     # are the next screen — but it may not be the *class default*: see
     # `ScheduleEmpty`. The «⭐» here refused nothing while the API refused it,
     # which is how this rule came to live in one place.
-    try:
+    orphaned: list[tuple[int, int]] = []
+
+    async def write() -> None:
+        nonlocal orphaned
         orphaned = await bells_service.make_default(
             session, school_class, callback.from_user.id, schedule
         )
+
+    try:
+        if not await gone.committed(session, write):
+            await callback.answer("Расписание не найдено", show_alert=True)
+            return
     except bells_service.ScheduleEmpty:
         await callback.answer(
             "В этом расписании звонков нет ни одного урока — сделать его "
@@ -299,8 +324,6 @@ async def bells_make_default(
             show_alert=True,
         )
         return
-    await session.commit()
-
     text, keyboard = await _bells_view(session, school_class)
     await callback.message.edit_text(text, reply_markup=keyboard)
     if orphaned:
@@ -336,8 +359,16 @@ async def bells_delete(
         await callback.answer("Расписание не найдено", show_alert=True)
         return
 
-    try:
+    name = ""
+
+    async def write() -> None:
+        nonlocal name
         name = await bells_service.delete(session, school_class, callback.from_user.id, schedule)
+
+    try:
+        if not await gone.committed(session, write):
+            await callback.answer("Расписание не найдено", show_alert=True)
+            return
     except bells_service.ScheduleIsDefault:
         await callback.answer(
             "Это основное расписание класса. Сначала сделайте основным другое.",
@@ -349,8 +380,6 @@ async def bells_delete(
             f"По нему идут особые дни ({in_use.days}). Сначала измените их.", show_alert=True
         )
         return
-    await session.commit()
-
     text, keyboard = await _bells_view(session, school_class)
     await callback.message.edit_text(text, reply_markup=keyboard)
     await callback.answer(f"Удалено: {name}"[:200])

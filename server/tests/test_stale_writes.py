@@ -869,9 +869,10 @@ def test_every_resource_v2_answers_a_deleted_row_for_is_named_by_a_method() -> N
         ErrorReason.TERM_BOUNDS_REFUSED,
         terms_service.NO_SUCH_TERM,
     )
-    # The import meets a deleted class as a foreign key, never as this error,
-    # and stays out of the table (#654).
-    assert answered["lessons.v2.TimetableService/ImportTimetable"] is None
+    imported = answered["lessons.v2.TimetableService/ImportTimetable"]
+    assert imported is not None
+    assert imported.metadata == {"resource": "bell_schedule"}
+    assert imported.message == wording.UNKNOWN_BELL_SCHEDULE_DETAIL
 
 
 def test_every_resource_v1_answers_a_deleted_row_for_is_a_path_it_serves() -> None:
@@ -889,6 +890,7 @@ def test_every_resource_v1_answers_a_deleted_row_for_is_a_path_it_serves() -> No
         manage.requests,
         manage.subjects,
         manage.terms,
+        manage.timetable,
     ):
         paths += [manage.router.prefix + route.path for route in module.router.routes]
     # As a request names them: a number where the template has a parameter.
@@ -909,7 +911,9 @@ def test_every_resource_v1_answers_a_deleted_row_for_is_a_path_it_serves() -> No
     )
     assert gone_answer("/api/v1/diary/students") is None
     assert gone_answer("/api/v1/diary/students/4021/marks") is None
-    assert gone_answer("/api/v1/manage/timetable/import") is None
+    assert gone_answer("/api/v1/manage/timetable/import") == (
+        404, wording.UNKNOWN_BELL_SCHEDULE_DETAIL,
+    )
     assert gone_answer("/diary/signin") is None
 
 
@@ -1023,3 +1027,558 @@ async def test_bot_class_deleted_under_a_setting_answers_the_press(
     assert not callback.message.replies
     assert (await _count(SchoolClass), await _count(AuditEntry)) == (0, 0)
     await session.commit()
+
+
+@pytest.mark.parametrize("parent", ["class", "schedule"])
+async def test_bot_bell_rows_losing_a_parent_drop_the_paste_and_audit(
+    session, school_class, monkeypatch, FakeMessage, FakeState, parent
+) -> None:
+    from app.bot.handlers.manage.bells import bells_rows_apply
+    from app.models import BellSchedule
+    from app.services.manage import bells
+
+    schedule_id = school_class.bell_schedule_id
+    model, row_id = (
+        (SchoolClass, school_class.id) if parent == "class" else (BellSchedule, schedule_id)
+    )
+    raced = _deleted_meanwhile(monkeypatch, bells, "replace_rows", model, row_id)
+    state = FakeState(data={"schedule_id": schedule_id})
+    message = FakeMessage(text="1. 09:00-09:40")
+    await bells_rows_apply(message, state, session, school_class, Role.ADMIN)
+    assert raced
+    assert message.last == "Расписание уже удалено."
+    assert (state.cleared, state.data) == (True, {})
+    assert await _count(AuditEntry) == 0
+    await session.commit()
+
+
+@pytest.mark.parametrize("parent", ["class", "schedule"])
+async def test_bot_default_bells_losing_a_parent_answer_without_a_success(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable, parent
+) -> None:
+    from app.bot.handlers.manage.bells import bells_make_default
+    from app.models import BellPeriod, BellSchedule
+    from app.services.manage import bells
+
+    schedule = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    session.add(schedule)
+    await session.flush()
+    session.add(
+        BellPeriod(schedule_id=schedule.id, index=1, starts_at=time(9), ends_at=time(9, 40))
+    )
+    await session.commit()
+    model, row_id = (
+        (SchoolClass, school_class.id) if parent == "class" else (BellSchedule, schedule.id)
+    )
+    raced = _deleted_meanwhile(monkeypatch, bells, "make_default", model, row_id)
+    callback = FakeCallback(message=FakeEditable())
+    await bells_make_default(
+        callback, SimpleNamespace(value=str(schedule.id)), session, school_class, Role.ADMIN
+    )
+    assert raced
+    assert callback.answers[-1] == ("Расписание не найдено", True)
+    assert not callback.message.replies
+    assert await _count(AuditEntry) == 0
+    await session.commit()
+
+
+async def test_bot_event_in_a_deleted_class_drops_the_form_and_announces_nothing(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    from unittest.mock import AsyncMock
+
+    from app.bot.handlers.content import events
+
+    notified = AsyncMock()
+    monkeypatch.setattr(events.notify, "notify_subscribers", notified)
+    state = FakeState(
+        data={"date": MONDAY.isoformat(), "kind": "trip", "start": "09:00", "end": "11:00"}
+    )
+    raced = _deleted_meanwhile(monkeypatch, state, "get_data", SchoolClass, school_class.id)
+    message = FakeMessage(text="Поездка в планетарий")
+    await events.event_title(message, state, session, school_class, Role.EDITOR)
+    assert raced
+    assert message.last == "Класс уже удалён. Откройте /start."
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(DayEvent), await _count(AuditEntry)) == (0, 0)
+    notified.assert_not_awaited()
+    await session.commit()
+
+
+@pytest.mark.parametrize("transport", ["v1", "v2"])
+@pytest.mark.parametrize("action", ["rows", "default"])
+@pytest.mark.parametrize("parent", ["class", "schedule"])
+async def test_bell_api_losing_a_parent_refuses_without_a_partial_write(
+    v2, v2_tokens, session, school_class, monkeypatch, transport, action, parent
+) -> None:
+    from app.contract.lessons.v2.bell_pb import BellPeriod as PeriodMessage
+    from app.contract.lessons.v2.bell_pb import BellSchedule as ScheduleMessage
+    from app.contract.lessons.v2.bell_pb import UpdateBellScheduleRequest
+    from app.models import BellPeriod, BellSchedule
+    from app.services.manage import bells
+
+    old_default = school_class.bell_schedule_id
+    schedule = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    session.add(schedule)
+    await session.flush()
+    session.add(
+        BellPeriod(schedule_id=schedule.id, index=1, starts_at=time(9), ends_at=time(9, 40))
+    )
+    await session.commit()
+    class_id, schedule_id = school_class.id, schedule.id
+    model, row_id = (SchoolClass, class_id) if parent == "class" else (BellSchedule, schedule_id)
+    target = "replace_rows" if action == "rows" else "make_default"
+    raced = _deleted_meanwhile(monkeypatch, bells, target, model, row_id)
+    if transport == "v1":
+        path = f"/api/v1/manage/bells/{schedule_id}"
+        payload = {"is_default": True}
+        if action == "rows":
+            path += "/periods"
+            payload = {"periods": [{"index": 1, "starts_at": "10:00", "ends_at": "10:40"}]}
+        answer = await v2.http.request(
+            "PUT" if action == "rows" else "PATCH",
+            path,
+            json=payload,
+            headers=_auth(v2_tokens["admin"]),
+        )
+        assert (answer.status_code, answer.json()) == (
+            404,
+            {"detail": wording.UNKNOWN_BELL_SCHEDULE_DETAIL},
+        )
+    else:
+        sent = ScheduleMessage(id=schedule_id)
+        field = "is_default" if action == "default" else "periods"
+        if action == "default":
+            sent.is_default = True
+        else:
+            sent.periods.append(PeriodMessage(index=1, starts_at="10:00", ends_at="10:40"))
+        answer = await v2.connect(
+            "BellService/UpdateBellSchedule",
+            UpdateBellScheduleRequest(schedule=sent, update_mask=FieldMask(paths=[field])),
+            token=v2_tokens["admin"],
+        )
+        assert (answer.code, answer.reason, answer.metadata, answer.error) == (
+            "NOT_FOUND",
+            "RESOURCE_NOT_FOUND",
+            {"resource": "bell_schedule"},
+            wording.UNKNOWN_BELL_SCHEDULE_DETAIL,
+        )
+    assert raced
+    assert await _count(AuditEntry) == 0
+    async with SessionLocal() as fresh:
+        current_class = await fresh.get(SchoolClass, class_id)
+        if parent == "class":
+            assert current_class is None
+        else:
+            assert current_class.bell_schedule_id == old_default
+        assert await fresh.get(BellSchedule, schedule_id) is None
+
+
+async def test_bot_new_bells_in_a_deleted_class_drop_the_form(
+    session, school_class, monkeypatch, FakeMessage, FakeState
+) -> None:
+    from app.bot.handlers.manage.bells import bells_new_rows
+    from app.models import BellSchedule
+    from app.services.manage import bells
+
+    raced = _deleted_meanwhile(monkeypatch, bells, "create", SchoolClass, school_class.id)
+    state = FakeState(data={"name": "Сокращённое"})
+    message = FakeMessage(text="1. 09:00-09:40")
+    await bells_new_rows(message, state, session, school_class, Role.ADMIN)
+    assert raced
+    assert message.last == "Класс уже удалён. Откройте /start."
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(BellSchedule), await _count(AuditEntry)) == (0, 0)
+    await session.commit()
+
+
+@pytest.mark.parametrize("transport", ["v1", "v2"])
+@pytest.mark.parametrize("resource", ["bells", "events"])
+async def test_create_api_in_a_deleted_class_refuses_without_an_orphan(
+    v2, v2_tokens, session, school_class, monkeypatch, transport, resource
+) -> None:
+    from app.contract.lessons.v2.bell_pb import BellSchedule as ScheduleMessage
+    from app.contract.lessons.v2.bell_pb import CreateBellScheduleRequest
+    from app.contract.lessons.v2.common_pb import EventKind as ProtoKind
+    from app.contract.lessons.v2.event_pb import CreateEventRequest
+    from app.models import BellSchedule
+    from app.services import events
+    from app.services.manage import bells
+
+    service = bells if resource == "bells" else events
+    raced = _deleted_meanwhile(monkeypatch, service, "create", SchoolClass, school_class.id)
+    if resource == "bells":
+        payload = {"name": "Сокращённое"}
+        sent = CreateBellScheduleRequest(schedule=ScheduleMessage(name="Сокращённое"))
+        method = "BellService/CreateBellSchedule"
+        detail, metadata = wording.UNKNOWN_BELL_SCHEDULE_DETAIL, {"resource": "bell_schedule"}
+    else:
+        payload = {
+            "date": MONDAY.isoformat(),
+            "starts_at": "09:00",
+            "ends_at": "11:00",
+            "title": "Поездка",
+            "kind": "trip",
+        }
+        sent = CreateEventRequest(
+            event=Event(
+                date=MONDAY.isoformat(),
+                starts_at="09:00",
+                ends_at="11:00",
+                title="Поездка",
+                kind=ProtoKind.TRIP,
+            )
+        )
+        method = "EventService/CreateEvent"
+        detail, metadata = wording.UNKNOWN_EVENT_DETAIL, {"resource": "event"}
+    if transport == "v1":
+        answer = await v2.http.request(
+            "POST" if resource == "bells" else "PUT",
+            "/api/v1/manage/bells" if resource == "bells" else "/api/v1/events",
+            json=payload,
+            headers=_auth(v2_tokens["admin"]),
+        )
+        assert (answer.status_code, answer.json()) == (404, {"detail": detail})
+    else:
+        answer = await v2.connect(method, sent, token=v2_tokens["admin"])
+        assert (answer.code, answer.reason, answer.metadata, answer.error) == (
+            "NOT_FOUND",
+            "RESOURCE_NOT_FOUND",
+            metadata,
+            detail,
+        )
+    assert raced
+    assert (await _count(SchoolClass), await _count(BellSchedule)) == (0, 0)
+    assert (await _count(DayEvent), await _count(AuditEntry)) == (0, 0)
+
+
+async def test_a_parent_reference_does_not_block_an_unrelated_postgres_class_edit(
+    session, school_class
+) -> None:
+    from sqlalchemy import text, update
+
+    from app.services import gone
+
+    if session.get_bind().dialect.name != "postgresql":
+        pytest.skip("PostgreSQL row-lock compatibility; SQLite has one database write lock")
+    class_id = school_class.id
+    await gone.lock_parent(session, SchoolClass, class_id)
+    async with SessionLocal() as other:
+        await other.execute(text("SET LOCAL lock_timeout = '500ms'"))
+        await other.execute(
+            update(SchoolClass).where(SchoolClass.id == class_id).values(name="10А")
+        )
+        await other.commit()
+    await session.rollback()
+    async with SessionLocal() as fresh:
+        assert (await fresh.get(SchoolClass, class_id)).name == "10А"
+
+
+@pytest.mark.parametrize("parent", ["class", "schedule"])
+async def test_parent_identity_stays_until_the_transaction_ends(
+    session, school_class, parent
+) -> None:
+    from sqlalchemy import text
+    from sqlalchemy.exc import DBAPIError
+
+    from app.models import BellSchedule
+    from app.services import gone
+
+    model, row_id = (
+        (SchoolClass, school_class.id)
+        if parent == "class"
+        else (BellSchedule, school_class.bell_schedule_id)
+    )
+    postgres = session.get_bind().dialect.name == "postgresql"
+    await gone.lock_parent(session, model, row_id)
+    async with SessionLocal() as other:
+        original_timeout = None if postgres else await other.scalar(text("PRAGMA busy_timeout"))
+        try:
+            await other.execute(
+                text(
+                    "SET LOCAL lock_timeout = '100ms'" if postgres else "PRAGMA busy_timeout = 100"
+                )
+            )
+            with pytest.raises(DBAPIError) as blocked:
+                await other.execute(delete(model).where(model.id == row_id))
+            if postgres:
+                assert blocked.value.orig.sqlstate == "55P03"
+            else:
+                assert blocked.value.orig.sqlite_errorcode == 5
+        finally:
+            if not postgres:
+                await other.execute(text(f"PRAGMA busy_timeout = {original_timeout}"))
+            await other.rollback()
+    await session.rollback()
+    async with SessionLocal() as other:
+        await other.execute(delete(model).where(model.id == row_id))
+        await other.commit()
+        assert await other.get(model, row_id) is None
+
+
+@pytest.mark.parametrize("with_day", [False, True])
+@pytest.mark.parametrize("transport", ["v1", "v2"])
+@pytest.mark.parametrize(
+    ("parent", "has_default"),
+    [
+        pytest.param("class", True, id="class_with_default"),
+        pytest.param("class", False, id="class_without_default"),
+        pytest.param("schedule", True, id="schedule"),
+    ],
+)
+async def test_timetable_import_losing_a_parent_refuses_without_recreating_it(
+    v2, v2_tokens, session, school_class, monkeypatch, transport, parent, with_day, has_default
+) -> None:
+    from app.contract.lessons.v2.timetable_pb import ImportTimetableRequest
+    from app.models import BellSchedule, TimetableEntry
+    from app.services import structure
+
+    if not has_default:
+        school_class.bell_schedule_id = None
+        await session.commit()
+    model, row_id = (
+        (SchoolClass, school_class.id)
+        if parent == "class"
+        else (BellSchedule, school_class.bell_schedule_id)
+    )
+    raced = _deleted_meanwhile(monkeypatch, structure, "apply_timetable", model, row_id)
+    before = await _count(TimetableEntry)
+    paste = "== Звонки ==\n1. 09:00-09:40"
+    if with_day:
+        paste = "== Вторник ==\n1. Химия\n\n" + paste
+    if transport == "v1":
+        answer = await v2.http.post(
+            "/api/v1/manage/timetable/import",
+            json={"text": paste, "replace": True},
+            headers=_auth(v2_tokens["admin"]),
+        )
+        assert (answer.status_code, answer.json()) == (
+            404,
+            {"detail": wording.UNKNOWN_BELL_SCHEDULE_DETAIL},
+        )
+    else:
+        answer = await v2.connect(
+            "TimetableService/ImportTimetable",
+            ImportTimetableRequest(text=paste, replace=True),
+            token=v2_tokens["admin"],
+        )
+        assert (answer.code, answer.reason, answer.metadata, answer.error) == (
+            "NOT_FOUND",
+            "RESOURCE_NOT_FOUND",
+            {"resource": "bell_schedule"},
+            wording.UNKNOWN_BELL_SCHEDULE_DETAIL,
+        )
+    assert raced
+    assert (await _count(BellSchedule), await _count(AuditEntry)) == (0, 0)
+    assert await _count(TimetableEntry) == (0 if parent == "class" else before)
+
+
+@pytest.mark.parametrize("clear", [False, True])
+async def test_bot_weekday_in_a_deleted_class_drops_the_form(
+    session, school_class, monkeypatch, FakeMessage, FakeState, clear
+) -> None:
+    from app.bot.handlers.timetable import timetable_apply
+    from app.services import structure
+
+    raced = _deleted_meanwhile(
+        monkeypatch, structure, "apply_timetable", SchoolClass, school_class.id
+    )
+    state = FakeState(data={"weekday": 1})
+    message = FakeMessage(text="-" if clear else "1. Физика")
+    await timetable_apply(message, state, session, school_class, Role.ADMIN)
+    assert raced
+    assert message.last == "Класс уже удалён. Откройте /start."
+    assert (state.cleared, state.data) == (True, {})
+    assert await _count(AuditEntry) == 0
+    await session.commit()
+
+
+@pytest.mark.parametrize("parent", ["class", "schedule"])
+async def test_bot_default_bell_paste_losing_a_parent_drops_the_form(
+    session, school_class, monkeypatch, FakeMessage, FakeState, parent
+) -> None:
+    from app.bot.handlers.timetable import bells_apply
+    from app.models import BellSchedule
+    from app.services import gone
+
+    model, row_id = (
+        (SchoolClass, school_class.id)
+        if parent == "class"
+        else (BellSchedule, school_class.bell_schedule_id)
+    )
+    state = FakeState()
+    raced = _deleted_meanwhile(monkeypatch, gone, "lock_parent", model, row_id)
+    message = FakeMessage(text="1. 09:00-09:40")
+    await bells_apply(message, state, session, school_class, Role.ADMIN)
+    assert raced
+    assert message.last == "Класс или расписание уже удалены. Откройте /start."
+    assert (state.cleared, state.data) == (True, {})
+    assert await _count(AuditEntry) == 0
+    await session.commit()
+
+
+@pytest.mark.parametrize("parent", ["class", "schedule"])
+async def test_bot_import_losing_a_parent_clears_the_preview_and_answers(
+    session, school_class, monkeypatch, FakeState, FakeCallback, FakeEditable, parent
+) -> None:
+    from app.bot.handlers.manage.import_export import import_apply
+    from app.models import BellSchedule
+    from app.services.manage import timetable
+
+    model, row_id = (
+        (SchoolClass, school_class.id)
+        if parent == "class"
+        else (BellSchedule, school_class.bell_schedule_id)
+    )
+    raced = _deleted_meanwhile(monkeypatch, timetable, "apply", model, row_id)
+    state = FakeState(data={"raw": "== Звонки ==\n1. 09:00-09:40"})
+    callback = FakeCallback(message=FakeEditable())
+    await import_apply(callback, state, session, school_class, Role.ADMIN)
+    assert raced
+    assert callback.answers[-1] == ("Класс или звонки уже удалены. Начните импорт заново.", True)
+    assert not callback.message.replies
+    assert (state.cleared, state.data) == (True, {})
+    assert await _count(AuditEntry) == 0
+    await session.commit()
+
+
+@pytest.mark.filterwarnings("error::sqlalchemy.exc.SAWarning")
+async def test_bell_deletion_locks_the_parent_before_its_orm_children(
+    session, school_class
+) -> None:
+    import asyncio
+
+    from sqlalchemy import event
+
+    from app.db import engine
+    from app.models import BellPeriod, BellSchedule
+    from app.services import gone, structure
+    from app.services.manage import bells
+
+    if session.get_bind().dialect.name != "postgresql":
+        pytest.skip("PostgreSQL parent/child row-lock ordering; SQLite has one write lock")
+    schedule = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    session.add(schedule)
+    await session.flush()
+    session.add(
+        BellPeriod(schedule_id=schedule.id, index=1, starts_at=time(9), ends_at=time(9, 40))
+    )
+    await session.commit()
+    class_id, schedule_id = school_class.id, schedule.id
+    await gone.lock_parent(session, SchoolClass, class_id)
+    await gone.lock_parent(session, BellSchedule, schedule_id)
+    parent_attempted, children_deleted = asyncio.Event(), asyncio.Event()
+
+    def before_statement(connection, _cursor, statement, _parameters, _context, _many):
+        sql = statement.upper()
+        if connection.info.get("test_bell_deleter"):
+            if ("FROM BELL_SCHEDULES" in sql and "FOR UPDATE" in sql) or sql.lstrip().startswith(
+                "DELETE FROM BELL_SCHEDULES"
+            ):
+                parent_attempted.set()
+
+    def after_statement(connection, _cursor, statement, _parameters, _context, _many):
+        if connection.info.get("test_bell_deleter"):
+            if statement.upper().lstrip().startswith("DELETE FROM BELL_PERIODS"):
+                children_deleted.set()
+
+    async with SessionLocal() as deleter:
+        other_class = await deleter.get(SchoolClass, class_id)
+        other_schedule = await bells.schedule_of(deleter, class_id, schedule_id)
+        info = (await deleter.connection()).sync_connection.info
+        info["test_bell_deleter"] = True
+        event.listen(engine.sync_engine, "before_cursor_execute", before_statement)
+        event.listen(engine.sync_engine, "after_cursor_execute", after_statement)
+
+        async def remove() -> None:
+            await bells.delete(deleter, other_class, 42, other_schedule)
+            await deleter.commit()
+
+        deleting = asyncio.create_task(remove())
+        waiting_parent = asyncio.create_task(parent_attempted.wait())
+        waiting_children = asyncio.create_task(children_deleted.wait())
+        try:
+            done, _ = await asyncio.wait(
+                [waiting_parent, waiting_children, deleting],
+                timeout=10,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            assert done, "the deleter never reached its parent lock or ORM children"
+            assert parent_attempted.is_set() and not children_deleted.is_set(), (
+                "the deleter locked children before waiting on the editor's parent lock"
+            )
+            await structure.write_bell_periods(session, schedule, [(1, time(10), time(10, 40))])
+            await session.commit()
+            await asyncio.wait_for(deleting, timeout=10)
+        finally:
+            await session.rollback()
+            waiting_parent.cancel()
+            waiting_children.cancel()
+            await asyncio.gather(waiting_parent, waiting_children, return_exceptions=True)
+            try:
+                await asyncio.wait_for(deleting, timeout=10)
+            finally:
+                event.remove(engine.sync_engine, "before_cursor_execute", before_statement)
+                event.remove(engine.sync_engine, "after_cursor_execute", after_statement)
+                info.pop("test_bell_deleter", None)
+    async with SessionLocal() as fresh:
+        assert await fresh.get(BellSchedule, schedule_id) is None
+    assert await _count(AuditEntry) == 1
+
+
+@pytest.mark.parametrize("transport", ["bot", "v1", "v2"])
+@pytest.mark.parametrize("parent", ["class", "schedule"])
+async def test_bell_delete_race_is_class_gone_or_an_idempotent_success(
+    v2, v2_tokens, session, school_class, monkeypatch, FakeCallback, FakeEditable, transport, parent
+) -> None:
+    from app.bot.handlers.manage.bells import bells_delete
+    from app.contract.lessons.v2.bell_pb import DeleteBellScheduleRequest
+    from app.models import BellSchedule
+    from app.services.manage import bells
+
+    schedule = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    session.add(schedule)
+    await session.commit()
+    schedule_id = schedule.id
+    model, row_id = (
+        (SchoolClass, school_class.id) if parent == "class" else (BellSchedule, schedule_id)
+    )
+    raced = _deleted_meanwhile(monkeypatch, bells, "delete", model, row_id)
+    if transport == "bot":
+        callback = FakeCallback(message=FakeEditable())
+        await bells_delete(
+            callback, SimpleNamespace(value=str(schedule_id)), session, school_class, Role.ADMIN
+        )
+        if parent == "class":
+            assert callback.answers[-1] == ("Расписание не найдено", True)
+            assert not callback.message.replies
+        else:
+            assert callback.answers[-1] == ("Удалено: Сокращённое", False)
+        await session.commit()
+    elif transport == "v1":
+        answer = await v2.http.delete(
+            f"/api/v1/manage/bells/{schedule_id}", headers=_auth(v2_tokens["admin"])
+        )
+        expected = (
+            (404, {"detail": wording.UNKNOWN_BELL_SCHEDULE_DETAIL})
+            if parent == "class"
+            else (200, {"id": schedule_id, "deleted": True})
+        )
+        assert (answer.status_code, answer.json()) == expected
+    else:
+        answer = await v2.connect(
+            "BellService/DeleteBellSchedule",
+            DeleteBellScheduleRequest(schedule_id=schedule_id),
+            token=v2_tokens["admin"],
+        )
+        if parent == "class":
+            assert (answer.code, answer.reason, answer.metadata, answer.error) == (
+                "NOT_FOUND",
+                "RESOURCE_NOT_FOUND",
+                {"resource": "bell_schedule"},
+                wording.UNKNOWN_BELL_SCHEDULE_DETAIL,
+            )
+        else:
+            assert answer.status == 200
+    assert raced
+    assert await _count(AuditEntry) == 0

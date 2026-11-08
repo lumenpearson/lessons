@@ -32,7 +32,7 @@ from app.models import (
     Subject,
     TimetableEntry,
 )
-from app.services import subjects, timetable_edit
+from app.services import gone, subjects, timetable_edit
 
 #: What a schedule is called when a paste brings bell times to a class that has
 #: none at all. Named rather than left blank: it is about to be the class's
@@ -246,6 +246,8 @@ async def write_bell_periods(
     particular day points at affects that day, and the day is a different
     question from the weekly template.
     """
+    await gone.lock_parent(session, SchoolClass, schedule.class_id)
+    await gone.lock_parent(session, BellSchedule, schedule.id)
     silenced: list[tuple[int, int]] = []
     if schedule.class_id is not None and schedule.id is not None:
         default_of = await session.scalar(
@@ -334,6 +336,9 @@ async def apply_timetable(
     leave one — at which point the count refused «4. Химия», which had a bell,
     and would have admitted a third lesson, which had none.
     """
+    await gone.lock_parent(session, SchoolClass, school_class.id)
+    if bells and school_class.bell_schedule_id is not None:
+        await gone.lock_parent(session, BellSchedule, school_class.bell_schedule_id)
     if days:
         await session.execute(
             sa_delete(TimetableEntry).where(

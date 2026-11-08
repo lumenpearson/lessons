@@ -27,8 +27,9 @@ that happens and names both trees (#312).
    after ruff — the owner asked for it through that day's audit (#210) — and still worth
    running before a push: seconds here, minutes there. It is the thing that reproduces the
    «🗓 Четверти» crash.
-3. `pytest -q -n auto`, bare, from `server/` with its venv active — 3401 tests today, six of
-   them skipped unless a host is running (`-m host`, CI's «Host» job), and
+3. `pytest -q -n auto`, bare, from `server/` with its venv active — 3450 tests today, six of
+   them skipped unless a host is running (`-m host`, CI's «Host» job), plus two
+   PostgreSQL-only lock checks skipped on SQLite, and
    **the exact command CI runs**. Not `python -m pytest`: the `-m` form puts the current
    directory on `sys.path` and the bare one does not, so whatever leans on that passes here and
    fails on CI (CLAUDE.md, «Commands»; #310). Serial takes about five minutes; `-n auto`

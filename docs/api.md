@@ -110,7 +110,7 @@ to the log.
 | --- | --- |
 | `401` | Missing, malformed, unknown or revoked token — **the client must drop its session**, not merely report it |
 | `403` | The device is not linked, or its account lacks the role (`detail` says which). On `/join` it is the one refusal below that is not about the code being wrong: the class takes personal invites only |
-| `404` | Join code, class, homework, task or event does not exist - or is not this class's. On a write to homework, a substitution, an event, a day, a task, `/me`, or `/manage`'s subjects, bell schedules, devices, access requests, class and term scheme, also a row another write deleted between this one's read and its commit (#384, #654), with the sentence a request for a missing row of that kind gets — `Class no longer exists` for `/me` and the scheme, whose class was deleted with its devices and its terms; nothing is written. Two writes answer that race with another status: a term moved by `PUT /manage/terms/{index}` with its own `422`, «Такого периода нет.», and a diary correction with a `409` (below). The timetable import meets a class deleted under it as a foreign key rather than this race, and still answers `500` (#657) |
+| `404` | Join code, class, homework, task or event does not exist - or is not this class's. On a write to homework, a substitution, an event, a day, a task, `/me`, or `/manage`'s subjects, bell schedules, devices, access requests, class and term scheme, also a row another write deleted between this one's read and its commit (#384, #654), with the sentence a request for a missing row of that kind gets — `Class no longer exists` for `/me` and the scheme, whose class was deleted with its devices and its terms; nothing is written. Two writes answer that race with another status: a term moved by `PUT /manage/terms/{index}` with its own `422`, «Такого периода нет.», and a diary correction with a `409` (below). A timetable import whose class or expected default bell schedule disappeared also answers `404`, `Unknown bell schedule`, and rolls back without recreating the deleted parent (#657) |
 | `409` | On `/join`: the class already holds as many live phones as its class code admits. The code is right; a personal code from the bot still joins. On `PUT /diary/students/{id}/overrides`: the correction was reset or cleared by another write between this one's read and its commit (#654) |
 | `422` | Parameter out of range or body invalid |
 | `429` | Too many failed join attempts |
@@ -795,6 +795,13 @@ at (`409`, with the count). Both are a `SET NULL` in the database, which would
 silently move those days onto the default schedule - a change nobody asked
 for, on dates an admin is not looking at.
 
+A bell-row replacement or change of default keeps its class and schedule
+parents until commit. Deletion takes the schedule's exclusive lock before its
+ORM period rows, so an editor that started
+first can finish before deletion proceeds. If a schedule was read and another
+writer already deleted it, deletion remains an idempotent success without a
+duplicate audit entry. An id missing at the initial lookup still answers `404`.
+
 ### Timetable export and import
 
 `GET /manage/timetable` answers `{ "text": "== Понедельник ==\n1. Алгебра, 214\n…", "lessons": 18 }`
@@ -824,6 +831,11 @@ on, so **the preview is the refusal**: if a weekday in the paste already has
 lessons, nothing is written and the response says what stands to be
 overwritten. Sending it again with `replace: true` is the second tap, and then
 `applied` is `true` and `lessons` counts what was written.
+
+The write keeps its class and expected default bell schedule until commit. If
+either disappeared after the read, it answers `404`, `Unknown bell schedule`,
+and persists no weekday replacement or new schedule. An import that begins
+without a default can create one while its class is still present (#657).
 
 Only the weekdays the paste names are touched, so a Tuesday block against a
 Monday-only timetable is not a conflict at all, and a day named with nothing
