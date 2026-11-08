@@ -28,6 +28,110 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: four bug fixes merged overnight (#650, #651, #653, #655), the host's keepalive (#400), and #625's merge
+
+Written on 18 October 2026 and carried by this file's own pull request, from
+`server/host-keepalive-400` to `main`, `Refs #273`, which holds #400's fix (`c5b989e`), the
+merge of `main` at `ee1dce0` (`afe058d`) and this close-out. The batch began after #625's merge,
+on the owner's word of 18 October, «Баги status:next», and ran through the night on their order,
+«продолжай до утра, по крайней мере, пока машина не упадёт» («keep going till morning, at least
+until the machine goes down»); the owner also allowed an automatic fix round on pull requests
+(«можно»). Every fix is on the server; nothing under `android/`, `proto/` or
+`server/migrations/` changed, so the schema stays at `0019`, `EXPECTED_REVISION` with it, and the
+Android count stays at 1797.
+
+- **Sub-project 4's pull request B is in `main`** (#625): merged at 22:41:34 UTC on 17 October as
+  `81a6201`, pinned to head `2ba842e`, on milestone 11, closing #623 and #624. Its close-out rode
+  in it and is «What the session before it added» below; `81a6201` is the SHA it left for this
+  one to write.
+- **An approval says the role the member holds after it, not the role asked for** (#650, `94d95f8`,
+  from `server/approve-held-role-368`, closing #368): the bot's card and toast — «Роль не
+  изменилась» when the approval changes nothing — v1's `role`, and the Telegram notice that the
+  bot, v1 and v2 all send through `wording.approval_notice`; the journal line names the role asked
+  for and the role granted apart. The bot's «✅ Одобрить» now goes through
+  `services/manage/requests.approve`, as v1 and v2 already did.
+- **«📱 Устройства» draws a button for every phone it lists** (#651, `472ae6d`, from
+  `server/device-page-names-352`, closing #352): the owner's and the device's names are cut by
+  their escaped length (`manage_render/_common.cut_escaped`, with `OWNER_NAME_MAX` and
+  `DEVICE_NAME_MAX` both 50), so fifteen rows always fit; the worst case is 2742 characters of
+  the page's 3900.
+- **No cache may keep a secret or personal v2 answer, on any transport** (#653, `112982e`, from
+  `server/connect-no-store-357`, closing #357 and #652): one table, `rpc/caching.py`'s
+  `NEVER_STORED`, read by the REST transcoder and the Connect adapters alike, so a Connect answer,
+  POST or GET, carries `Cache-Control: private, no-store` as its REST twin does, and gRPC-Web and
+  native gRPC carry it as a header. The table holds every `DiaryService` answer and the three
+  lists that name members, `ListClassDevices`, `ListAccessRequests` and `ListAuditEntries`, beside
+  the class card, the calendar feed and the writes whose answer is a credential. #652 is what
+  #653's security review found, and #653 fixed it before its merge.
+- **A write whose row another writer deleted mid-write answers «not found», not a server error**
+  (#655, `ee1dce0`, from `server/stale-write-not-found-384`, closing #384): v2 in `rpc/call.py`'s
+  `invoke`, by its table `GONE`, as `RESOURCE_NOT_FOUND`; v1 in `api/routing.py`'s route class,
+  which rolls back and answers `404` on the paths its own `GONE` names; and the bot through
+  `services/gone.committed`, for substitutions, special days and «📆 Период», with two new
+  sentences, `SUBSTITUTION_GONE` and `PERIOD_GONE`. Nothing is written in that case, and an upsert
+  does not re-create the row: whoever deleted it meant it to be gone.
+- **#654 is filed for the writes #655 did not reach** (opening above has the list): open, on
+  milestone 11, `status:next`, on the board as Ready, P2, M, 5.
+- **The host finds a vanished phone's `WatchClass` stream in tens of seconds** (#400, `c5b989e`,
+  this file's pull request): `app.host.envoy_config` sets `connection_keepalive` on every HTTP
+  connection manager it corrects, an interval of 30 s, the stream's own heartbeat, and a timeout
+  of 10 s, so pyvoy's Envoy pings a quiet HTTP/2 connection instead of waiting about fifteen
+  minutes for the kernel to give up on it. #395's guard, and the correction with it, now walk
+  `default_filter_chain` as well as `filter_chains`. hypercorn, the fallback, has no such setting
+  and keeps the gap; `docs/deploy.md` says so. Four new tests in `tests/test_host.py`.
+- **This close-out**: 3366 server tests and 242 mypy modules in every place that carries them;
+  `CLAUDE.md`'s `rpc/`, `services/` and `api/` bullets brought level with `rpc/caching.py`,
+  `call.py`'s `GONE`, `services/gone.py` and the route class's `404`; and this file — this section
+  on top, #625's batch second, the batch of 17 October moved to the top of `docs/history.md`, and
+  the opening, the milestone table and sections 5 and 7 brought up to date.
+
+### Gates
+
+- **#650, #651, #653 and #655**: CI green on the exact head each was merged at, pinned with
+  `--match-head-commit`. On #655's head the server job ran **3356 passed, 6 skipped**, which is
+  **3362**.
+- **This file's branch**, at `afe058d` with the documents edited: **3366** tests collected
+  (`pytest --collect-only`), 3362 and #400's four, six of them skipped unless a host runs; the
+  suite itself was not run for this close-out. **mypy**, no issues in **242** source files, two
+  more than the 240 every document said, for `rpc/caching.py` and `services/gone.py`. **ruff**
+  clean. From `server/`, `test_env_example.py`, `test_ci_paths.py` and `test_schema_version.py`,
+  which read the documents, with `-p no:xdist`: **22 passed**, after this close-out was written.
+  CI on this pull request's head is read before the merge.
+- **Android**: nothing changed under `android/`, and nothing was run; the count stays **1797**.
+
+### What was deliberately left alone
+
+- **#654's writes.** #655 answers «not found» on the writes it names above; the rest are #654,
+  open and `status:next`, so it is among the next bugs.
+- **#270, the app matching English error text**: it belongs to sub-project 5, when the app moves
+  to v2's `ErrorInfo.reason`.
+- **#401, `watch.proto`'s comment on a newer stream ending the older one**: the fix needs
+  `buf generate`, Buf 1.73.0 is not installed where this batch ran, and the generated code is never
+  edited by hand. Fetching the binary waits on the owner (section 7).
+- **#268 and #269 were not looked at**: whether either was left deliberately is to be read first.
+- **hypercorn's gap** (#400): it has no keepalive setting, so `--server hypercorn` keeps finding a
+  vanished stream only when the kernel does.
+- **Pull request #649 and issues #626–#648**, another session's, not read.
+
+### What nobody has verified in this batch
+
+- **Nothing ran in Telegram or on a device**: the approval card and its toast, «📱 Устройства» at
+  fifteen long names, and the «not found» answers of substitutions, special days and «📆 Период»
+  have been seen by their tests only.
+- **#655 ran on SQLite only**: the race against PostgreSQL's own `UPDATE` was not run.
+- **#400 was measured on no live host**: the interval and timeout come from the heartbeat's
+  cadence, not from a running deployment, because the host is deployed nowhere yet.
+- **No test exercises gRPC-Web or native gRPC for #653's header**: Connect over HTTP is what the
+  tests ask.
+- **Nothing was deployed by hand**: Vercel deploys `main` itself, and neither the deployment's
+  warmup nor which commit it serves was read for this batch.
+- **CI on this pull request's head** had not been read when this was written.
+
+### Left to the owner from this batch
+
+**Let a session fetch Buf 1.73.0 for #401**, or run `buf generate` yourself (section 7). Optionally,
+look at the approval card and «📱 Устройства» in a real chat, since nothing here has.
+
 ## What the batch before added: sub-project 4's second pull request, `ManagementViewModel` and `SettingsViewModel` split into collaborators
 
 Merged as #625 (`81a6201`, at 22:41:34 UTC on 17 October 2026, already 18 October in Moscow),
@@ -10159,3 +10263,16 @@ rewritten as a feature built on #476 («A feature, not a fix»):
 
 Both are on milestone 12, and the order above places neither. The wording on #445 is a proposal
 for you to adjust.
+
+## Moved out of section 5 on 8 November 2026, after the PostgreSQL regression run
+
+The full server suite at the runtime shipped by #675 ran on isolated local PostgreSQL 16:
+3379 passed, seven skipped, 551 warnings in 359.60 seconds. The skips were the six
+live-host tests and the SQLite-only busy-timeout test. The full stale-write module,
+including #655's staged races, also passed separately: 34 passed in 12.33 seconds.
+These claims in HANDOVER.md's section 5 are now historical, preserved as written:
+
+  - **#655's race ran on SQLite only**: the `StaleDataError` it catches was raised by SQLite's
+    `UPDATE` matching nothing, never by PostgreSQL's.
+  - **FastAPI 0.143.0, SQLAlchemy 2.1.4 and asyncpg 0.32.0 have not met PostgreSQL**: CI and
+    the local run are SQLite, and #411's PostgreSQL run was not repeated.

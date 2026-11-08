@@ -911,3 +911,115 @@ def test_every_resource_v1_answers_a_deleted_row_for_is_a_path_it_serves() -> No
     assert gone_answer("/api/v1/diary/students/4021/marks") is None
     assert gone_answer("/api/v1/manage/timetable/import") is None
     assert gone_answer("/diary/signin") is None
+
+
+@pytest.mark.parametrize(
+    "field", ["school", "timezone", "join_mode", "same_school", "same_timezone"]
+)
+async def test_v1_class_deleted_before_its_first_write_has_no_audit_or_server_error(
+    v2, v2_tokens, session, school_class, monkeypatch, field
+) -> None:
+    from app.services.manage import classes
+
+    target = {"school": "set_field", "timezone": "set_timezone", "join_mode": "set_join_mode"}
+    values = {"school": "Новая школа", "timezone": "Asia/Yekaterinburg", "join_mode": "invite"}
+    if field.startswith("same_"):
+        field = field.removeprefix("same_")
+        setattr(school_class, field, values[field])
+        await session.commit()
+    raced = _deleted_meanwhile(monkeypatch, classes, target[field], SchoolClass, school_class.id)
+    answer = await v2.http.patch(
+        "/api/v1/manage/class", json={field: values[field]}, headers=_auth(v2_tokens["admin"])
+    )
+    assert raced
+    assert (answer.status_code, answer.json()) == (404, {"detail": wording.CLASS_GONE_DETAIL})
+    assert (await _count(SchoolClass), await _count(AuditEntry)) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "field", ["school", "timezone", "join_mode", "same_school", "same_timezone"]
+)
+async def test_v2_class_deleted_before_its_first_write_is_class_gone(
+    v2, v2_tokens, session, school_class, monkeypatch, field
+) -> None:
+    from app.contract.lessons.v2.school_class_pb import JoinMode, UpdateClassRequest
+    from app.contract.lessons.v2.school_class_pb import SchoolClass as Card
+    from app.services.manage import classes
+
+    target = {"school": "set_field", "timezone": "set_timezone", "join_mode": "set_join_mode"}
+    values = {
+        "school": "Новая школа",
+        "timezone": "Asia/Yekaterinburg",
+        "join_mode": JoinMode.INVITE,
+    }
+    if field.startswith("same_"):
+        field = field.removeprefix("same_")
+        setattr(school_class, field, values[field])
+        await session.commit()
+    raced = _deleted_meanwhile(monkeypatch, classes, target[field], SchoolClass, school_class.id)
+    answer = await v2.connect(
+        "ClassService/UpdateClass",
+        UpdateClassRequest(
+            school_class=Card(**{field: values[field]}), update_mask=FieldMask(paths=[field])
+        ),
+        token=v2_tokens["admin"],
+    )
+    assert raced
+    assert (answer.code, answer.reason, answer.metadata, answer.error) == (
+        "NOT_FOUND",
+        "RESOURCE_NOT_FOUND",
+        {"resource": "class"},
+        wording.CLASS_GONE_DETAIL,
+    )
+    assert (await _count(SchoolClass), await _count(AuditEntry)) == (0, 0)
+
+
+@pytest.mark.parametrize("unchanged", [False, True])
+async def test_bot_class_deleted_under_a_typed_field_clears_the_form(
+    session, school_class, monkeypatch, FakeMessage, FakeState, unchanged
+) -> None:
+    from app.bot.handlers.manage.class_card import class_field_apply
+    from app.services.manage import classes
+
+    if unchanged:
+        school_class.school = "Новая школа"
+        await session.commit()
+    raced = _deleted_meanwhile(monkeypatch, classes, "set_field", SchoolClass, school_class.id)
+    state = FakeState(data={"field": "school"})
+    message = FakeMessage(text="Новая школа")
+    await class_field_apply(message, state, session, school_class, Role.ADMIN)
+    assert raced
+    assert message.last == "Класс уже удалён. Откройте /start."
+    assert (state.cleared, state.data) == (True, {})
+    assert (await _count(SchoolClass), await _count(AuditEntry)) == (0, 0)
+    await session.commit()
+
+
+@pytest.mark.parametrize("field", ["timezone", "join_mode", "same_timezone"])
+async def test_bot_class_deleted_under_a_setting_answers_the_press(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable, field
+) -> None:
+    from app.bot.handlers.access import switch_join_mode
+    from app.bot.handlers.start.timezone import change_timezone_apply
+    from app.services.manage import classes
+
+    if field == "same_timezone":
+        field = "timezone"
+        school_class.timezone = "Asia/Yekaterinburg"
+        await session.commit()
+    target = "set_timezone" if field == "timezone" else "set_join_mode"
+    raced = _deleted_meanwhile(monkeypatch, classes, target, SchoolClass, school_class.id)
+    callback = FakeCallback(message=FakeEditable())
+    if field == "timezone":
+        await change_timezone_apply(
+            callback, SimpleNamespace(zone="Asia/Yekaterinburg"), session, school_class, Role.ADMIN
+        )
+    else:
+        await switch_join_mode(
+            callback, SimpleNamespace(value="invite"), session, school_class, Role.ADMIN
+        )
+    assert raced
+    assert callback.answers[-1] == ("Класс уже удалён. Откройте /start.", True)
+    assert not callback.message.replies
+    assert (await _count(SchoolClass), await _count(AuditEntry)) == (0, 0)
+    await session.commit()

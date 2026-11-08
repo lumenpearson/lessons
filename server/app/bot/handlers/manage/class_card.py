@@ -30,6 +30,7 @@ from app.db import SessionLocal
 from app.fsm_storage import DatabaseStorage
 from app.models import Role, SchoolClass
 from app.providers.diary.registry import binding as diary_binding
+from app.services import gone
 from app.services.manage import classes as classes_service
 from app.timezones import label_for
 
@@ -180,8 +181,13 @@ async def class_field_apply(
     else:
         value = None if raw in {"-", "—", ""} else raw[:limit]
 
-    await classes_service.set_field(session, school_class, message.from_user.id, column, value)
-    await session.commit()
+    async def write() -> None:
+        await classes_service.set_field(session, school_class, message.from_user.id, column, value)
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await message.answer("Класс уже удалён. Откройте /start.", reply_markup=back_to_menu())
+        return
     await state.clear()
 
     text, keyboard = await _class_card(session, school_class, role, message.from_user.id)

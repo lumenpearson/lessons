@@ -68,7 +68,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3386 tests in about four minutes, six of them skipped unless a
+- **`pytest -q -n auto`** — 3401 tests in about four minutes, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
@@ -265,6 +265,7 @@ Server modules:
   means to every shell (#384): «not found», never a server error and never a reason to make
   the row again; its `committed` is the bot's commit, which rolls back and answers `False`
   on a `StaleDataError` rather than raising out of the handler.
+  A class update flushes before its audit entry, including a journalled same-value write (#662).
   The tick runs `health.py`'s self-check after the digests and the sweeps and before the
   diary keep-alive: four fixed checks and one per «Сетевой город» region in use, each by its
   route, what each said last in `health_checks`, and the owner's alerts on a change; the
