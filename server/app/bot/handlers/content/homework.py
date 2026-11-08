@@ -31,7 +31,7 @@ from app.bot.render import WEEKDAYS_SHORT, clamp, human_date, relative_day_name
 from app.bot.states import AddHomework
 from app.models import Homework, Role, SchoolClass
 from app.schedule import ResolvedDay, ScheduleResolver
-from app.services import audit, notify
+from app.services import audit, gone, notify
 from app.services import homework as homework_service
 from app.services import tasks as task_service
 
@@ -243,7 +243,10 @@ async def homework_text(
         "homework.save",
         f"{verb} ДЗ: {subject} на {due:%d.%m}",
     )
-    await session.commit()
+    if not await gone.committed(session):
+        await state.clear()
+        await message.answer("Задание уже удалено. Начните заново.", reply_markup=back_to_menu())
+        return
     await state.clear()
 
     today = _today(school_class)

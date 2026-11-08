@@ -46,7 +46,7 @@ from app.models import (
     TimetableEntry,
     WeekParity,
 )
-from app.services import audit, subjects, timetable_edit, timetable_io
+from app.services import audit, gone, subjects, timetable_edit, timetable_io
 
 router = Router(name="editor")
 
@@ -222,21 +222,28 @@ async def editor_move(
         return
 
     up = callback_data.arg == 0
-    landed = await timetable_edit.move_lesson(
-        session, school_class.id, callback_data.day, callback_data.index, up=up
-    )
+    landed: int | None = None
+
+    async def write() -> None:
+        nonlocal landed
+        landed = await timetable_edit.move_lesson(
+            session, school_class.id, callback_data.day, callback_data.index, up=up
+        )
+        if landed is not None:
+            await audit.record(
+                session,
+                school_class.id,
+                callback.from_user.id,
+                "timetable.move",
+                f"{WEEKDAY_FULL[callback_data.day - 1]}: урок {callback_data.index} → {landed}",
+            )
+
+    if not await gone.committed(session, write):
+        await callback.answer("Урока уже нет — откройте расписание заново.", show_alert=True)
+        return
     if landed is None:
         await callback.answer("Уже первый" if up else "Уже последний")
         return
-
-    await audit.record(
-        session,
-        school_class.id,
-        callback.from_user.id,
-        "timetable.move",
-        f"{WEEKDAY_FULL[callback_data.day - 1]}: урок {callback_data.index} → {landed}",
-    )
-    await session.commit()
     await _draw_day(
         callback, session, school_class, callback_data.day, callback_data.flags, role
     )
@@ -615,7 +622,10 @@ async def _write_lesson(
         action,
         f"{WEEKDAY_FULL[day - 1]}: {note}",
     )
-    await session.commit()
+    if not await gone.committed(session):
+        await state.clear()
+        await message.answer("Урока уже нет — откройте расписание заново.")
+        return
     await state.clear()
 
     entries = await _entries(session, school_class.id, day)

@@ -19,6 +19,7 @@ from app.bot.keyboards import back_to_menu, cancel_keyboard
 from app.bot.manage_keyboards.terms import TermAction, terms_menu
 from app.bot.manage_states import EditTerm
 from app.models import Role, SchoolClass, TermKind
+from app.services import gone
 from app.services import terms as terms_service
 from app.services.manage import terms as terms_manage
 
@@ -150,16 +151,21 @@ async def term_edit_apply(
         )
         return
 
-    try:
+    async def write() -> None:
         await terms_manage.move_term(
             session, school_class, message.from_user.id, index, span[0], span[1]
         )
+
+    try:
+        if not await gone.committed(session, write):
+            await state.clear()
+            await message.answer(terms_service.NO_SUCH_TERM, reply_markup=back_to_menu())
+            return
     except terms_service.TermError as error:
         # The message is the rule, in Russian, and the prompt stays open: the
         # admin has one date to correct, not a form to start again.
         await message.answer(str(error))
         return
-    await session.commit()
     await state.clear()
 
     text, keyboard = await _terms_card(session, school_class)

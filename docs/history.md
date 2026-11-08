@@ -28,6 +28,143 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: sub-project 4's second pull request, `ManagementViewModel` and `SettingsViewModel` split into collaborators
+
+Merged as #625 (`81a6201`, at 22:41:34 UTC on 17 October 2026, already 18 October in Moscow),
+pinned to head `2ba842e`, from
+`android/decomposition-b`, on milestone 11, closing #623 and #624, with CI green on that head.
+Written on 18 October 2026 and carried by #625 itself, `Refs #273`: the second of sub-project 4's
+three pull requests, per `docs/specs/2026-10-05-android-decomposition-design.md`, with its plan
+at `docs/specs/2026-10-18-android-decomposition-b-plan.md`. The branch was cut from `main` at
+`1cc30fe`, #622's merge. It was built on the owner's word of 17 October 2026, «продолжай с PR B
+подпроекта 4» («continue with sub-project 4's PR B»), which put it ahead of epic #438 (section
+7). No revision goes with it: the schema stays at `0019`, `EXPECTED_REVISION` with it, and
+nothing under `server/` changes. Every public name the screens call stays, so no screen changes.
+
+- **The plan** (`5cab74d`): the second Android split, `ManagementViewModel` and
+  `SettingsViewModel` into collaborators, written read-only against `1cc30fe`.
+- **The plan, corrected after its independent review** (`65a1976`): nothing blocking, five
+  things that would have misled whoever ran it, and nine of eleven smaller corrections; it
+  records the owner's word on the order. The same review found what #623 says.
+- **What the management sheets share is held before their work moves out of the view model**
+  (`a2ba880`): `ManagementAcrossSheetsTest`, three tests — the page's one write at a time
+  across sheets, the devices' switch read at the call, and a search still out when the view
+  model is cleared not landing. Each was seen failing under a mutation of its own.
+- **The management page's state types have a file of their own** (`3c3a0de`):
+  `ManagementState.kt`, and `ManagementViewModel.kt` goes from 821 lines to 665.
+- **The management page's sheets are seven classes over one plumbing, behind one-line
+  delegates** (`3a8792c`): `ManagementPlumbing` holds the page's state and the four ways every
+  sheet touches it, `read`, `write`, `finish` and `note`; `ClassCardActions`, `SubjectsActions`,
+  `BellsActions`, `TimetableActions`, `DevicesActions`, `LogActions` and `RequestsActions` hold
+  each sheet's work verbatim, over the view model's `viewModelScope`. The view model keeps its
+  constructor, `init`, `recheckRole`, `consumeNotice`, `dismissWriteFailure` and the factory,
+  and every other public method as a one-line delegate where it stood. The only widening is
+  `state` and the plumbing's four functions, from private to members of an internal class.
+- **Two of `:app`'s detekt baseline entries that no code matched any more are gone** (`eb005c3`,
+  #624): `RegionStep`'s `MaxLineLength` and `AppCorrections.correctionOf`'s `ReturnCount`, both
+  from the first baseline, `9181796`. The second mattered, because an entry is matched by its
+  signature and would have forgiven a new `ReturnCount` in that function. `:app`'s baseline
+  goes from 184 entries to 182, and the split's own entry did not move. The commit says
+  «Closes #624», so #624 closes at this pull request's merge.
+- **What the settings view model publishes and writes is held before it is split** (`2ab80b5`):
+  `SettingsViewModelTest`, thirteen tests, where nothing had tested `SettingsViewModel` — the
+  whole state it publishes while watched and nothing before, the message a failed sync and a
+  refused bug report both write, the update check's switch read at the tap, the launch check's
+  switch and its put-off tag, GitHub's account, sign-in and pull request, and the Telegram
+  link's reset when the class changes, with an answer about the old class dropped. Four
+  mutations each failed exactly the test named for it.
+- **The settings page's state types have a file of their own** (`15edc9a`):
+  `SettingsState.kt`, and `SettingsViewModel.kt` goes from 716 lines to 603.
+- **The settings page's update check, GitHub work and Telegram link are classes of their own**
+  (`4df9759`): `SettingsUpdates`, `SettingsGithub` and `SettingsDeviceLink`, over the view
+  model's `viewModelScope`. The view model keeps both combines and both `stateIn`s, both `init`
+  launches in their order, `message`, the sync, the setters and the calls that only forward to
+  a repository; `SettingsGithub` is handed `message`, because the sync writes it too. The only
+  widening is `releaseSheet`, `filingIssue` and `deviceLink`, from private to members of
+  internal classes.
+- **Why the settings collaborators are built where they are is said in words a reader can
+  follow** (`8415fca`): comments only, from the whole-branch review — Kotlin initializes in
+  textual order, so the three classes stand after `message` and before the combines that read
+  them; `ManagementViewModel`'s header KDoc is rewrapped.
+- **This close-out**: 1797 Android tests in the four places that carry the Android count, a
+  row in `docs/architecture.md`'s test table for the two new test classes, `docs/build.md`'s
+  baseline count at 491 after #624, and this file — this section on top, #622's batch second,
+  the batch of 16 October moved to the top of `docs/history.md`, and the opening, the
+  milestone table and sections 5 and 7 brought up to date.
+
+### Gates
+
+- **On `4df9759`, 18 October 2026**, every Gradle command with `--max-workers=2` and alone:
+  - **`./gradlew test`**, `BUILD SUCCESSFUL` in 10s;
+  - **each module's real test task forced** — `:core:model:test --rerun`, and
+    `testDebugUnitTest --rerun` in `:core:data`, `:core:designsystem`, `:widget` and `:app` —
+    `BUILD SUCCESSFUL` in 49s, all five executed. Counted from the JUnit XML: `:core:model` 125,
+    `:core:data` 638, `:core:designsystem` 205, `:widget` 126, `:app` 703, **1797**, with no
+    failure, error or skip: sixteen more than `main`'s 1781, three in
+    `ManagementAcrossSheetsTest` and thirteen in `SettingsViewModelTest`;
+  - **`assembleDebug`**, `BUILD SUCCESSFUL` in 14s, and **`assembleRelease`**, in 1m 48s;
+  - **`detektBaseline`** for all five modules, no diff, so no other module holds a stale entry
+    and #624 is whole with `:app`'s two; then **`detekt`**, `BUILD SUCCESSFUL`.
+- **The two baseline readings in `:app`**: after `ManagementViewModel`'s split, two stale
+  entries dropped (`eb005c3`) and the split's own entry unchanged; after `SettingsViewModel`'s
+  split, no diff, so the plan's Task 8 committed nothing. The five baselines hold **491**
+  entries, 493 less #624's two: `MagicNumber` 218, `ReturnCount` 80, `MaxLineLength` 64.
+- **On `8415fca`**, comments only: `:app`'s tests and `:app:detekt` ran again, green, 703.
+- **Server**: no code changed. From `server/`, `test_env_example.py`, `test_ci_paths.py` and
+  `test_schema_version.py`, which read the documents, with `-p no:xdist`: **22 passed** before
+  the documents were edited and again after this close-out was written, in a venv made with
+  `uv`. CI on this pull request's head is read before the merge.
+
+### What was deliberately left alone
+
+- **Pull request C**: `OnboardingScreen`, with `OnboardingPromisesTest`'s path and anchor;
+  `FloatingToolbar`'s split by concern; and `HomeShell`'s pure rules, with its body left
+  inline. Section 7 has where it stands in the order.
+- **What the classes do.** No class gets an interface, an injected dispatcher or a test seam of
+  its own; each is reached through its view model, as the screens reach it.
+- **`signInWithGithub`, `cancelGithubSignIn`, `signOutOfGithub`, `installedVersion` and
+  `refreshNow` stay in `SettingsViewModel`.** The first four only forward to a repository, so
+  moving them would add a second one-liner each and split nothing; `refreshNow` writes
+  `refreshing`, which the view model's own combine reads, and `message`.
+- **The view models' `TooManyFunctions` entries stay.** The public surface is the screens'
+  contract, and a move keeps it.
+- **What sub-project 5 rewrites**: the audit log's paging, the school search's transport and
+  the failure classifiers, which `LogActions` and `ClassCardActions` carry verbatim.
+- **A screen test over the real `SettingsViewModel`.** It would test the rows, not the split.
+
+### Where it departs from its design and its plan
+
+- **`message` is handed to one collaborator, `SettingsGithub`**, where the design said «both»:
+  the sync writes it too, and the sync is not a collaborator.
+- **`ManagementViewModel` got a test before its split too**, though the design asked for one
+  only before `SettingsViewModel`'s.
+- **The plan's Task 4 committed a baseline**, `eb005c3`, but for #624's two stale entries, not
+  for the split; Task 8 committed nothing.
+- **`loadDevices`' delegate is one statement over two lines**, wrapped where its signature was.
+- **`3a8792c`'s body says 9 `plumbing.` references in the view model where there are 10**, 73
+  in all; the commit is pushed and stays as written.
+- **The settings test's commit was amended before it was pushed**, for a sentence about the
+  fakes that was not accurate.
+
+### What nobody has verified in this batch
+
+- **No APK from `android/decomposition-b` was installed** on a device or an emulator.
+- **No screen test composes a settings row over a real `SettingsViewModel`**: the rows' wiring
+  to the delegates is held by the compile.
+- **The scripts that moved the code in `3a8792c` and `4df9759`** were checked by the move
+  checker and the counts; the plan's dry run of them was condensed.
+- **Branches that moved verbatim with no test reaching them**: the launch check's once-a-day
+  interval and its notification switch, the Telegram link's in-flight guard and its failure
+  paths, and work still out in the update check or the Telegram link when the view model is
+  cleared (`2ab80b5`'s «Not covered»).
+- **CI on this pull request's head** had not been read when this was written.
+- **The warmup was not read for this batch**: the last reading is 18:37 UTC on 17 October.
+
+### Left to the owner from this batch
+
+Nothing new. The merge of a session's own pull request now has an `autoMode.allow` rule in the
+user settings (section 7).
+
 ## What the batch before added: thirteen documents corrected (#539), heavy effects off under battery saver (#609), the JVM tests' inputs declared (#610), the build's own repository and a line on the app's reports (#622), and 135 answers in Discussions
 
 Merged as #622 (`1cc30fe`, 17 October 2026), from `android/report-target-469`, on milestone 12.

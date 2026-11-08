@@ -35,6 +35,7 @@ from app.bot.tasks_keyboard import (
 )
 from app.bot.tasks_render import render_task_list, render_task_saved
 from app.models import PersonalTask, Role, SchoolClass
+from app.services import gone
 from app.services import tasks as task_service
 
 router = Router(name="tasks")
@@ -154,7 +155,9 @@ async def task_toggle_done(
     await task_service.set_done(session, task, not task.done)
     # Committed before Telegram is told: the middleware commits after the
     # handler, and an edit Telegram refuses would roll the tick back with it.
-    await session.commit()
+    if not await gone.committed(session):
+        await callback.answer("Задача уже удалена", show_alert=True)
+        return
     text, keyboard = await task_view(
         session, school_class, callback.from_user.id, bool(callback_data.show_done)
     )
@@ -321,7 +324,9 @@ async def task_set_reminder(
         return
 
     task.remind_at = remind_at
-    await session.commit()
+    if not await gone.committed(session):
+        await callback.answer("Задача уже удалена", show_alert=True)
+        return
 
     today = now.date()
     when = human_date(remind_at.date(), today)
