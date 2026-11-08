@@ -157,6 +157,15 @@ plain `#NN` reference for one it merely touches.
 | `status:` | `now`, `next`, `someday`, `done` |
 | `needs:` | `device`, `owner` |
 | `severity:` | `production` — only for something that broke, or would have broken, a running deployment |
+| `for:` | `parent`, `admin`, `operator`, `contributor` — **Discussions only**: who the question is for. Every discussion carries one or more of these and the `area:` of what it is about, since 18 October 2026 |
+
+A pull request carries `area:` for the parts of the tree it changes (`HANDOVER.md` and
+`docs/history.md` do not count — every batch touches them) and `type:` from the issues it
+closes, `type:bug` winning; a pull request that closes nothing is `type:chore` when it changes
+only documents or workflows, `type:feature` otherwise, and a dependabot bump is `type:chore`
+in milestone 7. Every one of the 182 pull requests was labelled by that rule on 18 October
+2026, and every item of the board had its empty fields filled by the project's README rule
+the same day, so a bare pull request or an empty field is new drift, not the old state.
 
 `needs:owner` means no session can close it: it wants a browser, a key or a live service.
 `needs:device` means it wants an emulator or a phone, which is what milestone 9 is about.

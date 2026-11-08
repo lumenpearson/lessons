@@ -40,6 +40,10 @@ when a file it reads changed), plus the «Contract (Buf)» job when the contract
 - a library version you cannot name the source of; four invented versions failed this
   project's first CI run
 - any secret in the tree. The repository is public. Redact as `<redacted>`.
+- removing or renaming a field `/api/v1` answers with, or a new required field in what it is
+  sent — installed APKs keep calling the server long after a merge deploys it
+- a new kind of test, CI check or build structure without reading `docs/engineering.md`,
+  which says what is already decided and what is deliberately not taken
 
 **Comments explain why, not what.** A comment that restates the line below it does not
 survive review here.

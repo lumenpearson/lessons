@@ -118,7 +118,8 @@ async def test_the_self_check_runs_before_the_keep_alive(session, ticking, monke
 
 
 async def test_the_tick_tells_the_self_check_whether_v2_loaded(session, ticking, monkeypatch):
-    monkeypatch.setattr(app.state, "v2_mounted", False)
+    # State routes attributes into this mapping; setattr undo can delete the flag (#672).
+    monkeypatch.setitem(app.state._state, "v2_mounted", False)
 
     assert (await _tick()).status_code == 200
     assert (await _tick()).status_code == 200

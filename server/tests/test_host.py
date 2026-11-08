@@ -126,7 +126,8 @@ async def test_native_grpc_at_the_root_is_unavailable_not_404_when_v2_failed_to_
     client reads as UNIMPLEMENTED and does not retry."""
     from app.main import app as main_app
 
-    monkeypatch.setattr(main_app.state, "v2_services", None)
+    # Restore State's real storage rather than its empty instance __dict__ (#672).
+    monkeypatch.setitem(main_app.state._state, "v2_services", None)
     status, _body, _trailers = await _ask(
         "/lessons.v2.DiaryService/GetDiaryCapabilities", "application/grpc", _envelope(b"")
     )

@@ -7,23 +7,45 @@ real, and which commands are never run from a session.
 
 ```
 settings.json      permissions, two hooks, the marketplace this project knows about
-agents/            eighteen area agents, one per part of the tree that has its own traps
-skills/            nine procedures, each one a thing that has gone wrong here before
+agents/            nineteen area agents, one per part of the tree that has its own traps
+skills/            ten procedures, each one a thing that has gone wrong here before
 commands/          two slash commands: /where-are-we, /pre-push
 hooks/             the one hook long enough to need a file of its own
 ```
 
-## Why eighteen agents and not a hundred
+## Why nineteen agents and not a hundred
 
 Each file in `agents/` exists because that area has produced a defect this project had to fix,
 and the file carries the fact that would have prevented it. An agent that only repeats
 `CLAUDE.md` would not survive the review standard this repository applies to comments, and a
 stub agent is worse than no agent: it answers confidently from nothing. The nine-way split in
 `skills/audit/SKILL.md` is the one that actually found thirty-one defects in a pass; the
-other nine agents are the areas that split further once they had traps of their own.
+other ten agents are the areas that split further once they had traps of their own.
 
 Add an agent when an area grows a trap that is not written down anywhere else. Delete one
 when its trap stops being true.
+
+The nineteenth, `android-tests`, is the Android half of what `server-tests` always was: the
+server's suite had an agent asking whether a test proves what it claims, and the Kotlin
+tests — where the Compose clock and the snapshot notification have each produced a test that
+hung or passed on a broken screen — had none. It also carries the layering this project took
+from Airbnb's Android practice: a screen is tested at its UI state, and a test goes down to the
+cheapest layer that can hold it (`docs/engineering.md`, «Testing»). The tenth skill,
+`large-refactor`, is the per-file pipeline for a change across many files, which the Android
+decompositions are; it is Airbnb's LLM-migration method with the model left out.
+
+## Borrowed practice, and where it is written
+
+`docs/engineering.md` reads this project against the engineering practice Airbnb has
+published — the state-driven screen tests, the contract kept compatible with the phones
+already installed, the gate that every step of a large change ends at, the lint rule that
+encodes a lesson instead of a paragraph — under one standard: taken only where it beats what
+is already here. Each practice carries its source and what this repository does about it
+today; a table says where this project is already ahead, and a list says what was dropped and
+why. It is the one document an agent here should read before proposing a new kind of test, a
+new check in CI or a restructuring of the build, so that the proposal starts from what has
+already been decided rather than from a blog post. What is not yet done is filed under epic
+#626 and linked from there.
 
 ## The two hooks
 
