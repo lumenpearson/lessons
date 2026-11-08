@@ -51,10 +51,11 @@ the screen's states once, so that the preview, the screenshot and the interactio
 the same thing. The `android-tests` agent carries the layering.
 
 **Where this goes past Airbnb.** Airbnb enforces the mocks with a lint rule on screen naming;
-here the test that wants them *discovers* every screen, the way `ResourceTranslationTest`
-already discovers every module that ships strings instead of listing them, and a mock is
-proven rather than declared — a view-model test shows the view model can produce each named
-state. Left: the screens' states (#628) and the presses over them (#629).
+the proposed test in #628 will *discover* every screen, the way `ResourceTranslationTest`
+already discovers every module that ships strings instead of listing them. A view-model
+test will show that the view model can produce each named state. Neither the discovery test
+nor those shared mocks exists yet. Left: the screens' states (#628) and the presses over
+them (#629).
 
 ### Screenshots are a test, not a picture
 
@@ -319,8 +320,8 @@ an answer to a size this project does not have. Each was an issue for a day (#63
   feature-module cut before they finish moves the same classes twice. Reopen when `:app`
   still hurts after them (#631).
 - **Convention plugins.** Build hygiene Airbnb has published nothing on; the one duplicated
-  setting that can bite — detekt falling back to its defaults in silence — is held by a test
-  in #632 instead (#630).
+setting that can bite — detekt falling back to its defaults in silence — is to be held by
+the test proposed in #632 instead (#630); that test is not implemented by this pull request.
 - **Formatting as a gate, Android lint as a gate** ([JavaScript guide][js];
   [Mavericks' detekt setup][mvdetekt]). Neither half has produced a defect from formatting,
   and generic lint is one more baseline to ratchet; the two lint checks that matter here go
@@ -532,7 +533,8 @@ hundred mocks have landed that way across the three clients.
 a gate per task, a baseline that may only move — and the `large-refactor` skill writes it
 down with the cap, the sample-tune-sweep step and the written-down tail. The `@generateMock`
 idea — a generated artifact that carries a hash of what it was generated from, so that CI can
-tell when it is stale — is what #639's goldens and #660's counts do for their own facts.
+tell when it is stale — could also inform #639's proposed goldens and #660's proposed counts.
+Those issues remain open; this pull request implements neither artifact nor a hash check.
 
 ### What is deliberately not carried over from the loops
 

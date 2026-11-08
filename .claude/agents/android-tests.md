@@ -52,6 +52,8 @@ arithmetic is a slow model test.
 
 ## Gates
 
-From `android/`: `./gradlew test`, then `./gradlew detekt` (tests are analysed too, against
-the same baselines). `--offline` in a sandbox. One module while iterating:
+Follow the `gates` skill for completion. From `android/`: `./gradlew test`,
+`./gradlew assembleDebug`, `./gradlew assembleRelease`, then `./gradlew detekt`
+(tests are analysed too, against the same baselines). Release assembly checks R8 and resource
+shrinking as well as compilation. `--offline` in a sandbox. One module while iterating:
 `./gradlew :app:testDebugUnitTest --tests '*ToolbarDragTest*'`.
