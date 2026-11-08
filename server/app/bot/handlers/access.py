@@ -32,7 +32,7 @@ from app.bot.roles import can_grant
 from app.bot.states import AddInvite
 from app.models import AccessRequest, BotUser, JoinMode, PhoneInvite, Role, SchoolClass
 from app.security import normalise_phone
-from app.services import audit, device_invites, diary_link, reminders
+from app.services import audit, device_invites, diary_link, gone, reminders
 from app.services import diary as diary_service
 from app.services.manage import classes as classes_service
 
@@ -291,16 +291,24 @@ async def switch_join_mode(
 
     # The same service `PATCH /manage/class` calls, so the log reads as one
     # history however the switch was flipped.
-    if not await classes_service.set_join_mode(
-        session, school_class, callback.from_user.id, wanted
-    ):
+    changed = False
+
+    async def write() -> None:
+        nonlocal changed
+        changed = await classes_service.set_join_mode(
+            session, school_class, callback.from_user.id, wanted
+        )
+
+    if not await gone.committed(session, write):
+        await callback.answer("Класс уже удалён. Откройте /start.", show_alert=True)
+        return
+    if not changed:
         await callback.message.edit_text(
             f"{JOIN_MODE_TEXT[wanted]}\n\nЭто уже так — ничего не изменилось.",
             reply_markup=back_to_menu(),
         )
         await callback.answer("Уже так")
         return
-    await session.commit()
 
     to_invite = wanted is JoinMode.INVITE
 

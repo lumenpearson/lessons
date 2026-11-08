@@ -17,6 +17,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.models import AccessRequest, BotUser, DeviceToken, JoinMode, SchoolClass
 from app.services import audit
@@ -134,6 +135,9 @@ async def set_field(
 ) -> None:
     """Set one plain column of the class and log it as ``class.<column>``."""
     setattr(school_class, column, value)
+    # Even an unchanged value gets an audit row, so it must check the parent first.
+    flag_modified(school_class, column)
+    await session.flush()
     await audit.record(
         session, school_class.id, actor_id, f"class.{column}", f"{column}: {value or 'убрано'}"
     )
@@ -154,6 +158,8 @@ async def set_timezone(
     if not is_supported(zone):
         raise UnknownTimezone(zone)
     school_class.timezone = zone
+    flag_modified(school_class, "timezone")
+    await session.flush()
     await audit.record(
         session, school_class.id, actor_id, "class.timezone", f"часовой пояс: {zone}"
     )
@@ -170,6 +176,7 @@ async def set_join_mode(
     if school_class.join_mode is mode:
         return False
     school_class.join_mode = mode
+    await session.flush()
     await audit.record(
         session, school_class.id, actor_id, "access.join_mode", JOIN_MODE_SUMMARY[mode]
     )

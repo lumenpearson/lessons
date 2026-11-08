@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot.keyboards import ClassAction, back_to_menu
 from app.bot.start_keyboard import TimezonePick, timezone_picker
 from app.models import Role, SchoolClass
+from app.services import gone
 from app.services.manage import classes as classes_service
 from app.timezones import label_for
 
@@ -59,14 +60,18 @@ async def change_timezone_apply(
     if school_class is None or role is None or not role.at_least(Role.ADMIN):
         await callback.answer("Только для администраторов", show_alert=True)
         return
-    try:
+    async def write() -> None:
         await classes_service.set_timezone(
             session, school_class, callback.from_user.id, callback_data.zone
         )
+
+    try:
+        if not await gone.committed(session, write):
+            await callback.answer("Класс уже удалён. Откройте /start.", show_alert=True)
+            return
     except classes_service.UnknownTimezone:
         await callback.answer("Неизвестный часовой пояс", show_alert=True)
         return
-    await session.commit()
 
     await callback.message.edit_text(
         f"✅ Часовой пояс класса: <b>{label_for(callback_data.zone)}</b>\n\n"

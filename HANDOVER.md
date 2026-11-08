@@ -6,19 +6,24 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **8 November 2026**. `main` is at `d4f7725c`, the merge of
-#649, on 8 November. Its post-merge CI passed: the server suite (3368 passed,
-six host-only skips), both live-host jobs and the required summary; production
-deployment is READY at that commit. Production `/api/v1/warmup` answered HTTP 200,
-`status: ok`, schema `0019`, `v2: true` during this session. No migration moved.
+Last updated: **9 November 2026**. `main` is at `71ff33c0`, the merge of
+#675, pinned to checked head `806bb16e`. Its PR CI passed (server and both live
+hosts); post-merge main CI also passed (run 42521078809). Production is READY at the
+merge, its production aliases point there, and `/api/v1/warmup` answered HTTP 200,
+`status: ok`, schema `0019`, `v2: true`. The inspected post-deploy runtime window
+had no errors. No migration moved. Local `dev` was fast-forwarded and pushed.
+The public project-6 board shows #673, #674 and #675 in Done; no access grant
+was needed to verify it.
+The previous batch's extra full PostgreSQL 16 run returned **3379 passed,
+seven skipped, 551 warnings in 359.60 seconds**: six host-only tests and the
+SQLite-only busy-timeout test were skipped, with zero failures or errors.
 
-The owner requested work on the next priority issues until **14:00 Moscow on
-9 November**. The current batch is on `server/stale-bot-writes-654`, based on that
-merge, in milestone 11. It covers the bot's remaining stale-row writes from #654
-and the staged rename and half-swap defects #673 and #674. #654 remains open;
-the foreign-key races #657 and #662 are separate, not disguised as stale updates.
-PR **#675** carries this close-out inside the batch's own PR. Its merge SHA is left for
-the next batch rather than generating a close-out of a close-out.
+The owner requested autonomous priority work until **14:00 Moscow on 9 November**.
+The current milestone-11 batch is `server/class-audit-races-662`, based on that
+merge. It fixes the class-card part of #662; #662 remains open for bells/events,
+and #657 and the scope reconciliation of #654 remain separate. This batch's
+close-out travels inside its own still-open pull request; its merge SHA belongs
+to the next batch, without a close-out pull request of its own.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -331,7 +336,35 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: the bot answers stale writes, and renames and moves roll back as a whole
+## What the last session added: class updates meet a deleted parent before their audit row
+
+- The class-card part of #662 is fixed in shared `classes.set_field`,
+  `set_timezone` and `set_join_mode`: the class UPDATE is flushed before the
+  audit entry is staged. A deleted class raises the existing stale-row refusal
+  rather than failing on the audit entry's foreign key. Plain fields and zones
+  still check an unchanged value, because those operations still journal it.
+- v1 and v2 keep their existing class-not-found answers. The bot's typed field,
+  timezone picker and join switch guard the service and commit together through
+  `gone.committed`; the typed form clears, callbacks answer, and no expired ORM
+  instance is rendered after rollback. An unchanged join mode remains a no-op.
+- Fifteen staged-deletion regressions extend `test_stale_writes.py`. The first
+  nine failed on the original audit foreign key/INTERNAL answer. Six more,
+  preserving an unchanged field or zone, failed on the initial flush-only fix.
+  Affected PostgreSQL checks: **71 passed, four warnings in 44.87 seconds**.
+  The expanded SQLite affected-module run passed **453 tests, 12 warnings in
+  229.86 seconds**. Ruff and mypy (242 modules) passed. The full server gate
+  completed: **3395 passed, six skipped, 551 warnings in 1505.61 seconds
+  (25m05s)**, exit code 0; **3401 tests** collected, no diagnostic timeout.
+- Independent read-only review found no actionable introduced defects.
+
+### What remains open
+
+#662 stays open for the bell-row/default and event-creation races. #657 is the
+analogous timetable-import race, not fixed by reordering the class audit.
+No broad IntegrityError mapping, schema, contract, Android, dependency or
+production configuration change is included. No real Telegram interaction ran.
+
+## What the session before it added: the bot answers stale writes, and renames and moves roll back as a whole
 
 - Homework, subject details and colours, personal-task completion and reminders,
   term bounds and lesson edits now use `services/gone.committed`. If another
@@ -412,110 +445,6 @@ Both host jobs and Vercel passed at that head; Server and the
 summary failed. This close-out is carried inside #649; its final CI and merge identity
 are checked through GitHub, and the next batch records the merge SHA.
 
-## What the session before it added: four bug fixes merged overnight (#650, #651, #653, #655), the host's keepalive (#400), and #625's merge
-
-Written on 18 October 2026 and carried by this file's own pull request, from
-`server/host-keepalive-400` to `main`, `Refs #273`, which holds #400's fix (`c5b989e`), the
-merge of `main` at `ee1dce0` (`afe058d`) and this close-out. The batch began after #625's merge,
-on the owner's word of 18 October, «Баги status:next», and ran through the night on their order,
-«продолжай до утра, по крайней мере, пока машина не упадёт» («keep going till morning, at least
-until the machine goes down»); the owner also allowed an automatic fix round on pull requests
-(«можно»). Every fix is on the server; nothing under `android/`, `proto/` or
-`server/migrations/` changed, so the schema stays at `0019`, `EXPECTED_REVISION` with it, and the
-Android count stays at 1797.
-
-- **Sub-project 4's pull request B is in `main`** (#625): merged at 22:41:34 UTC on 17 October as
-  `81a6201`, pinned to head `2ba842e`, on milestone 11, closing #623 and #624. Its close-out rode
-  in it and is «What the session before it added» below; `81a6201` is the SHA it left for this
-  one to write.
-- **An approval says the role the member holds after it, not the role asked for** (#650, `94d95f8`,
-  from `server/approve-held-role-368`, closing #368): the bot's card and toast — «Роль не
-  изменилась» when the approval changes nothing — v1's `role`, and the Telegram notice that the
-  bot, v1 and v2 all send through `wording.approval_notice`; the journal line names the role asked
-  for and the role granted apart. The bot's «✅ Одобрить» now goes through
-  `services/manage/requests.approve`, as v1 and v2 already did.
-- **«📱 Устройства» draws a button for every phone it lists** (#651, `472ae6d`, from
-  `server/device-page-names-352`, closing #352): the owner's and the device's names are cut by
-  their escaped length (`manage_render/_common.cut_escaped`, with `OWNER_NAME_MAX` and
-  `DEVICE_NAME_MAX` both 50), so fifteen rows always fit; the worst case is 2742 characters of
-  the page's 3900.
-- **No cache may keep a secret or personal v2 answer, on any transport** (#653, `112982e`, from
-  `server/connect-no-store-357`, closing #357 and #652): one table, `rpc/caching.py`'s
-  `NEVER_STORED`, read by the REST transcoder and the Connect adapters alike, so a Connect answer,
-  POST or GET, carries `Cache-Control: private, no-store` as its REST twin does, and gRPC-Web and
-  native gRPC carry it as a header. The table holds every `DiaryService` answer and the three
-  lists that name members, `ListClassDevices`, `ListAccessRequests` and `ListAuditEntries`, beside
-  the class card, the calendar feed and the writes whose answer is a credential. #652 is what
-  #653's security review found, and #653 fixed it before its merge.
-- **A write whose row another writer deleted mid-write answers «not found», not a server error**
-  (#655, `ee1dce0`, from `server/stale-write-not-found-384`, closing #384): v2 in `rpc/call.py`'s
-  `invoke`, by its table `GONE`, as `RESOURCE_NOT_FOUND`; v1 in `api/routing.py`'s route class,
-  which rolls back and answers `404` on the paths its own `GONE` names; and the bot through
-  `services/gone.committed`, for substitutions, special days and «📆 Период», with two new
-  sentences, `SUBSTITUTION_GONE` and `PERIOD_GONE`. Nothing is written in that case, and an upsert
-  does not re-create the row: whoever deleted it meant it to be gone.
-- **#654 is filed for the writes #655 did not reach** (opening above has the list): open, on
-  milestone 11, `status:next`, on the board as Ready, P2, M, 5.
-- **The host finds a vanished phone's `WatchClass` stream in tens of seconds** (#400, `c5b989e`,
-  this file's pull request): `app.host.envoy_config` sets `connection_keepalive` on every HTTP
-  connection manager it corrects, an interval of 30 s, the stream's own heartbeat, and a timeout
-  of 10 s, so pyvoy's Envoy pings a quiet HTTP/2 connection instead of waiting about fifteen
-  minutes for the kernel to give up on it. #395's guard, and the correction with it, now walk
-  `default_filter_chain` as well as `filter_chains`. hypercorn, the fallback, has no such setting
-  and keeps the gap; `docs/deploy.md` says so. Four new tests in `tests/test_host.py`.
-- **This close-out**: 3366 server tests and 242 mypy modules in every place that carries them;
-  `CLAUDE.md`'s `rpc/`, `services/` and `api/` bullets brought level with `rpc/caching.py`,
-  `call.py`'s `GONE`, `services/gone.py` and the route class's `404`; and this file — this section
-  on top, #625's batch second, the batch of 17 October moved to the top of `docs/history.md`, and
-  the opening, the milestone table and sections 5 and 7 brought up to date.
-
-### Gates
-
-- **#650, #651, #653 and #655**: CI green on the exact head each was merged at, pinned with
-  `--match-head-commit`. On #655's head the server job ran **3356 passed, 6 skipped**, which is
-  **3362**.
-- **This file's branch**, at `afe058d` with the documents edited: **3366** tests collected
-  (`pytest --collect-only`), 3362 and #400's four, six of them skipped unless a host runs; the
-  suite itself was not run for this close-out. **mypy**, no issues in **242** source files, two
-  more than the 240 every document said, for `rpc/caching.py` and `services/gone.py`. **ruff**
-  clean. From `server/`, `test_env_example.py`, `test_ci_paths.py` and `test_schema_version.py`,
-  which read the documents, with `-p no:xdist`: **22 passed**, after this close-out was written.
-  CI on this pull request's head is read before the merge.
-- **Android**: nothing changed under `android/`, and nothing was run; the count stays **1797**.
-
-### What was deliberately left alone
-
-- **#654's writes.** #655 answers «not found» on the writes it names above; the rest are #654,
-  open and `status:next`, so it is among the next bugs.
-- **#270, the app matching English error text**: it belongs to sub-project 5, when the app moves
-  to v2's `ErrorInfo.reason`.
-- **#401, `watch.proto`'s comment on a newer stream ending the older one**: the fix needs
-  `buf generate`, Buf 1.73.0 is not installed where this batch ran, and the generated code is never
-  edited by hand. Fetching the binary waits on the owner (section 7).
-- **#268 and #269 were not looked at**: whether either was left deliberately is to be read first.
-- **hypercorn's gap** (#400): it has no keepalive setting, so `--server hypercorn` keeps finding a
-  vanished stream only when the kernel does.
-- **Pull request #649 and issues #626–#648**, another session's, not read.
-
-### What nobody has verified in this batch
-
-- **Nothing ran in Telegram or on a device**: the approval card and its toast, «📱 Устройства» at
-  fifteen long names, and the «not found» answers of substitutions, special days and «📆 Период»
-  have been seen by their tests only.
-- **#655 ran on SQLite only**: the race against PostgreSQL's own `UPDATE` was not run.
-- **#400 was measured on no live host**: the interval and timeout come from the heartbeat's
-  cadence, not from a running deployment, because the host is deployed nowhere yet.
-- **No test exercises gRPC-Web or native gRPC for #653's header**: Connect over HTTP is what the
-  tests ask.
-- **Nothing was deployed by hand**: Vercel deploys `main` itself, and neither the deployment's
-  warmup nor which commit it serves was read for this batch.
-- **CI on this pull request's head** had not been read when this was written.
-
-### Left to the owner from this batch
-
-**Let a session fetch Buf 1.73.0 for #401**, or run `buf generate` yourself (section 7). Optionally,
-look at the approval card and «📱 Устройства» in a real chat, since nothing here has.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -540,7 +469,7 @@ current.
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655 and #656 (merged), and PR #675, from `server/stale-bot-writes-654` (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #673 and #674 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655 and #656 (merged), and #675 (merged), and the current `server/class-audit-races-662` pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #673 and #674 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, and PR #649 (merged as `d4f7725c` on 8 November); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -588,8 +517,6 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
     Одобрить» on a request for a role the member already holds and read «Роль не изменилась»,
     drawn «📱 Устройства» with fifteen long names, or seen a substitution, a special day or
     «📆 Период» answer «not found» after its row was deleted under it.
-  - **#655's race ran on SQLite only**: the `StaleDataError` it catches was raised by SQLite's
-    `UPDATE` matching nothing, never by PostgreSQL's.
   - **No test exercises gRPC-Web or native gRPC for #653's `Cache-Control`**: the tests ask REST
     and Connect over HTTP.
   - **#400's keepalive was measured on no live host**: a 30 s interval and a 10 s timeout are
@@ -637,8 +564,6 @@ cannot answer — a thumb, a haptic, a real GPU, a real launcher's corners — i
   October, in `docs/history.md` now, has the detail).
   - **No APK from #452 has been installed**: Gradle 9.8.1 and Kotlin 2.4.21 built, and passed
     the tests, the assembles and detekt, and nothing more.
-  - **FastAPI 0.143.0, SQLAlchemy 2.1.4 and asyncpg 0.32.0 have not met PostgreSQL**: CI and
-    the local run are SQLite, and #411's PostgreSQL run was not repeated.
   - **The Discussions' Q&A form has not been seen rendered.** GitHub reads
     `.github/DISCUSSION_TEMPLATE/q-a.yml` from `main`, so from #472's merge on.
 - **Sub-project 4's pull request A, #451, has been seen by its tests and its gates only** (merged
@@ -2156,7 +2081,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3386 tests, ~23 min alone on Windows
+cd server  && pytest -q -n auto                          # 3401 tests, ~25 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1797 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
