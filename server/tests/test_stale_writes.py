@@ -146,6 +146,28 @@ def _deleted_at_flush(monkeypatch, model: type[Base], row_id: int) -> list[bool]
         await real(self, *args, **kwargs)
 
     monkeypatch.setattr(AsyncSession, "flush", first_somebody_deletes)
+    if model is Term:
+        from app.services import gone
+
+        real_lock = gone.lock_parent
+
+        async def before_sqlite_retains_the_term_class(session, target, target_id, **kwargs):
+            if (
+                session.get_bind().dialect.name == "sqlite"
+                and target is SchoolClass and not done
+                and any(
+                    isinstance(row, Term) and row.id == row_id and row.class_id == target_id
+                    for row in session.identity_map.values()
+                )
+            ):
+                # SQLite locks the whole file; lose the cached term before that guard.
+                done.append(True)
+                async with SessionLocal() as other:
+                    await other.execute(delete(model).where(model.id == row_id))
+                    await other.commit()
+            await real_lock(session, target, target_id, **kwargs)
+
+        monkeypatch.setattr(gone, "lock_parent", before_sqlite_retains_the_term_class)
     return done
 
 

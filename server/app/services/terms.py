@@ -28,6 +28,7 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app import watch
 from app.models import SchoolClass, Term, TermKind
@@ -36,6 +37,7 @@ from app.schedule import (
     school_year_bounds,
     term_kind_for,
 )
+from app.services import gone
 
 # The years a Russian school has. Anything outside it is a typo, and a class
 # numbered 0 or 12 would resolve its term scheme from a comparison that happens
@@ -239,6 +241,9 @@ async def set_scheme(
 ) -> list[Term]:
     """Switch this class between quarters and semesters, reseeding the year."""
     school_class.term_kind = kind
+    # The caller audits even an unchanged choice; check the class before seeding.
+    flag_modified(school_class, "term_kind")
+    await session.flush()
     return await ensure(session, school_class, year, kind=kind)
 
 
@@ -283,8 +288,12 @@ async def set_bounds(
                 f"({other.starts_on:%d.%m} — {other.ends_on:%d.%m})."
             )
 
+    # A class cascade locks Class before Term; its audit must keep that order.
+    await gone.lock_parent(session, SchoolClass, school_class.id)
     target.starts_on = starts_on
     target.ends_on = ends_on
+    # A repeated range must still find its term before its audit is staged.
+    flag_modified(target, "starts_on")
     await session.flush()
     return target
 

@@ -92,8 +92,14 @@ async def terms_scheme(
     role: Role,
 ) -> None:
     wanted = TermKind.SEMESTER if callback_data.value == "semester" else TermKind.QUARTER
-    await terms_manage.change_scheme(session, school_class, callback.from_user.id, wanted)
-    await session.commit()
+
+    async def write() -> None:
+        await terms_manage.change_scheme(session, school_class, callback.from_user.id, wanted)
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await callback.answer("Класс уже удалён. Откройте /start.", show_alert=True)
+        return
     await state.clear()
 
     text, keyboard = await _terms_card(session, school_class)
