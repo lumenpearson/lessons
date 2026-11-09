@@ -28,6 +28,44 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: diary sessions avoid deprecated cookies and HTTP 422 aliases
+
+- #391: Petersburg sends its validated session in a request-local Cookie header,
+  without httpx's deprecated per-request cookies argument. The shared client
+  keeps its empty jar; response-cookie rotation updates only the calling client.
+  The existing request test now holds two families, a rotated follow-up request,
+  a fresh login with no cookie, and an empty shared jar after all four calls.
+- Nine API modules use HTTP_422_UNPROCESSABLE_CONTENT instead of Starlette's
+  deprecated alias. The integer status, response details and API fields are unchanged.
+- The existing pytest gate makes precisely these two warning families errors.
+  Both behavior tests were seen red before the fix (**two failed in 7.65 seconds**).
+  No warning is ignored and no dependency version or bound was changed. The
+  dependency comments and bound test now describe the tested range, not a
+  deprecated call the client no longer uses. docs/engineering.md records why.
+- Affected diary, protocol-vector, requirements-mirror and v2 homework checks:
+  **210 passed in 28.90 seconds** after local resource recovery. Earlier attempts
+  failed inside pytest under the same memory pressure recorded by the prior batch;
+  those attempts are not green results. Independent review found no actionable
+  introduced defects and passed nine focused client checks in **3.29 seconds**.
+  Ruff is clean; mypy passed **242 modules**.
+- Full PostgreSQL: **3453 passed, seven skipped, 15 warnings in 275.49 seconds**;
+  JUnit: **3460 tests, zero failures and errors**. The warnings fell from 551
+  to 15 without changing the number of cases or suppressing warnings.
+  3452 passed, eight skipped, 15 warnings in 1920.80 seconds; JUnit: 3460 tests, zero failures and errors
+- Documentation/reference checks: **35 passed, two warnings in 111.51 seconds**.
+
+### What remains open
+
+#662 and #654 retain other parent-reference/no-op paths. Issue #682 tracks
+special-day writes losing their class or selected bell schedule after validation.
+Its separate `server/special-day-parent-races-662` branch in the original checkout
+has staged the defect and passed 329 affected PostgreSQL checks; SQLite and
+independent review are in progress. No #682 fix is included in this batch. Other deprecations remain
+visible in the 15 warnings; this batch holds only the two families #391 names.
+No live diary sign-in, real Telegram conversation, installed APK or native-gRPC
+concurrency race ran. No schema, migration, contract, Android or production
+configuration change is included. All diary requests used fake upstreams.
+
 ## What the batch before added: bell deletion rechecks protected references before cascading
 
 - #678: deletion refreshes the class default and repeats the special-day usage

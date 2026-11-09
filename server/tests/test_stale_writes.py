@@ -107,7 +107,7 @@ def _deleted_meanwhile(
         return await real(*args, **kwargs)
 
     monkeypatch.setattr(owner, name, first_somebody_deletes)
-    if model is DayOverride:
+    if model in (DayOverride, Homework):
         from app.services import gone
 
         real_lock = gone.lock_parent
@@ -118,7 +118,7 @@ def _deleted_meanwhile(
                 and target is SchoolClass and not done
             ):
                 # SQLite's parent check serializes every writer in the file;
-                # lose the already-read day before that check, not after it.
+                # lose the already-read child before that check, not after it.
                 done.append(True)
                 async with SessionLocal() as other:
                     await other.execute(delete(model).where(model.id == row_id))
