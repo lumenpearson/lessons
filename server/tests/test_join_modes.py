@@ -200,6 +200,7 @@ async def test_a_personal_code_joins_an_invite_only_class(client, session, invit
     because the code could not have been minted without it.
     """
     code = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
 
     response = await _join(client, code)
     assert response.status_code == 200, response.text
@@ -224,6 +225,7 @@ async def test_a_personal_code_also_works_while_the_class_is_open(
     «по приглашению», and that parent's phone arrives already named.
     """
     code = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=school_class.id)
+    await session.commit()
 
     assert (await _join(client, code)).status_code == 200
     assert (await _join(client, "TEST42")).status_code == 200
@@ -246,6 +248,7 @@ async def test_a_personal_code_is_worth_exactly_one_join(client, session, invite
     losing a race is not a wrong guess.
     """
     code = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
     assert (await _join(client, code)).status_code == 200
 
     second = await _join(client, code)
@@ -271,6 +274,7 @@ async def test_two_requests_holding_the_same_code_produce_one_phone(session, inv
     conditional shows up here as the second device.
     """
     code = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
 
     first = await device_invites.find_live(session, code)
     second = await device_invites.find_live(session, code)
@@ -296,6 +300,7 @@ async def test_an_expired_personal_code_is_refused(client, session, invite_class
     """Fifteen minutes, because the job is «walk from this chat to that phone»
     and the code travels through a chat that is forwardable and synced."""
     code = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
     invite = await session.scalar(select(DeviceInvite))
     invite.expires_at = device_invites.utcnow() - timedelta(seconds=1)
     await session.commit()
@@ -309,7 +314,9 @@ async def test_minting_again_leaves_exactly_one_live_code(client, session, invit
     """Two live codes is two chances for the older one — further up the chat,
     where somebody else scrolls past it — to still work."""
     first = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
     second = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
     assert first != second
 
     assert len(list(await session.scalars(select(DeviceInvite)))) == 1
@@ -330,9 +337,11 @@ async def test_minting_again_keeps_the_code_that_was_already_spent(
     seconds after writing it, in exactly the case `burn` keeps that row for.
     """
     spent = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
     assert (await _join(client, spent)).status_code == 200
 
     await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
 
     rows = list(await session.scalars(select(DeviceInvite)))
     assert len(rows) == 2
@@ -350,6 +359,7 @@ async def test_the_journal_says_who_let_this_phone_in(client, session, invite_cl
     asking of the journal.
     """
     code = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
 
     assert (await _join(client, code)).status_code == 200
 
@@ -376,6 +386,7 @@ async def test_a_code_opens_the_class_it_was_minted_for_and_no_other(
     """Minting is per person *and* per class, so somebody in two classes holds
     two codes rather than one that works wherever they are known."""
     code = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=school_class.id)
+    await session.commit()
 
     joined = (await _join(client, code)).json()["class_id"]
     assert joined == school_class.id
@@ -386,6 +397,7 @@ async def test_a_code_is_upper_cased_before_it_is_looked_up(client, session, inv
     """`/join` upper-cases what it is given, and the alphabet has no lower case
     in it — so a code typed in lower case has to match the same hash."""
     code = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
 
     assert (await _join(client, code.lower())).status_code == 200
 
@@ -403,6 +415,7 @@ async def test_losing_the_class_takes_the_live_code_with_it(session, invite_clas
     phone in — and in «по приглашению» that is the only door there is.
     """
     code = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
     assert await device_invites.find_live(session, code) is not None
 
     dropped = await device_invites.drop_for(
@@ -420,6 +433,7 @@ async def test_losing_the_class_leaves_the_record_of_what_was_already_spent(
     """The spent row is the record of a phone that did get in. Revoking
     somebody does not un-happen that, and the row is how it stays answerable."""
     spent = await device_invites.mint(session, telegram_id=MEMBER_ID, class_id=invite_class.id)
+    await session.commit()
     assert (await _join(client, spent)).status_code == 200
 
     assert await device_invites.drop_for(

@@ -895,6 +895,7 @@ async def test_calendar_token_is_minted_once_and_rotated_on_request(session, sch
     assert await calendar.ensure_calendar_token(session, school_class) == token
 
     rotated = await calendar.rotate_calendar_token(session, school_class)
+    await session.commit()
     assert rotated != token
     assert school_class.calendar_token == rotated
     async with SessionLocal() as other:

@@ -12,10 +12,12 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 
 import pytest
+from sqlalchemy import func, select
 
 from app.bot import diary_render
 from app.bot.handlers import diary as handlers
 from app.crypto import seal
+from app.db import SessionLocal
 from app.models import DiarySession, Role, SchoolClass
 from app.providers.petersburg import (
     PetersburgError,
@@ -243,11 +245,24 @@ async def test_the_sign_in_link_is_one_ticket_pointed_at_the_form(
 
 
 async def test_signing_out_drops_the_session_and_returns_the_door(
-    session, school_class, CardCallback
+    session, school_class, CardCallback, monkeypatch
 ):
     await _bind(session, school_class)
     await _open_session(session, telegram_id=MINE, class_id=school_class.id)
     callback = CardCallback(user_id=MINE)
+    class_id = school_class.id
+    offer_sign_in = handlers._offer_sign_in
+
+    async def offer_after_commit(callback, school_class):
+        async with SessionLocal() as fresh:
+            assert await fresh.scalar(
+                select(func.count()).select_from(DiarySession).where(
+                    DiarySession.class_id == class_id, DiarySession.telegram_id == MINE
+                )
+            ) == 0
+        await offer_sign_in(callback, school_class)
+
+    monkeypatch.setattr(handlers, "_offer_sign_in", offer_after_commit)
 
     await handlers.diary_sign_out(callback, session, school_class)
 

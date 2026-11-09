@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import watch
 from app.models import PersonalTask, SchoolClass, TaskPriority
 from app.schedule import ResolvedDay
+from app.services import gone
 
 PRODID = "-//Lessons//Школьный дневник//RU"
 
@@ -67,6 +68,7 @@ async def ensure_calendar_token(session: AsyncSession, school_class: SchoolClass
     if school_class.calendar_token:
         return school_class.calendar_token
 
+    await gone.lock_parent(session, SchoolClass, school_class.id, exclusive=True)
     await session.execute(
         sa_update(SchoolClass)
         .where(SchoolClass.id == school_class.id, SchoolClass.calendar_token.is_(None))
@@ -74,17 +76,15 @@ async def ensure_calendar_token(session: AsyncSession, school_class: SchoolClass
     )
     watch.touch(session, school_class.id)
     await session.refresh(school_class, ["calendar_token"])
-    # Not reachable: after that update the column holds somebody's token, ours
-    # or the winner's, and a class deleted in between raises out of `refresh`
-    # rather than arriving here. It is written for the type, which is Optional
-    # because a class that has never published a feed has no secret.
+    # The retained row now holds ours or the winner's token. Optional is the
+    # model's type because a class that never published a feed has no secret.
     return school_class.calendar_token or ""
 
 
 async def rotate_calendar_token(session: AsyncSession, school_class: SchoolClass) -> str:
-    """A new secret; every existing subscription stops updating."""
+    """A new secret; every existing subscription stops updating. The caller commits."""
     school_class.calendar_token = secrets.token_urlsafe(24)
-    await session.commit()
+    await session.flush()
     return school_class.calendar_token
 
 

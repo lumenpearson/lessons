@@ -19,7 +19,7 @@ from app.bot.keyboards import ClassAction, Menu, back_to_menu
 from app.bot.render import plural
 from app.models import JoinMode, Role, SchoolClass
 from app.security import new_join_code
-from app.services import audit, device_invites
+from app.services import audit, device_invites, gone
 
 router = Router(name="start.codes")
 
@@ -72,8 +72,13 @@ async def rotate_code(
         await callback.answer("Только для владельца", show_alert=True)
         return
 
-    school_class.join_code = new_join_code()
-    await session.commit()
+    async def write() -> None:
+        await gone.lock_parent(session, SchoolClass, school_class.id, exclusive=True)
+        school_class.join_code = new_join_code()
+
+    if not await gone.committed(session, write):
+        await callback.answer("Класс уже удалён. Откройте /start.", show_alert=True)
+        return
     await callback.message.edit_text(
         f"Новый код класса: <code>{escape(school_class.join_code)}</code>\n\n"
         "Уже подключённые устройства продолжат работать.",
@@ -108,17 +113,26 @@ async def phone_code(
         await callback.answer("Нет доступа", show_alert=True)
         return
 
-    code = await device_invites.mint(
-        session, telegram_id=callback.from_user.id, class_id=school_class.id
-    )
-    await audit.record(
-        session,
-        school_class.id,
-        callback.from_user.id,
-        "device.invite",
-        "выдан личный код на подключение телефона",
-    )
-    await session.commit()
+    code: str | None = None
+
+    async def write() -> None:
+        nonlocal code
+        code = await device_invites.mint(
+            session, telegram_id=callback.from_user.id, class_id=school_class.id
+        )
+        await audit.record(
+            session,
+            school_class.id,
+            callback.from_user.id,
+            "device.invite",
+            "выдан личный код на подключение телефона",
+        )
+
+    if not await gone.committed(session, write):
+        await callback.answer("Класс уже удалён. Откройте /start.", show_alert=True)
+        return
+
+    assert code is not None
     minutes = plural(device_invites.CODE_MINUTES, "минуту", "минуты", "минут")
     await callback.message.edit_text(
         "📱 <b>Подключить телефон</b>\n\n"

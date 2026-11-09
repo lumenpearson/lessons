@@ -406,33 +406,39 @@ async def invite_role(
         await callback.answer("Начните заново: номер не сохранился", show_alert=True)
         return
 
-    existing = await session.scalar(
-        select(PhoneInvite).where(
-            PhoneInvite.class_id == school_class.id, PhoneInvite.phone == phone
-        )
-    )
-    if existing is not None:
-        existing.role = target
-        existing.invited_by = callback.from_user.id
-        existing.used_by = None
-        existing.used_at = None
-    else:
-        session.add(
-            PhoneInvite(
-                class_id=school_class.id,
-                phone=phone,
-                role=target,
-                invited_by=callback.from_user.id,
+    async def write() -> None:
+        await gone.lock_parent(session, SchoolClass, school_class.id)
+        existing = await session.scalar(
+            select(PhoneInvite).where(
+                PhoneInvite.class_id == school_class.id, PhoneInvite.phone == phone
             )
         )
-    await audit.record(
-        session,
-        school_class.id,
-        callback.from_user.id,
-        "access.invite",
-        f"приглашение +{phone} → {target.title_ru}",
-    )
-    await session.commit()
+        if existing is not None:
+            existing.role = target
+            existing.invited_by = callback.from_user.id
+            existing.used_by = None
+            existing.used_at = None
+        else:
+            session.add(
+                PhoneInvite(
+                    class_id=school_class.id,
+                    phone=phone,
+                    role=target,
+                    invited_by=callback.from_user.id,
+                )
+            )
+        await audit.record(
+            session,
+            school_class.id,
+            callback.from_user.id,
+            "access.invite",
+            f"приглашение +{phone} → {target.title_ru}",
+        )
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await callback.answer("Класс или приглашение уже удалены. Начните заново.", show_alert=True)
+        return
     await state.clear()
 
     await callback.message.edit_text(
@@ -556,16 +562,22 @@ async def apply_role(
         return
 
     was = member.role
-    member.role = target_role
-    member.granted_by = callback.from_user.id
-    await audit.record(
-        session,
-        school_class.id,
-        callback.from_user.id,
-        "access.role",
-        f"{member.full_name or member.telegram_id}: {was.title_ru} → {target_role.title_ru}",
-    )
-    await session.commit()
+
+    async def write() -> None:
+        await gone.lock_parent(session, SchoolClass, school_class.id)
+        member.role = target_role
+        member.granted_by = callback.from_user.id
+        await audit.record(
+            session,
+            school_class.id,
+            callback.from_user.id,
+            "access.role",
+            f"{member.full_name or member.telegram_id}: {was.title_ru} → {target_role.title_ru}",
+        )
+
+    if not await gone.committed(session, write):
+        await callback.answer("Пользователь не найден", show_alert=True)
+        return
 
     await callback.message.edit_text(
         f"✅ Роль обновлена: <b>{target_role.title_ru}</b>", reply_markup=back_to_menu()
@@ -603,36 +615,41 @@ async def revoke(
         await callback.answer("Нельзя убрать доступ этому пользователю", show_alert=True)
         return
 
-    await audit.record(
-        session,
-        school_class.id,
-        callback.from_user.id,
-        "access.revoke",
-        f"убран доступ: {member.full_name or member.telegram_id} ({member.role.title_ru})",
-    )
-    # Any connect code they are still holding goes with the membership. It is
-    # matched by its hash alone, so it would keep letting a phone in for the
-    # rest of its fifteen minutes — and in «по приглашению» that is the only
-    # door the class has.
-    await device_invites.drop_for(
-        session, telegram_id=member.telegram_id, class_id=school_class.id
-    )
-    # Their subscriptions go the same way, and for the same reason: nothing on
-    # the sending side re-reads the membership, so a settings row left behind
-    # keeps the digests and every substitution arriving in the chat of somebody who
-    # is no longer in the class.
-    await reminders.drop_for(session, telegram_id=member.telegram_id, class_id=school_class.id)
-    # Their diary sessions and any unspent sign-in ticket go too (#136). A
-    # session is reached only by (telegram_id, class_id), so after revocation
-    # nobody could sign it out — and with the keep-alive it would otherwise be
-    # kept live upstream for the family for the thirty days until the purge. The
-    # sign-out tells «Сетевой город» goodbye where it can be told. An unspent
-    # ticket is a sign-in an ex-member must not still be able to make.
-    await diary_service.sign_out_here(
-        session, telegram_id=member.telegram_id, class_id=school_class.id
-    )
-    await diary_link.drop_for(session, telegram_id=member.telegram_id, class_id=school_class.id)
-    await session.delete(member)
-    await session.commit()
+    async def write() -> None:
+        await gone.lock_parent(session, SchoolClass, school_class.id)
+        await audit.record(
+            session,
+            school_class.id,
+            callback.from_user.id,
+            "access.revoke",
+            f"убран доступ: {member.full_name or member.telegram_id} ({member.role.title_ru})",
+        )
+        # Any connect code they are still holding goes with the membership. It is
+        # matched by its hash alone, so it would keep letting a phone in for the
+        # rest of its fifteen minutes — and in «по приглашению» that is the only
+        # door the class has.
+        await device_invites.drop_for(
+            session, telegram_id=member.telegram_id, class_id=school_class.id
+        )
+        # Their subscriptions go the same way, and for the same reason: nothing on
+        # the sending side re-reads the membership, so a settings row left behind
+        # keeps the digests and every substitution arriving in the chat of somebody who
+        # is no longer in the class.
+        await reminders.drop_for(session, telegram_id=member.telegram_id, class_id=school_class.id)
+        # Their diary sessions and any unspent sign-in ticket go too (#136). A
+        # session is reached only by (telegram_id, class_id), so after revocation
+        # nobody could sign it out — and with the keep-alive it would otherwise be
+        # kept live upstream for the family for the thirty days until the purge. The
+        # sign-out tells «Сетевой город» goodbye where it can be told. An unspent
+        # ticket is a sign-in an ex-member must not still be able to make.
+        await diary_service.sign_out_here(
+            session, telegram_id=member.telegram_id, class_id=school_class.id
+        )
+        await diary_link.drop_for(session, telegram_id=member.telegram_id, class_id=school_class.id)
+        await session.delete(member)
+
+    if not await gone.committed(session, write):
+        await callback.answer("Пользователь не найден", show_alert=True)
+        return
     await callback.message.edit_text("🚫 Доступ убран.", reply_markup=back_to_menu())
     await callback.answer()

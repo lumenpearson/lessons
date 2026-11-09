@@ -628,7 +628,8 @@ async def sign_out_here(
     the next press walked straight back into.
 
     Scoped to the one class on purpose: a parent in two of them is signing out
-    of one child, not both. @return how many rows went.
+    of one child, not both. Leaves the commit to its caller, so revocation
+    keeps this cleanup in the membership's transaction. @return how many rows went.
     """
     rows = list(
         await session.scalars(
@@ -646,7 +647,6 @@ async def sign_out_here(
             DiarySession.class_id == class_id,
         )
     )
-    await session.commit()
     return rows_affected(result)
 
 
