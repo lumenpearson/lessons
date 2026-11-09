@@ -24,6 +24,6 @@
 # the stdout and stderr defaults it overrides and the Envoy configuration it
 # corrects were both read from 1.3.0. The 5 October spike ran native gRPC and
 # a stream on 1.2.0 (docs/specs/2026-10-03-one-contract-design.md).
-pyvoy>=1.3.0
+pyvoy>=1.4.0
 # The fallback the same spike proved: `python -m app.host --server hypercorn`.
 hypercorn>=0.18.0
