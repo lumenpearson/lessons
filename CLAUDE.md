@@ -68,8 +68,8 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3591 tests in about four minutes, six of them skipped unless a
-  host is running (`-m host`, CI's «Host» job), plus six PostgreSQL-only lock
+- **`pytest -q -n auto`** — 3597 tests in about four minutes, six of them skipped unless a
+  host is running (`-m host`, CI's «Host» job), plus seven PostgreSQL-only lock
   checks skipped on SQLite, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
@@ -755,6 +755,7 @@ points Hilt does not inject cleanly.
   and homework are kept either way: it is the lessons that are out of season,
   not the day.
 - **Class administration retains its parent before writes; diary cleanup, phone-code minting and calendar rotation leave commit to the complete caller transaction** (`test_access_member_parent_races.py`, `test_class_settings_parent_races.py`, #702, #703).
+- **Device join retains Class before burning an invite or inserting a token; a known valid code losing its Class is forgiven, not counted as a guess** (`test_join_parent_races.py`, #705).
 - **New personal tasks retain Class before INSERT, and bot add/commit share the stale boundary** (`test_task_parent_races.py`, #699).
 - **Access requests retain Class before submission or the pending row lock; bot request writes and commits share the stale boundary** (`test_access_request_parent_races.py`, `test_access_request_submission_parent.py`, #697, #700).
 - **Audited device revoke/unlink retain Class before mutation; already-revoked retries stay read-only** (`test_device_parent_races.py`, #696).

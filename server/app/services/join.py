@@ -22,6 +22,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.models import DeviceInvite, DeviceToken, JoinMode, SchoolClass
 from app.security import (
@@ -31,7 +32,7 @@ from app.security import (
     join_limiter,
     new_token,
 )
-from app.services import audit, device_invites
+from app.services import audit, device_invites, gone
 
 
 class JoinRefused(Exception):
@@ -129,7 +130,10 @@ async def join(
             school_class = await session.get(SchoolClass, invite.class_id)
 
     if school_class is None:
-        # The one answer that stays counted: the attempt `admit` wrote is it.
+        # An unknown code stays counted; a live invite whose parent vanished
+        # is real, like an invite another join spent before our burn.
+        if invite is not None:
+            await join_limiter.forgive(session, attempt)
         raise JoinCodeUnknown("unknown join code")
 
     if invite is None and await live_devices(session, school_class.id) >= MAX_DEVICES_PER_CLASS:
@@ -143,6 +147,15 @@ async def join(
         # own size, and no further: after it, every join counts past it.
         await join_limiter.forgive(session, attempt)
         raise DeviceLimitReached("class is full")
+
+    # Cascading deletion locks Class before DeviceInvite; reversing that
+    # order here would cycle when the token's foreign key asks for Class.
+    try:
+        await gone.lock_parent(session, SchoolClass, school_class.id)
+    except StaleDataError:
+        await session.rollback()
+        await join_limiter.forgive(session, attempt)
+        raise JoinCodeUnknown("class deleted during join") from None
 
     # Spent before the token is minted, not after: the update is what makes
     # "one code, one phone" true against a second request that read the same
