@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AccessRequest, BotUser, Role, SchoolClass
-from app.services import access, audit
+from app.services import access, audit, gone
 from app.services.manage import classes
 
 #: The note a requester may leave, in characters; the column is as wide.
@@ -34,6 +34,7 @@ async def submit(
     One open request per person per class - a second one replaces the first,
     so a nervous requester cannot fill an admin's screen.
     """
+    await gone.lock_parent(session, SchoolClass, class_id)
     request = await session.scalar(
         select(AccessRequest).where(
             AccessRequest.class_id == class_id,
@@ -94,9 +95,11 @@ async def pending_one(
     With the lock, the second reader waits for the first answer's commit and
     then re-checks ``status == "pending"`` against the row as it was just
     left, finding none, so it takes the same not-found path as a request
-    answered a moment ago. SQLite ignores ``FOR UPDATE`` — it serialises
-    writes on its own — so this changes nothing there.
+    answered a moment ago. Class is retained before the child lock, matching
+    cascading deletion: the audit needs that same parent. SQLite's checked
+    parent UPDATE holds its file write lock instead.
     """
+    await gone.lock_parent(session, SchoolClass, class_id)
     return await session.scalar(
         select(AccessRequest)
         .where(

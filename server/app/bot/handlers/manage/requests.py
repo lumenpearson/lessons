@@ -26,7 +26,7 @@ from app.bot.manage_render import _common as mr
 from app.bot.manage_states import RequestAccess
 from app.models import AccessRequest, Role, SchoolClass
 from app.services import access as access_service
-from app.services import audit, linking
+from app.services import audit, gone, linking
 from app.services.manage import requests as requests_service
 
 log = logging.getLogger(__name__)
@@ -175,20 +175,29 @@ async def _submit_request(
     school_class: SchoolClass,
     text: str | None,
 ) -> None:
-    request = await requests_service.submit(
-        session, school_class.id, message.from_user.id, text
-    )
-    who = mr.person(message.from_user.full_name, message.from_user.username, message.from_user.id)
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        "access.request",
-        f"{message.from_user.full_name or message.from_user.id} просит роль редактора",
-    )
-    await session.commit()
+    request: AccessRequest | None = None
+
+    async def write() -> None:
+        nonlocal request
+        request = await requests_service.submit(
+            session, school_class.id, message.from_user.id, text
+        )
+        await audit.record(
+            session,
+            school_class.id,
+            message.from_user.id,
+            "access.request",
+            f"{message.from_user.full_name or message.from_user.id} просит роль редактора",
+        )
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await message.answer("Класс уже удалён. Откройте /start.", reply_markup=back_to_menu())
+        return
     await state.clear()
 
+    assert request is not None
+    who = mr.person(message.from_user.full_name, message.from_user.username, message.from_user.id)
     await _notify_admins(session, _bot_of(message), school_class, request, who)
     await message.answer(
         "✅ Запрос отправлен администраторам класса. Они ответят здесь же."
@@ -231,12 +240,15 @@ async def request_approve(
     different answers, nor name different roles in them. The refusal it
     raises carries the Russian sentence this alert shows.
     """
-    request = await _request_by_id(session, school_class, callback_data.value)
-    if request is None:
-        await callback.answer("Запрос уже закрыт", show_alert=True)
-        return
+    request: AccessRequest | None = None
+    approval: requests_service.Approval | None = None
+    name: str | None = None
 
-    try:
+    async def write() -> None:
+        nonlocal request, approval, name
+        request = await _request_by_id(session, school_class, callback_data.value)
+        if request is None:
+            return
         approval = await requests_service.approve(
             session,
             school_class,
@@ -244,6 +256,13 @@ async def request_approve(
             actor_id=callback.from_user.id,
             actor_role=role,
         )
+        member = approval.member
+        name = mr.person(member.full_name, member.username, member.telegram_id)
+
+    try:
+        if not await gone.committed(session, write):
+            await callback.answer("Запрос уже закрыт", show_alert=True)
+            return
     except access_service.GrantRefused as refused:
         # The request was read FOR UPDATE (#370), and over the webhook the
         # alert is a call to Telegram: end the transaction first, or another
@@ -253,9 +272,11 @@ async def request_approve(
         await callback.answer(str(refused), show_alert=True)
         return
 
+    if request is None:
+        await callback.answer("Запрос уже закрыт", show_alert=True)
+        return
+    assert approval is not None and name is not None
     member = approval.member
-    name = mr.person(member.full_name, member.username, member.telegram_id)
-    await session.commit()
 
     await _tell_requester(_bot_of(callback), request.telegram_id, approval.notice(school_class))
     # The role they hold now: an admin whose old request for editor is
@@ -282,13 +303,17 @@ async def request_decline(
     school_class: SchoolClass,
     role: Role,
 ) -> None:
-    request = await _request_by_id(session, school_class, callback_data.value)
-    if request is None:
+    request: AccessRequest | None = None
+
+    async def write() -> None:
+        nonlocal request
+        request = await _request_by_id(session, school_class, callback_data.value)
+        if request is not None:
+            await requests_service.decline(session, school_class.id, callback.from_user.id, request)
+
+    if not await gone.committed(session, write) or request is None:
         await callback.answer("Запрос уже закрыт", show_alert=True)
         return
-
-    await requests_service.decline(session, school_class.id, callback.from_user.id, request)
-    await session.commit()
 
     await _tell_requester(
         _bot_of(callback), request.telegram_id, requests_service.decline_notice(school_class)

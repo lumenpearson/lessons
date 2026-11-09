@@ -6,21 +6,23 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **9 November 2026**. `main` is at `0409202f`, the merge of
-#698, pinned to checked head `408f9c34`. PR CI run 42633276935 passed; post-merge
-main CI run 42634590230 passed. Automatic code review completed
-on the checked head with no findings. Automatic production reached READY at
-the exact merge, all three production domains resolved there, and warmup
-answered HTTP 200, status ok, schema `0019`, v2 true. The checked post-warmup
-error/fatal window was empty. #695 is closed; #698 is merged. Both checkouts
-and local/remote `dev` were fast-forwarded. Board Done state is unverified.
+Last updated: **9 November 2026**. `main` is at `641f543e`, the merge of
+#701, pinned to checked head `bd459249`. PR CI run 42639194049 passed;
+post-merge main CI run 42640504842 passed. Automatic code
+review completed on the checked head without findings. Automatic production
+reached READY at the exact merge, all three production domains resolved
+there, and warmup answered HTTP 200, status ok, schema `0019`, v2 true. The
+post-warmup error/fatal window was empty. #696 is closed; #701 is merged.
+All three owned checkouts were fast-forwarded; local/remote `dev` are level
+with main and the original checkout was returned to `main`. No branch or
+stash was deleted. Project 6 Done state remains unverified.
 
 The owner resumed autonomous priority work on **9 November without a time
-limit**, explicitly superseding the earlier 14:00 stop. The current batch is
-`server/device-parent-races-654` in the original checkout, based on that checked
-merge, and closes #696 on existing milestone **11**. It leaves #654 and #662
-open. This close-out belongs to this batch's own pull request; the next batch
-records its merge SHA.
+limit**, superseding the earlier 14:00 stop. The current batch is
+`server/access-request-parent-697` in the managed parent-races worktree,
+based on that checked merge. It closes #697 and #700 on existing milestone
+**11**, while #654 and #662 remain open. This close-out belongs to this
+batch's own pull request; the next batch records its merge SHA.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -333,7 +335,80 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: audited device management retains its Class
+## What the last session added: access requests retain Class before their own row
+
+- #697 and #700, children of #654: request submission retains Class before
+  looking up or inserting a request; approval and decline retain Class before
+  the pending AccessRequest FOR UPDATE. The Class-before-child order matches
+  cascading class deletion and prevents both reproduced PostgreSQL deadlocks.
+- Bot submission encloses service, audit and commit in `gone.committed`; both
+  decision callbacks enclose lookup, decision and commit there. A missing Class
+  clears the submission FSM and answers the established refusal without an
+  admin notice or saved confirmation. Decisions use their existing closed-
+  request refusal. No failure path reads rollback-expired ORM attributes.
+- Role ceilings, peer/senior protection, pending-status recheck, note handling,
+  repeat submission and commit-before-Telegram remain intact. GrantRefused
+  still rolls back before callback IO. The compile-only child-lock unit stubs
+  parent retention only, preserving its FOR UPDATE assertion.
+- Baseline #697: **two PostgreSQL failures, eight compatibility passes in
+  16.09 seconds**. Baseline #700: **three PostgreSQL failures in 13.72 seconds**.
+  Combined fixed affected PostgreSQL: **21 passed in 11.11 seconds**.
+- Fresh combined independent review found no actionable defect and passed
+  **33 SQLite checks, two PostgreSQL-only skips, in 179.61 seconds**. The
+  earlier decision-only review passed 108 checks with two skips; its compile
+  unit also passed independently. Neither reviewer executed PostgreSQL.
+- Full combined PostgreSQL: **3553 passed, seven skipped, 15 warnings in
+  389.35 seconds**; JUnit: **3560 tests, zero failures and errors**. All thirteen
+  new cases executed and passed, including both actual lock-cycle cases.
+  Full combined SQLite: **3548 passed, twelve skipped, 15 warnings in
+  1934.71 seconds**; JUnit: **3560 tests, zero failures and errors**.
+  Documentation/schema checks: **17 passed, three warnings in 47.04 seconds**.
+  Ruff is clean; mypy passed **242 modules**. The checked device head and its
+  merge have identical trees; both full runs include the combined source.
+
+### What remains open
+
+#654 and #662 remain open. The isolated #699 task-creation fix has seven
+PostgreSQL regressions green in 7.94 seconds and 200 affected PostgreSQL
+checks green in 35.65 seconds. Fresh review found no actionable defect and
+passed 307 SQLite checks in 452.50 seconds, 20 task checks in 40.88 seconds
+and four commit-before-Telegram checks in 27.83 seconds. Its final combined
+full gates remain pending; no task fix is included in this request batch.
+Child #702 separately reproduces invitation, role-change and revocation
+Class loss: **three PostgreSQL failures in 8.53 seconds**. Its original-
+checkout fix passed the initial three cases in 5.56 seconds. Independent
+review found a nested commit in diary cleanup that released the Class lock
+and persisted a revoke audit before later cleanup could refuse. Two extra
+regressions failed in 6.10 seconds. The helper now leaves commit to its
+caller, and standalone diary sign-out commits before Telegram; five new
+cases and three sign-out checks passed on PostgreSQL in 6.16 seconds. The
+expanded PostgreSQL set passed **171 in 20.79 seconds**. Fixed-snapshot
+independent review passed **eight SQLite checks in 39.81 seconds**; its
+initial shared-tree 29-pass run is not claimed as a fixed snapshot. The final invitation refusal wording check passed independently on SQLite
+in **6.77 seconds**. No access-page fix is included
+in this request batch, and its final combined full gates remain pending.
+Child #703 adds codes, calendar links and diary binding to that original-
+checkout Class-administration follow-up. Its first complete baseline had
+**eleven PostgreSQL failures in 8.75 seconds**. Two additional lazy calendar
+bot cases failed in 5.84 seconds, and six shared/transport/rotation-atomicity
+cases failed in 6.79 seconds. All nineteen new cases passed in **8.87
+seconds**. Phone-code minting and calendar rotation leave commit to their
+caller; first calendar-token creation retains Class before its conditional
+UPDATE and refresh. v1 and v2 use the existing class-not-found response.
+The old join-test setup now commits minting explicitly, with API assertions
+unchanged. The expanded PostgreSQL set passed **494 checks in 38.49
+seconds**; Ruff and mypy are clean. Fresh combined review is running, and
+its final full gates remain pending. No #702/#703 fix is in this request PR.
+Broader audited writes still need their own coverage before either parent
+issue can be called complete.
+Phone creation/linking/self-unlink, legacy Subject adoption and Homework-
+parent concurrency remain outside this batch. No real Telegram conversation,
+installed APK or native-gRPC concurrency run was performed. No schema,
+migration, Android, protobuf or production setting changed. Board Done state
+is unverified: the in-app browser shows a logged-out GitHub header without
+project content and the CLI credential has no project scope.
+
+## What the session before it added: audited device management retains its Class
 
 - #696, a child of #654: admin revoke and unlink retain Class after existing
   no-op/refusal checks and before DeviceToken mutation or audit staging. A
@@ -395,55 +470,6 @@ No schema, migration, Android, protobuf or production setting changed.
 Board Done status remains unverified: the in-app browser shows a logged-out
 GitHub shell without project content. No security review is claimed.
 
-## What the session before it added: subject collection and deletion retain their Class
-
-- #695, a child of #654: explicit nonempty subject collection and deletion
-  retain Class after their dictionary/usage validation and before Subject or
-  audit DML. A Class deleted after the read gets the existing stale refusal,
-  with no orphan or successful audit left behind.
-- Both bot handlers execute service, audit and commit inside `gone.committed`.
-  An early stale failure rolls back, clears state and answers the callback
-  before success rendering or an expired-attribute read. SubjectInUse and
-  duplicate Subject deletion behavior remain unchanged.
-- The seven new Class-loss service/v1/REST v2/Connect/bot cases failed against
-  main `0dfe89d2`; the healthy empty-collection case passed: **seven failed,
-  one passed in 10.95 seconds**. The fixed affected PostgreSQL run passed
-  **149 checks in 38.39 seconds**. The empty dictionary retry is held by an
-  SQL observer: no INSERT, UPDATE, DELETE or additional audit is allowed.
-- Independent review found no actionable defect and passed **51 focused
-  SQLite checks in 29.18 seconds**, including healthy collection/deletion and
-  existing SubjectInUse refusals. It did not execute PostgreSQL or the RED
-  baseline. Ruff is clean; mypy passed **242 modules**.
-- Full PostgreSQL: **3527 passed, seven skipped, 15 warnings in 369.15 seconds**;
-  JUnit: **3534 tests, zero failures and errors**.
-  Full SQLite: **3524 passed, ten skipped, 15 warnings in 1928.37 seconds**;
-  JUnit: **3534 tests, zero failures and errors**, no diagnostic timeout.
-
-### What remains open
-
-#654 and #662 remain open. Child #696 stages audited admin device revoke and
-unlink after Class loss, plus both bot presses after Class or DeviceToken
-loss. Against the earlier main, **12 cases failed and one healthy already-off
-case passed in 29.56 seconds**. The original-checkout fix passed all **13
-PostgreSQL cases in 9.59 seconds**. Independent review found no actionable
-defect and passed **67 SQLite checks in 326.12 seconds**, plus **three explicit
-healthy/refusal/failed-audit cases in 21.84 seconds**. Final combined checks
-remain pending. No #696 fix is included in this Subject batch.
-Child #697 reproduces a real Class/AccessRequest lock cycle while approving
-or declining an already locked request: **two PostgreSQL cases failed in
-3.86 seconds**, after an observed blocking relationship. The initial decline
-case failed in 2.91 seconds. Its future regressions are preserved locally;
-no fix is included in either current write batch. Submit and transport/bot
-variants have not yet been reproduced.
-Legacy listing and lazy dictionary adoption remain outside both Subject
-write batches. Their savepoint/concession behavior differs from these explicit
-writes; no error there was reproduced, so no defect or fix is claimed.
-No real Telegram conversation, installed APK or native-gRPC concurrency run
-was performed. No schema, migration, Android, protobuf or production setting
-changed. Board Done status remains unverified: the in-app browser now opens
-a logged-out GitHub shell but exposes no project content. No security review
-is claimed.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -468,7 +494,7 @@ current.
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676, #680, #681, #685, #687, #689, #691, #693, #694 and #698 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678, #679, #682, #684, #686 and #688, plus #690, #692, #695, #696, #697, #699, #700 and the current `server/device-parent-races-654` pull request (open) — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676, #680, #681, #685, #687, #689, #691, #693, #694, #698 and #701 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678, #679, #682, #684, #686 and #688, plus #690, #692, #695, #696, #697, #699, #700, #702, #703 and the current `server/access-request-parent-697` pull request (open) — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -2085,7 +2111,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3547 tests, ~34 min on Windows
+cd server  && pytest -q -n auto                          # 3560 tests, ~35 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1797 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
