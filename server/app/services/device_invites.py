@@ -36,8 +36,9 @@ from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import rows_affected
-from app.models import DeviceInvite
+from app.models import DeviceInvite, SchoolClass
 from app.security import hash_token, new_join_code
+from app.services import gone
 
 #: How long a code is worth anything.
 #:
@@ -68,7 +69,8 @@ def utcnow() -> datetime:
 
 
 async def mint(session: AsyncSession, *, telegram_id: int, class_id: int) -> str:
-    """A fresh code for this person in this class. Returns the plaintext.
+    """A fresh code for this person in this class. Returns the plaintext; the caller
+    commits it with its audit before showing it.
 
     Any **live** code they already held is dropped first: two live codes is two
     chances for the older one — the one further up the chat, more likely to be
@@ -82,6 +84,7 @@ async def mint(session: AsyncSession, *, telegram_id: int, class_id: int) -> str
     saying out loud rather than paying for with a unique index that would make
     an ordinary double-tap an error.
     """
+    await gone.lock_parent(session, SchoolClass, class_id)
     await session.execute(
         sa_delete(DeviceInvite).where(
             DeviceInvite.telegram_id == telegram_id,
@@ -102,7 +105,6 @@ async def mint(session: AsyncSession, *, telegram_id: int, class_id: int) -> str
             expires_at=utcnow() + timedelta(minutes=CODE_MINUTES),
         )
     )
-    await session.commit()
     return code
 
 

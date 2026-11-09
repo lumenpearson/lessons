@@ -18,7 +18,7 @@ from app.bot.manage_keyboards._common import ManageAction, back_to
 from app.bot.manage_render import calendar_feed as mr
 from app.config import get_settings
 from app.models import Role, SchoolClass
-from app.services import audit
+from app.services import audit, gone
 from app.services import calendar as calendar_service
 
 router = Router(name="manage.calendar_feed")
@@ -37,9 +37,6 @@ async def _calendar_text(session: AsyncSession, school_class: SchoolClass, rotat
         token = await calendar_service.rotate_calendar_token(session, school_class)
     else:
         token = await calendar_service.ensure_calendar_token(session, school_class)
-        # Committed before the address is shown: an address for a secret the
-        # database never kept is a subscription that answers 404 for ever.
-        await session.commit()
     return mr.render_calendar(calendar_service.feed_url(base, token), rotated=rotated)
 
 
@@ -70,10 +67,17 @@ async def cmd_calendar(
     """Any member may subscribe: the feed is read-only and its secret is not
     the join code, so a calendar URL cannot be turned into write access."""
     await state.clear()
-    await message.answer(
-        await _calendar_text(session, school_class, rotated=False),
-        reply_markup=_calendar_keyboard(role),
-    )
+    text: str | None = None
+
+    async def write() -> None:
+        nonlocal text
+        text = await _calendar_text(session, school_class, rotated=False)
+
+    if not await gone.committed(session, write):
+        await message.answer("Класс уже удалён. Откройте /start.")
+        return
+    assert text is not None
+    await message.answer(text, reply_markup=_calendar_keyboard(role))
 
 
 @router.callback_query(ManageAction.filter(F.action == "calendar"))
@@ -84,10 +88,17 @@ async def calendar_card(
     school_class: SchoolClass,
     role: Role,
 ) -> None:
-    await callback.message.edit_text(
-        await _calendar_text(session, school_class, rotated=False),
-        reply_markup=_calendar_keyboard(role),
-    )
+    text: str | None = None
+
+    async def write() -> None:
+        nonlocal text
+        text = await _calendar_text(session, school_class, rotated=False)
+
+    if not await gone.committed(session, write):
+        await callback.answer("Класс уже удалён. Откройте /start.", show_alert=True)
+        return
+    assert text is not None
+    await callback.message.edit_text(text, reply_markup=_calendar_keyboard(role))
     await callback.answer()
 
 
@@ -100,11 +111,21 @@ async def calendar_rotate(
     role: Role,
 ) -> None:
     """Every existing subscription stops updating — that is the point."""
-    text = await _calendar_text(session, school_class, rotated=True)
-    await audit.record(
-        session, school_class.id, callback.from_user.id, "calendar.rotate",
-        "выдана новая ссылка на календарь, старая отключена",
-    )
-    await session.commit()
+    text: str | None = None
+
+    async def write() -> None:
+        nonlocal text
+        await gone.lock_parent(session, SchoolClass, school_class.id, exclusive=True)
+        text = await _calendar_text(session, school_class, rotated=True)
+        await audit.record(
+            session, school_class.id, callback.from_user.id, "calendar.rotate",
+            "выдана новая ссылка на календарь, старая отключена",
+        )
+
+    if not await gone.committed(session, write):
+        await callback.answer("Класс уже удалён. Откройте /start.", show_alert=True)
+        return
+
+    assert text is not None
     await callback.message.edit_text(text, reply_markup=_calendar_keyboard(role))
     await callback.answer("Ссылка обновлена")

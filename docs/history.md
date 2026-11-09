@@ -28,6 +28,79 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: access requests retain Class before their own row
+
+- #697 and #700, children of #654: request submission retains Class before
+  looking up or inserting a request; approval and decline retain Class before
+  the pending AccessRequest FOR UPDATE. The Class-before-child order matches
+  cascading class deletion and prevents both reproduced PostgreSQL deadlocks.
+- Bot submission encloses service, audit and commit in `gone.committed`; both
+  decision callbacks enclose lookup, decision and commit there. A missing Class
+  clears the submission FSM and answers the established refusal without an
+  admin notice or saved confirmation. Decisions use their existing closed-
+  request refusal. No failure path reads rollback-expired ORM attributes.
+- Role ceilings, peer/senior protection, pending-status recheck, note handling,
+  repeat submission and commit-before-Telegram remain intact. GrantRefused
+  still rolls back before callback IO. The compile-only child-lock unit stubs
+  parent retention only, preserving its FOR UPDATE assertion.
+- Baseline #697: **two PostgreSQL failures, eight compatibility passes in
+  16.09 seconds**. Baseline #700: **three PostgreSQL failures in 13.72 seconds**.
+  Combined fixed affected PostgreSQL: **21 passed in 11.11 seconds**.
+- Fresh combined independent review found no actionable defect and passed
+  **33 SQLite checks, two PostgreSQL-only skips, in 179.61 seconds**. The
+  earlier decision-only review passed 108 checks with two skips; its compile
+  unit also passed independently. Neither reviewer executed PostgreSQL.
+- Full combined PostgreSQL: **3553 passed, seven skipped, 15 warnings in
+  389.35 seconds**; JUnit: **3560 tests, zero failures and errors**. All thirteen
+  new cases executed and passed, including both actual lock-cycle cases.
+  Full combined SQLite: **3548 passed, twelve skipped, 15 warnings in
+  1934.71 seconds**; JUnit: **3560 tests, zero failures and errors**.
+  Documentation/schema checks: **17 passed, three warnings in 47.04 seconds**.
+  Ruff is clean; mypy passed **242 modules**. The checked device head and its
+  merge have identical trees; both full runs include the combined source.
+
+### What remains open
+
+#654 and #662 remain open. The isolated #699 task-creation fix has seven
+PostgreSQL regressions green in 7.94 seconds and 200 affected PostgreSQL
+checks green in 35.65 seconds. Fresh review found no actionable defect and
+passed 307 SQLite checks in 452.50 seconds, 20 task checks in 40.88 seconds
+and four commit-before-Telegram checks in 27.83 seconds. Its final combined
+full gates remain pending; no task fix is included in this request batch.
+Child #702 separately reproduces invitation, role-change and revocation
+Class loss: **three PostgreSQL failures in 8.53 seconds**. Its original-
+checkout fix passed the initial three cases in 5.56 seconds. Independent
+review found a nested commit in diary cleanup that released the Class lock
+and persisted a revoke audit before later cleanup could refuse. Two extra
+regressions failed in 6.10 seconds. The helper now leaves commit to its
+caller, and standalone diary sign-out commits before Telegram; five new
+cases and three sign-out checks passed on PostgreSQL in 6.16 seconds. The
+expanded PostgreSQL set passed **171 in 20.79 seconds**. Fixed-snapshot
+independent review passed **eight SQLite checks in 39.81 seconds**; its
+initial shared-tree 29-pass run is not claimed as a fixed snapshot. The final invitation refusal wording check passed independently on SQLite
+in **6.77 seconds**. No access-page fix is included
+in this request batch, and its final combined full gates remain pending.
+Child #703 adds codes, calendar links and diary binding to that original-
+checkout Class-administration follow-up. Its first complete baseline had
+**eleven PostgreSQL failures in 8.75 seconds**. Two additional lazy calendar
+bot cases failed in 5.84 seconds, and six shared/transport/rotation-atomicity
+cases failed in 6.79 seconds. All nineteen new cases passed in **8.87
+seconds**. Phone-code minting and calendar rotation leave commit to their
+caller; first calendar-token creation retains Class before its conditional
+UPDATE and refresh. v1 and v2 use the existing class-not-found response.
+The old join-test setup now commits minting explicitly, with API assertions
+unchanged. The expanded PostgreSQL set passed **494 checks in 38.49
+seconds**; Ruff and mypy are clean. Fresh combined review is running, and
+its final full gates remain pending. No #702/#703 fix is in this request PR.
+Broader audited writes still need their own coverage before either parent
+issue can be called complete.
+Phone creation/linking/self-unlink, legacy Subject adoption and Homework-
+parent concurrency remain outside this batch. No real Telegram conversation,
+installed APK or native-gRPC concurrency run was performed. No schema,
+migration, Android, protobuf or production setting changed. Board Done state
+is unverified: the in-app browser shows a logged-out GitHub header without
+project content and the CLI credential has no project scope.
+
 ## What the batch before added: audited device management retains its Class
 
 - #696, a child of #654: admin revoke and unlink retain Class after existing

@@ -127,6 +127,7 @@ async def test_a_personal_code_still_joins_a_full_class(client, session, school_
     """The way in that is left when the class code has been used to fill it."""
     await _fill(session, school_class, MAX_DEVICES_PER_CLASS)
     code = await device_invites.mint(session, telegram_id=4242, class_id=school_class.id)
+    await session.commit()
 
     response = await _join(client, code)
 

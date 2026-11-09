@@ -107,6 +107,7 @@ Effect = Callable[[], Awaitable[None]]
 GONE: Mapping[str, tuple[str, str]] = {
     "AccessRequest": ("access_request", wording.UNKNOWN_ACCESS_REQUEST_DETAIL),
     "BellSchedule": ("bell_schedule", wording.UNKNOWN_BELL_SCHEDULE_DETAIL),
+    "CalendarFeed": ("class", gate.CLASS_GONE),
     "Class": ("class", gate.CLASS_GONE),
     "ClassDevice": ("device", wording.UNKNOWN_DEVICE_DETAIL),
     # Taken off by another reset or clear; not made again, as a day's mark

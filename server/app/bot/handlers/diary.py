@@ -229,6 +229,7 @@ async def diary_sign_out(
     await diary_service.sign_out_here(
         session, telegram_id=callback.from_user.id, class_id=school_class.id
     )
+    await session.commit()
     await _offer_sign_in(callback, school_class)
     await callback.answer("Вы вышли из дневника")
 

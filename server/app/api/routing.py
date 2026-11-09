@@ -59,6 +59,7 @@ _PREFIX = "/api/v1/"
 #: class is the row ``/me`` and the scheme meet: deleted, it takes the phone's
 #: device and the year's terms with it (#654).
 GONE: Mapping[str, str] = {
+    "calendar": wording.CLASS_GONE_DETAIL,
     "homework": wording.UNKNOWN_HOMEWORK_DETAIL,
     "overrides": wording.UNKNOWN_SUBSTITUTION_DETAIL,
     "events": wording.UNKNOWN_EVENT_DETAIL,
