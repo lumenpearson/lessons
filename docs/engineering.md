@@ -222,6 +222,13 @@ behavior tests were seen red with those filters before the calls were replaced.
 The filters name only these warnings, so another warning remains visible rather
 than being suppressed by a broad compatibility exception.
 
+The primary server/Android gate declarations are held level too: `test_gate_lists.py`
+compares `CLAUDE.md` and `AGENTS.md` with CI and checks that the allowed command
+prefixes cover them (#659). Mutation cases remove a gate from each source and add
+one to CI, including after an install in the same shell line. Development commands
+permitted by a broad prefix remain optional; permission alone does not declare a gate.
+The settings file is an input to the test, so its changes run the server suite.
+
 **Where this goes past Airbnb.** Airbnb's rules encode its standards. The rules here encode
 this project's *defects*: each is born from an issue, its message names the issue and the
 right call, and it ships with a test that is red on the code that produced the defect — the

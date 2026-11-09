@@ -130,7 +130,7 @@ jobs:
               # are read by test_vercel_entry, `.vercelignore` by
               # test_region_catalog. server/tests/test_ci_paths.py fails on a
               # file the suite reads that this line does not match.
-              server/*|api/*|vercel.json|.vercelignore|requirements.txt|requirements.in|.python-version|docker-compose.yml|Dockerfile|.dockerignore|proto/*|buf.yaml|buf.lock|buf.gen.yaml|README.md|CLAUDE.md|AGENTS.md|CONTRIBUTING.md|.github/copilot-instructions.md|.github/CODEOWNERS|docs/*.md|.claude/*.md|.github/workflows/*) server=true ;;
+              server/*|api/*|vercel.json|.vercelignore|requirements.txt|requirements.in|.python-version|docker-compose.yml|Dockerfile|.dockerignore|proto/*|buf.yaml|buf.lock|buf.gen.yaml|README.md|CLAUDE.md|AGENTS.md|CONTRIBUTING.md|.github/copilot-instructions.md|.github/CODEOWNERS|docs/*.md|.claude/*.md|.claude/settings.json|.github/workflows/*) server=true ;;
             esac
             case "$file" in
               # The v2 contract and what is generated from it: the job below.
