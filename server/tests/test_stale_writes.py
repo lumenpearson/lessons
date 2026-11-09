@@ -107,6 +107,25 @@ def _deleted_meanwhile(
         return await real(*args, **kwargs)
 
     monkeypatch.setattr(owner, name, first_somebody_deletes)
+    if model is DayOverride:
+        from app.services import gone
+
+        real_lock = gone.lock_parent
+
+        async def before_sqlite_retains_the_file(session, target, target_id, **kwargs):
+            if (
+                session.get_bind().dialect.name == "sqlite"
+                and target is SchoolClass and not done
+            ):
+                # SQLite's parent check serializes every writer in the file;
+                # lose the already-read day before that check, not after it.
+                done.append(True)
+                async with SessionLocal() as other:
+                    await other.execute(delete(model).where(model.id == row_id))
+                    await other.commit()
+            await real_lock(session, target, target_id, **kwargs)
+
+        monkeypatch.setattr(gone, "lock_parent", before_sqlite_retains_the_file)
     return done
 
 
@@ -285,6 +304,7 @@ async def test_term_replaced_by_scheme_mid_write_clears_the_bot_form(
     assert message.last == terms_service.NO_SUCH_TERM
     assert (state.cleared, state.data) == (True, {})
     assert await _count(AuditEntry) == 0
+
     await session.commit()
 
 
@@ -1771,3 +1791,196 @@ async def test_api_bell_delete_rechecks_new_references_without_changing_its_refu
     async with SessionLocal() as fresh:
         assert await fresh.get(BellSchedule, schedule_id) is not None
     assert await _count(AuditEntry) == 0
+
+
+def _day_parent_deleted_before_write(monkeypatch, model, row_id):
+    from app.models import BellSchedule
+    from app.services import gone
+    from app.services.manage import bells
+
+    staged = []
+
+    async def remove_once():
+        if not staged:
+            staged.append(True)
+            async with SessionLocal() as other:
+                await other.execute(delete(model).where(model.id == row_id))
+                await other.commit()
+
+    real_lock = gone.lock_parent
+
+    async def before_retaining_the_parent(session, target, target_id, **kwargs):
+        if (target is model and target_id == row_id) or (
+            session.get_bind().dialect.name == "sqlite" and target is SchoolClass
+        ):
+            await remove_once()
+        await real_lock(session, target, target_id, **kwargs)
+
+    monkeypatch.setattr(gone, "lock_parent", before_retaining_the_parent)
+    owner, name = (
+        (bells, "rings_anything") if model is BellSchedule else (special_days, "mark_on")
+    )
+    real_read = getattr(owner, name)
+
+    async def after_the_unprotected_read(*args, **kwargs):
+        result = await real_read(*args, **kwargs)
+        await remove_once()
+        return result
+
+    # A guard moved before the read must meet the same lost parent, not block
+    # this test's deleting transaction after it already retained that parent.
+    monkeypatch.setattr(owner, name, after_the_unprotected_read)
+    return staged
+
+
+@pytest.mark.parametrize("lost", ["class", "schedule"])
+async def test_a_special_day_losing_its_parent_after_validation_has_no_foreign_key_error(
+    session, school_class, monkeypatch, lost
+) -> None:
+    from sqlalchemy.orm.exc import StaleDataError
+
+    from app.models import BellSchedule
+
+    schedule = await _bell_delete_candidate(session, school_class)
+    model, row_id = (
+        (SchoolClass, school_class.id) if lost == "class" else (BellSchedule, schedule.id)
+    )
+    staged = _day_parent_deleted_before_write(monkeypatch, model, row_id)
+    refusal = StaleDataError if lost == "class" else special_days.ScheduleNotInClass
+    with pytest.raises(refusal):
+        await special_days.set_day(
+            session, school_class, 42, MONDAY, kind=DayKind.SHORTENED,
+            note="Короткий день", bell_schedule_id=schedule.id,
+        )
+    await session.rollback()
+    assert staged
+    assert (await _count(DayOverride), await _count(AuditEntry)) == (0, 0)
+
+@pytest.mark.parametrize("transport", ["v1", "rest", "connect"])
+@pytest.mark.parametrize("lost", ["class", "schedule"])
+async def test_special_day_parent_races_keep_existing_api_refusals(
+    v2, v2_tokens, session, school_class, monkeypatch, transport, lost
+) -> None:
+    from app.contract.lessons.v2.common_pb import DayKind as ProtoKind
+    from app.models import BellSchedule
+
+    schedule = await _bell_delete_candidate(session, school_class)
+    schedule_id = schedule.id
+    model, row_id = (
+        (SchoolClass, school_class.id) if lost == "class" else (BellSchedule, schedule_id)
+    )
+    staged = []
+    real_put = special_days.put_day
+
+    async def lose_parent_inside_the_shared_write(*args, **kwargs):
+        lost_at_write = _day_parent_deleted_before_write(monkeypatch, model, row_id)
+        try:
+            return await real_put(*args, **kwargs)
+        finally:
+            staged.extend(lost_at_write)
+
+    monkeypatch.setattr(special_days, "put_day", lose_parent_inside_the_shared_write)
+    sentence = (
+        wording.DAY_NOT_MARKED_DETAIL if lost == "class" else wording.SCHEDULE_NOT_IN_CLASS_DETAIL
+    )
+    if transport == "v1":
+        answer = await v2.http.put(
+            "/api/v1/days", headers=_auth(v2_tokens["editor"]),
+            json={"date": MONDAY.isoformat(), "kind": "shortened", "bell_schedule_id": schedule_id},
+        )
+        assert (answer.status_code, answer.json()) == (
+            404 if lost == "class" else 422, {"detail": sentence}
+        )
+    else:
+        answer = await getattr(v2, transport)(
+            "DayService/UpdateDay",
+            UpdateDayRequest(
+                day=Day(date=MONDAY.isoformat(), kind=ProtoKind.SHORTENED,
+                        bell_schedule_id=schedule_id),
+                update_mask=FieldMask(paths=["kind", "bell_schedule_id"]), allow_missing=True,
+            ), token=v2_tokens["editor"],
+        )
+        assert answer.error == sentence
+        if lost == "class":
+            assert (answer.status, answer.code, answer.reason, answer.metadata) == (
+                404, "NOT_FOUND", "RESOURCE_NOT_FOUND", {"resource": "day"}
+            )
+        else:
+            assert (answer.status, answer.reason, answer.violations) == (
+                400, "VALIDATION_FAILED", [("day.bell_schedule_id", sentence)]
+            )
+    assert staged
+    assert (await _count(DayOverride), await _count(AuditEntry)) == (0, 0)
+
+
+@pytest.mark.parametrize("lost,action", [
+    ("class", "kind"), ("class", "normal"), ("class", "bells"),
+    ("class", "note"), ("class", "delete"), ("class", "period"),
+    ("schedule", "kind"), ("schedule", "bells"),
+])
+async def test_bot_special_day_lost_parent_answers_without_a_form_or_audit(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable, FakeMessage, FakeState,
+    lost, action,
+) -> None:
+    from app.bot.handlers.manage import holidays
+    from app.models import BellSchedule
+
+    schedule = await _bell_delete_candidate(session, school_class)
+    schedule_id, class_id = schedule.id, school_class.id
+    if action in {"normal", "bells", "note", "delete"}:
+        await _mark(session, school_class)
+    if lost == "schedule":
+        school_class.bell_schedule_id = schedule_id
+        await session.commit()
+        staged = _day_parent_deleted_before_write(monkeypatch, BellSchedule, schedule_id)
+    else:
+        staged = []
+        name = "mark_period" if action == "period" else "put_day"
+        real_write = getattr(special_days, name)
+
+        async def lose_class_after_the_ui_reads(*args, **kwargs):
+            lost_at_write = _day_parent_deleted_before_write(monkeypatch, SchoolClass, class_id)
+            try:
+                return await real_write(*args, **kwargs)
+            finally:
+                staged.extend(lost_at_write)
+
+        monkeypatch.setattr(special_days, name, lose_class_after_the_ui_reads)
+    state = FakeState(data={"date": MONDAY.isoformat(), "period_kind": DayKind.HOLIDAY.value})
+    callback = FakeCallback(message=FakeEditable())
+    if action in {"kind", "normal"}:
+        tag = "normal" if action == "normal" else "shortened" if lost == "schedule" else "holiday"
+        await holidays.holiday_kind(
+            callback, SimpleNamespace(value=f"{MONDAY.isoformat()}:{tag}"),
+            state, session, school_class, Role.EDITOR,
+        )
+    elif action == "bells":
+        await holidays.holiday_bells(
+            callback, SimpleNamespace(value=f"{MONDAY.isoformat()}:{schedule_id}"),
+            state, session, school_class, Role.EDITOR,
+        )
+    elif action == "delete":
+        await holidays.holiday_delete(
+            callback, SimpleNamespace(value=MONDAY.isoformat()),
+            state, session, school_class, Role.EDITOR,
+        )
+    else:
+        message = FakeMessage(text="14.09.2026-16.09.2026" if action == "period" else "Заметка")
+        handler = holidays.holiday_period_apply if action == "period" else holidays.holiday_note
+        await handler(message, state, session, school_class, Role.ADMIN)
+        assert message.last == (PERIOD_GONE if action == "period" else f"{DAY_GONE}.")
+    if action not in {"note", "period"}:
+        sentence = "Расписание звонков не найдено" if lost == "schedule" else DAY_GONE
+        assert callback.answers[-1] == (sentence, True)
+        assert not callback.message.replies
+    assert staged
+    assert (state.cleared, state.data) == (True, {})
+    kept = 1 if lost == "schedule" and action == "bells" else 0
+    assert (await _count(DayOverride), await _count(AuditEntry)) == (kept, 0)
+    if kept:
+        async with SessionLocal() as fresh:
+            mark = await fresh.scalar(select(DayOverride))
+            assert (mark.kind, mark.note, mark.bell_schedule_id) == (
+                DayKind.HOLIDAY, "каникулы", None
+            )
+    await session.commit()

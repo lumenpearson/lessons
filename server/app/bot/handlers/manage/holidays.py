@@ -248,13 +248,18 @@ async def holiday_kind(
         return
 
     if tag == "normal":
-        put = await special_days.put_day(session, school_class, day, {"kind": DayKind.NORMAL})
-        if put.had_mark:
-            await audit.record(
-                session, school_class.id, callback.from_user.id, "dayoverride.delete",
-                f"{day:%d.%m}: снова обычный день",
-            )
-            await session.commit()
+        async def write_normal() -> None:
+            put = await special_days.put_day(session, school_class, day, {"kind": DayKind.NORMAL})
+            if put.had_mark:
+                await audit.record(
+                    session, school_class.id, callback.from_user.id, "dayoverride.delete",
+                    f"{day:%d.%m}: снова обычный день",
+                )
+
+        if not await gone.committed(session, write_normal):
+            await state.clear()
+            await callback.answer(DAY_GONE, show_alert=True)
+            return
         await state.clear()
         text, keyboard = await _holiday_view(session, school_class, role)
         await callback.message.edit_text(text, reply_markup=keyboard)
@@ -279,18 +284,26 @@ async def holiday_kind(
             if current is not None and current.bell_schedule_id
             else school_class.bell_schedule_id
         )
-    try:
+    async def write_kind() -> None:
         await special_days.put_day(session, school_class, day, changes)
-    except (special_days.ShortenedNeedsSchedule, bells_service.ScheduleEmpty):
-        await callback.answer(SHORTENED_WITHOUT_BELLS, show_alert=True)
-        return
-    await audit.record(
-        session, school_class.id, callback.from_user.id, "dayoverride.set",
-        f"{day:%d.%m}: {_KIND_SUMMARY[kind]}",
-    )
-    if not await gone.committed(session):
+        await audit.record(
+            session, school_class.id, callback.from_user.id, "dayoverride.set",
+            f"{day:%d.%m}: {_KIND_SUMMARY[kind]}",
+        )
+
+    try:
+        if not await gone.committed(session, write_kind):
+            await state.clear()
+            await callback.answer(DAY_GONE, show_alert=True)
+            return
+    except special_days.ScheduleNotInClass:
+        await session.rollback()
         await state.clear()
-        await callback.answer(DAY_GONE, show_alert=True)
+        await callback.answer("Расписание звонков не найдено", show_alert=True)
+        return
+    except (special_days.ShortenedNeedsSchedule, bells_service.ScheduleEmpty):
+        await session.rollback()
+        await callback.answer(SHORTENED_WITHOUT_BELLS, show_alert=True)
         return
 
     if kind is DayKind.SHORTENED:
@@ -359,7 +372,6 @@ async def holiday_bells(
                 show_alert=True,
             )
             return
-        await special_days.put_day(session, school_class, day, {"bell_schedule_id": schedule.id})
         summary = f"{day:%d.%m}: звонки «{schedule.name}»"
     else:
         # The keyboard no longer draws this button; a card left open from
@@ -371,10 +383,20 @@ async def holiday_bells(
         )
         return
 
-    await audit.record(
-        session, school_class.id, callback.from_user.id, "dayoverride.bells", summary
-    )
-    if not await gone.committed(session):
+    async def write_bells() -> None:
+        await special_days.put_day(session, school_class, day, {"bell_schedule_id": schedule_id})
+        await audit.record(
+            session, school_class.id, callback.from_user.id, "dayoverride.bells", summary
+        )
+
+    try:
+        saved = await gone.committed(session, write_bells)
+    except special_days.ScheduleNotInClass:
+        await session.rollback()
+        await state.clear()
+        await callback.answer("Расписание звонков не найдено", show_alert=True)
+        return
+    if not saved:
         await state.clear()
         await callback.answer(DAY_GONE, show_alert=True)
         return
@@ -406,12 +428,14 @@ async def holiday_note(
 
     raw = " ".join((message.text or "").split())
     if raw not in {"-", "—", ""}:
-        await special_days.put_day(session, school_class, day, {"note": raw[:NOTE_MAX]})
-        await audit.record(
-            session, school_class.id, message.from_user.id, "dayoverride.note",
-            f"{day:%d.%m}: заметка «{override.note}»",
-        )
-        if not await gone.committed(session):
+        async def write_note() -> None:
+            await special_days.put_day(session, school_class, day, {"note": raw[:NOTE_MAX]})
+            await audit.record(
+                session, school_class.id, message.from_user.id, "dayoverride.note",
+                f"{day:%d.%m}: заметка «{override.note}»",
+            )
+
+        if not await gone.committed(session, write_note):
             await state.clear()
             await message.answer(f"{DAY_GONE}.", reply_markup=back_to_menu())
             return
@@ -436,18 +460,27 @@ async def holiday_delete(
         await callback.answer("Непонятная дата", show_alert=True)
         return
 
-    put = await special_days.put_day(session, school_class, day, {"kind": DayKind.NORMAL})
-    if put.had_mark:
-        await audit.record(
-            session, school_class.id, callback.from_user.id, "dayoverride.delete",
-            f"{day:%d.%m}: отметка снята",
-        )
-        await session.commit()
+    had_mark = False
+
+    async def write_delete() -> None:
+        nonlocal had_mark
+        put = await special_days.put_day(session, school_class, day, {"kind": DayKind.NORMAL})
+        had_mark = put.had_mark
+        if had_mark:
+            await audit.record(
+                session, school_class.id, callback.from_user.id, "dayoverride.delete",
+                f"{day:%d.%m}: отметка снята",
+            )
+
+    if not await gone.committed(session, write_delete):
+        await state.clear()
+        await callback.answer(DAY_GONE, show_alert=True)
+        return
 
     await state.clear()
     text, keyboard = await _holiday_view(session, school_class, role)
     await callback.message.edit_text(text, reply_markup=keyboard)
-    await callback.answer("Снято" if put.had_mark else "Уже снято")
+    await callback.answer("Снято" if had_mark else "Уже снято")
 
 
 @router.callback_query(DayKindAction.filter(F.action == "period"))
