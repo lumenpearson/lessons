@@ -30,6 +30,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Homework, HomeworkDone, PersonalTask, SchoolClass, TaskPriority
+from app.services import gone
 from app.services import homework as homework_service
 
 TITLE_MAX = 200
@@ -247,6 +248,7 @@ async def add_task(
     title = " ".join(title.split())[:TITLE_MAX]
     if not title:
         raise ValueError("a task needs a title")
+    await gone.lock_parent(session, SchoolClass, class_id)
     task = PersonalTask(
         class_id=class_id,
         telegram_id=telegram_id,

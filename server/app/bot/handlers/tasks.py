@@ -199,19 +199,27 @@ async def _save_from_text(
         )
         return
 
-    task = await task_service.add_task(
-        session,
-        school_class.id,
-        message.from_user.id,
-        title,
-        due_date=due_date,
-        due_time=due_time,
-        priority=priority,
-    )
+    task: PersonalTask | None = None
+
+    async def write() -> None:
+        nonlocal task
+        task = await task_service.add_task(
+            session,
+            school_class.id,
+            message.from_user.id,
+            title,
+            due_date=due_date,
+            due_time=due_time,
+            priority=priority,
+        )
+
     # Committed before the confirmation, whose buttons carry the task's id: a
     # reply Telegram refuses must not take the task down with it.
-    await session.commit()
+    if not await gone.committed(session, write):
+        await message.answer(NO_ACCESS)
+        return
 
+    assert task is not None
     text = render_task_saved(task, today)
     if task.due_date is not None:
         text += "\n\nНапомнить?"
