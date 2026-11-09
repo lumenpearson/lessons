@@ -68,7 +68,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3485 tests in about four minutes, six of them skipped unless a
+- **`pytest -q -n auto`** — 3491 tests in about four minutes, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), plus two PostgreSQL-only lock
   checks skipped on SQLite, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
@@ -754,6 +754,7 @@ points Hilt does not inject cleanly.
   unaffected. A day somebody marked by hand keeps its kind and note, and events
   and homework are kept either way: it is the lessons that are out of season,
   not the day.
+- **An audited unchanged retry still forces a row-counting UPDATE; v2 silent no-ops skip it** (`test_unchanged_audit_races.py`, #686).
 - **Homework creates and upserts retain their Class through commit** (`test_homework_parent_races.py`, #684).
 - **Special-day writes retain their Class and selected BellSchedule through commit; only v2's silent unchanged result skips the guard** (`test_stale_writes.py`, #682).
 - **A lesson number needs a bell of its own number, everywhere a lesson is

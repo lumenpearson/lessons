@@ -36,6 +36,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app import wording
 from app.models import Homework, SchoolClass
@@ -134,6 +135,8 @@ async def upsert(
     existing.created_by = actor
     if attachment_url is not None:
         existing.attachment_url = attachment_url
+    # An audited retry must still find the assignment it claims to have saved.
+    flag_modified(existing, "text")
     return existing, False
 
 
