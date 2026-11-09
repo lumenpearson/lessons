@@ -28,6 +28,48 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: term writes retain their Class and check unchanged rows
+
+- #688, a child of #654: explicit term scheme writes force a Class UPDATE and
+  flush it before seeding. Audited same-value bounds force a Term UPDATE, so
+  a row deleted after lookup cannot leave a successful audit behind.
+- Bounds retain Class before writing Term. This follows a cascading Class
+  delete's lock order and prevents its child-lock/audit-foreign-key deadlock.
+  The bot scheme service and its audit run inside `gone.committed`, which
+  rolls back, clears the form and returns before reading expired attributes.
+- All 12 new service/API/bot/lock-order cases failed against the prior main
+  source in **12.82 seconds**. The actual PostgreSQL Class/Term deadlock also
+  reproduced alone in **2.65 seconds**. Fixed focused checks passed **12 on
+  PostgreSQL in 8.10 seconds**; affected checks passed **65 on PostgreSQL in
+  15.52 seconds** and **64 on SQLite, one skipped, in 144.37 seconds**.
+- Independent review found no actionable defect, passed **77 focused SQLite
+  checks in 401.65 seconds**, and inspected the subsequent Class guard,
+  PostgreSQL concurrency case and old stager adaptation without finding a
+  weakened assertion. The SQLite stager deletes the already-read Term before
+  the file-wide parent lock; PostgreSQL retains the original flush timing.
+- Full combined PostgreSQL: **3496 passed, seven skipped, 15 warnings in
+  302.29 seconds**; JUnit: **3503 tests, zero failures and errors**.
+  Full combined SQLite: **3494 passed, nine skipped, 15 warnings in
+  1828.99 seconds**; JUnit: **3503 tests, zero failures and errors**.
+  Ruff is clean; mypy passed **242 modules**. The checked parent head and its
+  merge have identical trees. Diagnostic timeout was not observed.
+
+### What remains open
+
+#654 and #662 remain open. #690 in the original checkout stages audited subject
+metadata retries after deletion and a real Class/Subject rename deadlock:
+17 initial cases failed in 11.25 seconds, and the lock cycle failed in 2.45
+seconds. Its fix passed 139 affected PostgreSQL checks in 35.93 seconds;
+independent review and final combined gates remain pending. No #690 fix is
+included in this term batch. Subject creation, deletion, collection and lazy
+adoption are outside that follow-up's scope.
+Term reads and v1 lazy seeding are unchanged. Physical audited updates may
+wake Watch subscribers even when values do not change; existing quiet read
+paths remain quiet. No real Telegram conversation, installed APK or native
+gRPC concurrency run was performed. No schema, migration, Android, protobuf
+or production setting changed. Board Done status remains unverified because
+the embedded browser failed to attach.
+
 ## What the batch before added: audited retries still find their homework or day mark
 
 - #686, a child of #654: same-value Homework upserts and audited DayOverride

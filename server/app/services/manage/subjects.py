@@ -151,6 +151,7 @@ async def create(
     existing = await dictionary.clashing(session, class_id, name)
     if existing is not None:
         raise SubjectExists(existing)
+    await gone.lock_parent(session, SchoolClass, class_id)
     subject = Subject(
         class_id=class_id, name=name, short_name=short_name, teacher=teacher, color=color
     )

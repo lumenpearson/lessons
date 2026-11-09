@@ -423,10 +423,19 @@ async def subject_create(
 
     # Ignores case, so «физика» opens the class's «Физика» instead of founding
     # a second row beside it.
-    try:
+    subject: Subject | None = None
+
+    async def write() -> None:
+        nonlocal subject
         subject = await subjects_service.create(
             session, school_class.id, message.from_user.id, name
         )
+
+    try:
+        if not await gone.committed(session, write):
+            await state.clear()
+            await message.answer("Класс уже удалён. Откройте /start.", reply_markup=back_to_menu())
+            return
     except subjects_service.SubjectExists as taken:
         await state.clear()
         await message.answer(
@@ -434,7 +443,7 @@ async def subject_create(
             reply_markup=subject_card_keyboard(taken.existing.id),
         )
         return
-    await session.commit()
+    assert subject is not None
     await state.clear()
     await message.answer(
         mr.render_subject_card(subject), reply_markup=subject_card_keyboard(subject.id)
