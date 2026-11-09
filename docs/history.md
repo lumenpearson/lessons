@@ -28,6 +28,77 @@ the conventions of the file it was written in:
 
 ---
 
+
+## 9 November 2026: new personal tasks retain their Class
+
+- #699, a child of #654: both task-creation entry points retain Class before
+  staging a PersonalTask. A Class lost after authentication takes the existing
+  Task-not-found path on v1, REST v2 and Connect instead of a foreign-key error.
+- The bot's shared text-saving path encloses add and commit in
+  `gone.committed`. Both the FSM form and `/task` clear their state and answer
+  the existing no-access message on Class loss, without a saved confirmation
+  or a read through rollback-expired ORM attributes.
+- Title normalization and empty-title refusal precede parent retention.
+  Homework validation, ownership, grammar, class timezone and reminders are
+  unchanged. Healthy creation still commits before Telegram confirmation.
+- Healthy service baseline: **nine SQLite checks passed in 40.77 seconds**.
+  The complete new-worktree regression baseline had **seven PostgreSQL
+  failures in 53.19 seconds**; all seven passed after the fix in **7.94
+  seconds**. The affected PostgreSQL compatibility set passed **200 in
+  35.65 seconds**.
+- Fresh independent review found no actionable defect and passed **307
+  SQLite checks in 452.50 seconds**, **20 task checks in 40.88 seconds**, and
+  **four commit-before-Telegram checks in 27.83 seconds**. It did not execute
+  PostgreSQL, Docker or live deployment checks.
+- Full combined PostgreSQL: **3560 passed, seven skipped, 15 warnings in
+  426.37 seconds**; JUnit: **3567 tests, zero failures and errors**. All seven
+  new cases executed and passed. Full combined SQLite: **3555 passed, twelve skipped, 15 warnings in
+  1818.85 seconds**; JUnit: **3567 tests, zero failures and errors**.
+  Documentation/schema checks: **17 passed, three warnings in 46.38 seconds**.
+  Ruff is clean; mypy passed **242 modules**. The checked request head and
+  its merge have identical trees, and both full runs include that source.
+
+### What remains open
+
+#654 and #662 remain open. The original checkout's
+`server/access-member-parent-702` follow-up combines #702 and #703:
+invitation/role/revocation writes, codes, calendar links and diary binding
+retain Class and keep their complete local database action in one transaction.
+Review exposed internal commits in class-scoped diary sign-out, personal-code
+minting and calendar rotation; each now leaves commit to its caller, and
+standalone bot callers still commit before Telegram. The existing-token
+calendar read stays read-only; first-token creation retains Class before its
+conditional UPDATE/refresh, and all API transports use Class-not-found.
+Its baseline groups were **three failed in 8.53 seconds**, **two nested-commit
+failures in 6.10 seconds**, **eleven failed in 8.75 seconds**, **two lazy
+calendar failures in 5.84 seconds** and **six shared/transport/rotation
+failures in 6.79 seconds**. All nineteen class-settings cases passed in
+8.87 seconds; the final expanded PostgreSQL set passed **494 in 38.49
+seconds**. Fresh review of all fourteen files found no actionable defect
+and passed **97 SQLite checks in 48.44 seconds**. Full combined gates still
+await this task batch's checked head. No #702/#703 fix is in this task PR.
+Child #705 of #662 now reproduces device creation after Class loss through
+the service and all three API transports, a real DeviceInvite-burn/Class-
+delete lock cycle, and a real code incorrectly counted as a guess. Complete
+baseline: **six PostgreSQL failures in 5.67 seconds**. The managed parent-
+races checkout's `server/join-parent-705` fix retains Class before burn or
+token insertion and rolls back before forgiving a lost-parent admission.
+All **six PostgreSQL cases passed in 3.24 seconds**; the affected set passed
+**95 in 21.43 seconds**. Ruff and mypy are clean. Fresh independent review
+found no actionable defect; its SQLite command finished with **94 passed,
+one PostgreSQL-only skip, one warning in 473.48 seconds**, verified from the
+completed log after the reviewer initially handed it back pending. Final
+combined gates await the Class-administration batch.
+No join fix is included in this task PR. Broader audited writes still need
+coverage before either parent issue can be called complete.
+Concurrent deletion of a task's referenced Homework is also unverified and
+outside #699. Phone linking/self-unlink, legacy Subject adoption, real
+Telegram, an installed APK and native-gRPC concurrency remain outside this
+batch. No schema, migration, Android, protobuf or production setting changed.
+Project 6 Done state is unverified: the in-app browser shows a logged-out
+GitHub header without project content and the CLI credential has no project
+scope. No branch or stash was deleted.
+
 ## What the batch before added: access requests retain Class before their own row
 
 - #697 and #700, children of #654: request submission retains Class before
