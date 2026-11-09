@@ -477,10 +477,19 @@ async def subject_delete(
         await callback.answer("Предмет уже удалён", show_alert=True)
         return
 
-    try:
+    name: str | None = None
+
+    async def write() -> None:
+        nonlocal name
         name = await subjects_service.delete(
             session, school_class.id, callback.from_user.id, subject
         )
+
+    try:
+        if not await gone.committed(session, write):
+            await state.clear()
+            await callback.answer("Предмет уже удалён", show_alert=True)
+            return
     except subjects_service.SubjectInUse as in_use:
         await callback.answer(
             # ``plural`` carries the number itself — printing it again beside
@@ -491,7 +500,7 @@ async def subject_delete(
             show_alert=True,
         )
         return
-    await session.commit()
+    assert name is not None
     await state.clear()
 
     text, keyboard = await _subject_view(session, school_class, role)
@@ -513,10 +522,16 @@ async def subjects_collect(
     An editor may run this: it invents nothing, it only writes down the names
     that are already in the class's timetable.
     """
-    created = await subjects_service.collect(session, school_class.id, callback.from_user.id)
-    if created:
-        await session.commit()
+    created = 0
 
+    async def write() -> None:
+        nonlocal created
+        created = await subjects_service.collect(session, school_class.id, callback.from_user.id)
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await callback.answer("Класс уже удалён. Откройте /start.", show_alert=True)
+        return
     await state.clear()
     text, keyboard = await _subject_view(session, school_class, role)
     await callback.message.edit_text(text, reply_markup=keyboard)
