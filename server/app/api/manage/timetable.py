@@ -75,7 +75,7 @@ async def timetable_import(
         )
     except timetable_service.PasteEmpty as empty:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=wording.TIMETABLE_PASTE_EMPTY_DETAIL,
         ) from empty
     if outcome.applied:

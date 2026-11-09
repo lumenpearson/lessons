@@ -369,9 +369,11 @@ class PetersburgClient:
             # answer to that is the one every dead session gets.
             raise SessionExpired()
         client = await shared_client()
-        cookies = {SESSION_COOKIE: self.token} if self.token else None
+        headers = httpx.Headers(kwargs.pop("headers", None))
+        if self.token:
+            headers["cookie"] = f"{SESSION_COOKIE}={self.token}"
         try:
-            response = await client.request(method, path, cookies=cookies, **kwargs)
+            response = await client.request(method, path, headers=headers, **kwargs)
         except httpx.TimeoutException as failure:
             raise UpstreamUnavailable("Дневник не ответил вовремя") from failure
         except httpx.HTTPError as failure:

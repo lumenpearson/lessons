@@ -28,6 +28,74 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: parent references survive their writes, and bell deletion locks before its children
+
+- #657: timetable imports keep the class and expected default schedule until
+  commit. A lost parent is refused through the v1/v2 stale-write boundary as
+  `Unknown bell schedule`; no weekday or replacement schedule is persisted.
+  Imports starting without a default protect the class before creating one.
+- More of #662: bell-row replacement, default changes and creation, event
+  creation, weekday paste/clear, the legacy bells form and the bot import
+  confirmation guard their parents before child writes. Bot refusals cover the
+  whole service call and commit, clear an open form and avoid expired ORM reads.
+- PostgreSQL uses KEY SHARE for referenced identities, allowing unrelated
+  metadata edits; SQLite's checked no-op UPDATE supplies its database write lock.
+  Neither path catches unrelated IntegrityError failures.
+- Independent review reproduced #677 in the unmerged first implementation:
+  the editor held the parent while ORM deletion held children. Deletion now
+  takes the exclusive schedule lock before ORM children, then refreshes the
+  periods an editor may have replaced while the lock waited. An already-deleted
+  target remains idempotent success without a duplicate audit row.
+- The added cases were seen red before their corresponding fixes. Removing the
+  PostgreSQL lock makes the two retained-parent tests red; removing the early
+  class check makes four no-default imports red. The actual ORM overlap test
+  also refuses SQLAlchemy warnings, holding the post-wait collection refresh.
+  Targeted SQLite module: **93 passed, two PostgreSQL-only skips, two warnings
+  in 24.38 seconds**. Targeted PostgreSQL module before the final collection
+  refresh: **95 passed**, exposing the stale-child warning; the final affected
+  PostgreSQL run passed **481 tests, 12 warnings in 33.39 seconds**.
+- Re-review found no remaining actionable introduced defects and independently
+  passed ten PostgreSQL lock/deletion checks in 7.44 seconds on its own database.
+- The first full PostgreSQL run exposed #679: the WatchClass bulk-write AST
+  guard demanded a notification for SQLite's locking-only identity UPDATE
+  (**one failed, 3439 passed, seven skipped in 334.93 seconds**). The guard now
+  exempts only directly executed, visible same-column assignments on known
+  mapped models without automatic update columns. Unknown targets, additional
+  changed values, deferred statements and execution parameters still require a
+  touch. Independent review reproduced the execution-parameter bypass before
+  it was closed and held by the same AST regression. Committed parent-lock
+  tests also prove neither class nor schedule locks wake a watcher.
+  Focused Watch module: **33 PostgreSQL tests passed in 15.78 seconds**;
+  final SQLite AST/quiet-lock selection: **five passed in 24.30 seconds**.
+  The first SQLite full run had the same single guard failure (**3438 passed,
+  eight skipped, 551 warnings in 1426.91 seconds**). A final-source PostgreSQL
+  attempt was interrupted when the owned local container exited with code 255:
+  **3383 passed, seven skipped and 60 setup connection errors in 379.43 seconds**.
+  Neither is a green gate. The container was restarted; the PostgreSQL repeat
+  uses four workers to reduce the concurrent full runs' memory pressure.
+  Final full runs:
+  SQLite: **3442 passed, eight skipped, 551 warnings in 1521.58 seconds**
+  (25 minutes, 21 seconds), exit code 0. JUnit: **3450 tests, zero failures
+  and zero errors**; no diagnostic timeout.
+  PostgreSQL: **3443 passed, seven skipped, 551 warnings in 317.79 seconds**
+  (five minutes, 17 seconds), exit code 0. JUnit: **3450 tests, zero failures
+  and zero errors**. The exact `pytest -q -n auto` command ran with
+  `PYTEST_XDIST_AUTO_NUM_WORKERS=4`; no diagnostic timeout in this repeat.
+  After the count and scope documentation updates, the CI-path, required-summary,
+  schema-version, test-import and service-layer checks passed **35 tests, two
+  warnings in 128.03 seconds**. Ruff is clean and mypy passed all **242 modules**.
+
+### What remains open
+
+#662 remains open for other class/bell parent references outside these named
+paths; #654 still needs its remaining no-op and scope reconciliation. The existing
+bell-deletion default/special-day prechecks retain their older concurrency limits,
+now reproduced on `main` and tracked as #678 for the next batch.
+No real Telegram conversation, installed APK or native-gRPC concurrency race was
+exercised. No migration, schema, contract, dependency, Android or production
+configuration change is included; the local throwaway PostgreSQL has fsync off,
+which is only a test setting from docs/build.md.
+
 ## What the batch before added: class updates meet a deleted parent before their audit row
 
 - The class-card part of #662 is fixed in shared `classes.set_field`,

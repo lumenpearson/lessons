@@ -97,7 +97,7 @@ def _check_date(day: Date) -> None:
     The sentence is ``clock``'s, which v2's writes answer with too."""
     if not clock.in_bounds(day):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=clock.DATE_OUT_OF_BOUNDS
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=clock.DATE_OUT_OF_BOUNDS
         )
 
 
@@ -245,16 +245,16 @@ async def override_put(
         )
     except substitutions.NoLessonOnDay as refused:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=refused.sentence
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=refused.sentence
         ) from None
     except substitutions.NoBellForLesson as refused:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=no_bell_detail(refused.index),
         ) from None
     except substitutions.LessonNotOnTimetable as refused:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=lesson_not_on_timetable_detail(refused.index, cancelling=refused.cancelling),
         ) from None
     await session.commit()
@@ -360,15 +360,15 @@ async def day_put(
         )
     except special_days.ScheduleNotInClass:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=SCHEDULE_NOT_IN_CLASS_DETAIL
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=SCHEDULE_NOT_IN_CLASS_DETAIL
         ) from None
     except bells_service.ScheduleEmpty:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=EMPTY_BELL_SCHEDULE_DETAIL
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=EMPTY_BELL_SCHEDULE_DETAIL
         ) from None
     except special_days.ShortenedNeedsSchedule:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=SHORTENED_NEEDS_SCHEDULE_DETAIL,
         ) from None
     await session.commit()

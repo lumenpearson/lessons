@@ -242,7 +242,7 @@ walked through all 1440 minutes of a school day and through all eleven Russian t
 
 **The server suite also passes on PostgreSQL, by hand.** On 9 November 2026 the full
 3460-test suite ran against an owned local PostgreSQL 16: 3453 passed, seven were
-skipped, and none failed (338.02 seconds, four workers). The parent-reference batch's
+skipped, and none failed (275.49 seconds, four workers). The parent-reference batch's
 real lock and ORM cascade races ran there too; the detailed scope is in `HANDOVER.md`.
 CI runs the suite on SQLite, and
 production runs on PostgreSQL, so on every pull request everything the two databases disagree

@@ -315,7 +315,7 @@ async def bundle(
     """
     if start is not None and not clock.in_bounds(start):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"start must be between {clock.MIN_DATE.isoformat()} "
                 f"and {clock.MAX_DATE.isoformat()}"
@@ -507,7 +507,7 @@ async def homework_list(
         start, end = clock.window(from_, to, clock.today(school_class))
     except clock.WindowRefused as refused:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_WINDOW_REFUSED[refused.why]
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=_WINDOW_REFUSED[refused.why]
         ) from None
 
     rows = await homework_service.due_between(session, school_class.id, start, end)
@@ -669,7 +669,7 @@ def _homework_not_in_class() -> HTTPException:
     """A task's ``homework_id`` of another class's homework, or none, which
     ``tasks.create_task`` and ``update_task`` refuse with a fact."""
     return HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail=wording.HOMEWORK_NOT_IN_CLASS_DETAIL,
     )
 

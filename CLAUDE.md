@@ -605,6 +605,7 @@ points Hilt does not inject cleanly.
   other, and one token meaning both would have to be re-minted whenever either half changed.
   They go in the same `Authorization: Bearer` header on different endpoint families — check
   which one an endpoint depends on before moving it.
+- Petersburg sessions stay in request-local Cookie headers; named httpx/HTTP 422 deprecations fail pytest (`test_a_call_carries_its_own_session_in_the_request`, `filterwarnings`, #391).
 - **The diary needs `DIARY_SECRET` or it does not run.** The upstream session — Petersburg's
   token or «Сетевой город»'s bearer and cookies, however it arrived — is
   the one stored credential that cannot be a hash (it is replayed upstream on every call),
