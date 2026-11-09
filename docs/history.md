@@ -28,6 +28,68 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: audited device management retains its Class
+
+- #696, a child of #654: admin revoke and unlink retain Class after existing
+  no-op/refusal checks and before DeviceToken mutation or audit staging. A
+  Class removed after lookup gets the existing device-not-found refusal and
+  leaves no successful audit. The already-revoked path still writes nothing.
+- Both bot actions execute service and commit inside `gone.committed`. A
+  removed Class or DeviceToken is answered without list redraw or reading
+  rollback-expired attributes. These callbacks have no pending FSM form.
+  Existing DeviceNotLinked refusal and normal success responses are retained.
+- Baseline: **12 failed, one healthy no-op passed in 29.56 seconds** against
+  main `0dfe89d2`. Fixed focused PostgreSQL: **13 passed in 9.59 seconds**.
+  Cases cover services, v1/REST v2/Connect and bot Class/device loss, absence
+  of audit, usable post-rollback sessions and strict read-only repeat revoke.
+- Independent fresh-context review found no actionable defect and passed
+  **67 SQLite checks in 326.12 seconds**, plus **three explicit healthy,
+  already-unlinked and failed-audit atomicity cases in 21.84 seconds**.
+  It did not execute PostgreSQL. Ruff is clean; mypy passed **242 modules**.
+- Full combined PostgreSQL: **3540 passed, seven skipped, 15 warnings in
+  369.51 seconds**; JUnit: **3547 tests, zero failures and errors**.
+  Full combined SQLite: **3537 passed, ten skipped, 15 warnings in
+  2085.23 seconds**; JUnit: **3547 tests, zero failures and errors**.
+  The checked Subject parent head and merge have identical trees; both full
+  runs include the combined source.
+
+### What remains open
+
+#654 and #662 remain open. #697 reproduces actual Class/AccessRequest lock
+cycles for both approval and decline: the complete baseline had **two failed,
+eight compatibility cases passed in 16.09 seconds**. The managed-worktree fix
+retains Class before the pending-request row lock and encloses bot lookup,
+decision and commit in the stale boundary. All **ten new PostgreSQL cases
+passed in 12.04 seconds**; the affected service set passed **18 in 11.06 seconds**.
+Independent review found no actionable defect and passed **108 SQLite checks,
+two PostgreSQL-only skips, in 158.71 seconds**. Its existing compile-only FOR
+UPDATE unit stubs parent retention while preserving the child query assertion;
+that exact unit passed independently in **3.87 seconds**. The follow-up now
+also covers #700 submission in the same two files; its combined focused
+PostgreSQL set passed **21 in 11.11 seconds**, with Ruff and mypy clean. Fresh
+combined review found no actionable defect and passed **33 SQLite checks,
+two PostgreSQL-only skips, in 179.61 seconds**. Final combined full gates
+remain pending; no request fix is in this device batch.
+Child #699 separately reproduces personal-task creation after Class loss: both
+service entry points, three API transports and two bot entry forms fail with
+a foreign-key error (**seven failed in 10.67 seconds**). The probe is preserved
+outside this batch; the isolated task fix passed **seven PostgreSQL cases in
+7.94 seconds** and **200 affected PostgreSQL checks in 35.65 seconds**. Fresh
+review found no actionable defect and passed **307 SQLite checks in 452.50
+seconds**, plus **20 task checks in 40.88 seconds** and **four commit-before-
+Telegram checks in 27.83 seconds**. Its final combined gates remain pending;
+no personal-task production change is in this device batch.
+Child #700 separately reproduces new access-request submission after Class
+loss: the complete baseline had **three PostgreSQL failures in 13.72 seconds**
+(service and both bot entry forms). The managed follow-up combines its fix
+with #697 before full gates; this device batch contains neither request fix.
+Self-unlink, device creation/linking, access-request submission and legacy
+subject listing/lazy adoption remain outside this batch. No real Telegram
+conversation, installed APK or native-gRPC concurrency run was performed.
+No schema, migration, Android, protobuf or production setting changed.
+Board Done status remains unverified: the in-app browser shows a logged-out
+GitHub shell without project content. No security review is claimed.
+
 ## What the batch before added: subject collection and deletion retain their Class
 
 - #695, a child of #654: explicit nonempty subject collection and deletion
