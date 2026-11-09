@@ -89,17 +89,19 @@ def _httpx_specifier(text: str) -> str:
 
 
 async def test_a_call_carries_its_own_session_in_the_request(monkeypatch):
-    """The property the version bound below exists to protect: the session is
-    handed to the call, not kept on the shared client, because that client
-    serves every family at once."""
+    """Rotation belongs to its caller, never the next family or a fresh login."""
     sent: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         sent.append(request)
-        return httpx.Response(200, json={"data": {"items": []}})
+        return httpx.Response(
+            200, json={"data": {"items": [], "token": "rotated"}},
+            headers={"set-cookie": f"{provider_client.SESSION_COOKIE}=rotated; Path=/"},
+        )
 
     client = httpx.AsyncClient(
-        base_url=provider_client.BASE_URL, transport=httpx.MockTransport(handler)
+        base_url=provider_client.BASE_URL, transport=httpx.MockTransport(handler),
+        cookies=provider_client._NoCookieJar(),
     )
 
     async def shared():
@@ -107,11 +109,18 @@ async def test_a_call_carries_its_own_session_in_the_request(monkeypatch):
 
     monkeypatch.setattr(provider_client, "shared_client", shared)
     try:
-        await provider_client.PetersburgClient("a-session").children()
+        first = provider_client.PetersburgClient("a-session")
+        await first.children()
+        await provider_client.PetersburgClient("b-session").children()
+        await first.children()
+        await provider_client.PetersburgClient().login("parent@example.com", "hunter2")
     finally:
         await client.aclose()
 
-    assert f"{provider_client.SESSION_COOKIE}=a-session" in sent[0].headers["cookie"]
+    cookie = provider_client.SESSION_COOKIE
+    assert [request.headers.get("cookie") for request in sent] == [
+        f"{cookie}=a-session", f"{cookie}=b-session", f"{cookie}=rotated", None,
+    ]
     # And nothing stuck to the client, which is the half that keeps two
     # families' sessions from meeting.
     assert not client.cookies
@@ -127,20 +136,10 @@ async def test_a_call_carries_its_own_session_in_the_request(monkeypatch):
     ],
     ids=["pyproject", "requirements-in"],
 )
-def test_httpx_is_bounded_above_because_this_client_depends_on_a_deprecation(path):
-    """Every diary call is ``request(..., cookies=...)``, which httpx 0.28
-    warns is "being deprecated" in favour of cookies on the client — the one
-    migration this provider must not take, because the client is shared by
-    every family at once.
-
-    A release that dropped the parameter would not fail a build or a test: the
-    call would simply go out with no session, the upstream would answer with
-    its login page, and every user would be told their diary session expired.
-    Nothing about that says «pip installed a newer httpx», so the version is
-    where it has to be caught.
-    """
+def test_httpx_stays_in_the_tested_minor_range_until_an_explicit_upgrade(path):
+    """Removing a deprecated call does not validate an untested dependency upgrade."""
     specifier = _httpx_specifier(path.read_text(encoding="utf-8"))
-    assert "<" in specifier, f"{path.name} lets httpx float past the deprecation: {specifier}"
+    assert "<" in specifier, f"{path.name} lets httpx float past the tested minor: {specifier}"
     assert specifier.startswith("httpx>=0.28.1,<")
 
 

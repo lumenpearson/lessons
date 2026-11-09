@@ -55,7 +55,7 @@ async def schools_search(
         result = await schools_service.search(q, region=region)
     except schools_service.SearchError as error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
         ) from error
     except dadata.DirectoryError as error:
         raise HTTPException(

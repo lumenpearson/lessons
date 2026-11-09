@@ -88,7 +88,7 @@ async def class_update(
         )
     except classes_service.UnknownTimezone as unknown:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=wording.UNKNOWN_TIMEZONE_DETAIL,
         ) from unknown
 
@@ -121,7 +121,7 @@ async def class_delete(
         await classes_service.delete(session, school_class, payload.confirm_name)
     except classes_service.NameMismatch as mismatch:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="confirm_name does not match the class name",
         ) from mismatch
 

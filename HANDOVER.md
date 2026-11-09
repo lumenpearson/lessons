@@ -6,21 +6,20 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **9 November 2026**. `main` is at `49988cee`, the merge of
-#680, pinned to checked head `7170be0b`. Its PR CI and post-merge main CI passed
-(server, both live hosts and required summary; main run 42531241696).
-Production is READY at that merge and all three production aliases point there.
-`/api/v1/warmup` again answered HTTP 200, status ok, schema `0019`, v2 true on
-9 November. The checked production error/fatal log window since 04:50 UTC was
-empty. The public project-6 board shows #657, #677, #679 and #680 in Done.
-The original checkout and `dev` were fast-forwarded; `dev` was pushed normally.
+Last updated: **9 November 2026**. `main` is at `f102d8f1`, the merge of
+#681, pinned to checked head `ab18fca5`. PR CI and post-merge main CI run
+42572457363 passed, including both live hosts and the required summary. Production is READY at that exact merge,
+all three production aliases point there, and `/api/v1/warmup` answered HTTP 200,
+status ok, schema `0019`, v2 true. The checked post-warmup deployment error/fatal window remained
+empty. #678 is closed; #681 is merged. The public project board could not be
+re-read because the embedded browser failed to attach, so its Done state is
+not claimed. Both checkouts and `dev` were fast-forwarded; `dev` was pushed.
 
 The owner requested autonomous priority work until **14:00 Moscow on 9 November**.
-The current milestone-11 batch, `server/bell-delete-rechecks-678` in the original
-checkout with its own Python 3.12 environment, closes #678. Its base is that
-checked merge; the reviewed parent implementation is no longer pending.
-This close-out belongs to this batch's own pull request. The next batch records
-its merge SHA without a separate close-out pull request.
+The current batch is `server/diary-deprecations-391` in the managed worktree,
+based on that checked merge, and closes #391 on its existing milestone **13**.
+Its dependency versions and bounds stay level with the proven lock. This close-out
+belongs to this batch's own pull request; the next batch records its merge SHA.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -333,7 +332,45 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: bell deletion rechecks protected references before cascading
+## What the last session added: diary sessions avoid deprecated cookies and HTTP 422 aliases
+
+- #391: Petersburg sends its validated session in a request-local Cookie header,
+  without httpx's deprecated per-request cookies argument. The shared client
+  keeps its empty jar; response-cookie rotation updates only the calling client.
+  The existing request test now holds two families, a rotated follow-up request,
+  a fresh login with no cookie, and an empty shared jar after all four calls.
+- Nine API modules use HTTP_422_UNPROCESSABLE_CONTENT instead of Starlette's
+  deprecated alias. The integer status, response details and API fields are unchanged.
+- The existing pytest gate makes precisely these two warning families errors.
+  Both behavior tests were seen red before the fix (**two failed in 7.65 seconds**).
+  No warning is ignored and no dependency version or bound was changed. The
+  dependency comments and bound test now describe the tested range, not a
+  deprecated call the client no longer uses. docs/engineering.md records why.
+- Affected diary, protocol-vector, requirements-mirror and v2 homework checks:
+  **210 passed in 28.90 seconds** after local resource recovery. Earlier attempts
+  failed inside pytest under the same memory pressure recorded by the prior batch;
+  those attempts are not green results. Independent review found no actionable
+  introduced defects and passed nine focused client checks in **3.29 seconds**.
+  Ruff is clean; mypy passed **242 modules**.
+- Full PostgreSQL: **3453 passed, seven skipped, 15 warnings in 275.49 seconds**;
+  JUnit: **3460 tests, zero failures and errors**. The warnings fell from 551
+  to 15 without changing the number of cases or suppressing warnings.
+  3452 passed, eight skipped, 15 warnings in 1920.80 seconds; JUnit: 3460 tests, zero failures and errors
+- Documentation/reference checks: **35 passed, two warnings in 111.51 seconds**.
+
+### What remains open
+
+#662 and #654 retain other parent-reference/no-op paths. Issue #682 tracks
+special-day writes losing their class or selected bell schedule after validation.
+Its separate `server/special-day-parent-races-662` branch in the original checkout
+has staged the defect and passed 329 affected PostgreSQL checks; SQLite and
+independent review are in progress. No #682 fix is included in this batch. Other deprecations remain
+visible in the 15 warnings; this batch holds only the two families #391 names.
+No live diary sign-in, real Telegram conversation, installed APK or native-gRPC
+concurrency race ran. No schema, migration, contract, Android or production
+configuration change is included. All diary requests used fake upstreams.
+
+## What the session before it added: bell deletion rechecks protected references before cascading
 
 - #678: deletion refreshes the class default and repeats the special-day usage
   count after acquiring the exclusive schedule lock. A reference committed
@@ -373,74 +410,6 @@ No real Telegram conversation, installed APK or native-gRPC concurrent race ran.
 No schema, migration, dependency, contract, Android or production configuration
 change is included. PostgreSQL is an owned local throwaway test instance.
 
-## What the session before it added: parent references survive their writes, and bell deletion locks before its children
-
-- #657: timetable imports keep the class and expected default schedule until
-  commit. A lost parent is refused through the v1/v2 stale-write boundary as
-  `Unknown bell schedule`; no weekday or replacement schedule is persisted.
-  Imports starting without a default protect the class before creating one.
-- More of #662: bell-row replacement, default changes and creation, event
-  creation, weekday paste/clear, the legacy bells form and the bot import
-  confirmation guard their parents before child writes. Bot refusals cover the
-  whole service call and commit, clear an open form and avoid expired ORM reads.
-- PostgreSQL uses KEY SHARE for referenced identities, allowing unrelated
-  metadata edits; SQLite's checked no-op UPDATE supplies its database write lock.
-  Neither path catches unrelated IntegrityError failures.
-- Independent review reproduced #677 in the unmerged first implementation:
-  the editor held the parent while ORM deletion held children. Deletion now
-  takes the exclusive schedule lock before ORM children, then refreshes the
-  periods an editor may have replaced while the lock waited. An already-deleted
-  target remains idempotent success without a duplicate audit row.
-- The added cases were seen red before their corresponding fixes. Removing the
-  PostgreSQL lock makes the two retained-parent tests red; removing the early
-  class check makes four no-default imports red. The actual ORM overlap test
-  also refuses SQLAlchemy warnings, holding the post-wait collection refresh.
-  Targeted SQLite module: **93 passed, two PostgreSQL-only skips, two warnings
-  in 24.38 seconds**. Targeted PostgreSQL module before the final collection
-  refresh: **95 passed**, exposing the stale-child warning; the final affected
-  PostgreSQL run passed **481 tests, 12 warnings in 33.39 seconds**.
-- Re-review found no remaining actionable introduced defects and independently
-  passed ten PostgreSQL lock/deletion checks in 7.44 seconds on its own database.
-- The first full PostgreSQL run exposed #679: the WatchClass bulk-write AST
-  guard demanded a notification for SQLite's locking-only identity UPDATE
-  (**one failed, 3439 passed, seven skipped in 334.93 seconds**). The guard now
-  exempts only directly executed, visible same-column assignments on known
-  mapped models without automatic update columns. Unknown targets, additional
-  changed values, deferred statements and execution parameters still require a
-  touch. Independent review reproduced the execution-parameter bypass before
-  it was closed and held by the same AST regression. Committed parent-lock
-  tests also prove neither class nor schedule locks wake a watcher.
-  Focused Watch module: **33 PostgreSQL tests passed in 15.78 seconds**;
-  final SQLite AST/quiet-lock selection: **five passed in 24.30 seconds**.
-  The first SQLite full run had the same single guard failure (**3438 passed,
-  eight skipped, 551 warnings in 1426.91 seconds**). A final-source PostgreSQL
-  attempt was interrupted when the owned local container exited with code 255:
-  **3383 passed, seven skipped and 60 setup connection errors in 379.43 seconds**.
-  Neither is a green gate. The container was restarted; the PostgreSQL repeat
-  uses four workers to reduce the concurrent full runs' memory pressure.
-  Final full runs:
-  SQLite: **3442 passed, eight skipped, 551 warnings in 1521.58 seconds**
-  (25 minutes, 21 seconds), exit code 0. JUnit: **3450 tests, zero failures
-  and zero errors**; no diagnostic timeout.
-  PostgreSQL: **3443 passed, seven skipped, 551 warnings in 317.79 seconds**
-  (five minutes, 17 seconds), exit code 0. JUnit: **3450 tests, zero failures
-  and zero errors**. The exact `pytest -q -n auto` command ran with
-  `PYTEST_XDIST_AUTO_NUM_WORKERS=4`; no diagnostic timeout in this repeat.
-  After the count and scope documentation updates, the CI-path, required-summary,
-  schema-version, test-import and service-layer checks passed **35 tests, two
-  warnings in 128.03 seconds**. Ruff is clean and mypy passed all **242 modules**.
-
-### What remains open
-
-#662 remains open for other class/bell parent references outside these named
-paths; #654 still needs its remaining no-op and scope reconciliation. The existing
-bell-deletion default/special-day prechecks retain their older concurrency limits,
-now reproduced on `main` and tracked as #678 for the next batch.
-No real Telegram conversation, installed APK or native-gRPC concurrency race was
-exercised. No migration, schema, contract, dependency, Android or production
-configuration change is included; the local throwaway PostgreSQL has fsync off,
-which is only a test setting from docs/build.md.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -465,9 +434,9 @@ current.
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676 and #680 (merged), and the current `server/bell-delete-rechecks-678` pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678 and #679 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676, #680 and #681 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678 and #679 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, and PR #649 (merged as `d4f7725c` on 8 November); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), and the current `server/diary-deprecations-391` pull request (open); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the

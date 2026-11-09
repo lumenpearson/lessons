@@ -216,6 +216,12 @@ and a `grep` for Russian in Kotlin that a person has to remember to run (#315). 
 not a gate, no Kotlin formatter is checked, and on the server ruff selects five rule families
 and mypy asks one question.
 
+The existing pytest gate also treats the two deprecations from #391 as errors:
+per-request httpx cookies and Starlette's old HTTP 422 alias. Their existing
+behavior tests were seen red with those filters before the calls were replaced.
+The filters name only these warnings, so another warning remains visible rather
+than being suppressed by a broad compatibility exception.
+
 **Where this goes past Airbnb.** Airbnb's rules encode its standards. The rules here encode
 this project's *defects*: each is born from an issue, its message names the issue and the
 right call, and it ships with a test that is red on the code that produced the defect — the

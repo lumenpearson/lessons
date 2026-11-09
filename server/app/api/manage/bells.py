@@ -133,12 +133,12 @@ async def bells_update(
         )
     except bells_service.DefaultRequired as required:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=wording.BELL_DEFAULT_REQUIRED_DETAIL,
         ) from required
     except bells_service.ScheduleEmpty as empty:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=wording.EMPTY_BELL_SCHEDULE_DETAIL,
         ) from empty
 

@@ -108,7 +108,7 @@ def _range(
         return service.window(date_from, date_to, today or diary_today())
     except clock.WindowRefused as refusal:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=_RANGE_REFUSED[refusal.why]
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=_RANGE_REFUSED[refusal.why]
         ) from None
 
 
@@ -282,7 +282,7 @@ def _resolve_login_target(payload: DiaryLoginIn) -> service.Target:
         detail = wording.DIARY_REGION_NOT_SERVED_DETAIL
     except service.SchoolRequired:
         detail = "A school id is required for «Сетевой город»"
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=detail)
 
 
 async def login(
@@ -473,7 +473,7 @@ async def register_session(
     except service.RegionNotServed:
         # Before anything was counted or sent: a 422 that nothing upstream saw.
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=wording.DIARY_REGION_NOT_SERVED_DETAIL,
         ) from None
     except Throttled as refusal:
@@ -744,7 +744,7 @@ async def put_override(
         # answered before it is kept would be gone from the next read.
         await session.commit()
         return DiaryOverrideOut.of(stored)
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=detail)
 
 
 @router.post(

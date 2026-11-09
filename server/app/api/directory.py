@@ -104,7 +104,7 @@ async def school_regions(
         ) from throttled
     except schools_service.SearchError as error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
         ) from error
     except directory_service.DirectoryDisabled as disabled:
         raise _unavailable(DISABLED_DETAIL, "disabled") from disabled
