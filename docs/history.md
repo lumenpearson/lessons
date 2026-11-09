@@ -29,6 +29,84 @@ the conventions of the file it was written in:
 ---
 
 
+## What the batch before added: device joins retain Class before burning a code
+
+- #705: join retains Class after the existing mode/cap validation and before
+  consuming an invitation or adding a device token. A parent removed after
+  lookup raises the established JoinCodeUnknown domain refusal on v1, REST v2
+  and Connect. A known live code whose Class disappears is forgiven rather
+  than recorded as an incorrect guess. Ordinary invalid-code accounting and
+  successful-join commit ownership are unchanged.
+- Six PostgreSQL regressions failed in **5.67 seconds** before the change and
+  passed in **3.24 seconds** afterwards. The expanded PostgreSQL set passed
+  **95 tests, one warning in 21.43 seconds**. Fresh independent review found
+  no actionable defect; its completed SQLite log records **94 passed, one
+  PostgreSQL-only skip, one warning in 473.48 seconds**. Its initial pending
+  handback was followed by the completed log, not treated as success itself.
+- The PostgreSQL lock-order case uses real Class/DeviceInvite transactions,
+  pg_blocking_pids and bounded task cleanup. The other five cover service and
+  transport Class loss plus known-live-code limiter accounting. No model,
+  migration, public v1 field/input/enum or protobuf changed.
+- Final full gates on the checked administration tree: **3590 PostgreSQL passed, seven skipped, 15 warnings in
+  335.59 seconds**. JUnit has **3597 cases, zero failures/errors**, including
+  all six new cases executed. Full SQLite passed **3584, thirteen skipped, 15 warnings in
+  1987.83 seconds**; JUnit has **3597 cases, zero failures/errors**. Five
+  new SQLite cases executed; the real PostgreSQL lock case skipped there.
+  Ruff passed and mypy checked **242 modules**. Documentation/schema checks
+  passed **17, three warnings in 135.76 seconds**.
+  The first PostgreSQL run was stopped to remove local hostname latency:
+  five connections took 10.707 seconds through localhost versus 0.077 through
+  explicit IPv4. Only its verified owned Python tree was stopped; logs were
+  retained. The final PostgreSQL run uses IPv4; SQLite was left running.
+
+### What remains open
+
+#654 and #662 remain open. The separate #707 editor/override WIP now holds
+Class/Bell parents, refreshes canteen references after waiting, and guards
+whole bot writes. Its corrected initial parent-loss baseline had seven
+PostgreSQL failures; add/edit service loss added two. Two remove/move lock-
+order compatibility cases passed unchanged. Review caught an add/edit bot
+caller boundary; four RED tests reproduced it, the whole write was guarded,
+and follow-up independent SQLite passed four in **22.83 seconds**, with no
+remaining finding. Expanded PostgreSQL passed **212 in 137.62 seconds**.
+Full combined gates await this join batch's checked head; no editor fix is
+included here.
+
+Child #708 under #654, milestone 11, separately covers phone linking: the
+formal baseline had **four PostgreSQL failures, one healthy pass in 35.43
+seconds**. Its own isolated checkout now retains Class and leaves commit to
+both bot callers, guarding claim/reads/audit/commit and capturing response
+strings before rollback can expire ORM objects. Five initial cases passed
+in **20.34 seconds**; a sixth healthy witness checks the command's claim and
+audit through a fresh session before Telegram output. Six existing test
+callers now commit setup explicitly before a separate API session uses it.
+Independent static review found no actionable defect and ran no tests. A
+672-case focused PostgreSQL command passed while its base was refreshed;
+it is retained as diagnostic evidence, not the final stable-base gate. The
+hostname rerun was stopped for that same measured latency. The final IPv4
+rerun passed **672 PostgreSQL checks, five warnings in 81.95 seconds**; all
+six SQLite regressions passed in **33.55 seconds**. No phone-link fix is
+included here.
+
+The syntactic 61-site audit is not exhaustive safety proof. Child #710 under
+#662 now reproduces independent Homework deletion between task link lookup
+and create/update: **two PostgreSQL FK failures in 2.59 seconds** on main
+82f3e5b9. The Class remains present; the existing HomeworkNotInClass refusal
+is bypassed. Formal create/update service and v1/REST-v2/Connect cases gave **eight
+failures in 5.63 seconds**. Its original-checkout WIP rechecks and retains
+Homework after Class retention, keeping the existing validation refusal.
+Eight SQLite cases passed in **37.83 seconds**; ten PostgreSQL cases passed
+in **3.70 seconds**, including two real delete-wait/SET-NULL checks. Fresh
+review found no actionable defect and independently passed eight SQLite
+cases in **45.12 seconds**; expanded PostgreSQL passed **121, five warnings
+in 27.48 seconds**. No #710 fix or full gates are included here. Independently deleted member zero-row DELETE
+behavior, live Telegram, an installed APK and native-gRPC concurrency remain
+outside this batch. Board Done state is unverified. No production database
+was changed by these tests; each owned checkout has its own environment and
+local test database namespace.
+
+
+
 
 ## What the batch before added: Class administration keeps its complete transaction
 

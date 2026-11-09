@@ -111,6 +111,7 @@ async def _linked_token(
     token = await _token(client, name)
     me = await client.get("/api/v1/me", headers=_auth(token))
     assert await linking.link_device(session, me.json()["link_code"], telegram_id) is not None
+    await session.commit()
     return token
 
 
@@ -1571,6 +1572,7 @@ async def test_the_device_list_asks_for_a_role_once_per_owner_not_once_per_phone
             extra = await _token(client, f"телефон {number}")
             me = await client.get("/api/v1/me", headers=_auth(extra))
             await linking.link_device(session, me.json()["link_code"], ADMIN_ID)
+            await session.commit()
 
     async def list_devices() -> tuple[int, int]:
         """(phones listed, times the class's members were read)."""
@@ -1755,6 +1757,7 @@ async def test_log_pages_newest_first_and_names_the_author(client, session, scho
     token = await _token(client)
     me = await client.get("/api/v1/me", headers=_auth(token))
     await linking.link_device(session, me.json()["link_code"], ADMIN_ID)
+    await session.commit()
 
     for name in ("Химия", "Биология", "География"):
         assert (

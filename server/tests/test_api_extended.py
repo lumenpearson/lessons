@@ -95,6 +95,7 @@ async def _link(client, session, token: str, telegram_id: int) -> DeviceToken:
     me = await client.get("/api/v1/me", headers=_auth(token))
     assert me.status_code == 200, me.text
     device = await linking.link_device(session, me.json()["link_code"], telegram_id)
+    await session.commit()
     assert device is not None
     return device
 

@@ -62,33 +62,40 @@ async def cmd_link(
         )
         return
 
-    device = await linking.link_device(session, code, message.from_user.id)
-    if device is None:
+    answer: str | None = None
+
+    async def write() -> None:
+        nonlocal answer
+        device = await linking.link_device(session, code, message.from_user.id)
+        if device is None:
+            return
+
+        device_role = await linking.effective_role(session, device)
+        name = escape(device.device_name or "Телефон")
+        if device_role is not None and device_role.at_least(Role.EDITOR):
+            tail = f"Ваша роль: <b>{device_role.title_ru}</b> — приложение может редактировать."
+        else:
+            title = device_role.title_ru if device_role is not None else "нет роли"
+            tail = (
+                f"Ваша роль: <b>{title}</b> — только чтение. "
+                "Запросить доступ редактора: /request"
+            )
+        await audit.record(
+            session,
+            device.class_id,
+            message.from_user.id,
+            "device.link",
+            f"привязано устройство «{device.device_name or device.id}»",
+        )
+        answer = f"📱 Устройство «{name}» привязано. {tail}"
+
+    if not await gone.committed(session, write) or answer is None:
         await message.answer(
             "Код не подошёл. Он действует один раз — откройте экран привязки "
             "в приложении ещё раз и пришлите новый."
         )
         return
-
-    device_role = await linking.effective_role(session, device)
-    name = escape(device.device_name or "Телефон")
-    if device_role is not None and device_role.at_least(Role.EDITOR):
-        tail = f"Ваша роль: <b>{device_role.title_ru}</b> — приложение может редактировать."
-    else:
-        title = device_role.title_ru if device_role is not None else "нет роли"
-        tail = (
-            f"Ваша роль: <b>{title}</b> — только чтение. "
-            "Запросить доступ редактора: /request"
-        )
-    await audit.record(
-        session,
-        device.class_id,
-        message.from_user.id,
-        "device.link",
-        f"привязано устройство «{device.device_name or device.id}»",
-    )
-    await session.commit()
-    await message.answer(f"📱 Устройство «{name}» привязано. {tail}")
+    await message.answer(answer)
 
 
 async def _notify_admins(
