@@ -29,6 +29,92 @@ the conventions of the file it was written in:
 ---
 
 
+
+## What the batch before added: Class administration keeps its complete transaction
+
+- #702 and #703: bot invitations, role changes, revocation, codes, calendar
+  links and diary binding retain Class before dependent writes. Direct Class
+  changes take its exclusive lock; child mutations keep its key. Every action
+  encloses its complete local write, audit and commit in the stale boundary.
+  Refusals skip success cards and rollback-expired ORM reads; affected forms
+  are cleared. Existing roles, provider validation and revocation cleanup stay.
+- Review found internal commits in class-scoped diary sign-out, personal-code
+  minting and calendar rotation. They now leave commit to their caller, so a
+  late refusal cannot leave the audit or changed secret durable on its own.
+  All standalone callers still commit before Telegram. Upstream logout is an
+  existing external effect; local rollback does not undo that remote effect.
+- First calendar-token creation retains Class before the conditional NULL
+  UPDATE and refresh; an existing-token read remains read-only. v1 and v2
+  calendar creation map stale Class to their existing Class-not-found answer.
+  No public field, required input, enum, contract or schema changed.
+- Baseline groups: **three PostgreSQL failures in 8.53 seconds**, **two nested-
+  commit failures in 6.10 seconds**, **eleven settings failures in 8.75
+  seconds**, **two lazy calendar failures in 5.84 seconds**, and **six shared/
+  transport/rotation failures in 6.79 seconds**. The nineteen settings cases
+  passed after fixing them in **8.87 seconds**; expanded PostgreSQL passed
+  **494 checks in 38.49 seconds**.
+- Fresh review of the original fourteen files found no actionable defect and
+  passed **97 SQLite checks in 48.44 seconds**. Two further full-suite test
+  setups expected an internal commit: their callers now commit explicitly,
+  with every API/persistence assertion unchanged. Focused PostgreSQL passed
+  **two in 5.28 seconds**; follow-up independent SQLite passed **two in 12.52
+  seconds**, with no remaining finding in the final sixteen-file delta.
+- The first full PostgreSQL run had **two failed, 3582 passed, seven skipped
+  in 312.50 seconds** on those old setup assumptions; its logs are retained.
+  The old SQLite run was stopped because the setup correction invalidated it.
+  The final full PostgreSQL run passed **3584 tests, seven skipped, 15 warnings
+  in 292.85 seconds**; JUnit: **3591 tests, zero failures and errors**. All
+  twenty-four new cases executed and passed. Final full SQLite:
+  **3579 passed, twelve skipped, 15 warnings in 1979.85 seconds**; JUnit
+  contains **3591 tests, zero failures and errors**, including all twenty-four
+  new cases executed and passed. Ruff is clean; mypy passed **242 modules**. The checked
+  task head and merge have identical trees; both full runs include that code.
+  Documentation/schema checks passed **17 tests, three warnings in 41.45 seconds**.
+
+### What remains open
+
+#654 and #662 remain open. Child #705's managed parent-races follow-up retains
+Class before a device join burns an invite or inserts a token. Its baseline
+had **six PostgreSQL failures in 5.67 seconds** including an actual Class/
+DeviceInvite lock cycle and false incorrect-guess accounting. All six passed
+in **3.24 seconds**, and the affected PostgreSQL set passed **95 in 21.43
+seconds**. Fresh review found no actionable defect; its SQLite command
+finished **94 passed, one PostgreSQL-only skip, one warning in 473.48
+seconds**, verified from the completed log after an initially pending handback.
+Final combined gates await this administration batch's checked head; no join
+fix is included here.
+Child #707 separately covers remaining editor/override writes. Corrected
+probes use the required administrator role, isolate the occupied slot and
+assert the read/delete staging: **seven PostgreSQL failures, one warning in
+12.31 seconds** cover canteen Class/Bell loss, split/merge Class loss and
+override clearing. Earlier insufficient-role/occupied-slot probes are invalid
+baseline evidence. Two real PostgreSQL remove/move lock-order compatibility
+checks passed unchanged in **1.23 seconds**; no defect is claimed there.
+Its task-parent worktree has a separate production/test WIP. Eleven PostgreSQL
+cases passed in **7.25 seconds**, and its expanded compatibility set passed
+**208 in 20.91 seconds**. Fresh review found an additional add/edit bot caller
+boundary: four regressions reproduced the escaping stale-parent exception
+in **14.47 seconds**. The whole service/audit/commit boundary is now guarded; follow-up review
+found no remaining defect and independently passed the four caller cases
+on SQLite in **22.83 seconds**. Expanded PostgreSQL rerun passed **212 checks in 137.62 seconds**;
+no #707 fix or full gates are included in this batch.
+Phone linking is now reproduced as child #708 under #654, on milestone 11:
+**three PostgreSQL failures in 15.08 seconds** cover Class loss after code
+lookup, an escaping late-audit refusal, and the service commit surviving a
+caller rollback. The other production caller, `/start link_…`, adds one
+failing real Class-loss case and one healthy commit-before-Telegram witness
+(**one failed, one passed in 14.30 seconds**). A fourth isolated checkout
+`lessons-phone-link` now owns that follow-up; its formal baseline on the
+same checked merge is **four failed, one passed in 35.43 seconds**. The probe/log are preserved outside collection; no #708 fix
+is included here. The 61-site audit inventory is syntactic evidence, not an
+exhaustive safety claim. Task Homework-reference concurrency remains unverified.
+The independently deleted member zero-row DELETE remains outside this Class-
+loss scope. No real Telegram conversation, installed APK or native-gRPC
+concurrency run was performed. No migration, Android, protobuf or production
+setting changed. Project 6 Done state is unverified because the browser shows
+a logged-out header without board content and the CLI token lacks project
+scope. No branch or stash was deleted.
+
 ## 9 November 2026: new personal tasks retain their Class
 
 - #699, a child of #654: both task-creation entry points retain Class before
