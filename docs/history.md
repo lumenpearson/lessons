@@ -28,6 +28,49 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: homework writes retain the class they were read from
+
+- #684, a child of #662: homework creation and v1/bot upserts retain their Class
+  after lookup until the caller commits. A removed parent is refused before
+  child DML, rather than escaping as a foreign-key error or being mistaken for
+  HomeworkExists. Actual duplicate detection and savepoint recovery stay intact.
+- The bot's homework service execution and audit staging run inside the same
+  `gone.committed` boundary. An early stale failure rolls back, clears state,
+  and returns before a success message, notification or expired-attribute read.
+- Nine service/API/bot regressions were all seen red on the prior main source:
+  **nine failed in 10.19 seconds**. Fixed focused runs passed all nine on
+  PostgreSQL in **7.75 seconds** and SQLite in **58.19 seconds**. The affected
+  PostgreSQL checks passed **47 in 15.64 seconds**.
+- The existing SQLite Homework-deletion stager initially attempted its second
+  writer after the Class identity UPDATE held the whole file: **one failed,
+  46 passed in 175.57 seconds**. It now deletes the already-read child before
+  that lock, keeping every refusal/audit/state assertion. The exact old test
+  passed in **8.48 seconds**; all **47 affected checks passed in 157.09 seconds**.
+- Independent review found no actionable production defect and passed **40
+  focused SQLite checks in 225.06 seconds**. It separately inspected the stager
+  adaptation and found no weakened assertion; no additional test ran for that
+  follow-up. Ruff is clean; mypy passed **242 modules**.
+- Full PostgreSQL on the combined parent-batch source: **3478 passed, seven
+  skipped, 15 warnings in 293.38 seconds**; JUnit: **3485 tests, zero failures
+  and errors**. The checked parent head and its merge have identical trees.
+  Full SQLite: **3477 passed, eight skipped, 15 warnings in 1792.50 seconds**;
+  JUnit: **3485 tests, zero failures and errors**, no diagnostic timeout.
+  An earlier full PostgreSQL run on the pre-combination base passed 3462 cases,
+  seven skipped, in 305.64 seconds; it is not the combined-base result.
+
+### What remains open
+
+#662 and #654 retain other parent-reference and unchanged-audit paths. Child
+#686 of #654 now stages unchanged audited Homework and DayOverride retries whose
+row was deleted after lookup: all six service/v1/bot cases failed on main in
+10.92 seconds. Its original-checkout branch `server/unchanged-audit-races-654`
+contains only regressions so far; the fix will build on this batch. No #686
+fix is included here. V2's silent read-only updates remain unchanged.
+No live Telegram conversation, installed APK or native-gRPC concurrency run
+was performed. No schema, migration, Android, protobuf or production setting
+changed. The public board's latest Done state remains unverified because the
+embedded browser could not attach.
+
 ## What the batch before added: special-day writes retain their class and selected bells
 
 - #682, a child of #662: the shared `put_day` keeps its Class and explicitly
