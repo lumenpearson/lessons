@@ -23,6 +23,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.bot.editor_keyboard import (
     BREAKS,
@@ -294,27 +295,31 @@ async def editor_parity(
         await callback.answer(refusal, show_alert=True)
         return
 
-    if callback_data.action == "split":
-        changed = await timetable_edit.split_parity(
-            session, school_class.id, callback_data.day, callback_data.index
-        )
-        note = "разделён по неделям"
-    else:
-        keep = WeekParity.EVEN if callback_data.arg else WeekParity.ODD
-        changed = await timetable_edit.merge_parity(
-            session, school_class.id, callback_data.day, callback_data.index, keep
-        )
-        note = "сведён в «каждую неделю»"
+    async def write() -> None:
+        if callback_data.action == "split":
+            changed = await timetable_edit.split_parity(
+                session, school_class.id, callback_data.day, callback_data.index
+            )
+            note = "разделён по неделям"
+        else:
+            keep = WeekParity.EVEN if callback_data.arg else WeekParity.ODD
+            changed = await timetable_edit.merge_parity(
+                session, school_class.id, callback_data.day, callback_data.index, keep
+            )
+            note = "сведён в «каждую неделю»"
 
-    if changed:
-        await audit.record(
-            session,
-            school_class.id,
-            callback.from_user.id,
-            "timetable.parity",
-            f"{WEEKDAY_FULL[callback_data.day - 1]}: урок {callback_data.index} {note}",
-        )
-        await session.commit()
+        if changed:
+            await audit.record(
+                session,
+                school_class.id,
+                callback.from_user.id,
+                "timetable.parity",
+                f"{WEEKDAY_FULL[callback_data.day - 1]}: урок {callback_data.index} {note}",
+            )
+
+    if not await gone.committed(session, write):
+        await callback.answer("Урока уже нет — откройте расписание заново.", show_alert=True)
+        return
     await _draw_day(
         callback, session, school_class, callback_data.day, callback_data.flags, role
     )
@@ -383,17 +388,37 @@ async def editor_set_canteen(
         )
         return
 
-    # index 0 is «не отмечать» — the payload's own «no lesson selected».
-    schedule.canteen_after_index = callback_data.index or None
-    where = f"после {callback_data.index}" if callback_data.index else "не отмечена"
-    await audit.record(
-        session,
-        school_class.id,
-        callback.from_user.id,
-        "bells.canteen",
-        f"столовая: {where}",
-    )
-    await session.commit()
+    bad_break = False
+
+    async def write() -> None:
+        nonlocal bad_break
+        await gone.lock_parent(session, SchoolClass, school_class.id, exclusive=True)
+        await session.refresh(school_class, ["bell_schedule_id"])
+        current, _ = await _bells(session, school_class)
+        if current is None:
+            raise StaleDataError("The bell schedule was deleted")
+        await gone.lock_parent(session, BellSchedule, current.id, exclusive=True)
+        # A writer may have changed the default or shortened its periods while
+        # this request waited; the old keyboard is not the retained state.
+        await session.refresh(current, ["periods"])
+        retained = {period.index: period for period in current.periods}
+        if callback_data.index and callback_data.index not in set(sorted(retained)[:-1]):
+            bad_break = True
+            return
+        current.canteen_after_index = callback_data.index or None
+        where = f"после {callback_data.index}" if callback_data.index else "не отмечена"
+        await audit.record(
+            session, school_class.id, callback.from_user.id, "bells.canteen", f"столовая: {where}"
+        )
+
+    if not await gone.committed(session, write):
+        await callback.answer("Звонков нет", show_alert=True)
+        return
+    if bad_break:
+        await callback.answer(
+            "Такой перемены больше нет — откройте «🍽 Столовая» заново.", show_alert=True
+        )
+        return
     await _draw_day(
         callback, session, school_class, callback_data.day, callback_data.flags, role
     )
@@ -562,69 +587,75 @@ async def _write_lesson(
     flags, mode = int(data["flags"]), data["mode"]
     parity = WeekParity.EVEN if data.get("parity") else WeekParity.ODD
 
-    if mode == "add":
-        landed = await timetable_edit.add_lesson(
-            session, school_class.id, day, subject=subject, room=room, teacher=teacher
-        )
-        if landed is None:
-            await state.clear()
-            # Say which ceiling was hit. Almost always it is the bells, and
-            # «слишком много уроков» sent an admin looking for a limit on the
-            # timetable when what they needed was one more row in «🔔 Звонки».
-            rings = await timetable_edit.rings(session, school_class.id)
-            await message.answer(
-                # ``plural`` carries the number; «звонков 3 3 урока» is what
-                # naming it twice produced. Same mistake as «📚 Предметы» had.
-                f"В расписании звонков "
-                f"{plural(rings, 'урок', 'урока', 'уроков')}, и все заняты.\n\n"
-                "Добавьте звонок в «🔔 Звонки» — урок без своего звонка "
-                "не показывается ни в приложении, ни в виджете."
-                if rings
-                else "В этом дне уже слишком много уроков."
+    refusal: str | None = None
+
+    async def write() -> None:
+        nonlocal refusal
+        if mode == "add":
+            landed = await timetable_edit.add_lesson(
+                session, school_class.id, day, subject=subject, room=room, teacher=teacher
             )
-            return
-        action, note = "timetable.add", f"добавлен урок {landed}: {subject}"
-    else:
-        entries = await _entries(session, school_class.id, day)
-        group = dict(slots(entries)).get(index, [])
-        # A slot that was never split has one row and it is «каждую неделю»;
-        # the parity the button carried is meaningless there and would create
-        # a second row beside it.
-        target = group[0].parity if len(group) == 1 else parity
-        written = await timetable_edit.edit_lesson(
+            if landed is None:
+                # Say which ceiling was hit. Almost always it is the bells, and
+                # «слишком много уроков» sent an admin looking for a limit on the
+                # timetable when what they needed was one more row in «🔔 Звонки».
+                rings = await timetable_edit.rings(session, school_class.id)
+                refusal = (
+                    # ``plural`` carries the number; «звонков 3 3 урока» is what
+                    # naming it twice produced. Same mistake as «📚 Предметы» had.
+                    f"В расписании звонков "
+                    f"{plural(rings, 'урок', 'урока', 'уроков')}, и все заняты.\n\n"
+                    "Добавьте звонок в «🔔 Звонки» — урок без своего звонка "
+                    "не показывается ни в приложении, ни в виджете."
+                    if rings
+                    else "В этом дне уже слишком много уроков."
+                )
+                return
+            action, note = "timetable.add", f"добавлен урок {landed}: {subject}"
+        else:
+            entries = await _entries(session, school_class.id, day)
+            group = dict(slots(entries)).get(index, [])
+            # A slot that was never split has one row and it is «каждую неделю»;
+            # the parity the button carried is meaningless there and would create
+            # a second row beside it.
+            target = group[0].parity if len(group) == 1 else parity
+            written = await timetable_edit.edit_lesson(
+                session,
+                school_class.id,
+                day,
+                index,
+                target,
+                subject=subject,
+                room=room,
+                teacher=teacher,
+            )
+            if not written:
+                # The slot went away while the prompt was open — one admin's «🗑
+                # Удалить урок» on the card another had already pressed «✏️» on,
+                # and one admin with two of this bot's messages in the chat is
+                # enough on its own. ``edit_lesson`` rewrites a row and refuses to
+                # invent one, and the answer was thrown away: the typed subject
+                # was not written, the day came back without it, and the journal
+                # carried a «timetable.edit» line for a change that never
+                # happened. ``editor_slot`` already says this in the same words.
+                refusal = "Урока уже нет — откройте расписание заново."
+                return
+            action, note = "timetable.edit", f"урок {index}: {subject}"
+
+        await audit.record(
             session,
             school_class.id,
-            day,
-            index,
-            target,
-            subject=subject,
-            room=room,
-            teacher=teacher,
+            who,
+            action,
+            f"{WEEKDAY_FULL[day - 1]}: {note}",
         )
-        if not written:
-            # The slot went away while the prompt was open — one admin's «🗑
-            # Удалить урок» on the card another had already pressed «✏️» on,
-            # and one admin with two of this bot's messages in the chat is
-            # enough on its own. ``edit_lesson`` rewrites a row and refuses to
-            # invent one, and the answer was thrown away: the typed subject
-            # was not written, the day came back without it, and the journal
-            # carried a «timetable.edit» line for a change that never
-            # happened. ``editor_slot`` already says this in the same words.
-            await state.clear()
-            await message.answer("Урока уже нет — откройте расписание заново.")
-            return
-        action, note = "timetable.edit", f"урок {index}: {subject}"
-
-    await audit.record(
-        session,
-        school_class.id,
-        who,
-        action,
-        f"{WEEKDAY_FULL[day - 1]}: {note}",
-    )
-    if not await gone.committed(session):
+    if not await gone.committed(session, write):
         await state.clear()
         await message.answer("Урока уже нет — откройте расписание заново.")
+        return
+    if refusal is not None:
+        await state.clear()
+        await message.answer(refusal)
         return
     await state.clear()
 

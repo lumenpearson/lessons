@@ -50,7 +50,7 @@ from app.schedule import (
     school_year_bounds,
     week_parity,
 )
-from app.services import holidays, subjects
+from app.services import gone, holidays, subjects
 
 #: Where a row waits while another takes its number.
 #:
@@ -399,9 +399,12 @@ async def add_lesson(
     # An insert pushes everything below it down, so every lesson it moves has
     # to land on a number that rings too — otherwise adding a second lesson
     # quietly costs the seventh.
-    if at is not None and index in used:
+    shift = at is not None and index in used
+    if shift:
         if any(not can_ring(rung, moved + 1) for moved in used if moved >= index):
             return None
+    await gone.lock_parent(session, SchoolClass, class_id)
+    if shift:
         await _shift(session, class_id, weekday, at_least=index, by=1)
 
     # The dictionary decides the spelling, and hands back the row to point at:
@@ -551,6 +554,7 @@ async def edit_lesson(
         # Asked for after the refusals, not before: `canonical` adopts the name
         # into «📚 Предметы», and a subject founded by an edit that was then
         # turned away is a row in the picker no lesson anywhere uses.
+        await gone.lock_parent(session, SchoolClass, class_id)
         name, subject_id = await subjects.canonical(session, class_id, subject)
         session.add(
             TimetableEntry(
@@ -566,6 +570,7 @@ async def edit_lesson(
         )
         return True
 
+    await gone.lock_parent(session, SchoolClass, class_id)
     name, subject_id = await subjects.canonical(session, class_id, subject)
     entry.subject_id = subject_id
     entry.subject_name = name
@@ -595,6 +600,7 @@ async def split_parity(
     if len(rows) != 1 or rows[0].parity is not WeekParity.ANY:
         return False
 
+    await gone.lock_parent(session, SchoolClass, class_id)
     original = rows[0]
     original.parity = WeekParity.ODD
     session.add(
@@ -631,6 +637,7 @@ async def merge_parity(
     if len(rows) < 2:
         return False
 
+    await gone.lock_parent(session, SchoolClass, class_id)
     survivor = next((row for row in rows if row.parity is keep), rows[0])
     for row in rows:
         if row is not survivor:

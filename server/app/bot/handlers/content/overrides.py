@@ -363,24 +363,34 @@ async def override_clear(
     day = Date.fromisoformat(data["date"])
     index = int(data["index"])
 
-    existing = await substitutions.substitution_on(session, school_class.id, day, index)
-    if existing is not None:
-        await session.delete(existing)
-        await audit.record(
-            session,
-            school_class.id,
-            callback.from_user.id,
-            "override.clear",
-            f"урок №{index} {day:%d.%m} снова по расписанию",
-        )
-        await session.commit()
+    removed = False
+
+    async def write() -> None:
+        nonlocal removed
+        existing = await substitutions.substitution_on(session, school_class.id, day, index)
+        if existing is not None:
+            await gone.lock_parent(session, SchoolClass, school_class.id)
+            await session.delete(existing)
+            await audit.record(
+                session,
+                school_class.id,
+                callback.from_user.id,
+                "override.clear",
+                f"урок №{index} {day:%d.%m} снова по расписанию",
+            )
+            removed = True
+
+    if not await gone.committed(session, write):
+        await state.clear()
+        await callback.answer(SUBSTITUTION_GONE, show_alert=True)
+        return
 
     await state.clear()
     await callback.message.edit_text(
         f"♻️ Урок №{index} снова идёт по расписанию.", reply_markup=back_to_menu()
     )
     await callback.answer()
-    if existing is not None:
+    if removed:
         await notify.notify_subscribers(
             session,
             getattr(callback, "bot", None),
