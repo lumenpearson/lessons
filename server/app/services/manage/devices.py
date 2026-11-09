@@ -12,8 +12,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import DeviceToken, Role
-from app.services import audit, linking
+from app.models import DeviceToken, Role, SchoolClass
+from app.services import audit, gone, linking
 
 
 class DeviceNotLinked(Exception):
@@ -62,6 +62,7 @@ async def revoke(
     """
     if device.revoked:
         return False
+    await gone.lock_parent(session, SchoolClass, class_id)
     device.revoked = True
     await audit.record(
         session, class_id, actor_id, "device.revoke", f"отключено устройство «{label(device)}»"
@@ -79,6 +80,7 @@ async def unlink(
     """
     if device.telegram_id is None:
         raise DeviceNotLinked(label(device))
+    await gone.lock_parent(session, SchoolClass, class_id)
     name = label(device)
     await linking.unlink_device(session, device)
     await audit.record(

@@ -6,26 +6,21 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **9 November 2026**. `main` is at `0dfe89d2`, the merge of
-#694, pinned to checked head `498b1439`. PR CI run 42600487958 and post-merge
-main CI run 42601280186 passed. Independent exact-commit review found no
-actionable defect. Automatic GitHub Codex Review did not publish a report
-before merge; its completion is not claimed. The automatic production build
-was absent during repeated checks, so production was created through the
-existing Vercel connection from the exact merge SHA with project settings
-unchanged. It reached READY, all three production domains resolved there,
-and warmup answered HTTP 200, status ok, schema `0019`, v2 true. Fresh checks
-on resuming this batch confirmed the same deployment and an empty error/fatal
-window. The cause of the omitted automatic deployment is not established.
-#692 is closed; #694 is merged. Both checkouts and local/remote `dev` were
-fast-forwarded; the original checkout was returned to `main`.
+Last updated: **9 November 2026**. `main` is at `0409202f`, the merge of
+#698, pinned to checked head `408f9c34`. PR CI run 42633276935 passed; post-merge
+main CI run 42634590230 passed. Automatic code review completed
+on the checked head with no findings. Automatic production reached READY at
+the exact merge, all three production domains resolved there, and warmup
+answered HTTP 200, status ok, schema `0019`, v2 true. The checked post-warmup
+error/fatal window was empty. #695 is closed; #698 is merged. Both checkouts
+and local/remote `dev` were fast-forwarded. Board Done state is unverified.
 
 The owner resumed autonomous priority work on **9 November without a time
-limit**, explicitly superseding the 14:00 stop recorded in the previous batch.
-The current batch is `server/subject-collection-delete-654` in the managed
-worktree, based on that checked merge, and closes #695 on existing milestone
-**11**. It leaves #654 and #662 open. This close-out belongs to this batch's
-own pull request; the next batch records its merge SHA.
+limit**, explicitly superseding the earlier 14:00 stop. The current batch is
+`server/device-parent-races-654` in the original checkout, based on that checked
+merge, and closes #696 on existing milestone **11**. It leaves #654 and #662
+open. This close-out belongs to this batch's own pull request; the next batch
+records its merge SHA.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -338,7 +333,69 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: subject collection and deletion retain their Class
+## What the last session added: audited device management retains its Class
+
+- #696, a child of #654: admin revoke and unlink retain Class after existing
+  no-op/refusal checks and before DeviceToken mutation or audit staging. A
+  Class removed after lookup gets the existing device-not-found refusal and
+  leaves no successful audit. The already-revoked path still writes nothing.
+- Both bot actions execute service and commit inside `gone.committed`. A
+  removed Class or DeviceToken is answered without list redraw or reading
+  rollback-expired attributes. These callbacks have no pending FSM form.
+  Existing DeviceNotLinked refusal and normal success responses are retained.
+- Baseline: **12 failed, one healthy no-op passed in 29.56 seconds** against
+  main `0dfe89d2`. Fixed focused PostgreSQL: **13 passed in 9.59 seconds**.
+  Cases cover services, v1/REST v2/Connect and bot Class/device loss, absence
+  of audit, usable post-rollback sessions and strict read-only repeat revoke.
+- Independent fresh-context review found no actionable defect and passed
+  **67 SQLite checks in 326.12 seconds**, plus **three explicit healthy,
+  already-unlinked and failed-audit atomicity cases in 21.84 seconds**.
+  It did not execute PostgreSQL. Ruff is clean; mypy passed **242 modules**.
+- Full combined PostgreSQL: **3540 passed, seven skipped, 15 warnings in
+  369.51 seconds**; JUnit: **3547 tests, zero failures and errors**.
+  Full combined SQLite: **3537 passed, ten skipped, 15 warnings in
+  2085.23 seconds**; JUnit: **3547 tests, zero failures and errors**.
+  The checked Subject parent head and merge have identical trees; both full
+  runs include the combined source.
+
+### What remains open
+
+#654 and #662 remain open. #697 reproduces actual Class/AccessRequest lock
+cycles for both approval and decline: the complete baseline had **two failed,
+eight compatibility cases passed in 16.09 seconds**. The managed-worktree fix
+retains Class before the pending-request row lock and encloses bot lookup,
+decision and commit in the stale boundary. All **ten new PostgreSQL cases
+passed in 12.04 seconds**; the affected service set passed **18 in 11.06 seconds**.
+Independent review found no actionable defect and passed **108 SQLite checks,
+two PostgreSQL-only skips, in 158.71 seconds**. Its existing compile-only FOR
+UPDATE unit stubs parent retention while preserving the child query assertion;
+that exact unit passed independently in **3.87 seconds**. The follow-up now
+also covers #700 submission in the same two files; its combined focused
+PostgreSQL set passed **21 in 11.11 seconds**, with Ruff and mypy clean. Fresh
+combined review found no actionable defect and passed **33 SQLite checks,
+two PostgreSQL-only skips, in 179.61 seconds**. Final combined full gates
+remain pending; no request fix is in this device batch.
+Child #699 separately reproduces personal-task creation after Class loss: both
+service entry points, three API transports and two bot entry forms fail with
+a foreign-key error (**seven failed in 10.67 seconds**). The probe is preserved
+outside this batch; the isolated task fix passed **seven PostgreSQL cases in
+7.94 seconds** and **200 affected PostgreSQL checks in 35.65 seconds**. Fresh
+review found no actionable defect and passed **307 SQLite checks in 452.50
+seconds**, plus **20 task checks in 40.88 seconds** and **four commit-before-
+Telegram checks in 27.83 seconds**. Its final combined gates remain pending;
+no personal-task production change is in this device batch.
+Child #700 separately reproduces new access-request submission after Class
+loss: the complete baseline had **three PostgreSQL failures in 13.72 seconds**
+(service and both bot entry forms). The managed follow-up combines its fix
+with #697 before full gates; this device batch contains neither request fix.
+Self-unlink, device creation/linking, access-request submission and legacy
+subject listing/lazy adoption remain outside this batch. No real Telegram
+conversation, installed APK or native-gRPC concurrency run was performed.
+No schema, migration, Android, protobuf or production setting changed.
+Board Done status remains unverified: the in-app browser shows a logged-out
+GitHub shell without project content. No security review is claimed.
+
+## What the session before it added: subject collection and deletion retain their Class
 
 - #695, a child of #654: explicit nonempty subject collection and deletion
   retain Class after their dictionary/usage validation and before Subject or
@@ -387,48 +444,6 @@ changed. Board Done status remains unverified: the in-app browser now opens
 a logged-out GitHub shell but exposes no project content. No security review
 is claimed.
 
-## What the session before it added: new subjects retain the Class whose dictionary was read
-
-- #692, a child of #654: explicit subject creation retains Class after the
-  duplicate-name check and before staging Subject or its audit. A Class
-  deleted after that read is refused through the existing stale-write API
-  response, with neither an orphan nor a successful audit left behind.
-- The bot creation service, audit and commit run inside `gone.committed`.
-  An early stale refusal rolls back, clears the form and returns before
-  success rendering or expired-attribute reads. The existing duplicate branch
-  still opens the existing card, and healthy creation keeps its saved card.
-- All five new service/v1/REST v2/Connect/bot regressions failed against the
-  earlier source in **10.32 seconds**. Fixed affected PostgreSQL checks passed
-  **25 in 12.05 seconds**. Independent review found no actionable defect and
-  passed **25 SQLite checks in 131.69 seconds**, plus **four existing API/bot
-  healthy and duplicate cases in 24.39 seconds**.
-- A second static review inspected the final combination with the metadata
-  batch and found no overwritten guard or bot boundary. The creation delta
-  alone was reapplied after fast-forwarding onto checked head `02125954`;
-  the metadata and rename fixes remain intact. No extra review test ran for
-  that static follow-up. Ruff is clean; mypy passed **242 modules**.
-- Full combined PostgreSQL: **3519 passed, seven skipped, 15 warnings in
-  281.36 seconds**; JUnit: **3526 tests, zero failures and errors**.
-  Full combined SQLite: **3516 passed, ten skipped, 15 warnings in
-  1705.76 seconds**; JUnit: **3526 tests, zero failures and errors**.
-  No diagnostic timeout occurred.
-  The checked metadata parent head and its merge have identical trees; both
-  full runs include their combined source.
-
-### What remains open
-
-#654 and #662 remain open for other write paths. Subject deletion, explicit
-collection and legacy lazy adoption remain outside these two Subject batches.
-Code reading identified possible missing Class retention there, but no race
-was staged, so no defect or fix is claimed. Keep empty collection's no-audit
-path and read compatibility in mind before taking a further batch.
-No real Telegram conversation, installed APK or native-gRPC concurrency run
-was performed. No schema, migration, Android, protobuf, production setting or
-wire field changed. Board Done status remains unverified because the embedded
-browser failed to attach. No security review is claimed. The owner requested
-autonomous work only until **14:00 Moscow on 9 November**; do not interpret
-this close-out as permission to continue after that deadline.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -453,7 +468,7 @@ current.
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676, #680, #681, #685, #687, #689, #691, #693 and #694 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678, #679, #682, #684, #686 and #688, plus #690, #692, #695, #696, #697 and the current `server/subject-collection-delete-654` pull request (open) — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676, #680, #681, #685, #687, #689, #691, #693, #694 and #698 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678, #679, #682, #684, #686 and #688, plus #690, #692, #695, #696, #697, #699, #700 and the current `server/device-parent-races-654` pull request (open) — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -2070,7 +2085,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3534 tests, ~34 min on Windows
+cd server  && pytest -q -n auto                          # 3547 tests, ~34 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1797 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

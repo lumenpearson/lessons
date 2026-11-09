@@ -16,7 +16,7 @@ from app.bot.handlers.manage._common import _int_or_none, _member_names, needs
 from app.bot.manage_keyboards.devices import DeviceAction, device_keyboard
 from app.bot.manage_render import devices as mr
 from app.models import DeviceToken, Role, SchoolClass
-from app.services import linking
+from app.services import gone, linking
 from app.services.manage import devices as devices_service
 
 router = Router(name="manage.devices")
@@ -100,8 +100,12 @@ async def device_revoke(
         return
 
     # A phone already off is answered the same and logged once, not again.
-    await devices_service.revoke(session, school_class.id, callback.from_user.id, device)
-    await session.commit()
+    async def write() -> None:
+        await devices_service.revoke(session, school_class.id, callback.from_user.id, device)
+
+    if not await gone.committed(session, write):
+        await callback.answer("Устройство не найдено", show_alert=True)
+        return
     name = devices_service.label(device)
 
     text, keyboard = await _device_view(session, school_class)
@@ -123,13 +127,16 @@ async def device_unlink(
     if device is None:
         await callback.answer("Устройство не найдено", show_alert=True)
         return
-    try:
+    async def write() -> None:
         await devices_service.unlink(session, school_class.id, callback.from_user.id, device)
+
+    try:
+        if not await gone.committed(session, write):
+            await callback.answer("Устройство не найдено", show_alert=True)
+            return
     except devices_service.DeviceNotLinked:
         await callback.answer("Устройство и так не привязано", show_alert=True)
         return
-    await session.commit()
-
     text, keyboard = await _device_view(session, school_class)
     await callback.message.edit_text(text, reply_markup=keyboard)
     await callback.answer("Отвязано — теперь только чтение")
