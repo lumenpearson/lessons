@@ -120,6 +120,8 @@ async def collect(session: AsyncSession, class_id: int, actor_id: int | None) ->
         for subject in await session.scalars(select(Subject).where(Subject.class_id == class_id))
     }
     created = [name for name in sorted(names) if name and name not in known]
+    if created:
+        await gone.lock_parent(session, SchoolClass, class_id)
     for name in created:
         session.add(Subject(class_id=class_id, name=name[: dictionary.MAX_NAME]))
     if created:
@@ -269,6 +271,7 @@ async def delete(
     in_use = await dictionary.lessons_using(session, class_id, subject)
     if in_use:
         raise SubjectInUse(in_use)
+    await gone.lock_parent(session, SchoolClass, class_id)
     name = subject.name
     await session.delete(subject)
     await audit.record(session, class_id, actor_id, "subject.delete", f"удалён предмет «{name}»")

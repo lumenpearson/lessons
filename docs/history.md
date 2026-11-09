@@ -28,6 +28,49 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: subject detail retries retain their row and Class
+
+- #690, a child of #654: audited short-name, teacher and colour retries force
+  the requested scalar UPDATE, including same-value saves. Subject or Class
+  loss after lookup gets the existing stale refusal and cannot leave an audit.
+- Details and actual renames retain Class before Subject DML. Mixed rename
+  and detail patches follow that same order, matching a Class cascade. Text
+  and colour bot services now execute inside `gone.committed`, so an early
+  stale failure rolls back and clears the form before any success rendering.
+- All 17 initial service/v1/REST v2/Connect/bot cases failed on main in
+  **11.25 seconds**. A real PostgreSQL rename/Class-delete deadlock reproduced
+  alone in **2.45 seconds**. Fixed affected checks passed **139 on PostgreSQL
+  in 35.93 seconds** and **136 on SQLite, three skipped, in 275.48 seconds**.
+- Independent review found no actionable defect and passed **42 focused
+  SQLite checks, one PostgreSQL-only skip, in 195.07 seconds**. Empty patches
+  and same-name-only renames remain quiet. Each supplied detail was already
+  audited in v2; its new physical UPDATE can conservatively wake Watch, as
+  with the existing class-card guard. No wire field or enum changes.
+- Full combined PostgreSQL: **3514 passed, seven skipped, 15 warnings in
+  272.32 seconds**; JUnit: **3521 tests, zero failures and errors**.
+  Full combined SQLite: **3511 passed, ten skipped, 15 warnings in
+  1921.32 seconds**; JUnit: **3521 tests, zero failures and errors**.
+  Ruff is clean; mypy passed **242 modules**. The parent checked head and its
+  merge have identical trees. Diagnostic timeout was not observed.
+- The existing SQLite Subject-deletion stager loses the already-read child
+  before the Class guard's file-wide lock; original refusal/audit/state
+  assertions remain in place. PostgreSQL keeps the original race timing.
+
+### What remains open
+
+#654 and #662 remain open. #692 stages Class deletion after the real subject
+name check: all five service/v1/REST v2/Connect/bot cases failed on the prior
+source in 10.32 seconds. Its separate managed-worktree fix passed **25
+PostgreSQL checks in 12.05 seconds**. Independent review found no actionable
+defect and passed **25 SQLite checks in 131.69 seconds**, plus **four existing
+API/bot healthy and duplicate cases in 24.39 seconds**. Its final combined-base
+gates remain pending. No #692 fix is included in this metadata batch.
+Subject deletion, collection and lazy adoption remain outside both batches.
+No real Telegram conversation, installed APK or native-gRPC concurrency race
+ran. No schema, migration, Android, protobuf or production setting changed.
+Board Done status remains unverified because the embedded browser failed to
+attach. No security review is claimed.
+
 ## What the batch before added: term writes retain their Class and check unchanged rows
 
 - #688, a child of #654: explicit term scheme writes force a Class UPDATE and

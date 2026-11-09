@@ -68,7 +68,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3526 tests in about four minutes, six of them skipped unless a
+- **`pytest -q -n auto`** — 3534 tests in about four minutes, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), plus four PostgreSQL-only lock
   checks skipped on SQLite, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
@@ -754,6 +754,7 @@ points Hilt does not inject cleanly.
   unaffected. A day somebody marked by hand keeps its kind and note, and events
   and homework are kept either way: it is the lessons that are out of season,
   not the day.
+- **Nonempty subject collection and explicit deletion retain Class before DML; empty collection stays read-only** (`test_subject_collection_delete_races.py`, #695).
 - **Subject creation retains Class after its name check and before either Subject or audit is staged** (`test_subject_create_parent_races.py`, #692).
 - **Subject renames and audited details retain Class before Subject; repeated details still UPDATE their row** (`test_subject_detail_races.py`, #690).
 - **Explicit term writes force row-count checks, and bounds retain Class before Term to match cascades** (`test_term_stale_audits.py`, #688).
