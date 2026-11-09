@@ -68,7 +68,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3618 tests in about four minutes, six of them skipped unless a
+- **`pytest -q -n auto`** — 3633 tests in about four minutes, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), plus nine PostgreSQL-only lock
   checks skipped on SQLite, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
@@ -136,6 +136,8 @@ custom chain and get Onest alone. Google Sans Flex has **no Cyrillic at all**, w
 the second file exists: while it was alone, every Russian word came from the device's
 fallback beside digits from the bundle. `FontAxisTest` holds all three halves — the pair
 draws Russian, neither carries an axis nothing varies, and no file is bundled unnamed.
+
+- **Keep primary gate declarations level with CI and allowed command prefixes** (`test_gate_lists.py`, #659).
 
 CI (`.github/workflows/ci.yml`) is: ruff, mypy, pytest (`-n auto`), `./gradlew test`, both
 assembles, and `./gradlew detekt` after them; and, when `proto/`, `buf.*` or

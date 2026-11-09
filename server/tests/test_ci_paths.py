@@ -32,6 +32,7 @@ CI = ROOT / ".github" / "workflows" / "ci.yml"
 #: repository, and the test that reads it. The documents `test_schema_version`
 #: reads are not listed: they come from its own fixture, `head_documents`.
 READ_BY_THE_SUITE = {
+    ".claude/settings.json": "test_gate_lists, for the permitted gate prefixes",
     ".github/workflows/*.yml": "test_env_example, for the secrets; this file, for ci.yml",
     "docs/build.md": "test_env_example",
     "docs/deploy.md": "test_corrections_per_child_revision, test_deployment_config, test_compose",
@@ -118,11 +119,26 @@ def _names_at_the_root(source: str) -> set[str]:
     """String constants in `source` that are the name of something at the
     repository's root, as in ``ROOT / "vercel.json"``."""
     entries = {entry.name for entry in ROOT.iterdir()} - {"server", ".git"}
+    tree = ast.parse(source)
+    # A workflow's job key can equal a directory without reading that directory.
+    job_keys = {
+        id(node.slice)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Subscript)
+        and isinstance(node.value, ast.Subscript)
+        and isinstance(node.value.slice, ast.Constant)
+        and node.value.slice.value == "jobs"
+    }
     return {
         node.value
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.Constant) and node.value in entries
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and node.value in entries and id(node) not in job_keys
     }
+
+
+def test_a_workflow_job_key_is_not_a_path_but_a_real_directory_still_is():
+    assert not _names_at_the_root("workflow['jobs']['android']")
+    assert len(_names_at_the_root("ROOT / 'android'")) == 1
 
 
 def test_every_name_at_the_root_a_test_spells_is_in_the_list(head_documents):

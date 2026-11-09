@@ -29,6 +29,93 @@ the conventions of the file it was written in:
 ---
 
 
+## What the batch before added: timetable controls retain their Class and Bell parents
+
+- #707: add/edit services retain Class before canonicalizing or changing
+  template rows. Split/merge and override clear guard service execution,
+  dependent reads, audit and commit together. Canteen writes retain Class
+  exclusively before Bell, refresh the default schedule reference and periods
+  after waiting, and repeat break validation against that refreshed schedule.
+  Stale refusals skip redraw, clear the relevant FSM and never dereference
+  rollback-expired ORM objects. Override notifications use a captured boolean.
+- Corrected canteen/parity/override probes gave **seven PostgreSQL failures,
+  one warning in 12.31 seconds**. Earlier insufficient-role/occupied-slot
+  probes are invalid evidence. Add/edit service parent loss added **two
+  failures in 1.85 seconds**. Two real remove/move lock-order compatibility
+  cases passed unchanged in **1.23 seconds**; those implementations were not
+  changed. The first fixed eleven passed in **7.25 seconds**; expanded
+  PostgreSQL passed **208 in 20.91 seconds**.
+- Fresh review caught early service exceptions outside the shared bot caller's
+  boundary: **four RED cases in 14.47 seconds**; the expanded RED command had
+  **four failed, 208 passed in 141 seconds**. `_write_lesson` now wraps the
+  service, extra reads, audit and commit together, with scalar refusals before
+  any redraw. All add/edit × typed/picked cases are covered. Follow-up review
+  found no remaining defect and independently passed **four SQLite cases in
+  22.83 seconds**. A healthy override subscriber notice independently passed
+  **one in 9.80 seconds**. Expanded PostgreSQL passed **212 in 137.62 seconds**.
+  Two broader reviewer SQLite attempts were cancelled without results and
+  were never counted green.
+- Final full gates on the checked join tree: **3605 PostgreSQL passed, seven skipped, 15
+  warnings in 314.39 seconds**. JUnit records **3612 cases, zero failures and
+  errors**; all fifteen new cases executed and passed. Final SQLite: 3597 passed, 15 skipped, 15 warnings (2642.30s).
+  Ruff passed; mypy checked **242 modules**. Documentation/schema checks
+  passed **17, three warnings in 121.52 seconds**. No public
+  field/input/enum, contract, model, migration or schema changed. Role guards,
+  established slot/break refusals and healthy UI paths remain.
+
+- The first full SQLite run had **one failed, 3596 passed, fifteen skipped,
+  15 warnings in 1907.72 seconds**: an old lesson test tried its second-session
+  delete after SQLite's parent guard had locked the file. Its existing staging
+  helper now also moves TimetableEntry deletion before that SQLite guard;
+  PostgreSQL keeps the original audit-boundary staging. Production code and
+  all assertions are unchanged. The affected case passed in **7.60 seconds**;
+  independent review found no defect and passed it in **5.16 seconds**. Both
+  full runs were restarted on that final test helper. Final PostgreSQL passed
+  **3605, seven skipped, 15 warnings in 314.39 seconds**; its JUnit records
+  **3612 cases, zero failures/errors**, all fifteen new cases executed. Final
+  SQLite: **3597 passed, 15 skipped, 15 warnings (2642.30s)**; its JUnit records 3612 cases with zero failures/errors, thirteen new SQLite cases executed and two PostgreSQL-only cases skipped. The first PostgreSQL run also passed in **357.66 seconds**.
+  An intervening SQLite attempt stopped at 89% without JUnit during a local
+  memory-pressure incident and is not counted green. The complete four-worker
+  retry above supersedes it; source hashes stayed unchanged.
+
+### What remains open
+
+#654 and #662 remain open. Child #708 under #654, milestone 11, separately
+covers phone linking in its own checkout: **four PostgreSQL failures, one
+healthy pass in 35.43 seconds** before the change. Its three production files
+retain Class, leave commit to both bot callers and guard claim/reads/audit/
+commit. Plain strings are captured before rollback can expire ORM objects.
+Six existing test callers now commit setup before a separate API session
+uses the claim. Five initial cases passed in **20.34 seconds**; all six
+SQLite cases passed in **33.55 seconds**, including both commit-before-
+Telegram witnesses, and the final stable-base IPv4 PostgreSQL compatibility
+set passed **672, five warnings in 81.95 seconds**. Independent static review
+found no actionable defect and ran no tests. The older focused command
+spanned a base refresh and is diagnostic only; another hostname command was
+stopped after measured local connection latency. Full combined gates await
+this editor batch's checked head; no phone-link fix is included here.
+
+Child #710 under #662, milestone 11, separately retains a task's optional
+Homework reference. The Class remains present in its reproduction: **two
+PostgreSQL FK failures in 2.59 seconds**, then **eight formal service and
+v1/REST-v2/Connect failures in 5.63 seconds**. The original-checkout WIP
+rechecks and retains Homework after Class retention, preserving the existing
+HomeworkNotInClass refusal. Eight SQLite cases passed in **37.83 seconds**;
+ten PostgreSQL cases passed in **3.70 seconds**, including real delete-wait
+checks and ON DELETE SET NULL preserving the task. Expanded PostgreSQL
+passed **121, five warnings in 27.48 seconds**. Independent review found no
+actionable defect and passed **eight SQLite cases in 45.12 seconds**. Full
+gates await the intervening checked phone-link batch; no #710 fix is included
+here.
+
+The 61-site syntactic audit is not exhaustive safety proof. Independently
+deleted member zero-row DELETE behavior, live Telegram, an installed APK and
+native-gRPC concurrency remain outside this batch. Board Done state is
+unverified. Tests touch only owned local databases; each checkout keeps its
+own environment and test namespace.
+
+
+
 ## What the batch before added: device joins retain Class before burning a code
 
 - #705: join retains Class after the existing mode/cap validation and before
