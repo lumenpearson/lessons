@@ -17,8 +17,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import DeviceToken, Role
+from app.models import DeviceToken, Role, SchoolClass
 from app.security import new_join_code
+from app.services import gone
 from app.services.roles import get_role
 
 #: Six characters, not the eight of a join code. A link code is single-use,
@@ -93,7 +94,8 @@ async def link_device(session: AsyncSession, code: str, telegram_id: int) -> Dev
 
     ``None`` for an unknown, used or revoked code - the same answer for all
     three on purpose, so the reply cannot be used to tell whether a code was
-    ever real.
+    ever real. The caller owns commit, including any audit line, and commits
+    before telling Telegram that the phone was linked.
     """
     # Codes are minted upper-case from an alphabet without ambiguous glyphs,
     # so upper-casing the input is the whole of "case-insensitive" and the
@@ -112,19 +114,19 @@ async def link_device(session: AsyncSession, code: str, telegram_id: int) -> Dev
     if device is None:
         return None
 
+    await gone.lock_parent(session, SchoolClass, device.class_id)
     device.telegram_id = telegram_id
     device.linked_at = _utcnow()
     # Cleared, not kept: a code that stays on a linked row could be typed
     # again by somebody else and silently re-home the phone.
     device.link_code = None
-    await session.commit()
     return device
 
 
 async def unlink_device(session: AsyncSession, device: DeviceToken) -> None:
     """Back to read-only. A fresh code is issued on the next request.
 
-    Leaves the transaction open, unlike :func:`link_device`, because one of
+    Leaves the transaction open, like :func:`link_device`, because one of
     its two callers, ``services/manage/devices.py``'s ``unlink``, writes an
     audit line straight afterwards, and the line has to land with the unlink
     or not at all. Committing here made "phone unlinked, nothing in the log"

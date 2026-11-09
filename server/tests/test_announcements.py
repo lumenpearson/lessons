@@ -303,6 +303,7 @@ async def api(session, school_class, subscribed, monkeypatch):
 
         me = await client.get("/api/v1/me", headers={"Authorization": f"Bearer {token}"})
         device = await linking.link_device(session, me.json()["link_code"], AUTHOR_ID)
+        await session.commit()
         assert isinstance(device, DeviceToken)
 
         yield SimpleNamespace(client=client, token=token, bot=bot)

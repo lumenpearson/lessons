@@ -23,7 +23,7 @@ from app.bot.roles import claim_phone_invites, get_role, is_env_owner
 from app.bot.start_keyboard import grade_picker
 from app.bot.states import CreateClass
 from app.models import Role, SchoolClass
-from app.services import linking
+from app.services import gone, linking
 
 router = Router(name="start.menu")
 
@@ -58,33 +58,41 @@ async def cmd_start_link(
     """
     await state.clear()
     code = (command.args or "")[len("link_"):].strip()
-    device = (
-        await linking.link_device(session, code, message.from_user.id)
-        if 0 < len(code) <= LINK_CODE_MAX
-        else None
-    )
-    if device is None:
+    answer: str | None = None
+
+    async def write() -> None:
+        nonlocal answer
+        device = await linking.link_device(session, code, message.from_user.id)
+        if device is None:
+            return
+
+        school_class = await session.get(SchoolClass, device.class_id)
+        role = await get_role(session, message.from_user.id, device.class_id)
+        name = escape(device.device_name or "Телефон")
+        class_name = escape(school_class.name) if school_class is not None else "класс"
+        if role is None:
+            access = (
+                "У вас пока нет роли в этом классе, поэтому телефон только читает "
+                "расписание. Попросите администратора выдать доступ."
+            )
+        else:
+            access = f"Телефон действует с вашей ролью: <b>{role.title_ru}</b>."
+        answer = (
+            f"📱 Устройство <b>{name}</b> привязано к вашему аккаунту "
+            f"(класс <b>{class_name}</b>).\n{access}"
+        )
+
+    if (
+        not 0 < len(code) <= LINK_CODE_MAX
+        or not await gone.committed(session, write)
+        or answer is None
+    ):
         await message.answer(
             "Код не подошёл. Он действует один раз - откройте экран привязки в "
             "приложении ещё раз и отсканируйте новый."
         )
         return
-
-    school_class = await session.get(SchoolClass, device.class_id)
-    role = await get_role(session, message.from_user.id, device.class_id)
-    name = escape(device.device_name or "Телефон")
-    class_name = escape(school_class.name) if school_class is not None else "класс"
-    if role is None:
-        access = (
-            "У вас пока нет роли в этом классе, поэтому телефон только читает "
-            "расписание. Попросите администратора выдать доступ."
-        )
-    else:
-        access = f"Телефон действует с вашей ролью: <b>{role.title_ru}</b>."
-    await message.answer(
-        f"📱 Устройство <b>{name}</b> привязано к вашему аккаунту "
-        f"(класс <b>{class_name}</b>).\n{access}"
-    )
+    await message.answer(answer)
 
 
 @router.message(CommandStart())

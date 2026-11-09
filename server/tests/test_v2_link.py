@@ -50,6 +50,7 @@ async def test_a_code_minted_over_v2_is_the_one_v1_shows_and_the_bot_links_with(
 
     # The bot's «/link» with it, as account 2001, the class's viewer.
     assert await linking.link_device(session, code, 2001) is not None
+    await session.commit()
     me = await v2.both("MeService/GetMe", token=token)
     assert (me.message.me.linked, me.message.me.role) == (True, ProtoRole.VIEWER)
 
