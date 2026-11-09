@@ -6,21 +6,21 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **9 November 2026**. `main` is at `6a733f31`, the merge of
-#676, pinned to checked head `22936695`. Its PR and post-merge main CI passed
-(server, both live hosts and the required summary; main run 42524546356).
-Production is READY at that merge, all production aliases point there, and
-`/api/v1/warmup` answered HTTP 200, status ok, schema `0019`, v2 true. The checked
-post-deploy runtime window had no errors. The public project-6 board shows #676
-in Done. The original checkout's `dev` was fast-forwarded and pushed.
+Last updated: **9 November 2026**. `main` is at `49988cee`, the merge of
+#680, pinned to checked head `7170be0b`. Its PR CI and post-merge main CI passed
+(server, both live hosts and required summary; main run 42531241696).
+Production is READY at that merge and all three production aliases point there.
+`/api/v1/warmup` again answered HTTP 200, status ok, schema `0019`, v2 true on
+9 November. The checked production error/fatal log window since 04:50 UTC was
+empty. The public project-6 board shows #657, #677, #679 and #680 in Done.
+The original checkout and `dev` were fast-forwarded; `dev` was pushed normally.
 
 The owner requested autonomous priority work until **14:00 Moscow on 9 November**.
-The current milestone-11 batch is `server/bell-parent-races-662` in a managed
-worktree with its own Python 3.12 environment, based on that merge. It closes
-#657, the review-found #677 and the gate-found #679, and advances #662 without
-closing its unproved remaining scope. #677 was filed before the fix and linked under #662. This
-close-out belongs to the batch's own pull request; its merge SHA is left for
-the next batch, without a close-out pull request of its own.
+The current milestone-11 batch, `server/bell-delete-rechecks-678` in the original
+checkout with its own Python 3.12 environment, closes #678. Its base is that
+checked merge; the reviewed parent implementation is no longer pending.
+This close-out belongs to this batch's own pull request. The next batch records
+its merge SHA without a separate close-out pull request.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -333,7 +333,47 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: parent references survive their writes, and bell deletion locks before its children
+## What the last session added: bell deletion rechecks protected references before cascading
+
+- #678: deletion refreshes the class default and repeats the special-day usage
+  count after acquiring the exclusive schedule lock. A reference committed
+  after the early checks or while the lock waited now gets the existing refusal;
+  neither the schedule nor its default/day reference is removed by SET NULL.
+  The early checks remain for quick refusals; both passes call one helper.
+- The bot rolls back both domain refusals before answering Telegram, releasing
+  locks without reading expired ORM objects. Existing bot tests now capture IDs
+  before the call and inspect persisted class/day references through a fresh session.
+- Ten new regressions were red against the checked parent-lock base on PostgreSQL
+  (**ten failed in 9.54 seconds**) and green after the fix (**ten passed in 9.62
+  seconds**). They cover stale default ownership, a day added after the first
+  count, bot transaction release before I/O, and unchanged v1, REST and Connect
+  refusal shapes. The focused SQLite checks passed **19 tests in 12.00 seconds**.
+- Independent read-only review found no actionable introduced defects and passed
+  all ten new cases against its separate PostgreSQL database in **7.23 seconds**.
+  Ruff is clean and mypy passed **242 modules**.
+- Full PostgreSQL: **3453 passed, seven skipped, 551 warnings in 338.02 seconds**;
+  JUnit: **3460 tests, zero failures and errors**. Earlier SQLite attempts hit
+  internal pytest MemoryError/stack failures under local resource pressure;
+  they are not green gates. A separate local smoke process was later observed
+  consuming about 18 GB with a stack-page allocation error; dismissing its
+  crash dialog released the memory before clean repeats.
+  Final SQLite (Windows, four workers): **3452 passed, eight skipped, 551
+  warnings in 2679.76 seconds (44 minutes, 39 seconds)**, exit code 0; JUnit:
+  **3460 tests, zero failures and errors**, no diagnostic timeout.
+  Updated-document checks passed **35 tests, two warnings in 114.32 seconds**.
+
+### What remains open
+
+#662 and #654 retain their other unproved parent-reference/no-op scope. The next
+batch is #391, the deprecated per-request diary cookie and HTTP 422 constant.
+Its separate managed-worktree branch `server/diary-deprecations-391` has an
+uncommitted, independently reviewed fix and 210 affected checks passed; its
+full gates and close-out remain pending. No #391 fix is included here.
+No real Telegram conversation, installed APK or native-gRPC concurrent race ran.
+No schema, migration, dependency, contract, Android or production configuration
+change is included. PostgreSQL is an owned local throwaway test instance.
+
+## What the session before it added: parent references survive their writes, and bell deletion locks before its children
 
 - #657: timetable imports keep the class and expected default schedule until
   commit. A lost parent is refused through the v1/v2 stale-write boundary as
@@ -401,34 +441,6 @@ exercised. No migration, schema, contract, dependency, Android or production
 configuration change is included; the local throwaway PostgreSQL has fsync off,
 which is only a test setting from docs/build.md.
 
-## What the session before it added: class updates meet a deleted parent before their audit row
-
-- The class-card part of #662 is fixed in shared `classes.set_field`,
-  `set_timezone` and `set_join_mode`: the class UPDATE is flushed before the
-  audit entry is staged. A deleted class raises the existing stale-row refusal
-  rather than failing on the audit entry's foreign key. Plain fields and zones
-  still check an unchanged value, because those operations still journal it.
-- v1 and v2 keep their existing class-not-found answers. The bot's typed field,
-  timezone picker and join switch guard the service and commit together through
-  `gone.committed`; the typed form clears, callbacks answer, and no expired ORM
-  instance is rendered after rollback. An unchanged join mode remains a no-op.
-- Fifteen staged-deletion regressions extend `test_stale_writes.py`. The first
-  nine failed on the original audit foreign key/INTERNAL answer. Six more,
-  preserving an unchanged field or zone, failed on the initial flush-only fix.
-  Affected PostgreSQL checks: **71 passed, four warnings in 44.87 seconds**.
-  The expanded SQLite affected-module run passed **453 tests, 12 warnings in
-  229.86 seconds**. Ruff and mypy (242 modules) passed. The full server gate
-  completed: **3395 passed, six skipped, 551 warnings in 1505.61 seconds
-  (25m05s)**, exit code 0; **3401 tests** collected, no diagnostic timeout.
-- Independent read-only review found no actionable introduced defects.
-
-### What remains open
-
-#662 stays open for the bell-row/default and event-creation races. #657 is the
-analogous timetable-import race, not fixed by reordering the class audit.
-No broad IntegrityError mapping, schema, contract, Android, dependency or
-production configuration change is included. No real Telegram interaction ran.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -453,7 +465,7 @@ current.
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675 and #676 (merged), and the current `server/bell-parent-races-662` pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678 and #679 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676 and #680 (merged), and the current `server/bell-delete-rechecks-678` pull request (open); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678 and #679 — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
 | 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, and PR #649 (merged as `d4f7725c` on 8 November); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
@@ -480,7 +492,7 @@ numbers, because the documents, the skills and the history refer to them by numb
 - **The parent-race fixes use automated callers.** The bot cases use the shared fake
   message/FSM fixtures; no real Telegram conversation or native-gRPC concurrency race
   was exercised. SQLite and PostgreSQL regressions cover the transaction boundaries
-  named by #657/#662/#677; they do not certify every other parent reference.
+  named by #657/#662/#677/#678; they do not certify every other parent reference.
 
 This is the main thing worth knowing: **all of this work is proved by tests and by nothing
 else.**
@@ -2070,7 +2082,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3450 tests, ~25 min on Windows
+cd server  && pytest -q -n auto                          # 3460 tests, ~25 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1797 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

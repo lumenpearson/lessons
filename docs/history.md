@@ -28,6 +28,34 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: class updates meet a deleted parent before their audit row
+
+- The class-card part of #662 is fixed in shared `classes.set_field`,
+  `set_timezone` and `set_join_mode`: the class UPDATE is flushed before the
+  audit entry is staged. A deleted class raises the existing stale-row refusal
+  rather than failing on the audit entry's foreign key. Plain fields and zones
+  still check an unchanged value, because those operations still journal it.
+- v1 and v2 keep their existing class-not-found answers. The bot's typed field,
+  timezone picker and join switch guard the service and commit together through
+  `gone.committed`; the typed form clears, callbacks answer, and no expired ORM
+  instance is rendered after rollback. An unchanged join mode remains a no-op.
+- Fifteen staged-deletion regressions extend `test_stale_writes.py`. The first
+  nine failed on the original audit foreign key/INTERNAL answer. Six more,
+  preserving an unchanged field or zone, failed on the initial flush-only fix.
+  Affected PostgreSQL checks: **71 passed, four warnings in 44.87 seconds**.
+  The expanded SQLite affected-module run passed **453 tests, 12 warnings in
+  229.86 seconds**. Ruff and mypy (242 modules) passed. The full server gate
+  completed: **3395 passed, six skipped, 551 warnings in 1505.61 seconds
+  (25m05s)**, exit code 0; **3401 tests** collected, no diagnostic timeout.
+- Independent read-only review found no actionable introduced defects.
+
+### What remains open
+
+#662 stays open for the bell-row/default and event-creation races. #657 is the
+analogous timetable-import race, not fixed by reordering the class audit.
+No broad IntegrityError mapping, schema, contract, Android, dependency or
+production configuration change is included. No real Telegram interaction ran.
+
 ## What the batch before added: the bot answers stale writes, and renames and moves roll back as a whole
 
 - Homework, subject details and colours, personal-task completion and reminders,

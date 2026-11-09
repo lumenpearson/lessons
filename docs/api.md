@@ -798,7 +798,10 @@ for, on dates an admin is not looking at.
 A bell-row replacement or change of default keeps its class and schedule
 parents until commit. Deletion takes the schedule's exclusive lock before its
 ORM period rows, so an editor that started
-first can finish before deletion proceeds. If a schedule was read and another
+first can finish before deletion proceeds. It then re-reads the class default
+and special-day usage under that lock: if a reference committed after the early
+checks or while the lock waited, deletion returns the same existing conflict refusal.
+If a schedule was read and another
 writer already deleted it, deletion remains an idempotent success without a
 duplicate audit entry. An id missing at the initial lookup still answers `404`.
 
