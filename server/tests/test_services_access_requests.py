@@ -177,7 +177,7 @@ def test_the_requests_sentences_are_v1_s() -> None:
     }
 
 
-async def test_pending_one_locks_the_row_for_update_on_postgres() -> None:
+async def test_pending_one_locks_the_row_for_update_on_postgres(monkeypatch) -> None:
     """Two admins answering the same request at once, or an approval racing a
     decline, must not both find it pending: the statement ``pending_one``
     issues has to lock the row, so that on PostgreSQL a second concurrent
@@ -196,6 +196,11 @@ async def test_pending_one_locks_the_row_for_update_on_postgres() -> None:
             captured.append(statement)
             return None
 
+    # This unit compiles the child query; live parent retention has database tests.
+    async def retained_parent(_session, _model, _row_id):
+        return None
+
+    monkeypatch.setattr(requests_service.gone, "lock_parent", retained_parent)
     await requests_service.pending_one(_Session(), class_id=1, request_id=1)
     assert captured
     compiled = str(captured[0].compile(dialect=postgresql.dialect()))

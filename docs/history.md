@@ -28,6 +28,55 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: subject collection and deletion retain their Class
+
+- #695, a child of #654: explicit nonempty subject collection and deletion
+  retain Class after their dictionary/usage validation and before Subject or
+  audit DML. A Class deleted after the read gets the existing stale refusal,
+  with no orphan or successful audit left behind.
+- Both bot handlers execute service, audit and commit inside `gone.committed`.
+  An early stale failure rolls back, clears state and answers the callback
+  before success rendering or an expired-attribute read. SubjectInUse and
+  duplicate Subject deletion behavior remain unchanged.
+- The seven new Class-loss service/v1/REST v2/Connect/bot cases failed against
+  main `0dfe89d2`; the healthy empty-collection case passed: **seven failed,
+  one passed in 10.95 seconds**. The fixed affected PostgreSQL run passed
+  **149 checks in 38.39 seconds**. The empty dictionary retry is held by an
+  SQL observer: no INSERT, UPDATE, DELETE or additional audit is allowed.
+- Independent review found no actionable defect and passed **51 focused
+  SQLite checks in 29.18 seconds**, including healthy collection/deletion and
+  existing SubjectInUse refusals. It did not execute PostgreSQL or the RED
+  baseline. Ruff is clean; mypy passed **242 modules**.
+- Full PostgreSQL: **3527 passed, seven skipped, 15 warnings in 369.15 seconds**;
+  JUnit: **3534 tests, zero failures and errors**.
+  Full SQLite: **3524 passed, ten skipped, 15 warnings in 1928.37 seconds**;
+  JUnit: **3534 tests, zero failures and errors**, no diagnostic timeout.
+
+### What remains open
+
+#654 and #662 remain open. Child #696 stages audited admin device revoke and
+unlink after Class loss, plus both bot presses after Class or DeviceToken
+loss. Against the earlier main, **12 cases failed and one healthy already-off
+case passed in 29.56 seconds**. The original-checkout fix passed all **13
+PostgreSQL cases in 9.59 seconds**. Independent review found no actionable
+defect and passed **67 SQLite checks in 326.12 seconds**, plus **three explicit
+healthy/refusal/failed-audit cases in 21.84 seconds**. Final combined checks
+remain pending. No #696 fix is included in this Subject batch.
+Child #697 reproduces a real Class/AccessRequest lock cycle while approving
+or declining an already locked request: **two PostgreSQL cases failed in
+3.86 seconds**, after an observed blocking relationship. The initial decline
+case failed in 2.91 seconds. Its future regressions are preserved locally;
+no fix is included in either current write batch. Submit and transport/bot
+variants have not yet been reproduced.
+Legacy listing and lazy dictionary adoption remain outside both Subject
+write batches. Their savepoint/concession behavior differs from these explicit
+writes; no error there was reproduced, so no defect or fix is claimed.
+No real Telegram conversation, installed APK or native-gRPC concurrency run
+was performed. No schema, migration, Android, protobuf or production setting
+changed. Board Done status remains unverified: the in-app browser now opens
+a logged-out GitHub shell but exposes no project content. No security review
+is claimed.
+
 ## What the batch before added: new subjects retain the Class whose dictionary was read
 
 - #692, a child of #654: explicit subject creation retains Class after the
