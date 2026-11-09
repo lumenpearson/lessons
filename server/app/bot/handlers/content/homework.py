@@ -230,20 +230,24 @@ async def homework_text(
     # both shells — including the class's spelling, so a typed «алгебра»
     # updates the «Алгебра» already set for that day rather than founding a
     # second assignment beside it, and both going out in the evening digest.
-    written, created = await homework_service.upsert(
-        session, school_class.id, due, data["subject"], text, message.from_user.id
-    )
-    subject = written.subject_name
-    verb = "добавлено" if created else "обновлено"
+    subject = verb = ""
 
-    await audit.record(
-        session,
-        school_class.id,
-        message.from_user.id,
-        "homework.save",
-        f"{verb} ДЗ: {subject} на {due:%d.%m}",
-    )
-    if not await gone.committed(session):
+    async def write_homework() -> None:
+        nonlocal subject, verb
+        written, created = await homework_service.upsert(
+            session, school_class.id, due, data["subject"], text, message.from_user.id
+        )
+        subject = written.subject_name
+        verb = "добавлено" if created else "обновлено"
+        await audit.record(
+            session,
+            school_class.id,
+            message.from_user.id,
+            "homework.save",
+            f"{verb} ДЗ: {subject} на {due:%d.%m}",
+        )
+
+    if not await gone.committed(session, write_homework):
         await state.clear()
         await message.answer("Задание уже удалено. Начните заново.", reply_markup=back_to_menu())
         return

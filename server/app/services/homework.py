@@ -39,7 +39,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import wording
 from app.models import Homework, SchoolClass
-from app.services import audit, clock, notify, subjects
+from app.services import audit, clock, gone, notify, subjects
 
 
 async def _find(
@@ -106,6 +106,7 @@ async def upsert(
     subject_name = await subjects.spelling(session, class_id, subject)
 
     existing = await _find(session, class_id, due_date, subject_name)
+    await gone.lock_parent(session, SchoolClass, class_id)
     if existing is None:
         fresh = Homework(
             class_id=class_id,
@@ -218,6 +219,7 @@ async def create(
     subject_name = await subjects.spelling(session, school_class.id, subject)
     if await _find(session, school_class.id, due_date, subject_name) is not None:
         raise HomeworkExists()
+    await gone.lock_parent(session, SchoolClass, school_class.id)
     fresh = Homework(
         class_id=school_class.id,
         due_date=due_date,
