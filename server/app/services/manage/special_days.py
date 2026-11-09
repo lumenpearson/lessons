@@ -31,10 +31,11 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.exc import StaleDataError
 
 from app import wording
 from app.models import BellSchedule, DayKind, DayOverride, SchoolClass
-from app.services import audit, clock
+from app.services import audit, clock, gone
 from app.services.manage import bells
 
 #: The fields of a mark :func:`put_day` writes.
@@ -110,7 +111,8 @@ async def mark_on(session: AsyncSession, class_id: int, day: Date) -> DayOverrid
 
 
 async def put_day(
-    session: AsyncSession, school_class: SchoolClass, day: Date, changes: Mapping[str, Any]
+    session: AsyncSession, school_class: SchoolClass, day: Date, changes: Mapping[str, Any],
+    *, guard_unchanged: bool = True,
 ) -> DayPut:
     """Mark ``day``, change its mark, or take it off: the one write of a day's mark.
 
@@ -126,7 +128,8 @@ async def put_day(
 
     A mark written by somebody else between the read and the insert meets the
     unique constraint inside a savepoint, and this write changes that mark
-    instead, as it would have a moment later. Nothing is committed.
+    instead, as it would have a moment later. Callers that never audit an unchanged
+    mark can disable ``guard_unchanged`` to preserve a read-only no-op. Nothing is committed.
 
     @raises ScheduleNotInClass, bells.ScheduleEmpty, ShortenedNeedsSchedule
     """
@@ -150,13 +153,30 @@ async def put_day(
     if touches_bells and kind == DayKind.SHORTENED and rings is None:
         raise ShortenedNeedsSchedule()
 
+    wanted = {name: changes[name] for name in FIELDS if name in changes}
+    changed = (
+        {name: value for name, value in wanted.items() if getattr(current, name) != value}
+        if current is not None else wanted
+    )
+    if not guard_unchanged:
+        if current is None and (kind is None or kind == DayKind.NORMAL):
+            return DayPut(None, had_mark=False, changed=False)
+        if current is not None and kind != DayKind.NORMAL and not changed:
+            return DayPut(current, had_mark=True, changed=False)
+
+    await gone.lock_parent(session, SchoolClass, school_class.id)
+    if schedule_id is not None:
+        try:
+            await gone.lock_parent(session, BellSchedule, schedule_id)
+        except StaleDataError as failure:
+            raise ScheduleNotInClass() from failure
+
     if kind is None or kind == DayKind.NORMAL:
         if current is None:
             return DayPut(None, had_mark=False, changed=False)
         await session.delete(current)
         return DayPut(None, had_mark=True, changed=True)
 
-    wanted = {name: changes[name] for name in FIELDS if name in changes}
     if current is None:
         fresh = DayOverride(class_id=school_class.id, date=day, **wanted)
         try:
@@ -250,6 +270,6 @@ async def update_day(
 
     @raises ScheduleNotInClass, bells.ScheduleEmpty, ShortenedNeedsSchedule
     """
-    put = await put_day(session, school_class, day, changes)
+    put = await put_day(session, school_class, day, changes, guard_unchanged=False)
     notice = await _announced(session, school_class, actor, day, put) if put.changed else None
     return DayWritten(put.mark, notice)

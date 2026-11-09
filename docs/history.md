@@ -28,6 +28,46 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: bell deletion rechecks protected references before cascading
+
+- #678: deletion refreshes the class default and repeats the special-day usage
+  count after acquiring the exclusive schedule lock. A reference committed
+  after the early checks or while the lock waited now gets the existing refusal;
+  neither the schedule nor its default/day reference is removed by SET NULL.
+  The early checks remain for quick refusals; both passes call one helper.
+- The bot rolls back both domain refusals before answering Telegram, releasing
+  locks without reading expired ORM objects. Existing bot tests now capture IDs
+  before the call and inspect persisted class/day references through a fresh session.
+- Ten new regressions were red against the checked parent-lock base on PostgreSQL
+  (**ten failed in 9.54 seconds**) and green after the fix (**ten passed in 9.62
+  seconds**). They cover stale default ownership, a day added after the first
+  count, bot transaction release before I/O, and unchanged v1, REST and Connect
+  refusal shapes. The focused SQLite checks passed **19 tests in 12.00 seconds**.
+- Independent read-only review found no actionable introduced defects and passed
+  all ten new cases against its separate PostgreSQL database in **7.23 seconds**.
+  Ruff is clean and mypy passed **242 modules**.
+- Full PostgreSQL: **3453 passed, seven skipped, 551 warnings in 338.02 seconds**;
+  JUnit: **3460 tests, zero failures and errors**. Earlier SQLite attempts hit
+  internal pytest MemoryError/stack failures under local resource pressure;
+  they are not green gates. A separate local smoke process was later observed
+  consuming about 18 GB with a stack-page allocation error; dismissing its
+  crash dialog released the memory before clean repeats.
+  Final SQLite (Windows, four workers): **3452 passed, eight skipped, 551
+  warnings in 2679.76 seconds (44 minutes, 39 seconds)**, exit code 0; JUnit:
+  **3460 tests, zero failures and errors**, no diagnostic timeout.
+  Updated-document checks passed **35 tests, two warnings in 114.32 seconds**.
+
+### What remains open
+
+#662 and #654 retain their other unproved parent-reference/no-op scope. The next
+batch is #391, the deprecated per-request diary cookie and HTTP 422 constant.
+Its separate managed-worktree branch `server/diary-deprecations-391` has an
+uncommitted, independently reviewed fix and 210 affected checks passed; its
+full gates and close-out remain pending. No #391 fix is included here.
+No real Telegram conversation, installed APK or native-gRPC concurrent race ran.
+No schema, migration, dependency, contract, Android or production configuration
+change is included. PostgreSQL is an owned local throwaway test instance.
+
 ## What the batch before added: parent references survive their writes, and bell deletion locks before its children
 
 - #657: timetable imports keep the class and expected default schedule until
