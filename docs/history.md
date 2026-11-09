@@ -28,6 +28,48 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: new subjects retain the Class whose dictionary was read
+
+- #692, a child of #654: explicit subject creation retains Class after the
+  duplicate-name check and before staging Subject or its audit. A Class
+  deleted after that read is refused through the existing stale-write API
+  response, with neither an orphan nor a successful audit left behind.
+- The bot creation service, audit and commit run inside `gone.committed`.
+  An early stale refusal rolls back, clears the form and returns before
+  success rendering or expired-attribute reads. The existing duplicate branch
+  still opens the existing card, and healthy creation keeps its saved card.
+- All five new service/v1/REST v2/Connect/bot regressions failed against the
+  earlier source in **10.32 seconds**. Fixed affected PostgreSQL checks passed
+  **25 in 12.05 seconds**. Independent review found no actionable defect and
+  passed **25 SQLite checks in 131.69 seconds**, plus **four existing API/bot
+  healthy and duplicate cases in 24.39 seconds**.
+- A second static review inspected the final combination with the metadata
+  batch and found no overwritten guard or bot boundary. The creation delta
+  alone was reapplied after fast-forwarding onto checked head `02125954`;
+  the metadata and rename fixes remain intact. No extra review test ran for
+  that static follow-up. Ruff is clean; mypy passed **242 modules**.
+- Full combined PostgreSQL: **3519 passed, seven skipped, 15 warnings in
+  281.36 seconds**; JUnit: **3526 tests, zero failures and errors**.
+  Full combined SQLite: **3516 passed, ten skipped, 15 warnings in
+  1705.76 seconds**; JUnit: **3526 tests, zero failures and errors**.
+  No diagnostic timeout occurred.
+  The checked metadata parent head and its merge have identical trees; both
+  full runs include their combined source.
+
+### What remains open
+
+#654 and #662 remain open for other write paths. Subject deletion, explicit
+collection and legacy lazy adoption remain outside these two Subject batches.
+Code reading identified possible missing Class retention there, but no race
+was staged, so no defect or fix is claimed. Keep empty collection's no-audit
+path and read compatibility in mind before taking a further batch.
+No real Telegram conversation, installed APK or native-gRPC concurrency run
+was performed. No schema, migration, Android, protobuf, production setting or
+wire field changed. Board Done status remains unverified because the embedded
+browser failed to attach. No security review is claimed. The owner requested
+autonomous work only until **14:00 Moscow on 9 November**; do not interpret
+this close-out as permission to continue after that deadline.
+
 ## What the batch before added: subject detail retries retain their row and Class
 
 - #690, a child of #654: audited short-name, teacher and colour retries force
