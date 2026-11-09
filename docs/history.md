@@ -28,6 +28,55 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: special-day writes retain their class and selected bells
+
+- #682, a child of #662: the shared `put_day` keeps its Class and explicitly
+  requested BellSchedule through commit. A class deleted after validation has
+  the existing stale-write refusal; a deleted schedule has ScheduleNotInClass.
+  No orphan mark or audit line is persisted and no foreign-key failure escapes.
+- Bot kind, bell, note, deletion and period writes include service execution and
+  audit in the existing `gone.committed` boundary. Stale refusals roll back and
+  clear state before replying; a lost schedule keeps the existing Russian refusal.
+- V2's unchanged update remains read-only and silent. The lower-level write only
+  skips retention on an unchanged result when its caller promises not to stage
+  an unchanged audit. V1 and bot callers retain the guard for their audit writes.
+  The existing two SQLite no-op checks caught the first guard's extra UPDATEs;
+  both passed after the adjustment (**two passed in 2.12 seconds**).
+- Sixteen staged parent-loss cases cover the service, v1, REST, Connect and bot.
+  The initial two service cases failed on the unguarded source (**two failed in
+  10.68 seconds**). Affected PostgreSQL checks passed **329 in 37.24 seconds**
+  before the no-op adjustment. Independent review found no actionable defect;
+  its 16 SQLite race cases passed in **67.93 seconds**. It separately inspected
+  the no-op adjustment without another test run.
+- Full PostgreSQL: **3469 passed, seven skipped, 15 warnings in 264.11 seconds**.
+  Full SQLite: **3468 passed, eight skipped, 15 warnings in 2049.36 seconds**.
+  Both JUnit reports: **3476 tests, zero failures and errors**. Windows used four
+  PostgreSQL workers and eight SQLite workers; no diagnostic timeout occurred.
+  Ruff is clean; mypy passed **242 modules**.
+- Post-merge follow-up ran all 16 parent regressions against the pre-fix
+  `46f40dee` service and bot source: **16 failed in 14.33 seconds**. Both files
+  were restored byte for byte, then **all 16 passed in 9.66 seconds**. The
+  deployment and Git history were unchanged during that local reproduction.
+- An earlier full PostgreSQL attempt passed 3466 cases and failed three CI-shell
+  checks because PATH chose Windows' WSL launcher without /bin/bash. Its log is
+  retained. Repeats use the installed Git Bash first and the prescribed bare
+  pytest entry point. Interrupted preparatory runs are not counted as green.
+
+### What remains open
+
+#662 and #654 retain other parent-reference and unchanged-audit paths; neither
+umbrella is closed by this bounded fix. Child issue #684 stages homework creation
+losing its Class. Its nine service/API/bot cases all failed on main in 10.19
+seconds, then passed on both databases. The separate managed-worktree branch
+`server/homework-parent-races-662` passed 47 affected PostgreSQL checks and,
+after adapting the old SQLite stager, 47 affected SQLite checks. Independent
+review found no actionable defect. Its early full PostgreSQL run on the prior
+base passed 3462 cases, seven skipped, in 305.64 seconds; the final combined-base
+gates still remain. No #684 fix is included here. No live Telegram conversation, installed
+APK or native-gRPC concurrency run was performed. No schema, migration, Android,
+protobuf or production configuration changed. The public board's latest Done
+state remains unverified because the embedded browser could not attach.
+
 ## What the batch before added: diary sessions avoid deprecated cookies and HTTP 422 aliases
 
 - #391: Petersburg sends its validated session in a request-local Cookie header,
