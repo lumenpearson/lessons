@@ -370,12 +370,14 @@ async def bells_delete(
             await callback.answer("Расписание не найдено", show_alert=True)
             return
     except bells_service.ScheduleIsDefault:
+        await session.rollback()
         await callback.answer(
             "Это основное расписание класса. Сначала сделайте основным другое.",
             show_alert=True,
         )
         return
     except bells_service.ScheduleInUse as in_use:
+        await session.rollback()
         await callback.answer(
             f"По нему идут особые дни ({in_use.days}). Сначала измените их.", show_alert=True
         )

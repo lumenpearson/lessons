@@ -1109,17 +1109,21 @@ async def test_a_bad_bells_paste_never_erases_the_stored_schedule(session, schoo
 
 
 async def test_the_class_default_schedule_cannot_be_deleted(session, school_class):
+    class_id, schedule_id = school_class.id, school_class.bell_schedule_id
     callback = FakeCallback(message=FakeEditable())
     await bells_delete(
         callback,
-        SimpleNamespace(action="delete", value=str(school_class.bell_schedule_id)),
+        SimpleNamespace(action="delete", value=str(schedule_id)),
         session,
         school_class,
         Role.ADMIN,
     )
 
     assert callback.alerted
-    assert await session.get(BellSchedule, school_class.bell_schedule_id) is not None
+    async with SessionLocal() as fresh:
+        current = await fresh.get(SchoolClass, class_id)
+        assert current.bell_schedule_id == schedule_id
+        assert await fresh.get(BellSchedule, schedule_id) is not None
 
 
 # --------------------------------------------------------------------------
@@ -2226,16 +2230,23 @@ async def test_a_schedule_a_special_day_still_points_at_cannot_be_deleted(
     )
     await session.commit()
 
+    class_id, schedule_id = school_class.id, spare.id
+
     callback = FakeCallback(message=FakeEditable())
     await bells_delete(
         callback,
-        SimpleNamespace(action="delete", value=str(spare.id)),
+        SimpleNamespace(action="delete", value=str(schedule_id)),
         session,
         school_class,
         Role.ADMIN,
     )
 
-    assert await session.get(BellSchedule, spare.id) is not None
+    async with SessionLocal() as fresh:
+        assert await fresh.get(BellSchedule, schedule_id) is not None
+        mark = await fresh.scalar(
+            select(DayOverride).where(DayOverride.class_id == class_id)
+        )
+        assert mark.bell_schedule_id == schedule_id
     assert callback.alerted
     assert "особые дни (1)" in callback.answers[0][0]
 

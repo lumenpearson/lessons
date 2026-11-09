@@ -1582,3 +1582,192 @@ async def test_bell_delete_race_is_class_gone_or_an_idempotent_success(
             assert answer.status == 200
     assert raced
     assert await _count(AuditEntry) == 0
+
+
+async def _bell_delete_candidate(session, school_class):
+    from app.models import BellPeriod, BellSchedule
+
+    row = BellSchedule(class_id=school_class.id, name="Сокращённое")
+    session.add(row)
+    await session.flush()
+    session.add(BellPeriod(schedule_id=row.id, index=1, starts_at=time(9), ends_at=time(9, 40)))
+    await session.commit()
+    await session.refresh(row, ["periods"])
+    return row
+
+
+async def test_bell_delete_rechecks_the_default_after_the_class_was_read(
+    session, school_class
+) -> None:
+    from app.models import BellSchedule
+    from app.services.manage import bells
+
+    row = await _bell_delete_candidate(session, school_class)
+    class_id, schedule_id = school_class.id, row.id
+    async with SessionLocal() as other:
+        current = await other.get(SchoolClass, class_id)
+        current.bell_schedule_id = schedule_id
+        await other.commit()
+    assert school_class.bell_schedule_id != schedule_id
+    with pytest.raises(bells.ScheduleIsDefault):
+        await bells.delete(session, school_class, 42, row)
+    await session.rollback()
+    async with SessionLocal() as fresh:
+        current = await fresh.get(SchoolClass, class_id)
+        assert current.bell_schedule_id == schedule_id
+        assert await fresh.get(BellSchedule, schedule_id) is not None
+    assert await _count(AuditEntry) == 0
+
+
+async def test_bell_delete_rechecks_a_special_day_added_after_its_usage_count(
+    session, school_class, monkeypatch
+) -> None:
+    from app.models import BellSchedule
+    from app.services.manage import bells
+
+    row = await _bell_delete_candidate(session, school_class)
+    class_id, schedule_id = school_class.id, row.id
+    real = session.scalar
+    staged = []
+
+    async def count_then_reference(statement, *args, **kwargs):
+        result = await real(statement, *args, **kwargs)
+        if not staged and "count(" in str(statement).lower():
+            staged.append(True)
+            async with SessionLocal() as other:
+                other.add(DayOverride(
+                    class_id=class_id, date=MONDAY, kind=DayKind.SHORTENED,
+                    bell_schedule_id=schedule_id,
+                ))
+                await other.commit()
+        return result
+
+    monkeypatch.setattr(session, "scalar", count_then_reference)
+    with pytest.raises(bells.ScheduleInUse) as refusal:
+        await bells.delete(session, school_class, 42, row)
+    assert staged and refusal.value.days == 1
+    await session.rollback()
+    async with SessionLocal() as fresh:
+        marked = await fresh.scalar(select(DayOverride).where(DayOverride.class_id == class_id))
+        assert marked.bell_schedule_id == schedule_id
+        assert await fresh.get(BellSchedule, schedule_id) is not None
+    assert await _count(AuditEntry) == 0
+
+
+@pytest.mark.parametrize("reference", ["default", "day"])
+async def test_bot_bell_delete_refusal_releases_its_transaction_before_answering(
+    session, school_class, monkeypatch, FakeCallback, FakeEditable, reference
+) -> None:
+    from app.bot.handlers.manage.bells import bells_delete
+    from app.models import BellSchedule
+    from app.services.manage import bells
+
+    row = await _bell_delete_candidate(session, school_class)
+    class_id, schedule_id = school_class.id, row.id
+    real_delete = bells.delete
+
+    async def referenced_after_read(*args, **kwargs):
+        async with SessionLocal() as other:
+            if reference == "default":
+                current = await other.get(SchoolClass, class_id)
+                current.bell_schedule_id = schedule_id
+            else:
+                other.add(DayOverride(
+                    class_id=class_id, date=MONDAY, kind=DayKind.SHORTENED,
+                    bell_schedule_id=schedule_id,
+                ))
+            await other.commit()
+        return await real_delete(*args, **kwargs)
+
+    monkeypatch.setattr(bells, "delete", referenced_after_read)
+    callback = FakeCallback(message=FakeEditable())
+    real_answer = callback.answer
+
+    async def answer_after_release(*args, **kwargs):
+        assert not session.in_transaction(), "the refusal must release locks before Telegram I/O"
+        await real_answer(*args, **kwargs)
+
+    monkeypatch.setattr(callback, "answer", answer_after_release)
+    await bells_delete(
+        callback, SimpleNamespace(value=str(schedule_id)), session, school_class, Role.ADMIN
+    )
+    expected = (
+        "Это основное расписание класса. Сначала сделайте основным другое."
+        if reference == "default"
+        else "По нему идут особые дни (1). Сначала измените их."
+    )
+    assert callback.answers == [(expected, True)]
+    assert not callback.message.replies
+    async with SessionLocal() as fresh:
+        assert await fresh.get(BellSchedule, schedule_id) is not None
+    assert await _count(AuditEntry) == 0
+
+
+@pytest.mark.parametrize("transport", ["v1", "rest", "connect"])
+@pytest.mark.parametrize("reference", ["default", "day"])
+async def test_api_bell_delete_rechecks_new_references_without_changing_its_refusal(
+    v2, v2_tokens, session, school_class, monkeypatch, transport, reference
+) -> None:
+    from app.contract.lessons.v2.bell_pb import DeleteBellScheduleRequest
+    from app.models import BellSchedule
+    from app.services.manage import bells
+
+    row = await _bell_delete_candidate(session, school_class)
+    class_id, schedule_id = school_class.id, row.id
+    real_delete = bells.delete
+    staged = []
+
+    async def add_reference():
+        staged.append(True)
+        async with SessionLocal() as other:
+            if reference == "default":
+                current = await other.get(SchoolClass, class_id)
+                current.bell_schedule_id = schedule_id
+            else:
+                other.add(DayOverride(
+                    class_id=class_id, date=MONDAY, kind=DayKind.SHORTENED,
+                    bell_schedule_id=schedule_id,
+                ))
+            await other.commit()
+
+    async def referenced_after_read(write_session, *args, **kwargs):
+        if reference == "default":
+            await add_reference()
+        else:
+            real_scalar = write_session.scalar
+
+            async def after_usage_count(statement, *scalar_args, **scalar_kwargs):
+                result = await real_scalar(statement, *scalar_args, **scalar_kwargs)
+                if not staged and "count(" in str(statement).lower():
+                    await add_reference()
+                return result
+
+            monkeypatch.setattr(write_session, "scalar", after_usage_count)
+        return await real_delete(write_session, *args, **kwargs)
+
+    monkeypatch.setattr(bells, "delete", referenced_after_read)
+    expected = (
+        wording.BELL_SCHEDULE_IS_DEFAULT_DETAIL
+        if reference == "default" else wording.bell_schedule_in_use_detail(1)
+    )
+    if transport == "v1":
+        answer = await v2.http.delete(
+            f"/api/v1/manage/bells/{schedule_id}", headers=_auth(v2_tokens["admin"])
+        )
+        assert (answer.status_code, answer.json()) == (409, {"detail": expected})
+    else:
+        answer = await getattr(v2, transport)(
+            "BellService/DeleteBellSchedule", DeleteBellScheduleRequest(schedule_id=schedule_id),
+            token=v2_tokens["admin"],
+        )
+        assert (answer.status, answer.code, answer.reason, answer.error) == (
+            400, "FAILED_PRECONDITION", "RESOURCE_IN_USE", expected
+        )
+        metadata = {"resource": "bell_schedule", "used_by": "class"}
+        if reference == "day":
+            metadata = {"resource": "bell_schedule", "used_by": "days", "count": "1"}
+        assert answer.metadata == metadata
+    assert staged == [True]
+    async with SessionLocal() as fresh:
+        assert await fresh.get(BellSchedule, schedule_id) is not None
+    assert await _count(AuditEntry) == 0

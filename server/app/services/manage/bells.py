@@ -259,22 +259,9 @@ async def update(
     return silenced
 
 
-async def delete(
-    session: AsyncSession,
-    school_class: SchoolClass,
-    actor_id: int | None,
-    schedule: BellSchedule,
-) -> str:
-    """Delete a schedule nothing depends on.
-
-    Refused for the class default and for anything a day still points at. Both
-    are a ``SET NULL`` at the database level, which would silently move those
-    days onto the default schedule - a change nobody asked for, on dates an
-    admin is not looking at.
-
-    @return the name it had, for the shell to say.
-    @raises ScheduleIsDefault, ScheduleInUse
-    """
+async def _require_unused(
+    session: AsyncSession, school_class: SchoolClass, schedule: BellSchedule
+) -> None:
     if schedule.id == school_class.bell_schedule_id:
         raise ScheduleIsDefault(schedule.name)
     used = int(
@@ -291,6 +278,25 @@ async def delete(
     if used:
         raise ScheduleInUse(used)
 
+
+async def delete(
+    session: AsyncSession,
+    school_class: SchoolClass,
+    actor_id: int | None,
+    schedule: BellSchedule,
+) -> str:
+    """Delete a schedule nothing depends on.
+
+    Refused for the class default and for anything a day still points at. Both
+    are a ``SET NULL`` at the database level, which would silently move those
+    days onto the default schedule - a change nobody asked for, on dates an
+    admin is not looking at.
+
+    @return the name it had, for the shell to say.
+    @raises ScheduleIsDefault, ScheduleInUse
+    """
+    await _require_unused(session, school_class, schedule)
+
     name = schedule.name
     await gone.lock_parent(session, SchoolClass, school_class.id)
     try:
@@ -298,6 +304,9 @@ async def delete(
     except StaleDataError:
         # A delete that lost its target has already achieved its result.
         return name
+    # A reference may have committed after the fast checks or while this lock waited.
+    await session.refresh(school_class, ["bell_schedule_id"])
+    await _require_unused(session, school_class, schedule)
     # An editor may have replaced the eagerly loaded rows while this lock waited.
     await session.refresh(schedule, ["periods"])
     await session.delete(schedule)
