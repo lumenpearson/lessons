@@ -65,6 +65,7 @@ from app.models import (
     OverrideAction,
     Role,
     SchoolClass,
+    Subject,
     Term,
 )
 from app.providers.petersburg import client as pbclient
@@ -107,7 +108,7 @@ def _deleted_meanwhile(
         return await real(*args, **kwargs)
 
     monkeypatch.setattr(owner, name, first_somebody_deletes)
-    if model in (DayOverride, Homework):
+    if model in (DayOverride, Homework, Subject):
         from app.services import gone
 
         real_lock = gone.lock_parent

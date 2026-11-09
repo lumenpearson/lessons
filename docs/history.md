@@ -28,6 +28,46 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: audited retries still find their homework or day mark
+
+- #686, a child of #654: same-value Homework upserts and audited DayOverride
+  retries force a scalar UPDATE. A row removed after lookup must now meet the
+  stale-row check before its audit can persist; the existing API refusal and
+  bot rollback/state-clearing boundaries answer it. Nothing is resurrected.
+- Healthy unchanged v1/bot saves keep their audit and notice behavior. V2's
+  Homework update stays separate, and the Day guard's read-only unchanged
+  return still skips the forced UPDATE. No response field or enum changed.
+- All six new service/v1/bot cases failed on the earlier main (**six failed in
+  10.92 seconds**). Strengthened service cases first hold healthy unchanged
+  audits and notices; all six still failed on the combined parent source
+  (**six failed in 7.80 seconds**). The fixed affected runs passed **58 checks
+  in 18.38 seconds on PostgreSQL** and **58 in 24.93 seconds on SQLite**.
+- Independent review found no actionable defect and passed **72 focused SQLite
+  checks in 41.86 seconds**, including Watch, duplicates and v2 no-ops. The
+  physical audited UPDATE may wake Watch subscribers; an unchanged window can
+  resync without changed content. This is the existing class-card guard pattern,
+  and v2's silent updates remain silent. Ruff is clean; mypy passed **242 modules**.
+- Full PostgreSQL: **3484 passed, seven skipped, 15 warnings in 294.48 seconds**;
+  JUnit: **3491 tests, zero failures and errors**. The checked parent head and
+  its merge have identical trees.
+  Full SQLite: **3483 passed, eight skipped, 15 warnings in 1994.43 seconds**;
+  JUnit: **3491 tests, zero failures and errors**, no diagnostic timeout.
+
+### What remains open
+
+#654 and #662 remain open for other stale-row and parent-reference paths.
+Child #688 of #654 stages unchanged term edges, unchanged Class term schemes,
+and the bot scheme handler's missing stale boundary. A further PostgreSQL case
+reproduced a Class/Term deadlock in 2.65 seconds. All **12 cases failed against
+main in 12.82 seconds**, then passed on PostgreSQL after Class retention. The
+managed-worktree branch `server/term-stale-audits-654` passed **65 affected
+PostgreSQL checks** and **64 SQLite checks, one PostgreSQL-only skip**; its final
+combined-base gates remain pending. No #688 fix is included here. Term reads and v1's lazy seeding are left unchanged by this batch.
+No real Telegram conversation, installed APK or native-gRPC concurrency race
+ran. No schema, migration, Android, protobuf or production setting changed.
+The project board's Done state remains unverified: the embedded browser again
+failed to attach during the follow-up attempt.
+
 ## What the batch before added: homework writes retain the class they were read from
 
 - #684, a child of #662: homework creation and v1/bot upserts retain their Class

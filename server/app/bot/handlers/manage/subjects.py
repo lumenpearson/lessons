@@ -263,10 +263,12 @@ async def _save_subject_text(
         return
 
     value = None if raw in {"-", "—", ""} else raw[:limit]
-    await subjects_service.set_detail(
-        session, school_class.id, message.from_user.id, subject, field, value
-    )
-    if not await gone.committed(session):
+    async def write() -> None:
+        await subjects_service.set_detail(
+            session, school_class.id, message.from_user.id, subject, field, value
+        )
+
+    if not await gone.committed(session, write):
         await state.clear()
         await message.answer("Предмет уже удалён.", reply_markup=back_to_menu())
         return
@@ -307,10 +309,12 @@ async def _apply_colour(
     telegram_id: int,
     colour: str | None,
 ) -> bool:
-    await subjects_service.set_detail(
-        session, school_class.id, telegram_id, subject, "color", colour
-    )
-    return await gone.committed(session)
+    async def write() -> None:
+        await subjects_service.set_detail(
+            session, school_class.id, telegram_id, subject, "color", colour
+        )
+
+    return await gone.committed(session, write)
 
 
 @router.callback_query(SubjectAction.filter(F.action == "colour"))

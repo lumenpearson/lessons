@@ -14,9 +14,10 @@ from datetime import date as Date
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
-from app.models import Subject, TimetableEntry
-from app.services import audit, structure
+from app.models import SchoolClass, Subject, TimetableEntry
+from app.services import audit, gone, structure
 from app.services import subjects as dictionary
 
 #: What an admin may set beside the name: column -> (audit action, the word the
@@ -181,6 +182,8 @@ async def rename(
     if days:
         raise HomeworkClash(days)
 
+    # Class cascades lock the parent before its subjects; keep the same order.
+    await gone.lock_parent(session, SchoolClass, class_id)
     old_name = subject.name
     moved = await structure.rename_subject(session, class_id, subject, name)
     await audit.record(
@@ -207,7 +210,9 @@ async def set_detail(
     rather than a column written blind.
     """
     action, label, removed = DETAILS[column]
+    await gone.lock_parent(session, SchoolClass, class_id)
     setattr(subject, column, value)
+    flag_modified(subject, column)
     await audit.record(
         session,
         class_id,
