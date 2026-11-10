@@ -37,7 +37,7 @@ Tick what you checked. If something is broken deliberately, say why.
 ## Compatibility and rollout
 
 An APK that is already installed keeps calling this server for as long as nobody updates it,
-and a merge to `main` deploys itself. So a server change is read against the phones in the
+and a merge to `master` deploys itself. So a server change is read against the phones in the
 field, not against the app in this diff (`docs/engineering.md`, «Contracts»).
 
 - [ ] An installed app of the previous version still reads every answer it reads today: no

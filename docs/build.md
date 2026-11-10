@@ -193,9 +193,13 @@ as long as that setting says. If the APK has to outlive its run, that setting is
 to raise, and raising it lengthens the CI artifacts too — which is the storage problem
 "Actions minutes" describes, so raise it deliberately rather than by default.
 
-### The check `main` requires
+### Branches and promotion
 
-**One job, «CI», is what `main` requires**, through the repository ruleset that requires it,
+The owner chose `master` for production, `dev` for integration, and one temporary working branch (#724). Open working PRs against dev; after dev CI passes, promote dev to master through a separately checked PR. Both persistent branches retain the aggregate CI gate. A dev/working APK uses the debug key; only master and version tags admit production signing. Preserve worktree files when deleting merged working refs. The initial branch-work reconciliation is recorded in [branch-work-inventory.md](branch-work-inventory.md).
+
+### The check `master` requires
+
+**One job, «CI», is what `master` requires**, through the repository ruleset that requires it,
 which the repository admin role can bypass (#424). It is the last job in `ci.yml`: it needs
 every other one — «What changed», «Contract (Buf)», «Server (API + bot)», «Host» and
 «Android» — runs whatever they ended as (`if: always()`), and passes only when each one
@@ -325,20 +329,20 @@ runners, or a private one with your own.
   collaborators*.
 - **Anybody can download a run's artifacts** — for `ci.yml` that is the debug APK, the
   release APK signed with the debug key, and the test reports. `apk.yml` signs with the real
-  key only on `main` or a `v*` tag (#330, the owner's decision of 5 October 2026). Until then,
+  key only on `master` or a `v*` tag (#330, the owner's decision of 5 October 2026). Until then,
   once the four signing secrets were set, every run of it signed with the real key (#320):
   **Actions → APK → Run workflow** pointed at any branch put a real-key-signed APK of that
   branch into the `lessons-apk` artifact, where anybody can download it, and a family's
   phone would have taken it as an update. «Decode keystore» now hands the build no keystore,
   and the build no passwords, for any other ref, and says so in a notice. A manual run of
-  `main` still signs with the real key, and its APK is still downloadable by anybody,
-  because that is what `main` holds; only the GitHub Release waits for a tag.
+  `master` still signs with the real key, and its APK is still downloadable by anybody,
+  because that is what `master` holds; only the GitHub Release waits for a tag.
 
   **The guard stops an accident, not a person with push access.** «Run workflow» runs the
   `apk.yml` committed on the ref it is pointed at, and the four secrets are repository
   secrets that every branch's workflow can read, so a branch that deletes the guard and is
   then run still signs with the real key. Making it a rule would mean moving the four
-  secrets into a GitHub Environment that only `main` and `v*` tags may use, with a ruleset
+  secrets into a GitHub Environment that only `master` and `v*` tags may use, with a ruleset
   on `v*` tags; that is the owner's to set up, and it is in `HANDOVER.md`'s section 7.
 - **The whole history is visible, including what was removed from the working tree.** There
   are no credentials in it: `BOT_TOKEN`, `OWNER_IDS`, `WEBHOOK_SECRET` and `CRON_SECRET`
@@ -384,7 +388,7 @@ There are exactly two ways out, and the first is not a fix:
   the phone — the classes it is connected to, its device token, the diary session and any
   translation corrections — and the class has to be joined again with a class code or a
   personal code;
-* **configure the four secrets below.** Then every build of `main` and of a `v*` tag is
+* **configure the four secrets below.** Then every build of `master` and of a `v*` tag is
   signed with one key that is yours, updates install over each other for ever, and none of
   this arises again. A build of any other branch is signed with the debug key by design
   (#330): a phone that holds the real app refuses it as an update, and that is not the
@@ -394,7 +398,7 @@ There are exactly two ways out, and the first is not a fix:
 **The switch to your own key costs one uninstall, once.** Your key is not the debug key
 either, so the first build signed with it cannot install over a debug-signed one any more
 than two debug builds can, and it takes the same things with it — the classes, the device
-token, the diary session, the corrections. It is the last time: every build of `main` or of
+token, the diary session, the corrections. It is the last time: every build of `master` or of
 a `v*` tag after that updates the one before it.
 
 What publishing a debug-signed APK actually costs is worth being precise about, because it
@@ -515,7 +519,7 @@ password or a base64 of the wrong file is caught in seconds rather than eight mi
 inside Gradle, where the message blames the password whatever the cause.
 
 You can check the result without cutting a release: **Actions → APK → Run workflow**, on
-`main` — any other branch is signed with the debug key whatever the secrets say, and its
+`master` — any other branch is signed with the debug key whatever the secrets say, and its
 notice says so (#330). If `KEYSTORE_BASE64` is not set, the run does not fail — it prints
 `::warning::` and signs with the debug key. Pushing a tag with the secrets unconfigured
 fails deliberately, before the build, so that a debug-signed APK cannot go out in a public
@@ -568,11 +572,14 @@ What following the fork does **not** change, and a fork should know before it sh
 - **The fork's tracker inherits `.github/ISSUE_TEMPLATE/config.yml`**, whose contact links —
   the security advisory, Discussions, this page — all point here. A fork that files its
   readers' reports in its own tracker edits those links too.
-- **The default branch is assumed to be `main`.** The guide is refreshed from
-  `raw.githubusercontent.com/{owner}/{name}/main/docs/app/`, and a translation's pull
-  request is cut from and aimed at `main`. In a fork whose default branch has another name,
-  the guide's refresh fails and the reader keeps the copy bundled in the APK (or the last one
-  fetched), and a translation's pull request ends in «no_base» before anything is written.
+- **The guide follows the repository's default branch.** It is refreshed from
+  `raw.githubusercontent.com/{owner}/{name}/HEAD/docs/app/`. A translation's pull
+  request is cut from and aimed at the persistent integration branch `dev`. A fork
+  offering corrections needs that branch too; without it the request ends in
+  «no_base» before files are written. Existing APKs still name `main`: their guide
+  falls back to its bundled/last fetched copy after the rename, and sending a
+  correction requires an updated APK. GitHub cannot redirect an old raw-file URL
+  or a Git ref through an HTTP API branch rename.
 - **A translation's pull request from a build of somebody's fork can end in
   «fork_unavailable».** The reader's own fork has to be a fork of the repository the build
   names, and GitHub gives an account one fork per network: a reader who already forked
@@ -899,8 +906,8 @@ From the repository root:
 - `buf lint`: the STANDARD rules, with the one exception `buf.yaml` names and why.
 - `buf generate`: rewrites `server/app/contract/` whole (`clean: true`). Commit it in the
   same change as the proto, because CI regenerates and fails on any difference.
-- `git fetch origin main`, then `buf breaking --against '.git#ref=origin/main'`: the
-  breaking rules against `origin/main` rather than a local `main` that may be stale. `main`
+- `git fetch origin master`, then `buf breaking --against '.git#ref=origin/master'`: the
+  breaking rules against `origin/master` rather than a local `master` that may be stale. `master`
   has had a contract since #297, and the pull request that added it was the one CI skipped
   the check on, saying so.
 
@@ -910,7 +917,7 @@ name are reserved, the one way «Evolving the contract» lets a field go, so its
 reserved-aware variants stand in for it (#298). Buf reads no options. A method's binding,
 credential and role are held only by the resource map in `server/tests/test_contract.py`, so
 **an edit to that map is a breaking change** and is reviewed as one (#299). Every row below
-was tried against `main` on 5 October 2026, in a scratch copy:
+was tried against `master` on 5 October 2026, in a scratch copy:
 
 | A change to the contract | Caught by |
 | --- | --- |
@@ -1223,7 +1230,7 @@ below) is not worth that case (#202), so there are now two files:
   accepted.
 - `app/src/debug/res/xml/network_security_config.xml` — the debug build's, which overrides
   it by name: cleartext to every host, for development against a server on the same desk.
-  Nothing in Gradle chooses between them; a build type's resources win over `main`'s.
+  Nothing in Gradle chooses between them; a build type's resources win over `master`'s.
 
 The app asks that configuration before it sends anything (`CleartextPolicy` in
 `:core:data`, through `NetworkSecurityPolicy` — the question OkHttp asks too). The address

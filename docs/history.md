@@ -28,6 +28,90 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: detekt baseline rewrites stay within reviewed budgets
+
+- #635, existing milestone13: the existing pure JVM core:model suite checks every
+  default detekt-baseline.xml against a sibling detekt-baseline-budget.xml.
+  Accepted IDs make added/removed entries visible without Git history. Both manual
+  and current suppressions consume maxEntries, which equals the snapshot size.
+  Removals lower the limit; moves refresh IDs without raising it. No automatic
+  rewrite can raise the budget. The five original baselines remain byte-identical:
+  app182/data202/designsystem73/model13/widget21, total491.
+- Initial reviewed snapshotc7f10c35: thirteen reader cases hold growth, removal, moves, manual suppressions, zero,
+  malformed/duplicate records, XML escaping, nested discovery, missing pairs,
+  links and external entities. Assertion RED:9failed/13cases12s against stubs;
+  focused GREEN13s. A real baseline-only mutation and a budget-only mutation each
+  reran Test and failed; originals were restored with exact-byte ownership checks.
+- Both XML patterns and the module build script are Test inputs. Discovery has no
+  fixed module list; generated trees and links are excluded. The default filename
+  convention is explicit: custom bindings require extending discovery and inputs.
+  Engineering/build/large-refactor documents explain the review workflow; no new
+  plugin, dependency, CI job or application behavior was added.
+- Full server:3802passed/17skipped/15warnings2237.47s;3819unique JUnitcases,
+  zero failures/errors. Git Bash verified before bare pytest -q -n8; Ruffclean and
+  mypy242clean. No new PostgreSQL or installed-device run is claimed.
+- Initial reviewed snapshot: serial native test/assembleDebug/assembleRelease/detekt:BUILD SUCCESSFUL in
+  52s;340 actionable tasks: 3 executed, 337 up-to-date. Complete JVM reports:1810unique cases,
+  five modules, zero failures/errors/skips. The new module total is138. Both APKs
+  built, not installed; JDK21/isolatedSDK/offline/twoworkers/2GiBheap.
+- Initial native diagnostics caught one new MaxLineLength, fixed in source. The
+  executor started a repeat before the first process exited, causing shared test
+  result-file EOF/NoSuchFile errors. Those reports are not release evidence. The
+  successful serial native run above followed verified server exit0.
+### Independent review and correction
+
+Fresh independent Astra review ofc7f10c35 found no Critical and five Important
+issues: JVM junction traversal, linked Gradle inputs, missing console diagnostics,
+XML byte-decoding differences and discarded group membership. One fix pass holds
+all five. Non-whitespace container text was promoted to a fail-closed correction;
+the nested-pair control now first grows and must name its module/ID. The newly
+written unheld class total was omitted while updating measured case totals.
+
+- Formal reader RED:20cases/7failed/13controls13s; focused GREEN20cases23s.
+  Windows junctions are pruned before descent, containment uses real paths, XML
+  stays bytes through the secure parser, and Entry(group,id) retains policy.
+  A current-to-manual move requires an explicit matching snapshot refresh.
+- Actual configured Gradle inputs selected four external synthetic records before
+  the fix; the same audit selects none after it. A regular-to-identical-file-link
+  replacement previously reused Test UP-TO-DATE and passed5s. With path/type
+  metadata it executes and refuses the nonregular record11s. Exact original files
+  were restored by verified real target identity and frozen hashes; links/probes
+  are retained outside Android, with no deletion or private target read.
+- A module-local ValueSource walks without FOLLOW_LINKS and prunes reparse
+  directories before descent. Its metadata is rechecked by configuration cache;
+  only regular record bytes enter content fingerprinting. Each baseline-only and
+  budget-only mutation followed its own warm success, reran Test and failed.
+  The normal console now prints app and the exact added BudgetProbe:NewVisible635.
+- Corrected full native test/assembleDebug/assembleRelease/detekt:SUCCESS52s,
+  340tasks/6executed/334up-to-date, configuration cache reused. Complete reports:
+  1817unique cases/268reports/fivemodules, model145, zero failures/errors/skips.
+  All twenty budget cases passed. A new long line was formatted after waiting
+  for the preceding failed detekt process to exit; baselines were never widened.
+- The complete3819 raw SQLite proof above remains intact; no Python implementation
+  or tests changed in the correction. Ruff/mypy and all affected document suites
+  are rechecked, and fresh full ServerCI on the corrected head is a delivery gate.
+  Current canonical declarations3819/1817 are regenerated from successful reports.
+  Final corrected document checks:215passed/twowarnings120.54s; Ruffclean and
+  mypy242clean. All five Important findings and the malformed-container
+  regression are held by RED/GREEN tests or actual build probes.
+
+No second independent review is claimed for the one fix pass. Released as PR#721,
+pinned to checked head e36ebb8a, merge92d84023. PR CI42806015203 and main
+CI42807115723 passed, including Server3802passed/17skipped and Android1817.
+Automatic Codex review on that head completed with no findings; formal reviews
+and threads were empty. All three production aliases resolved to the exact READY
+merge and returned warmup200/status ok/API1/schema0019/v2 true. The post-warmup
+error/fatal30m query had no matching groups. #635 is closed; all four owned
+checkouts and main/dev refs fast-forwarded with unrelated work preserved.
+
+The GUI queue was refreshed at version9: released/no owner; future UI use requires
+a coordinated grant. No UI APIs or UAC input were used. Foreign work, stopped
+PostgreSQL data and local evidence are retained. Project6Done visibility, live
+Telegram/real-diary/installed-APK flows and arbitrary Gradle DSL evaluation remain
+outside this batch. The earlier #660 generated-report ignore Minor remains deferred.
+
+---
+
 ## What the batch before added: agent navigation resolves to current source
 
 - #661, existing milestone13: existing pytest checks CLAUDE/AGENTS and public

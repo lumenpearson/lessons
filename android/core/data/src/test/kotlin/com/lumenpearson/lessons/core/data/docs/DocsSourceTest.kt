@@ -34,7 +34,7 @@ class DocsSourceTest {
         docs.refresh("ru")
 
         assertEquals(
-            listOf("https://raw.githubusercontent.com/somebody/lessons-fork/main/docs/app/manifest.json"),
+            listOf("https://raw.githubusercontent.com/somebody/lessons-fork/HEAD/docs/app/manifest.json"),
             asked,
         )
     }

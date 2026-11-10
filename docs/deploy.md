@@ -486,7 +486,7 @@ both run, and a second run finds nothing to do. `0018` asks per column, as `0015
 
 ### A migration goes BEFORE the deploy, not after
 
-This is not a matter of taste. A merge to `main` deploys to Vercel by itself, while the
+This is not a matter of taste. A merge to `master` deploys to Vercel by itself, while the
 migration is run by hand — and between them is a window in which the code knows about a
 column the database does not have. Production has already been taken down that way: code
 with `classes.diary_provider` left before its revision, nothing failed at startup, and the
@@ -943,7 +943,7 @@ five seconds that times out reads `unknown` rather than raising a false alarm:
 | `schema` | the database is at the revision the code expects, or ahead of it in the window a revision applied before its merge opens |
 | `v2` | v2 loaded, rather than answering `503` under its two prefixes |
 | `diary_proxy` | a `HEAD` of the Petersburg diary through `DIARY_PROXY_URL` gets any answer within five seconds; asked only when the setting is set and `DIARY_EGRESS` sends something through it, so `direct` and `relay` read `unknown` |
-| `deploy` | production runs `main`'s head, or `main` moved less than fifteen minutes ago; asked on production only |
+| `deploy` | production runs `master`'s head, or `master` moved less than fifteen minutes ago; asked on production only |
 | `diary_region:<key>` | a `GET /webapi/logindata` of the region's server, sent by the route its calls take and with the diary client's own headers, gets any answer but a refusal within five seconds; one row per region in use (#406) |
 
 **A region's row.** A region is in use when a class is bound to it or a live session is on it,
@@ -971,7 +971,7 @@ proxy's address. In the bot, `/health` shows the four and a line for each region
 `/project` the whole of «📊 Проект» (`docs/bot.md`). If the self-check itself fails to commit,
 the tick rolls the session back, so the keep-alive that runs next on it is unaffected.
 
-The `deploy` check reads `main`'s head from GitHub's public API, with an `ETag`, so an
+The `deploy` check reads `master`'s head from GitHub's public API, with an `ETag`, so an
 unchanged answer is a `304`. With `GITHUB_READ_TOKEN` set the request is authorized: the `304`
 costs nothing against GitHub's rate limit, and the ceiling is 5,000 requests an hour. Without
 it the request is anonymous, sharing sixty requests an hour with every Vercel function behind

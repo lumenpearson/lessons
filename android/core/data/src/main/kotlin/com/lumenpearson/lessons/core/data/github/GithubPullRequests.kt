@@ -293,11 +293,10 @@ internal class GithubPullRequests(
 
     private companion object {
         /**
-         * Where a correction is offered. `main` rather than `dev`: `dev` is the
-         * maintainer's working branch and is restarted from `main` after every
-         * merge, so a pull request aimed at it would lose its base under it.
+         * Corrections enter the persistent integration branch and receive the
+         * same checks as other working PRs before a separate production promotion.
          */
-        const val BASE_BRANCH = "main"
+        const val BASE_BRANCH = "dev"
 
         /**
          * Branch names end in the clock rather than in the reader's name or a

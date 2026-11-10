@@ -16,6 +16,8 @@ The repository has three parts, and each has its own chain of checks: a Python s
 Android app in Kotlin, and the documentation. You may change them separately, but you run
 the checks for everything you touched.
 
+Changes start from `dev` on one temporary working branch and enter `dev` through a reviewed PR. CI runs on dev, master and PRs. After dev is green, a separate PR promotes it to production `master`; the working branch is deleted after integration, while its files are preserved.
+
 ## Environment
 
 | | Required | Where it is pinned |
@@ -23,7 +25,7 @@ the checks for everything you touched.
 | Python | 3.11+, CI builds on 3.12 | `.python-version`, `server/pyproject.toml` |
 | JDK | 21 | `android/app/build.gradle.kts` |
 | Android SDK | compileSdk 37, minSdk 26 | `android/app/build.gradle.kts` |
-| Gradle | 9.8.0 through the wrapper | `android/gradle/wrapper/` |
+| Gradle | 9.8.1 through the wrapper | `android/gradle/wrapper/` |
 
 The wrapper and its jar are in the repository, so `./gradlew` works on a fresh clone with
 no Gradle installed. The Android SDK has to be real: put the path to it in
@@ -42,7 +44,7 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 | --- | --- |
 | `ruff check app tests scripts migrations` | lints the server — exactly what CI runs |
 | `python -m mypy` | one question of all 242 modules: does anything reach for an attribute its type does not have? |
-| `pytest -q -n auto` | the server tests, 3845 of them — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
+| `pytest -q -n auto` | the server tests, 3856 of them — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
 | `python -m pytest -q tests/test_schedule.py -k parity` | one file, one test |
 | `python scripts/check_test_counts.py server --junit work/pytest.xml` | compare the completed full server report with `docs/counts.json` |
 | `python -m uvicorn app.main:app --reload` | run the server |
@@ -75,8 +77,8 @@ and both completed-report count checks above; and, when the
 contract changed, `buf lint`, `buf breaking` and a check that `server/app/contract/` is what
 `buf generate` writes; and, whenever the server's do, the «Host» job, which starts `python -m
 app.host` under pyvoy and under hypercorn and asks it over native gRPC; and last «CI», the
-one check `main` requires, which passes only when every job before it succeeded or was
-skipped (`docs/build.md`, «The check `main` requires»). The release
+one check `master` requires, which passes only when every job before it succeeded or was
+skipped (`docs/build.md`, «The check `master` requires»). The release
 build runs on every push, not only on a release: R8 and resource shrinking are the classic
 "it worked in debug and broke in the installed APK", and catching that on a pull request is
 cheaper than catching it on people.
@@ -154,7 +156,7 @@ or `fix:`. Something else is the convention, and it is just as consistent:
 
 ## Pull request
 
-1. Branch from an up-to-date `main`; direct commits to `main` are not accepted.
+1. Branch from an up-to-date `master`; direct commits to `master` are not accepted.
 2. One task, one pull request.
 3. Run locally what you touched: `ruff check` and `pytest -q` for the server,
    `./gradlew test` for Android, and both assembles if `android/` changed.
