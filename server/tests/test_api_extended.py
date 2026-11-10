@@ -8,6 +8,7 @@ endpoints get a bot that records messages instead of delivering them.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
@@ -1844,3 +1845,157 @@ def test_current_device_is_what_the_class_dependency_builds_on():
     written = deps.current_class.__dishka_orig_func__
     assert hash_token("x") != hash_token("y")
     assert written.__code__.co_varnames[:1] == ("device",)
+
+
+@pytest.mark.parametrize("failure", ["build", "close", "send", "absent", "delivered"])
+async def test_a_saved_event_survives_notice_lifecycle_failures(
+    client, session, school_class, monkeypatch, caplog, failure
+):
+    from aiogram.exceptions import TelegramNetworkError
+    from aiogram.methods import SendMessage
+    from aiogram.utils.token import TokenValidationError
+
+    marker = "SYNTHETIC_NOTICE_CREDENTIAL_377"
+    await _subscriber(session, school_class, 7001, notify_changes=True)
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    bot = FakeBot()
+    attempted, closed = [], []
+    original_send = bot.send_message
+
+    def build():
+        if failure == "build":
+            raise TokenValidationError(marker)
+        return None if failure == "absent" else bot
+
+    async def send(chat_id, text, **kwargs):
+        attempted.append(chat_id)
+        if failure == "send":
+            raise TelegramNetworkError(
+                method=SendMessage(chat_id=chat_id, text=text),
+                message=f"synthetic HTTP error: https://api.telegram.org/bot{marker}/sendMessage",
+            ) from RuntimeError(marker)
+        await original_send(chat_id, text, **kwargs)
+
+    async def close():
+        closed.append(True)
+        if failure == "close":
+            raise RuntimeError(marker)
+
+    monkeypatch.setattr(edit, "_build_bot", build)
+    monkeypatch.setattr(bot, "send_message", send)
+    monkeypatch.setattr(bot, "close", close)
+    response = await client.put(
+        "/api/v1/events",
+        json={"date": "2026-09-14", "starts_at": "12:00", "ends_at": "12:30", "title": "Обед"},
+        headers=_auth(token),
+    )
+    assert response.status_code == 201, response.text
+    rows = list(await session.scalars(select(DayEvent).where(DayEvent.class_id == school_class.id)))
+    assert len(rows) == 1 and rows[0].id == response.json()["id"] and rows[0].title == "Обед"
+    assert [row.action for row in await _audit(session, school_class)] == ["event.add"]
+    assert attempted == ([] if failure in {"build", "absent"} else [7001])
+    assert len(closed) == (0 if failure in {"build", "absent"} else 1)
+    assert len(bot.sent) == (1 if failure in {"close", "delivered"} else 0)
+    records = [r for r in caplog.records if r.name in {"app.api.edit", "app.services.notify"}]
+    assert marker not in caplog.text
+    assert all(r.exc_info is None and r.stack_info is None for r in records)
+    if failure in {"build", "close", "send"}:
+        expected_error = "TokenValidationError" if failure == "build" else (
+            "TelegramNetworkError" if failure == "send" else "RuntimeError"
+        )
+        assert records and expected_error in caplog.text
+
+
+@pytest.mark.parametrize(
+    "path,payload,expected_status,model,expected",
+    [
+        ("homework", {"due_date": "2026-09-14", "subject": "Алгебра", "text": "№ 1"},
+         200, Homework, {"subject": "Алгебра", "text": "№ 1"}),
+        ("overrides", {"date": "2026-09-14", "index": 1, "action": "cancel"},
+         200, LessonOverride, {"date": "2026-09-14", "index": 1, "action": "cancel"}),
+        ("events",
+         {"date": "2026-09-14", "starts_at": "12:00", "ends_at": "12:30", "title": "Обед"},
+         201, DayEvent, {}),
+        ("days", {"date": "2026-09-14", "kind": "holiday", "note": "notice regression"},
+         200, DayOverride, {"date": "2026-09-14", "kind": "holiday", "note": "notice regression"}),
+    ],
+    ids=["homework", "override", "event", "day"],
+)
+async def test_committed_edit_reply_survives_notification_session_expiry(
+    client, session, school_class, recording_bot, monkeypatch, caplog,
+    path, payload, expected_status, model, expected,
+):
+    marker = "SYNTHETIC_SUBSCRIBER_CREDENTIAL_377"
+
+    async def expires_then_fails(request_session, *_args, **_kwargs):
+        request_session.expire_all()
+        raise RuntimeError(marker) from ValueError(marker)
+
+    monkeypatch.setattr(edit.notify, "notify_subscribers", expires_then_fails)
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    response = await client.put(f"/api/v1/{path}", json=payload, headers=_auth(token))
+    assert response.status_code == expected_status, response.text
+    body = response.json()
+    assert {key: body[key] for key in expected} == expected
+    rows = list(await session.scalars(select(model).where(model.class_id == school_class.id)))
+    assert len(rows) == 1
+    if path in {"homework", "events"}:
+        assert body["id"] == rows[0].id
+    assert len(await _audit(session, school_class)) == 1
+    assert recording_bot.closed
+    records = [r for r in caplog.records if r.name == "app.api.edit"]
+    assert records and "RuntimeError" in caplog.text
+    assert marker not in caplog.text
+    assert all(r.exc_info is None and r.stack_info is None for r in records)
+
+
+async def test_a_failed_uncommitted_event_is_not_hidden_by_notice_guards(
+    client, session, school_class, monkeypatch
+):
+    token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
+    original_create = edit.events_service.create
+    built = []
+
+    async def fails_before_commit(*args, **kwargs):
+        await original_create(*args, **kwargs)
+        raise RuntimeError("synthetic uncommitted write failure")
+
+    monkeypatch.setattr(edit.events_service, "create", fails_before_commit)
+    monkeypatch.setattr(edit, "_build_bot", lambda: built.append(True))
+    with pytest.raises(RuntimeError, match="synthetic uncommitted write failure"):
+        await client.put(
+            "/api/v1/events",
+            json={"date": "2026-09-14", "starts_at": "12:00", "ends_at": "12:30", "title": "Обед"},
+            headers=_auth(token),
+        )
+    assert not built
+    assert list(await session.scalars(select(DayEvent))) == []
+    assert await _audit(session, school_class) == []
+
+
+@pytest.mark.parametrize("phase", ["build", "send", "close"])
+async def test_class_notice_preserves_cancellation(session, school_class, monkeypatch, phase):
+    bot = FakeBot()
+    closed = []
+
+    def build():
+        if phase == "build":
+            raise asyncio.CancelledError
+        return bot
+
+    async def send(*_args, **_kwargs):
+        if phase == "send":
+            raise asyncio.CancelledError
+        return 1
+
+    async def close():
+        closed.append(True)
+        if phase == "close":
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(edit, "_build_bot", build)
+    monkeypatch.setattr(edit.notify, "notify_subscribers", send)
+    monkeypatch.setattr(bot, "close", close)
+    with pytest.raises(asyncio.CancelledError):
+        await edit._tell(session, school_class, "x", kind="changes", author=EDITOR_ID)
+    assert len(closed) == (0 if phase == "build" else 1)

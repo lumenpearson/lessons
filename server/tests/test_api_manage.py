@@ -11,6 +11,7 @@ Telegram is stubbed where the app would send.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import date, time, timedelta
 from typing import Any
@@ -2227,3 +2228,98 @@ async def test_a_page_size_above_the_directorys_ceiling_is_refused(
         headers=_auth(token),
     )
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("decision", ["approve", "decline"])
+@pytest.mark.parametrize("failure", ["build", "close", "send", "absent", "delivered"])
+async def test_a_saved_decision_survives_notice_lifecycle_failures(
+    client, session, school_class, monkeypatch, caplog, decision, failure
+):
+    from aiogram.exceptions import TelegramNetworkError
+    from aiogram.methods import SendMessage
+    from aiogram.utils.token import TokenValidationError
+
+    marker = "SYNTHETIC_DECISION_CREDENTIAL_377"
+    request = await _request(session, school_class, ASKER_ID)
+    request_id = request.id
+    token = await _admin(client, session, school_class)
+    bot = FakeBot()
+    attempted, closed = [], []
+    original_send = bot.send_message
+
+    def build():
+        if failure == "build":
+            raise TokenValidationError(marker)
+        return None if failure == "absent" else bot
+
+    async def send(chat_id, text, **kwargs):
+        attempted.append(chat_id)
+        if failure == "send":
+            raise TelegramNetworkError(
+                method=SendMessage(chat_id=chat_id, text=text),
+                message=f"synthetic HTTP error: https://api.telegram.org/bot{marker}/sendMessage",
+            ) from RuntimeError(marker)
+        await original_send(chat_id, text, **kwargs)
+
+    async def close():
+        closed.append(True)
+        if failure == "close":
+            raise RuntimeError(marker)
+
+    monkeypatch.setattr(manage.requests, "_build_bot", build)
+    monkeypatch.setattr(bot, "send_message", send)
+    monkeypatch.setattr(bot, "close", close)
+    response = await client.post(
+        f"/api/v1/manage/requests/{request_id}/{decision}", headers=_auth(token)
+    )
+    assert response.status_code == 200, response.text
+    expected_status = "approved" if decision == "approve" else "declined"
+    body = response.json()
+    assert (body["id"], body["status"], body["role"]) == (
+        request_id, expected_status, "editor" if decision == "approve" else None,
+    )
+    await session.refresh(request)
+    assert (request.status, request.decided_by) == (expected_status, ADMIN_ID)
+    member = await session.scalar(select(BotUser).where(BotUser.telegram_id == ASKER_ID))
+    assert (member.role if member is not None else None) == (
+        Role.EDITOR if decision == "approve" else None
+    )
+    assert await _actions(session, school_class) == [f"access.{decision}"]
+    assert attempted == ([] if failure in {"build", "absent"} else [ASKER_ID])
+    assert len(closed) == (0 if failure in {"build", "absent"} else 1)
+    assert len(bot.sent) == (1 if failure in {"close", "delivered"} else 0)
+    records = [r for r in caplog.records if r.name == "app.api.manage.requests"]
+    assert marker not in caplog.text
+    assert all(r.exc_info is None and r.stack_info is None for r in records)
+    if failure in {"build", "close", "send"}:
+        expected_error = "TokenValidationError" if failure == "build" else (
+            "TelegramNetworkError" if failure == "send" else "RuntimeError"
+        )
+        assert records and expected_error in caplog.text
+
+
+@pytest.mark.parametrize("phase", ["build", "send", "close"])
+async def test_decision_notice_preserves_cancellation(monkeypatch, phase):
+    bot = FakeBot()
+    closed = []
+
+    def build():
+        if phase == "build":
+            raise asyncio.CancelledError
+        return bot
+
+    async def send(*_args, **_kwargs):
+        if phase == "send":
+            raise asyncio.CancelledError
+
+    async def close():
+        closed.append(True)
+        if phase == "close":
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(manage.requests, "_build_bot", build)
+    monkeypatch.setattr(bot, "send_message", send)
+    monkeypatch.setattr(bot, "close", close)
+    with pytest.raises(asyncio.CancelledError):
+        await manage.requests._tell(ASKER_ID, "x")
+    assert len(closed) == (0 if phase == "build" else 1)

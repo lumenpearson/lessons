@@ -129,18 +129,29 @@ async def _tell(
 ) -> None:
     """Notify subscribers after the commit. Never fails the request: the edit
     is already saved, and a Telegram outage is not a reason to tell the
-    editor it was not."""
-    bot = _build_bot()
+    editor it was not. Callers freeze their response before this optional work:
+    recipient bookkeeping can fail and expire the session's ORM state."""
+    class_id = school_class.id
+    try:
+        bot = _build_bot()
+    except Exception as error:  # noqa: BLE001 - optional work after the commit
+        log.warning("could not build notice bot for class %s: %s", class_id, type(error).__name__)
+        return
     if bot is None:
         return
     try:
         await notify.notify_subscribers(session, bot, school_class, text, kind=kind, exclude=author)
-    except Exception:  # noqa: BLE001 - see the docstring
-        log.warning("could not notify class %s", school_class.id, exc_info=True)
+    except Exception as error:  # noqa: BLE001 - see the docstring
+        log.warning("could not notify class %s: %s", class_id, type(error).__name__)
     finally:
-        bot_session = getattr(bot, "session", None)
-        if bot_session is not None:
-            await bot_session.close()
+        try:
+            bot_session = getattr(bot, "session", None)
+            if bot_session is not None:
+                await bot_session.close()
+        except Exception as error:  # noqa: BLE001 - closing cannot undo delivery or the write
+            log.warning(
+                "could not close notice bot for class %s: %s", class_id, type(error).__name__
+            )
 
 
 # --------------------------------------------------------------------------
@@ -173,9 +184,10 @@ async def homework_put(
     await session.commit()
     await session.refresh(saved.homework)
 
-    await _tell(session, school_class, saved.notice, kind="homework", author=actor)
     ticks = await task_service.homework_ticks(session, actor, [saved.homework.id])
-    return _homework_out(saved.homework, saved.homework.id in ticks)
+    response = _homework_out(saved.homework, saved.homework.id in ticks)
+    await _tell(session, school_class, saved.notice, kind="homework", author=actor)
+    return response
 
 
 @router.delete("/homework/{homework_id}", response_model=DeletedOut)
@@ -258,10 +270,8 @@ async def override_put(
             detail=lesson_not_on_timetable_detail(refused.index, cancelling=refused.cancelling),
         ) from None
     await session.commit()
-    await _tell(session, school_class, written.notice, kind="changes", author=actor)
-
     row = written.substitution
-    return OverrideOut(
+    response = OverrideOut(
         date=row.date,
         index=row.index,
         action=payload.action,
@@ -270,6 +280,8 @@ async def override_put(
         teacher=row.teacher,
         note=row.note,
     )
+    await _tell(session, school_class, written.notice, kind="changes", author=actor)
+    return response
 
 
 # --------------------------------------------------------------------------
@@ -306,8 +318,9 @@ async def event_put(
     await session.commit()
     await session.refresh(written.event)
 
+    response = EventCreatedOut(id=written.event.id)
     await _tell(session, school_class, written.notice, kind="changes", author=actor)
-    return EventCreatedOut(id=written.event.id)
+    return response
 
 
 @router.delete("/events/{event_id}", response_model=DeletedOut)
@@ -372,15 +385,16 @@ async def day_put(
             detail=SHORTENED_NEEDS_SCHEDULE_DETAIL,
         ) from None
     await session.commit()
-    if written.notice is not None:
-        await _tell(session, school_class, written.notice, kind="changes", author=actor)
-
     mark = written.mark
     if mark is None:
-        return DayOverrideOut(date=payload.date, kind="normal")
-    return DayOverrideOut(
-        date=mark.date,
-        kind=mark.kind.value,
-        note=mark.note,
-        bell_schedule_id=mark.bell_schedule_id,
-    )
+        response = DayOverrideOut(date=payload.date, kind="normal")
+    else:
+        response = DayOverrideOut(
+            date=mark.date,
+            kind=mark.kind.value,
+            note=mark.note,
+            bell_schedule_id=mark.bell_schedule_id,
+        )
+    if written.notice is not None:
+        await _tell(session, school_class, written.notice, kind="changes", author=actor)
+    return response
