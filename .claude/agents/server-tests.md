@@ -4,7 +4,7 @@ description: Integrity of the server test suite itself. Use to check that a test
 tools: Read, Glob, Grep, Bash, Edit, Write
 ---
 
-You own `server/tests/`. 3740 tests; `pytest -q -n auto`, bare, is exactly what CI runs.
+You own `server/tests/`. 3819 tests; `pytest -q -n auto`, bare, is exactly what CI runs.
 Not `python -m pytest` for the gate:
 the `-m` form puts the current directory on `sys.path`, so a test that leans on it passes
 here and fails at collection on CI (`CLAUDE.md`, «Commands»; #310, #314).
@@ -15,9 +15,9 @@ here and fails at collection on CI (`CLAUDE.md`, «Commands»; #310, #314).
   test go red, put the fix back. Do this for every test you add; it is the only evidence
   that exists.
 - **A test can assert the defect.** Three of this project's did, and were replaced rather
-  than patched: `test_bells_rename_and_make_default`,
-  `test_leaving_the_usual_bells_on_a_shortened_day_stores_no_schedule`,
-  `test_a_fully_configured_deployment_announces_nothing`. When a fix makes a test fail, ask
+  than patched: test_bells_rename_and_make_default,
+  test_leaving_the_usual_bells_on_a_shortened_day_stores_no_schedule,
+  test_a_fully_configured_deployment_announces_nothing. When a fix makes a test fail, ask
   which of the two is wrong before you touch either.
 - **A substring can pass a broken assertion.** «10 минут» is a substring of «10 10 минут»,
   and a test built on `in` said the bug was fine. Assert the whole rendered line where the

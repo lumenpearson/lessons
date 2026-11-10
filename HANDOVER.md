@@ -6,40 +6,22 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **10 November 2026**. `main` is at `5da5a1eb`, the merge of
-#718 pinned to checked head `8d66c4d4`. PR CI 42728943857 and main CI
-42730003181 passed every applicable check, including both Host runtimes.
-Production reached READY at the exact merge; all three aliases resolved
-there and their warmups answered HTTP 200/status ok/API 1/schema `0019`/
-v2 true. The post-warmup error/fatal 30-minute query had no matching groups.
-#710, #662 and #654 are closed in milestone 11, confirmed by live read-back.
-All four checkouts and main/dev refs were fast-forwarded across the
-source-identical merge; unrelated files and data were preserved.
+Last updated: **10 November 2026**. The last verified release is `main`
+at `1d332804`, PR#719/#660, pinned to checked head `03e36409`. PR CI42768003702
+and main CI42769138620 passed; production reached READY on that exact merge,
+all three aliases returned warmup200/status ok/API1/schema `0019`/v2 true, and
+the post-warmup error/fatal30m query had no matching groups. #660 is closed.
+Four owned checkouts and main/dev refs were fast-forwarded, unrelated work preserved.
 
-The owner continues autonomous work without a time limit. The current batch
-is `server/test-counts-660` in the isolated task-parent checkout, milestone
-**13**, based on that merge. Report/CLI/current-document/module-map rules and
-CI wiring are implemented; 93 focused tests, Ruff/mypy (242 modules), native
-Android and the full **3718-case** SQLite run are green. The latter passed
-3701, skipped 17, with 15 warnings in 2212.61 seconds, zero failures/errors;
-five implementation hashes stayed frozen. JSON was regenerated from that
-complete report and the native Android reports, and both CLI comparisons passed.
-At the reviewed `bce1f85c` snapshot, declarations say 3718/1797 and final
-document/schema/count/gate checks passed **112, two warnings in 79.31 seconds**.
-Fresh independent review found four Important defects. One fix pass has passed
-93 counts cases, then **134 combined checks, two warnings in 83.16 seconds**,
-Ruff/mypy and native Android. The corrected full run passed **3723, skipped 17,
-with 15 warnings in 1983.38 seconds**: **3740 cases, zero failures/errors**.
-Five implementation hashes match; facts were regenerated from that complete
-report and real native Android reports. Both post-checks pass and current
-declarations are **3740/1797**. Final declaration/schema/count/gate checks passed
-**134, two warnings in 80.46 seconds**. Publication and this PR's own exact-head
-CI, pinned merge, main CI and production verification follow this local snapshot.
-Both owned native PostgreSQL clusters are stopped with their test data retained.
-All desktop APIs remain paused; the GUI request was withdrawn and other
-sessions notified, so native checks use CLI without overlapping input.
-Board Done visibility remains unverified. This close-out stays in this batch's
-own PR; it does not create a separate close-out PR.
+The current batch is `server/instruction-references-661` in the isolated task-parent
+checkout, milestone13, based on that merge. It holds public agent navigation with
+74 new reader cases and five CI-input cases. Complete raw SQLite3819 and native
+Android1797 are green; Ruff/mypy242 are clean. Facts/current declarations3819/1797
+and final document checks accompany this batch. Review and delivery follow the
+checked local snapshot below; this file rides with its own PR, not a close-out PR.
+The owner continues autonomous work without a time limit; #635 is next after #661.
+Both owned native PostgreSQL clusters are stopped, data retained. All desktop APIs
+remain paused under the other session's exclusive lease; CLI checks use no UI input.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -352,7 +334,74 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: published test totals are measured and checked
+## What the last session added: agent navigation resolves to current source
+
+- #661, existing milestone13: existing pytest checks CLAUDE/AGENTS and public
+  Markdown under .claude against regular public source names and actual test
+  definitions. Errors name document, line and token. Untracked source is included
+  before commit; generated/ignored files and symlinks are excluded before reads.
+  Private SDK/signing/configuration names stay optional and are never opened.
+- Python test nodes retain source-file/class ownership; nested helpers do not
+  count. Simple keyword selectors are scoped to their file. Local Python module
+  and Ruff directory operands are held; qualified module symbols use a lazy public
+  Python AST read. No documented command or source module is executed.
+- Kotlin strings/templates/nested comments are masked before test classes are
+  recognized. File/directory kinds stay distinct, ordinary globs stay within a
+  component, .../** are recursive. Known extensions stay literal. Markdown fence
+  closing length/form cannot hide the next current reference. Historical replaced
+  tests and an external marketplace identifier are prose.
+- Server admits every changed filename because future referenced components cannot
+  safely use a fixed folder list. Android/Contract retain their filters. This costs
+  full Server and both Host runs on previously skipped changes; engineering/build
+  documents explain that choice. No dependency or application code was added.
+- The initial reviewed snapshot67181e1b passed3774/skipped17/warnings15 in2147.05s,
+  3791JUnitcases/zero failures/errors, plus192document checks/twowarnings105.46s.
+  Task completion passed73 in30.24s. Those remain reviewed-snapshot evidence.
+- Fresh independent Astra review found1Critical/6Important/2Minor. All seven major
+  findings were accepted; the short-fence finding was promoted to Important because
+  it hides a current missing reference. Formal RED22failed/46controls28.66s held
+  clean-checkout independence, symlink reads, filenames/commands, owned selectors,
+  Kotlin templates and path kinds. Private/GHA category RED5/12controls6.14s and
+  component-glob RED2/1.08s hold the expanded forms. One fix pass passed108 in49.19s,
+  including all seven actual Git Bash CI-summary cases; Ruff/mypy242 are clean.
+- **Corrected full SQLite:3802passed/17skipped/15warnings2294.54s;3819uniqueJUnit
+  cases, zero failures/errors.** Four implementation hashes match. Current facts
+  regenerated from that report and native Android XML: **3819/1797**; both report
+  comparisons pass. Final corrected document/schema/count/path/gate/CI-summary
+  checks: **220 passed, two warnings in124.44 seconds**. No second reviewer is claimed for this fix pass.
+- Native Android test/assembleDebug/assembleRelease/detekt passed8s:340tasks,
+  2executed/338up-to-date/configuration cache reused;1797cases/fivemodules. Android
+  inputs and APK hashes are unchanged through the Python-only review fixes. JDK21,
+  isolated SDK, offline/twoworkers/2GiBheap; APKs built, not installed.
+
+### Diagnostic evidence and boundaries
+
+The first raw run was intentionally stopped34% after a synthetic ignored-Markdown
+probe; it is not full proof. The next complete diagnostic run had3failed/3771passed/
+17skipped/15warnings2264.35s: three CI-summary positive cases selected the Windows
+WSL shim with no /bin/bash. Git/bin first in process PATH made all seven cases pass
+5.21s, followed by the initial successful full run. The corrected full above then
+covers every review regression. Failed/partial/collection-only reports stay separate.
+
+The Minor present-tense Android-only Host-skip examples and the old milestone-row
+current label are deferred prose from review; the opening, actual routing and facts
+are current. All declined-to-judge items have explicit executor rulings in the ledger.
+
+No app/API/model/migration/protobuf/Android production code changed. No new full
+PostgreSQL run is claimed; #718's complete PG18 ICU proof is archived as dated
+application evidence. Both owned clusters are stopped with data retained. Live
+Telegram, installed APK/real-diary flows, native-gRPC concurrency, independent member
+zero-row DELETE behavior and Project6Done visibility remain outside this batch.
+Standalone basename existence is checked, not uniqueness; arbitrary shell/plugin/
+Gradle runtime semantics, complex keyword expressions and historical examples are
+not asserted by this static guard.
+
+This batch carries its close-out in its own PR. Exact-head CI/reviews, pinned merge,
+main CI and production remain delivery gates; actual release proof is recorded in
+that PR's description. #635 follows after release. All desktop APIs remain paused
+under the other session's lease; native work uses CLI without shared UI input.
+
+## What the session before it added: published test totals are measured and checked
 
 - #660, existing milestone 13: one `docs/counts.json` carries the measured
   server total and Android total/module map. A standard-library CLI reads
@@ -414,7 +463,7 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   also passed. JDK 21, the isolated SDK, offline mode, two workers and a 2 GiB
   Gradle heap were used. Both APKs were built, not installed.
 
-### Remaining release work and boundaries
+### Release verification and boundaries
 
 The first checked snapshot's complete report and facts are recorded above.
 The independent Astra review at `bce1f85c` reproduced four Important findings:
@@ -434,10 +483,18 @@ names. Current declarations are 3740/1797. Final declaration/schema/count/gate
 checks passed **134, two warnings in 80.46 seconds**.
 No second review is requested under the one-fix-pass workflow. The Minor
 suggestion to ignore generated `server/work/pytest.xml` is deferred from this pass.
-At this checked snapshot no #660 PR has been published yet.
-A fully checked local commit precedes the required committed-range review
-package and fresh independent review. Exact-head CI/reviews, pinned merge,
-main CI and production checks remain release gates.
+#719 merged checked head `03e36409` as `1d332804`. PR CI 42768003702 and
+main CI 42769138620 passed every job, including Server, Android, both Host
+runtimes, Buf and the aggregate gate. Main's server run passed 3723/skipped17
+in250.97s and its 3740-case comparison passed. Exact-head automatic review had
+no findings; review submissions/threads were empty, mergeability clean and
+milestone13 assigned. #660 is closed, confirmed by live read-back.
+Production reached READY on the exact merge; all three aliases resolved there
+and warmups answered HTTP200/status ok/API1/schema `0019`/v2 true. The
+post-warmup deployment-scoped error/fatal30m query had no matching groups.
+Four owned checkouts and local main/dev plus remote dev were fast-forwarded;
+unrelated worktrees/untracked files were preserved. Actual release proof is
+also recorded in PR719's description, without a deployment identifier.
 
 No app, API, model, migration, protobuf or Android production code changed.
 No new full PostgreSQL run is claimed for this file/CI-only batch: #718's
@@ -450,74 +507,7 @@ DELETE behavior and Project 6 Done visibility remain outside this verification.
 
 All desktop APIs remain paused under the other session's exclusive lease.
 The lessons GUI request is withdrawn; native work uses CLI and no UI/UAC input.
-#661 is next: only a local read-only reference inventory exists, not a fix.
-
-## What the session before it added: personal tasks retain their optional Homework link
-
-- #710: the common task helper retains Class after existing absent/foreign
-  Homework validation, then rechecks the scalar Homework id and class with
-  PostgreSQL FOR KEY SHARE under no_autoflush. The reference remains present
-  through the caller's write and commit. SQLite's checked Class write retains
-  its file write lock before that recheck. No Homework UPDATE is introduced.
-  A lost link gives the existing HomeworkNotInClass validation: v1 422 and
-  REST v2/Connect INVALID_ARGUMENT/VALIDATION_FAILED on task.homework_id.
-- Original independent Homework deletion reproduced **two PostgreSQL foreign-
-  key failures in 2.59 seconds** while Class stayed present. Formal create/
-  update services and v1/REST-v2/Connect added **eight failures in 5.63
-  seconds**. After correction, eight PostgreSQL cases passed in **3.38
-  seconds**, and eight SQLite cases passed in **37.83 seconds**.
-- Two real PostgreSQL delete-wait cases use pg_blocking_pids and bounded
-  task cleanup; Homework deletion still leaves existing tasks with a NULL
-  link. Ten PostgreSQL cases passed in **3.70 seconds**; expanded PostgreSQL
-  passed **121, five warnings in 27.48 seconds**. Fresh independent review
-  found no actionable defect and passed **eight SQLite cases in 45.12
-  seconds**, with two PostgreSQL-only cases deselected.
-- Fresh final static review against the integrated base found no actionable
-  correctness findings and confirmed both frozen source hashes. This reviewer
-  ran no tests and published no GitHub feedback.
-- Full collected suite after integrating #717: **3643 cases**.
-  Full PostgreSQL: 3636 passed, 7 skipped, 15 warnings in 611.36 seconds; JUnit 3643 cases, zero failures/errors. Full SQLite: 3626 passed, 17 skipped, 15 warnings in 2933.14 seconds; JUnit 3643 cases, zero failures/errors.
-  Final Ruff/mypy: Ruff passed; mypy checked 242 modules. Documentation/schema: 17 passed, three warnings in 39.76 seconds.
-  Two source/test hashes remain
-  frozen across the full runs. No model, schema, migration, public v1
-  field/input/enum or protobuf changes; no broad IntegrityError interception.
-- The first full PostgreSQL attempt exited **4 before tests**: Docker's Linux
-  daemon and named pipe were absent, so the owned local port refused the
-  connection. That log is retained; it is not a test result. SQLite continued
-  independently. An already installed native PostgreSQL 18.0 allowed a
-  separate owned test cluster without any desktop handoff. Its full retry
-  has its own log and report. The complete retry used the already installed native PostgreSQL 18.0 in a new owned loopback-only cluster; existing databases and the stopped Docker container were retained untouched. Earlier focused PostgreSQL 16 evidence remains separate; no new full PostgreSQL 16 run is claimed..
-  The first native cluster used C locale and its full diagnostic run had 31 failures. SQL lower did not lowercase Cyrillic; the existing Homework case-fold regression reproduced that failure. A separate ICU en-US / UTC cluster made that unchanged case pass in 5.71 seconds, followed by the complete successful retry above. Both owned clusters were stopped and their data/reports retained. The diagnostic cluster required immediate mode after fast shutdown stalled with I/O workers/checkpointer. The valid cluster also stopped using immediate mode after smart/fast timeouts. Both retained clusters need WAL recovery if reused; no existing user database or Docker data was changed..
-
-### Parent issue closure and remaining boundaries
-
-#718 merged checked head `8d66c4d4` as `5da5a1eb`. PR CI 42728943857 and
-main CI 42730003181 passed, including both native Host runtimes; Android and
-Buf were correctly skipped for its unchanged inputs. Automatic review on the
-exact head had no findings, review submissions/threads were empty, mergeability
-was clean and milestone 11 assigned. Production reached READY at the exact merge;
-all three aliases resolved there and each warmup answered HTTP 200/status ok/
-API 1/schema `0019`/v2 true. The post-warmup error/fatal 30-minute query found
-no matching groups. All four checkouts and main/dev refs were fast-forwarded
-across the source-identical merge, preserving unrelated files.
-
-Both full reports executed and passed all 25 original scenario names / 65
-parametrized cases. After live child read-back, #662's six children were closed;
-#662 was closed, then #654's thirteen children were reread closed and #654
-was closed. A later live read confirms #710, #662 and #654 closed in milestone 11.
-The closure matrix covers the named original write races, not every future
-parent reference. The historical bot diary-correction bullet has no current
-bot writer; the phone correction races are exercised separately.
-
-Independently deleted member zero-row DELETE behavior, live Telegram,
-installed APKs, native-gRPC concurrency and Project 6 Done visibility remain
-unverified. Existing native Host checks are checked on the PR/main exact
-heads through both runtimes, not represented as local race tests. All data
-used by local suites stays in owned test databases.
-
-The prior full SQLite result (3611 passed, seventeen skipped, 2347.29 seconds)
-preceded #659's fifteen new checks. The two complete runs above verify the combined tree; that earlier result
-is retained as dated evidence rather than substituted for either current run.
+#661 follows in the current batch above; #635 remains next after its release.
 
 ## The milestones
 
@@ -2160,7 +2150,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3740 tests, ~33 min on Windows
+cd server  && pytest -q -n auto                          # 3819 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1797 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

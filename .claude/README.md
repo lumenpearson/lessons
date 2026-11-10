@@ -47,6 +47,12 @@ new check in CI or a restructuring of the build, so that the proposal starts fro
 already been decided rather than from a blog post. What is not yet done is filed under epic
 #626 and linked from there.
 
+Current inline paths and test names are checked by `test_instruction_references.py`
+(#661). Keep deliberately historical names in prose. Public instruction documents
+come from the Git filename inventory, including new untracked source; ignored local
+Markdown is not read. Fenced examples, routes, URLs, optional private configuration
+and placeholders are separate categories; the guard never executes a command.
+
 ## The two hooks
 
 Both say one sentence and only when it applies; neither blocks anything. The first is inline
@@ -94,7 +100,7 @@ hand twice.
   - **When a session stops**, `hooks/handover-behind.sh` speaks only if `HANDOVER.md` is
     behind the last merge, which is how a batch reported as done without its close-out gets
     noticed.
-- **`extraKnownMarketplaces`** registers `anthropics/skills` so `/plugin` can offer it. No
+- **`extraKnownMarketplaces`** registers the anthropics/skills marketplace so `/plugin` can offer it. No
   plugin is enabled by default: enabling one is a decision for everyone who clones this
   repository, not for the session that happened to add the file.
 

@@ -37,6 +37,7 @@ READ_BY_THE_SUITE = {
     "docs/counts.json": "test_counts, for the canonical measured facts",
     "android/settings.gradle.kts": "the server count post-check, for included project names",
     ".claude/settings.json": "test_gate_lists, for the permitted gate prefixes",
+    ".gitignore": "test_instruction_references, for the public source filename inventory",
     ".github/workflows/*.yml": "test_env_example, for the secrets; this file, for ci.yml",
     "docs/build.md": "test_env_example",
     "docs/deploy.md": "test_corrections_per_child_revision, test_deployment_config, test_compose",
@@ -64,9 +65,7 @@ def _job_patterns(consumer: str) -> list[str]:
     script = next(
         step["run"] for step in workflow["jobs"]["changes"]["steps"] if step.get("id") == "filter"
     )
-    arms = re.findall(
-        rf"^\s*(\S+)\)\s+{re.escape(consumer)}=true\s*;;", script, re.MULTILINE
-    )
+    arms = re.findall(rf"^\s*(\S+)\)\s+{re.escape(consumer)}=true\s*;;", script, re.MULTILINE)
     assert len(arms) == 1, f"expected one `case` arm for {consumer} in {CI.name}, found {arms}"
     return arms[0].split("|")
 
@@ -86,6 +85,19 @@ def _server_patterns() -> list[str]:
 )
 def test_count_inputs_run_the_job_that_consumes_them(path, consumer):
     assert _runs_the_server(path, _job_patterns(consumer.lower())), (path, consumer)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "android/app/src/test/kotlin/RemovedTest.kt",
+        "android/core/data/src/main/kotlin/NewSource.kt",
+        ".github/PULL_REQUEST_TEMPLATE.md",
+        "new-component/new-source.conf",
+    ],
+)
+def test_instruction_inputs_run_server(path):
+    assert _runs_the_server(path, _server_patterns()), path
 
 
 def _runs_the_server(path: str, patterns: list[str]) -> bool:
@@ -138,10 +150,11 @@ def test_the_documents_are_the_ones_the_head_is_read_from(head_documents):
     assert "docs/history.md" not in documents
 
 
-def _names_at_the_root(source: str) -> set[str]:
+def _names_at_the_root(source: str, entries: set[str] | None = None) -> set[str]:
     """String constants in `source` that are the name of something at the
     repository's root, as in ``ROOT / "vercel.json"``."""
-    entries = {entry.name for entry in ROOT.iterdir()} - {"server", ".git"}
+    if entries is None:
+        entries = {entry.name for entry in ROOT.iterdir()} - {"server", ".git"}
     tree = ast.parse(source)
     # A workflow's job key can equal a directory without reading that directory.
     job_keys = {
@@ -152,16 +165,33 @@ def _names_at_the_root(source: str) -> set[str]:
         and isinstance(node.value.slice, ast.Constant)
         and node.value.slice.value == "jobs"
     }
+    excluded_components = {
+        id(item)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "OUTPUTS" for target in node.targets)
+        and isinstance(node.value, ast.Set)
+        for item in node.value.elts
+    }
     return {
         node.value
         for node in ast.walk(tree)
-        if isinstance(node, ast.Constant) and node.value in entries and id(node) not in job_keys
+        if isinstance(node, ast.Constant)
+        and node.value in entries
+        and id(node) not in job_keys | excluded_components
     }
 
 
 def test_a_workflow_job_key_is_not_a_path_but_a_real_directory_still_is():
     assert not _names_at_the_root("workflow['jobs']['android']")
     assert len(_names_at_the_root("ROOT / 'android'")) == 1
+
+
+def test_excluded_inventory_components_are_not_opened_paths(tmp_path, monkeypatch):
+    (tmp_path / "android").mkdir()
+    monkeypatch.setitem(_names_at_the_root.__globals__, "ROOT", tmp_path)
+    assert not _names_at_the_root("OUTPUTS = {'fixture-output'}", {"fixture-output"})
+    assert len(_names_at_the_root("ROOT / 'fixture-output'", {"fixture-output"})) == 1
 
 
 def test_every_name_at_the_root_a_test_spells_is_in_the_list(head_documents):
