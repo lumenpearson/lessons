@@ -51,7 +51,13 @@ def _build_bot() -> Any | None:
 async def _tell(telegram_id: int, text: str) -> None:
     """Tell one person what was decided. Never fails the request: the decision
     is already committed, and a Telegram outage does not undo it."""
-    bot = _build_bot()
+    try:
+        bot = _build_bot()
+    except Exception as error:  # noqa: BLE001 - the decision is already committed
+        log.warning(
+            "could not build decision notice bot for %s: %s", telegram_id, type(error).__name__
+        )
+        return
     if bot is None:
         return
     try:
@@ -59,9 +65,14 @@ async def _tell(telegram_id: int, text: str) -> None:
     except Exception:  # noqa: BLE001 - see the docstring
         log.warning("could not tell %s about the decision", telegram_id, exc_info=True)
     finally:
-        bot_session = getattr(bot, "session", None)
-        if bot_session is not None:
-            await bot_session.close()
+        try:
+            bot_session = getattr(bot, "session", None)
+            if bot_session is not None:
+                await bot_session.close()
+        except Exception as error:  # noqa: BLE001 - closing cannot undo the decision
+            log.warning(
+                "could not close decision notice bot for %s: %s", telegram_id, type(error).__name__
+            )
 
 
 # --------------------------------------------------------------------------
@@ -142,12 +153,13 @@ async def request_approve(
 
     await session.commit()
 
-    await _tell(request.telegram_id, approval.notice(school_class))
     # The role the member holds now, which is not the one granted when they
     # already held a higher one (#368).
-    return RequestDecisionOut(
+    response = RequestDecisionOut(
         id=request_id, status="approved", role=approval.member.role.value, who=approval.who
     )
+    await _tell(request.telegram_id, approval.notice(school_class))
+    return response
 
 
 @router.post("/requests/{request_id}/decline", response_model=RequestDecisionOut)
@@ -167,5 +179,6 @@ async def request_decline(
     await requests_service.decline(session, school_class.id, actor.telegram_id, request)
     await session.commit()
 
+    response = RequestDecisionOut(id=request_id, status="declined", who=who)
     await _tell(request.telegram_id, requests_service.decline_notice(school_class))
-    return RequestDecisionOut(id=request_id, status="declined", who=who)
+    return response

@@ -68,7 +68,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3819 tests, six of them skipped unless a
+- **`pytest -q -n auto`** — 3845 tests, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), plus eleven PostgreSQL-only lock
   checks skipped on SQLite, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
@@ -768,6 +768,7 @@ points Hilt does not inject cleanly.
   unaffected. A day somebody marked by hand keeps its kind and note, and events
   and homework are kept either way: it is the lessons that are out of season,
   not the day.
+- **Committed v1 replies are frozen before optional notices; bot construction and close failures cannot undo them** (`test_a_saved_event_survives_notice_lifecycle_failures`, `test_committed_edit_reply_survives_notification_session_expiry`, #377).
 - **Class administration retains its parent before writes; diary cleanup, phone-code minting and calendar rotation leave commit to the complete caller transaction** (`test_access_member_parent_races.py`, `test_class_settings_parent_races.py`, #702, #703).
 - **Device join retains Class before burning an invite or inserting a token; a known valid code losing its Class is forgiven, not counted as a guess** (`test_join_parent_races.py`, #705).
 - **Timetable writes retain Class, canteen writes refresh and retain Class then Bell, and bot lesson input guards service execution with audit and commit** (`test_editor_parent_races.py`, #707).

@@ -7,20 +7,20 @@ What every batch before the last two added is in [docs/history.md](docs/history.
 newest first.
 
 Last updated: **10 November 2026**. The last verified release is main
-at6c92e226, PR#720/#661, pinned to checked headf62699e0. PR CI42791328869 and
-main CI42792272338 passed; production READY on that exact merge, all three aliases
+at92d84023, PR#721/#635, pinned to checked heade36ebb8a. PR CI42806015203 and
+main CI42807115723 passed; production READY on that exact merge, all three aliases
 resolved to it and returned warmup200/status ok/API1/schema0019/v2 true. The
-post-warmup error/fatal30m query had no matching groups. #660 and #661 are closed.
+post-warmup error/fatal30m query had no matching groups. #660, #661 and #635 are closed.
 Four owned checkouts and main/dev refs were fast-forwarded, unrelated work preserved.
 
-The current batch is server/detekt-budget-635 in the isolated task-parent checkout,
-milestone13, based on that merge. It holds491 existing detekt entries with explicit
-budgets and twenty JVM reader cases. Complete raw SQLite3819 and native Android1817
-are green; Ruff/mypy242 are clean. Facts/current declarations3819/1817 accompany
-this batch. Review and delivery follow the checked local snapshot below. The owner
+The current batch is server/notice-lifecycle-377 in the isolated task-parent checkout,
+milestone13, based on that merge. Ordinary optional-notice lifecycle failures no
+longer turn committed v1 writes into500. Complete SQLite3845/Android1817 and
+Ruff/mypy242 are green; actual facts and current declarations accompany this batch.
+Independent review and delivery follow the local snapshot below. The owner
 continues autonomous work without a time limit. Both owned native PostgreSQL
-clusters are stopped with data retained. No UI APIs are used; the refreshed queue
-is released and future UI use requires a coordinated grant.
+clusters are stopped with data retained. No UI APIs are used; queue version18
+belongs to another session and future UI use requires a coordinated grant.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -333,7 +333,43 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: detekt baseline rewrites stay within reviewed budgets
+## What the last session added: optional notices preserve committed v1 replies
+
+- #377, existing milestone13, promoted to status:now under delegated priority:
+  reproducible saved-write500 without real credentials, while next-labelled bugs
+  require external OTP, cron changes or the approved Android transport migration.
+- Existing edit and decision notification seams contain ordinary bot-construction,
+  delivery and close failures after commit. Close is attempted once when a bot
+  exists; cancellation still propagates. No new factory or domain-rule copy.
+- Homework, substitution, event, day and decision DTOs are prepared before notice
+  I/O. A failed subscriber lookup can expire ORM state without breaking the reply;
+  the logged class identifier is captured before optional work.
+- Focused RED:10failed/16controls/26cases24.73s; GREEN26passed21.52s.
+  Real ASGI controls hold one saved row/audit, recipients, delivery and close counts,
+  four expired-session edit replies, six cancellation cases and an uncommitted
+  failing write that still propagates and rolls back before any bot is constructed.
+- Complete SQLite: 3828 passed, 17 skipped, 15 warnings in 2243.43 seconds; 3845 unique JUnit cases, zero failures/errors. Local bare pytest -q -n8,
+  owned JUnit report and verified Git Bash; Ruffclean/mypy242clean. Four frozen
+  production/test hashes match the tested snapshot.
+- Native test/assembleDebug/assembleRelease/detekt: BUILD SUCCESSFUL in 37s.
+  Complete Android reports1817logicalcases/fivemodules, no failures/errors/skips.
+  JDK21/isolatedSDK/offline/twoworkers/2GiBheap; APKs built, not installed.
+- Facts/current declarations 3845/1817 follow those complete reports. Final
+  document/schema/count/reference/path/gate checks:215passed/twowarnings127.79s;
+  both completed-report comparisons pass. Independent review follows before
+  publication; exact-head CI, pinned merge, main CI and production proof
+  are delivery gates, recorded in this PR description after completion.
+
+No schema, model, dependency, protobuf or Android production changes. V1 response
+fields/statuses remain compatible with installed APKs. #371's Telegram network
+deadline is separate: no bounded-wait claim. No new full PostgreSQL run, real
+Telegram send, real-diary or installed-device flow is claimed. Both owned PG
+clusters remain stopped with data retained; foreign work and local evidence stay.
+No UI APIs were used; the queue's version18 grants another session exclusive UI,
+and this session remains paused until a coordinated grant. Project6Done board
+visibility and the earlier generated-report ignore Minor remain outside this batch.
+
+## What the session before it added: detekt baseline rewrites stay within reviewed budgets
 
 - #635, existing milestone13: the existing pure JVM core:model suite checks every
   default detekt-baseline.xml against a sibling detekt-baseline-budget.xml.
@@ -400,87 +436,20 @@ written unheld class total was omitted while updating measured case totals.
   mypy242clean. All five Important findings and the malformed-container
   regression are held by RED/GREEN tests or actual build probes.
 
-No second independent review is claimed for the one fix pass. Exact-head CI/reviews,
-pinned merge, main CI and production remain delivery gates; actual release proof
-belongs in this PR description. This close-out rides in its own PR.
+No second independent review is claimed for the one fix pass. Released as PR#721,
+pinned to checked head e36ebb8a, merge92d84023. PR CI42806015203 and main
+CI42807115723 passed, including Server3802passed/17skipped and Android1817.
+Automatic Codex review on that head completed with no findings; formal reviews
+and threads were empty. All three production aliases resolved to the exact READY
+merge and returned warmup200/status ok/API1/schema0019/v2 true. The post-warmup
+error/fatal30m query had no matching groups. #635 is closed; all four owned
+checkouts and main/dev refs fast-forwarded with unrelated work preserved.
 
 The GUI queue was refreshed at version9: released/no owner; future UI use requires
 a coordinated grant. No UI APIs or UAC input were used. Foreign work, stopped
 PostgreSQL data and local evidence are retained. Project6Done visibility, live
 Telegram/real-diary/installed-APK flows and arbitrary Gradle DSL evaluation remain
 outside this batch. The earlier #660 generated-report ignore Minor remains deferred.
-
-## What the session before it added: agent navigation resolves to current source
-
-- #661, existing milestone13: existing pytest checks CLAUDE/AGENTS and public
-  Markdown under .claude against regular public source names and actual test
-  definitions. Errors name document, line and token. Untracked source is included
-  before commit; generated/ignored files and symlinks are excluded before reads.
-  Private SDK/signing/configuration names stay optional and are never opened.
-- Python test nodes retain source-file/class ownership; nested helpers do not
-  count. Simple keyword selectors are scoped to their file. Local Python module
-  and Ruff directory operands are held; qualified module symbols use a lazy public
-  Python AST read. No documented command or source module is executed.
-- Kotlin strings/templates/nested comments are masked before test classes are
-  recognized. File/directory kinds stay distinct, ordinary globs stay within a
-  component, .../** are recursive. Known extensions stay literal. Markdown fence
-  closing length/form cannot hide the next current reference. Historical replaced
-  tests and an external marketplace identifier are prose.
-- Server admits every changed filename because future referenced components cannot
-  safely use a fixed folder list. Android/Contract retain their filters. This costs
-  full Server and both Host runs on previously skipped changes; engineering/build
-  documents explain that choice. No dependency or application code was added.
-- The initial reviewed snapshot67181e1b passed3774/skipped17/warnings15 in2147.05s,
-  3791JUnitcases/zero failures/errors, plus192document checks/twowarnings105.46s.
-  Task completion passed73 in30.24s. Those remain reviewed-snapshot evidence.
-- Fresh independent Astra review found1Critical/6Important/2Minor. All seven major
-  findings were accepted; the short-fence finding was promoted to Important because
-  it hides a current missing reference. Formal RED22failed/46controls28.66s held
-  clean-checkout independence, symlink reads, filenames/commands, owned selectors,
-  Kotlin templates and path kinds. Private/GHA category RED5/12controls6.14s and
-  component-glob RED2/1.08s hold the expanded forms. One fix pass passed108 in49.19s,
-  including all seven actual Git Bash CI-summary cases; Ruff/mypy242 are clean.
-- **Corrected full SQLite:3802passed/17skipped/15warnings2294.54s;3819uniqueJUnit
-  cases, zero failures/errors.** Four implementation hashes match. Current facts
-  regenerated from that report and native Android XML: **3819/1797**; both report
-  comparisons pass. Final corrected document/schema/count/path/gate/CI-summary
-  checks: **220 passed, two warnings in124.44 seconds**. No second reviewer is claimed for this fix pass.
-- Native Android test/assembleDebug/assembleRelease/detekt passed8s:340tasks,
-  2executed/338up-to-date/configuration cache reused;1797cases/fivemodules. Android
-  inputs and APK hashes are unchanged through the Python-only review fixes. JDK21,
-  isolated SDK, offline/twoworkers/2GiBheap; APKs built, not installed.
-
-### Diagnostic evidence and boundaries
-
-The first raw run was intentionally stopped34% after a synthetic ignored-Markdown
-probe; it is not full proof. The next complete diagnostic run had3failed/3771passed/
-17skipped/15warnings2264.35s: three CI-summary positive cases selected the Windows
-WSL shim with no /bin/bash. Git/bin first in process PATH made all seven cases pass
-5.21s, followed by the initial successful full run. The corrected full above then
-covers every review regression. Failed/partial/collection-only reports stay separate.
-
-The Minor present-tense Android-only Host-skip examples and the old milestone-row
-current label are deferred prose from review; the opening, actual routing and facts
-are current. All declined-to-judge items have explicit executor rulings in the ledger.
-
-No app/API/model/migration/protobuf/Android production code changed. No new full
-PostgreSQL run is claimed; #718's complete PG18 ICU proof is archived as dated
-application evidence. Both owned clusters are stopped with data retained. Live
-Telegram, installed APK/real-diary flows, native-gRPC concurrency, independent member
-zero-row DELETE behavior and Project6Done visibility remain outside this batch.
-Standalone basename existence is checked, not uniqueness; arbitrary shell/plugin/
-Gradle runtime semantics, complex keyword expressions and historical examples are
-not asserted by this static guard.
-
-Released as PR#720, pinned to f62699e0, merge6c92e226. PR CI42791328869 and
-main CI42792272338 passed, including Linux Server3802passed/17skipped and3819
-report comparisons. Automatic Codex review on the exact head completed with no
-findings; formal reviews/threads were empty. Production reached READY on6c92e226;
-all three aliases resolved to that merge and returned warmup200/status ok/API1/
-schema0019/v2 true. The post-warmup error/fatal30m query had no matching groups.
-#661 is closed; four owned checkouts and main/dev refs fast-forwarded without
-touching unrelated work. Its deferred Host-skip/milestone-row prose is updated by
-the current build-policy batch. Other stated boundaries remain unchanged.
 
 ## The milestones
 
@@ -508,7 +477,7 @@ current.
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
 | 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676, #680, #681, #685, #687, #689, #691, #693, #694, #698, #701, #704 and #706 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678, #679, #682, #684, #686 and #688, plus #690, #692, #695, #696, #697, #699, #700, #702, #703, #705, #707 and #709 (merged), plus #714, #715 and #716 (merged), and #718 (merged); #708, #710, #662 and #654 are closed — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November), issue #659 (closed), PR #717 (merged as `dedf70ef`) PR #719 (#660, merged), PR #720 (#661, merged) and the current #635 batch; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November), issue #659 (closed), PR #717 (merged as `dedf70ef`) PR #719 (#660, merged), PR #720 (#661, merged), PR #721 (#635, merged) and the current #377 batch; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
@@ -2123,7 +2092,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3819 tests, ~38 min on Windows
+cd server  && pytest -q -n auto                          # 3845 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1817 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

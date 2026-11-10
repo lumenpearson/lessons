@@ -11,6 +11,7 @@ Telegram is stubbed where the app would send.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import date, time, timedelta
 from typing import Any
@@ -2227,3 +2228,84 @@ async def test_a_page_size_above_the_directorys_ceiling_is_refused(
         headers=_auth(token),
     )
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("decision", ["approve", "decline"])
+@pytest.mark.parametrize("failure", ["build", "close", "send", "absent", "delivered"])
+async def test_a_saved_decision_survives_notice_lifecycle_failures(
+    client, session, school_class, monkeypatch, decision, failure
+):
+    from aiogram.utils.token import TokenValidationError
+
+    request = await _request(session, school_class, ASKER_ID)
+    request_id = request.id
+    token = await _admin(client, session, school_class)
+    bot = FakeBot()
+    attempted, closed = [], []
+    original_send = bot.send_message
+
+    def build():
+        if failure == "build":
+            raise TokenValidationError("synthetic invalid token")
+        return None if failure == "absent" else bot
+
+    async def send(chat_id, text, **kwargs):
+        attempted.append(chat_id)
+        if failure == "send":
+            raise RuntimeError("synthetic send refusal")
+        await original_send(chat_id, text, **kwargs)
+
+    async def close():
+        closed.append(True)
+        if failure == "close":
+            raise RuntimeError("synthetic close failure")
+
+    monkeypatch.setattr(manage.requests, "_build_bot", build)
+    monkeypatch.setattr(bot, "send_message", send)
+    monkeypatch.setattr(bot, "close", close)
+    response = await client.post(
+        f"/api/v1/manage/requests/{request_id}/{decision}", headers=_auth(token)
+    )
+    assert response.status_code == 200, response.text
+    expected_status = "approved" if decision == "approve" else "declined"
+    body = response.json()
+    assert (body["id"], body["status"], body["role"]) == (
+        request_id, expected_status, "editor" if decision == "approve" else None,
+    )
+    await session.refresh(request)
+    assert (request.status, request.decided_by) == (expected_status, ADMIN_ID)
+    member = await session.scalar(select(BotUser).where(BotUser.telegram_id == ASKER_ID))
+    assert (member.role if member is not None else None) == (
+        Role.EDITOR if decision == "approve" else None
+    )
+    assert await _actions(session, school_class) == [f"access.{decision}"]
+    assert attempted == ([] if failure in {"build", "absent"} else [ASKER_ID])
+    assert len(closed) == (0 if failure in {"build", "absent"} else 1)
+    assert len(bot.sent) == (1 if failure in {"close", "delivered"} else 0)
+
+
+@pytest.mark.parametrize("phase", ["build", "send", "close"])
+async def test_decision_notice_preserves_cancellation(monkeypatch, phase):
+    bot = FakeBot()
+    closed = []
+
+    def build():
+        if phase == "build":
+            raise asyncio.CancelledError
+        return bot
+
+    async def send(*_args, **_kwargs):
+        if phase == "send":
+            raise asyncio.CancelledError
+
+    async def close():
+        closed.append(True)
+        if phase == "close":
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(manage.requests, "_build_bot", build)
+    monkeypatch.setattr(bot, "send_message", send)
+    monkeypatch.setattr(bot, "close", close)
+    with pytest.raises(asyncio.CancelledError):
+        await manage.requests._tell(ASKER_ID, "x")
+    assert len(closed) == (0 if phase == "build" else 1)
