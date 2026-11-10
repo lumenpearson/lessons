@@ -38,7 +38,9 @@ CI routing admits every external filename/definition input it consumes.
 - Consumes: repository root Path and current public instruction text.
 - Produces: differences(root: Path) -> list[str], document:line:token errors.
 - Produces: unresolved(text: str, paths: set[str], tests: set[str]) -> list[str],
-  pure token/path comparison; inventory(root: Path) -> tuple[set[str], set[str]].
+  pure token/path comparison; inventory(root: Path) -> tuple[set[str], TestDefinitions].
+  TestDefinitions is set-compatible and retains file/class ownership; qualified
+  module-symbol references lazily read only the matching public Python AST.
 - No application callers; helper is consumed by one existing-suite test module.
 
 - [x] Write parameterized failing fixtures for missing/renamed paths and test
@@ -69,8 +71,8 @@ CI routing admits every external filename/definition input it consumes.
 
 ## Review and delivery
 
-- [ ] Generate committed-range package and obtain fresh independent review.
-- [ ] Re-grade findings; one RED/GREEN important fix pass plus full green suite;
+- [x] Generate committed-range package and obtain fresh independent review.
+- [x] Re-grade findings; one RED/GREEN important fix pass plus full green suite;
   defer minors, rule on every declined item. No second reviewer.
 - [ ] Push/draft PR Closes #661, Refs #626, milestone13/labels; attach, ready,
   exact-head green CI/no requests/clean merge, pinned merge, main CI, production,
@@ -82,3 +84,11 @@ One cohesive deliverable: source inventory, parser, live document assertion and
 CI routing cannot usefully ship separately. All five review focuses map to Task1
 fixtures. Interfaces are defined once; no new dependency, standalone job or product
 surface is introduced. Delivery follows implementation completion separately.
+
+Independent review at67181e1b found1Critical/6Important/2Minor. Seven major
+findings plus the fence finding (promoted Important by guard-bypass effect) were
+reproduced RED22/46controls28.66s, with private/GHA RED5/12controls6.14s and
+component-glob RED2/1.08s. One fix pass passed108focused49.19s, Ruff/mypy242,
+then the corrected complete SQLite3802/17/15/2294.54s (3819unique0errors/fails).
+Four source hashes match; measured facts3819/1797 regenerated from complete reports.
+The prose Minor is deferred; no second reviewer is used. Delivery remains required.

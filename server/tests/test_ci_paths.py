@@ -150,10 +150,11 @@ def test_the_documents_are_the_ones_the_head_is_read_from(head_documents):
     assert "docs/history.md" not in documents
 
 
-def _names_at_the_root(source: str) -> set[str]:
+def _names_at_the_root(source: str, entries: set[str] | None = None) -> set[str]:
     """String constants in `source` that are the name of something at the
     repository's root, as in ``ROOT / "vercel.json"``."""
-    entries = {entry.name for entry in ROOT.iterdir()} - {"server", ".git"}
+    if entries is None:
+        entries = {entry.name for entry in ROOT.iterdir()} - {"server", ".git"}
     tree = ast.parse(source)
     # A workflow's job key can equal a directory without reading that directory.
     job_keys = {
@@ -186,9 +187,11 @@ def test_a_workflow_job_key_is_not_a_path_but_a_real_directory_still_is():
     assert len(_names_at_the_root("ROOT / 'android'")) == 1
 
 
-def test_excluded_inventory_components_are_not_opened_paths():
-    assert not _names_at_the_root("OUTPUTS = {'.superpowers'}")
-    assert len(_names_at_the_root("ROOT / '.superpowers'")) == 1
+def test_excluded_inventory_components_are_not_opened_paths(tmp_path, monkeypatch):
+    (tmp_path / "android").mkdir()
+    monkeypatch.setitem(_names_at_the_root.__globals__, "ROOT", tmp_path)
+    assert not _names_at_the_root("OUTPUTS = {'fixture-output'}", {"fixture-output"})
+    assert len(_names_at_the_root("ROOT / 'fixture-output'", {"fixture-output"})) == 1
 
 
 def test_every_name_at_the_root_a_test_spells_is_in_the_list(head_documents):

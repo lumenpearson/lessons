@@ -74,6 +74,11 @@ def test_existing_paths_and_definitions_resolve(references, token):
         "~/.gradle/gradle.properties",
         "./gradlew :<module>:detekt",
         "DATABASE_URL=... .venv/bin/alembic upgrade head",
+        "local.properties",
+        "android/local.properties",
+        "keystore.properties",
+        "android/keystore.properties",
+        "::error::",
     ],
 )
 def test_non_source_categories_do_not_require_local_secrets(references, token):
@@ -199,3 +204,135 @@ def test_only_public_instruction_documents_are_read(references, tmp_path, public
         assert errors == []
     else:
         assert errors == [".claude/agents/new.md:1: gone.py"]
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "pyproject.toml",
+        "requirements.txt",
+        "google_sans_flex.ttf",
+        "Dockerfile",
+        "source.py:method",
+    ],
+)
+def test_current_filename_forms_cannot_disappear(references, token):
+    assert references.unresolved(f"`{token}`", set(), set())
+
+
+def test_explicit_extension_is_not_a_python_attribute(references):
+    assert references.unresolved(
+        "`android/gradle/libs.versions.toml`", {"android/gradle/libs.versions.py"}, set()
+    )
+    assert references.unresolved("`.claude/settings.local.json`", set(), set()) == []
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "python -m scripts.seed_demo",
+        "ruff check app tests scripts migrations",
+    ],
+)
+def test_current_local_command_operands_are_source(references, command):
+    assert references.unresolved(f"`{command}`", set(), set())
+
+
+def _source_repo(tmp_path, files):
+    subprocess.run(["git", "init", "--quiet", str(tmp_path)], check=True)
+    for name, text in {"CLAUDE.md": "", "AGENTS.md": "", **files}.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    return tmp_path
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        "tests/test_a.py::test_moved",
+        "tests/test_a.py::TestDoesNotExist::test_here",
+        "tests/test_a.py::test_nested",
+        "tests/test_a.py -k parity",
+    ],
+)
+def test_python_selection_stays_with_its_owner(references, tmp_path, selector):
+    root = _source_repo(
+        tmp_path,
+        {
+            "server/tests/test_a.py": (
+                "def test_here(): pass\ndef helper():\n def test_nested(): pass\n"
+                "class TestGroup:\n def test_member(self): pass\n"
+            ),
+            "server/tests/test_b.py": "def test_moved(): pass\ndef test_parity(): pass\n",
+        },
+    )
+    paths, tests = references.inventory(root)
+    assert references.unresolved(f"`pytest {selector}`", paths, tests)
+    assert "test_nested" not in tests
+    assert references.unresolved("`pytest tests/test_b.py::test_moved`", paths, tests) == []
+    assert references.unresolved("`pytest tests/test_b.py -k parity`", paths, tests) == []
+    assert (
+        references.unresolved("`pytest tests/test_a.py::TestGroup::test_member`", paths, tests)
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'val message = "${"class GhostTest"}"',
+        'val message = """${"""class GhostTest"""}"""',
+    ],
+)
+def test_kotlin_template_strings_cannot_define_a_test(references, tmp_path, source):
+    root = _source_repo(tmp_path, {"android/app/src/test/kotlin/Ghost.kt": source})
+    _, tests = references.inventory(root)
+    assert "GhostTest" not in tests
+
+
+@pytest.mark.parametrize(
+    "token,paths",
+    [
+        ("docs/only/", {"docs/only"}),
+        ("src/real.xml", {"src/real.xml/child.py"}),
+        ("app/*.py", {"server/app/deep/nested/test.py"}),
+    ],
+)
+def test_reference_kind_and_glob_depth_are_preserved(references, token, paths):
+    assert references.unresolved(f"`{token}`", paths, set())
+
+
+@pytest.mark.parametrize(
+    "name,payload",
+    [
+        (".claude/guide.md", "`outside_marker.py`"),
+        ("server/tests/test_link.py", "def test_outside(): pass"),
+        ("android/app/src/test/kotlin/LinkTest.kt", "class OutsideTest {}"),
+    ],
+)
+def test_symlink_targets_are_not_public_source(references, tmp_path, name, payload):
+    root = _source_repo(tmp_path, {"CLAUDE.md": f"Read `{name}`."})
+    target = tmp_path.parent / (tmp_path.name + "-outside" + Path(name).suffix)
+    target.write_text(payload, encoding="utf-8")
+    link = root / name
+    link.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        link.symlink_to(target)
+    except OSError as error:
+        pytest.skip(f"file symlink unavailable: {error}")
+    paths, tests = references.inventory(root)
+    assert name not in paths
+    assert "test_outside" not in tests and "OutsideTest" not in tests
+    assert all("outside_marker" not in error for error in references.differences(root))
+
+
+def test_a_short_inner_fence_cannot_hide_a_following_reference(references):
+    text = "~~~~\n~~~\n`gone.py`\n~~~~\n`real_missing.py`\n"
+    assert references.unresolved(text, set(), set()) == ["real_missing.py"]
+
+
+@pytest.mark.parametrize("pattern", ["app/[ab].py", "app/?.py"])
+def test_component_glob_spellings_have_the_same_missing_target_rule(references, pattern):
+    assert references.unresolved(f"`{pattern}`", {"server/app/longname.py"}, set())
+    assert references.unresolved(f"`{pattern}`", {"server/app/a.py"}, set()) == []

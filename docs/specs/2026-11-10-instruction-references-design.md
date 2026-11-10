@@ -15,8 +15,10 @@ it does not execute documentation commands or validate their runtime behavior.
 
 Use a stdlib-only helper under server/scripts and existing pytest. Source inventory
 includes tracked and new untracked, non-ignored source names before commit. Private
-configuration is never opened: only Python tests and Kotlin test source definitions
-are read, plus the public instruction documents and Git's filename inventory.
+configuration is never opened: regular public test sources, instruction documents and Git's filename inventory
+are read. A slash-qualified Python module.symbol reference also reads its public
+module AST lazily to distinguish a real symbol from a filename extension. File
+symlinks and links through parent directories are excluded; no target is opened.
 Directory existence comes from source path prefixes, not local generated files.
 
 ## Reference grammar
@@ -24,13 +26,17 @@ Directory existence comes from source path prefixes, not local generated files.
 Inline spans are distinguished from fenced examples. File references can be full
 repository paths, suffix paths relative to the described component, basenames,
 or paths with a collapsed ... directory. Existing globs and directories require
-at least one source match. Multiple matches satisfy existence; resolving a unique
+at least one source match of the same kind. Ordinary stars stay within a path
+component; only ... and ** span directory levels. Multiple matches satisfy existence; resolving a unique
 semantic target is outside this check. A path with an explicit extension must
 match that extension. A colon symbol suffix checks its source path; Python module
 style references without an extension may resolve to a .py file or package.
 
 Test names test_* and *Test must have definitions in Python test ASTs or Kotlin
-test source, not only appear in a comment or string. Command spans are tokenized;
+test source, not only appear in a comment or string. Python explicit nodes retain
+file/class ownership; nested helper definitions do not count. Documented simple
+keyword selections must match within their source file. Kotlin string templates
+mask their nested strings before classes are recognized. Command spans are tokenized;
 check source paths and test selectors, omit switches, generated report arguments,
 environment assignments, optional virtualenv executables and Gradle task syntax.
 No commands run. Full shell correctness and arbitrary dynamic task discovery are

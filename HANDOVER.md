@@ -15,8 +15,8 @@ Four owned checkouts and main/dev refs were fast-forwarded, unrelated work prese
 
 The current batch is `server/instruction-references-661` in the isolated task-parent
 checkout, milestone13, based on that merge. It holds public agent navigation with
-46 new reader cases and five CI-input cases. Complete raw SQLite3791 and native
-Android1797 are green; Ruff/mypy242 are clean. Facts/current declarations3791/1797
+74 new reader cases and five CI-input cases. Complete raw SQLite3819 and native
+Android1797 are green; Ruff/mypy242 are clean. Facts/current declarations3819/1797
 and final document checks accompany this batch. Review and delivery follow the
 checked local snapshot below; this file rides with its own PR, not a close-out PR.
 The owner continues autonomous work without a time limit; #635 is next after #661.
@@ -336,57 +336,70 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
 
 ## What the last session added: agent navigation resolves to current source
 
-- #661, existing milestone13: the existing server suite checks inline navigation
-  in CLAUDE/AGENTS and public Markdown under .claude against source paths and real
-  Python/Kotlin test definitions. Errors name document, line and unresolved token.
-  New untracked source is included before commit; generated outputs and ignored
-  local instruction documents are excluded. Private configuration is not opened.
-- Python definitions use ASTs; Kotlin test classes are read after nested comments
-  and strings are masked. Suffix/basename paths, collapsed directories, globs and
-  supported command paths/selectors are held. No documented command is executed.
-  Historical replaced-test names and an external marketplace name are prose.
-- Server admits every changed filename because a future component's referenced
-  path cannot safely be held by a fixed folder list. Android/Contract keep their
-  filters. Engineering/build documentation records the complete-server-run cost.
-- RED covered initial missing implementation, real path/Markdown/bootstrap inputs,
-  source selectors (two failures), CI/placeholder admission (five failures/two
-  controls) and public-document/command-prefix boundaries (four failures). The
-  combined guard/path/gate checks passed73 in32.52s; xdist2 passed73 in194.47s
-  while sharing disk with a full run, not an isolated timing benchmark.
-- Full SQLite, explicit Git Bash and eight workers: **3774 passed, 17 skipped,
-  15 warnings in2147.05 seconds**. **3791 unique JUnit cases, zero failures/errors**;
-  four implementation hashes match. Facts regenerated from this completed report
-  and actual Android XML: **3791/1797**, both completed-report comparisons pass.
-- Native Android test/assembleDebug/assembleRelease/detekt passed in8s:340tasks,
-  2executed/338up-to-date, configuration cache reused. Current1797cases/fivemodules
-  match the collector; debug/release APK hashes remain unchanged. JDK21, isolated
-  SDK, offline/twoworkers/2GiBheap; APKs were built, not installed.
-- Final declaration/schema/count/path/gate/CI-summary checks: **192 passed, two warnings in105.46 seconds**.
-  The fully checked commit precedes the required independent committed-range review;
-  important findings get one RED/GREEN fix pass and another complete green suite.
+- #661, existing milestone13: existing pytest checks CLAUDE/AGENTS and public
+  Markdown under .claude against regular public source names and actual test
+  definitions. Errors name document, line and token. Untracked source is included
+  before commit; generated/ignored files and symlinks are excluded before reads.
+  Private SDK/signing/configuration names stay optional and are never opened.
+- Python test nodes retain source-file/class ownership; nested helpers do not
+  count. Simple keyword selectors are scoped to their file. Local Python module
+  and Ruff directory operands are held; qualified module symbols use a lazy public
+  Python AST read. No documented command or source module is executed.
+- Kotlin strings/templates/nested comments are masked before test classes are
+  recognized. File/directory kinds stay distinct, ordinary globs stay within a
+  component, .../** are recursive. Known extensions stay literal. Markdown fence
+  closing length/form cannot hide the next current reference. Historical replaced
+  tests and an external marketplace identifier are prose.
+- Server admits every changed filename because future referenced components cannot
+  safely use a fixed folder list. Android/Contract retain their filters. This costs
+  full Server and both Host runs on previously skipped changes; engineering/build
+  documents explain that choice. No dependency or application code was added.
+- The initial reviewed snapshot67181e1b passed3774/skipped17/warnings15 in2147.05s,
+  3791JUnitcases/zero failures/errors, plus192document checks/twowarnings105.46s.
+  Task completion passed73 in30.24s. Those remain reviewed-snapshot evidence.
+- Fresh independent Astra review found1Critical/6Important/2Minor. All seven major
+  findings were accepted; the short-fence finding was promoted to Important because
+  it hides a current missing reference. Formal RED22failed/46controls28.66s held
+  clean-checkout independence, symlink reads, filenames/commands, owned selectors,
+  Kotlin templates and path kinds. Private/GHA category RED5/12controls6.14s and
+  component-glob RED2/1.08s hold the expanded forms. One fix pass passed108 in49.19s,
+  including all seven actual Git Bash CI-summary cases; Ruff/mypy242 are clean.
+- **Corrected full SQLite:3802passed/17skipped/15warnings2294.54s;3819uniqueJUnit
+  cases, zero failures/errors.** Four implementation hashes match. Current facts
+  regenerated from that report and native Android XML: **3819/1797**; both report
+  comparisons pass. Final corrected document/schema/count/path/gate/CI-summary
+  checks: **220 passed, two warnings in124.44 seconds**. No second reviewer is claimed for this fix pass.
+- Native Android test/assembleDebug/assembleRelease/detekt passed8s:340tasks,
+  2executed/338up-to-date/configuration cache reused;1797cases/fivemodules. Android
+  inputs and APK hashes are unchanged through the Python-only review fixes. JDK21,
+  isolated SDK, offline/twoworkers/2GiBheap; APKs built, not installed.
 
 ### Diagnostic evidence and boundaries
 
-The first raw run was intentionally stopped at34% after a synthetic ignored local
-Markdown probe found a public-inventory mismatch. Its log is not full proof. The
-next complete diagnostic run had3failed/3771passed/17skipped/15warnings2264.35s;
-all three failures were existing CI-summary positive cases choosing the Windows
-WSL shim with no /bin/bash. Git/bin was prepended to the process PATH, verified;
-all seven CI-summary cases passed5.21s, then the complete successful run above.
-No source patch or new test was needed for that environment correction.
+The first raw run was intentionally stopped34% after a synthetic ignored-Markdown
+probe; it is not full proof. The next complete diagnostic run had3failed/3771passed/
+17skipped/15warnings2264.35s: three CI-summary positive cases selected the Windows
+WSL shim with no /bin/bash. Git/bin first in process PATH made all seven cases pass
+5.21s, followed by the initial successful full run. The corrected full above then
+covers every review regression. Failed/partial/collection-only reports stay separate.
+
+The Minor present-tense Android-only Host-skip examples and the old milestone-row
+current label are deferred prose from review; the opening, actual routing and facts
+are current. All declined-to-judge items have explicit executor rulings in the ledger.
 
 No app/API/model/migration/protobuf/Android production code changed. No new full
 PostgreSQL run is claimed; #718's complete PG18 ICU proof is archived as dated
-evidence. Both owned clusters remain stopped with data retained. Live Telegram,
-installed APK/real-diary flows, native-gRPC concurrency, independent member zero-row
-DELETE behavior and Project6Done visibility are outside this batch. Basename
-resolution proves existence rather than uniqueness; arbitrary shell/Gradle runtime
-semantics, deliberately historical prose and fenced examples are not asserted.
+application evidence. Both owned clusters are stopped with data retained. Live
+Telegram, installed APK/real-diary flows, native-gRPC concurrency, independent member
+zero-row DELETE behavior and Project6Done visibility remain outside this batch.
+Standalone basename existence is checked, not uniqueness; arbitrary shell/plugin/
+Gradle runtime semantics, complex keyword expressions and historical examples are
+not asserted by this static guard.
 
-The batch carries its close-out in its own PR. Exact-head CI/reviews, pinned merge,
-main CI and production are delivery gates; actual release proof is added to that
-PR's description. #635 follows after release. All desktop APIs remain paused under
-the other session's exclusive lease; native work uses CLI without shared UI input.
+This batch carries its close-out in its own PR. Exact-head CI/reviews, pinned merge,
+main CI and production remain delivery gates; actual release proof is recorded in
+that PR's description. #635 follows after release. All desktop APIs remain paused
+under the other session's lease; native work uses CLI without shared UI input.
 
 ## What the session before it added: published test totals are measured and checked
 
@@ -2137,7 +2150,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3791 tests, ~36 min on Windows
+cd server  && pytest -q -n auto                          # 3819 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1797 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
