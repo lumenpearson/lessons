@@ -68,8 +68,8 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3633 tests in about four minutes, six of them skipped unless a
-  host is running (`-m host`, CI's «Host» job), plus nine PostgreSQL-only lock
+- **`pytest -q -n auto`** — 3643 tests in about four minutes, six of them skipped unless a
+  host is running (`-m host`, CI's «Host» job), plus eleven PostgreSQL-only lock
   checks skipped on SQLite, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
   form puts the current directory on `sys.path` and the bare one does not, so a
@@ -517,6 +517,8 @@ points Hilt does not inject cleanly.
 
 ## What will bite you
 
+- **PostgreSQL test clusters need Unicode case conversion** (`test_search_folds_case_for_cyrillic_too`); the `C` locale does not satisfy it.
+
 - **The server has no clock.** On Vercel nothing runs between requests, so there is no
   scheduler, no background task and no `asyncio` loop that survives a response. The morning
   and evening digests are driven from outside by whoever calls `GET /api/v1/cron/tick`
@@ -760,6 +762,7 @@ points Hilt does not inject cleanly.
 - **Device join retains Class before burning an invite or inserting a token; a known valid code losing its Class is forgiven, not counted as a guess** (`test_join_parent_races.py`, #705).
 - **Timetable writes retain Class, canteen writes refresh and retain Class then Bell, and bot lesson input guards service execution with audit and commit** (`test_editor_parent_races.py`, #707).
 - **Phone linking retains Class and leaves claim/audit/commit to both bot callers before Telegram success** (`test_phone_link_parent_races.py`, #708).
+- **Task writes retain Class then recheck and retain linked Homework through commit; deleting Homework still keeps the task with a NULL link** (`test_task_homework_parent_races.py`, #710).
 - **New personal tasks retain Class before INSERT, and bot add/commit share the stale boundary** (`test_task_parent_races.py`, #699).
 - **Access requests retain Class before submission or the pending row lock; bot request writes and commits share the stale boundary** (`test_access_request_parent_races.py`, `test_access_request_submission_parent.py`, #697, #700).
 - **Audited device revoke/unlink retain Class before mutation; already-revoked retries stay read-only** (`test_device_parent_races.py`, #696).

@@ -29,6 +29,54 @@ the conventions of the file it was written in:
 ---
 
 
+## What the batch before added: phone linking commits its claim and audit together
+
+- #708: linking retains Class before changing DeviceToken and leaves commit
+  to its caller. Both `/link` and `/start link_…` guard the complete claim,
+  dependent reads and commit; `/link` includes its audit in that transaction.
+  Response strings are captured before rollback can expire ORM objects.
+  Existing invalid/used/revoked-code indistinguishability, role decisions and
+  escaped names remain. Success follows durable commit in both callers.
+- Initial probes reproduced three PostgreSQL failures in **15.08 seconds**;
+  the deep-link baseline added **one failed, one healthy passed in 14.30
+  seconds**. The formal original baseline had **four failed, one passed in
+  35.43 seconds**. Five initial regressions passed in **20.34 seconds**.
+  All six SQLite cases passed in **33.55 seconds**, including separate-session
+  witnesses of claims (and the command audit) committed before Telegram output.
+- Six existing test setup callers now explicitly commit before a separate API
+  session reads their claim; all assertions stay unchanged. Stable IPv4 focused
+  PostgreSQL passed **672, five warnings in 81.95 seconds**. An older command
+  spanning a base refresh is diagnostic only; another hostname command stopped
+  after measured connection latency. Independent static review found no
+  actionable defect and ran no tests.
+- Full PostgreSQL on the checked Editor tree: **3611 passed, seven skipped,
+  15 warnings in 281.91 seconds**. JUnit has **3618 cases, zero failures/errors**;
+  all six new cases executed. Full SQLite: 3603 passed, 15 skipped, 15 warnings in 2597.36 seconds.
+  SQLite JUnit also contains 3618 cases with zero failures/errors; all six
+  new cases executed and passed. Eight code/test hashes stayed unchanged.
+  Final Ruff/mypy: Ruff passed; mypy checked 242 modules. Documentation/schema: 17 passed, three warnings in 107.64 seconds.
+  No v1 public field/input/enum, protobuf, model, migration or schema changed.
+
+### What remains open
+
+#654 and #662 remain open while this batch and #710 finish their gates.
+The separate #710 WIP retains a task's optional Homework reference after
+Class, rechecking it with a scalar PostgreSQL FOR KEY SHARE query or the
+existing SQLite Class write lock. Its formal baseline reproduced eight
+failures in **5.63 seconds**. Ten PostgreSQL cases passed in **3.70 seconds**,
+including real delete-wait/ON DELETE SET NULL checks; eight SQLite cases
+passed in **37.83 seconds**. Expanded PostgreSQL passed **121 in 27.48
+seconds**. Fresh review found no actionable defect and independently passed
+eight SQLite cases in **45.12 seconds**. Its full gates await this batch's
+checked head; no #710 code is included here.
+
+Independently deleted member zero-row DELETE behavior, live Telegram,
+installed APKs, native-gRPC concurrency and Project 6 Done visibility remain
+unverified. The syntactic parent-write inventory is not exhaustive safety
+proof. Tests use only owned local databases and per-checkout environments.
+
+
+
 ## What the batch before added: timetable controls retain their Class and Bell parents
 
 - #707: add/edit services retain Class before canonicalizing or changing
