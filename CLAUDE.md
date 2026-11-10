@@ -123,8 +123,8 @@ Android, from `android/`:
   Fix a new finding, or `@Suppress` it in place with the reason — the baseline is the past
 - **`python ../server/scripts/check_test_counts.py android --root .`** — compare the completed
   JVM reports with the measured module totals, counting variant copies once
-- `./gradlew detektBaseline` — rewrites all five baselines from the code as it stands; run
-  it after a merge that moves code between files, because a baseline entry names the file.
+- `./gradlew detektBaseline` — rewrites all five baselines from the code as it stands; use
+  it for reviewed moves/removals and refresh sibling budgets in the same pull request.
   `docs/build.md`, "detekt", has the rest
 - `./gradlew lint` runs the AGP Android lint; CI does not, so do not report it as a gate
 - `./gradlew :core:designsystem:connectedDebugAndroidTest` — the one instrumented source set
@@ -142,6 +142,7 @@ fallback beside digits from the bundle. `FontAxisTest` holds all three halves �
 draws Russian, neither carries an axis nothing varies, and no file is bundled unnamed.
 
 - **Keep current agent paths and test names resolvable** (`test_instruction_references.py`, #661); Server runs for every changed path because this guard inventories the whole tree.
+- **Baseline rewrites keep or lower their sibling budget, refreshing accepted IDs in the same reviewed PR** (`DetektBaselineBudgetTest`, #635); both manual and current IDs consume it.
 
 - **Keep primary gate declarations level with CI and allowed command prefixes** (`test_gate_lists.py`, #659).
 
@@ -155,8 +156,9 @@ needs every job before it, runs whatever they ended as, and passes only when eac
 succeeded or was skipped. It is the one check `main` requires, through the repository
 ruleset that requires it, which the repository admin role can bypass (#424). The gates are
 not required by their own names because «Host» is a matrix: a job its `if:` skips is reported
-once, under the unexpanded `Host (${{ matrix.server }})`, so a required «Host (pyvoy)» would
-never arrive on a pull request that changes only `android/` (`docs/build.md`, «The check
+once, under the unexpanded `Host (${{ matrix.server }})`, so naming a skipped matrix leg
+as required would leave «Expected» forever. Server and Host currently run on every changed
+path; the aggregate also covers future conditional jobs (`docs/build.md`, «The check
 `main` requires»). Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
 `reminders.yml` is a fallback clock, not the clock (see below). The workflows work — do
 not edit them casually. The repository is public, so standard runners cost nothing; what

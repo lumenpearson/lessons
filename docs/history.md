@@ -28,6 +28,116 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: published test totals are measured and checked
+
+- #660, existing milestone 13: one `docs/counts.json` carries the measured
+  server total and Android total/module map. A standard-library CLI reads
+  successful complete JUnit reports. Server cases include skips; Android
+  logical cases count once per module across variant copies. Malformed,
+  failed or duplicate reports refuse regeneration. Both sides are gathered
+  before one atomic JSON replacement; documents are never generated.
+- The existing server suite holds seven current server declarations, four
+  current Android totals and architecture's current module breakdown. Missing,
+  duplicate, wrong or unlisted current module entries fail, including a new
+  zero-case module. Actual included Gradle names must match JSON in the server
+  post-check, allowing raw pytest to produce the report needed by a module update.
+  Dated earlier totals remain historical rather than being rewritten.
+- Each existing CI job gains one completed-report count comparison. The
+  unchanged bare pytest gate writes `work/pytest.xml` by default; an explicit
+  XML path preserves separate focused evidence. JSON changes run both jobs;
+  collector changes also run Android. HANDOVER and Gradle settings run Server
+  because the suite now reads them. Both primary command lists and allowed
+  prefixes were updated together under #659; no new CI job or dependency.
+- Report/CLI RED was 28 failed/one positive control passed in 10.97 seconds,
+  followed by 29 passed in 10.61 seconds. Two include-like Kotlin string
+  cases went RED before tokenizer correction; combined 31 passed in 11.43
+  seconds. Current-document mutations went RED23/2 controls in 10.06 seconds,
+  then 56 passed in 21.18 seconds. Input-only paths went RED5/3 controls in
+  4.41 seconds; wiring plus facts/gate checks passed 80 in 31.49 seconds.
+- Self-review found architecture's module breakdown was not yet held to JSON.
+  Seven wrong/missing/duplicate/unlisted/zero-case regressions went RED in
+  34.94 seconds, then the expanded focused set passed **87 in 463.38 seconds**.
+  That serial run overlapped the interim full suite and inherited the global
+  autouse SQLite schema fixture; its duration is not an isolated benchmark.
+  Ruff passed; mypy checked 242 modules. The later independent review and fix pass
+  are recorded below.
+- Pre-review parser probes found that a flat block-comment regex treated a
+  nested commented include as real and refused comments between include
+  arguments. Four regressions failed with two string controls passing in
+  29.13 seconds. Lexical stripping now balances nested comments, treats
+  comments as whitespace, preserves quoted/raw strings and refuses an
+  unterminated comment. Eight parser/string cases passed in 39.11 seconds;
+  the complete combined check then passed **93 in 39.76 seconds** without
+  another suite running.
+- The interim full SQLite report has **3705 cases**, zero failures/errors:
+  **3688 passed, 17 skipped, 15 warnings in 2224.79 seconds**. It started
+  before those seven regressions and is not the final release report. The next
+  pre-comment full report has **3712 cases**, zero failures/errors: **3695
+  passed, 17 skipped, 15 warnings in 2142.77 seconds**. It also predates six
+  comment regressions. Neither earlier report is used for final regeneration.
+- The initially checked `bce1f85c` SQLite run passed **3701, skipped 17, with 15 warnings
+  in 2212.61 seconds**. JUnit has **3718 unique cases, zero failures/errors**;
+  all five implementation hashes match the renewed freeze. Local execution
+  used eight workers and an owned explicit XML path; the identical completed
+  report was also saved as `work/pytest.xml` to exercise the exact CI post-check.
+  JSON was regenerated from this report and the actual Android reports.
+  Both report comparisons passed; that snapshot's declarations were 3718/1797.
+- Native Android `test assembleDebug assembleRelease detekt` passed in
+  **2 minutes 17 seconds**, 340 tasks (190 executed/150 from cache). Its
+  267 reports have **1797 unique cases**, zero failures/errors/skips, in five
+  modules. After the independent review fixes, the same full command passed in **9
+  seconds**, 340 tasks (2 executed/338 up-to-date); the current CLI comparison
+  also passed. JDK 21, the isolated SDK, offline mode, two workers and a 2 GiB
+  Gradle heap were used. Both APKs were built, not installed.
+
+### Release verification and boundaries
+
+The first checked snapshot's complete report and facts are recorded above.
+The independent Astra review at `bce1f85c` reproduced four Important findings:
+missing reports becoming zero, conditional includes becoming phantom projects,
+the raw-suite/module-update bootstrap cycle and malformed JUnit/skip summaries.
+New regressions gave **21 failed, two controls passed in 11.04 seconds**.
+All four are addressed in one fix pass: known positive modules require explicit
+zero evidence or a named intentional-zero acknowledgement; unsupported include
+contexts refuse; module equality moved to the post-check; JUnit hierarchy and
+supplied skip counts are validated. The counts module passed **93 in 36.94
+seconds**, then the combined set passed **134, two warnings in 83.16 seconds**.
+The corrected complete run passed **3723, skipped 17, with 15 warnings in
+1983.38 seconds**. Its **3740 unique JUnit cases** have zero failures/errors;
+all five frozen implementation hashes match. JSON was regenerated from this
+report and actual Android reports; both post-checks pass, including actual module
+names. Current declarations are 3740/1797. Final declaration/schema/count/gate
+checks passed **134, two warnings in 80.46 seconds**.
+No second review is requested under the one-fix-pass workflow. The Minor
+suggestion to ignore generated `server/work/pytest.xml` is deferred from this pass.
+#719 merged checked head `03e36409` as `1d332804`. PR CI 42768003702 and
+main CI 42769138620 passed every job, including Server, Android, both Host
+runtimes, Buf and the aggregate gate. Main's server run passed 3723/skipped17
+in250.97s and its 3740-case comparison passed. Exact-head automatic review had
+no findings; review submissions/threads were empty, mergeability clean and
+milestone13 assigned. #660 is closed, confirmed by live read-back.
+Production reached READY on the exact merge; all three aliases resolved there
+and warmups answered HTTP200/status ok/API1/schema `0019`/v2 true. The
+post-warmup deployment-scoped error/fatal30m query had no matching groups.
+Four owned checkouts and local main/dev plus remote dev were fast-forwarded;
+unrelated worktrees/untracked files were preserved. Actual release proof is
+also recorded in PR719's description, without a deployment identifier.
+
+No app, API, model, migration, protobuf or Android production code changed.
+No new full PostgreSQL run is claimed for this file/CI-only batch: #718's
+complete native PostgreSQL 18 ICU result below remains dated application
+evidence. The two owned native clusters are stopped, data retained; their
+immediate shutdown means WAL recovery is needed if reused. Existing user
+PostgreSQL/Docker data and SDK paths were untouched. Live Telegram, installed
+APK/real-diary flows, native-gRPC concurrency, independent member zero-row
+DELETE behavior and Project 6 Done visibility remain outside this verification.
+
+All desktop APIs remain paused under the other session's exclusive lease.
+The lessons GUI request is withdrawn; native work uses CLI and no UI/UAC input.
+#661 follows in the current batch above; #635 remains next after its release.
+
+---
+
 ## What the batch before added: personal tasks retain their optional Homework link
 
 - #710: the common task helper retains Class after existing absent/foreign

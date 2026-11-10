@@ -247,8 +247,8 @@ right call, and it ships with a test that is red on the code that produced the d
 suites' own «seen red without the fix» rule, applied to the linter. The one principle worth
 keeping from Airbnb's style guides ([Swift guide][swift]) — a rule a tool can fix, the tool
 fixes — is a condition on every rule added, not a project of its own. Left: the rules for the
-Kotlin traps, with the two Android Lint checks that matter folded in (#632), a baseline that
-cannot grow (#635), the time-zone and async families in ruff (#644) and mypy ratcheted a code
+Kotlin traps, with the two Android Lint checks that matter folded in (#632),
+the time-zone and async families in ruff (#644) and mypy ratcheted a code
 at a time (#643).
 
 ## Changing a lot at once
@@ -584,6 +584,25 @@ and costs no device farm); Happo as an approval service (committed goldens put t
 every other review here already is); Spinnaker and canaries (one deployment has nothing to
 compare against — asking it `/warmup` is the check, #641); Evergreen (GitHub's merge queue
 is organization-only; the strict «up to date» policy is what is in reach, #646).
+
+### A reviewed detekt budget (#635)
+
+Airbnb's counted suppressions motivate a small ratchet in the existing pure JVM
+suite: `DetektBaselineBudgetTest` compares every default `detekt-baseline.xml`
+with its sibling `detekt-baseline-budget.xml`. Both manual and current IDs consume
+the limit. A removal lowers it; a move refreshes the accepted IDs without raising
+it. The snapshot makes diagnostics independent of Git history. This costs five
+small XML snapshots rather than a new CI job, plugin, dependency or device test.
+The module lazily inventories both default XML filenames as Gradle test inputs so
+a rewrite cannot reuse an earlier passing result. A module-local ValueSource
+walks without following links, prunes Windows reparse directories before descent,
+and exposes only regular file contents to fingerprinting. Relative paths and
+rejected record types are separate metadata inputs: replacing a file with an
+identical-content link must still rerun the check. The extra build logic costs
+more than a file tree, whose default traversal follows directory links. Byte
+streams preserve XML encoding declarations/BOMs, and accepted group membership
+keeps permanent manual suppression an explicit policy change. Custom baseline
+filenames require extending discovery and inputs together.
 
 ## Sources
 
