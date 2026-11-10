@@ -22,6 +22,7 @@ import fnmatch
 import re
 from pathlib import Path
 
+import pytest
 import yaml
 
 SERVER = Path(__file__).resolve().parents[1]
@@ -32,6 +33,9 @@ CI = ROOT / ".github" / "workflows" / "ci.yml"
 #: repository, and the test that reads it. The documents `test_schema_version`
 #: reads are not listed: they come from its own fixture, `head_documents`.
 READ_BY_THE_SUITE = {
+    "HANDOVER.md": "test_counts, for the current declared suite totals",
+    "docs/counts.json": "test_counts, for the canonical measured facts",
+    "android/settings.gradle.kts": "test_counts, for the current included project names",
     ".claude/settings.json": "test_gate_lists, for the permitted gate prefixes",
     ".github/workflows/*.yml": "test_env_example, for the secrets; this file, for ci.yml",
     "docs/build.md": "test_env_example",
@@ -54,15 +58,34 @@ READ_BY_THE_SUITE = {
 }
 
 
-def _server_patterns() -> list[str]:
-    """The patterns of the `case` arm that sets `server=true`, as bash reads them."""
+def _job_patterns(consumer: str) -> list[str]:
+    """The patterns of the consuming job's `case` arm, as bash reads them."""
     workflow = yaml.safe_load(CI.read_text(encoding="utf-8"))
     script = next(
         step["run"] for step in workflow["jobs"]["changes"]["steps"] if step.get("id") == "filter"
     )
-    arms = re.findall(r"^\s*(\S+)\)\s+server=true\s*;;", script, re.MULTILINE)
-    assert len(arms) == 1, f"expected one `case` arm setting server=true in {CI.name}, found {arms}"
+    arms = re.findall(
+        rf"^\s*(\S+)\)\s+{re.escape(consumer)}=true\s*;;", script, re.MULTILINE
+    )
+    assert len(arms) == 1, f"expected one `case` arm for {consumer} in {CI.name}, found {arms}"
     return arms[0].split("|")
+
+
+def _server_patterns() -> list[str]:
+    return _job_patterns("server")
+
+
+@pytest.mark.parametrize(
+    "path,consumer",
+    [
+        ("docs/counts.json", "Server"),
+        ("docs/counts.json", "Android"),
+        ("server/scripts/check_test_counts.py", "Android"),
+        ("android/settings.gradle.kts", "Server"),
+    ],
+)
+def test_count_inputs_run_the_job_that_consumes_them(path, consumer):
+    assert _runs_the_server(path, _job_patterns(consumer.lower())), (path, consumer)
 
 
 def _runs_the_server(path: str, patterns: list[str]) -> bool:

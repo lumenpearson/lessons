@@ -35,19 +35,21 @@ From `server/` (Python 3.12):
 ruff check app tests scripts migrations
 python -m mypy
 pytest -q -n auto
+python scripts/check_test_counts.py server --junit work/pytest.xml
 ```
 
-From `android/` (JDK 21, compileSdk 37, wrapper Gradle):
+From `android/` (JDK 21, compileSdk 37, wrapper Gradle; Python 3.12 for the report check):
 
 ```
 ./gradlew test
 ./gradlew assembleDebug
 ./gradlew assembleRelease
 ./gradlew detekt
+python ../server/scripts/check_test_counts.py android --root .
 ```
 
 CI is exactly: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both assembles,
-`./gradlew detekt`, and the path-filtered «Contract (Buf)» job when `proto/`, `buf.*` or `server/app/contract/` changed
+`./gradlew detekt`, the two completed-report count checks above, and the path-filtered «Contract (Buf)» job when `proto/`, `buf.*` or `server/app/contract/` changed
 (or the workflow, or an unknown commit range).
 `./gradlew lint` is **not** a gate.
 `--offline` is needed for Gradle in a sandbox.

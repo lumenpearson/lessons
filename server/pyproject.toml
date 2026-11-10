@@ -166,6 +166,7 @@ ignore_errors = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+addopts = "--junitxml=work/pytest.xml"
 filterwarnings = [
     "error:Setting per-request cookies=.* is being deprecated:DeprecationWarning",
     "error:'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated:Warning",

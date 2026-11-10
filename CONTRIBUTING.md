@@ -42,19 +42,29 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 | --- | --- |
 | `ruff check app tests scripts migrations` | lints the server — exactly what CI runs |
 | `python -m mypy` | one question of all 242 modules: does anything reach for an attribute its type does not have? |
-| `pytest -q -n auto` | the server tests, 3643 of them, in about four minutes on CI — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
+| `pytest -q -n auto` | the server tests, 3718 of them — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
 | `python -m pytest -q tests/test_schedule.py -k parity` | one file, one test |
+| `python scripts/check_test_counts.py server --junit work/pytest.xml` | compare the completed full server report with `docs/counts.json` |
 | `python -m uvicorn app.main:app --reload` | run the server |
 | `alembic upgrade head` | apply the migrations (with a working `DATABASE_URL`) |
 | `./gradlew test` | every JVM test across the five modules |
 | `./gradlew :core:model:test --tests '*ScheduleEngineTest*'` | one module, one class |
 | `./gradlew assembleDebug` | the debug APK |
 | `./gradlew assembleRelease` | the release APK, with R8 and resource shrinking |
+| `./gradlew detekt` | Kotlin static analysis |
+| `python ../server/scripts/check_test_counts.py android --root .` | compare the completed JVM reports with `docs/counts.json` |
 
-The first six run from `server/`, the rest from `android/`.
+Server commands run from `server/`; Gradle and the Android count command run from `android/`.
+
+The full pytest gate writes `work/pytest.xml` by default. After complete successful runs
+on both sides, regenerate facts from `server/` with
+`python scripts/check_test_counts.py write --server-junit work/pytest.xml --android-root ../android`.
+Then update the current document declarations held by `test_counts.py`; keep historical
+run totals. Focused runs should use an explicit XML path to preserve the full report.
 
 CI (`.github/workflows/ci.yml`) runs exactly this: `ruff`, `python -m mypy`,
-`pytest -n auto`, `./gradlew test`, `assembleDebug`, `assembleRelease` and `./gradlew detekt`; and, when the
+`pytest -n auto`, `./gradlew test`, `assembleDebug`, `assembleRelease`, `./gradlew detekt`
+and both completed-report count checks above; and, when the
 contract changed, `buf lint`, `buf breaking` and a check that `server/app/contract/` is what
 `buf generate` writes; and, whenever the server's do, the «Host» job, which starts `python -m
 app.host` under pyvoy and under hypercorn and asks it over native gRPC; and last «CI», the

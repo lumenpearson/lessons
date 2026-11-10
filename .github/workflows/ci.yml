@@ -97,7 +97,7 @@ jobs:
               # allow-list of diary hosts, bundled in place, and the vectors
               # are `DiaryProtocolVectorsTest`'s resource — so an edit to
               # either must run both halves, not only the server's.
-              android/*|docs/app/*|docs/legal/*|server/app/catalog/data/*|server/tests/vectors/*|.github/workflows/*) android=true ;;
+              android/*|docs/app/*|docs/legal/*|docs/counts.json|server/scripts/check_test_counts.py|server/app/catalog/data/*|server/tests/vectors/*|.github/workflows/*) android=true ;;
             esac
             case "$file" in
               # Server tests read files outside `server/`, and a commit touching
@@ -130,7 +130,7 @@ jobs:
               # are read by test_vercel_entry, `.vercelignore` by
               # test_region_catalog. server/tests/test_ci_paths.py fails on a
               # file the suite reads that this line does not match.
-              server/*|api/*|vercel.json|.vercelignore|requirements.txt|requirements.in|.python-version|docker-compose.yml|Dockerfile|.dockerignore|proto/*|buf.yaml|buf.lock|buf.gen.yaml|README.md|CLAUDE.md|AGENTS.md|CONTRIBUTING.md|.github/copilot-instructions.md|.github/CODEOWNERS|docs/*.md|.claude/*.md|.claude/settings.json|.github/workflows/*) server=true ;;
+              server/*|api/*|vercel.json|.vercelignore|requirements.txt|requirements.in|.python-version|docker-compose.yml|Dockerfile|.dockerignore|proto/*|buf.yaml|buf.lock|buf.gen.yaml|README.md|CLAUDE.md|AGENTS.md|CONTRIBUTING.md|HANDOVER.md|docs/counts.json|android/settings.gradle.kts|.github/copilot-instructions.md|.github/CODEOWNERS|docs/*.md|.claude/*.md|.claude/settings.json|.github/workflows/*) server=true ;;
             esac
             case "$file" in
               # The v2 contract and what is generated from it: the job below.
@@ -281,6 +281,8 @@ jobs:
       # four cores: 289 s to 101 s, 1340 passed either way.
       - name: Test
         run: pytest -q -n auto
+      - name: Check server test count
+        run: python scripts/check_test_counts.py server --junit work/pytest.xml
 
   # The host target (server/app/host.py; docs/specs/2026-10-05-server-v2-
   # design.md, decision 13): the app over HTTP/2, which nothing else here
@@ -482,6 +484,11 @@ jobs:
       - name: Detekt
         if: success() || failure()
         run: ./gradlew detekt
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Check Android test count
+        run: python ../server/scripts/check_test_counts.py android --root .
 
   # The one check a ruleset requires (#424). The «Host» matrix cannot be
   # required by name: a job its `if:` skips is reported once, under the

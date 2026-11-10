@@ -68,7 +68,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3643 tests in about four minutes, six of them skipped unless a
+- **`pytest -q -n auto`** — 3718 tests, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), plus eleven PostgreSQL-only lock
   checks skipped on SQLite, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
@@ -83,6 +83,8 @@ Server, from `server/`:
   other error code is switched off by name with its count and its reason. A CI step since
   27 September 2026, right after ruff, because the owner asked for it through that day's
   audit (#210) — and still worth running before you push: seconds here, minutes there
+- **`python scripts/check_test_counts.py server --junit work/pytest.xml`** — compare the
+  completed suite's default JUnit report with the measured facts in `docs/counts.json`
 - `python -m pytest -q tests/test_schedule.py -k parity` — one file, one test
 - `python -m uvicorn app.main:app --reload` — run it; add `--host 0.0.0.0` for a phone to
   reach it
@@ -119,6 +121,8 @@ Android, from `android/`:
 - **`./gradlew detekt`** — static analysis of the Kotlin in all five modules (#210), without
   type resolution; fails on any finding the module's `detekt-baseline.xml` does not hold.
   Fix a new finding, or `@Suppress` it in place with the reason — the baseline is the past
+- **`python ../server/scripts/check_test_counts.py android --root .`** — compare the completed
+  JVM reports with the measured module totals, counting variant copies once
 - `./gradlew detektBaseline` — rewrites all five baselines from the code as it stands; run
   it after a merge that moves code between files, because a baseline entry names the file.
   `docs/build.md`, "detekt", has the rest
@@ -516,6 +520,8 @@ points Hilt does not inject cleanly.
   passes `buf breaking` or says why the break is safe. The pull request template asks it.
 
 ## What will bite you
+
+- **Current suite totals agree with `docs/counts.json`, regenerated only from complete successful reports** (`test_counts.py` and both CI post-run checks, #660).
 
 - **PostgreSQL test clusters need Unicode case conversion** (`test_search_folds_case_for_cyrillic_too`); the `C` locale does not satisfy it.
 

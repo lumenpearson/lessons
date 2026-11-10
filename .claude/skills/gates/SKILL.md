@@ -27,13 +27,16 @@ that happens and names both trees (#312).
    after ruff — the owner asked for it through that day's audit (#210) — and still worth
    running before a push: seconds here, minutes there. It is the thing that reproduces the
    «🗓 Четверти» crash.
-3. `pytest -q -n auto`, bare, from `server/` with its venv active — 3643 tests today, six of
+3. `pytest -q -n auto`, bare, from `server/` with its venv active — 3718 tests today, six of
    them skipped unless a host is running (`-m host`, CI's «Host» job), plus eleven
    PostgreSQL-only lock checks skipped on SQLite, and
    **the exact command CI runs**. Not `python -m pytest`: the `-m` form puts the current
    directory on `sys.path` and the bare one does not, so whatever leans on that passes here and
-   fails on CI (CLAUDE.md, «Commands»; #310). Serial takes about five minutes; `-n auto`
-   finishes in a third of that.
+   fails on CI (CLAUDE.md, «Commands»; #310). Local worker caps and report paths belong
+   in the evidence; they do not turn a focused selection into a full gate.
+
+4. `python scripts/check_test_counts.py server --junit work/pytest.xml` — after the full
+   gate, compare its default JUnit report with `docs/counts.json` (#660).
 
 Narrower while iterating: `python -m pytest -q tests/test_schedule.py -k parity`.
 
@@ -49,6 +52,9 @@ Narrower while iterating: `python -m pytest -q tests/test_schedule.py -k parity`
    the declaration with the reason. Do not regenerate a baseline to make a new finding go
    away — `./gradlew detektBaseline` is for after a merge that moves code between files
    (`docs/build.md`, "detekt").
+
+5. `python ../server/scripts/check_test_counts.py android --root .` — after the full
+   gate, compare the unique JVM cases by included Gradle module (#660).
 
 Narrower: `./gradlew :core:model:test --tests '*ScheduleEngineTest*'`,
 `./gradlew :app:detekt`.
@@ -72,12 +78,22 @@ Only when `proto/`, `buf.*` or `server/app/contract/` changed, which is CI's own
 ## What CI is
 
 `.github/workflows/ci.yml`: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both
-assembles, and `./gradlew detekt` as a step of its own after them; «Contract (Buf)» when
+assembles, and `./gradlew detekt` as a step of its own after them; each suite's completed-report
+count check above; «Contract (Buf)» when
 the contract changed; and «Host», under pyvoy and hypercorn, whenever the server job runs: the
 host started on SQLite, and `pytest -m host` asking it over native gRPC — tests the ordinary
 run skips, and which need a Linux runner, the host's lock and a network; and last «CI», which
 passes only when every job before it succeeded or was skipped, the one check `main` requires
 (#424). Nothing else.
+
+## Updating measured counts
+
+Only after both complete suites pass, from `server/` run
+`python scripts/check_test_counts.py write --server-junit work/pytest.xml --android-root ../android`.
+Update the current declarations named by `test_counts.py` manually; keep dated run
+counts as evidence. The writer changes only JSON and refuses malformed/failed reports.
+Use an explicit JUnit path for focused runs to preserve the full default report;
+collection or a partial run is not a substitute for full-suite provenance.
 
 ## Two rules about evidence
 

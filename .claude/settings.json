@@ -12,6 +12,8 @@
       "Bash(pytest)",
       "Bash(python -m mypy *)",
       "Bash(python -m mypy)",
+      "Bash(python scripts/check_test_counts.py *)",
+      "Bash(python ../server/scripts/check_test_counts.py *)",
       "Bash(git status *)",
       "Bash(git status)",
       "Bash(git diff *)",
