@@ -316,6 +316,22 @@ an agent names exists (#661), that the gate commands are one list across `CLAUDE
 counts are one generated fact rather than seven hand-edited copies (#660). Left: the cut
 itself (#648).
 
+For #661, `test_instruction_references.py` now holds current inline navigation in
+CLAUDE/AGENTS and every Markdown document under .claude against public source names
+and real Python/Kotlin test definitions. It follows the same tool-enforced
+consistency as the document guards above; it does not execute examples, read private
+configuration or establish that a command is semantically correct. Historical test
+names are prose, and optional local configuration, routes and placeholders are
+explicit categories. No additional dependency or CI job is introduced.
+
+The filename inventory spans the repository, including a future component whose
+name no current path filter knows. Therefore Server runs on every changed path;
+otherwise deleting a referenced file in that component could merge green. Android
+and Contract retain their own filters. This spends a complete server run on changes
+previously skipped, in exchange for guarding moves without a manually synchronized
+list of folders. Fixtures hold removed paths/definitions, comments and strings,
+untracked source, command selectors, Markdown spans and the CI admission rule.
+
 ## Where this project is already ahead
 
 Practices here that no Airbnb post matches, each with the issue that takes it further. They

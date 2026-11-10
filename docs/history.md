@@ -28,6 +28,73 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: personal tasks retain their optional Homework link
+
+- #710: the common task helper retains Class after existing absent/foreign
+  Homework validation, then rechecks the scalar Homework id and class with
+  PostgreSQL FOR KEY SHARE under no_autoflush. The reference remains present
+  through the caller's write and commit. SQLite's checked Class write retains
+  its file write lock before that recheck. No Homework UPDATE is introduced.
+  A lost link gives the existing HomeworkNotInClass validation: v1 422 and
+  REST v2/Connect INVALID_ARGUMENT/VALIDATION_FAILED on task.homework_id.
+- Original independent Homework deletion reproduced **two PostgreSQL foreign-
+  key failures in 2.59 seconds** while Class stayed present. Formal create/
+  update services and v1/REST-v2/Connect added **eight failures in 5.63
+  seconds**. After correction, eight PostgreSQL cases passed in **3.38
+  seconds**, and eight SQLite cases passed in **37.83 seconds**.
+- Two real PostgreSQL delete-wait cases use pg_blocking_pids and bounded
+  task cleanup; Homework deletion still leaves existing tasks with a NULL
+  link. Ten PostgreSQL cases passed in **3.70 seconds**; expanded PostgreSQL
+  passed **121, five warnings in 27.48 seconds**. Fresh independent review
+  found no actionable defect and passed **eight SQLite cases in 45.12
+  seconds**, with two PostgreSQL-only cases deselected.
+- Fresh final static review against the integrated base found no actionable
+  correctness findings and confirmed both frozen source hashes. This reviewer
+  ran no tests and published no GitHub feedback.
+- Full collected suite after integrating #717: **3643 cases**.
+  Full PostgreSQL: 3636 passed, 7 skipped, 15 warnings in 611.36 seconds; JUnit 3643 cases, zero failures/errors. Full SQLite: 3626 passed, 17 skipped, 15 warnings in 2933.14 seconds; JUnit 3643 cases, zero failures/errors.
+  Final Ruff/mypy: Ruff passed; mypy checked 242 modules. Documentation/schema: 17 passed, three warnings in 39.76 seconds.
+  Two source/test hashes remain
+  frozen across the full runs. No model, schema, migration, public v1
+  field/input/enum or protobuf changes; no broad IntegrityError interception.
+- The first full PostgreSQL attempt exited **4 before tests**: Docker's Linux
+  daemon and named pipe were absent, so the owned local port refused the
+  connection. That log is retained; it is not a test result. SQLite continued
+  independently. An already installed native PostgreSQL 18.0 allowed a
+  separate owned test cluster without any desktop handoff. Its full retry
+  has its own log and report. The complete retry used the already installed native PostgreSQL 18.0 in a new owned loopback-only cluster; existing databases and the stopped Docker container were retained untouched. Earlier focused PostgreSQL 16 evidence remains separate; no new full PostgreSQL 16 run is claimed..
+  The first native cluster used C locale and its full diagnostic run had 31 failures. SQL lower did not lowercase Cyrillic; the existing Homework case-fold regression reproduced that failure. A separate ICU en-US / UTC cluster made that unchanged case pass in 5.71 seconds, followed by the complete successful retry above. Both owned clusters were stopped and their data/reports retained. The diagnostic cluster required immediate mode after fast shutdown stalled with I/O workers/checkpointer. The valid cluster also stopped using immediate mode after smart/fast timeouts. Both retained clusters need WAL recovery if reused; no existing user database or Docker data was changed..
+
+### Parent issue closure and remaining boundaries
+
+#718 merged checked head `8d66c4d4` as `5da5a1eb`. PR CI 42728943857 and
+main CI 42730003181 passed, including both native Host runtimes; Android and
+Buf were correctly skipped for its unchanged inputs. Automatic review on the
+exact head had no findings, review submissions/threads were empty, mergeability
+was clean and milestone 11 assigned. Production reached READY at the exact merge;
+all three aliases resolved there and each warmup answered HTTP 200/status ok/
+API 1/schema `0019`/v2 true. The post-warmup error/fatal 30-minute query found
+no matching groups. All four checkouts and main/dev refs were fast-forwarded
+across the source-identical merge, preserving unrelated files.
+
+Both full reports executed and passed all 25 original scenario names / 65
+parametrized cases. After live child read-back, #662's six children were closed;
+#662 was closed, then #654's thirteen children were reread closed and #654
+was closed. A later live read confirms #710, #662 and #654 closed in milestone 11.
+The closure matrix covers the named original write races, not every future
+parent reference. The historical bot diary-correction bullet has no current
+bot writer; the phone correction races are exercised separately.
+
+Independently deleted member zero-row DELETE behavior, live Telegram,
+installed APKs, native-gRPC concurrency and Project 6 Done visibility remain
+unverified. Existing native Host checks are checked on the PR/main exact
+heads through both runtimes, not represented as local race tests. All data
+used by local suites stays in owned test databases.
+
+The prior full SQLite result (3611 passed, seventeen skipped, 2347.29 seconds)
+preceded #659's fifteen new checks. The two complete runs above verify the combined tree; that earlier result
+is retained as dated evidence rather than substituted for either current run.
+
 ## What the batch before added: primary gate declarations cannot drift from CI
 
 - #659, existing milestone 13: the server's normal suite reads the bold primary

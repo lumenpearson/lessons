@@ -283,14 +283,12 @@ step. What stayed in CI for good:
   `buf.yaml`, `buf.gen.yaml`, `buf.lock` or `server/app/contract/` runs the «Contract» job,
   which only those files, a workflow edit or an unknown range run; and the region catalog
   and the protocol vectors, which live under `server/` and are the phone's inputs too, run
-  both. What runs nothing is a change to what no test reads: `HANDOVER.md`,
-  `CONTRIBUTING.md`, an issue template. A commit touching only one of the documents used to
-  run nothing and come back green — first those #159 found, then `CLAUDE.md`, the skills
-  and the rest of what `test_schema_version` reads (#295); `ci.yml` names each file beside
-  the test that reads it, and `server/tests/test_ci_paths.py` fails on a file the server's
-  tests read that the server's patterns do not match. If the commit range cannot be worked
-  out (a force push, a branch's first push), all three run — a skipped build costs more
-  than ten wasted minutes.
+  both. Server now runs on every changed path (#661): the agent reference guard
+  inventories public source names across the repository, including newly introduced
+  components. No manually listed folder filter can safely admit all future moves.
+  Android and Contract remain filtered. `server/tests/test_ci_paths.py` holds that
+  admission rule as well as each reader's declared inputs. If the range cannot be
+  worked out, all three run; no check infers safety from an unknown range.
 
 And one thing that did **not** stay: for a while, release was not built on a pull request.
 That saved about two minutes per push at the cost of finding a broken R8 at the merge
