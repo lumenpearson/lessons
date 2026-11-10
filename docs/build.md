@@ -574,9 +574,12 @@ What following the fork does **not** change, and a fork should know before it sh
   readers' reports in its own tracker edits those links too.
 - **The guide follows the repository's default branch.** It is refreshed from
   `raw.githubusercontent.com/{owner}/{name}/HEAD/docs/app/`. A translation's pull
-  request is cut from and aimed at the persistent integration branch `dev`. A fork
-  offering corrections needs that branch too; without it the request ends in
-  «no_base» before files are written. Existing APKs still name `main`: their guide
+  request is cut from and aimed at this project's persistent integration branch
+  `dev`. Another configured repository uses its own `dev` when present; only a
+  missing-ref 404 permits reading that repository's default branch instead.
+  Authentication, rate-limit and upstream failures never select another branch.
+  The selected name and SHA are reused for the source and the PR base. Existing
+  APKs still name `main`: their guide
   falls back to its bundled/last fetched copy after the rename, and sending a
   correction requires an updated APK. GitHub cannot redirect an old raw-file URL
   or a Git ref through an HTTP API branch rename.

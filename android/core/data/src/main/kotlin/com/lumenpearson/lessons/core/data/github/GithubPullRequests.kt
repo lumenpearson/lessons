@@ -4,6 +4,8 @@ import android.util.Base64
 import android.util.Log
 import com.lumenpearson.lessons.core.data.repository.PullRequestResult
 import com.lumenpearson.lessons.core.data.repository.TranslationChange
+import java.net.HttpURLConnection.HTTP_MULT_CHOICE
+import java.net.HttpURLConnection.HTTP_OK
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -59,8 +61,9 @@ internal class GithubPullRequests(
             // and a branch cut from it would offer all of that back as reverts.
             // A fork's ref may be created at any commit in the parent network,
             // so this costs nothing and removes the whole class of problem.
-            val baseSha = refSha(token, project.owner, "heads/" + BASE_BRANCH)
+            val base = translationBase(project) { url -> read(token, url) }
                 ?: return@withContext PullRequestResult.Failed("no_base")
+            val baseSha = base.sha
             val branch = BRANCH_PREFIX + System.currentTimeMillis()
             if (!createBranch(token, head, branch, baseSha)) {
                 return@withContext PullRequestResult.Failed("branch_refused")
@@ -112,7 +115,8 @@ internal class GithubPullRequests(
             // like the work had been delivered.
             if (written == 0) return@withContext PullRequestResult.Failed("nothing_applied")
 
-            val url = openPullRequest(token, head, branch, changes.size - refused.size, login)
+            val request = base.pullRequestBody(project, head, branch, changes.size - refused.size, login)
+            val url = openPullRequest(token, request)
                 ?: return@withContext PullRequestResult.Failed("pull_refused")
             PullRequestResult.Opened(url, refused)
         } catch (cancellation: CancellationException) {
@@ -166,13 +170,6 @@ internal class GithubPullRequests(
         val body = get(token, GithubApi.repoUrl(under(login), "")) ?: return false
         val dto = GithubApi.json.decodeFromString(RepositoryDto.serializer(), body)
         return dto.fork && dto.parent?.fullName.equals(project.fullName, ignoreCase = true)
-    }
-
-    private suspend fun refSha(token: String, owner: String, ref: String): String? {
-        val url = GithubApi.repoUrl(under(owner), "/git/ref/$ref")
-        val body = get(token, url) ?: return null
-        return GithubApi.json.decodeFromString(RefDto.serializer(), body).target.sha
-            .takeIf { it.isNotBlank() }
     }
 
     private fun createBranch(token: String, owner: String, branch: String, sha: String): Boolean {
@@ -236,23 +233,11 @@ internal class GithubPullRequests(
 
     private fun openPullRequest(
         token: String,
-        head: String,
-        branch: String,
-        applied: Int,
-        login: String,
+        body: PullRequestRequestDto,
     ): String? {
         val payload = GithubApi.json.encodeToString(
             PullRequestRequestDto.serializer(),
-            PullRequestRequestDto(
-                title = PULL_TITLE,
-                // Said in English, like everything else written about this
-                // project, and naming the count rather than listing the keys:
-                // the diff lists them, and a body that repeats it goes stale
-                // the moment a reviewer pushes a change to the branch.
-                body = "$applied correction(s) to the app's strings, sent from the app by @$login.",
-                head = if (head == project.owner) branch else "$head:$branch",
-                base = BASE_BRANCH,
-            ),
+            body,
         )
         val request = GithubApi.apiRequest(GithubApi.repoUrl(project, "/pulls"), userAgent)
             .header("Authorization", "Bearer $token")
@@ -281,23 +266,22 @@ internal class GithubPullRequests(
      * later try while the row still said "signed in".
      */
     private suspend fun get(token: String, url: String): String? {
+        val response = read(token, url)
+        return response.body.takeIf { response.code in HTTP_OK until HTTP_MULT_CHOICE }
+    }
+
+    private suspend fun read(token: String, url: String): GithubRead {
         val request = GithubApi.apiRequest(url, userAgent)
             .header("Authorization", "Bearer $token")
             .get()
             .build()
         GithubApi.client.newCall(request).execute().use { response ->
             if (response.code == HTTP_UNAUTHORISED) preferences.clear()
-            return if (response.isSuccessful) response.body?.string() else null
+            return GithubRead(response.code, response.body?.string().orEmpty())
         }
     }
 
     private companion object {
-        /**
-         * Corrections enter the persistent integration branch and receive the
-         * same checks as other working PRs before a separate production promotion.
-         */
-        const val BASE_BRANCH = "dev"
-
         /**
          * Branch names end in the clock rather than in the reader's name or a
          * hash of the edits. A second session correcting the same string must
@@ -307,7 +291,6 @@ internal class GithubPullRequests(
         const val BRANCH_PREFIX = "translation/from-app-"
 
         const val COMMIT_MESSAGE = "Correct a string from inside the app"
-        const val PULL_TITLE = "Corrections to the app's strings, sent from the app"
 
         /** `POST /forks` takes no body, and GitHub refuses one that is not JSON. */
         const val EMPTY_JSON = "{}"

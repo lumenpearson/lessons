@@ -43,16 +43,17 @@ use the repository's default branch rather than literal main. CI admits master/d
 pushes and PRs; signing admits master and v-tags only. Existing cache schema may
 remain private if semantics stay repository-scoped and tests hold it.
 Android guide raw URLs follow HEAD; new translation PRs start from and target
-persistent dev. Existing APKs cannot have their embedded GitHub refs rewritten;
+persistent dev in this project. Other configured repositories may fall back to
+their own default only when dev returns 404. Existing APKs cannot have their embedded GitHub refs rewritten;
 their server API remains compatible and their guide retains its bundled fallback.
 
-- [ ] Extract all15 old bot regression functions into owned ignored evidence;
+- [x] Extract all15 old bot regression functions into owned ignored evidence;
   map each to current code/tests and run any missing scenarios RED before edits.
-- [ ] Reconcile only genuine gaps in the current shared rules; observe GREEN.
-- [ ] Restore the three pending designs without treating unapproved designs as code.
-- [ ] Add existing-family assertions for default-branch commit path, dev/master CI
+- [x] Reconcile only genuine gaps in the current shared rules; observe GREEN.
+- [x] Restore the three pending designs without treating unapproved designs as code.
+- [x] Add existing-family assertions for default-branch commit path, dev/master CI
   pushes and master-only signing; observe RED, then minimal implementation/GREEN.
-- [ ] Run affected suites, Ruff/mypy; freeze source/test inputs. Complete server,
+- [x] Run affected suites, Ruff/mypy; freeze source/test inputs. Complete server,
   native4gates, report writer/count comparisons and final document checks.
 - [ ] Update in-batch HANDOVER including prior722 release; commit owned files,
   task-done and fresh whole-branch independent review; one major-fix pass if needed.

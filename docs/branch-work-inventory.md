@@ -88,14 +88,14 @@ An interrupted historical diagnostic is not counted as a successful test run.
 | Historical scenario | Current disposition and executable evidence |
 | --- | --- |
 | Homework disappears before save | Existing test_stale_writes.py homework_deleted_mid_write case; shared homework service and gone.committed retain rollback and form clearing. |
-| Subject rename disappears before cascades | Existing subject_rename_deleted_before_cascade case verifies no partial cascade or audit. |
+| Subject rename disappears before cascades | Existing subject_rename_deleted_before_cascade case seeds matching homework and verifies its original name/text from a fresh session, with no audit. |
 | Subject short name/teacher, colour button and typed colour | Existing subject_detail_deleted_mid_write matrix holds all four inputs and form/audit cleanup. |
 | A term is replaced during an edit | Existing term_replaced_by_scheme_mid_write case stages before SQLite retention. |
 | Class disappears during scheme change | Current terms_scheme calls terms_manage.change_scheme inside gone.committed. The recovered_scheme_press control commits the class deletion and holds state clearing, class-gone answer and usable session. |
 | Task completion and reminder race a deletion | Existing task_deleted_mid_write matrix holds both presses, no list redraw and a usable session. |
-| Typed lesson disappears during edit | Existing lesson_deleted_after_editor_read case verifies form clearing and no audit. |
-| Picked subject enters the same failed lesson write | Current editor_pick_subject delegates to the same _write_lesson. The recovered_picked_subject control exercises that entry point; existing lesson_answers_handle_parent_loss covers shared add/edit modes. |
-| Split/merge loses its class or slot | Current parity write runs inside gone.committed. Recovered_parity_press controls hold both service refusals without redraw; existing parity_changes_refuse_class_loss and editor_move_whose_slot_was_deleted cases exercise actual database races. |
+| Typed lesson disappears during edit | Existing lesson_deleted_after_editor_read case uses a new typed subject and verifies form clearing, no orphan dictionary row, unchanged remaining timetable and no audit. |
+| Picked subject enters the same failed lesson write | Current editor_pick_subject delegates to the same _write_lesson. The recovered_picked_subject control deletes the actual lesson before parent retention and checks state, acknowledgment, retained dictionary and exact remaining count. |
+| Split/merge loses its class or slot | Current parity write runs inside gone.committed. Recovered_parity_press controls delete the real already-read survivor before SQLite parent retention, then compare all remaining row IDs/parities/names from a fresh session; no new split half survives and the merge sibling remains, with no audit/redraw. Existing parent-loss tests remain separate evidence. |
 | Canteen loses its bells | Existing canteen_changes_refuse_a_parent_deleted_after_bells_were_read matrix covers class/bells and setting/clearing. |
 | Diary session is signed out while selecting a pupil | A genuine missing guard, tracked as #725. Recovered real-deletion regression fails before the fix and passes with rollback and the existing signed-out answer. |
 
@@ -123,8 +123,11 @@ The final live/local ref inventory, dependency dispositions and UI coverage belo
 in the release proof, not an assumption in this document.
 
 The Android branch audit also found two embedded main refs. New guide requests
-follow HEAD and new translation corrections use dev as their cut and PR base.
+follow HEAD and this project's new translation corrections use dev as their cut
+and PR base. A configured fork whose dev ref is genuinely absent resolves its own
+default branch once; authorization/network failures do not trigger that fallback.
 The existing guide refresh and repository URL tests hold default-branch reads;
+fake HTTP-status/body tests hold fork owner/reader payloads and encoded custom refs;
 no live translation PR is sent by a verification run. Old APKs keep their embedded
 refs, their bundled guide fallback and the compatible server API. They require
 an update to submit corrections after the rename; retaining a compatibility main

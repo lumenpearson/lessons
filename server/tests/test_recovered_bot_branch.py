@@ -8,12 +8,19 @@ from typing import Any
 import pytest
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.exc import StaleDataError
 
 from app.bot.handlers import diary as diary_bot
 from app.crypto import seal
 from app.db import Base, SessionLocal
-from app.models import AuditEntry, DiarySession, Role, SchoolClass, Subject
+from app.models import (
+    AuditEntry,
+    DiarySession,
+    Role,
+    SchoolClass,
+    Subject,
+    TimetableEntry,
+    WeekParity,
+)
 from app.providers.petersburg.models import Student
 from app.security import hash_token
 
@@ -46,8 +53,27 @@ async def _count(model: type[Base]) -> int:
         return await fresh.scalar(select(func.count()).select_from(model)) or 0
 
 
+def _delete_before_parent_retention(monkeypatch, row_id: int) -> list[bool]:
+    from app.services import gone
+
+    real_lock = gone.lock_parent
+    raced = []
+
+    async def delete_after_child_lookup(session, target, target_id, **kwargs):
+        if target is SchoolClass and not raced:
+            async with SessionLocal() as other:
+                await other.execute(delete(TimetableEntry).where(TimetableEntry.id == row_id))
+                await other.commit()
+            raced.append(True)
+        return await real_lock(session, target, target_id, **kwargs)
+
+    monkeypatch.setattr(gone, "lock_parent", delete_after_child_lookup)
+    return raced
+
+
+@pytest.mark.parametrize("entry", ["view", "root"])
 async def test_the_bots_diary_says_a_session_signed_out_meanwhile_is_signed_out(
-    session, school_class, monkeypatch, FakeCallback, FakeEditable
+    session, school_class, monkeypatch, FakeCallback, FakeEditable, entry
 ) -> None:
     """The bot's diary writes one thing, the child it shows; it corrects
     nothing (``handlers/diary._body``). A session «Выйти» took away between a
@@ -60,7 +86,7 @@ async def test_the_bots_diary_says_a_session_signed_out_meanwhile_is_signed_out(
         login="parent@example.com",
         telegram_id=42,
         class_id=school_class.id,
-        student_id=PUPIL,
+        student_id=PUPIL if entry == "view" else PUPIL - 1,
     )
     session.add(row)
     await session.commit()
@@ -82,18 +108,21 @@ async def test_the_bots_diary_says_a_session_signed_out_meanwhile_is_signed_out(
     raced = _deleted_at_commit(monkeypatch, DiarySession, row.id)
     callback = FakeCallback(message=FakeEditable())
 
-    await diary_bot.diary_view(
-        callback,
-        diary_bot.DiaryAction(view="day", offset=0, student=PUPIL + 1),
-        session,
-        school_class,
-    )
+    if entry == "root":
+        await diary_bot.diary_root(callback, session, school_class, Role.VIEWER)
+    else:
+        await diary_bot.diary_view(
+            callback,
+            diary_bot.DiaryAction(view="day", offset=0, student=PUPIL + 1),
+            session,
+            school_class,
+        )
 
     assert raced, "the delete never happened, so nothing was tested"
     # The middleware commits next: a session left failed raises
     # PendingRollbackError there, outside anything that answers.
     await session.commit()
-    assert (diary_bot.SIGNED_OUT, True) in callback.answers
+    assert callback.answers == [(diary_bot.SIGNED_OUT, True)]
     assert await _count(DiarySession) == 0
 
 
@@ -127,31 +156,47 @@ async def test_recovered_scheme_press_refuses_a_class_deleted_before_the_write(
 
 
 @pytest.mark.parametrize("operation", ["split", "merge"])
-async def test_recovered_parity_press_handles_a_service_stale_row_without_redrawing(
+async def test_recovered_parity_press_rolls_back_partial_rows_without_redrawing(
     session, school_class, monkeypatch, FakeCallback, FakeEditable, operation
 ):
     from app.bot.handlers import editor
 
-    called = []
-
-    async def stale_row(*args, **kwargs):
-        called.append(True)
-        raise StaleDataError("synthetic slot deleted before the write")
-
-    monkeypatch.setattr(editor.timetable_edit, f"{operation}_parity", stale_row)
+    class_id = school_class.id
+    victim = await session.scalar(select(TimetableEntry).where(
+        TimetableEntry.class_id == class_id, TimetableEntry.weekday == 1,
+        TimetableEntry.index == 2,
+    ))
+    if operation == "merge":
+        victim.parity = WeekParity.ODD
+        session.add(TimetableEntry(class_id=class_id, weekday=1, index=2,
+                                   subject_name="Химия", parity=WeekParity.EVEN))
+        await session.commit()
+    victim_id = victim.id
+    columns = (TimetableEntry.id, TimetableEntry.weekday, TimetableEntry.index,
+               TimetableEntry.parity, TimetableEntry.subject_name)
+    before = set((await session.execute(select(*columns).where(
+        TimetableEntry.class_id == class_id,
+    ))).all())
+    expected = {row for row in before if row.id != victim_id}
+    raced = _delete_before_parent_retention(monkeypatch, victim_id)
     callback = FakeCallback(message=FakeEditable())
     await editor.editor_parity(
         callback, SimpleNamespace(day=1, index=2, flags=0, arg=0, action=operation),
         session, school_class, Role.ADMIN,
     )
-    assert called == [True]
+    assert raced == [True]
     assert callback.answers[-1] == ("Урока уже нет — откройте расписание заново.", True)
     assert not callback.message.replies
     await session.commit()
     assert await _count(AuditEntry) == 0
+    async with SessionLocal() as fresh:
+        remaining = set((await fresh.execute(select(*columns).where(
+            TimetableEntry.class_id == class_id,
+        ))).all())
+        assert remaining == expected
 
 
-async def test_recovered_picked_subject_answers_a_stale_lesson_and_clears_its_form(
+async def test_recovered_picked_subject_answers_a_deleted_lesson_and_clears_its_form(
     session, school_class, monkeypatch, FakeCallback, FakeEditable, FakeState
 ):
     from app.bot.handlers import editor
@@ -160,22 +205,22 @@ async def test_recovered_picked_subject_answers_a_stale_lesson_and_clears_its_fo
     session.add(subject)
     await session.commit()
     subject_id = subject.id
-    called = []
-
-    async def stale_row(*args, **kwargs):
-        called.append(True)
-        raise StaleDataError("synthetic edited lesson deleted")
-
-    monkeypatch.setattr(editor.timetable_edit, "edit_lesson", stale_row)
+    victim_id = await session.scalar(select(TimetableEntry.id).where(
+        TimetableEntry.class_id == school_class.id, TimetableEntry.weekday == 1,
+        TimetableEntry.index == 2,
+    ))
+    raced = _delete_before_parent_retention(monkeypatch, victim_id)
     state = FakeState(data={"day": 1, "index": 2, "flags": 0, "mode": "edit"})
     callback = FakeCallback(message=FakeEditable())
     await editor.editor_pick_subject(
         callback, SimpleNamespace(subject=subject_id), state,
         session, school_class, Role.ADMIN,
     )
-    assert called == [True]
+    assert raced == [True]
     assert state.cleared
     assert callback.message.replies == ["Урока уже нет — откройте расписание заново."]
     assert callback.answers
     await session.commit()
     assert await _count(AuditEntry) == 0
+    assert await _count(TimetableEntry) == 2
+    assert await _count(Subject) == 1

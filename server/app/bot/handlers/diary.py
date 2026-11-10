@@ -160,7 +160,6 @@ async def diary_root(
         return
 
     await _show(callback, session, school_class, row, "day", 0, row.student_id or 0)
-    await callback.answer()
 
 
 @router.callback_query(DiaryAction.filter(F.view == "signin"))
@@ -290,7 +289,6 @@ async def diary_view(
         callback_data.offset,
         callback_data.student or row.student_id or 0,
     )
-    await callback.answer()
 
 
 async def _show(
@@ -314,6 +312,7 @@ async def _show(
                 "<i>К этому аккаунту не привязан ни один ученик.</i>",
                 reply_markup=signed_out_keyboard(can_sign_in=True),
             )
+            await callback.answer()
             return
 
         # A payload naming a child this account cannot see falls back to the
@@ -350,6 +349,7 @@ async def _show(
         ),
         disable_web_page_preview=True,
     )
+    await callback.answer()
 
 
 async def _body(

@@ -145,10 +145,12 @@ Three mechanics, each of which costs a wasted call to rediscover:
   filing the issue** — see «The board» below.
 
 **The tie to the pull request goes in the pull request body:** `Closes #NN`, on its own
-line, one line per issue. GitHub links them both ways and closes the issue when the pull
-request merges — so a fix cannot ship with its issue left open, and an issue cannot be
-closed with no diff to point at. Use `Closes` for a defect the pull request fixes and a
-plain `#NN` reference for one it merely touches.
+line, one line per issue. A working PR targets non-default `dev`, so those keywords
+do not close its issues at that merge. Carry every completed defect's closing line
+into the promotion PR targeting default `master`, then read back the issue state
+after that merge. Keep an overall issue as a reference while later release batches
+remain. Use a plain `#NN` reference for work a pull request merely touches. A fix cannot ship with its issue silently
+left open, and an issue cannot close with no delivery diff to point at.
 
 ### The label families
 
@@ -229,8 +231,10 @@ Two ways to take them, and which one you are in is decided by whether they go in
 own or inside something else.
 
 **Folded into one working pull request** — what to do when several land at once and the
-owner wants a single one: **merge each branch into `dev`** (`git merge
-origin/dependabot/…`) and let the working PR carry them. Never cherry-pick the bump and
+owner wants a single one: create a temporary working branch from updated `dev`,
+then **merge each dependency branch into that working branch** (`git merge
+origin/dependabot/…`). Its reviewed working PR targets `dev`; after dev CI, a
+separate checked promotion targets `master`. Never cherry-pick the bump and
 never retype the version by hand. The point of merging is that dependabot's own commit
 becomes an ancestor of `master`, and GitHub then closes its pull request as **Merged** by
 itself, with dependabot still the author: #52, #53 and #54 all closed that way in the same
@@ -242,8 +246,9 @@ commit, its head is not an ancestor of `master`; GitHub then leaves the pull req
 rather than Merged**, or open. Six branches in #43 went that way. Only then close it by
 hand, with one comment naming the pull request that carried the change.
 
-**On their own** — resolve the conflict on the dependabot branch and merge it to `master`
-like any other pull request.
+**On their own** — resolve the conflict on the dependabot branch, target its PR
+at `dev`, and use the same checked dev-to-master promotion. Do not bypass the
+temporary-branch PR or push the integration directly onto a persistent branch.
 
 ### What a bump needs before it is merged, either way
 

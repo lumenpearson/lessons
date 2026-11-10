@@ -51,7 +51,9 @@ select against the refreshed HANDOVER/live issues once the foundation is release
 
 No schema rewrite is implied. Existing APKs retain all v1 contracts. Installed
 legal links use HEAD, but old guide and translation refs name main. New guide
-reads follow HEAD and translation PRs target persistent dev; old APKs keep their
+reads follow HEAD and this project's translation PRs target persistent dev;
+configured forks may resolve their own default only after a missing dev ref,
+never on authentication/network failure. Old APKs keep their
 bundled guide fallback and need an update to submit translations after cutover.
 No production write or live Telegram send is needed. Existing pytest/JVM test
 families hold the changes, followed by Ruff, mypy, complete bare pytest with actual

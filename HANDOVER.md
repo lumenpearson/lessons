@@ -6,7 +6,7 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **10 November 2026**. The last verified release is55b4c799,
+Last updated: **11 November 2026**. The last verified release is55b4c799,
 PR#722/#377/#723, pinned to checked head7cf8fc31. PR CI42863457188 and main
 CI42864594364 passed; production READY on the exact merge, all three aliases
 resolved to it and returned warmup200/status ok/API1/schema0019/v2 true. The
@@ -18,9 +18,9 @@ milestone13, based on that merge. The owner now requests master/dev/one working
 branch, Actions on dev, analysis/preservation of Claude Code branch features and
 Android Studio Emulator verification. Task1 recovers missing diary behavior#725
 and prepares tested promotion; Task2 resolves eight dependency PRs and final ref
-cleanup. Complete SQLite3856/Android1817 and Ruff/mypy242 are green locally.
-Rename, independent review, dev/master CI and production are delivery steps, not
-assumed from the local gates. Both owned PostgreSQL clusters remain stopped with
+cleanup. Complete corrected SQLite3857/Android1823 and Ruff/mypy242 are green locally.
+One independent review and its single major-fix pass are complete. Emulator,
+rename, dev/master CI and production remain delivery gates. Both owned PostgreSQL clusters remain stopped with
 data retained. UI inputs require the shared queue's explicit grant.
 
 **Historical opening, recorded on 18 October.** The dated context below is
@@ -362,15 +362,36 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   persistent dev branch. Five Android source/test inputs match the native run.
   Old APKs keep their embedded main refs: the bundled guide still works, but
   submitting corrections requires an update after rename. No live PR was sent.
-- Complete SQLite: 3839 passed, 17 skipped, 15 warnings in 2279.94 seconds; 3856 unique JUnit cases, zero failures/errors. Bare pytest -q -n8 with actual
+- Before review, complete SQLite: 3839 passed, 17 skipped, 15 warnings in 2279.94 seconds; 3856 unique JUnit cases, zero failures/errors. Bare pytest -q -n8 with actual
   Git Bash and owned editable Python3.12; eight production/test/workflow hashes
   match. Ruffclean/mypy242clean. Native test/both assembles/detekt:
   BUILD SUCCESSFUL in 2m 51s;1817logicalcases/fivemodules, zero failures/errors/skips.
-- Facts/current declarations 3856/1817 follow successful complete reports;
+- Corrected review pass: one fresh review on 3db8d837 found one Critical,
+  seven Important and two Minor items. The single fix pass gates signing inputs
+  before the decode step, gives each diary press one answer, preserves real
+  rollback witnesses and resolves configured-fork bases without auth/error fallback.
+  Callback/signing RED7 -> GREEN73; real witnesses125passed/2skipped84.04s;
+  fork behavior RED3/3controls -> GREEN6. One-off fake-GitHub safety controls
+  RED10 -> GREEN10 hold PR enforcement, exact dev CI and resumable rename readback.
+  Current instructions preserve dev and carry issue closing lines to promotion.
+- Corrected complete SQLite: 3840 passed, 17 skipped,
+  15 warnings in 1985.24 seconds; 3857 unique cases,
+  zero failures/errors. Corrected native four gates: BUILD SUCCESSFUL in 2m 53s;
+  1823 logical cases. Eighteen source/test/workflow hashes
+  match. Current counts come from those reports; final docs/UI/delivery follow.
+  No second independent review or fresh PostgreSQL/live-provider claim is made.
+- Deferred review minors: source-set/dated branch prose, and the cross-repository
+  304 regression/stale config comment. Repository signing keys remain untouched;
+  the ordinary committed workflow's input guard is not absolute protection from
+  a collaborator rewriting a workflow. Secure environment provisioning and removal
+  of unrestricted stored copies require a separate safe credential operation.
+- Facts/current declarations 3857/1823 follow successful complete reports;
   both report comparisons passed. Final counts/gates/instruction/CI/import checks:
-  197 passed in 132.60s. Independent review and emulator evidence precede
+  corrected197 passed in 163.70s. Emulator evidence precedes
   delivery. Working-to-dev and dev-to-master have separate pinned CI gates;
   actual rename/settings/production proof belongs in the PR descriptions.
+  Task1's default-target promotion carries `Closes #725` and `Refs #724`; read
+  issue state back after merge, keeping #724 open until Task2 is complete.
 
 SDK tools/emulator are prepared in a separate F-drive SDK because the legacy
 executables fail to launch and C has limited space. Existing SDKs, AVDs and
@@ -2078,27 +2099,27 @@ The order that paid off here:
 
 ### How to continue
 
-`dev` is still the branch the `github-pr` skill names, but no pull request has come from it
-since #267 on 3 October, and it has stood at #342's merge since 5 October: every batch since
-has worked on a branch of its own, cut from `main` and named for its work (`server-v2/3b-3`,
-`android/decomposition-a`, `deps/2026-10-16`). Either way a batch starts from a fresh `main`,
-because a merged pull request accepts no new commits; the commands below do it for `dev`, and
-`git checkout -b <area>/<topic> origin/main` does it for a branch of its own. Which pull
-requests are merged and which one is open is at the top of this file, not here — this
-paragraph is about the two commands under it.
+`dev` is persistent tested integration; `master` is the production/default branch
+after this batch's verified cutover. Start each task on an unused temporary branch
+from freshly fetched `origin/dev`, preserving existing worktree files and local
+changes. Do not recreate or reset `dev`. The example name below must be unused;
+choose a name for the actual task. Working PRs target `dev`, then dev CI precedes
+a separate pinned dev-to-master promotion. Copy closing issue lines into that
+default-target promotion and verify issue state after merge. The opening records
+the actual cutover and delivery state, rather than assuming they happened.
 
 ```bash
 git fetch origin
-git checkout -B dev origin/main   # the same dev, a new starting point
+git switch -c work/next-issue origin/dev
 ```
 
 The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3856 tests, ~38 min on Windows
+cd server  && pytest -q -n auto                          # 3857 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
-cd android && ./gradlew test                             # 1817 tests across the five modules
+cd android && ./gradlew test                             # 1823 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

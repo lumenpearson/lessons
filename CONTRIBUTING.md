@@ -44,7 +44,7 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 | --- | --- |
 | `ruff check app tests scripts migrations` | lints the server — exactly what CI runs |
 | `python -m mypy` | one question of all 242 modules: does anything reach for an attribute its type does not have? |
-| `pytest -q -n auto` | the server tests, 3856 of them — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
+| `pytest -q -n auto` | the server tests, 3857 of them — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
 | `python -m pytest -q tests/test_schedule.py -k parity` | one file, one test |
 | `python scripts/check_test_counts.py server --junit work/pytest.xml` | compare the completed full server report with `docs/counts.json` |
 | `python -m uvicorn app.main:app --reload` | run the server |
@@ -156,8 +156,10 @@ or `fix:`. Something else is the convention, and it is just as consistent:
 
 ## Pull request
 
-1. Branch from an up-to-date `master`; direct commits to `master` are not accepted.
-2. One task, one pull request.
+1. Create a temporary working branch from an up-to-date `dev`; direct development
+   commits to either persistent branch are not accepted.
+2. One task, one working pull request targeting `dev`. After its merge and dev CI
+   pass, promote `dev` to `master` through a separate pinned, checked pull request.
 3. Run locally what you touched: `ruff check` and `pytest -q` for the server,
    `./gradlew test` for Android, and both assembles if `android/` changed.
 4. Fill in the template, including the "Verification" section: paste the real output of the

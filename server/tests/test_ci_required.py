@@ -49,7 +49,19 @@ def test_production_signing_admits_only_master_and_version_tags(ref, allowed, tm
     bash = shutil.which("bash")
     assert bash is not None
     apk = yaml.safe_load((ROOT / ".github/workflows/apk.yml").read_text(encoding="utf-8"))
-    scripts = [step["run"] for step in apk["jobs"]["build"]["steps"] if "run" in step]
+    steps = apk["jobs"]["build"]["steps"]
+    keystore = next(step for step in steps if step.get("id") == "keystore")
+    assert keystore.get("if") == (
+        "github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')"
+    ), "Reject non-production refs before the runner supplies signing inputs"
+    for step in steps:
+        if step is keystore:
+            continue
+        for expression in step.get("env", {}).values():
+            if "secrets.KEY" in str(expression):
+                assert "steps.keystore.outputs.signed == 'true' &&" in expression
+                assert "|| ''" in expression
+    scripts = [step["run"] for step in steps if "run" in step]
     signing = next(script for script in scripts if 'case "$REF" in' in script)
     decision = signing[signing.index('case "$REF" in'):]
     decision = decision[:decision.index("esac") + len("esac")]
