@@ -31,6 +31,16 @@ tasks.withType<Test>().configureEach {
     inputs.dir(layout.projectDirectory.dir("src/main/kotlin"))
         .withPropertyName("mainSourcesAsText")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // These tests read policy records outside the compiled module sources.
+    inputs.files(rootProject.fileTree(rootProject.layout.projectDirectory) {
+        include("**/detekt-baseline.xml", "**/detekt-baseline-budget.xml")
+        exclude("**/build/**", "**/.gradle/**")
+    })
+        .withPropertyName("detektBaselineRecords")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(layout.projectDirectory.file("build.gradle.kts"))
+        .withPropertyName("testInputDeclaration")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 dependencies {

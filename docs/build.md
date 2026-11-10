@@ -204,9 +204,10 @@ gate its path filter skipped does not, and a matrix whose one leg failed counts 
 
 **It exists because of the matrix.** «Host» is `Host (${{ matrix.server }})`, and GitHub does
 not expand the matrix of a job its `if:` skips: it reports one check, under the unexpanded
-name. Required by name, «Host (pyvoy)» would never be reported on a pull request that changes
-only `android/` — a dependabot Gradle bump, say — and that pull request would wait on
-«Expected — Waiting for status to be reported» for ever. Requiring «CI» requires every gate
+name. Required by name, a skipped matrix leg would leave a pull request waiting on
+«Expected — Waiting for status to be reported» for ever. Server and Host currently run for
+every changed path (#661); the aggregate also covers conditional Contract and Android jobs
+and future matrix filters. Requiring «CI» requires every gate
 without naming a leg. `server/tests/test_ci_required.py` holds its `needs` to every other job
 in the file, so a gate added later is required too, and runs its one step's script to check
 the verdict.
@@ -986,8 +987,23 @@ all five files, rewritten from what the code finds now, which also drops the ent
 findings since fixed. A baseline entry names the rule, the **file** and the declaration, not
 the line, so code that moves within a file stays forgiven and code that moves to *another*
 file comes back as new findings. That is what a branch that splits a file does, and it is
-the one time to run it — after the merge, with nothing else in the diff, so that the review
-of the baseline shows only moved entries.
+the time to run it — while preparing the move for review, with no unrelated changes in
+the diff, so that the review of the baseline shows only moved or removed entries. Refresh its sibling
+`detekt-baseline-budget.xml` in that same reviewed pull request: keep `maxEntries`
+unchanged for a move, lower it when entries disappear, and copy the accepted IDs
+into the corresponding groups. Never raise the limit to forgive a new finding.
+Both `CurrentIssues` and `ManuallySuppressedIssues` consume the limit; it must
+equal the snapshot's unique ID count. An empty baseline uses zero.
+
+`DetektBaselineBudgetTest` in the existing `core:model` JVM suite discovers default
+baseline/budget pairs recursively, including future nested modules. It rejects a
+missing counterpart, malformed XML, duplicate IDs, external entities and file
+links. It prints added/removed IDs on a mismatch. A new finding must be fixed or
+locally suppressed with a reason; regenerating a baseline alone cannot accept it.
+Both XML patterns are Gradle test inputs, so changing only a baseline or budget
+reruns the check. Generated `build`/`.gradle` trees are excluded. Custom baseline
+filenames require extending discovery and inputs together. The accepted snapshot
+is deliberately explicit; there is no command that automatically raises budgets.
 
 **Without type resolution, and what that costs.** The build runs the plain `detekt` task,
 which parses each file on its own. The plugin also registers type-resolved tasks

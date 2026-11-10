@@ -261,8 +261,8 @@ Five Gradle modules, split along the lines that actually pay for themselves:
 
 `:core:model` being a plain JVM library is the load-bearing decision: the state
 engine is the most logic-dense part of the product, and this makes its test suite
-run in milliseconds with no emulator and no Android SDK. Its 125 tests, in ten
-classes, walk a full school day minute by minute.
+run in milliseconds with no emulator and no Android SDK. Its 138 tests, in eleven
+classes, cover a full school day minute by minute and source/build invariants.
 
 The widget module exists so the home-screen widget can reach the cached timetable
 without dragging the app's entire UI graph into its process.
@@ -1010,8 +1010,8 @@ with the host.
 
 ## Testing
 
-3819 tests on the server, 1797 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 125, `:core:data` 638,
+3819 tests on the server, 1810 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 138, `:core:data` 638,
 `:core:designsystem` 205, `:widget` 126, `:app` 703 (#325).
 
 The table below is the load-bearing part of that rather than the whole of it:

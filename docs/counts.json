@@ -4,10 +4,10 @@
       ":app": 703,
       ":core:data": 638,
       ":core:designsystem": 205,
-      ":core:model": 125,
+      ":core:model": 138,
       ":widget": 126
     },
-    "total": 1797
+    "total": 1810
   },
   "server": 3819
 }

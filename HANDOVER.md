@@ -6,22 +6,21 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **10 November 2026**. The last verified release is `main`
-at `1d332804`, PR#719/#660, pinned to checked head `03e36409`. PR CI42768003702
-and main CI42769138620 passed; production reached READY on that exact merge,
-all three aliases returned warmup200/status ok/API1/schema `0019`/v2 true, and
-the post-warmup error/fatal30m query had no matching groups. #660 is closed.
+Last updated: **10 November 2026**. The last verified release is main
+at6c92e226, PR#720/#661, pinned to checked headf62699e0. PR CI42791328869 and
+main CI42792272338 passed; production READY on that exact merge, all three aliases
+resolved to it and returned warmup200/status ok/API1/schema0019/v2 true. The
+post-warmup error/fatal30m query had no matching groups. #660 and #661 are closed.
 Four owned checkouts and main/dev refs were fast-forwarded, unrelated work preserved.
 
-The current batch is `server/instruction-references-661` in the isolated task-parent
-checkout, milestone13, based on that merge. It holds public agent navigation with
-74 new reader cases and five CI-input cases. Complete raw SQLite3819 and native
-Android1797 are green; Ruff/mypy242 are clean. Facts/current declarations3819/1797
-and final document checks accompany this batch. Review and delivery follow the
-checked local snapshot below; this file rides with its own PR, not a close-out PR.
-The owner continues autonomous work without a time limit; #635 is next after #661.
-Both owned native PostgreSQL clusters are stopped, data retained. All desktop APIs
-remain paused under the other session's exclusive lease; CLI checks use no UI input.
+The current batch is server/detekt-budget-635 in the isolated task-parent checkout,
+milestone13, based on that merge. It holds491 existing detekt entries with explicit
+budgets and thirteen JVM reader cases. Complete raw SQLite3819 and native Android1810
+are green; Ruff/mypy242 are clean. Facts/current declarations3819/1810 accompany
+this batch. Review and delivery follow the checked local snapshot below. The owner
+continues autonomous work without a time limit. Both owned native PostgreSQL
+clusters are stopped with data retained. No UI APIs are used; the refreshed queue
+is released and future UI use requires a coordinated grant.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -334,7 +333,50 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: agent navigation resolves to current source
+## What the last session added: detekt baseline rewrites stay within reviewed budgets
+
+- #635, existing milestone13: the existing pure JVM core:model suite checks every
+  default detekt-baseline.xml against a sibling detekt-baseline-budget.xml.
+  Accepted IDs make added/removed entries visible without Git history. Both manual
+  and current suppressions consume maxEntries, which equals the snapshot size.
+  Removals lower the limit; moves refresh IDs without raising it. No automatic
+  rewrite can raise the budget. The five original baselines remain byte-identical:
+  app182/data202/designsystem73/model13/widget21, total491.
+- Thirteen reader cases hold growth, removal, moves, manual suppressions, zero,
+  malformed/duplicate records, XML escaping, nested discovery, missing pairs,
+  links and external entities. Assertion RED:9failed/13cases12s against stubs;
+  focused GREEN13s. A real baseline-only mutation and a budget-only mutation each
+  reran Test and failed; originals were restored with exact-byte ownership checks.
+- Both XML patterns and the module build script are Test inputs. Discovery has no
+  fixed module list; generated trees and links are excluded. The default filename
+  convention is explicit: custom bindings require extending discovery and inputs.
+  Engineering/build/large-refactor documents explain the review workflow; no new
+  plugin, dependency, CI job or application behavior was added.
+- Full server:3802passed/17skipped/15warnings2237.47s;3819unique JUnitcases,
+  zero failures/errors. Git Bash verified before bare pytest -q -n8; Ruffclean and
+  mypy242clean. No new PostgreSQL or installed-device run is claimed.
+- Serial native test/assembleDebug/assembleRelease/detekt:BUILD SUCCESSFUL in
+  52s;340 actionable tasks: 3 executed, 337 up-to-date. Complete JVM reports:1810unique cases,
+  five modules, zero failures/errors/skips. The new module total is138. Both APKs
+  built, not installed; JDK21/isolatedSDK/offline/twoworkers/2GiBheap.
+- Initial native diagnostics caught one new MaxLineLength, fixed in source. The
+  executor started a repeat before the first process exited, causing shared test
+  result-file EOF/NoSuchFile errors. Those reports are not release evidence. The
+  successful serial native run above followed verified server exit0.
+- Canonical/current declarations3819/1810 come only from these completed successful
+  reports. Final document/schema/count/path/gate/CI-summary checks passed215 with
+  two warnings in119.27s. Checked commit, fresh independent review and any
+  Important fix pass precede publication. Exact-head CI/reviews, pinned merge,
+  main CI and production are delivery gates; actual release proof belongs in this
+  PR description. This close-out rides in its own PR, not a follow-up PR.
+
+The GUI queue was refreshed at version9: released/no owner; future UI use requires
+a coordinated grant. No UI APIs or UAC input were used. Foreign work, stopped
+PostgreSQL data and local evidence are retained. Project6Done visibility, live
+Telegram/real-diary/installed-APK flows and arbitrary Gradle DSL evaluation remain
+outside this batch. The earlier #660 generated-report ignore Minor remains deferred.
+
+## What the session before it added: agent navigation resolves to current source
 
 - #661, existing milestone13: existing pytest checks CLAUDE/AGENTS and public
   Markdown under .claude against regular public source names and actual test
@@ -396,118 +438,15 @@ Standalone basename existence is checked, not uniqueness; arbitrary shell/plugin
 Gradle runtime semantics, complex keyword expressions and historical examples are
 not asserted by this static guard.
 
-This batch carries its close-out in its own PR. Exact-head CI/reviews, pinned merge,
-main CI and production remain delivery gates; actual release proof is recorded in
-that PR's description. #635 follows after release. All desktop APIs remain paused
-under the other session's lease; native work uses CLI without shared UI input.
-
-## What the session before it added: published test totals are measured and checked
-
-- #660, existing milestone 13: one `docs/counts.json` carries the measured
-  server total and Android total/module map. A standard-library CLI reads
-  successful complete JUnit reports. Server cases include skips; Android
-  logical cases count once per module across variant copies. Malformed,
-  failed or duplicate reports refuse regeneration. Both sides are gathered
-  before one atomic JSON replacement; documents are never generated.
-- The existing server suite holds seven current server declarations, four
-  current Android totals and architecture's current module breakdown. Missing,
-  duplicate, wrong or unlisted current module entries fail, including a new
-  zero-case module. Actual included Gradle names must match JSON in the server
-  post-check, allowing raw pytest to produce the report needed by a module update.
-  Dated earlier totals remain historical rather than being rewritten.
-- Each existing CI job gains one completed-report count comparison. The
-  unchanged bare pytest gate writes `work/pytest.xml` by default; an explicit
-  XML path preserves separate focused evidence. JSON changes run both jobs;
-  collector changes also run Android. HANDOVER and Gradle settings run Server
-  because the suite now reads them. Both primary command lists and allowed
-  prefixes were updated together under #659; no new CI job or dependency.
-- Report/CLI RED was 28 failed/one positive control passed in 10.97 seconds,
-  followed by 29 passed in 10.61 seconds. Two include-like Kotlin string
-  cases went RED before tokenizer correction; combined 31 passed in 11.43
-  seconds. Current-document mutations went RED23/2 controls in 10.06 seconds,
-  then 56 passed in 21.18 seconds. Input-only paths went RED5/3 controls in
-  4.41 seconds; wiring plus facts/gate checks passed 80 in 31.49 seconds.
-- Self-review found architecture's module breakdown was not yet held to JSON.
-  Seven wrong/missing/duplicate/unlisted/zero-case regressions went RED in
-  34.94 seconds, then the expanded focused set passed **87 in 463.38 seconds**.
-  That serial run overlapped the interim full suite and inherited the global
-  autouse SQLite schema fixture; its duration is not an isolated benchmark.
-  Ruff passed; mypy checked 242 modules. The later independent review and fix pass
-  are recorded below.
-- Pre-review parser probes found that a flat block-comment regex treated a
-  nested commented include as real and refused comments between include
-  arguments. Four regressions failed with two string controls passing in
-  29.13 seconds. Lexical stripping now balances nested comments, treats
-  comments as whitespace, preserves quoted/raw strings and refuses an
-  unterminated comment. Eight parser/string cases passed in 39.11 seconds;
-  the complete combined check then passed **93 in 39.76 seconds** without
-  another suite running.
-- The interim full SQLite report has **3705 cases**, zero failures/errors:
-  **3688 passed, 17 skipped, 15 warnings in 2224.79 seconds**. It started
-  before those seven regressions and is not the final release report. The next
-  pre-comment full report has **3712 cases**, zero failures/errors: **3695
-  passed, 17 skipped, 15 warnings in 2142.77 seconds**. It also predates six
-  comment regressions. Neither earlier report is used for final regeneration.
-- The initially checked `bce1f85c` SQLite run passed **3701, skipped 17, with 15 warnings
-  in 2212.61 seconds**. JUnit has **3718 unique cases, zero failures/errors**;
-  all five implementation hashes match the renewed freeze. Local execution
-  used eight workers and an owned explicit XML path; the identical completed
-  report was also saved as `work/pytest.xml` to exercise the exact CI post-check.
-  JSON was regenerated from this report and the actual Android reports.
-  Both report comparisons passed; that snapshot's declarations were 3718/1797.
-- Native Android `test assembleDebug assembleRelease detekt` passed in
-  **2 minutes 17 seconds**, 340 tasks (190 executed/150 from cache). Its
-  267 reports have **1797 unique cases**, zero failures/errors/skips, in five
-  modules. After the independent review fixes, the same full command passed in **9
-  seconds**, 340 tasks (2 executed/338 up-to-date); the current CLI comparison
-  also passed. JDK 21, the isolated SDK, offline mode, two workers and a 2 GiB
-  Gradle heap were used. Both APKs were built, not installed.
-
-### Release verification and boundaries
-
-The first checked snapshot's complete report and facts are recorded above.
-The independent Astra review at `bce1f85c` reproduced four Important findings:
-missing reports becoming zero, conditional includes becoming phantom projects,
-the raw-suite/module-update bootstrap cycle and malformed JUnit/skip summaries.
-New regressions gave **21 failed, two controls passed in 11.04 seconds**.
-All four are addressed in one fix pass: known positive modules require explicit
-zero evidence or a named intentional-zero acknowledgement; unsupported include
-contexts refuse; module equality moved to the post-check; JUnit hierarchy and
-supplied skip counts are validated. The counts module passed **93 in 36.94
-seconds**, then the combined set passed **134, two warnings in 83.16 seconds**.
-The corrected complete run passed **3723, skipped 17, with 15 warnings in
-1983.38 seconds**. Its **3740 unique JUnit cases** have zero failures/errors;
-all five frozen implementation hashes match. JSON was regenerated from this
-report and actual Android reports; both post-checks pass, including actual module
-names. Current declarations are 3740/1797. Final declaration/schema/count/gate
-checks passed **134, two warnings in 80.46 seconds**.
-No second review is requested under the one-fix-pass workflow. The Minor
-suggestion to ignore generated `server/work/pytest.xml` is deferred from this pass.
-#719 merged checked head `03e36409` as `1d332804`. PR CI 42768003702 and
-main CI 42769138620 passed every job, including Server, Android, both Host
-runtimes, Buf and the aggregate gate. Main's server run passed 3723/skipped17
-in250.97s and its 3740-case comparison passed. Exact-head automatic review had
-no findings; review submissions/threads were empty, mergeability clean and
-milestone13 assigned. #660 is closed, confirmed by live read-back.
-Production reached READY on the exact merge; all three aliases resolved there
-and warmups answered HTTP200/status ok/API1/schema `0019`/v2 true. The
-post-warmup deployment-scoped error/fatal30m query had no matching groups.
-Four owned checkouts and local main/dev plus remote dev were fast-forwarded;
-unrelated worktrees/untracked files were preserved. Actual release proof is
-also recorded in PR719's description, without a deployment identifier.
-
-No app, API, model, migration, protobuf or Android production code changed.
-No new full PostgreSQL run is claimed for this file/CI-only batch: #718's
-complete native PostgreSQL 18 ICU result below remains dated application
-evidence. The two owned native clusters are stopped, data retained; their
-immediate shutdown means WAL recovery is needed if reused. Existing user
-PostgreSQL/Docker data and SDK paths were untouched. Live Telegram, installed
-APK/real-diary flows, native-gRPC concurrency, independent member zero-row
-DELETE behavior and Project 6 Done visibility remain outside this verification.
-
-All desktop APIs remain paused under the other session's exclusive lease.
-The lessons GUI request is withdrawn; native work uses CLI and no UI/UAC input.
-#661 follows in the current batch above; #635 remains next after its release.
+Released as PR#720, pinned to f62699e0, merge6c92e226. PR CI42791328869 and
+main CI42792272338 passed, including Linux Server3802passed/17skipped and3819
+report comparisons. Automatic Codex review on the exact head completed with no
+findings; formal reviews/threads were empty. Production reached READY on6c92e226;
+all three aliases resolved to that merge and returned warmup200/status ok/API1/
+schema0019/v2 true. The post-warmup error/fatal30m query had no matching groups.
+#661 is closed; four owned checkouts and main/dev refs fast-forwarded without
+touching unrelated work. Its deferred Host-skip/milestone-row prose is updated by
+the current build-policy batch. Other stated boundaries remain unchanged.
 
 ## The milestones
 
@@ -535,7 +474,7 @@ current.
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
 | 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676, #680, #681, #685, #687, #689, #691, #693, #694, #698, #701, #704 and #706 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678, #679, #682, #684, #686 and #688, plus #690, #692, #695, #696, #697, #699, #700, #702, #703, #705, #707 and #709 (merged), plus #714, #715 and #716 (merged), and #718 (merged); #708, #710, #662 and #654 are closed — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November), issue #659 (closed), PR #717 (merged as `dedf70ef`) and the current #660 batch; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November), issue #659 (closed), PR #717 (merged as `dedf70ef`) PR #719 (#660, merged), PR #720 (#661, merged) and the current #635 batch; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
@@ -2152,7 +2091,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 3819 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
-cd android && ./gradlew test                             # 1797 tests across the five modules
+cd android && ./gradlew test                             # 1810 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
