@@ -15,8 +15,8 @@ Four owned checkouts and main/dev refs were fast-forwarded, unrelated work prese
 
 The current batch is server/detekt-budget-635 in the isolated task-parent checkout,
 milestone13, based on that merge. It holds491 existing detekt entries with explicit
-budgets and thirteen JVM reader cases. Complete raw SQLite3819 and native Android1810
-are green; Ruff/mypy242 are clean. Facts/current declarations3819/1810 accompany
+budgets and twenty JVM reader cases. Complete raw SQLite3819 and native Android1817
+are green; Ruff/mypy242 are clean. Facts/current declarations3819/1817 accompany
 this batch. Review and delivery follow the checked local snapshot below. The owner
 continues autonomous work without a time limit. Both owned native PostgreSQL
 clusters are stopped with data retained. No UI APIs are used; the refreshed queue
@@ -342,7 +342,7 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   Removals lower the limit; moves refresh IDs without raising it. No automatic
   rewrite can raise the budget. The five original baselines remain byte-identical:
   app182/data202/designsystem73/model13/widget21, total491.
-- Thirteen reader cases hold growth, removal, moves, manual suppressions, zero,
+- Initial reviewed snapshotc7f10c35: thirteen reader cases hold growth, removal, moves, manual suppressions, zero,
   malformed/duplicate records, XML escaping, nested discovery, missing pairs,
   links and external entities. Assertion RED:9failed/13cases12s against stubs;
   focused GREEN13s. A real baseline-only mutation and a budget-only mutation each
@@ -355,7 +355,7 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
 - Full server:3802passed/17skipped/15warnings2237.47s;3819unique JUnitcases,
   zero failures/errors. Git Bash verified before bare pytest -q -n8; Ruffclean and
   mypy242clean. No new PostgreSQL or installed-device run is claimed.
-- Serial native test/assembleDebug/assembleRelease/detekt:BUILD SUCCESSFUL in
+- Initial reviewed snapshot: serial native test/assembleDebug/assembleRelease/detekt:BUILD SUCCESSFUL in
   52s;340 actionable tasks: 3 executed, 337 up-to-date. Complete JVM reports:1810unique cases,
   five modules, zero failures/errors/skips. The new module total is138. Both APKs
   built, not installed; JDK21/isolatedSDK/offline/twoworkers/2GiBheap.
@@ -363,12 +363,46 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   executor started a repeat before the first process exited, causing shared test
   result-file EOF/NoSuchFile errors. Those reports are not release evidence. The
   successful serial native run above followed verified server exit0.
-- Canonical/current declarations3819/1810 come only from these completed successful
-  reports. Final document/schema/count/path/gate/CI-summary checks passed215 with
-  two warnings in119.27s. Checked commit, fresh independent review and any
-  Important fix pass precede publication. Exact-head CI/reviews, pinned merge,
-  main CI and production are delivery gates; actual release proof belongs in this
-  PR description. This close-out rides in its own PR, not a follow-up PR.
+### Independent review and correction
+
+Fresh independent Astra review ofc7f10c35 found no Critical and five Important
+issues: JVM junction traversal, linked Gradle inputs, missing console diagnostics,
+XML byte-decoding differences and discarded group membership. One fix pass holds
+all five. Non-whitespace container text was promoted to a fail-closed correction;
+the nested-pair control now first grows and must name its module/ID. The newly
+written unheld class total was omitted while updating measured case totals.
+
+- Formal reader RED:20cases/7failed/13controls13s; focused GREEN20cases23s.
+  Windows junctions are pruned before descent, containment uses real paths, XML
+  stays bytes through the secure parser, and Entry(group,id) retains policy.
+  A current-to-manual move requires an explicit matching snapshot refresh.
+- Actual configured Gradle inputs selected four external synthetic records before
+  the fix; the same audit selects none after it. A regular-to-identical-file-link
+  replacement previously reused Test UP-TO-DATE and passed5s. With path/type
+  metadata it executes and refuses the nonregular record11s. Exact original files
+  were restored by verified real target identity and frozen hashes; links/probes
+  are retained outside Android, with no deletion or private target read.
+- A module-local ValueSource walks without FOLLOW_LINKS and prunes reparse
+  directories before descent. Its metadata is rechecked by configuration cache;
+  only regular record bytes enter content fingerprinting. Each baseline-only and
+  budget-only mutation followed its own warm success, reran Test and failed.
+  The normal console now prints app and the exact added BudgetProbe:NewVisible635.
+- Corrected full native test/assembleDebug/assembleRelease/detekt:SUCCESS52s,
+  340tasks/6executed/334up-to-date, configuration cache reused. Complete reports:
+  1817unique cases/268reports/fivemodules, model145, zero failures/errors/skips.
+  All twenty budget cases passed. A new long line was formatted after waiting
+  for the preceding failed detekt process to exit; baselines were never widened.
+- The complete3819 raw SQLite proof above remains intact; no Python implementation
+  or tests changed in the correction. Ruff/mypy and all affected document suites
+  are rechecked, and fresh full ServerCI on the corrected head is a delivery gate.
+  Current canonical declarations3819/1817 are regenerated from successful reports.
+  Final corrected document checks:215passed/twowarnings120.54s; Ruffclean and
+  mypy242clean. All five Important findings and the malformed-container
+  regression are held by RED/GREEN tests or actual build probes.
+
+No second independent review is claimed for the one fix pass. Exact-head CI/reviews,
+pinned merge, main CI and production remain delivery gates; actual release proof
+belongs in this PR description. This close-out rides in its own PR.
 
 The GUI queue was refreshed at version9: released/no owner; future UI use requires
 a coordinated grant. No UI APIs or UAC input were used. Foreign work, stopped
@@ -2091,7 +2125,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 3819 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
-cd android && ./gradlew test                             # 1810 tests across the five modules
+cd android && ./gradlew test                             # 1817 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

@@ -994,14 +994,22 @@ unchanged for a move, lower it when entries disappear, and copy the accepted IDs
 into the corresponding groups. Never raise the limit to forgive a new finding.
 Both `CurrentIssues` and `ManuallySuppressedIssues` consume the limit; it must
 equal the snapshot's unique ID count. An empty baseline uses zero.
+Group membership is part of the accepted snapshot: moving an ID into permanent
+manual suppression requires an explicit corresponding budget refresh too.
 
 `DetektBaselineBudgetTest` in the existing `core:model` JVM suite discovers default
 baseline/budget pairs recursively, including future nested modules. It rejects a
 missing counterpart, malformed XML, duplicate IDs, external entities and file
-links. It prints added/removed IDs on a mismatch. A new finding must be fixed or
+links, and prunes directory symlinks and Windows junctions before descent. XML is
+parsed from bytes so BOMs and encoding declarations retain detekt's identities;
+non-whitespace text outside ID leaves is rejected. Failure messages print
+added/removed IDs in the normal Gradle console output. A new finding must be fixed or
 locally suppressed with a reason; regenerating a baseline alone cannot accept it.
-Both XML patterns are Gradle test inputs, so changing only a baseline or budget
-reruns the check. Generated `build`/`.gradle` trees are excluded. Custom baseline
+An inventory supplies only eligible regular XML files as Gradle content inputs.
+Relative paths and rejected file types are metadata inputs, so replacing a record
+with an identical-content link also reruns the check. The configuration cache
+rechecks the inventory's ValueSource; ordinary content edits retain configuration
+reuse while invalidating Test. Generated `build`/`.gradle` trees are excluded. Custom baseline
 filenames require extending discovery and inputs together. The accepted snapshot
 is deliberately explicit; there is no command that automatically raises budgets.
 

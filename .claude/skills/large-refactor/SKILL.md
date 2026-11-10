@@ -59,7 +59,8 @@ read the file, every caller (rg the symbol) and its tests  →  apply the rule
   names the old file; `./gradlew detektBaseline` after the move rewrites it, and the diff of
   the baseline must show entries moving or disappearing, never new ones (#624).
   Refresh the sibling `detekt-baseline-budget.xml` accepted IDs in the same reviewed
-  pull request; keep `maxEntries` for a move and lower it for a removal. Never raise
+  pull request, preserving their groups; keep `maxEntries` for a move and lower it
+  for a removal. Never raise
   it to accept new findings. The existing `DetektBaselineBudgetTest` JVM gate holds
   both current and manual suppressions (#635).
 - **One rule per pull request.** A split and a rename in the same diff cannot be reviewed as

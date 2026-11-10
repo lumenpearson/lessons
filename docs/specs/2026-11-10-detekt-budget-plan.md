@@ -91,3 +91,18 @@ items have fixture or behavioral build checks. Numerical limits and accepted IDs
 travel together; no hidden Git-history or hardcoded five-module dependency. Native
 and server full runs are separate, measured, and precede publication. The budget
 parser is test-only, and no command automatically raises a limit during regeneration.
+
+## Review correction pass
+
+The single fresh independent review ofc7f10c35 found5Important/3Minor. One pass
+adds seven failing reader regressions (20cases/7RED), preserves group membership,
+parses original XML bytes, rejects container text and prunes Windows junctions.
+Module-local ValueSource metadata selects regular files before fingerprinting;
+actual configured-input audits and identical-file-link warm-cache probes went
+RED to GREEN. Baseline/budget content probes each have an independent warm success;
+the default console prints the module and exact added ID. Full corrected native
+four gates passed52s with1817cases/model145/268reports and zero failures/errors/skips.
+Python application/tests remain unchanged; affected document checks and exact-head
+full ServerCI complete the verification. No second reviewer. Required current facts
+are regenerated from completed successful reports, and the unheld class metric is
+omitted rather than copying another unverified count.

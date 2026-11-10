@@ -593,9 +593,16 @@ with its sibling `detekt-baseline-budget.xml`. Both manual and current IDs consu
 the limit. A removal lowers it; a move refreshes the accepted IDs without raising
 it. The snapshot makes diagnostics independent of Git history. This costs five
 small XML snapshots rather than a new CI job, plugin, dependency or device test.
-The module declares both XML patterns as Gradle test inputs so a baseline rewrite
-cannot reuse a passing result from before the rewrite. Custom baseline filenames
-require extending that discovery and those inputs together.
+The module lazily inventories both default XML filenames as Gradle test inputs so
+a rewrite cannot reuse an earlier passing result. A module-local ValueSource
+walks without following links, prunes Windows reparse directories before descent,
+and exposes only regular file contents to fingerprinting. Relative paths and
+rejected record types are separate metadata inputs: replacing a file with an
+identical-content link must still rerun the check. The extra build logic costs
+more than a file tree, whose default traversal follows directory links. Byte
+streams preserve XML encoding declarations/BOMs, and accepted group membership
+keeps permanent manual suppression an explicit policy change. Custom baseline
+filenames require extending discovery and inputs together.
 
 ## Sources
 

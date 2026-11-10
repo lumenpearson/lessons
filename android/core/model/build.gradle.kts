@@ -1,6 +1,57 @@
+import java.nio.file.FileVisitResult
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.attribute.BasicFileAttributes
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.ValueSource
+import org.gradle.api.provider.ValueSourceParameters
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.detekt)
+}
+
+abstract class DetektBaselineInventory : ValueSource<List<String>, DetektBaselineInventory.Parameters> {
+    interface Parameters : ValueSourceParameters {
+        val rootDirectory: DirectoryProperty
+    }
+
+    override fun obtain(): List<String> {
+        val root = parameters.rootDirectory.get().asFile.toPath().toRealPath()
+        val entries = mutableListOf<String>()
+        val names = setOf("detekt-baseline.xml", "detekt-baseline-budget.xml")
+        fun relative(path: Path) = root.relativize(path).joinToString("/")
+        // Gradle's file tree follows directory links; Windows junctions are
+        // isOther directories even though isSymbolicLink is false.
+        Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
+            override fun preVisitDirectory(path: Path, attributes: BasicFileAttributes): FileVisitResult {
+                if (path.fileName.toString() in setOf("build", ".gradle")) return FileVisitResult.SKIP_SUBTREE
+                if (attributes.isSymbolicLink || attributes.isOther) {
+                    entries += "link-directory:${relative(path)}"
+                    return FileVisitResult.SKIP_SUBTREE
+                }
+                if (path.fileName.toString() in names) {
+                    entries += "rejected-directory:${relative(path)}"
+                    return FileVisitResult.SKIP_SUBTREE
+                }
+                return FileVisitResult.CONTINUE
+            }
+
+            override fun visitFile(path: Path, attributes: BasicFileAttributes): FileVisitResult {
+                when {
+                    attributes.isSymbolicLink -> entries += "link:${relative(path)}"
+                    path.fileName.toString() !in names -> Unit
+                    attributes.isRegularFile && !attributes.isOther && path.toRealPath().startsWith(root) ->
+                        entries += "regular:${relative(path)}"
+                    else -> entries += "rejected-other:${relative(path)}"
+                }
+                return FileVisitResult.CONTINUE
+            }
+        })
+        return entries.sorted()
+    }
 }
 
 detekt {
@@ -31,16 +82,25 @@ tasks.withType<Test>().configureEach {
     inputs.dir(layout.projectDirectory.dir("src/main/kotlin"))
         .withPropertyName("mainSourcesAsText")
         .withPathSensitivity(PathSensitivity.RELATIVE)
-    // These tests read policy records outside the compiled module sources.
-    inputs.files(rootProject.fileTree(rootProject.layout.projectDirectory) {
-        include("**/detekt-baseline.xml", "**/detekt-baseline-budget.xml")
-        exclude("**/build/**", "**/.gradle/**")
+    val recordRoot = rootProject.layout.projectDirectory
+    // Reading a ValueSource during configuration makes its returned metadata a
+    // configuration-cache input, rechecked on every build without reading targets.
+    val records = providers.of(DetektBaselineInventory::class) {
+        parameters.rootDirectory.set(recordRoot)
+    }.get()
+    inputs.property("detektBaselineInventory", records)
+    inputs.files(records.filter { it.startsWith("regular:") }.map {
+        recordRoot.file(it.removePrefix("regular:")).asFile
     })
         .withPropertyName("detektBaselineRecords")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(layout.projectDirectory.file("build.gradle.kts"))
         .withPropertyName("testInputDeclaration")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    testLogging {
+        exceptionFormat = TestExceptionFormat.FULL
+        showStackTraces = false
+    }
 }
 
 dependencies {
