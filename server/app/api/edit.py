@@ -141,8 +141,8 @@ async def _tell(
         return
     try:
         await notify.notify_subscribers(session, bot, school_class, text, kind=kind, exclude=author)
-    except Exception:  # noqa: BLE001 - see the docstring
-        log.warning("could not notify class %s", class_id, exc_info=True)
+    except Exception as error:  # noqa: BLE001 - see the docstring
+        log.warning("could not notify class %s: %s", class_id, type(error).__name__)
     finally:
         try:
             bot_session = getattr(bot, "session", None)

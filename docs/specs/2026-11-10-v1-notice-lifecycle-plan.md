@@ -32,6 +32,7 @@ freeze successful response DTOs before post-commit notification I/O.
 **Files:**
 - Modify: server/app/api/edit.py
 - Modify: server/app/api/manage/requests.py
+- Modify in the independent-review correction: server/app/services/notify.py
 - Test: server/tests/test_api_extended.py
 - Test: server/tests/test_api_manage.py
 - Modify after reports: docs/counts.json, current server declarations in HANDOVER.md,
@@ -68,6 +69,14 @@ freeze successful response DTOs before post-commit notification I/O.
   server cases with its own JUnit path, preserving the full report. Ledger completion.
 
 ## Review and delivery
+
+The fresh independent review of c720fa2e found one Important: the existing send
+warning paths printed arbitrary exceptions, including credential-bearing URLs.
+Issue #723 was filed before the correction. Extend the existing lifecycle/expiry
+cases with synthetic-marker formatted-log assertions; no new logical cases.
+One RED/GREEN pass changes only the three warning handlers to type-only logging,
+then repeats the complete server and native gates. Two Minor findings are deferred
+in the ledger; no second independent review is claimed.
 
 - [ ] Fresh independent whole committed range review; re-grade findings, one
   RED/GREEN major-fix pass plus affected full gates; defer minors, no re-review.

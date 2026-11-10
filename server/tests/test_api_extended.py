@@ -1849,10 +1849,13 @@ def test_current_device_is_what_the_class_dependency_builds_on():
 
 @pytest.mark.parametrize("failure", ["build", "close", "send", "absent", "delivered"])
 async def test_a_saved_event_survives_notice_lifecycle_failures(
-    client, session, school_class, monkeypatch, failure
+    client, session, school_class, monkeypatch, caplog, failure
 ):
+    from aiogram.exceptions import TelegramNetworkError
+    from aiogram.methods import SendMessage
     from aiogram.utils.token import TokenValidationError
 
+    marker = "SYNTHETIC_NOTICE_CREDENTIAL_377"
     await _subscriber(session, school_class, 7001, notify_changes=True)
     token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
     bot = FakeBot()
@@ -1861,19 +1864,22 @@ async def test_a_saved_event_survives_notice_lifecycle_failures(
 
     def build():
         if failure == "build":
-            raise TokenValidationError("synthetic invalid token")
+            raise TokenValidationError(marker)
         return None if failure == "absent" else bot
 
     async def send(chat_id, text, **kwargs):
         attempted.append(chat_id)
         if failure == "send":
-            raise RuntimeError("synthetic send refusal")
+            raise TelegramNetworkError(
+                method=SendMessage(chat_id=chat_id, text=text),
+                message=f"synthetic HTTP error: https://api.telegram.org/bot{marker}/sendMessage",
+            ) from RuntimeError(marker)
         await original_send(chat_id, text, **kwargs)
 
     async def close():
         closed.append(True)
         if failure == "close":
-            raise RuntimeError("synthetic close failure")
+            raise RuntimeError(marker)
 
     monkeypatch.setattr(edit, "_build_bot", build)
     monkeypatch.setattr(bot, "send_message", send)
@@ -1890,6 +1896,14 @@ async def test_a_saved_event_survives_notice_lifecycle_failures(
     assert attempted == ([] if failure in {"build", "absent"} else [7001])
     assert len(closed) == (0 if failure in {"build", "absent"} else 1)
     assert len(bot.sent) == (1 if failure in {"close", "delivered"} else 0)
+    records = [r for r in caplog.records if r.name in {"app.api.edit", "app.services.notify"}]
+    assert marker not in caplog.text
+    assert all(r.exc_info is None and r.stack_info is None for r in records)
+    if failure in {"build", "close", "send"}:
+        expected_error = "TokenValidationError" if failure == "build" else (
+            "TelegramNetworkError" if failure == "send" else "RuntimeError"
+        )
+        assert records and expected_error in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -1908,12 +1922,14 @@ async def test_a_saved_event_survives_notice_lifecycle_failures(
     ids=["homework", "override", "event", "day"],
 )
 async def test_committed_edit_reply_survives_notification_session_expiry(
-    client, session, school_class, recording_bot, monkeypatch,
+    client, session, school_class, recording_bot, monkeypatch, caplog,
     path, payload, expected_status, model, expected,
 ):
+    marker = "SYNTHETIC_SUBSCRIBER_CREDENTIAL_377"
+
     async def expires_then_fails(request_session, *_args, **_kwargs):
         request_session.expire_all()
-        raise RuntimeError("synthetic notification transaction failure")
+        raise RuntimeError(marker) from ValueError(marker)
 
     monkeypatch.setattr(edit.notify, "notify_subscribers", expires_then_fails)
     token = await _linked_token(client, session, school_class, EDITOR_ID, Role.EDITOR)
@@ -1927,6 +1943,10 @@ async def test_committed_edit_reply_survives_notification_session_expiry(
         assert body["id"] == rows[0].id
     assert len(await _audit(session, school_class)) == 1
     assert recording_bot.closed
+    records = [r for r in caplog.records if r.name == "app.api.edit"]
+    assert records and "RuntimeError" in caplog.text
+    assert marker not in caplog.text
+    assert all(r.exc_info is None and r.stack_info is None for r in records)
 
 
 async def test_a_failed_uncommitted_event_is_not_hidden_by_notice_guards(

@@ -258,7 +258,10 @@ fix pass added 28 cases. The corrected complete run has **3819 cases**: **3802 p
 17 skipped, 15 warnings in2294.54 seconds**, zero failures/errors; four source hashes
 matched. That snapshot's facts were regenerated from its report and real Android reports.
 No new full PostgreSQL run is claimed for #661's source-document/CI-only change.
-The complete #377 SQLite run on 10 November 2026 has 3828 passed, 17 skipped, 15 warnings in 2243.43 seconds; 3845 unique JUnit cases, zero failures/errors.
+The initially reviewed #377 snapshot c720fa2e has 3845 SQLite cases:3828passed/
+17skipped/15warnings2243.43s. Independent review found credential-bearing exception
+logging (#723); one TDD correction pass retained the case count and added formatted
+warning assertions. The corrected complete run has 3828 passed, 17 skipped, 15 warnings in 2259.20 seconds; 3845 unique JUnit cases, zero failures/errors.
 The unchanged Android suite has 1817 logical cases across five modules; all four
 native gates passed. No new full PostgreSQL or live Telegram run is claimed for #377.
 CI runs the suite on SQLite, and

@@ -94,8 +94,8 @@ async def notify_subscribers(
             settings.morning_at = None
             settings.evening_at = None
             blocked = True
-        except Exception:  # noqa: BLE001 - one recipient's outage is not the editor's problem
-            log.warning("could not notify %s", settings.telegram_id, exc_info=True)
+        except Exception as error:  # noqa: BLE001 - a recipient's outage is not the editor's
+            log.warning("could not notify %s: %s", settings.telegram_id, type(error).__name__)
         else:
             sent += 1
 

@@ -62,8 +62,8 @@ async def _tell(telegram_id: int, text: str) -> None:
         return
     try:
         await bot.send_message(telegram_id, text)
-    except Exception:  # noqa: BLE001 - see the docstring
-        log.warning("could not tell %s about the decision", telegram_id, exc_info=True)
+    except Exception as error:  # noqa: BLE001 - see the docstring
+        log.warning("could not tell %s about the decision: %s", telegram_id, type(error).__name__)
     finally:
         try:
             bot_session = getattr(bot, "session", None)

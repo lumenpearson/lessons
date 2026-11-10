@@ -2233,10 +2233,13 @@ async def test_a_page_size_above_the_directorys_ceiling_is_refused(
 @pytest.mark.parametrize("decision", ["approve", "decline"])
 @pytest.mark.parametrize("failure", ["build", "close", "send", "absent", "delivered"])
 async def test_a_saved_decision_survives_notice_lifecycle_failures(
-    client, session, school_class, monkeypatch, decision, failure
+    client, session, school_class, monkeypatch, caplog, decision, failure
 ):
+    from aiogram.exceptions import TelegramNetworkError
+    from aiogram.methods import SendMessage
     from aiogram.utils.token import TokenValidationError
 
+    marker = "SYNTHETIC_DECISION_CREDENTIAL_377"
     request = await _request(session, school_class, ASKER_ID)
     request_id = request.id
     token = await _admin(client, session, school_class)
@@ -2246,19 +2249,22 @@ async def test_a_saved_decision_survives_notice_lifecycle_failures(
 
     def build():
         if failure == "build":
-            raise TokenValidationError("synthetic invalid token")
+            raise TokenValidationError(marker)
         return None if failure == "absent" else bot
 
     async def send(chat_id, text, **kwargs):
         attempted.append(chat_id)
         if failure == "send":
-            raise RuntimeError("synthetic send refusal")
+            raise TelegramNetworkError(
+                method=SendMessage(chat_id=chat_id, text=text),
+                message=f"synthetic HTTP error: https://api.telegram.org/bot{marker}/sendMessage",
+            ) from RuntimeError(marker)
         await original_send(chat_id, text, **kwargs)
 
     async def close():
         closed.append(True)
         if failure == "close":
-            raise RuntimeError("synthetic close failure")
+            raise RuntimeError(marker)
 
     monkeypatch.setattr(manage.requests, "_build_bot", build)
     monkeypatch.setattr(bot, "send_message", send)
@@ -2282,6 +2288,14 @@ async def test_a_saved_decision_survives_notice_lifecycle_failures(
     assert attempted == ([] if failure in {"build", "absent"} else [ASKER_ID])
     assert len(closed) == (0 if failure in {"build", "absent"} else 1)
     assert len(bot.sent) == (1 if failure in {"close", "delivered"} else 0)
+    records = [r for r in caplog.records if r.name == "app.api.manage.requests"]
+    assert marker not in caplog.text
+    assert all(r.exc_info is None and r.stack_info is None for r in records)
+    if failure in {"build", "close", "send"}:
+        expected_error = "TokenValidationError" if failure == "build" else (
+            "TelegramNetworkError" if failure == "send" else "RuntimeError"
+        )
+        assert records and expected_error in caplog.text
 
 
 @pytest.mark.parametrize("phase", ["build", "send", "close"])

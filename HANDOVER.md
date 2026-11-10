@@ -19,7 +19,7 @@ longer turn committed v1 writes into500. Complete SQLite3845/Android1817 and
 Ruff/mypy242 are green; actual facts and current declarations accompany this batch.
 Independent review and delivery follow the local snapshot below. The owner
 continues autonomous work without a time limit. Both owned native PostgreSQL
-clusters are stopped with data retained. No UI APIs are used; queue version18
+clusters are stopped with data retained. No UI APIs are used; queue version26
 belongs to another session and future UI use requires a coordinated grant.
 
 **Historical opening, recorded on 18 October.** The dated context below is
@@ -335,7 +335,7 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
 
 ## What the last session added: optional notices preserve committed v1 replies
 
-- #377, existing milestone13, promoted to status:now under delegated priority:
+- #377 and its review-discovered #723, existing milestone13; #377 promoted to status:now under delegated priority:
   reproducible saved-write500 without real credentials, while next-labelled bugs
   require external OTP, cron changes or the approved Android transport migration.
 - Existing edit and decision notification seams contain ordinary bot-construction,
@@ -348,7 +348,7 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   Real ASGI controls hold one saved row/audit, recipients, delivery and close counts,
   four expired-session edit replies, six cancellation cases and an uncommitted
   failing write that still propagates and rolls back before any bot is constructed.
-- Complete SQLite: 3828 passed, 17 skipped, 15 warnings in 2243.43 seconds; 3845 unique JUnit cases, zero failures/errors. Local bare pytest -q -n8,
+- Initially reviewed snapshot c720fa2e, complete SQLite: 3828 passed, 17 skipped, 15 warnings in 2243.43 seconds; 3845 unique JUnit cases, zero failures/errors. Local bare pytest -q -n8,
   owned JUnit report and verified Git Bash; Ruffclean/mypy242clean. Four frozen
   production/test hashes match the tested snapshot.
 - Native test/assembleDebug/assembleRelease/detekt: BUILD SUCCESSFUL in 37s.
@@ -360,12 +360,41 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   publication; exact-head CI, pinned merge, main CI and production proof
   are delivery gates, recorded in this PR description after completion.
 
+### Independent review and logging correction
+
+Fresh independent Astra review of c720fa2e found no Critical, one Important and
+two Minor findings. The installed HTTP/Telegram exception chain can contain a
+credential-bearing URL. Issue #723/M13 was filed before the production correction;
+PR#722 carries closure for both #377 and #723. No actual production leak is asserted.
+
+- One TDD pass extends the existing lifecycle/expiry cases with synthetic-marker
+  assertions over formatted warnings, including exception chains. RED7failed/
+  19controls17.68s; GREEN26passed17.33s. No new logical cases were added.
+- Three v1-executed warning paths now log exception types and existing context,
+  without exception values, traceback or stack data. The shared subscriber logger
+  also improves its other callers; direct unrelated v2/cron logging is not audited.
+- Corrected full SQLite: 3828 passed, 17 skipped, 15 warnings in 2259.20 seconds; 3845 unique JUnit cases, zero failures/errors. All five frozen
+  production/test hashes match; local bare pytest -q -n8/Git Bash/own environment.
+- Corrected serial native all four gates: BUILD SUCCESSFUL in 9s;1817logicalcases/
+  fivemodules/268XMLreports, zero failures/errors/skips. Both APKs built, not installed.
+- Current facts3845/1817 follow these corrected reports; both comparisons pass.
+  Ruff/mypy242 are clean. Final corrected document/schema/count/reference/path/
+  gate checks:215passed/twowarnings139.92s.
+
+No second independent review is claimed. Two Minor findings are deferred: the
+decision lifecycle matrix omits the who assertion (the implementation returns the
+correct value), and the UI-pause sentence below is broader than the actual pause.
+The opening/ledger and continued work refer to UI access only. Bounded waits,
+delivery guarantees and independent database-read/commit-acknowledgement failures
+retain their separate semantics. Exact-head CI/review, pinned merge, main CI and
+production proof remain delivery gates, recorded in PR#722 after completion.
+
 No schema, model, dependency, protobuf or Android production changes. V1 response
 fields/statuses remain compatible with installed APKs. #371's Telegram network
 deadline is separate: no bounded-wait claim. No new full PostgreSQL run, real
 Telegram send, real-diary or installed-device flow is claimed. Both owned PG
 clusters remain stopped with data retained; foreign work and local evidence stay.
-No UI APIs were used; the queue's version18 grants another session exclusive UI,
+No UI APIs were used; the queue's version26 grants another session exclusive UI,
 and this session remains paused until a coordinated grant. Project6Done board
 visibility and the earlier generated-report ignore Minor remain outside this batch.
 
@@ -477,7 +506,7 @@ current.
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
 | 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676, #680, #681, #685, #687, #689, #691, #693, #694, #698, #701, #704 and #706 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678, #679, #682, #684, #686 and #688, plus #690, #692, #695, #696, #697, #699, #700, #702, #703, #705, #707 and #709 (merged), plus #714, #715 and #716 (merged), and #718 (merged); #708, #710, #662 and #654 are closed — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November), issue #659 (closed), PR #717 (merged as `dedf70ef`) PR #719 (#660, merged), PR #720 (#661, merged), PR #721 (#635, merged) and the current #377 batch; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November), issue #659 (closed), PR #717 (merged as `dedf70ef`) PR #719 (#660, merged), PR #720 (#661, merged), PR #721 (#635, merged) and the current #377/#723 batch; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
