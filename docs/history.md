@@ -28,6 +28,66 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: primary gate declarations cannot drift from CI
+
+- #659, existing milestone 13: the server's normal suite reads the bold primary
+  commands in CLAUDE.md, the real-check blocks in AGENTS.md, Server/Android CI
+  run commands and allowed Bash prefixes. Both instruction sets and CI must
+  declare the same gates; every gate must have a covering allowed prefix.
+  Combined Gradle tasks are compared as individual gates. Broad permissions
+  for narrower development commands remain optional, not extra mandatory gates.
+- Mutation tests remove a command from each source, add one to CI or the
+  instructions, empty a declaration section and exercise combined Gradle tasks.
+  The initial empty checker gave **eight failed, three passed in 35.72
+  seconds**. Install-newline and workflow-job/path regressions each failed
+  before correction (**2.85** and **2.48 seconds**). The existing path guard
+  now distinguishes a workflow job key from an actual directory reference.
+- Because the rule reads settings.json, a settings-only change now runs Server;
+  its path is also in READ_BY_THE_SUITE. The first combined run held this
+  missing filter and a job-name false positive (**two failed, nineteen passed
+  in 67.76 seconds**). A later self-literal false positive was corrected
+  without dropping the real-directory assertion. Focused passed **23 in
+  85.01 seconds**.
+- Fresh review reproduced a same-line setup gap: a new gate after `pip install`
+  and `&&` was ignored. Spaced and adjacent forms gave **two failed, twelve
+  deselected in 6.79 seconds**. Shell separators are now tokenized before
+  installation is excluded. Follow-up independent review detected the gate
+  with `&&`, `;` and `|`, and found no remaining defect. Final focused passed
+  **25 in 87.69 seconds**; Ruff passed and mypy checked **242 modules**.
+- Full SQLite: 3618 passed, fifteen skipped, 15 warnings in 2666.87 seconds; JUnit 3633 cases, zero failures/errors. Collected suite: **3633 cases**.
+  Documentation/schema: 17 passed, three warnings in 103.52 seconds. No full PostgreSQL rerun is claimed
+  for this file/CI-only rule; the previous complete application suite on
+  PostgreSQL remains the #716 result below. No app, API, model or proto changes.
+- The unchanged Android tree `b192a3ab` passed all four local gates with JDK 21:
+  **1797 unique JVM cases, zero failures/errors/skips**, both APK assembles and
+  detekt, **4 minutes 12 seconds**, 340 actionable tasks. Gradle used two workers
+  and a 2 GiB heap. The initial attempt found an unusable SDK mount; an isolated
+  SDK from Google's checksum-verified tools, API 37 and the build's required
+  Build Tools 36.0.0 made the complete offline rerun pass. Existing SDK paths
+  were retained. APKs were built locally, not installed on a real phone.
+
+### What remains open
+
+#710 remains separate in the original checkout. Its Class-before-Homework
+retention, validation and delete-wait/SET-NULL cases are unchanged. Its earlier
+full SQLite passed **3611, seventeen skipped, 15 warnings in 2347.29 seconds**
+on 3628 collected cases; all 25 original parent scenario names / 65
+parametrized cases executed and passed. Ruff/mypy and seventeen docs checks
+also passed. The full PostgreSQL attempt stopped before tests because Docker
+was off; restoring it awaits exclusive desktop ownership. Its code and its
+own draft documentation are preserved. This independent rule is released
+first rather than waiting for that external service; #710 will be integrated
+and fully checked again against this batch's published head before release.
+#654/#662 stay open until that final child completes CI, merge and production.
+
+The shared desktop queue remains authoritative for all GUI APIs, including
+reads and screenshots. CLI/source/build checks can continue while another
+session owns it. Live Telegram, installed APKs, native-gRPC concurrency,
+independent member zero-row DELETE behavior and Project 6 Done visibility
+remain unverified. Local tests use only owned test data.
+
+---
+
 
 ## What the batch before added: phone linking commits its claim and audit together
 

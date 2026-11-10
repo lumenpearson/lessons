@@ -229,6 +229,18 @@ one to CI, including after an install in the same shell line. Development comman
 permitted by a broad prefix remain optional; permission alone does not declare a gate.
 The settings file is an input to the test, so its changes run the server suite.
 
+Published current suite totals use the same principle (#660). A standard-library
+reader compares complete JUnit results with `docs/counts.json` after each existing
+test gate; the server suite holds the current declarations in seven documents and
+architecture's current per-module breakdown. Included Gradle module names are held
+by the server post-check, so raw pytest can produce a successful complete report
+before an intentional module-set update is regenerated. A missing report set for
+a previously positive module needs explicit acknowledgement of an intentional zero.
+This takes Airbnb's tool-enforced consistency
+without adding another test framework or a separate CI job. Historical run counts
+remain evidence, not current declarations. Regeneration writes only the measured
+JSON facts; it does not rewrite prose or treat collection as a completed run.
+
 **Where this goes past Airbnb.** Airbnb's rules encode its standards. The rules here encode
 this project's *defects*: each is born from an issue, its message names the issue and the
 right call, and it ships with a test that is red on the code that produced the defect — the
