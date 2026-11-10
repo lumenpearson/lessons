@@ -328,6 +328,17 @@ async def check_homework_id(session: AsyncSession, class_id: int, homework_id: i
         return
     if await homework_service.homework_of(session, class_id, homework_id) is None:
         raise HomeworkNotInClass()
+    # Class precedes its children in a cascading delete. On SQLite its checked
+    # write also retains the file write lock while the Homework is rechecked.
+    await gone.lock_parent(session, SchoolClass, class_id)
+    with session.no_autoflush:
+        retained = await session.scalar(
+            select(Homework.id)
+            .where(Homework.id == homework_id, Homework.class_id == class_id)
+            .with_for_update(read=True, key_share=True)
+        )
+    if retained is None:
+        raise HomeworkNotInClass()
 
 
 async def create_task(

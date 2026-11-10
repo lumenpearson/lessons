@@ -6,23 +6,28 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **10 November 2026**. `main` is at `49766007`, the merge
-of #716 pinned to checked head `9d060cca`. PR CI 42706369258 and main CI
-42708700353 passed every applicable check, including both native Host runtimes.
-Automatic review completed on the exact head without findings; reviews/threads
-were empty, mergeability clean and milestone 11 assigned. Automatic production
-reached READY at the exact merge and all three domains resolved there. Warmup
-answered HTTP 200/status ok/API 1/schema `0019`/v2 true; the post-warmup
-error/fatal 30-minute window was empty. #708 is closed and #716 is merged.
-All four base checkouts and local main/dev/remote dev were fast-forwarded
-across the source-identical merge; owned WIP was preserved.
+Last updated: **10 November 2026**. `main` is at `dedf70ef`, the merge
+of #717 pinned to checked head `6f5a05ee`. PR CI 42721907725 and main CI
+42723493850 passed every applicable check, including Android, Buf and both
+native Host runtimes. Automatic review completed on the exact head without
+findings; review submissions/threads were empty, mergeability clean and
+milestone 13 assigned. Automatic production reached READY at that exact
+merge and all three domains resolved there. Each warmup answered HTTP 200,
+status ok/API 1/schema `0019`/v2 true; protected aliases used authenticated
+access. The post-warmup error/fatal 30-minute query had no matching groups.
+#659 is closed; #717 is merged. All four checkouts and local main/dev/remote
+dev were fast-forwarded across the source-identical merge, preserving ten
+owned WIP file hashes in the original checkout.
 
 The owner continues autonomous work without a time limit. The current batch
-is `server/gate-lists-659` in the parent-races checkout, on existing milestone
-**13**. The independent CI rule is taken before #710 while its local PostgreSQL
-environment waits for the shared desktop queue. #710 stays isolated in the
-original checkout, and #654/#662 remain open. This close-out belongs in this
-batch's own PR; the next batch records its merge SHA. Board Done is unverified.
+is `server/task-homework-parent-710` in the original checkout, milestone
+**11**, based on that source-identical merge. #710's combined full runs passed locally; its own release checks remain pending.
+#654/#662 remain open. Native PostgreSQL 18.0 is available in a separate
+owned loopback-only cluster, with ICU en-US and UTC; its complete run and the C-locale diagnostic are recorded below. Earlier PostgreSQL 16 focused
+results remain separate. Existing databases and Docker data are untouched.
+No desktop input was used: the lessons GUI request was withdrawn and both
+other sessions notified; all lessons UI APIs remain paused. This close-out
+belongs in this batch's own PR. Board Done visibility remains unverified.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -335,7 +340,64 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: primary gate declarations cannot drift from CI
+## What the last session added: personal tasks retain their optional Homework link
+
+- #710: the common task helper retains Class after existing absent/foreign
+  Homework validation, then rechecks the scalar Homework id and class with
+  PostgreSQL FOR KEY SHARE under no_autoflush. The reference remains present
+  through the caller's write and commit. SQLite's checked Class write retains
+  its file write lock before that recheck. No Homework UPDATE is introduced.
+  A lost link gives the existing HomeworkNotInClass validation: v1 422 and
+  REST v2/Connect INVALID_ARGUMENT/VALIDATION_FAILED on task.homework_id.
+- Original independent Homework deletion reproduced **two PostgreSQL foreign-
+  key failures in 2.59 seconds** while Class stayed present. Formal create/
+  update services and v1/REST-v2/Connect added **eight failures in 5.63
+  seconds**. After correction, eight PostgreSQL cases passed in **3.38
+  seconds**, and eight SQLite cases passed in **37.83 seconds**.
+- Two real PostgreSQL delete-wait cases use pg_blocking_pids and bounded
+  task cleanup; Homework deletion still leaves existing tasks with a NULL
+  link. Ten PostgreSQL cases passed in **3.70 seconds**; expanded PostgreSQL
+  passed **121, five warnings in 27.48 seconds**. Fresh independent review
+  found no actionable defect and passed **eight SQLite cases in 45.12
+  seconds**, with two PostgreSQL-only cases deselected.
+- Fresh final static review against the integrated base found no actionable
+  correctness findings and confirmed both frozen source hashes. This reviewer
+  ran no tests and published no GitHub feedback.
+- Full collected suite after integrating #717: **3643 cases**.
+  Full PostgreSQL: 3636 passed, 7 skipped, 15 warnings in 611.36 seconds; JUnit 3643 cases, zero failures/errors. Full SQLite: 3626 passed, 17 skipped, 15 warnings in 2933.14 seconds; JUnit 3643 cases, zero failures/errors.
+  Final Ruff/mypy: Ruff passed; mypy checked 242 modules. Documentation/schema: 17 passed, three warnings in 39.76 seconds.
+  Two source/test hashes remain
+  frozen across the full runs. No model, schema, migration, public v1
+  field/input/enum or protobuf changes; no broad IntegrityError interception.
+- The first full PostgreSQL attempt exited **4 before tests**: Docker's Linux
+  daemon and named pipe were absent, so the owned local port refused the
+  connection. That log is retained; it is not a test result. SQLite continued
+  independently. An already installed native PostgreSQL 18.0 allowed a
+  separate owned test cluster without any desktop handoff. Its full retry
+  has its own log and report. The complete retry used the already installed native PostgreSQL 18.0 in a new owned loopback-only cluster; existing databases and the stopped Docker container were retained untouched. Earlier focused PostgreSQL 16 evidence remains separate; no new full PostgreSQL 16 run is claimed..
+  The first native cluster used C locale and its full diagnostic run had 31 failures. SQL lower did not lowercase Cyrillic; the existing Homework case-fold regression reproduced that failure. A separate ICU en-US / UTC cluster made that unchanged case pass in 5.71 seconds, followed by the complete successful retry above. Both owned clusters were stopped and their data/reports retained. The diagnostic cluster required immediate mode after fast shutdown stalled with I/O workers/checkpointer. The valid cluster also stopped using immediate mode after smart/fast timeouts. Both retained clusters need WAL recovery if reused; no existing user database or Docker data was changed..
+
+### Parent issue closure and remaining boundaries
+
+#654 and #662 remain open until this final child and their original scenarios
+have completed their gates. The live tracker after #716 has no other open
+child of #662, and only #662 under #654. Earlier child fixes have checked-head
+CI, merge and production evidence in their own PRs. Both final reports execute and pass all 25 original scenario names / 65 parametrized cases. Parents remain open until this PR's checked-head CI, merge, main CI and production are verified..
+The closure matrix covers the named original write races, not every future
+parent reference. The historical bot diary-correction bullet has no current
+bot writer; the phone correction races are exercised separately.
+
+Independently deleted member zero-row DELETE behavior, live Telegram,
+installed APKs, native-gRPC concurrency and Project 6 Done visibility remain
+unverified. Existing native Host checks are checked on the PR/main exact
+heads through both runtimes, not represented as local race tests. All data
+used by local suites stays in owned test databases.
+
+The prior full SQLite result (3611 passed, seventeen skipped, 2347.29 seconds)
+preceded #659's fifteen new checks. The two complete runs above verify the combined tree; that earlier result
+is retained as dated evidence rather than substituted for either current run.
+
+## What the session before it added: primary gate declarations cannot drift from CI
 
 - #659, existing milestone 13: the server's normal suite reads the bold primary
   commands in CLAUDE.md, the real-check blocks in AGENTS.md, Server/Android CI
@@ -393,52 +455,6 @@ session owns it. Live Telegram, installed APKs, native-gRPC concurrency,
 independent member zero-row DELETE behavior and Project 6 Done visibility
 remain unverified. Local tests use only owned test data.
 
-## What the session before it added: phone linking commits its claim and audit together
-
-- #708: linking retains Class before changing DeviceToken and leaves commit
-  to its caller. Both `/link` and `/start link_…` guard the complete claim,
-  dependent reads and commit; `/link` includes its audit in that transaction.
-  Response strings are captured before rollback can expire ORM objects.
-  Existing invalid/used/revoked-code indistinguishability, role decisions and
-  escaped names remain. Success follows durable commit in both callers.
-- Initial probes reproduced three PostgreSQL failures in **15.08 seconds**;
-  the deep-link baseline added **one failed, one healthy passed in 14.30
-  seconds**. The formal original baseline had **four failed, one passed in
-  35.43 seconds**. Five initial regressions passed in **20.34 seconds**.
-  All six SQLite cases passed in **33.55 seconds**, including separate-session
-  witnesses of claims (and the command audit) committed before Telegram output.
-- Six existing test setup callers now explicitly commit before a separate API
-  session reads their claim; all assertions stay unchanged. Stable IPv4 focused
-  PostgreSQL passed **672, five warnings in 81.95 seconds**. An older command
-  spanning a base refresh is diagnostic only; another hostname command stopped
-  after measured connection latency. Independent static review found no
-  actionable defect and ran no tests.
-- Full PostgreSQL on the checked Editor tree: **3611 passed, seven skipped,
-  15 warnings in 281.91 seconds**. JUnit has **3618 cases, zero failures/errors**;
-  all six new cases executed. Full SQLite: 3603 passed, 15 skipped, 15 warnings in 2597.36 seconds.
-  SQLite JUnit also contains 3618 cases with zero failures/errors; all six
-  new cases executed and passed. Eight code/test hashes stayed unchanged.
-  Final Ruff/mypy: Ruff passed; mypy checked 242 modules. Documentation/schema: 17 passed, three warnings in 107.64 seconds.
-  No v1 public field/input/enum, protobuf, model, migration or schema changed.
-
-### What remains open
-
-#654 and #662 remain open while this batch and #710 finish their gates.
-The separate #710 WIP retains a task's optional Homework reference after
-Class, rechecking it with a scalar PostgreSQL FOR KEY SHARE query or the
-existing SQLite Class write lock. Its formal baseline reproduced eight
-failures in **5.63 seconds**. Ten PostgreSQL cases passed in **3.70 seconds**,
-including real delete-wait/ON DELETE SET NULL checks; eight SQLite cases
-passed in **37.83 seconds**. Expanded PostgreSQL passed **121 in 27.48
-seconds**. Fresh review found no actionable defect and independently passed
-eight SQLite cases in **45.12 seconds**. Its full gates await this batch's
-checked head; no #710 code is included here.
-
-Independently deleted member zero-row DELETE behavior, live Telegram,
-installed APKs, native-gRPC concurrency and Project 6 Done visibility remain
-unverified. The syntactic parent-write inventory is not exhaustive safety
-proof. Tests use only owned local databases and per-checkout environments.
-
 ## The milestones
 
 **The milestones as they are now.** The owner renamed all nine on 25 September 2026, so that
@@ -463,9 +479,9 @@ current.
 | 8 | `v0.7.0 — School-year calendar, day ribbon, rearrangeable tabs` | `v0.7.0 — Оптимизация` | closed | PRs #75–#85, #128; issues #98, #100, #105–#108, #292 |
 | 9 | `v0.8.0 — On-device checks, 89-region e-diary survey` | `v0.8.0 — On a device` | open | PRs #129, #133, #134, #186, #187, #189, #234, #238, #239, #241, #245, #248, #250, #252, #257, #261, #263, #267 and #399; issues #109–#117, #119, #130–#132, #167–#185, #188, #219–#233, #237, #240, #242–#244, #246, #247, #249, #251, #253–#256, #258–#260, #262, #264–#266 and #397 — the first whose work needs an emulator or a phone, and #186 the first done on one |
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
-| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676, #680, #681, #685, #687, #689, #691, #693, #694, #698, #701, #704 and #706 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678, #679, #682, #684, #686 and #688, plus #690, #692, #695, #696, #697, #699, #700, #702, #703, #705, #707 and #709 (merged), plus #714, #715 and #716 (merged); #708 is closed and #710 remains open — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
+| 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676, #680, #681, #685, #687, #689, #691, #693, #694, #698, #701, #704 and #706 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678, #679, #682, #684, #686 and #688, plus #690, #692, #695, #696, #697, #699, #700, #702, #703, #705, #707 and #709 (merged), plus #714, #715 and #716 (merged), and the current `server/task-homework-parent-710` PR (open); #708 is closed and #710 remains open — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November), issue #659 and the current `server/gate-lists-659` PR (open); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November), issue #659 (closed) and PR #717 (merged as `dedf70ef`); deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
@@ -2080,7 +2096,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3633 tests, ~45 min on Windows
+cd server  && pytest -q -n auto                          # 3643 tests, ~45 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1797 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
