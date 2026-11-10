@@ -2,7 +2,11 @@
 
 import importlib.util
 import json
+import os
 import re
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -158,6 +162,112 @@ def test_an_unclosed_comment_cannot_hide_module_declarations(tmp_path):
     report(tmp_path / "settings.gradle.kts", 'include(":app")\n/* unfinished include(":ghost")')
     with pytest.raises(counts.CountsError, match="unterminated"):
         counts.android_counts(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        'if (false) include(":ghost")',
+        'if (false)\ninclude(":ghost")',
+        'run { include(":ghost") }',
+        'val result = include(":ghost")',
+        "val alias = ::include",
+    ],
+)
+def test_unsupported_include_context_is_refused(tmp_path, statement):
+    report(tmp_path / "settings.gradle.kts", f'include(":app")\n{statement}\n')
+    with pytest.raises(counts.CountsError, match="unsupported"):
+        counts.android_counts(tmp_path)
+
+
+def test_unconditional_include_supports_semicolons_and_multiline_arguments(tmp_path):
+    report(tmp_path / "settings.gradle.kts", 'include(":app");include(\n":tools",\n)\n')
+    assert counts.android_counts(tmp_path) == {":app": 0, ":tools": 0}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '<testsuite tests="1" skipped="3"><testcase classname="A" name="one"/></testsuite>',
+        '<testsuite tests="1" skipped="-1"><testcase classname="A" name="one"/></testsuite>',
+        '<testsuites><properties><testcase classname="A" name="one"/></properties></testsuites>',
+        '<testsuite><properties><testcase classname="A" name="one"/></properties></testsuite>',
+        '<testsuites><testcase classname="A" name="one"/></testsuites>',
+        '<testsuites><properties><testsuite tests="1"><testcase classname="A" name="one"/>'
+        "</testsuite></properties></testsuites>",
+        '<testsuite tests="1" skipped="1"><testcase classname="A" name="one">'
+        "<properties><skipped/></properties></testcase></testsuite>",
+        "<testsuites/>",
+    ],
+)
+def test_malformed_junit_structure_or_skip_counts_are_refused(tmp_path, body):
+    path = report(tmp_path / "malformed.xml", body)
+    with pytest.raises(counts.CountsError, match="malformed.xml"):
+        counts.junit_cases(path, allow_empty=True)
+
+
+def report_pair(tmp_path, *, missing_model=False):
+    repo = tmp_path / "repo"
+    published = report(
+        repo / "docs/counts.json",
+        '{"server":2,"android":{"total":2,"modules":{":app":1,":model":1}}}',
+    )
+    server = report(
+        repo / "complete.xml",
+        '<testsuite tests="2" skipped="0"><testcase classname="A" name="one"/>'
+        '<testcase classname="A" name="two"/></testsuite>',
+    )
+    build = repo / "android"
+    report(build / "settings.gradle.kts", 'include(":app")\ninclude(":model")\n')
+    report(build / "model/src/test/kotlin/ModelTest.kt", "class ModelTest\n")
+    xml = '<testsuite tests="1" skipped="0"><testcase classname="A" name="one"/></testsuite>'
+    report(build / "app/build/test-results/test/TEST-a.xml", xml)
+    if not missing_model:
+        report(build / "model/build/test-results/test/TEST-a.xml", xml)
+    args = ["write", "--server-junit", str(server), "--android-root", str(build)]
+    return repo, published, server, build, args
+
+
+def test_missing_positive_module_reports_cannot_replace_counts(tmp_path, capsys):
+    repo, published, _, _, args = report_pair(tmp_path, missing_model=True)
+    before = published.read_bytes()
+    assert counts.main(args, root=repo) != 0
+    assert published.read_bytes() == before
+    error = capsys.readouterr().err
+    assert ":model" in error and "--allow-empty-module" in error
+
+
+def test_explicit_empty_acknowledgement_allows_an_intentional_zero(tmp_path):
+    repo, published, _, _, args = report_pair(tmp_path, missing_model=True)
+    assert counts.main([*args, "--allow-empty-module", ":model"], root=repo) == 0
+    assert json.loads(published.read_text())[counts.ANDROID] == {
+        "total": 1,
+        "modules": {":app": 1, ":model": 0},
+    }
+
+
+def test_zero_report_evidence_allows_a_previously_positive_module_to_be_empty(tmp_path):
+    repo, published, _, build, args = report_pair(tmp_path, missing_model=True)
+    report(build / "model/build/test-results/test/TEST-a.xml", '<testsuite tests="0" skipped="0"/>')
+    assert counts.main(args, root=repo) == 0
+    assert json.loads(published.read_text())[counts.ANDROID]["modules"][":model"] == 0
+
+
+@pytest.mark.parametrize("side", ["server", "android"])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        '<testsuite tests="1" skipped="3"><testcase classname="A" name="one"/></testsuite>',
+        '<testsuites><properties><testcase classname="A" name="one"/></properties></testsuites>',
+    ],
+)
+def test_malformed_junit_cannot_replace_published_facts(tmp_path, side, bad):
+    repo, published, server, build, args = report_pair(tmp_path)
+    before = published.read_bytes()
+    target = server if side == "server" else build / "app/build/test-results/test/TEST-a.xml"
+    report(target, bad)
+    assert counts.main(args, root=repo) != 0
+    assert published.read_bytes() == before
 
 
 @pytest.mark.parametrize(
@@ -364,11 +474,6 @@ def test_a_missing_document_cannot_silently_drop_its_count(tmp_path):
     assert any("HANDOVER.md" in error and counts.SERVER in error for error in errors), errors
 
 
-def test_published_module_names_match_the_current_build():
-    data = json.loads((ROOT / "docs/counts.json").read_text(encoding="utf-8"))
-    assert set(data[counts.ANDROID]["modules"]) == counts._modules(ROOT / counts.ANDROID)
-
-
 @pytest.mark.parametrize("name", [":app", ":feature:tools"])
 @pytest.mark.parametrize("change", ["wrong", "missing"])
 def test_current_module_counts_cannot_drift(document_tree, name, change):
@@ -397,3 +502,72 @@ def test_a_new_zero_case_module_also_needs_a_current_declaration(document_tree):
     data[counts.ANDROID]["modules"][":empty"] = 0
     errors = counts.document_differences(root, data)
     assert any("docs/architecture.md" in error and ":empty" in error for error in errors), errors
+
+
+@pytest.mark.parametrize("change", ["add", "remove"])
+def test_changed_module_set_can_be_regenerated_after_successful_raw_checks(document_tree, change):
+    repo, data = document_tree
+    architecture = repo / "docs/architecture.md"
+    if change == "remove":
+        data[counts.ANDROID]["modules"][":empty"] = 0
+        architecture.write_text(
+            architecture.read_text().replace(
+                "`:feature:tools` 2.", "`:feature:tools` 2, `:empty` 0."
+            ),
+            encoding="utf-8",
+        )
+    published = report(repo / "docs/counts.json", json.dumps(data))
+    build = repo / "android"
+    settings = 'include(":app")\ninclude(":feature:tools")\n'
+    if change == "add":
+        settings += 'include(":empty")\n'
+    report(build / "settings.gradle.kts", settings)
+    for name, number in (("app", 1), ("feature/tools", 2)):
+        cases = "".join(f'<testcase classname="A" name="case{i}"/>' for i in range(number))
+        report(
+            build / name / "build/test-results/test/TEST-a.xml",
+            f'<testsuite tests="{number}" skipped="0">{cases}</testsuite>',
+        )
+    script = repo / "server/scripts/check_test_counts.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT / "server/scripts/check_test_counts.py", script)
+    copied_tests = repo / "server/tests/test_counts.py"
+    copied_tests.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(Path(__file__), copied_tests)
+    raw = repo / "complete.xml"
+    environment = {**os.environ, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"}
+    environment.pop("PYTEST_ADDOPTS", None)
+    ran = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            str(copied_tests),
+            "-k",
+            "current_repository_declarations or published_module_names or valid_counts_keep",
+            f"--junitxml={raw}",
+        ],
+        cwd=repo / "server",
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    assert ran.returncode == 0, ran.stdout + ran.stderr
+    assert len(counts.junit_cases(raw)) == 2
+    assert counts.main([counts.SERVER, "--junit", str(raw)], root=repo) != 0
+    assert (
+        counts.main(["write", "--server-junit", str(raw), "--android-root", str(build)], root=repo)
+        == 0
+    )
+    current = json.loads(published.read_text())
+    source = architecture.read_text()
+    if change == "add":
+        source = source.replace("`:feature:tools` 2.", "`:feature:tools` 2, `:empty` 0.")
+    else:
+        source = source.replace(", `:empty` 0", "")
+    architecture.write_text(source, encoding="utf-8")
+    assert not counts.document_differences(repo, current)
+    assert counts.main([counts.SERVER, "--junit", str(raw)], root=repo) == 0
+    assert counts.main([counts.ANDROID, "--root", str(build)], root=repo) == 0

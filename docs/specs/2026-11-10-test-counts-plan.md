@@ -111,7 +111,7 @@ seven server/four Android anchors described by the spec.
 
 ## Review and delivery
 
-- [ ] Generate the required committed-range review package;
+- [x] Generate the required committed-range review package;
   obtain fresh independent review and address important findings in one RED/GREEN
   fix pass with a green full suite before publication.
 - [ ] Push; create draft PR with `Closes #660`, `Refs #626`, existing milestone 13;
@@ -120,6 +120,18 @@ seven server/four Android anchors described by the spec.
   SHA/all aliases/warmup/runtime counts, then fast-forward owned checkouts/refs.
 
 ## Self-review
+
+The independent final review identified four Important defects in the first checked
+snapshot. One fix pass must hold missing previously positive reports/intentional-zero
+acknowledgement, unsupported include contexts, the raw-report/module-set update
+sequence and JUnit hierarchy/skip totals. Regressions were observed RED21/2 controls
+(11.04s), then the counts module passed93 (36.94s). Complete corrected gates and
+current facts remain required before publishing the fix commit; no re-review is used.
+The Minor generated-report ignore suggestion is deferred from this fix pass.
+The corrected complete SQLite suite passed3723/skipped17/warnings15 in1983.38s,
+3740JUnitcases/zero failures/errors. Current facts regenerated3740/1797; final
+declaration/schema/count/gate checks passed134/twowarnings80.46s. Delivery gates
+above remain pending until their actual results exist.
 
 The three tasks cover each spec section. Review Focus items 1–3 belong to Task 1,
 item 4 to Task 2 and item 5 to Task 3. Helpers, error type, JSON field names and

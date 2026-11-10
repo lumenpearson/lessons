@@ -42,7 +42,7 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 | --- | --- |
 | `ruff check app tests scripts migrations` | lints the server — exactly what CI runs |
 | `python -m mypy` | one question of all 242 modules: does anything reach for an attribute its type does not have? |
-| `pytest -q -n auto` | the server tests, 3718 of them — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
+| `pytest -q -n auto` | the server tests, 3740 of them — the exact command CI runs. Not `python -m pytest`: the `-m` form puts the current directory on `sys.path`, so a test that imports another passes locally and fails on CI |
 | `python -m pytest -q tests/test_schedule.py -k parity` | one file, one test |
 | `python scripts/check_test_counts.py server --junit work/pytest.xml` | compare the completed full server report with `docs/counts.json` |
 | `python -m uvicorn app.main:app --reload` | run the server |
@@ -56,11 +56,18 @@ cp .env.example .env          # BOT_TOKEN and OWNER_IDS are your own
 
 Server commands run from `server/`; Gradle and the Android count command run from `android/`.
 
-The full pytest gate writes `work/pytest.xml` by default. After complete successful runs
-on both sides, regenerate facts from `server/` with
+The raw full pytest command writes `work/pytest.xml` by default. Run the complete raw
+pytest and Gradle test commands successfully first. A following count comparison can
+fail during an intentional count/module change; regenerate facts from `server/` with
 `python scripts/check_test_counts.py write --server-junit work/pytest.xml --android-root ../android`.
 Then update the current document declarations held by `test_counts.py`; keep historical
 run totals. Focused runs should use an explicit XML path to preserve the full report.
+Repeat the complete gates and post-checks before publication. Included module names
+are compared after pytest, so adding/removing a module does not block report creation.
+If a previously positive module intentionally has no tests and emits no XML, the writer
+requires `--allow-empty-module :module`; confirm the zero before using this option.
+An explicit valid zero-case report is already evidence. Missing reports otherwise
+refuse replacement, preserving the prior facts.
 
 CI (`.github/workflows/ci.yml`) runs exactly this: `ruff`, `python -m mypy`,
 `pytest -n auto`, `./gradlew test`, `assembleDebug`, `assembleRelease`, `./gradlew detekt`

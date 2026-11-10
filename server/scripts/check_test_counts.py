@@ -24,12 +24,24 @@ def junit_cases(path: Path, *, allow_empty: bool = False) -> set[tuple[str, str]
         raise CountsError(f"{path}: cannot read JUnit report ({type(exc).__name__})") from exc
     if tree.tag not in ("testsuite", "testsuites"):
         raise CountsError(f"{path}: not a JUnit testsuite/testsuites document")
+    parents = {child: parent for parent in tree.iter() for child in parent}
+    suites = [node for node in tree.iter() if node.tag in ("testsuite", "testsuites")]
+    if not any(node.tag == "testsuite" for node in suites):
+        raise CountsError(f"{path}: report has no testsuite")
+    for suite in suites:
+        if suite is not tree and parents[suite].tag not in ("testsuite", "testsuites"):
+            raise CountsError(f"{path}: suite outside the report hierarchy")
+    for case in tree.iter("testcase"):
+        if parents[case].tag != "testsuite":
+            raise CountsError(f"{path}: testcase outside a testsuite")
+        if len(case.findall("skipped")) > 1:
+            raise CountsError(f"{path}: duplicate skipped markers")
+    if any(parents[node].tag != "testcase" for node in tree.iter("skipped")):
+        raise CountsError(f"{path}: skipped marker outside a testcase")
     if tree.findall(".//failure") or tree.findall(".//error"):
         raise CountsError(f"{path}: report contains failed/error cases")
-    for suite in tree.iter():
-        if suite.tag not in ("testsuite", "testsuites"):
-            continue
-        for field in ("tests", "failures", "errors"):
+    for suite in suites:
+        for field in ("tests", "failures", "errors", "skipped"):
             value = suite.get(field)
             if value is None:
                 continue
@@ -37,7 +49,11 @@ def junit_cases(path: Path, *, allow_empty: bool = False) -> set[tuple[str, str]
                 raise CountsError(f"{path}: invalid {field} count")
             if field == "tests" and int(value) != len(list(suite.iter("testcase"))):
                 raise CountsError(f"{path}: declared tests do not match cases")
-            if field != "tests" and int(value):
+            if field == "skipped" and int(value) != sum(
+                case.find("skipped") is not None for case in suite.iter("testcase")
+            ):
+                raise CountsError(f"{path}: declared skipped count does not match cases")
+            if field in ("failures", "errors") and int(value):
                 raise CountsError(f"{path}: report declares {field}")
     cases = set()
     for case in tree.iter("testcase"):
@@ -93,12 +109,36 @@ def _modules(root):
     except OSError as exc:
         raise CountsError(f"{settings}: cannot read module declarations") from exc
     source = _without_comments(source, settings)
-    tokens = re.finditer(
-        r'""".*?"""|"(?:\\.|[^"\\])*"|\binclude\s*\((.*?)\)',
+    mask = re.sub(
+        r'""".*?"""|"(?:\\.|[^"\\])*"',
+        lambda token: "".join("\n" if char == "\n" else " " for char in token[0]),
         source,
         flags=re.S,
     )
-    calls = [token[1] for token in tokens if token[1] is not None]
+    calls = []
+    braces = parentheses = position = 0
+    for token in re.finditer(r"\b(?:include|if|else|when|for|while|do|try)\b|[{}()]", mask):
+        if token.start() < position:
+            continue
+        value = token[0]
+        if value == "include":
+            start = max(mask.rfind("\n", 0, token.start()), mask.rfind(";", 0, token.start())) + 1
+            call = re.match(r"include\s*\((.*?)\)", source[token.start() :], re.S)
+            if braces or parentheses or mask[start : token.start()].strip() or call is None:
+                raise CountsError(f"{settings}: unsupported module include context")
+            calls.append(call[1])
+            position = token.start() + call.end()
+        elif value in ("if", "else", "when", "for", "while", "do", "try"):
+            if not braces and not parentheses:
+                raise CountsError(f"{settings}: unsupported conditional module discovery")
+        elif value == "{":
+            braces += 1
+        elif value == "}":
+            braces -= 1
+        elif value == "(":
+            parentheses += 1
+        else:
+            parentheses -= 1
     names = set()
     for call in calls:
         literals = re.findall(r'"([^"\n]+)"', call)
@@ -111,12 +151,13 @@ def _modules(root):
     return names
 
 
-def android_counts(root: Path) -> dict[str, int]:
+def _android_results(root: Path) -> tuple[dict[str, int], set[str]]:
     root = root.resolve()
     names = _modules(root)
     paths = {name[1:].replace(":", "/"): name for name in names}
     cases = {name: set() for name in names}
     tasks = {}
+    reported = set()
     for path in sorted(root.glob("**/build/test-results/*/TEST-*.xml")):
         if not path.resolve().is_relative_to(root):
             raise CountsError(f"{path}: report is outside the build root")
@@ -124,13 +165,18 @@ def android_counts(root: Path) -> dict[str, int]:
         if module_path not in paths:
             raise CountsError(f"{path}: unlisted module {module_path}")
         name = paths[module_path]
+        reported.add(name)
         found = junit_cases(path, allow_empty=True)
         task = tasks.setdefault((name, path.parent.name), set())
         if task & found:
             raise CountsError(f"{path}: duplicate testcase in task {path.parent.name}")
         task.update(found)
         cases[name].update(found)
-    return {name: len(identities) for name, identities in sorted(cases.items())}
+    return {name: len(identities) for name, identities in sorted(cases.items())}, reported
+
+
+def android_counts(root: Path) -> dict[str, int]:
+    return _android_results(root)[0]
 
 
 def validate_counts(data: object) -> dict:
@@ -301,12 +347,31 @@ def main(argv: list[str] | None = None, *, root: Path = ROOT) -> int:
     writer = modes.add_parser("write")
     writer.add_argument("--server-junit", type=Path, required=True)
     writer.add_argument("--android-root", type=Path, required=True)
+    writer.add_argument("--allow-empty-module", action="append", default=[])
     args = parser.parse_args(argv)
     published = root / "docs/counts.json"
     try:
         if args.mode == "write":
             server = len(junit_cases(args.server_junit))
-            modules = android_counts(args.android_root)
+            modules, reported = _android_results(args.android_root)
+            previous = _read_counts(published)[ANDROID]["modules"] if published.exists() else {}
+            acknowledged = set(args.allow_empty_module)
+            for module in acknowledged:
+                if modules.get(module) != 0:
+                    raise CountsError(
+                        f"{published}: {module}: empty acknowledgement needs a zero module"
+                    )
+            missing = {
+                module
+                for module, number in modules.items()
+                if number == 0 and previous.get(module, 0) > 0 and module not in reported
+            }
+            if unexplained := missing - acknowledged:
+                flags = " ".join(f"--allow-empty-module {module}" for module in sorted(unexplained))
+                raise CountsError(
+                    f"{published}: reports disappeared for {', '.join(sorted(unexplained))}; "
+                    f"only after confirming an intentional zero, repeat with {flags}"
+                )
             _write_counts(
                 published,
                 {SERVER: server, ANDROID: {"total": sum(modules.values()), "modules": modules}},
@@ -322,7 +387,14 @@ def main(argv: list[str] | None = None, *, root: Path = ROOT) -> int:
                 raise CountsError(
                     f"{published}: server expected {expected[SERVER]}, report has {actual}"
                 )
-            print(f"Server: {actual} cases match {published}")
+            included = _modules(root / ANDROID)
+            if included != set(expected[ANDROID]["modules"]):
+                raise CountsError(
+                    f"{published}: included module names differ; "
+                    f"expected {sorted(expected[ANDROID]['modules'])}, "
+                    f"settings have {sorted(included)}"
+                )
+            print(f"Server: {actual} cases and included module names match {published}")
         else:
             actual = android_counts(args.android_root)
             wanted = expected[ANDROID]["modules"]

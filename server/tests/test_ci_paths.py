@@ -29,13 +29,13 @@ SERVER = Path(__file__).resolve().parents[1]
 ROOT = SERVER.parent
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 
-#: Every file outside `server/` that a server test reads, as a glob over the
-#: repository, and the test that reads it. The documents `test_schema_version`
+#: Every file outside `server/` that a server test or its count post-check reads,
+#: as a glob over the repository, and its reader. The documents `test_schema_version`
 #: reads are not listed: they come from its own fixture, `head_documents`.
 READ_BY_THE_SUITE = {
     "HANDOVER.md": "test_counts, for the current declared suite totals",
     "docs/counts.json": "test_counts, for the canonical measured facts",
-    "android/settings.gradle.kts": "test_counts, for the current included project names",
+    "android/settings.gradle.kts": "the server count post-check, for included project names",
     ".claude/settings.json": "test_gate_lists, for the permitted gate prefixes",
     ".github/workflows/*.yml": "test_env_example, for the secrets; this file, for ci.yml",
     "docs/build.md": "test_env_example",

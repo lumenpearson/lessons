@@ -96,7 +96,7 @@ remembering them:
   - the `server-tests` agent.
 
   This list said «three» until #317, and the four it left out drifted: the `gates` skill said
-  770 Android tests when there were 1635. After both complete suites pass, from `server/`
+  770 Android tests when there were 1635. After both complete raw test commands pass, from `server/`
   run `python scripts/check_test_counts.py write --server-junit work/pytest.xml --android-root ../android`
   and update the current declarations from `docs/counts.json`. The writer changes facts
   only; `test_counts.py` holds these current anchors and the two CI post-run checks hold
@@ -104,6 +104,11 @@ remembering them:
   runs an explicit JUnit path. Take counts from a real run, not from another document:
   `docs/architecture.md` once carried a corrected total over a per-module breakdown that
   still summed to the old one, and the total hid it.
+  A count post-check may initially fail during an intentional change; update facts and
+  current declarations, then repeat all gates/post-checks. Module-name equality belongs
+  to the post-check so a changed module set cannot block the raw report it needs.
+  A previously positive module missing all XML requires an acknowledged intentional
+  zero (`--allow-empty-module :module`), not an assumption that missing means empty.
 - **Section 5, what nobody has verified**, which grows with every path that shipped without
   a test able to reach it.
 - **Section 7, what is left to the owner**, which shrinks when they do one of them.

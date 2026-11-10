@@ -27,7 +27,7 @@ that happens and names both trees (#312).
    after ruff — the owner asked for it through that day's audit (#210) — and still worth
    running before a push: seconds here, minutes there. It is the thing that reproduces the
    «🗓 Четверти» crash.
-3. `pytest -q -n auto`, bare, from `server/` with its venv active — 3718 tests today, six of
+3. `pytest -q -n auto`, bare, from `server/` with its venv active — 3740 tests today, six of
    them skipped unless a host is running (`-m host`, CI's «Host» job), plus eleven
    PostgreSQL-only lock checks skipped on SQLite, and
    **the exact command CI runs**. Not `python -m pytest`: the `-m` form puts the current
@@ -88,12 +88,19 @@ passes only when every job before it succeeded or was skipped, the one check `ma
 
 ## Updating measured counts
 
-Only after both complete suites pass, from `server/` run
+After both complete raw test commands pass, from `server/` run
 `python scripts/check_test_counts.py write --server-junit work/pytest.xml --android-root ../android`.
 Update the current declarations named by `test_counts.py` manually; keep dated run
 counts as evidence. The writer changes only JSON and refuses malformed/failed reports.
 Use an explicit JUnit path for focused runs to preserve the full default report;
 collection or a partial run is not a substitute for full-suite provenance.
+During an intentional change the following count comparisons can fail until facts
+and current declarations are updated. Actual module-name equality is checked after
+pytest, allowing a new/removed project to get a successful raw report first.
+For a previously positive module with no XML, the writer refuses an unexplained zero.
+Only after confirming an intentional empty module use `--allow-empty-module :module`;
+a valid explicit zero-case report needs no acknowledgement. Run all gates and both
+post-checks before publication.
 
 ## Two rules about evidence
 

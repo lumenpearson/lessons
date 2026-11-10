@@ -28,17 +28,25 @@ Server total counts all JUnit test cases, including legitimate skips. Empty,
 missing, malformed and failed/error reports are refused with the file and reason.
 Duplicate server identities `(classname, name)` are refused. A root must be a
 JUnit testsuite/testsuites document; reported counts must agree with its cases.
+Suites must occupy the report hierarchy and cases must be direct suite children.
+A supplied skipped total must agree with skipped cases, including aggregate suites.
 
 Android modules are discovered from the current literal include declarations in
 `android/settings.gradle.kts`, ignoring commented declarations. Unsupported or
-empty discovery fails rather than assuming five modules. Report paths stay under
-the supplied Android root. Read `*/build/test-results/*/TEST-*.xml` for discovered
+empty discovery fails rather than assuming five modules.
+Supported includes are unconditional top-level literal calls; conditional, nested,
+aliased or otherwise unsupported include uses refuse discovery.
+Report paths stay under the supplied Android root. Read `*/build/test-results/*/TEST-*.xml` for discovered
 modules. Logical identities include module, class and case name. Variant copies
 of the same identity count once; duplicates within the same task are errors.
 An included module with no cases contributes zero. Unexpected module reports and
 a module set different from the canonical file fail the comparison. This metric
 is JVM cases, not instrumentation, screenshots or the number of executions across
 build variants.
+When every report disappears for a previously positive module, write refuses to
+replace the facts unless there is explicit zero-case XML or the operator confirms
+the intentional transition with `--allow-empty-module :module`. New genuinely empty
+modules can contribute zero without a prior positive measurement being erased.
 
 JUnit cannot prove that a report is fresh or from a complete selection. Explicit
 regeneration must use the completed gates; CI repeats the full declared commands
@@ -54,12 +62,18 @@ nonzero. Tests load the script by path, following the existing migration-test
 pattern, so bare pytest never depends on the working directory being on sys.path.
 
 From server, `python scripts/check_test_counts.py server --junit work/pytest.xml`
-checks the server count. From Android,
+checks the server count and actual included module names. From Android,
 `python ../server/scripts/check_test_counts.py android --root .` checks its totals.
 From server, explicit regeneration is
 `python scripts/check_test_counts.py write --server-junit work/pytest.xml --android-root ../android`.
 Write gathers both sides before atomically replacing the one canonical file; it
 does not partially replace one side or edit documents.
+First run both complete raw test commands successfully. Their following count
+comparisons may fail during an intentional count/module-set change. Regenerate,
+update current declarations, then repeat every gate and post-check before publication.
+Actual module-name equality is a post-run invariant, not a raw-pytest prerequisite;
+adding/removing a module therefore cannot block the successful raw report needed
+by the writer. Tests exercise that sequence for added/removed empty modules.
 
 Pytest's existing configuration gains a default JUnit path `work/pytest.xml`, so
 the unchanged bare primary gate produces the artifact the following check needs.
@@ -93,7 +107,7 @@ Python 3.12 setup action already pinned in Server. No new job is introduced.
 Both command declarations and their permitted prefixes are updated together,
 as #659 now requires. Counts-file changes trigger both jobs; script changes
 also trigger Android. The server input guard registers the new JSON input.
-The suite also compares canonical module names with the real settings file;
+The server post-check compares canonical module names with the real settings file;
 settings-only changes therefore run Server, without triggering it for all client source.
 Mutation tests hold both path-filter changes. The extra Android work on a
 server-only counts update is intentional: one shared fact file is checked whole.

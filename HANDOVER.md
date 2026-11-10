@@ -24,9 +24,17 @@ Android and the full **3718-case** SQLite run are green. The latter passed
 3701, skipped 17, with 15 warnings in 2212.61 seconds, zero failures/errors;
 five implementation hashes stayed frozen. JSON was regenerated from that
 complete report and the native Android reports, and both CLI comparisons passed.
-Current declarations now say 3718/1797. Final document/schema/count/gate checks
-passed **112, two warnings in 79.31 seconds**. Fresh independent review and
-this batch's own release follow this checked local snapshot.
+At the reviewed `bce1f85c` snapshot, declarations say 3718/1797 and final
+document/schema/count/gate checks passed **112, two warnings in 79.31 seconds**.
+Fresh independent review found four Important defects. One fix pass has passed
+93 counts cases, then **134 combined checks, two warnings in 83.16 seconds**,
+Ruff/mypy and native Android. The corrected full run passed **3723, skipped 17,
+with 15 warnings in 1983.38 seconds**: **3740 cases, zero failures/errors**.
+Five implementation hashes match; facts were regenerated from that complete
+report and real native Android reports. Both post-checks pass and current
+declarations are **3740/1797**. Final declaration/schema/count/gate checks passed
+**134, two warnings in 80.46 seconds**. Publication and this PR's own exact-head
+CI, pinned merge, main CI and production verification follow this local snapshot.
 Both owned native PostgreSQL clusters are stopped with their test data retained.
 All desktop APIs remain paused; the GUI request was withdrawn and other
 sessions notified, so native checks use CLI without overlapping input.
@@ -355,7 +363,8 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
 - The existing server suite holds seven current server declarations, four
   current Android totals and architecture's current module breakdown. Missing,
   duplicate, wrong or unlisted current module entries fail, including a new
-  zero-case module. Current included Gradle module names must match JSON.
+  zero-case module. Actual included Gradle names must match JSON in the server
+  post-check, allowing raw pytest to produce the report needed by a module update.
   Dated earlier totals remain historical rather than being rewritten.
 - Each existing CI job gains one completed-report count comparison. The
   unchanged bare pytest gate writes `work/pytest.xml` by default; an explicit
@@ -374,7 +383,8 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   34.94 seconds, then the expanded focused set passed **87 in 463.38 seconds**.
   That serial run overlapped the interim full suite and inherited the global
   autouse SQLite schema fixture; its duration is not an isolated benchmark.
-  Ruff passed; mypy checked 242 modules. The fresh final review is pending.
+  Ruff passed; mypy checked 242 modules. The later independent review and fix pass
+  are recorded below.
 - Pre-review parser probes found that a flat block-comment regex treated a
   nested commented include as real and refused comments between include
   arguments. Four regressions failed with two string controls passing in
@@ -389,25 +399,41 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   pre-comment full report has **3712 cases**, zero failures/errors: **3695
   passed, 17 skipped, 15 warnings in 2142.77 seconds**. It also predates six
   comment regressions. Neither earlier report is used for final regeneration.
-- The complete release SQLite run passed **3701, skipped 17, with 15 warnings
+- The initially checked `bce1f85c` SQLite run passed **3701, skipped 17, with 15 warnings
   in 2212.61 seconds**. JUnit has **3718 unique cases, zero failures/errors**;
   all five implementation hashes match the renewed freeze. Local execution
   used eight workers and an owned explicit XML path; the identical completed
   report was also saved as `work/pytest.xml` to exercise the exact CI post-check.
   JSON was regenerated from this report and the actual Android reports.
-  Both report comparisons passed; current declarations are 3718/1797.
+  Both report comparisons passed; that snapshot's declarations were 3718/1797.
 - Native Android `test assembleDebug assembleRelease detekt` passed in
   **2 minutes 17 seconds**, 340 tasks (190 executed/150 from cache). Its
   267 reports have **1797 unique cases**, zero failures/errors/skips, in five
-  modules. After the module-map and comment fixes, the same full command passed in **31
+  modules. After the independent review fixes, the same full command passed in **9
   seconds**, 340 tasks (2 executed/338 up-to-date); the current CLI comparison
   also passed. JDK 21, the isolated SDK, offline mode, two workers and a 2 GiB
   Gradle heap were used. Both APKs were built, not installed.
 
 ### Remaining release work and boundaries
 
-The complete report, canonical regeneration and current-count update are done.
-Final document/schema/count/gate checks passed **112, two warnings in 79.31 seconds**.
+The first checked snapshot's complete report and facts are recorded above.
+The independent Astra review at `bce1f85c` reproduced four Important findings:
+missing reports becoming zero, conditional includes becoming phantom projects,
+the raw-suite/module-update bootstrap cycle and malformed JUnit/skip summaries.
+New regressions gave **21 failed, two controls passed in 11.04 seconds**.
+All four are addressed in one fix pass: known positive modules require explicit
+zero evidence or a named intentional-zero acknowledgement; unsupported include
+contexts refuse; module equality moved to the post-check; JUnit hierarchy and
+supplied skip counts are validated. The counts module passed **93 in 36.94
+seconds**, then the combined set passed **134, two warnings in 83.16 seconds**.
+The corrected complete run passed **3723, skipped 17, with 15 warnings in
+1983.38 seconds**. Its **3740 unique JUnit cases** have zero failures/errors;
+all five frozen implementation hashes match. JSON was regenerated from this
+report and actual Android reports; both post-checks pass, including actual module
+names. Current declarations are 3740/1797. Final declaration/schema/count/gate
+checks passed **134, two warnings in 80.46 seconds**.
+No second review is requested under the one-fix-pass workflow. The Minor
+suggestion to ignore generated `server/work/pytest.xml` is deferred from this pass.
 At this checked snapshot no #660 PR has been published yet.
 A fully checked local commit precedes the required committed-range review
 package and fresh independent review. Exact-head CI/reviews, pinned merge,
@@ -2134,7 +2160,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3718 tests, ~37 min on Windows
+cd server  && pytest -q -n auto                          # 3740 tests, ~33 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1797 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
