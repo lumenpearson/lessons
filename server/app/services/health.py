@@ -14,7 +14,7 @@ sweeps and before the diary keep-alive
   ``DIARY_PROXY_URL`` get any answer at all within five seconds? ``unknown``
   while ``DIARY_EGRESS`` sends nothing through it (direct or relay): whether
   the tunnel answers is nobody's business on a tick that never uses it.
-- ``deploy``: is production running ``main``'s head, or did ``main`` move less
+- ``deploy``: is production running the default branch's head, or did that branch move less
   than fifteen minutes ago?
 - ``diary_region:<key>``: does a region a class is bound to or a live session
   is on answer a probe sent by its own route - the proxy or direct - and not
@@ -75,7 +75,7 @@ CHECKS = ("schema", "v2", "diary_proxy", "deploy")
 #: question 1, answered by the owner).
 REMINDER_EVERY = timedelta(hours=6)
 
-#: How long ``main`` may be ahead of production before the deploy is late.
+#: How long the default branch may be ahead of production before the deploy is late.
 #: Vercel builds a merge in two or three minutes; fifteen is a deploy that
 #: did not start, which is what #349 was.
 DEPLOY_GRACE = timedelta(minutes=15)
@@ -109,8 +109,8 @@ WORDS: dict[str, tuple[str, str]] = {
     "v2": ("v2 не загрузился: /api/v2 и /api/rpc отвечают 503", "v2 снова загружен"),
     "diary_proxy": ("Прокси дневника не отвечает", "Прокси дневника снова работает"),
     "deploy": (
-        "Продакшен не на последнем коммите main",
-        "Продакшен снова на последнем коммите main",
+        "Продакшен не на последнем коммите основной ветки",
+        "Продакшен снова на последнем коммите основной ветки",
     ),
 }
 
@@ -450,7 +450,7 @@ def _region_probe(region: Region, settings: Settings) -> Callable[[float], Await
 
 
 class _Unreadable(Exception):
-    """GitHub answered, and not with ``main``'s head."""
+    """GitHub answered, and not with the default branch's head."""
 
 
 @dataclass(frozen=True)
@@ -458,12 +458,12 @@ class _MainHead:
     repository: str
     etag: str
     sha: str
-    #: When ``main`` moved to ``sha``: the commit's committer date, which for
+    #: When the default branch moved to ``sha``: the commit's committer date, which for
     #: a merge made on GitHub is the moment of the merge. Naive UTC.
     moved_at: datetime
 
 
-#: ``main``'s head as GitHub last told this process, and the ``ETag`` to ask
+#: the default branch's head as GitHub last told this process, and the ``ETag`` to ask
 #: again with. In memory rather than in a row: a warm instance asks with it,
 #: and an unchanged answer is a ``304`` - free of the rate limit only when the
 #: request carries a working ``Authorization`` header (GitHub's own rule, not
@@ -497,7 +497,7 @@ async def _read_main(repository: str, token: str, timeout: float) -> _MainHead:
         # nowhere else.
         headers["authorization"] = f"Bearer {token}"
     async with _github_client(timeout) as client:
-        response = await client.get(f"/repos/{repository}/commits/main", headers=headers)
+        response = await client.get(f"/repos/{repository}/commits/HEAD", headers=headers)
     if response.status_code == 304 and known is not None:
         return known
     if response.status_code != 200:
@@ -530,7 +530,7 @@ async def _read_main(repository: str, token: str, timeout: float) -> _MainHead:
 async def check_deploy(
     settings: Settings, now: datetime, *, timeout: float = CHECK_TIMEOUT_SECONDS
 ) -> Result:
-    """Is production running ``main``'s head, or is the deploy still within its grace?"""
+    """Is production running the default branch's head, or is the deploy still within its grace?"""
     running = deployment()
     if not settings.behind_vercel:
         return Result(UNKNOWN, "not on Vercel")
@@ -549,13 +549,17 @@ async def check_deploy(
     except (KeyError, TypeError, ValueError):
         return Result(UNKNOWN, "GitHub's answer was not a commit")
     if head.sha == running.commit:
-        return Result(OK, f"running main's head {head.sha[:7]}")
+        return Result(OK, f"running default branch head {head.sha[:7]}")
     behind = now - head.moved_at
     if behind < DEPLOY_GRACE:
         minutes = max(0, int(behind.total_seconds() // 60))
-        return Result(OK, f"main moved to {head.sha[:7]} {minutes} min ago; the deploy has time")
+        return Result(
+            OK, f"default branch moved to {head.sha[:7]} {minutes} min ago; the deploy has time"
+        )
     since = f"{head.moved_at:%Y-%m-%d %H:%M} UTC"
-    return Result(FAILING, f"running {running.commit[:7]}, main is {head.sha[:7]} since {since}")
+    return Result(
+        FAILING, f"running {running.commit[:7]}, default branch is {head.sha[:7]} since {since}"
+    )
 
 
 # --------------------------------------------------------------------------

@@ -16,7 +16,9 @@ holds for both.
 
 ## Opening one
 
-- Branch: `dev` → `main`. Push with `git push -u origin dev`.
+- One working branch starts from `dev` and targets `dev`. Push that branch, not a direct development change to a persistent branch.
+- After the working PR and dev CI pass, promote `dev` → `master` through a separate pinned PR.
+- `master` and `dev` are persistent. Delete the working branch after its merge into `dev`; preserve its worktree files.
 - **Create it as a draft.**
 - The repository has `.github/PULL_REQUEST_TEMPLATE.md`. Mirror its headings and fill them
   in from the diff — it is a layout to populate, not a set of instructions to follow. Skip
@@ -143,10 +145,12 @@ Three mechanics, each of which costs a wasted call to rediscover:
   filing the issue** — see «The board» below.
 
 **The tie to the pull request goes in the pull request body:** `Closes #NN`, on its own
-line, one line per issue. GitHub links them both ways and closes the issue when the pull
-request merges — so a fix cannot ship with its issue left open, and an issue cannot be
-closed with no diff to point at. Use `Closes` for a defect the pull request fixes and a
-plain `#NN` reference for one it merely touches.
+line, one line per issue. A working PR targets non-default `dev`, so those keywords
+do not close its issues at that merge. Carry every completed defect's closing line
+into the promotion PR targeting default `master`, then read back the issue state
+after that merge. Keep an overall issue as a reference while later release batches
+remain. Use a plain `#NN` reference for work a pull request merely touches. A fix cannot ship with its issue silently
+left open, and an issue cannot close with no delivery diff to point at.
 
 ### The label families
 
@@ -227,21 +231,24 @@ Two ways to take them, and which one you are in is decided by whether they go in
 own or inside something else.
 
 **Folded into one working pull request** — what to do when several land at once and the
-owner wants a single one: **merge each branch into `dev`** (`git merge
-origin/dependabot/…`) and let the working PR carry them. Never cherry-pick the bump and
+owner wants a single one: create a temporary working branch from updated `dev`,
+then **merge each dependency branch into that working branch** (`git merge
+origin/dependabot/…`). Its reviewed working PR targets `dev`; after dev CI, a
+separate checked promotion targets `master`. Never cherry-pick the bump and
 never retype the version by hand. The point of merging is that dependabot's own commit
-becomes an ancestor of `main`, and GitHub then closes its pull request as **Merged** by
+becomes an ancestor of `master`, and GitHub then closes its pull request as **Merged** by
 itself, with dependabot still the author: #52, #53 and #54 all closed that way in the same
 second #58 landed, with nothing left to do.
 
 The opposite case is real and looks identical from outside. If the branch is rebased or
 recreated after you folded it in, or the change arrived any way other than merging that
-commit, its head is not an ancestor of `main`; GitHub then leaves the pull request **Closed
+commit, its head is not an ancestor of `master`; GitHub then leaves the pull request **Closed
 rather than Merged**, or open. Six branches in #43 went that way. Only then close it by
 hand, with one comment naming the pull request that carried the change.
 
-**On their own** — resolve the conflict on the dependabot branch and merge it to `main`
-like any other pull request.
+**On their own** — resolve the conflict on the dependabot branch, target its PR
+at `dev`, and use the same checked dev-to-master promotion. Do not bypass the
+temporary-branch PR or push the integration directly onto a persistent branch.
 
 ### What a bump needs before it is merged, either way
 
@@ -305,14 +312,12 @@ one merged past a question costs the thing it broke.
 
 ## After it merges
 
-Three things, in this order, and none of them is optional:
+Four steps, in this order, and none of them is optional:
 
-1. `git fetch origin main` and fast-forward `dev` onto it, then push — a merged pull request
-   accepts no new commits, so the next batch needs `dev` level with `main`.
-2. **Update `HANDOVER.md`.** The merge is the trigger; see the `handover` skill. The batch is
-   not finished until the file describes it, and this has twice had to be asked for.
-3. Stop watching the pull request, and say plainly what is now true: the SHA `main` is at,
-   what is open, and what nothing has verified.
+1. After a working PR enters `dev`, wait for dev CI on that exact merge. Preserve the local worktree and remove only the merged working ref.
+2. Promote `dev` to `master` through its own green, pinned PR. Check master CI and the exact production SHA, warmup and logs; keep `dev` from automatic deletion.
+3. Fast-forward owned persistent refs after verifying ancestry. Never reset dev back to master or discard another worktree's changes.
+4. **HANDOVER.md rides inside the batch's open PR**, with measured gates and scope. Put actual post-merge delivery proof in its PR description, and record the merge in the next batch's opening. State what remains unverified.
 
 ## Comments
 

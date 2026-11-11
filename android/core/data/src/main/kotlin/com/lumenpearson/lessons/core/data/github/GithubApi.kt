@@ -32,8 +32,8 @@ internal object GithubApi {
     const val WEB_BASE = "https://github.com"
     const val RAW_BASE = "https://raw.githubusercontent.com"
 
-    /** Where a file is read from: the branch a merge deploys, not a tag. */
-    private const val DEFAULT_BRANCH = "main"
+    /** Follow a repository's default branch even after its name changes. */
+    private const val DEFAULT_BRANCH = "HEAD"
 
     /**
      * The REST API's own media type and the dated version that pins response

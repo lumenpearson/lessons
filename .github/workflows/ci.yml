@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, dev]
   pull_request:
   # Lets you build from the Actions tab without pushing anything.
   workflow_dispatch:

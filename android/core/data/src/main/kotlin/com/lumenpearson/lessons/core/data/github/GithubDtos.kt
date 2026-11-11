@@ -72,6 +72,7 @@ internal data class IssueResponseDto(
 @Serializable
 internal data class RepositoryDto(
     @SerialName("full_name") val fullName: String = "",
+    @SerialName("default_branch") val defaultBranch: String = "",
     @SerialName("fork") val fork: Boolean = false,
     @SerialName("parent") val parent: ParentDto? = null,
 )
