@@ -1,5 +1,15 @@
 package com.lumenpearson.lessons.navigation
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.geometry.Offset
+import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.designsystem.component.ToolbarAction
+import com.lumenpearson.lessons.core.designsystem.text.correctedString
+
 /**
  * Where the shell is, as coarsely as the action button needs to know.
  *
@@ -54,4 +64,52 @@ internal fun shellActionKind(
     ShellDestination.DOCS -> ShellActionKind.BACK
     ShellDestination.TABS -> ShellActionKind.SETTINGS
     ShellDestination.SETTINGS -> if (manager) ShellActionKind.DEBUG else ShellActionKind.NONE
+}
+
+/**
+ * The button beside the pill, chosen by where the shell is.
+ *
+ * On the tabs it is the way into settings, which is why settings stopped being a
+ * tab. Inside settings it is the bug — the crash reports and the switch that
+ * decides whether any are kept — which is where Essentials puts its own bug
+ * button and for the same reason: this app ships as an APK inside one school,
+ * with no crash service behind it, so the only place a crash can be read is the
+ * phone it happened on.
+ *
+ * It used to be a refresh button here. Refresh already has a row of its own in
+ * the sync section, two taps away, and spending the one permanent button in the
+ * app on a duplicate of a row is a poor trade.
+ *
+ * On the documentation it is the way back, because the pill beside it is full:
+ * it carries the sections, so the bar's standard mode — a back arrow and a
+ * title — is not available there. Which of the three it is, is decided by
+ * [shellActionKind]; this only dresses the answer.
+ */
+@Composable
+internal fun shellAction(
+    destination: ShellDestination,
+    manager: Boolean,
+    onOpenSettings: () -> Unit,
+    onOpenDebug: (at: Offset) -> Unit,
+    onBack: () -> Unit,
+): ToolbarAction? = when (shellActionKind(destination, manager)) {
+    ShellActionKind.SETTINGS -> ToolbarAction(
+        icon = Icons.Rounded.Settings,
+        contentDescription = correctedString(R.string.nav_settings),
+        onClick = { onOpenSettings() },
+    )
+
+    ShellActionKind.DEBUG -> ToolbarAction(
+        icon = Icons.Rounded.BugReport,
+        contentDescription = correctedString(R.string.debug_open),
+        onClick = onOpenDebug,
+    )
+
+    ShellActionKind.BACK -> ToolbarAction(
+        icon = Icons.AutoMirrored.Rounded.ArrowBack,
+        contentDescription = correctedString(R.string.docs_back),
+        onClick = { onBack() },
+    )
+
+    ShellActionKind.NONE -> null
 }

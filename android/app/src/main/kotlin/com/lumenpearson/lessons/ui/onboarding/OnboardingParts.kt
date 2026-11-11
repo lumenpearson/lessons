@@ -6,15 +6,19 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.Button
@@ -30,7 +34,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -42,20 +51,24 @@ import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.appicon.AppIconImage
 import com.lumenpearson.lessons.appicon.rememberCurrentAppIcon
+import com.lumenpearson.lessons.core.designsystem.component.RoundedCardContainer
+import com.lumenpearson.lessons.core.designsystem.component.SectionHeader
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
 import com.lumenpearson.lessons.core.designsystem.text.Text
 import com.lumenpearson.lessons.core.designsystem.text.correctedString
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsSans
 import com.lumenpearson.lessons.core.designsystem.theme.LessonsShapeTokens
+import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
 import com.lumenpearson.lessons.core.designsystem.theme.PillButtonHeight
 import com.lumenpearson.lessons.core.designsystem.theme.ScreenPadding
+import com.lumenpearson.lessons.core.designsystem.theme.springSpec
+import com.lumenpearson.lessons.core.model.AppLanguage
+import com.lumenpearson.lessons.ui.settings.labelRes
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.round
 import kotlinx.coroutines.launch
-import com.lumenpearson.lessons.core.designsystem.theme.LocalMotion
-import com.lumenpearson.lessons.core.designsystem.theme.springSpec
 
 /**
  * The bottom edge of every first-run screen: a square way back, then the one
@@ -349,3 +362,114 @@ private const val MajorNotchDegrees = 60f
 private const val DegreesPerRadian = 180.0 / PI
 private const val HalfTurn = 180.0
 private const val FullTurn = 360.0
+
+/**
+ * How far behind its title a step's first block arrives.
+ *
+ * Short on purpose. The point is that the eye is given the heading before
+ * the controls under it, not that the page is assembled in front of the
+ * user: anything long enough to notice as a sequence reads as the screen
+ * being slow.
+ */
+internal const val RevealStagger = 90
+
+/**
+ * Label of a language in the first-run picker.
+ *
+ * A copy of the settings page's mapping rather than a shared one, because the
+ * settings page's is `private` to its own file and this file may not change it —
+ * but it is a copy of three `when` branches over the same `R.string` names, not
+ * of the strings themselves. `settings_language_*` already exists in `values/`
+ * and `values-en/`; a first-run set beside it would be four more names for the
+ * translation test to keep in step and four more chances for the same word to
+ * end up spelled two ways.
+ */
+internal val AppLanguage.labelRes: Int
+    get() = when (this) {
+        AppLanguage.SYSTEM -> R.string.settings_language_system
+        AppLanguage.RUSSIAN -> R.string.settings_language_russian
+        AppLanguage.ENGLISH -> R.string.settings_language_english
+    }
+
+/**
+ * A group under a coloured label, which is what the Essentials setup pages use
+ * and its settings pages do not. See the note on `SectionHeader.titleColor`.
+ */
+@Composable
+internal fun AccentSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(title = title, titleColor = MaterialTheme.colorScheme.primary)
+        RoundedCardContainer(content = content)
+    }
+}
+
+/**
+ * The shape a first-run step has: a scrolling body that grows, then the action
+ * row, which does not move.
+ *
+ * The status-bar inset is **not** here any more. It moved to [OnboardingHero],
+ * which now sits above every step and is therefore what passes under the clock;
+ * a spacer here as well would count the inset twice and leave each step
+ * starting a status bar's height below where it should. The rule the settings
+ * pages follow — content softened under the bar rather than stopping short of
+ * it — is kept, one level up.
+ */
+@Composable
+internal fun StepScaffold(
+    actions: @Composable () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    // The keyboard padding on the outer column, as the join screen has it:
+    // on the sign-in step the keyboard then shrinks the scrolling body and
+    // lifts the row, rather than covering the form it was opened for.
+    val scroll = rememberScrollState()
+    Column(modifier = Modifier.fillMaxSize().imePadding()) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                // Before the scroll, so the fade stays on the viewport's top
+                // edge — the hero's lower edge — rather than travelling with
+                // the content.
+                .fadeUnderHero(active = { scroll.value > 0 })
+                .verticalScroll(scroll)
+                .padding(horizontal = ScreenPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content,
+        )
+        actions()
+    }
+}
+
+/** How far a step's body dissolves under the hero; see [fadeUnderHero]. */
+private val HeroFade = 24.dp
+
+/**
+ * Dissolves whatever is scrolled under the hero instead of cutting it along
+ * a line.
+ *
+ * Cut flat, a line of text scrolled to the edge leaves behind whatever hangs
+ * below its baseline: on the welcome step, the feet of «Д» and the stem of «р»
+ * from «Добро пожаловать в», three dashes over «Дневник» that read as a
+ * drawing defect (#230). Faded, the line goes as a whole. Only while the body
+ * is scrolled at all, so a step at rest draws its first line at full strength.
+ *
+ * @param active read at draw time, so scrolling does not recompose the step.
+ */
+internal fun Modifier.fadeUnderHero(active: () -> Boolean): Modifier =
+    graphicsLayer {
+        compositingStrategy = if (active()) CompositingStrategy.Offscreen else CompositingStrategy.Auto
+    }.drawWithContent {
+        drawContent()
+        if (!active() || size.height <= 0f) return@drawWithContent
+        drawRect(
+            brush = Brush.verticalGradient(
+                0f to Color.Transparent,
+                (HeroFade.toPx() / size.height).coerceAtMost(1f) to Color.Black,
+            ),
+            blendMode = BlendMode.DstIn,
+        )
+    }

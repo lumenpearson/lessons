@@ -3,7 +3,7 @@
   <ManuallySuppressedIssues/>
   <CurrentIssues>
     <ID>ComplexCondition:ProgressiveBlur.kt:Build.VERSION.SDK_INT &gt;= Build.VERSION_CODES.TIRAMISU &amp;&amp; blurRadius &gt; 0f &amp;&amp; (topHeight &gt; 0f || bottomHeight &gt; 0f) &amp;&amp; !isPowerSave &amp;&amp; !isBlurProblematicDevice()</ID>
-    <ID>CyclomaticComplexMethod:FloatingToolbar.kt:@Composable private fun ToolbarTab</ID>
+    <ID>CyclomaticComplexMethod:ToolbarTab.kt:@Composable internal fun ToolbarTab</ID>
     <ID>LoopWithTooManyJumpStatements:ToolbarArrangeGesture.kt:while</ID>
     <ID>MagicNumber:AccentMath.kt:AccentMath$0.0001f</ID>
     <ID>MagicNumber:AccentMath.kt:AccentMath$0.0722f</ID>
