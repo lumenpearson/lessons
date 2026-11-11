@@ -112,6 +112,13 @@ application failure: use an authorized verification connection and never publish
 its temporary access URL, headers or credentials. Finish with deployment-scoped
 error/fatal logs after the warmups and CI; an empty query is a point-in-time check.
 
+Release automation passes the full expected source SHA in the existing APK
+workflow's optional `expected_commit` input. The workflow compares it with the
+actual GITHUB_SHA before supplying signing inputs; a ref that advanced refuses
+before signing. Blank input retains ordinary manual-run behavior. The operator
+claims its uncertain dispatch receipt exclusively and reads back the exact run,
+so concurrent invocations or a timed-out response cannot submit twice blindly.
+
 The exact merge, CI runs and production readback belong in the release PR's
 description and its tracking issue. The committed handover records the tested
 features and links to that delivery record; it cannot know its own future merge

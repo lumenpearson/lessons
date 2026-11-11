@@ -74,6 +74,31 @@ def test_production_signing_admits_only_master_and_version_tags(ref, allowed, tm
     assert ("SIGNING_ALLOWED" in result.stdout) is allowed
 
 
+@pytest.mark.parametrize(
+    "expected,actual,allowed",
+    [("", "a" * 40, True), ("a" * 40, "a" * 40, True),
+     ("a" * 40, "b" * 40, False), ("not-a-commit", "a" * 40, False)],
+)
+def test_requested_apk_source_is_checked_before_signing(expected, actual, allowed) -> None:
+    apk = yaml.safe_load((ROOT / ".github/workflows/apk.yml").read_text(encoding="utf-8"))
+    events = apk.get("on") or apk[True]
+    assert events["workflow_dispatch"]["inputs"].get("expected_commit", {}).get("type") == "string"
+    steps = apk["jobs"]["build"]["steps"]
+    source = next((step for step in steps if step.get("id") == "source"), None)
+    assert source is not None, "A moving master ref must be checked before signing inputs"
+    assert source["env"]["EXPECTED_COMMIT"] == "${{ inputs.expected_commit }}"
+    keystore_index = next(i for i, step in enumerate(steps) if step.get("id") == "keystore")
+    assert steps.index(source) < keystore_index
+    bash = shutil.which("bash")
+    assert bash is not None
+    result = subprocess.run(
+        [bash, "-c", source["run"]],
+        env={**os.environ, "EXPECTED_COMMIT": expected, "GITHUB_SHA": actual},
+        capture_output=True, text=True, check=False,
+    )
+    assert (result.returncode == 0) is allowed, result.stdout + result.stderr
+
+
 def test_the_summary_job_needs_every_other_job_and_runs_whatever_they_ended_as() -> None:
     jobs = _jobs()
     summary = jobs["ci"]

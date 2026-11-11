@@ -8,7 +8,7 @@ newest first.
 
 Last updated: **11 November 2026**. This committed #724 snapshot
 records the integrated dependency cohort, the recovered host-cancellation fix#728
-and its measured verification below. Current facts are 3870server/
+and its measured verification below. Current facts are 3877server/
 1823Android cases; no migration or installed-v1 contract changes are included.
 The previous production anchor is Task1's master4dbfe33f (PR726/727), whose CI,
 four-alias production and signed APK44/Studio startup proof are recorded below.
@@ -369,13 +369,13 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   the finished receive/send adapter. Each host
   exits0, releases its port and logs no ERROR/traceback/running-generator error.
   Tests use isolated SQLite fixtures, fake local settings and a disabled bot.
-- Complete SQLite: 3853passed/17skipped/15warnings in
-  1977.93s; 3870unique JUnit cases, zero failures/errors. Bare
+- Complete SQLite: 3860passed/17skipped/15warnings in
+  2107.94s; 3877unique JUnit cases, zero failures/errors. Bare
   pytest-q-nauto uses eight workers, owned Python3.12 and actual Git Bash.
   1486 tracked input hashes remain unchanged throughout the full run.
   Ruff and mypy242 are clean. Serial native test/assembleDebug/assembleRelease/
   detekt: initial dependency build6m36s/300executed44cache, then the
-  final repeat BUILD SUCCESSFUL in 47s; 1823logical JVM cases across five modules,
+  corrected final repeat BUILD SUCCESSFUL in 1m 7s; 1823logical JVM cases across five modules,
   zero failures/errors/skips. Current measured facts and report comparisons
   follow those completed runs; final document checks are recorded with the PR.
 - Dependabot version updates use one weekly multi-ecosystem cohort targeting
@@ -383,7 +383,7 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   Production still requires its own reviewed promotion. Security updates retain
   GitHub's separate default-branch queue; the version grouping is not a promise
   to disable or cap security work.
-- Final documentation/CI checks197passed71.65s and both completed-report count
+- Pre-review documentation/CI checks197passed71.65s and both completed-report count
   comparisons passed. The source-pinned debug APK from commit9cb93f13 installed
   on the retained API37 AVD launched by Android Studio Device Manager. Actual
   Welcome/Home/Launcher/reopen Welcome were observed; the foreground package
@@ -391,13 +391,35 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   No Continue/Terms/account control was pressed. The own Emulator closed normally;
   its two process IDs disappeared, ADB was empty and AVD data remained. UI lease93
   was explicitly released. Production-signed APK verification follows promotion.
+- One fresh independent review found a receive-delivery race and gaps in the
+  one-off retirement proposal. The single corrective pass serializes readers:
+  RED2failed/1control, then50focusedpassed46.11s. Existing CI workflow tests hold
+  an optional expected_commit guard before signing inputs: RED4, then17passed14.02s.
+  Both actual Windows hosts again pass6RPCtests each and exit cleanly. The final
+  full server/native results above refer to this corrected snapshot.
+- Private retirement guards now bind the exact Task2 review/base/corrective head,
+  latest working/promotion PR CI, all eight original live PR dispositions and
+  actual retained signed-APK install/Studio observations. A coordinated window
+  reserves indexes, ownership and HEADs; prepared Git transactions fence new
+  reflog work before deleting refs. Ordinary nonsecret untracked WIP is hashed;
+  sensitive/ignored categories remain untouched, outside byte-identity claims.
+  Remote master/dev updates are temporarily blocked by one owned no-bypass rule;
+  only that rule is removed afterward, retaining original protections. The live
+  reversible preflight verified both applied rules and unchanged branch pins.
+- Two transport minors remain deferred in full: terminal exceptional receive
+  completion ownership/replay, and broad abandoned-send OSError classification.
+  Current native receive callbacks normally deliver events and the known dropped
+  send uses ClientDisconnectedError; no broader failure coverage is claimed.
+  The pre-review debug Studio proof uses9cb93f13; this correction leaves Android
+  source unchanged. Production-signed APK/Studio verification remains a release gate.
 - Ref retirement remains gated by the actual release and independent review.
   Preserve all refs and reflog-only history in a verified restorable bundle,
   copy tracked local WIP, retain every worktree's files/index, and detach only
   at the same preserved commit. Known expected-tip deletes must refuse drift;
   master/dev cannot enter either delete payload. The one-off safety contracts
-  pass22ref-retirement cases plus17release-proof guards, including real disposable
-  Git fixtures, ownership locks, atomic remote refusal and stale/wrong APK/alias/CI witnesses.
+  pass102cases155.11s across preservation, release and signing-operator guards,
+  including main/linked Git layouts, late writer/reflog/WIP drift, exact review/PR
+  identities, underlying Studio records and exclusive dispatch receipt claims.
   No unique branch work is discarded just to reach a branch count.
 
 This committed snapshot describes the verified implementation. The actual
@@ -2138,7 +2160,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3870 tests, ~38 min on Windows
+cd server  && pytest -q -n auto                          # 3877 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1823 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

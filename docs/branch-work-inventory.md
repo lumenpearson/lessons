@@ -119,8 +119,13 @@ recorded on #724 and the linked integration/promotion PRs. Retire a ref only whe
 its exact current tip is in verified production and in a restorable all-ref and
 reflog bundle. An advanced or unknown tip requires analysis; a branch count is
 never a reason to discard it. Keep local WIP/index/files, detaching an old
-worktree only at its same retained commit. Expected-tip local transactions and
-the atomic remote transaction exclude master/dev and refuse stale values.
+worktree only at its same retained commit. Expected-tip deletes exclude master/dev. A coordinated window reserves local
+indexes, ownership and HEADs; prepared transactions refuse unbundled reflog work
+before deleting refs. One temporary owned update rule freezes both remote keeper
+branches without bypass while atomic expected-tip deletes retire the other refs;
+only that temporary rule is removed, with original protections read back intact.
+Hash eligible regular tracked/untracked WIP. Sensitive files and ignored private,
+environment and build categories stay in place without a byte-identity claim.
 
 Future version bumps use one weekly multi-ecosystem cohort targeting dev/M7 with
 the work prefix. GitHub security updates retain their separate default-branch

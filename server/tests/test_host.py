@@ -68,6 +68,97 @@ async def test_cancelled_pyvoy_receive_still_accepts_the_servers_completion(monk
     assert calls == 1
 
 
+async def test_pyvoy_concurrent_readers_consume_each_body_event_once(monkeypatch):
+    native = asyncio.Queue()
+    events = [
+        {"type": "http.request", "body": b"one", "more_body": True},
+        {"type": "http.request", "body": b"two", "more_body": False},
+    ]
+
+    def receive():
+        future = asyncio.get_running_loop().create_future()
+        native.put_nowait(future)
+        return future
+
+    async def app(scope, read, send):
+        first = asyncio.create_task(read())
+        second = asyncio.create_task(read())
+        try:
+            (await asyncio.wait_for(native.get(), 1)).set_result(events[0])
+            assert await first is events[0]
+            await asyncio.sleep(0)
+            assert not second.done(), "A body event must not be broadcast to another reader"
+            (await asyncio.wait_for(native.get(), 1)).set_result(events[1])
+            assert await second is events[1]
+        finally:
+            for task in (first, second):
+                task.cancel()
+            await asyncio.gather(first, second, return_exceptions=True)
+
+    monkeypatch.setattr(host, "_main_app", lambda: app)
+    await _pyvoy_entry()({"type": "http", "path": "/body"}, receive, None)
+
+
+async def test_pyvoy_reader_reentry_cannot_clear_another_readers_next_event(monkeypatch):
+    native = asyncio.Queue()
+    events = [{"type": "http.request", "body": str(i).encode()} for i in range(3)]
+
+    def receive():
+        future = asyncio.get_running_loop().create_future()
+        native.put_nowait(future)
+        return future
+
+    async def app(scope, read, send):
+        async def twice():
+            return [await read(), await read()]
+
+        first = asyncio.create_task(twice())
+        second = asyncio.create_task(read())
+        try:
+            (await asyncio.wait_for(native.get(), 1)).set_result(events[0])
+            (await asyncio.wait_for(native.get(), 1)).set_result(events[1])
+            assert await second is events[1]
+            (await asyncio.wait_for(native.get(), 1)).set_result(events[2])
+            assert await first == [events[0], events[2]]
+        finally:
+            for task in (first, second):
+                task.cancel()
+            await asyncio.gather(first, second, return_exceptions=True)
+
+    monkeypatch.setattr(host, "_main_app", lambda: app)
+    await _pyvoy_entry()({"type": "http", "path": "/body"}, receive, None)
+
+
+async def test_pyvoy_waiting_reader_keeps_the_event_when_the_first_is_cancelled(monkeypatch):
+    native = asyncio.Queue()
+    event = {"type": "http.request", "body": b"one"}
+
+    def receive():
+        future = asyncio.get_running_loop().create_future()
+        native.put_nowait(future)
+        return future
+
+    async def app(scope, read, send):
+        first = asyncio.create_task(read())
+        second = asyncio.create_task(read())
+        try:
+            pending = await asyncio.wait_for(native.get(), 1)
+            first.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await first
+            assert not pending.cancelled()
+            pending.set_result(event)
+            assert await second is event
+            assert native.empty()
+        finally:
+            for task in (first, second):
+                task.cancel()
+            await asyncio.gather(first, second, return_exceptions=True)
+
+    monkeypatch.setattr(host, "_main_app", lambda: app)
+    await _pyvoy_entry()({"type": "http", "path": "/body"}, receive, None)
+
+
 @pytest.mark.parametrize(
     "path", ["/lessons.v2.WatchService/WatchClass", "/api/rpc/lessons.v2.WatchService/WatchClass"]
 )

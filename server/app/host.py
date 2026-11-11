@@ -135,6 +135,7 @@ async def pyvoy_application(scope: Scope, receive: Receive, send: Send) -> None:
         await application(scope, receive, send)
         return
     pending: asyncio.Future[MutableMapping[str, Any]] | None = None
+    receive_lock = asyncio.Lock()
     request_task = asyncio.current_task()
     watch_path = "/lessons.v2.WatchService/WatchClass"
     cancel_on_disconnect = scope.get("method") == "POST" and scope.get("path") in (
@@ -143,12 +144,13 @@ async def pyvoy_application(scope: Scope, receive: Receive, send: Send) -> None:
 
     async def protected_receive() -> MutableMapping[str, Any]:
         nonlocal pending
-        # Pyvoy 1.3/1.4 complete the Future even after its consumer was cancelled
-        # (#728). Retain it for a retry instead of cancelling or losing its event.
-        if pending is None:
-            pending = asyncio.ensure_future(receive())
-        message = await asyncio.shield(pending)
-        pending = None
+        # Deliver each event once, retaining the native read if its waiter leaves.
+        # Pyvoy 1.3/1.4 still complete a cancelled consumer's Future (#728).
+        async with receive_lock:
+            if pending is None:
+                pending = asyncio.ensure_future(receive())
+            message = await asyncio.shield(pending)
+            pending = None
         if (
             cancel_on_disconnect
             and message["type"] == "http.disconnect"
