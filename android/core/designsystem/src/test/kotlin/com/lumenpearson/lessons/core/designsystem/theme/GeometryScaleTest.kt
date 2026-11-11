@@ -798,7 +798,7 @@ class GeometryScaleTest {
          * move:
          * - `ui/week/CalendarGrids.kt` (1) — the week-strip and month-grid
          *   load dot, a few dp wide.
-         * - `core/designsystem/.../component/FloatingToolbar.kt` (3) — the
+         * - `core/designsystem/.../component/ToolbarTab.kt` (2) and `ToolbarActionSlot.kt` (1) — the
          *   held tab's disc, and the tab's and the action button's own
          *   notification badge, each a small filled circle.
          * - `ui/settings/AppIconRows.kt` (2) — the «Значок приложения»
@@ -810,7 +810,9 @@ class GeometryScaleTest {
         val circleShapeAllowance: Map<String, Int> = mapOf(
             "app/src/main/kotlin/com/lumenpearson/lessons/ui/week/CalendarGrids.kt" to 1,
             ("core/designsystem/src/main/kotlin/com/lumenpearson/lessons/core/designsystem/" +
-                "component/FloatingToolbar.kt") to 3,
+                "component/ToolbarTab.kt") to 2,
+            ("core/designsystem/src/main/kotlin/com/lumenpearson/lessons/core/designsystem/" +
+                "component/ToolbarActionSlot.kt") to 1,
             "app/src/main/kotlin/com/lumenpearson/lessons/ui/settings/AppIconRows.kt" to 2,
         )
     }

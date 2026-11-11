@@ -6,6 +6,17 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
+**11 November 2026 — Android decomposition, part C (#273).**
+Parts A and B merged in #451 and #625. The working branch
+`work/android-decomposition-c` starts at dev `bf322643`. It separates the four
+onboarding steps, splits the floating toolbar by concern and extracts the shell
+navigation rules. The final local Android run passed unit tests (1,826 logical
+cases across five modules), debug and release assembly, and detekt. The three
+new shell tests cover destination selection, back callbacks and tab reorder.
+Neither emulator interaction nor release signing was exercised in this batch.
+Part 5 follows delivery of part C. See the
+[implementation plan](docs/specs/2026-11-11-android-decomposition-c-plan.md).
+
 Last updated: **11 November 2026**. This committed #724 snapshot
 records the integrated dependency cohort, the recovered host-cancellation fix#728
 and its measured verification below. Current facts are 3877server/
@@ -2162,7 +2173,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 3877 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
-cd android && ./gradlew test                             # 1823 tests across the five modules
+cd android && ./gradlew test                             # 1826 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```
