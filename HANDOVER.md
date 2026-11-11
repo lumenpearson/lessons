@@ -383,6 +383,14 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   Production still requires its own reviewed promotion. Security updates retain
   GitHub's separate default-branch queue; the version grouping is not a promise
   to disable or cap security work.
+- Final documentation/CI checks197passed71.65s and both completed-report count
+  comparisons passed. The source-pinned debug APK from commit9cb93f13 installed
+  on the retained API37 AVD launched by Android Studio Device Manager. Actual
+  Welcome/Home/Launcher/reopen Welcome were observed; the foreground package
+  was the debug application and PID3237 remained the same, with zero crash entries.
+  No Continue/Terms/account control was pressed. The own Emulator closed normally;
+  its two process IDs disappeared, ADB was empty and AVD data remained. UI lease93
+  was explicitly released. Production-signed APK verification follows promotion.
 - Ref retirement remains gated by the actual release and independent review.
   Preserve all refs and reflog-only history in a verified restorable bundle,
   copy tracked local WIP, retain every worktree's files/index, and detach only

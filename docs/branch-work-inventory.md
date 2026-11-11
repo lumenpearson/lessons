@@ -111,7 +111,8 @@ parents: wrapper713, pyvoy712, AGP711, network668, DataStore667,
 pydantic-settings666, FastAPI665 and Sentry664. Requirement mirrors and the
 Linux/universal locks are reconciled before release; Windows/Linux loop markers
 are held by the existing host-image tests. Real host checks also exposed728,
-whose pyvoy receive/disconnect correction is covered before shipping the bumps.
+whose pyvoy receive/send completion and WatchClass disconnect correction is
+covered before shipping the bumps.
 
 Their final GitHub dispositions and exact production/ref-retirement readback are
 recorded on #724 and the linked integration/promotion PRs. Retire a ref only when

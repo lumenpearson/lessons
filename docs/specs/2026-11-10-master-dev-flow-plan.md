@@ -73,7 +73,7 @@ remain traceable. Resolving build incompatibilities cannot weaken tests/budgets.
   that preserves previous dependency updates. Install only declared versions.
 - [x] Run affected checks while integrating, then complete server/native gates,
   measured facts and final docs on the finished snapshot.
-- [ ] Obtain coordinated UI grant for pinned APK; Android Studio Emulator smoke
+- [x] Obtain coordinated UI grant for pinned APK; Android Studio Emulator smoke
   tests record actual app startup/navigation and tested limitations; release UI.
 - [ ] Independent review, green exact-head CI, dev merge/CI and master promotion/
   CI/production verification; read back dependency PR dispositions.
