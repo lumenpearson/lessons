@@ -18,8 +18,8 @@ contact_links:
     url: https://github.com/lumenpearson/lessons/discussions/categories/ideas
     about: Discussions, Ideas. It becomes an issue once it can fill the Proposal form.
   - name: The APK will not build, or signing does not work
-    url: https://github.com/lumenpearson/lessons/blob/main/docs/build.md
+    url: https://github.com/lumenpearson/lessons/blob/master/docs/build.md
     about: Building in Actions, your own key, a release from a tag, and pointing the app at a server.
   - name: The server or the bot will not start
-    url: https://github.com/lumenpearson/lessons/blob/main/docs/deploy.md
+    url: https://github.com/lumenpearson/lessons/blob/master/docs/deploy.md
     about: Vercel plus Neon or your own server, the webhook, migrations, and why the server has no clock of its own.

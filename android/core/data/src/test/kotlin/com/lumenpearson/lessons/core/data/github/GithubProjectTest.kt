@@ -64,7 +64,7 @@ class GithubProjectTest {
         assertEquals("https://api.github.com/repos/somebody/lessons-fork/issues", GithubApi.repoUrl(fork, "/issues"))
         assertEquals("https://api.github.com/repos/somebody/lessons-fork", GithubApi.repoUrl(fork, ""))
         assertEquals(
-            "https://raw.githubusercontent.com/somebody/lessons-fork/main/docs/app/manifest.json",
+            "https://raw.githubusercontent.com/somebody/lessons-fork/HEAD/docs/app/manifest.json",
             GithubApi.rawUrl(fork, "docs/app/manifest.json"),
         )
     }

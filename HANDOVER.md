@@ -6,21 +6,27 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **10 November 2026**. The last verified release is main
-at92d84023, PR#721/#635, pinned to checked heade36ebb8a. PR CI42806015203 and
-main CI42807115723 passed; production READY on that exact merge, all three aliases
+Last updated: **11 November 2026**. The last verified release is55b4c799,
+PR#722/#377/#723, pinned to checked head7cf8fc31. PR CI42863457188 and main
+CI42864594364 passed; production READY on the exact merge, all three aliases
 resolved to it and returned warmup200/status ok/API1/schema0019/v2 true. The
-post-warmup error/fatal30m query had no matching groups. #660, #661 and #635 are closed.
-Four owned checkouts and main/dev refs were fast-forwarded, unrelated work preserved.
+post-warmup/mainCI error/fatal30m query had no matching groups. Issues377/723closed.
+All owned checkouts and main/dev refs were fast-forwarded, unrelated work retained.
 
-The current batch is server/notice-lifecycle-377 in the isolated task-parent checkout,
-milestone13, based on that merge. Ordinary optional-notice lifecycle failures no
-longer turn committed v1 writes into500. Complete SQLite3845/Android1817 and
-Ruff/mypy242 are green; actual facts and current declarations accompany this batch.
-Independent review and delivery follow the local snapshot below. The owner
-continues autonomous work without a time limit. Both owned native PostgreSQL
-clusters are stopped with data retained. No UI APIs are used; queue version26
-belongs to another session and future UI use requires a coordinated grant.
+Current batch: work/master-dev-flow-724 in the isolated task-parent checkout,
+milestone13, based on that merge. The owner now requests master/dev/one working
+branch, Actions on dev, analysis/preservation of Claude Code branch features and
+Android Studio Emulator verification. Task1 recovers missing diary behavior#725
+and prepares tested promotion; Task2 resolves eight dependency PRs and final ref
+cleanup. Complete corrected SQLite3857/Android1823 and Ruff/mypy242 are green locally.
+One independent review and its single major-fix pass are complete. PR726 is a
+draft into dev; CI42904034514 passed on checked head7a049119. Emulator installation,
+startup and the first two local onboarding screens were observed on API37;
+onboarding completion and guide navigation remain unverified. Dev requires PR/CI,
+and automatic merged-working-branch cleanup is enabled with persistent protection
+read back. Rename, dev/master CI and production remain delivery gates.
+Both owned PostgreSQL clusters remain stopped with
+data retained. UI inputs require the shared queue's explicit grant.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -333,7 +339,83 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: optional notices preserve committed v1 replies
+## What the last session added: preserve branch work and test integration on dev
+
+- #724, milestone13: owner requests master/dev/one temporary working branch on
+  GitHub and locally; Claude Code work is owned work to reconcile. Task1 prepares
+  the workflow/feature transition; Task2 separately integrates eight dependency
+  heads and finishes emulator/ref cleanup. #724 is not closed by Task1 alone.
+- Read-only inventory found65 contained refs, eight dependency heads, three absent
+  pending designs and four unique historical bot commits. A complete verified
+  Git bundle and exact local-WIP copy precede ref cleanup. No worktree files are
+  deleted. docs/branch-work-inventory.md maps each retained feature and its tests.
+- The three pending design documents return with original content/commit ancestry;
+  this preserves them without approving their proposals. Old bot handlers are
+  reconciled against newer retained-parent/shared-service behavior, not restored
+  over it. Existing stale/editor-parent regressions:133passed/4skipped73.03s.
+- #725 is a confirmed recovered gap: a diary pupil switch met a concurrently
+  signed-out session, left the ORM failed and misreported an upstream error.
+  RED1failed4.96s; GREEN1passed5.08s. gone.committed rolls back before the existing
+  signed-out answer. Five recovered controls then passed6.04s, including class
+  scheme, picked-subject entry and split/merge service-refusal paths.
+- CI admits dev/master pushes and PRs with its existing complete gates and path
+  filters. Production signing admits master/v-tags only. Monitoring reads GitHub
+  commits/HEAD, retaining repository-scoped ETag behavior across default-branch
+  rename. FlowRED4failed/3controls3.91s; GREEN7passed3.66s; final focused82passed46.38s.
+- Android's guide reads HEAD after two existing URL assertions failed against
+  main (9 cases, 2 failed, 37s). New translation PRs start from and target the
+  persistent dev branch. Five Android source/test inputs match the native run.
+  Old APKs keep their embedded main refs: the bundled guide still works, but
+  submitting corrections requires an update after rename. No live PR was sent.
+- Before review, complete SQLite: 3839 passed, 17 skipped, 15 warnings in 2279.94 seconds; 3856 unique JUnit cases, zero failures/errors. Bare pytest -q -n8 with actual
+  Git Bash and owned editable Python3.12; eight production/test/workflow hashes
+  match. Ruffclean/mypy242clean. Native test/both assembles/detekt:
+  BUILD SUCCESSFUL in 2m 51s;1817logicalcases/fivemodules, zero failures/errors/skips.
+- Corrected review pass: one fresh review on 3db8d837 found one Critical,
+  seven Important and two Minor items. The single fix pass gates signing inputs
+  before the decode step, gives each diary press one answer, preserves real
+  rollback witnesses and resolves configured-fork bases without auth/error fallback.
+  Callback/signing RED7 -> GREEN73; real witnesses125passed/2skipped84.04s;
+  fork behavior RED3/3controls -> GREEN6. One-off fake-GitHub safety controls
+  RED10 -> GREEN10 hold PR enforcement, exact dev CI and resumable rename readback.
+  Current instructions preserve dev and carry issue closing lines to promotion.
+- Corrected complete SQLite: 3840 passed, 17 skipped,
+  15 warnings in 1985.24 seconds; 3857 unique cases,
+  zero failures/errors. Corrected native four gates: BUILD SUCCESSFUL in 2m 53s;
+  1823 logical cases. Eighteen source/test/workflow hashes
+  match. Current counts come from those reports; final docs/UI/delivery follow.
+  No second independent review or fresh PostgreSQL/live-provider claim is made.
+- Deferred review minors: source-set/dated branch prose, and the cross-repository
+  304 regression/stale config comment. Repository signing keys remain untouched;
+  the ordinary committed workflow's input guard is not absolute protection from
+  a collaborator rewriting a workflow. Secure environment provisioning and removal
+  of unrestricted stored copies require a separate safe credential operation.
+- Facts/current declarations 3857/1823 follow successful complete reports;
+  both report comparisons passed. Final counts/gates/instruction/CI/import checks:
+  corrected197 passed in 163.70s. Emulator evidence precedes
+  delivery. Working-to-dev and dev-to-master have separate pinned CI gates;
+  actual rename/settings/production proof belongs in the PR descriptions.
+  Task1's default-target promotion carries `Closes #725` and `Refs #724`; read
+  issue state back after merge, keeping #724 open until Task2 is complete.
+
+SDK tools/emulator are prepared in a separate F-drive SDK because the legacy
+executables fail to launch and C has limited space. Existing SDKs, AVDs and
+worktrees remain. UI use requires an explicit coordinated lease; no time expiry
+grants access. The debug APK pinned to source7a049119, SHA256
+09E62E55BCB447AE246F9FEF23C9AB80449E8E32A3926A5D176981638889464C,
+was installed into the owned x86_64/API37 AVD launched from Studio Device Manager.
+The launcher opened Welcome to Lessons, then the local Confirmation screen;
+the app process's crash buffer had no entries. The original AVD configuration
+was retained before enabling software graphics and cold boot without wiping data.
+An explicit foreground raise also preceded the successful screen observation;
+the display result is not attributed to one change alone. The emulator was
+closed normally, its processes were absent, and the UI lease was released.
+Completed onboarding, guide navigation and provider/account flows were not verified.
+No model/schema/dependency change is included in Task1. No new full PostgreSQL,
+real diary/Telegram or installed physical-device proof is claimed. The original
+backlog bugs remain queued after the owner's explicit branch-flow work.
+
+## What the session before it added: optional notices preserve committed v1 replies
 
 - #377 and its review-discovered #723, existing milestone13; #377 promoted to status:now under delegated priority:
   reproducible saved-write500 without real credentials, while next-labelled bugs
@@ -398,87 +480,15 @@ No UI APIs were used; the queue's version26 grants another session exclusive UI,
 and this session remains paused until a coordinated grant. Project6Done board
 visibility and the earlier generated-report ignore Minor remain outside this batch.
 
-## What the session before it added: detekt baseline rewrites stay within reviewed budgets
-
-- #635, existing milestone13: the existing pure JVM core:model suite checks every
-  default detekt-baseline.xml against a sibling detekt-baseline-budget.xml.
-  Accepted IDs make added/removed entries visible without Git history. Both manual
-  and current suppressions consume maxEntries, which equals the snapshot size.
-  Removals lower the limit; moves refresh IDs without raising it. No automatic
-  rewrite can raise the budget. The five original baselines remain byte-identical:
-  app182/data202/designsystem73/model13/widget21, total491.
-- Initial reviewed snapshotc7f10c35: thirteen reader cases hold growth, removal, moves, manual suppressions, zero,
-  malformed/duplicate records, XML escaping, nested discovery, missing pairs,
-  links and external entities. Assertion RED:9failed/13cases12s against stubs;
-  focused GREEN13s. A real baseline-only mutation and a budget-only mutation each
-  reran Test and failed; originals were restored with exact-byte ownership checks.
-- Both XML patterns and the module build script are Test inputs. Discovery has no
-  fixed module list; generated trees and links are excluded. The default filename
-  convention is explicit: custom bindings require extending discovery and inputs.
-  Engineering/build/large-refactor documents explain the review workflow; no new
-  plugin, dependency, CI job or application behavior was added.
-- Full server:3802passed/17skipped/15warnings2237.47s;3819unique JUnitcases,
-  zero failures/errors. Git Bash verified before bare pytest -q -n8; Ruffclean and
-  mypy242clean. No new PostgreSQL or installed-device run is claimed.
-- Initial reviewed snapshot: serial native test/assembleDebug/assembleRelease/detekt:BUILD SUCCESSFUL in
-  52s;340 actionable tasks: 3 executed, 337 up-to-date. Complete JVM reports:1810unique cases,
-  five modules, zero failures/errors/skips. The new module total is138. Both APKs
-  built, not installed; JDK21/isolatedSDK/offline/twoworkers/2GiBheap.
-- Initial native diagnostics caught one new MaxLineLength, fixed in source. The
-  executor started a repeat before the first process exited, causing shared test
-  result-file EOF/NoSuchFile errors. Those reports are not release evidence. The
-  successful serial native run above followed verified server exit0.
-### Independent review and correction
-
-Fresh independent Astra review ofc7f10c35 found no Critical and five Important
-issues: JVM junction traversal, linked Gradle inputs, missing console diagnostics,
-XML byte-decoding differences and discarded group membership. One fix pass holds
-all five. Non-whitespace container text was promoted to a fail-closed correction;
-the nested-pair control now first grows and must name its module/ID. The newly
-written unheld class total was omitted while updating measured case totals.
-
-- Formal reader RED:20cases/7failed/13controls13s; focused GREEN20cases23s.
-  Windows junctions are pruned before descent, containment uses real paths, XML
-  stays bytes through the secure parser, and Entry(group,id) retains policy.
-  A current-to-manual move requires an explicit matching snapshot refresh.
-- Actual configured Gradle inputs selected four external synthetic records before
-  the fix; the same audit selects none after it. A regular-to-identical-file-link
-  replacement previously reused Test UP-TO-DATE and passed5s. With path/type
-  metadata it executes and refuses the nonregular record11s. Exact original files
-  were restored by verified real target identity and frozen hashes; links/probes
-  are retained outside Android, with no deletion or private target read.
-- A module-local ValueSource walks without FOLLOW_LINKS and prunes reparse
-  directories before descent. Its metadata is rechecked by configuration cache;
-  only regular record bytes enter content fingerprinting. Each baseline-only and
-  budget-only mutation followed its own warm success, reran Test and failed.
-  The normal console now prints app and the exact added BudgetProbe:NewVisible635.
-- Corrected full native test/assembleDebug/assembleRelease/detekt:SUCCESS52s,
-  340tasks/6executed/334up-to-date, configuration cache reused. Complete reports:
-  1817unique cases/268reports/fivemodules, model145, zero failures/errors/skips.
-  All twenty budget cases passed. A new long line was formatted after waiting
-  for the preceding failed detekt process to exit; baselines were never widened.
-- The complete3819 raw SQLite proof above remains intact; no Python implementation
-  or tests changed in the correction. Ruff/mypy and all affected document suites
-  are rechecked, and fresh full ServerCI on the corrected head is a delivery gate.
-  Current canonical declarations3819/1817 are regenerated from successful reports.
-  Final corrected document checks:215passed/twowarnings120.54s; Ruffclean and
-  mypy242clean. All five Important findings and the malformed-container
-  regression are held by RED/GREEN tests or actual build probes.
-
-No second independent review is claimed for the one fix pass. Released as PR#721,
-pinned to checked head e36ebb8a, merge92d84023. PR CI42806015203 and main
-CI42807115723 passed, including Server3802passed/17skipped and Android1817.
-Automatic Codex review on that head completed with no findings; formal reviews
-and threads were empty. All three production aliases resolved to the exact READY
-merge and returned warmup200/status ok/API1/schema0019/v2 true. The post-warmup
-error/fatal30m query had no matching groups. #635 is closed; all four owned
-checkouts and main/dev refs fast-forwarded with unrelated work preserved.
-
-The GUI queue was refreshed at version9: released/no owner; future UI use requires
-a coordinated grant. No UI APIs or UAC input were used. Foreign work, stopped
-PostgreSQL data and local evidence are retained. Project6Done visibility, live
-Telegram/real-diary/installed-APK flows and arbitrary Gradle DSL evaluation remain
-outside this batch. The earlier #660 generated-report ignore Minor remains deferred.
+Released as PR#722, pinned to checked head7cf8fc31, merge55b4c799.
+PR CI42863457188 and main CI42864594364 passed: Server3828passed/17skipped,
+Android1817 and both Host jobs; Contract path-filtered skipped. Automatic Codex
+review on the exact head completed without findings; formal reviews/threads were
+empty. Production was READY on that merge; all three aliases independently
+resolved to it and returned warmup200/status ok/API1/schema0019/v2 true. A
+deployment-scoped error/fatal30m query after warmups/mainCI had no matching groups.
+#377 and #723 read back closed/completed; four owned checkouts and main/dev refs
+fast-forwarded. No second review or new full PostgreSQL run was claimed.
 
 ## The milestones
 
@@ -506,7 +516,7 @@ current.
 | 10 | `v0.9.0 — NetSchool e-diary, onboarding via the school's diary` | none — proposed as «v0.9.0 — A second diary», never created under that name | open | PRs #140, #214, #218, #303, #335 (merged); issues #135–#139, #141, #145–#165, #190–#211 (the external audit of 27 September), #212, #213, #235, #236, #302, #334, #343 |
 | 11 | `v0.10.0 — One contract: REST v2, Connect and native gRPC, build console` | none — created on 3 October 2026 under this name | open | PRs #274, #277, #294, #296, #297, #300, #301, #305, #306, #307, #308, #311, #313, #319, #328, #332, #342, #350, #356, #372, #376, #379, #380, #385, #392, #394, #396, #410, #418, #422, #428, #451, #473, #539, #610, #625, #650, #651, #653, #655, #656, #675, #676, #680, #681, #685, #687, #689, #691, #693, #694, #698, #701, #704 and #706 (merged); issues #268–#273, #275, #276, #293, #295, #298, #299, #304, #309, #310, #312, #314–#318, #320–#325, #331, #336–#341, #347, #348, #351, #352, #353, #354, #355, #357, #367, #368, #369, #370, #373, #374, #381, #382, #383, #384, #389, #390, #393, #395, #401, #406, #407, #408, #411, #419, #420, #423, #424, #425, #427, #461, #463, #464, #466, #468, #474, #475, #623, #624, #640, #652, #654, #657, #662, #673, #674, #677, #678, #679, #682, #684, #686 and #688, plus #690, #692, #695, #696, #697, #699, #700, #702, #703, #705, #707 and #709 (merged), plus #714, #715 and #716 (merged), and #718 (merged); #708, #710, #662 and #654 are closed — the programme of `docs/specs/2026-10-03-one-contract-design.md` |
 | 12 | `v1.0.0 — A build somebody else can install` | none — created on 3 October 2026 under this name | open | PRs #329, #333, #359, #363, #388, #398, #403, #413, #415, #417, #430, #472, #609 and #622 (merged); issues #120–#122, #127, #142, #144, #326, #327, #330, #349, #358, #360–#362, #364, #365, #386, #387, #402, #404, #414, #416, #429, #431–#438, #442, #444 (closed, not planned), #445, #457–#460, #462, #465, #467, #469–#471, #476, #636–#639 and #641 — the steps epic #127 names between one class on one phone and a build a second family could use |
-| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November), issue #659 (closed), PR #717 (merged as `dedf70ef`) PR #719 (#660, merged), PR #720 (#661, merged), PR #721 (#635, merged) and the current #377/#723 batch; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
+| 13 | `Backlog — not scheduled` | none — created on 3 October 2026 under this name | open | issues #118 (closed by #350), #123–#126, #143, #371, #375, #377, #378, #391, #400, #405, #409, #412, #421, #426, #439, #440, #441, #443, #626–#635 and #642–#648, PR #649 (merged as `d4f7725c` on 8 November), PR #683 (merged as `46f40dee` on 9 November), issue #659 (closed), PR #717 (merged as `dedf70ef`) PR #719 (#660, merged), PR #720 (#661, merged), PR #721 (#635, merged) PR #722 (#377/#723, merged) and the current #724/#725 batch; deliberately not a version, like 7 — known gaps and decisions no release is waiting for |
 
 **#142, #143 and #144**, two follow-ups and a decision that #140 left alone on purpose, were
 on no milestone until 3 October: #142 and #144 are in the twelfth now, and #143 in the
@@ -2103,27 +2113,27 @@ The order that paid off here:
 
 ### How to continue
 
-`dev` is still the branch the `github-pr` skill names, but no pull request has come from it
-since #267 on 3 October, and it has stood at #342's merge since 5 October: every batch since
-has worked on a branch of its own, cut from `main` and named for its work (`server-v2/3b-3`,
-`android/decomposition-a`, `deps/2026-10-16`). Either way a batch starts from a fresh `main`,
-because a merged pull request accepts no new commits; the commands below do it for `dev`, and
-`git checkout -b <area>/<topic> origin/main` does it for a branch of its own. Which pull
-requests are merged and which one is open is at the top of this file, not here — this
-paragraph is about the two commands under it.
+`dev` is persistent tested integration; `master` is the production/default branch
+after this batch's verified cutover. Start each task on an unused temporary branch
+from freshly fetched `origin/dev`, preserving existing worktree files and local
+changes. Do not recreate or reset `dev`. The example name below must be unused;
+choose a name for the actual task. Working PRs target `dev`, then dev CI precedes
+a separate pinned dev-to-master promotion. Copy closing issue lines into that
+default-target promotion and verify issue state after merge. The opening records
+the actual cutover and delivery state, rather than assuming they happened.
 
 ```bash
 git fetch origin
-git checkout -B dev origin/main   # the same dev, a new starting point
+git switch -c work/next-issue origin/dev
 ```
 
 The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3845 tests, ~38 min on Windows
+cd server  && pytest -q -n auto                          # 3857 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
-cd android && ./gradlew test                             # 1817 tests across the five modules
+cd android && ./gradlew test                             # 1823 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

@@ -19,7 +19,7 @@ enum class DeveloperRole { ADMIN, MAINTAIN, WRITE }
 /**
  * Whether [permissions] make a developer of this project, and as what.
  *
- * Push and above, because push is what deploys: a merge to `main` deploys the
+ * Push and above, because push is what deploys: a merge to `master` deploys the
  * server, and `apk.yml` needs write access to be run at all. Triage and read do
  * not count — read is what every GitHub account has on a public repository.
  */

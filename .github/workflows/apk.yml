@@ -5,9 +5,9 @@
 #   * push a tag like v0.2.0, which additionally publishes a GitHub Release
 #     with the APK attached.
 #
-# Signing: on main or a v* tag, with the four keystore secrets set, the release
+# Signing: on master or a v* tag, with the four keystore secrets set, the release
 # APK is signed with your key. A run of any other ref is signed with the debug
-# key so it still installs (#330), and so is a run of main without the secrets;
+# key so it still installs (#330), and so is a run of master without the secrets;
 # a v* tag without them fails rather than publish a debug-signed release. The
 # job summary says which happened. See docs/build.md.
 #
@@ -180,6 +180,7 @@ jobs:
 
       - name: Decode keystore
         id: keystore
+        if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -188,7 +189,7 @@ jobs:
           REF: ${{ github.ref }}
           REF_TYPE: ${{ github.ref_type }}
         run: |
-          # The real key signs a tag or `main`, and nothing else (#330, the
+          # The real key signs a tag or `master`, and nothing else (#330, the
           # owner's decision of 5 October 2026). "Run workflow" can be pointed
           # at any branch, and its APK lands in an artifact anybody can
           # download, which a family's phone would accept as an update of the
@@ -201,13 +202,13 @@ jobs:
           # This binds the workflow as committed on the ref being run, so it
           # stops an accident, not somebody with push access: the secrets are
           # repository secrets, and a branch that deletes these lines still
-          # reads them. A GitHub Environment open to `main` and `v*` alone would
+          # reads them. A GitHub Environment open to `master` and `v*` alone would
           # make it a rule (docs/build.md says so).
           case "$REF" in
-            refs/heads/main|refs/tags/v*) ;;
+            refs/heads/master|refs/tags/v*) ;;
             *)
               echo "signed=false" >> "$GITHUB_OUTPUT"
-              echo "::notice::$REF is neither main nor a v* tag, so this APK is signed with the debug key (#330)."
+              echo "::notice::$REF is neither master nor a v* tag, so this APK is signed with the debug key (#330)."
               exit 0
               ;;
           esac

@@ -478,12 +478,7 @@ def labels(keyboard) -> list[str]:
 
 
 def alert(callback) -> str:
-    """The alert the handler raised.
-
-    Not ``answers[-1]``: every one of these handlers closes with a bare
-    ``callback.answer()``, so the last entry is the spinner being stopped and
-    the sentence sits one before it.
-    """
+    """The alert, without depending on which successful views answer silently."""
     return next(text for text, shown in reversed(callback.answers) if shown)
 
 
@@ -516,6 +511,7 @@ async def test_the_diary_opens_on_today_and_wears_the_frame(
     await handlers.diary_root(callback, session, school_class, Role.VIEWER)
 
     assert "Алгебра · 214" in callback.message.last
+    assert callback.answers == [(None, False)]
     assert "📝 № 12" in callback.message.last
     shown = labels(callback.message.keyboard)
     assert "• 📅 День" in shown  # the tab you are on is a label, not a button
@@ -781,6 +777,7 @@ async def test_an_account_with_no_children_says_so_instead_of_an_empty_day(
     await handlers.diary_root(callback, session, school_class, Role.VIEWER)
 
     assert "не привязан ни один ученик" in callback.message.last
+    assert callback.answers == [(None, False)]
 
 
 # --------------------------------------------------------------------------

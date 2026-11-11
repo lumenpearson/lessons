@@ -20,7 +20,7 @@ on any sentence in it:
 ## When — without being asked
 
 **A batch is not finished until this file says so.** The trigger is the merge: the moment a
-pull request goes into `main`, updating this file is the remaining work of that batch, not a
+working pull request goes into `dev`, updating this file is the remaining work of that batch, not a
 favour somebody has to request. Two sessions in a row had to be told «обнови HANDOVER» after
 the merge, which is two batches that were reported as done while the one document a new
 session starts from still described the batch before.
@@ -28,8 +28,10 @@ session starts from still described the batch before.
 **Write it while the batch's pull request is still open.** The close-out then rides in with
 the work it describes, which is one pull request instead of two and, more importantly, the
 only arrangement in which the file is true at the moment it merges. If that pull request has
-already merged, the update is its own commit on a `dev` restarted from `main`, and its own
-pull request — a merged pull request accepts no new commits.
+already merged, continue from updated `dev` on a new temporary working branch and
+include the correction in the next real batch. Never reset or restart persistent
+`dev` from `master` or a stale origin/main ref. A merged pull request accepts no new
+commits, and a close-out does not create a recursive close-out-only PR.
 
 ## Where the chain stops
 

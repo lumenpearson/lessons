@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        A bug goes to an issue, form Bug. A vulnerability goes to [SECURITY.md](https://github.com/lumenpearson/lessons/blob/main/.github/SECURITY.md), never here. Questions in Russian are welcome.
+        A bug goes to an issue, form Bug. A vulnerability goes to [SECURITY.md](https://github.com/lumenpearson/lessons/blob/master/.github/SECURITY.md), never here. Questions in Russian are welcome.
   - type: dropdown
     id: asking-as
     attributes:

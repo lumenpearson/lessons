@@ -2,12 +2,12 @@
 
 ## Supported versions
 
-There has been no public release yet. Until `v1.0.0`, only the current state of the `main`
+There has been no public release yet. Until `v1.0.0`, only the current state of the `master`
 branch is supported; an APK from an old Actions run is neither updated nor fixed.
 
 | Version | Supported |
 | --- | --- |
-| `main` | yes |
+| `master` | yes |
 | APKs from earlier runs and tags | no |
 
 ## How to report a vulnerability

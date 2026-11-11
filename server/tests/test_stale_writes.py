@@ -237,7 +237,11 @@ async def test_subject_rename_deleted_before_cascade_is_gone_and_rolls_back(
 
     row = Subject(class_id=school_class.id, name="Физика")
     session.add(row)
+    homework = Homework(class_id=school_class.id, due_date=MONDAY,
+                        subject_name="Физика", text="Задача 12")
+    session.add(homework)
     await session.commit()
+    homework_id = homework.id
     raced = _deleted_meanwhile(monkeypatch, structure, "rename_subject", Subject, row.id)
     state = FakeState(data={"subject_id": row.id})
     message = FakeMessage(text="Астрономия")
@@ -247,6 +251,11 @@ async def test_subject_rename_deleted_before_cascade_is_gone_and_rolls_back(
     assert (state.cleared, state.data) == (True, {})
     assert (await _count(Subject), await _count(AuditEntry)) == (0, 0)
     await session.commit()
+
+    async with SessionLocal() as fresh:
+        saved = await fresh.get(Homework, homework_id)
+        assert saved is not None
+        assert (saved.subject_name, saved.text) == ("Физика", "Задача 12")
 
 
 @pytest.mark.parametrize("action", ["toggle", "reminder"])
@@ -338,18 +347,17 @@ async def test_lesson_deleted_after_editor_read_drops_the_prompt_and_audit(
     from app.bot.handlers.editor import editor_take_lesson
     from app.models import Subject, TimetableEntry
 
-    subject = Subject(class_id=school_class.id, name="Физика")
-    session.add(subject)
-    await session.commit()
     row = await session.scalar(select(TimetableEntry).where(TimetableEntry.index == 2))
     raced = _deleted_meanwhile(monkeypatch, audit, "record", TimetableEntry, row.id)
     state = FakeState(data={"day": 1, "index": 2, "flags": 0, "mode": "edit"})
-    message = FakeMessage(text="Физика, 404")
+    message = FakeMessage(text="Новая физика, 404")
     await editor_take_lesson(message, state, session, school_class, Role.ADMIN)
     assert raced
     assert message.last == "Урока уже нет — откройте расписание заново."
     assert (state.cleared, state.data) == (True, {})
     assert await _count(AuditEntry) == 0
+    assert await _count(Subject) == 0
+    assert await _count(TimetableEntry) == 2
     await session.commit()
 
 

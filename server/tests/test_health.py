@@ -250,7 +250,7 @@ def test_the_messages_are_the_design_s_and_escape_the_reason():
 
     reminder = Step(FAILING, T0, "reminder", timedelta(hours=6))
     assert health.message("deploy", reminder, "") == (
-        "🔴 Продакшен не на последнем коммите main — уже 6 ч"
+        "🔴 Продакшен не на последнем коммите основной ветки — уже 6 ч"
     )
     assert health.message("schema", Step(OK, T0), "at 0019") == ""
     assert set(health.WORDS) == set(health.CHECKS)
@@ -362,7 +362,7 @@ async def test_without_a_usable_proxy_there_is_nothing_to_check(monkeypatch):
 async def test_the_deploy_check_is_ok_on_main_s_head(monkeypatch, production):
     _fake_github(monkeypatch, lambda request: _commit(COMMIT, _now() - timedelta(days=1)))
     result = await health.check_deploy(production, _now())
-    assert (result.status, result.reason) == (OK, f"running main's head {COMMIT[:7]}")
+    assert (result.status, result.reason) == (OK, f"running default branch head {COMMIT[:7]}")
 
 
 async def test_a_deploy_inside_its_grace_is_ok_and_one_past_it_is_failing(monkeypatch, production):
@@ -422,7 +422,7 @@ async def test_an_unchanged_main_is_asked_with_its_etag_and_answered_304(monkeyp
 
     assert (first.status, second.status) == (OK, OK)
     assert [r.headers.get("if-none-match") for r in asked] == [None, 'W/"one"']
-    assert asked[0].url.path == "/repos/lumenpearson/lessons/commits/main"
+    assert asked[0].url.path == "/repos/lumenpearson/lessons/commits/HEAD"
 
 
 async def test_the_deploy_check_sends_a_bearer_token_when_one_is_set(monkeypatch, production):

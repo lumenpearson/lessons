@@ -32,6 +32,48 @@ def _jobs() -> dict[str, Any]:
     return yaml.safe_load(CI.read_text(encoding="utf-8"))["jobs"]
 
 
+def test_integration_and_production_pushes_run_ci() -> None:
+    workflow = yaml.safe_load(CI.read_text(encoding="utf-8"))
+    events = workflow.get("on") or workflow[True]
+    assert set(events["push"]["branches"]) == {"master", "dev"}
+    assert "pull_request" in events
+
+
+@pytest.mark.parametrize(
+    "ref,allowed",
+    [("refs/heads/master", True), ("refs/heads/dev", False),
+     ("refs/heads/work/example", False), ("refs/heads/main", False),
+     ("refs/tags/v0.1.0", True)],
+)
+def test_production_signing_admits_only_master_and_version_tags(ref, allowed, tmp_path) -> None:
+    bash = shutil.which("bash")
+    assert bash is not None
+    apk = yaml.safe_load((ROOT / ".github/workflows/apk.yml").read_text(encoding="utf-8"))
+    steps = apk["jobs"]["build"]["steps"]
+    keystore = next(step for step in steps if step.get("id") == "keystore")
+    assert keystore.get("if") == (
+        "github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')"
+    ), "Reject non-production refs before the runner supplies signing inputs"
+    for step in steps:
+        if step is keystore:
+            continue
+        for expression in step.get("env", {}).values():
+            if "secrets.KEY" in str(expression):
+                assert "steps.keystore.outputs.signed == 'true' &&" in expression
+                assert "|| ''" in expression
+    scripts = [step["run"] for step in steps if "run" in step]
+    signing = next(script for script in scripts if 'case "$REF" in' in script)
+    decision = signing[signing.index('case "$REF" in'):]
+    decision = decision[:decision.index("esac") + len("esac")]
+    result = subprocess.run(
+        [bash, "-c", decision + "\nprintf 'SIGNING_ALLOWED\\n'"],
+        env={**os.environ, "REF": ref, "GITHUB_OUTPUT": str(tmp_path / "outputs")},
+        text=True, capture_output=True, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert ("SIGNING_ALLOWED" in result.stdout) is allowed
+
+
 def test_the_summary_job_needs_every_other_job_and_runs_whatever_they_ended_as() -> None:
     jobs = _jobs()
     summary = jobs["ci"]

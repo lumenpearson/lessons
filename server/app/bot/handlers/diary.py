@@ -48,7 +48,7 @@ from app.providers.diary import registry as diary_registry
 from app.providers.diary.errors import DiaryError, SessionExpired, UpstreamUnavailable
 from app.providers.diary.registry import binding as diary_binding
 from app.services import diary as diary_service
-from app.services import diary_link
+from app.services import diary_link, gone
 
 log = logging.getLogger(__name__)
 
@@ -64,6 +64,8 @@ HOMEWORK_DAYS = 14
 
 #: ``date.weekday()`` for Sunday, which is the day the school week is not on.
 SUNDAY = 6
+
+SIGNED_OUT = "Вы вышли из дневника"
 
 
 async def _session_for(
@@ -158,7 +160,6 @@ async def diary_root(
         return
 
     await _show(callback, session, school_class, row, "day", 0, row.student_id or 0)
-    await callback.answer()
 
 
 @router.callback_query(DiaryAction.filter(F.view == "signin"))
@@ -231,7 +232,7 @@ async def diary_sign_out(
     )
     await session.commit()
     await _offer_sign_in(callback, school_class)
-    await callback.answer("Вы вышли из дневника")
+    await callback.answer(SIGNED_OUT)
 
 
 @router.callback_query(DiaryAction.filter(F.view == "students"))
@@ -288,7 +289,6 @@ async def diary_view(
         callback_data.offset,
         callback_data.student or row.student_id or 0,
     )
-    await callback.answer()
 
 
 async def _show(
@@ -312,6 +312,7 @@ async def _show(
                 "<i>К этому аккаунту не привязан ни один ученик.</i>",
                 reply_markup=signed_out_keyboard(can_sign_in=True),
             )
+            await callback.answer()
             return
 
         # A payload naming a child this account cannot see falls back to the
@@ -322,7 +323,11 @@ async def _show(
             student = students[0].education_id
         if row.student_id != student:
             row.student_id = student
-            await session.commit()
+            # Another press or the retention sweep can sign this session out.
+            # A failed commit expires the class too, so answer without drawing it.
+            if not await gone.committed(session):
+                await callback.answer(SIGNED_OUT, show_alert=True)
+                return
 
         text = await _body(service, school_class, view, offset, student)
     except SessionExpired:
@@ -344,6 +349,7 @@ async def _show(
         ),
         disable_web_page_preview=True,
     )
+    await callback.answer()
 
 
 async def _body(

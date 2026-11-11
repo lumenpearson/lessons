@@ -190,7 +190,7 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
 
     # A fine-grained GitHub token with read-only access to public repositories
-    # and no other permission, for the deploy check's read of `main`'s head
+    # and no other permission, for the deploy check's read of the default branch head
     # (services/health.py). With it the request is authorized: an unchanged
     # `main`'s 304 costs nothing against GitHub's rate limit, and the ceiling
     # is 5,000 requests an hour instead of the sixty shared by every anonymous
@@ -637,7 +637,7 @@ class Deployment:
     commit: str
     #: ``owner/slug``, from ``VERCEL_GIT_REPO_OWNER`` and
     #: ``VERCEL_GIT_REPO_SLUG``; empty unless both are there. Read rather than
-    #: written down, so that a fork's deployment asks about its own ``main``.
+    #: written down, so that a fork's deployment asks about its own default branch.
     repository: str
     #: ``VERCEL_REGION``: where this function runs, ``fra1`` here.
     region: str

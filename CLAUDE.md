@@ -68,7 +68,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3845 tests, six of them skipped unless a
+- **`pytest -q -n auto`** — 3857 tests, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), plus eleven PostgreSQL-only lock
   checks skipped on SQLite, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
@@ -153,13 +153,13 @@ and the check that the committed generated code is what `buf generate` writes; a
 whenever the server job runs, «Host», under pyvoy and under hypercorn: `python -m app.host`
 started on SQLite, asked over native gRPC by `tests/test_host_live.py`; and last, «CI», which
 needs every job before it, runs whatever they ended as, and passes only when each one
-succeeded or was skipped. It is the one check `main` requires, through the repository
+succeeded or was skipped. It is the one check `master` requires, through the repository
 ruleset that requires it, which the repository admin role can bypass (#424). The gates are
 not required by their own names because «Host» is a matrix: a job its `if:` skips is reported
 once, under the unexpanded `Host (${{ matrix.server }})`, so naming a skipped matrix leg
 as required would leave «Expected» forever. Server and Host currently run on every changed
 path; the aggregate also covers future conditional jobs (`docs/build.md`, «The check
-`main` requires»). Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
+`master` requires»). Nothing else. `apk.yml` builds an installable APK on demand or on a `v*` tag;
 `reminders.yml` is a fallback clock, not the clock (see below). The workflows work — do
 not edit them casually. The repository is public, so standard runners cost nothing; what
 the workflows still carry from the months it was private is in `docs/build.md`, "Actions
@@ -518,7 +518,7 @@ points Hilt does not inject cleanly.
   model, a view model before a screen, a screen at a state built by hand before an
   interaction, and never a Compose test for arithmetic. The `android-tests` agent has the
   Android half, `server-tests` the server's.
-- **A server change is read against the APKs already installed.** A merge to `main` deploys
+- **A server change is read against the APKs already installed.** A merge to `master` deploys
   itself and an installed app updates when its owner says so: nothing is removed or renamed
   in what `/api/v1` answers, no new required field appears in what it is sent, and a v2 change
   passes `buf breaking` or says why the break is safe. The pull request template asks it.
@@ -631,7 +631,7 @@ points Hilt does not inject cleanly.
   answered «disabled» before the token is looked at. Until #302, a lost key expired every
   session it was asked about, for good. `tests/conftest.py` sets one; a test that wants the
   feature *off* patches it away.
-- **Run the migration BEFORE the merge that needs it.** A merge to `main` deploys itself;
+- **Run the migration BEFORE the merge that needs it.** A merge to `master` deploys itself;
   `alembic upgrade head` is run by hand. Between them is a window where the code knows a
   column the database does not, and that window has already taken production down: the new
   columns on `classes` landed first, nothing failed at startup, and the first ORM read of a
@@ -983,6 +983,8 @@ points Hilt does not inject cleanly.
   catalog's diaries only — `planConsole` judges the resolved URL, and the console's own client
   follows no redirect and guards the origin again — and puts a bearer on our server alone,
   read as the request leaves. `docs/architecture.md` has the rest.
+- **Work enters dev through one temporary branch; only reviewed dev is promoted to master** (#724). Both persistent branches run Actions; remove a working ref after its dev merge, never its worktree files or unique work.
+- **A diary session deleted while changing pupils is signed out, with rollback before any reply** (`test_the_bots_diary_says_a_session_signed_out_meanwhile_is_signed_out`, #725).
 - **Another agent may be working in this tree.** Check `git status` before you touch a file
   you did not open, and do not revert someone else's uncommitted work.
 - **`HANDOVER.md` at the root says where the work stands** — the branches, what the last
@@ -998,7 +1000,7 @@ points Hilt does not inject cleanly.
   makes it safe. A migration whose side of the merge is unsettled, somebody else's pull
   request, and «I want to look at this one» are outside it.
 - **Updating it is the last step of every batch, and nobody should have to ask for it.** The
-  trigger is the merge: once a pull request is in `main`, that batch is not finished until
+  trigger is the merge: once a pull request is in `master`, that batch is not finished until
   this file describes it. Write the close-out **while that pull request is still open** — it
   is then one pull request rather than two, and the file is true at the moment it merges.
   **A close-out never gets a close-out of its own:** it names itself as the only thing open,
