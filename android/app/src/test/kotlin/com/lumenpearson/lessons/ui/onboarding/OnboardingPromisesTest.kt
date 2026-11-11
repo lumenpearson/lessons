@@ -122,8 +122,10 @@ class OnboardingPromisesTest {
      */
     @Test
     fun `the welcome step always draws the legal line`() {
-        val source = File("src/main/kotlin/com/lumenpearson/lessons/ui/onboarding/OnboardingScreen.kt").readText()
-        val welcome = source.substringAfter("private fun WelcomeStep(").substringBefore("\n}\n")
+        val source = File("src/main/kotlin/com/lumenpearson/lessons/ui/onboarding/WelcomeStep.kt").readText()
+        val anchor = "internal fun WelcomeStep("
+        assertTrue("WelcomeStep declaration is missing", anchor in source)
+        val welcome = source.substringAfter(anchor).substringBefore("\n}\n")
         assertTrue("WelcomeStep has no legal footer", "footer = { LegalAcceptanceLine() }" in welcome)
         assertTrue("the line must not depend on the build", "BuildConfig" !in welcome)
     }

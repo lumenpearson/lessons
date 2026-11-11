@@ -13,9 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -42,13 +39,11 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.lumenpearson.lessons.R
 import com.lumenpearson.lessons.core.data.diagnostics.ActivityKind
 import com.lumenpearson.lessons.core.data.diagnostics.ActivityLog
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.ShellMode
 import com.lumenpearson.lessons.core.designsystem.component.LessonsFloatingToolbar
-import com.lumenpearson.lessons.core.designsystem.component.ToolbarAction
 import com.lumenpearson.lessons.core.designsystem.component.ToolbarItem
 import com.lumenpearson.lessons.core.designsystem.haptic.LessonsHaptics
 import com.lumenpearson.lessons.core.designsystem.haptic.rememberHapticView
@@ -597,12 +592,12 @@ internal fun HomeShell(
             ShellScaffold(
                 edgeBlur = settings.edgeBlur,
                 statusBarHeightPx = statusBarHeightPx,
-                offset = when (page) {
-                    ShellPage.Tabs -> if (home == ShellHome.DIARY) diaryOffset else offsetOf(pagerState.currentPage)
-                    ShellPage.SettingsRoot -> settingsOffset
-                    is ShellPage.Section -> sectionOffsets.getValue(page.section)
-                    ShellPage.Docs -> docsOffsets.getOrElse(docsPagerState.currentPage) { docsOffset }
-                },
+                offset = page.shellOffset(
+                    tabs = { if (home == ShellHome.DIARY) diaryOffset else offsetOf(pagerState.currentPage) },
+                    settings = settingsOffset,
+                    section = sectionOffsets::getValue,
+                    docs = { docsOffsets.getOrElse(docsPagerState.currentPage) { docsOffset } },
+                ),
                 barHeight = barHeight,
                 // Read against the page: the page sliding away must not
                 // keep a layer that swallows touches.
@@ -745,44 +740,24 @@ internal fun HomeShell(
                 .zIndex(1f)
                 .onSizeChanged { size -> barHeight = with(density) { size.height.toDp() } },
             depth = page.depth,
-            selectedIndex = when (page) {
+            selectedIndex = page.toolbarContent(
                 // Which *tab* is in front, expressed as a position
                 // in the list this bar is drawing. The two lists
                 // are the same one outside the arranging mode, and
                 // inside it the bar's is a frame behind the stored
                 // one on purpose.
-                ShellPage.Tabs -> if (home == ShellHome.DIARY) {
-                    diaryTab?.ordinal ?: 0
-                } else {
-                    // The tab being kept on, while there is one. A
-                    // drop writes the new order, and the frame it
-                    // arrives in still has the pager on the old
-                    // *index* — the keyed pager moves it during its
-                    // own measure, after this was read — so the
-                    // index named the tab that had moved into it,
-                    // and the selected circle hopped to that tab
-                    // for a frame and back (#180).
-                    //
-                    // The page being travelled to, not the one in
-                    // front: a tap two tabs away scrolls the pager
-                    // through the page between, and while that one
-                    // was in front the bar selected a tab nobody
-                    // chose — its label began to open and closed
-                    // again, and the pill turned towards it and
-                    // back (#260). It also moved nothing until the
-                    // page had scrolled halfway.
-                    (keepOnTab ?: tabs.getOrNull(pagerState.targetPage))
-                        ?.let(barTabs::indexOf) ?: -1
-                }
+                tabs = {
+                    if (home == ShellHome.DIARY) {
+                        diaryTab?.ordinal ?: 0
+                    } else {
+                        timetableToolbarIndex(keepOnTab, barTabs) { tabs.getOrNull(pagerState.targetPage) }
+                    }
+                },
 
-                ShellPage.Docs -> docsToolbarSelection(
-                    // As the tabs' bar, for the same reason (#260).
-                    docsPagerState.targetPage,
-                    docsPages.size,
-                )
-                else -> -1
-            },
-            items = when (page) {
+                docs = { docsToolbarSelection(docsPagerState.targetPage, docsPages.size) },
+                other = { -1 },
+            ),
+            items = page.toolbarContent(
                 // Each item carries its tab rather than its
                 // position: where a tab is drawn and where its page
                 // is differ for the frames between a drag and the
@@ -790,24 +765,26 @@ internal fun HomeShell(
                 // that window has to reach the screen the icon is
                 // of.
                 // The diary's own halves, in the diary's order.
-                ShellPage.Tabs -> if (diaryViewModel != null) {
-                    DiaryTab.entries.map { tab ->
+                tabs = {
+                    if (diaryViewModel != null) {
+                        DiaryTab.entries.map { tab ->
+                            ToolbarItem(
+                                icon = tab.icon,
+                                label = correctedString(tab.labelRes()),
+                                onClick = { diaryViewModel.setTab(tab) },
+                            )
+                        }
+                    } else barTabs.map { tab ->
                         ToolbarItem(
                             icon = tab.icon,
-                            label = correctedString(tab.labelRes()),
-                            onClick = { diaryViewModel.setTab(tab) },
+                            label = correctedString(tab.labelRes),
+                            onClick = {
+                                val target = tabs.indexOf(tab).coerceAtLeast(0)
+                                scope.launch { pagerState.goToPage(motion, target) }
+                            },
                         )
                     }
-                } else barTabs.map { tab ->
-                    ToolbarItem(
-                        icon = tab.icon,
-                        label = correctedString(tab.labelRes),
-                        onClick = {
-                            val target = tabs.indexOf(tab).coerceAtLeast(0)
-                            scope.launch { pagerState.goToPage(motion, target) }
-                        },
-                    )
-                }
+                },
 
                 // The bar is the documentation's only navigation,
                 // so it carries every section rather than a way
@@ -815,10 +792,10 @@ internal fun HomeShell(
                 // sections come from the fetched guide, so one
                 // added to the documentation appears here without
                 // a new build.
-                ShellPage.Docs -> docsToolbarItems(docsPages, ::openDocsPage)
+                docs = { docsToolbarItems(docsPages, ::openDocsPage) },
 
-                else -> emptyList()
-            },
+                other = { emptyList() },
+            ),
             // Only the destinations that are peers of each other
             // overflow a phone; the three tabs never will.
             scrollableItems = page == ShellPage.Docs,
@@ -847,15 +824,7 @@ internal fun HomeShell(
                     tabs.getOrElse(pagerState.currentPage) { tabs.first() }.labelRes
                 },
             )?.let { correctedString(it) },
-            onBackClick = when (page) {
-                // Null keeps the bar in its tabbed mode. On the
-                // documentation that is deliberate: the pill is the
-                // table of contents, and back is the button beside
-                // it — see [shellActionKind].
-                ShellPage.Tabs, ShellPage.Docs -> null
-                ShellPage.SettingsRoot -> ::closeSettings
-                is ShellPage.Section -> ::closeSection
-            },
+            onBackClick = page.toolbarBack(::closeSettings, ::closeSection),
             action = shellAction(
                 destination = page.destination,
                 // The shortcut exists for the people who have the
@@ -875,52 +844,4 @@ internal fun HomeShell(
             ),
         )
     }
-}
-
-/**
- * The button beside the pill, chosen by where the shell is.
- *
- * On the tabs it is the way into settings, which is why settings stopped being a
- * tab. Inside settings it is the bug — the crash reports and the switch that
- * decides whether any are kept — which is where Essentials puts its own bug
- * button and for the same reason: this app ships as an APK inside one school,
- * with no crash service behind it, so the only place a crash can be read is the
- * phone it happened on.
- *
- * It used to be a refresh button here. Refresh already has a row of its own in
- * the sync section, two taps away, and spending the one permanent button in the
- * app on a duplicate of a row is a poor trade.
- *
- * On the documentation it is the way back, because the pill beside it is full:
- * it carries the sections, so the bar's standard mode — a back arrow and a
- * title — is not available there. Which of the three it is, is decided by
- * [shellActionKind]; this only dresses the answer.
- */
-@Composable
-private fun shellAction(
-    destination: ShellDestination,
-    manager: Boolean,
-    onOpenSettings: () -> Unit,
-    onOpenDebug: (at: Offset) -> Unit,
-    onBack: () -> Unit,
-): ToolbarAction? = when (shellActionKind(destination, manager)) {
-    ShellActionKind.SETTINGS -> ToolbarAction(
-        icon = Icons.Rounded.Settings,
-        contentDescription = correctedString(R.string.nav_settings),
-        onClick = { onOpenSettings() },
-    )
-
-    ShellActionKind.DEBUG -> ToolbarAction(
-        icon = Icons.Rounded.BugReport,
-        contentDescription = correctedString(R.string.debug_open),
-        onClick = onOpenDebug,
-    )
-
-    ShellActionKind.BACK -> ToolbarAction(
-        icon = Icons.AutoMirrored.Rounded.ArrowBack,
-        contentDescription = correctedString(R.string.docs_back),
-        onClick = { onBack() },
-    )
-
-    ShellActionKind.NONE -> null
 }
