@@ -19,8 +19,13 @@ branch, Actions on dev, analysis/preservation of Claude Code branch features and
 Android Studio Emulator verification. Task1 recovers missing diary behavior#725
 and prepares tested promotion; Task2 resolves eight dependency PRs and final ref
 cleanup. Complete corrected SQLite3857/Android1823 and Ruff/mypy242 are green locally.
-One independent review and its single major-fix pass are complete. Emulator,
-rename, dev/master CI and production remain delivery gates. Both owned PostgreSQL clusters remain stopped with
+One independent review and its single major-fix pass are complete. PR726 is a
+draft into dev; CI42904034514 passed on checked head7a049119. Emulator installation,
+startup and the first two local onboarding screens were observed on API37;
+onboarding completion and guide navigation remain unverified. Dev requires PR/CI,
+and automatic merged-working-branch cleanup is enabled with persistent protection
+read back. Rename, dev/master CI and production remain delivery gates.
+Both owned PostgreSQL clusters remain stopped with
 data retained. UI inputs require the shared queue's explicit grant.
 
 **Historical opening, recorded on 18 October.** The dated context below is
@@ -396,7 +401,16 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
 SDK tools/emulator are prepared in a separate F-drive SDK because the legacy
 executables fail to launch and C has limited space. Existing SDKs, AVDs and
 worktrees remain. UI use requires an explicit coordinated lease; no time expiry
-grants access. APKs are built; emulator scope/results are recorded only when run.
+grants access. The debug APK pinned to source7a049119, SHA256
+09E62E55BCB447AE246F9FEF23C9AB80449E8E32A3926A5D176981638889464C,
+was installed into the owned x86_64/API37 AVD launched from Studio Device Manager.
+The launcher opened Welcome to Lessons, then the local Confirmation screen;
+the app process's crash buffer had no entries. The original AVD configuration
+was retained before enabling software graphics and cold boot without wiping data.
+An explicit foreground raise also preceded the successful screen observation;
+the display result is not attributed to one change alone. The emulator was
+closed normally, its processes were absent, and the UI lease was released.
+Completed onboarding, guide navigation and provider/account flows were not verified.
 No model/schema/dependency change is included in Task1. No new full PostgreSQL,
 real diary/Telegram or installed physical-device proof is claimed. The original
 backlog bugs remain queued after the owner's explicit branch-flow work.
