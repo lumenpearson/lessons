@@ -6,16 +6,59 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-**11 November 2026 — Android decomposition, part C (#273).**
+**12 November 2026 — Android decomposition, part C (#273).**
 Parts A and B merged in #451 and #625. The working branch
 `work/android-decomposition-c` starts at dev `bf322643`. It separates the four
 onboarding steps, splits the floating toolbar by concern and extracts the shell
 navigation rules. The final local Android run passed unit tests (1,826 logical
 cases across five modules), debug and release assembly, and detekt. The three
 new shell tests cover destination selection, back callbacks and tab reorder.
-Neither emulator interaction nor release signing was exercised in this batch.
-Part 5 follows delivery of part C. See the
+An independent repeat on unchanged source `4f295449` passed the same four
+Android gates and count, ruff, mypy (242 modules), and the complete server
+suite: 3,860 passed and 17 skipped, with all 3,877 cases matching the measured
+facts. The first local server attempt stopped before completion and is not
+counted as evidence; its replacement completed in 37 minutes 7 seconds.
+The existing three toolbar device tests also passed on a separate API 37
+Studio Emulator fixture: `OK (3 tests)` in 16.782 seconds. They cover long-press
+reorder past the threshold, a drag below it and outside-tap dismissal without
+clicking the page. The installed signed code-45 baseline retained its exact
+APK hash throughout. The new fixture closed normally with its launcher and
+child absent and userdata retained. The original fixture's earlier startup
+failed before connection; its unresolved process remains quarantined, so this
+is no claim that the original fixture recovered. The source-pinned signed
+main update is still pending at this checkpoint. Final delivery readbacks belong to
+[PR #731](https://github.com/lumenpearson/lessons/pull/731), including its
+working-head and dev CI, the separate promotion to master, master CI,
+production and the bounded Studio checks. Do not infer an account journey,
+Terms acceptance, widget resizing or a family rollout from these gates.
+
+One fresh independent review found no user-visible regression. Its important
+procedural finding is retained explicitly: the published coherent move also
+carries the baseline updates, rather than separate baseline-only commits.
+The four old-to-new IDs reconcile in each baseline and budget: onboarding's
+MagicNumber 3, 4 and 5 move to `PreferencesStep`, and the toolbar-tab complexity
+entry moves to `ToolbarTab`. App 182 and design-system 73 accepted IDs stay
+unchanged; no budget grows. The exact mapping and history exception are in
+the PR. Three minor review findings are deferred there in full.
+
+Part 5 follows delivery of part C, starting with the approved 5a infrastructure,
+schedule and join migration; the other areas stay on v1 until 5b. See the
 [implementation plan](docs/specs/2026-11-11-android-decomposition-c-plan.md).
+
+**Preceding dependency batch, delivered on 11 November.** #724 and #728 are
+complete through working PR #729 and promotion #730: dev `bf322643` and master
+`2487f38d`, with exact working-head, dev, promotion and master CI green.
+The four production aliases answered healthy warmup with API 1, schema 0019
+and v2 enabled; the deployment-scoped error/fatal query returned no groups.
+The existing APK workflow produced signed production code 45, with the same
+certificate as code 44 and the exact master identity in DEX. Its retained APK
+was installed over 44 in the own Studio API 37 emulator; Welcome, Home and
+launcher reopen passed, crash evidence was empty, and the emulator stopped
+normally with its data retained. The PRs and issues carry the delivery
+readbacks and Project 6 completion. All nine worktrees and unfinished files
+survived consolidation; retired refs were preserved in a verified Git bundle.
+The two persistent branches are `master` and `dev`, with one working branch
+targeting dev and a separate dev-to-master promotion. Never reset dev to master.
 
 Last updated: **11 November 2026**. This committed #724 snapshot
 records the integrated dependency cohort, the recovered host-cancellation fix#728
