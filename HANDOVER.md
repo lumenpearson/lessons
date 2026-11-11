@@ -6,27 +6,20 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-Last updated: **11 November 2026**. The last verified release is55b4c799,
-PR#722/#377/#723, pinned to checked head7cf8fc31. PR CI42863457188 and main
-CI42864594364 passed; production READY on the exact merge, all three aliases
-resolved to it and returned warmup200/status ok/API1/schema0019/v2 true. The
-post-warmup/mainCI error/fatal30m query had no matching groups. Issues377/723closed.
-All owned checkouts and main/dev refs were fast-forwarded, unrelated work retained.
+Last updated: **11 November 2026**. This committed #724 snapshot
+records the integrated dependency cohort, the recovered host-cancellation fix#728
+and its measured verification below. Current facts are 3870server/
+1823Android cases; no migration or installed-v1 contract changes are included.
+The previous production anchor is Task1's master4dbfe33f (PR726/727), whose CI,
+four-alias production and signed APK44/Studio startup proof are recorded below.
 
-Current batch: work/master-dev-flow-724 in the isolated task-parent checkout,
-milestone13, based on that merge. The owner now requests master/dev/one working
-branch, Actions on dev, analysis/preservation of Claude Code branch features and
-Android Studio Emulator verification. Task1 recovers missing diary behavior#725
-and prepares tested promotion; Task2 resolves eight dependency PRs and final ref
-cleanup. Complete corrected SQLite3857/Android1823 and Ruff/mypy242 are green locally.
-One independent review and its single major-fix pass are complete. PR726 is a
-draft into dev; CI42904034514 passed on checked head7a049119. Emulator installation,
-startup and the first two local onboarding screens were observed on API37;
-onboarding completion and guide navigation remain unverified. Dev requires PR/CI,
-and automatic merged-working-branch cleanup is enabled with persistent protection
-read back. Rename, dev/master CI and production remain delivery gates.
-Both owned PostgreSQL clusters remain stopped with
-data retained. UI inputs require the shared queue's explicit grant.
+This source batch was built on work/dependencies-724 from dev5d55a542 and existing
+dependency milestone7. Its linked working/promotion PRs and [#724](https://github.com/lumenpearson/lessons/issues/724)
+carry the final merge identities, exact-head/dev/master CI, production and safe
+ref-retirement readbacks after those actions occur. The issue stays open until
+all of them, including actual Studio Emulator verification, are complete.
+All worktree files and private WIP must survive consolidation. UI input requires
+the shared queue's explicit grant; elapsed time never grants access.
 
 **Historical opening, recorded on 18 October.** The dated context below is
 preserved for the programme's decisions; the current commit, verification and
@@ -339,12 +332,82 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: preserve branch work and test integration on dev
+## What the last session added: integrate the dependency cohort and retain branch work
+
+- #724, dependency milestone7: eight original Dependabot heads are folded into
+  one working branch from dev, retaining their commits as merge parents:
+  Gradle9.9.0 (#713), pyvoy1.4.0 (#712), AGP9.5.1 (#711), OkHttp5.5.1 (#668),
+  DataStore1.3.0 (#667), pydantic-settings2.16.2 (#666), FastAPI0.162.0 (#665)
+  and Sentry2.72.0 (#664). No version or tag is invented for this batch.
+- The requirement mirrors move together. Regenerated Linux/runtime and universal
+  host locks agree on pyqwest0.14.0; Windows selects winloop and excludes uvloop,
+  while Linux selects uvloop. The original host proposal failed that Windows
+  control and shared-pin/mirror checks: RED3failed/14passed/1skipped, then18passed.
+  The installed host uses Envoy1.40.2 and winloop0.8.3; versions come from the
+  resolved locks, not a separately floating install.
+- Real Windows host checks exposed #728 before release. Both pyvoy1.3 and1.4
+  can complete a receive Future after its consumer was cancelled, logging
+  InvalidStateError. Both winloop versions reproduced it; one initially clean
+  old-loop run did not establish a version-specific fix. A shield alone still
+  left idle asynchronous generators running at shutdown and is not clean proof.
+- Pyvoy's own entry now retains a pending receive across consumer cancellation
+  and retry. A disconnect observed by its separate monitor cancels the idle
+  request so WatchClass closes promptly. The generic host/Vercel/fallback path
+  and lifespan remain unchanged. Genuine behavior RED3failed/1control to the
+  initial focused40passed holds Future completion/retry, stream closure, body
+  order and exception identity; vendor files and logger configuration stay intact.
+- A further boundary regression first failed2cases with2stream controls: unary
+  REST/RPC work must retain its own disconnect handling. Request cancellation is
+  now limited to POST WatchClass at its native and mounted paths. Final focused
+  host/lock/mirror checks43passed; no unrelated request is cancelled by the adapter.
+- Pending sends need the same protection: pyvoy also completes their Future after
+  request cancellation. Three failing callback cases became green while preserving
+  normal message/error identity: delivered/reset completions are observed, and an
+  unexpected failure still reaches the loop exception handler. Final focused
+  host/lock/mirror checks47passed; expected client resets are not server faults.
+- Actual final Windows network checks: pyvoy6passed and hypercorn6passed on
+  the finished receive/send adapter. Each host
+  exits0, releases its port and logs no ERROR/traceback/running-generator error.
+  Tests use isolated SQLite fixtures, fake local settings and a disabled bot.
+- Complete SQLite: 3853passed/17skipped/15warnings in
+  1977.93s; 3870unique JUnit cases, zero failures/errors. Bare
+  pytest-q-nauto uses eight workers, owned Python3.12 and actual Git Bash.
+  1486 tracked input hashes remain unchanged throughout the full run.
+  Ruff and mypy242 are clean. Serial native test/assembleDebug/assembleRelease/
+  detekt: initial dependency build6m36s/300executed44cache, then the
+  final repeat BUILD SUCCESSFUL in 47s; 1823logical JVM cases across five modules,
+  zero failures/errors/skips. Current measured facts and report comparisons
+  follow those completed runs; final document checks are recorded with the PR.
+- Dependabot version updates use one weekly multi-ecosystem cohort targeting
+  dev/M7 with the work prefix, preserving Android ignore rules and area labels.
+  Production still requires its own reviewed promotion. Security updates retain
+  GitHub's separate default-branch queue; the version grouping is not a promise
+  to disable or cap security work.
+- Ref retirement remains gated by the actual release and independent review.
+  Preserve all refs and reflog-only history in a verified restorable bundle,
+  copy tracked local WIP, retain every worktree's files/index, and detach only
+  at the same preserved commit. Known expected-tip deletes must refuse drift;
+  master/dev cannot enter either delete payload. The one-off safety contracts
+  pass22ref-retirement cases plus17release-proof guards, including real disposable
+  Git fixtures, ownership locks, atomic remote refusal and stale/wrong APK/alias/CI witnesses.
+  No unique branch work is discarded just to reach a branch count.
+
+This committed snapshot describes the verified implementation. The actual
+working/promotion PR identities, exact-head/dev/master CI, final production
+SHA/alias/log readback, dependency PR dispositions and final local/remote branch
+lists are the live delivery record on [#724](https://github.com/lumenpearson/lessons/issues/724)
+and its linked PR descriptions. Do not close #724 until those gates and actual
+Studio Emulator checks are complete; no standalone close-out PR replaces them.
+Studio input requires the shared queue's explicit grant. Full onboarding, real
+provider/account flows, physical devices, widget sizes and a fresh PostgreSQL
+suite are not claimed by the local dependency gates above.
+
+
+## What the session before it added: preserve branch work and test integration on dev
 
 - #724, milestone13: owner requests master/dev/one temporary working branch on
-  GitHub and locally; Claude Code work is owned work to reconcile. Task1 prepares
-  the workflow/feature transition; Task2 separately integrates eight dependency
-  heads and finishes emulator/ref cleanup. #724 is not closed by Task1 alone.
+  GitHub and locally; Claude Code work is owned work to reconcile. Task1 delivered
+  the workflow/feature transition; Task2 is the separate dependency/ref batch above. #724 is not closed by Task1 alone.
 - Read-only inventory found65 contained refs, eight dependency heads, three absent
   pending designs and four unique historical bot commits. A complete verified
   Git bundle and exact local-WIP copy precede ref cleanup. No worktree files are
@@ -383,20 +446,31 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   15 warnings in 1985.24 seconds; 3857 unique cases,
   zero failures/errors. Corrected native four gates: BUILD SUCCESSFUL in 2m 53s;
   1823 logical cases. Eighteen source/test/workflow hashes
-  match. Current counts come from those reports; final docs/UI/delivery follow.
+  match. These are the completed Task1 reports; current Task2 facts are above.
   No second independent review or fresh PostgreSQL/live-provider claim is made.
 - Deferred review minors: source-set/dated branch prose, and the cross-repository
   304 regression/stale config comment. Repository signing keys remain untouched;
   the ordinary committed workflow's input guard is not absolute protection from
   a collaborator rewriting a workflow. Secure environment provisioning and removal
   of unrestricted stored copies require a separate safe credential operation.
-- Facts/current declarations 3857/1823 follow successful complete reports;
-  both report comparisons passed. Final counts/gates/instruction/CI/import checks:
-  corrected197 passed in 163.70s. Emulator evidence precedes
-  delivery. Working-to-dev and dev-to-master have separate pinned CI gates;
-  actual rename/settings/production proof belongs in the PR descriptions.
-  Task1's default-target promotion carries `Closes #725` and `Refs #724`; read
-  issue state back after merge, keeping #724 open until Task2 is complete.
+- Task1 measured declarations3857/1823 and both report comparisons passed;
+  corrected final documentation checks197passed163.70s and current2passed11.91s.
+- Delivered11November: working PR726 pinned27cca6e9 passed CI42967237838 and
+  merged to dev5d55a542; dev-push CI42968049528 passed. GitHub renamed the default
+  branch to master and Vercel Production tracking persisted master. Promotion727
+  passed CI42969998768 and merged to master4dbfe33f; masterCI42970855052 passed.
+  Both persistent branches remain protected, working cleanup is enabled and
+  issue725 read back closed/completed. Task1 alone leaves724 open for Task2.
+- Production4dbfe33f was READY; all four retained/new aliases matched and warmups
+  returned200/ok/API1/schema0019/v2true. Deployment-scoped error/fatal groups were
+  empty after CI and native checks, a point-in-time observation rather than soak.
+- Signed APK workflow42972263205 passed on that exact master. The retained
+  production package0.1.0/code44 has a verified non-debug signature and embedded
+  source match. On the Studio-launched API37 AVD, install/Welcome/Home/reopen
+  completed with the release process identified and an empty crash buffer.
+  That release run pressed no Continue/Terms control; onboarding/provider/guide
+  coverage remains bounded. The own Emulator stopped normally, its data remained
+  and the shared UI lease was released. Final external proof is on PR726/727.
 
 SDK tools/emulator are prepared in a separate F-drive SDK because the legacy
 executables fail to launch and C has limited space. Existing SDKs, AVDs and
@@ -414,81 +488,6 @@ Completed onboarding, guide navigation and provider/account flows were not verif
 No model/schema/dependency change is included in Task1. No new full PostgreSQL,
 real diary/Telegram or installed physical-device proof is claimed. The original
 backlog bugs remain queued after the owner's explicit branch-flow work.
-
-## What the session before it added: optional notices preserve committed v1 replies
-
-- #377 and its review-discovered #723, existing milestone13; #377 promoted to status:now under delegated priority:
-  reproducible saved-write500 without real credentials, while next-labelled bugs
-  require external OTP, cron changes or the approved Android transport migration.
-- Existing edit and decision notification seams contain ordinary bot-construction,
-  delivery and close failures after commit. Close is attempted once when a bot
-  exists; cancellation still propagates. No new factory or domain-rule copy.
-- Homework, substitution, event, day and decision DTOs are prepared before notice
-  I/O. A failed subscriber lookup can expire ORM state without breaking the reply;
-  the logged class identifier is captured before optional work.
-- Focused RED:10failed/16controls/26cases24.73s; GREEN26passed21.52s.
-  Real ASGI controls hold one saved row/audit, recipients, delivery and close counts,
-  four expired-session edit replies, six cancellation cases and an uncommitted
-  failing write that still propagates and rolls back before any bot is constructed.
-- Initially reviewed snapshot c720fa2e, complete SQLite: 3828 passed, 17 skipped, 15 warnings in 2243.43 seconds; 3845 unique JUnit cases, zero failures/errors. Local bare pytest -q -n8,
-  owned JUnit report and verified Git Bash; Ruffclean/mypy242clean. Four frozen
-  production/test hashes match the tested snapshot.
-- Native test/assembleDebug/assembleRelease/detekt: BUILD SUCCESSFUL in 37s.
-  Complete Android reports1817logicalcases/fivemodules, no failures/errors/skips.
-  JDK21/isolatedSDK/offline/twoworkers/2GiBheap; APKs built, not installed.
-- Facts/current declarations 3845/1817 follow those complete reports. Final
-  document/schema/count/reference/path/gate checks:215passed/twowarnings127.79s;
-  both completed-report comparisons pass. Independent review follows before
-  publication; exact-head CI, pinned merge, main CI and production proof
-  are delivery gates, recorded in this PR description after completion.
-
-### Independent review and logging correction
-
-Fresh independent Astra review of c720fa2e found no Critical, one Important and
-two Minor findings. The installed HTTP/Telegram exception chain can contain a
-credential-bearing URL. Issue #723/M13 was filed before the production correction;
-PR#722 carries closure for both #377 and #723. No actual production leak is asserted.
-
-- One TDD pass extends the existing lifecycle/expiry cases with synthetic-marker
-  assertions over formatted warnings, including exception chains. RED7failed/
-  19controls17.68s; GREEN26passed17.33s. No new logical cases were added.
-- Three v1-executed warning paths now log exception types and existing context,
-  without exception values, traceback or stack data. The shared subscriber logger
-  also improves its other callers; direct unrelated v2/cron logging is not audited.
-- Corrected full SQLite: 3828 passed, 17 skipped, 15 warnings in 2259.20 seconds; 3845 unique JUnit cases, zero failures/errors. All five frozen
-  production/test hashes match; local bare pytest -q -n8/Git Bash/own environment.
-- Corrected serial native all four gates: BUILD SUCCESSFUL in 9s;1817logicalcases/
-  fivemodules/268XMLreports, zero failures/errors/skips. Both APKs built, not installed.
-- Current facts3845/1817 follow these corrected reports; both comparisons pass.
-  Ruff/mypy242 are clean. Final corrected document/schema/count/reference/path/
-  gate checks:215passed/twowarnings139.92s.
-
-No second independent review is claimed. Two Minor findings are deferred: the
-decision lifecycle matrix omits the who assertion (the implementation returns the
-correct value), and the UI-pause sentence below is broader than the actual pause.
-The opening/ledger and continued work refer to UI access only. Bounded waits,
-delivery guarantees and independent database-read/commit-acknowledgement failures
-retain their separate semantics. Exact-head CI/review, pinned merge, main CI and
-production proof remain delivery gates, recorded in PR#722 after completion.
-
-No schema, model, dependency, protobuf or Android production changes. V1 response
-fields/statuses remain compatible with installed APKs. #371's Telegram network
-deadline is separate: no bounded-wait claim. No new full PostgreSQL run, real
-Telegram send, real-diary or installed-device flow is claimed. Both owned PG
-clusters remain stopped with data retained; foreign work and local evidence stay.
-No UI APIs were used; the queue's version26 grants another session exclusive UI,
-and this session remains paused until a coordinated grant. Project6Done board
-visibility and the earlier generated-report ignore Minor remain outside this batch.
-
-Released as PR#722, pinned to checked head7cf8fc31, merge55b4c799.
-PR CI42863457188 and main CI42864594364 passed: Server3828passed/17skipped,
-Android1817 and both Host jobs; Contract path-filtered skipped. Automatic Codex
-review on the exact head completed without findings; formal reviews/threads were
-empty. Production was READY on that merge; all three aliases independently
-resolved to it and returned warmup200/status ok/API1/schema0019/v2 true. A
-deployment-scoped error/fatal30m query after warmups/mainCI had no matching groups.
-#377 and #723 read back closed/completed; four owned checkouts and main/dev refs
-fast-forwarded. No second review or new full PostgreSQL run was claimed.
 
 ## The milestones
 
@@ -2131,7 +2130,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3857 tests, ~38 min on Windows
+cd server  && pytest -q -n auto                          # 3870 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1823 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

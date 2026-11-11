@@ -106,11 +106,26 @@ recoverable even where newer shared rules supersede their implementation.
 
 ## Dependency heads, a separate integration batch
 
-Eight open PRs were found: Gradle wrapper713, pyvoy712, AGP711, network668,
-DataStore667, pydantic-settings666, FastAPI665 and Sentry664. Their source heads
-remain intact until the declared versions are installed and complete gates pass.
-The workflow transition does not claim they have been integrated. A dependency
-update that cannot build is not silently discarded to satisfy a branch count.
+The eight original PR heads are folded into the dependency batch as merge
+parents: wrapper713, pyvoy712, AGP711, network668, DataStore667,
+pydantic-settings666, FastAPI665 and Sentry664. Requirement mirrors and the
+Linux/universal locks are reconciled before release; Windows/Linux loop markers
+are held by the existing host-image tests. Real host checks also exposed728,
+whose pyvoy receive/disconnect correction is covered before shipping the bumps.
+
+Their final GitHub dispositions and exact production/ref-retirement readback are
+recorded on #724 and the linked integration/promotion PRs. Retire a ref only when
+its exact current tip is in verified production and in a restorable all-ref and
+reflog bundle. An advanced or unknown tip requires analysis; a branch count is
+never a reason to discard it. Keep local WIP/index/files, detaching an old
+worktree only at its same retained commit. Expected-tip local transactions and
+the atomic remote transaction exclude master/dev and refuse stale values.
+
+Future version bumps use one weekly multi-ecosystem cohort targeting dev/M7 with
+the work prefix. GitHub security updates retain their separate default-branch
+queue; they are not disabled to enforce a permanent global branch-count cap.
+Idle development has two persistent refs; an actual temporary working branch is
+the third and is deleted after its checked merge into dev.
 
 ## Final branch contract
 

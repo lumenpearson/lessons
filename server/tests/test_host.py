@@ -12,7 +12,9 @@ before it starts any server.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import copy
+import importlib
 import os
 import struct
 import subprocess
@@ -29,6 +31,245 @@ from app.contract.lessons.v2.diary_pb import GetDiaryCapabilitiesResponse
 from app.rpc import GRPC_REFUSED
 
 SERVER = Path(__file__).resolve().parents[1]
+
+
+def _pyvoy_entry():
+    module, name = host.ENTRY.split(":")
+    return getattr(importlib.import_module(module), name)
+
+
+@pytest.mark.parametrize("retry", [False, True], ids=["response-ended", "receive-retried"])
+async def test_cancelled_pyvoy_receive_still_accepts_the_servers_completion(monkeypatch, retry):
+    """Pyvoy completes its receive Future even after the consumer is cancelled (#728)."""
+    pending = asyncio.get_running_loop().create_future()
+    called = asyncio.Event()
+    calls = 0
+    event = {"type": "http.disconnect"}
+
+    def receive():
+        nonlocal calls
+        calls += 1
+        called.set()
+        return pending
+
+    async def app(scope, read, send):
+        reader = asyncio.ensure_future(read())
+        await called.wait()
+        reader.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await reader
+        # This is pyvoy's callback, without timing or a native library dependency.
+        pending.set_result(event)
+        if retry:
+            assert await read() is event
+
+    monkeypatch.setattr(host, "_main_app", lambda: app)
+    await _pyvoy_entry()({"type": "http", "path": "/stream"}, receive, None)
+    assert calls == 1
+
+
+@pytest.mark.parametrize(
+    "path", ["/lessons.v2.WatchService/WatchClass", "/api/rpc/lessons.v2.WatchService/WatchClass"]
+)
+async def test_pyvoy_disconnect_stops_a_stream_waiting_for_its_next_message(monkeypatch, path):
+    pending = asyncio.get_running_loop().create_future()
+    reading = asyncio.Event()
+    closed = asyncio.Event()
+
+    def receive():
+        reading.set()
+        return pending
+
+    async def messages():
+        try:
+            yield b"first"
+            await asyncio.Event().wait()
+        finally:
+            closed.set()
+
+    async def app(scope, read, send):
+        monitor = asyncio.ensure_future(read())
+        try:
+            async with contextlib.aclosing(messages()) as stream:
+                async for _message in stream:
+                    pass
+        finally:
+            monitor.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await monitor
+
+    monkeypatch.setattr(host, "_main_app", lambda: app)
+    request = asyncio.create_task(
+        _pyvoy_entry()({"type": "http", "method": "POST", "path": path}, receive, None)
+    )
+    try:
+        await asyncio.wait_for(reading.wait(), 1)
+        pending.set_result({"type": "http.disconnect"})
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(asyncio.shield(request), 1)
+        assert closed.is_set()
+    finally:
+        request.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await request
+
+
+@pytest.mark.parametrize("path", ["/api/v1/homework", "/api/rpc/lessons.v2.MeService/GetMe"])
+async def test_pyvoy_unary_disconnect_keeps_the_applications_own_handling(monkeypatch, path):
+    pending = asyncio.get_running_loop().create_future()
+    reading = asyncio.Event()
+    observed = asyncio.Event()
+    finish = asyncio.Event()
+
+    def receive():
+        reading.set()
+        return pending
+
+    async def app(scope, read, send):
+        async def monitor():
+            await read()
+            observed.set()
+
+        monitor_task = asyncio.create_task(monitor())
+        try:
+            await finish.wait()
+        finally:
+            monitor_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await monitor_task
+
+    monkeypatch.setattr(host, "_main_app", lambda: app)
+    request = asyncio.create_task(
+        _pyvoy_entry()({"type": "http", "method": "POST", "path": path}, receive, None)
+    )
+    try:
+        await asyncio.wait_for(reading.wait(), 1)
+        pending.set_result({"type": "http.disconnect"})
+        await asyncio.wait_for(observed.wait(), 1)
+        assert request.cancelling() == 0, "The host must not cancel unrelated unary work"
+        finish.set()
+        await request
+    finally:
+        request.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await request
+
+
+async def test_pyvoy_receive_preserves_body_order_and_exception_identity(monkeypatch):
+    events = [
+        {"type": "http.request", "body": b"one", "more_body": True},
+        {"type": "http.request", "body": b"two", "more_body": False},
+    ]
+    failure = OSError("the test transport failed")
+    calls = 0
+
+    def receive():
+        nonlocal calls
+        pending = asyncio.get_running_loop().create_future()
+        calls += 1
+        if calls <= len(events):
+            pending.set_result(events[calls - 1])
+        else:
+            pending.set_exception(failure)
+        return pending
+
+    async def app(scope, read, send):
+        assert await read() is events[0]
+        assert await read() is events[1]
+        with pytest.raises(OSError) as raised:
+            await read()
+        assert raised.value is failure
+
+    monkeypatch.setattr(host, "_main_app", lambda: app)
+    await _pyvoy_entry()({"type": "http", "path": "/body"}, receive, None)
+    assert calls == 3
+
+
+@pytest.mark.parametrize("completion", ["delivered", "reset", "unexpected"])
+async def test_pyvoy_send_completion_outlives_its_cancelled_caller(monkeypatch, completion):
+    loop = asyncio.get_running_loop()
+    received = loop.create_future()
+    reading, sending, observed = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    errors = []
+    previous_handler = loop.get_exception_handler()
+    loop.set_exception_handler(lambda _loop, context: errors.append(context))
+
+    class CompletedSend(asyncio.Future[None]):
+        def exception(self):
+            failure = super().exception()
+            observed.set()
+            return failure
+
+    sent = CompletedSend()
+
+    def receive():
+        reading.set()
+        return received
+
+    def send(message):
+        sending.set()
+        return sent
+
+    async def app(scope, read, write):
+        monitor = asyncio.ensure_future(read())
+        try:
+            await write({"type": "http.response.body", "body": b"frame", "more_body": True})
+        finally:
+            monitor.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await monitor
+
+    monkeypatch.setattr(host, "_main_app", lambda: app)
+    request = asyncio.create_task(
+        _pyvoy_entry()(
+            {"type": "http", "method": "POST", "path": "/lessons.v2.WatchService/WatchClass"},
+            receive,
+            send,
+        )
+    )
+    try:
+        await asyncio.wait_for(reading.wait(), 1)
+        await asyncio.wait_for(sending.wait(), 1)
+        received.set_result({"type": "http.disconnect"})
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(request, 1)
+        failure = None
+        if completion == "delivered":
+            sent.set_result(None)
+        else:
+            failure = (
+                BrokenPipeError("the test client reset its stream")
+                if completion == "reset" else ValueError("the test transport failed")
+            )
+            sent.set_exception(failure)
+        await asyncio.wait_for(observed.wait(), 1)
+        assert [context["exception"] for context in errors] == (
+            [failure] if completion == "unexpected" else []
+        )
+    finally:
+        request.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await request
+        loop.set_exception_handler(previous_handler)
+
+
+async def test_pyvoy_send_preserves_message_and_exception_identity(monkeypatch):
+    message = {"type": "http.response.body", "body": b"frame", "more_body": True}
+    failure = OSError("the test transport failed")
+
+    def send(actual):
+        assert actual is message
+        future = asyncio.get_running_loop().create_future()
+        future.set_exception(failure)
+        return future
+
+    async def app(scope, read, write):
+        with pytest.raises(OSError) as raised:
+            await write(message)
+        assert raised.value is failure
+
+    monkeypatch.setattr(host, "_main_app", lambda: app)
+    await _pyvoy_entry()({"type": "http", "method": "POST", "path": "/api/v1/homework"}, None, send)
 
 
 async def _ask(

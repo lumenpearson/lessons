@@ -55,6 +55,8 @@ compiled from `requirements-host.in` against `requirements.txt` by the command i
 header, for every platform, so the two cannot disagree (`test_host_image.py`); the root
 `Dockerfile` and CI's «Host» job install both, and Vercel neither sees nor imports it.
 
+- Keep pyvoy's ASGI Future completions valid across cancellation; observe abandoned sends and stop only idle WatchClass on disconnect (`test_host.py`, #728).
+
 ## Commands
 
 Python 3.11+ (`.python-version` says 3.12, CI runs 3.12), JDK 21, Android SDK with
@@ -68,7 +70,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3857 tests, six of them skipped unless a
+- **`pytest -q -n auto`** — 3870 tests, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), plus eleven PostgreSQL-only lock
   checks skipped on SQLite, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
