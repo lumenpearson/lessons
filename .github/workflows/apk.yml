@@ -32,6 +32,10 @@ on:
         description: "versionCode to stamp (blank = this run's number)"
         type: string
         required: false
+      expected_commit:
+        description: "Refuse before signing if this ref no longer resolves to the expected full SHA"
+        type: string
+        required: false
   push:
     tags: ["v*"]
 
@@ -63,6 +67,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+
+      - name: Validate requested source
+        id: source
+        env:
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: |
+          if [ -n "$EXPECTED_COMMIT" ]; then
+            if [[ ! "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || [ "$GITHUB_SHA" != "$EXPECTED_COMMIT" ]; then
+              echo "::error::The ref no longer matches the requested source commit."
+              exit 1
+            fi
+          fi
 
       - uses: actions/setup-java@v6
         with:

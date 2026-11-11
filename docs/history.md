@@ -28,6 +28,82 @@ the conventions of the file it was written in:
 
 ---
 
+## What the batch before added: optional notices preserve committed v1 replies
+
+- #377 and its review-discovered #723, existing milestone13; #377 promoted to status:now under delegated priority:
+  reproducible saved-write500 without real credentials, while next-labelled bugs
+  require external OTP, cron changes or the approved Android transport migration.
+- Existing edit and decision notification seams contain ordinary bot-construction,
+  delivery and close failures after commit. Close is attempted once when a bot
+  exists; cancellation still propagates. No new factory or domain-rule copy.
+- Homework, substitution, event, day and decision DTOs are prepared before notice
+  I/O. A failed subscriber lookup can expire ORM state without breaking the reply;
+  the logged class identifier is captured before optional work.
+- Focused RED:10failed/16controls/26cases24.73s; GREEN26passed21.52s.
+  Real ASGI controls hold one saved row/audit, recipients, delivery and close counts,
+  four expired-session edit replies, six cancellation cases and an uncommitted
+  failing write that still propagates and rolls back before any bot is constructed.
+- Initially reviewed snapshot c720fa2e, complete SQLite: 3828 passed, 17 skipped, 15 warnings in 2243.43 seconds; 3845 unique JUnit cases, zero failures/errors. Local bare pytest -q -n8,
+  owned JUnit report and verified Git Bash; Ruffclean/mypy242clean. Four frozen
+  production/test hashes match the tested snapshot.
+- Native test/assembleDebug/assembleRelease/detekt: BUILD SUCCESSFUL in 37s.
+  Complete Android reports1817logicalcases/fivemodules, no failures/errors/skips.
+  JDK21/isolatedSDK/offline/twoworkers/2GiBheap; APKs built, not installed.
+- Facts/current declarations 3845/1817 follow those complete reports. Final
+  document/schema/count/reference/path/gate checks:215passed/twowarnings127.79s;
+  both completed-report comparisons pass. Independent review follows before
+  publication; exact-head CI, pinned merge, main CI and production proof
+  are delivery gates, recorded in this PR description after completion.
+
+### Independent review and logging correction
+
+Fresh independent Astra review of c720fa2e found no Critical, one Important and
+two Minor findings. The installed HTTP/Telegram exception chain can contain a
+credential-bearing URL. Issue #723/M13 was filed before the production correction;
+PR#722 carries closure for both #377 and #723. No actual production leak is asserted.
+
+- One TDD pass extends the existing lifecycle/expiry cases with synthetic-marker
+  assertions over formatted warnings, including exception chains. RED7failed/
+  19controls17.68s; GREEN26passed17.33s. No new logical cases were added.
+- Three v1-executed warning paths now log exception types and existing context,
+  without exception values, traceback or stack data. The shared subscriber logger
+  also improves its other callers; direct unrelated v2/cron logging is not audited.
+- Corrected full SQLite: 3828 passed, 17 skipped, 15 warnings in 2259.20 seconds; 3845 unique JUnit cases, zero failures/errors. All five frozen
+  production/test hashes match; local bare pytest -q -n8/Git Bash/own environment.
+- Corrected serial native all four gates: BUILD SUCCESSFUL in 9s;1817logicalcases/
+  fivemodules/268XMLreports, zero failures/errors/skips. Both APKs built, not installed.
+- Current facts3845/1817 follow these corrected reports; both comparisons pass.
+  Ruff/mypy242 are clean. Final corrected document/schema/count/reference/path/
+  gate checks:215passed/twowarnings139.92s.
+
+No second independent review is claimed. Two Minor findings are deferred: the
+decision lifecycle matrix omits the who assertion (the implementation returns the
+correct value), and the UI-pause sentence below is broader than the actual pause.
+The opening/ledger and continued work refer to UI access only. Bounded waits,
+delivery guarantees and independent database-read/commit-acknowledgement failures
+retain their separate semantics. Exact-head CI/review, pinned merge, main CI and
+production proof remain delivery gates, recorded in PR#722 after completion.
+
+No schema, model, dependency, protobuf or Android production changes. V1 response
+fields/statuses remain compatible with installed APKs. #371's Telegram network
+deadline is separate: no bounded-wait claim. No new full PostgreSQL run, real
+Telegram send, real-diary or installed-device flow is claimed. Both owned PG
+clusters remain stopped with data retained; foreign work and local evidence stay.
+No UI APIs were used; the queue's version26 grants another session exclusive UI,
+and this session remains paused until a coordinated grant. Project6Done board
+visibility and the earlier generated-report ignore Minor remain outside this batch.
+
+Released as PR#722, pinned to checked head7cf8fc31, merge55b4c799.
+PR CI42863457188 and main CI42864594364 passed: Server3828passed/17skipped,
+Android1817 and both Host jobs; Contract path-filtered skipped. Automatic Codex
+review on the exact head completed without findings; formal reviews/threads were
+empty. Production was READY on that merge; all three aliases independently
+resolved to it and returned warmup200/status ok/API1/schema0019/v2 true. A
+deployment-scoped error/fatal30m query after warmups/mainCI had no matching groups.
+#377 and #723 read back closed/completed; four owned checkouts and main/dev refs
+fast-forwarded. No second review or new full PostgreSQL run was claimed.
+
+
 ## What the batch before added: detekt baseline rewrites stay within reviewed budgets
 
 - #635, existing milestone13: the existing pure JVM core:model suite checks every

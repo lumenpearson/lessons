@@ -30,12 +30,12 @@
 #
 # asyncpg only: the serverless database is Postgres, and aiosqlite would be
 # dead weight in the function bundle.
-fastapi>=0.143.0
+fastapi>=0.162.0
 aiogram>=3.31.0
 sqlalchemy[asyncio]>=2.1.4
 asyncpg>=0.32.0
 pydantic>=2.13.5
-pydantic-settings>=2.15.0
+pydantic-settings>=2.16.2
 # The DI container in server/app/di.py. Pure Python, and 26 ms on top of
 # fastapi and sqlalchemy on a cold start — measured, because this bundle pays
 # for every import on every one of them.
@@ -54,4 +54,4 @@ connectrpc>=0.12.1
 protobuf-py>=0.6.0
 # Errors and a sample of timings, to Sentry; imported only where SENTRY_DSN
 # is set, so a deployment without it pays nothing on its cold start.
-sentry-sdk>=2.71.0
+sentry-sdk>=2.72.0
