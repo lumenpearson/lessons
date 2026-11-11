@@ -55,10 +55,10 @@ their server API remains compatible and their guide retains its bundled fallback
   pushes and master-only signing; observe RED, then minimal implementation/GREEN.
 - [x] Run affected suites, Ruff/mypy; freeze source/test inputs. Complete server,
   native4gates, report writer/count comparisons and final document checks.
-- [ ] Update in-batch HANDOVER including prior722 release; commit owned files,
+- [x] Update in-batch HANDOVER including prior722 release; commit owned files,
   task-done and fresh whole-branch independent review; one major-fix pass if needed.
-- [ ] Draft/ready PR into dev, milestone13, exact-head CI/review, pinned merge.
-- [ ] Verify dev CI; coordinated GitHub rename/rules/Vercel branch cutover, pinned
+- [x] Draft/ready PR into dev, milestone13, exact-head CI/review, pinned merge.
+- [x] Verify dev CI; coordinated GitHub rename/rules/Vercel branch cutover, pinned
   dev-to-master promotion, master CI and production SHA/aliases/warmups/log counts.
 
 ### Task 2: Integrate dependency heads and retire redundant refs
@@ -69,11 +69,11 @@ dependency configuration, current documentation and counts.
 **Interfaces:** Consumes verified master/dev fromTask1. Original dependency commits
 remain traceable. Resolving build incompatibilities cannot weaken tests/budgets.
 
-- [ ] Read current PR heads/diffs; fold original commits with conflict resolution
+- [x] Read current PR heads/diffs; fold original commits with conflict resolution
   that preserves previous dependency updates. Install only declared versions.
-- [ ] Run affected checks while integrating, then complete server/native gates,
+- [x] Run affected checks while integrating, then complete server/native gates,
   measured facts and final docs on the finished snapshot.
-- [ ] Obtain coordinated UI grant for pinned APK; Android Studio Emulator smoke
+- [x] Obtain coordinated UI grant for pinned APK; Android Studio Emulator smoke
   tests record actual app startup/navigation and tested limitations; release UI.
 - [ ] Independent review, green exact-head CI, dev merge/CI and master promotion/
   CI/production verification; read back dependency PR dispositions.

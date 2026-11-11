@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "API + Telegram admin bot for the Lessons school diary app"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.143.0",
+    "fastapi>=0.162.0",
     "uvicorn[standard]>=0.30",
     # 3.31 is the floor, not a preference: it is the first release to carry
     # Bot API 9.3's ``InlineKeyboardButton.style``, and on anything older every
@@ -15,7 +15,7 @@ dependencies = [
     "aiosqlite>=0.20",
     "asyncpg>=0.32.0",
     "pydantic>=2.13.5",
-    "pydantic-settings>=2.15.0",
+    "pydantic-settings>=2.16.2",
     # The container both shells draw a session from (app/di.py). Wanted for
     # aiogram as much as for FastAPI: `Depends` cannot serve a bot handler, and
     # this project is two shells over one implementation, so «a session for one
@@ -56,7 +56,7 @@ dependencies = [
     # nothing on its cold start. No extra: the FastAPI integration is in the
     # package, and the `fastapi` extra would only ask for FastAPI, which is
     # above. The floor is the release that was current when this was written.
-    "sentry-sdk>=2.71.0",
+    "sentry-sdk>=2.72.0",
     # Schema changes. Not in requirements.txt: migrations are run from a
     # workstation against the database, never from inside a request, and the
     # function bundle is smaller without it.

@@ -10,37 +10,35 @@ version: 2
 #
 # The Android versions in libs.versions.toml are not invented: they are carried
 # over from projects that build on them, and the catalog's header names the
-# source of each. That is why updates are grouped and capped — five open pull
-# requests carrying Compose alphas one at a time is a lottery, not an update.
+# source of each. One weekly version cohort targets dev, so four updaters do
+# not recreate separate branch queues after a consolidation. Production still
+# receives a separately checked promotion. Security updates keep GitHub's
+# separate default-branch queue.
 #
 # The labels are the project's own families, `type:` and `area:`, and each one
 # has to exist already: Dependabot skips a label the repository does not have,
 # without a word. It asked for `dependencies`, `android`, `server`, `vercel`
 # and `ci` for months, none of which existed, and every bump arrived bare
 # (#162).
-updates:
-  - package-ecosystem: gradle
-    directory: /android
+multi-ecosystem-groups:
+  dependencies:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    target-branch: dev
+    milestone: 7
     labels:
       - type:chore
+    pull-request-branch-name:
+      prefix: work
+
+updates:
+  - package-ecosystem: gradle
+    directory: /android
+    multi-ecosystem-group: dependencies
+    patterns: ["*"]
+    labels:
       - area:android
-    groups:
-      androidx:
-        patterns:
-          - androidx.*
-      testing:
-        patterns:
-          - junit:*
-          - org.robolectric:*
-      network:
-        patterns:
-          - com.squareup.retrofit2:*
-          - com.squareup.okhttp3:*
-          - org.jetbrains.kotlinx:kotlinx-serialization*
     ignore:
       # AGP, Kotlin and KSP move together and only by hand: AGP 9 compiles
       # Kotlin itself, and the KSP version is tied to the compiler's. The three
@@ -60,28 +58,10 @@ updates:
 
   - package-ecosystem: pip
     directory: /server
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
+    multi-ecosystem-group: dependencies
+    patterns: ["*"]
     labels:
-      - type:chore
       - area:server
-    groups:
-      testing:
-        patterns:
-          - pytest*
-          - ruff
-      runtime:
-        patterns:
-          - fastapi
-          - uvicorn*
-          - pydantic*
-          - sqlalchemy*
-          - alembic
-          - httpx
-          - asyncpg
-          - aiosqlite
 
   # The lock Vercel installs: requirements.txt, compiled by `uv pip compile`
   # from requirements.in (#192). `uv` rather than `pip`, because the uv updater
@@ -97,18 +77,14 @@ updates:
   # else touches the lock alone.
   - package-ecosystem: uv
     directory: /
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 3
+    multi-ecosystem-group: dependencies
+    patterns: ["*"]
     labels:
-      - type:chore
       - area:server
 
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: monthly
+    multi-ecosystem-group: dependencies
+    patterns: ["*"]
     labels:
-      - type:chore
       - area:ci

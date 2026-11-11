@@ -51,7 +51,7 @@ Send = Callable[[MutableMapping[str, Any]], Awaitable[None]]
 GRPC_ROOT = "/lessons.v2."
 
 #: The app pyvoy loads into Envoy, by name.
-ENTRY = "app.host:application"
+ENTRY = "app.host:pyvoy_application"
 
 #: The servers this module can run, the first by default.
 SERVERS = ("pyvoy", "hypercorn")
@@ -112,6 +112,68 @@ async def application(scope: Scope, receive: Receive, send: Send) -> None:
         # grpc-web and anything else under /lessons.v2.: Connect's own
         # territory, kept at /api/rpc on both targets — fall through below.
     await main(scope, receive, send)
+
+
+def _observe_cancelled_send(completed: asyncio.Future[None]) -> None:
+    """A closed client is expected; an unrelated send failure must still be reported."""
+    if completed.cancelled():
+        return
+    failure = completed.exception()
+    if failure is not None and not isinstance(failure, OSError):
+        completed.get_loop().call_exception_handler(
+            {
+                "message": "pyvoy send failed after its caller was cancelled",
+                "exception": failure,
+                "future": completed,
+            }
+        )
+
+
+async def pyvoy_application(scope: Scope, receive: Receive, send: Send) -> None:
+    """Keep pyvoy's ASGI completions valid when a request or monitor is cancelled."""
+    if scope["type"] != "http":
+        await application(scope, receive, send)
+        return
+    pending: asyncio.Future[MutableMapping[str, Any]] | None = None
+    receive_lock = asyncio.Lock()
+    request_task = asyncio.current_task()
+    watch_path = "/lessons.v2.WatchService/WatchClass"
+    cancel_on_disconnect = scope.get("method") == "POST" and scope.get("path") in (
+        watch_path, "/api/rpc" + watch_path
+    )
+
+    async def protected_receive() -> MutableMapping[str, Any]:
+        nonlocal pending
+        # Deliver each event once, retaining the native read if its waiter leaves.
+        # Pyvoy 1.3/1.4 still complete a cancelled consumer's Future (#728).
+        async with receive_lock:
+            if pending is None:
+                pending = asyncio.ensure_future(receive())
+            message = await asyncio.shield(pending)
+            pending = None
+        if (
+            cancel_on_disconnect
+            and message["type"] == "http.disconnect"
+            and request_task is not None
+            and asyncio.current_task() is not request_task
+        ):
+            # Connect's monitor only sets a flag; an idle WatchClass would not
+            # inspect it until the next heartbeat, outliving pyvoy's shutdown.
+            # Unary work retains the application's own disconnect handling.
+            request_task.cancel()
+        return message
+
+    async def protected_send(message: MutableMapping[str, Any]) -> None:
+        completion = asyncio.ensure_future(send(message))
+        try:
+            await asyncio.shield(completion)
+        except asyncio.CancelledError:
+            # The native send callback still completes after a caller leaves,
+            # including a closed-client OSError that nobody can await now.
+            completion.add_done_callback(_observe_cancelled_send)
+            raise
+
+    await application(scope, protected_receive, protected_send)
 
 
 def envoy_config(config: dict[str, Any]) -> dict[str, Any]:

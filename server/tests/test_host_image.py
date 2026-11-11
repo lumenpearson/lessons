@@ -16,6 +16,8 @@ import re
 import tomllib
 from pathlib import Path
 
+import pytest
+from packaging.markers import default_environment
 from packaging.requirements import Requirement
 from packaging.utils import NormalizedName, canonicalize_name
 
@@ -108,6 +110,32 @@ def test_every_package_both_locks_pin_is_pinned_at_one_version() -> None:
         f"requirements.txt and server/requirements-host.txt disagree: {differing} — regenerate "
         "the host's lock with the command in its header"
     )
+
+
+@pytest.mark.parametrize(
+    ("platform", "selected", "excluded"),
+    [
+        pytest.param(
+            {"sys_platform": "win32", "os_name": "nt", "platform_system": "Windows"},
+            "winloop", "uvloop", id="windows",
+        ),
+        pytest.param(
+            {"sys_platform": "linux", "os_name": "posix", "platform_system": "Linux"},
+            "uvloop", "winloop", id="linux",
+        ),
+    ],
+)
+def test_the_host_lock_selects_its_platform_loop(
+    platform: dict[str, str], selected: str, excluded: str,
+) -> None:
+    environment = {**default_environment(), **platform}
+    active = set()
+    for line in _requirements(HOST_LOCK):
+        requirement = Requirement(line)
+        if requirement.marker is None or requirement.marker.evaluate(environment):
+            active.add(canonicalize_name(requirement.name))
+    assert selected in active, f"{platform['sys_platform']} must install {selected}"
+    assert excluded not in active, f"{platform['sys_platform']} cannot install {excluded}"
 
 
 def test_vercel_s_lock_and_its_input_carry_nothing_of_the_host_s() -> None:

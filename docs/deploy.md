@@ -89,6 +89,42 @@ limit with an alert set on it**, so that a busy month raises a warning rather th
 Or it wants the VPS of option 2, which has no allowance to run out of. Hobby is enough to try
 the project out by yourself.
 
+### Releasing through dev and master
+
+One temporary working branch targets `dev`. Merge only its checked head after
+the complete applicable CI jobs and review pass, then wait for the resulting
+dev-push CI. Promote `dev` to `master` in a separate pull request and verify that
+promotion's head again. Keep both persistent branches; automatic cleanup applies
+to the merged working branch. Do not reset dev to a production merge commit.
+
+Vercel's Production environment must match `master`, with production aliases
+assigned automatically. A successful build is only part of the release: after
+master-push CI, read the production deployment's actual source SHA and target,
+and verify every API hostname installed APKs can retain. Each alias must point to
+that deployment and answer the warmup with the expected API/schema capabilities.
+
+**A retained branch alias does not follow a branch rename.** The old `git-main`
+alias stayed on its previous deployment during #724's cutover. Reassign that
+compatibility alias to each newly verified master deployment, then read it back;
+checking the canonical hostname and new `git-master` alias alone misses old phones.
+Keep protected aliases protected. Their unauthenticated login redirect is not an
+application failure: use an authorized verification connection and never publish
+its temporary access URL, headers or credentials. Finish with deployment-scoped
+error/fatal logs after the warmups and CI; an empty query is a point-in-time check.
+
+Release automation passes the full expected source SHA in the existing APK
+workflow's optional `expected_commit` input. The workflow compares it with the
+actual GITHUB_SHA before supplying signing inputs; a ref that advanced refuses
+before signing. Blank input retains ordinary manual-run behavior. The operator
+claims its uncertain dispatch receipt exclusively and reads back the exact run,
+so concurrent invocations or a timed-out response cannot submit twice blindly.
+
+The exact merge, CI runs and production readback belong in the release PR's
+description and its tracking issue. The committed handover records the tested
+features and links to that delivery record; it cannot know its own future merge
+SHA. A release is not complete until those external outcomes are read back.
+
+
 ### Secrets
 
 **Never send a token in a conversation, a commit or an issue.** The token gives full control
