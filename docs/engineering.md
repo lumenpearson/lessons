@@ -196,7 +196,8 @@ attempt. No retry, account setup or family installation belongs to this check.
 
 Build Tools 37 changed apksigner's certificate labels from numbered signers to
 signature schemes (#740). The unchanged workflow failed its certificate guard
-on the same valid, distinct-key fixture pair with 37 while passing with 36;
+on the same two APKs, both signed with one private fixture key, with 37 while
+passing with 36;
 the retained signed APK46 also verified under both tools. Keep this question at
 the existing shell-test layer: execute the committed verifier script with
 recorded output shapes, hold its success receipt and refusal for differing,

@@ -6,7 +6,7 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-**12 November 2026 вЂ” Android transports, part 5a (#273): implementation delivered; APK certificate-output correction #740.**
+**12 November 2026 — Android transports, part 5a (#273): implementation delivered; APK certificate-output correction #740.**
 The [approved design](docs/specs/2026-10-05-android-transports-design.md), decision
 #307 and [six-task plan](docs/specs/2026-11-12-android-transports-5a-plan.md) bind
 this batch. Working #733 and promotion #736 delivered 5a through dev `f4ccd1e8`
@@ -97,7 +97,19 @@ agreed server-only cohort followed, without rerunning Android. All observed own
 processes exited and fresh exact PID absence was read back before resource-idle.
 Original3892,737's3899, filtered and failed reports remain separate and preserved.
 
-Independent review of correction741 is pending. Original5a had one fresh review,
+One fresh independent Astra review of correction741 at `54b6eb5f` approved the
+change with no Critical or Important findings and six Minors. Four remain
+explicitly deferred: the matrix lacks equal two-distinct-signer sets on both
+sides; a digest-looking suffix inside certificate DN metadata can cause a false
+refusal; the verifier stub does not assert the first two arguments or a test-only
+verification failure; identical fixture bytes and limited receipt assertions do
+not hold the two hash-to-file bindings independently. Current code verifies both
+APKs, requires one common identity and writes the hashes in the correct order.
+Two documentation findings were corrected under the requested document update:
+ambiguous fixture-key wording and a damaged handover separator. Only documents
+changed after review; no runtime/test fix pass or second review was performed.
+The report is a judgment pass over source and saved owner evidence, not an
+independent execution or delivery/native acceptance. Original5a had one fresh review,
 its three Important findings were fixed with observed RED/GREEN cases and the
 full gate, and that cohort was not re-reviewed. Its three Minors remain deferred:
 malformed enum/int64 object payloads lose observed HTTP provenance; Connect's
