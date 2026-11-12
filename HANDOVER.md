@@ -39,8 +39,8 @@ all ordinary lifecycle wipes remove both generations. Unknown join codes,
 invite-only classes, device limits, throttling and missing-v2 compatibility cues
 remain distinct, including translated screen text.
 
-The original implementation passed3892 server cases and the complete1973-case
-Android gate after its review fixes. The #737 correction now has a fresh complete
+The original implementation recorded3875passed/17skipped,3892 total server cases,
+and the complete1973-case Android gate after its review fixes. The #737 correction has a fresh complete
 server gate: Ruff; mypy242; bare pytest `-q -n auto` with8workers,
 **3882passed/17skipped in2182.38s**,3899 total cases. The17 skip identities are
 unchanged:6 live-host and11 PostgreSQL-only checks on SQLite. The complete ordinary
@@ -71,7 +71,8 @@ four-case reproduction failed4/4 in41.02s. A mistaken ordinary release-task
 selection later stopped before running tests and is not RED/GREEN proof.
 The corrected ordinary debug selection passed4/4 in19.95s. Seven new cases
 execute the real Build shell with a recording Gradle stub: the original native
-paths were RED2, then all24 workflow-shell cases passed after the correction.
+paths were RED2, then all24 cases in `test_ci_required.py` passed after the
+correction; the seven new cases execute the APK Build shell.
 
 Native builds now run the complete ordinary JVM gate without the target property,
 then apply it only to release/test APK packaging. Ordinary builds keep one
@@ -95,8 +96,12 @@ A late answer now validates its sent server/token under the same short gate as
 membership persistence/wipes; no lock spans the network. Obsolete conditional
 requests fail before sending, and retained inactive classes keep their own tags.
 Both defects closed through #736 on default master. That original cohort was not
-re-reviewed. One fresh independent review of correction738 is pending at this
-source snapshot; its actual verdict belongs in the same PR receipt. Three
+re-reviewed. One fresh independent review of correction738 atbf821754 found no
+Critical or Important issues and three Minors. Two verification-wording findings
+are clarified here; loss of argument boundaries in the recording Gradle stub
+remains deferred. Its current command is correct and the original defect is held,
+but a future quoted task list could escape that regression. The full finding and
+review verdict are in the same PR receipt. Three
 original Minors remain deferred in full in #733/#736:
 malformed enum/int64 object payloads lose observed HTTP provenance; Connect's
 proxy429 header lacks Retry-After fallback; an external redirect can carry the
