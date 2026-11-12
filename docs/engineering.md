@@ -194,6 +194,18 @@ the public UnknownCode outcome through minified Connect. A server fixture holds
 that it creates no phone membership/device and consumes exactly one throttle
 attempt. No retry, account setup or family installation belongs to this check.
 
+The first signed native build exposed a distinction that ordinary CI could not:
+selecting release as AndroidTest's target also makes Robolectric use the release
+manifest, without Compose's debug-only host activity (#737). Keep Airbnb's
+cheapest-layer rule here: the existing workflow shell tests execute the actual
+Build script with a recording Gradle stub, holding the complete ordinary JVM
+gate, native-only packaging arguments and failure short-circuit. Native builds
+pay for a second Gradle invocation so the release-target property applies only
+to packaging. They still run every existing JVM test first, then minify both
+APKs; production gains neither a test activity nor a keep rule. This adds no
+CI job, test framework or device check. Real focused Compose tests and the
+complete suites separately verify the configurations the shell test records.
+
 ## Delivery
 
 ### A merge is a deploy, so the deploy is checked
