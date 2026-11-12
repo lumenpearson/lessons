@@ -6,12 +6,17 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-**12 November 2026 — Android transports, part 5a (#273): complete local gates and independent review fix pass.**
+**12 November 2026 — Android transports, part 5a (#273): implementation delivered; signed/native gate correction #737.**
 The [approved design](docs/specs/2026-10-05-android-transports-design.md), decision
 #307 and the [six-task implementation plan](docs/specs/2026-11-12-android-transports-5a-plan.md)
-bound this batch. The owned TaskParent worktree uses `work/android-transports-5a`
-from dev `2503c553`; preceding production master is `98139d49`, signed APK46,
-delivered through #731/#732. All nine worktrees and the original Phone draft
+bound this batch. Working #733 merged to dev `f4ccd1e8`; promotion #736 merged to
+master `bc836f86`. Their exact-head/dev/promotion/master CI passed, and that
+production source was READY with all four aliases and healthy warmups. The first
+actual signed/native APK47 workflow failed before artifact upload or any native
+call. Correction [PR #738](https://github.com/lumenpearson/lessons/pull/738)
+uses the owned `work/apk-native-unit-gate-737` branch from dev `f4ccd1e8`, M11.
+The preceding verified installed artifact remains signed APK46 from #731/#732.
+All nine worktrees and the original Phone draft
 survive. Persistent branches are `master` and `dev`; only the merged working
 ref is retired, never its files or another worktree's unfinished changes.
 
@@ -34,30 +39,47 @@ all ordinary lifecycle wipes remove both generations. Unknown join codes,
 invite-only classes, device limits, throttling and missing-v2 compatibility cues
 remain distinct, including translated screen text.
 
-Complete server gates passed on the unchanged Python runtime/tests: Ruff; mypy242; bare pytest
-`-q -n auto` with8workers, **3875passed/17skipped in2262.02s**,3892 total cases.
-The17 skips are the existing6 live-host and11 PostgreSQL-only checks, not failed
-or silently selected cases. The complete Android `test assembleDebug
-assembleRelease detekt` invocation after the review fix pass passed314.91s on
-frozen source:1973 logical JVM cases across app711, core:data782,
-core:designsystem205, core:model145 and widget130. The count
-writer and both completed-report checkers agree, as do all canonical document
-and module declarations. Full XML/logs are retained separately before any
-focused rerun, including the preceding3877-case server report.
+The original implementation recorded3875passed/17skipped,3892 total server cases,
+and the complete1973-case Android gate after its review fixes. The #737 correction has a fresh complete
+server gate: Ruff; mypy242; bare pytest `-q -n auto` with8workers,
+**3882passed/17skipped in2182.38s**,3899 total cases. The17 skip identities are
+unchanged:6 live-host and11 PostgreSQL-only checks on SQLite. The complete ordinary
+Android `test assembleDebug assembleRelease detekt` invocation passed51.67s on
+frozen source with valid Gradle cache:1973 logical cases across app711,
+core:data782, core:designsystem205, core:model145 and widget130. Both completed
+report checks and all canonical declarations agree3899/1973. Follow-up Ruff,
+mypy and current declaration/reference checks passed after measured document
+updates. Complete XML/logs, original/failed/filtered reports and the previous
+3877-case server report remain separate; no filtered report is credited as full.
 
 Public Buf and its remote generator returned generic HTTP403, including with
 both inputs local. Official pinned local plugins remove that local execution
 blocker: two identical runs produced506 Android files and all48 existing Python
 Git blobs exactly; the Windows Python working bytes and lock stay untouched.
-Initial exact-head CI43194079621 onff7d65fc passed every job, including the
-published remote generation and both diffs, Buf lint/breaking and both live-host
-adapters. The final fix head still needs its own CI; no local403 recovery is inferred. See [build.md](docs/build.md), "The v2
+Original final-head CI43202461339, dev43204520485, promotion43207051000 and
+master43208336108 all passed, including remote generation/diffs, Buf lint and
+both live-host adapters; PR runs also passed breaking comparison. Correction738
+still needs its own exact-head/dev/promotion/master CI. No Windows403 recovery
+is inferred. See [build.md](docs/build.md), "The v2
 contract and Buf". Preserve raw diagnostics and this batch's ledger under the
 ignored `.superpowers/sdd/2026-11-12-android-transports-5a-plan/` workspace.
 
-The release-target native harness and separate APK artifact are implemented.
-Local main/test R8 packaging passed with debug-signing fallback; this is no
-native or delivery-certificate proof. The actual signed master pair must match
+Actual signed/native run43209912625 failed after13m32s: the release-target
+property selected app release JVM tests without Compose's debug-only host
+activity;159 of711 cases failed in activity-resolution setup. An unchanged-source
+four-case reproduction failed4/4 in41.02s. A mistaken ordinary release-task
+selection later stopped before running tests and is not RED/GREEN proof.
+The corrected ordinary debug selection passed4/4 in19.95s. Seven new cases
+execute the real Build shell with a recording Gradle stub: the original native
+paths were RED2, then all24 cases in `test_ci_required.py` passed after the
+correction; the seven new cases execute the APK Build shell.
+
+Native builds now run the complete ordinary JVM gate without the target property,
+then apply it only to release/test APK packaging. Ordinary builds keep one
+invocation. No tests, production shrinking or signing/source guards are removed;
+no test activity or keep rule enters production. The planned local main/test
+R8 packaging passed15s using debug-signing fallback, with test R8 actually run.
+It is not a delivery artifact or native proof. The actual signed master pair must match
 the reviewed SHA and preceding certificate, then run one bounded Connect call
 with the schema-valid, never-issued `!5A!` code in the separate Studio fixture.
 It must decode ErrorInfo as public UnknownCode without creating membership,
@@ -73,20 +95,32 @@ shared-resource, cross-facade gate and replacement-flight tests hold the fix.
 A late answer now validates its sent server/token under the same short gate as
 membership persistence/wipes; no lock spans the network. Obsolete conditional
 requests fail before sending, and retained inactive classes keep their own tags.
-No re-review was dispatched. Three Minors remain deferred in full in the PR:
+Both defects closed through #736 on default master. That original cohort was not
+re-reviewed. One fresh independent review of correction738 atbf821754 found no
+Critical or Important issues and three Minors. Two verification-wording findings
+are clarified here; loss of argument boundaries in the recording Gradle stub
+remains deferred. Its current command is correct and the original defect is held,
+but a future quoted task list could escape that regression. The full finding and
+review verdict are in the same PR receipt. Three
+original Minors remain deferred in full in #733/#736:
 malformed enum/int64 object payloads lose observed HTTP provenance; Connect's
 proxy429 header lacks Retry-After fallback; an external redirect can carry the
 build-version header, without the bearer.
 
-The [working PR #733 delivery receipt](https://github.com/lumenpearson/lessons/pull/733)
-is the live record of actual final-head/dev/promotion/master CI, pinned merges,
+The [correction PR #738 delivery receipt](https://github.com/lumenpearson/lessons/pull/738)
+is the live record of the correction's review, final-head/dev/promotion/master CI, pinned merges,
 production aliases/warmup/runtime scope, signed artifacts, bounded Studio native
 proof, Project6 metadata and safe working-ref retirement. This opening is updated
-inside that still-open PR. Post-merge facts are read back in its description;
+inside this still-open correction PR. Original #733/#736 retain the first
+implementation's actual CI/production and failed APK47 receipts. Post-merge
+facts are read back in the same descriptions;
 they are not predicted in this source snapshot or sent in a close-out PR.
-The issues close through the promotion to master; programme273 stays open for
-5b/5c/5d. Project6 CLI access lacks read:project, so its readback is not inferred
-from issue creation; use the authorized browser path only within a matching slot.
+Issue737 closes through its promotion to master; programme273 stays open for
+5b/5c/5d. Project6 access lacks read:project; separate stored CLI authentication
+is absent, and public read-only retrieval returned `Failed to fetch restricted URL`.
+No board facts or README were read. Project actions remain paused pending an
+applicable access/policy change; no scope upgrade, browser/other-session workaround
+or transfer of denied actions is planned. No field/readback completion is claimed.
 Each heavy-CLI handoff requires actual process exit and retained reports. Desktop,
 SDK-control, ADB and native activity require a fresh coordinator grant, never an
 expired or released queue entry. Preserve every worktree and the private receipts.
@@ -2299,7 +2333,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3892 tests, ~38 min on Windows
+cd server  && pytest -q -n auto                          # 3899 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1973 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

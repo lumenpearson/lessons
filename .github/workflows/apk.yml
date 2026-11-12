@@ -391,18 +391,20 @@ jobs:
             TASKS="assembleRelease :app:assembleReleaseAndroidTest"
             NATIVE_PROPERTY="-Plessons.nativeCheck=true"
           fi
-          echo "Running: test $TASKS"
-          # The tests run in the same invocation as the assemble, not in a step
-          # of their own: one JVM, one configuration phase, one task graph for
-          # Gradle to parallelise. The gate is unchanged. `assemble` does not
-          # depend on `test`, so a parallel build may well finish an APK before
-          # the failing test is reported — but the invocation fails, the job
-          # fails with it, and every step that uploads or publishes is skipped.
-          # What the APK is never allowed to be is published untested.
-          #
-          # The daemon is left on. Gradle recommends it for CI, and the flag
-          # that turned it off bought a cold JVM and nothing else.
-          ./gradlew test $TASKS $NATIVE_PROPERTY
+          if [ "$INPUT_NATIVE_CHECK" = "true" ]; then
+            # The release AndroidTest target changes Robolectric's manifest too,
+            # hiding Compose's debug-only host activity. Keep that property out
+            # of the complete JVM gate, then apply it only to APK packaging.
+            echo "Running: test"
+            ./gradlew test
+            echo "Running: $TASKS $NATIVE_PROPERTY"
+            ./gradlew $TASKS $NATIVE_PROPERTY
+          else
+            # Ordinary APKs retain one configuration/task graph. A failed test
+            # fails this invocation and prevents every upload/publication step.
+            echo "Running: test $TASKS"
+            ./gradlew test $TASKS
+          fi
 
       - name: Verify native APK pair
         if: inputs.native_check
