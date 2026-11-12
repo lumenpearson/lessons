@@ -194,6 +194,17 @@ the public UnknownCode outcome through minified Connect. A server fixture holds
 that it creates no phone membership/device and consumes exactly one throttle
 attempt. No retry, account setup or family installation belongs to this check.
 
+Build Tools 37 changed apksigner's certificate labels from numbered signers to
+signature schemes (#740). The unchanged workflow failed its certificate guard
+on the same valid, distinct-key fixture pair with 37 while passing with 36;
+the retained signed APK46 also verified under both tools. Keep this question at
+the existing shell-test layer: execute the committed verifier script with
+recorded output shapes, hold its success receipt and refusal for differing,
+missing or unverified identities, and exclude source stamps. Real retained APKs
+and the official tool archives establish the output provenance; shell fixtures
+do not claim to perform cryptographic verification. No new CI job, framework or
+SDK pin is needed, and signing configuration remains unchanged.
+
 The first signed native build exposed a distinction that ordinary CI could not:
 selecting release as AndroidTest's target also makes Robolectric use the release
 manifest, without Compose's debug-only host activity (#737). Keep Airbnb's

@@ -416,9 +416,17 @@ jobs:
           TEST="app/build/outputs/apk/androidTest/release/app-release-androidTest.apk"
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)
           test -n "$APKSIGNER"
-          APP_CERT=$("$APKSIGNER" verify --print-certs "$MAIN" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
-          TEST_CERT=$("$APKSIGNER" verify --print-certs "$TEST" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
-          if [ -z "$APP_CERT" ] || [ "$APP_CERT" != "$TEST_CERT" ]; then
+          certificate() {
+            # Build Tools 37 labels signatures by scheme, rather than Signer #1.
+            # A source stamp is not an APK signer; repeated schemes may share a
+            # key, but distinct signing identities must never pass this guard.
+            "$APKSIGNER" verify --print-certs "$1" | tr -d '\r' |
+              sed -nE '/^Source Stamp Signer/d; s/^.* certificate SHA-256 digest: ([0-9a-f]{64})$/\1/p' |
+              sort -u
+          }
+          APP_CERT=$(certificate "$MAIN")
+          TEST_CERT=$(certificate "$TEST")
+          if [[ ! "$APP_CERT" =~ ^[0-9a-f]{64}$ ]] || [ "$APP_CERT" != "$TEST_CERT" ]; then
             echo "::error::The native test and app must have the same valid signing certificate."
             exit 1
           fi
