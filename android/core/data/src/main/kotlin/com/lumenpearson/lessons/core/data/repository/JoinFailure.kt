@@ -1,6 +1,11 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.connectrpc.Code
+import com.lumenpearson.lessons.core.data.network.v2.RemoteError
+
 import java.io.IOException
+import java.net.HttpURLConnection.HTTP_NOT_FOUND
+import java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED
 import retrofit2.HttpException
 
 /**
@@ -79,7 +84,7 @@ sealed class JoinFailure(message: String, cause: Throwable? = null) :
      * existed — an English tail on a Russian line, and the right trade for a
      * failure nobody can act on except by reporting it.
      */
-    data class Rejected(val code: Int?, val reason: Throwable?) :
+    data class Rejected(val code: Int?, val reason: Throwable?, val serverTooOld: Boolean = false) :
         JoinFailure(reason?.message ?: "The server refused this code", reason)
 
     companion object {
@@ -87,9 +92,35 @@ sealed class JoinFailure(message: String, cause: Throwable? = null) :
         /** Classifies whatever the join call threw. */
         fun of(failure: Throwable): JoinFailure = when (failure) {
             is JoinFailure -> failure
+            is RemoteError -> ofRemote(failure)
             is HttpException -> ofStatus(failure.code(), failure)
             is IOException -> Offline(failure)
             else -> Rejected(code = null, reason = failure)
+        }
+
+        private fun ofRemote(error: RemoteError): JoinFailure = when (error.reason) {
+            "JOIN_CODE_UNKNOWN" -> UnknownCode
+            "CLASS_INVITE_ONLY" -> InviteOnly
+            "DEVICE_LIMIT_REACHED" -> ClassFull
+            "THROTTLED" -> TooManyAttempts(remoteRetryAfter(error))
+            "FEATURE_UNSUPPORTED", "CLIENT_TOO_OLD" -> Rejected(error.httpStatus, error)
+            else -> if (error.reason.isNullOrBlank() &&
+                (error.httpStatus in setOf(HTTP_NOT_FOUND, HTTP_NOT_IMPLEMENTED) || error.code == Code.UNIMPLEMENTED)
+            ) {
+                Rejected(error.httpStatus, error, serverTooOld = true)
+            } else {
+                error.httpStatus?.let { ofStatus(it, error) } ?: Rejected(null, error)
+            }
+        }
+
+        private fun remoteRetryAfter(error: RemoteError): Int? {
+            val duration = error.retryDelay
+            val seconds = duration?.takeIf { !it.isNegative && !it.isZero }?.let {
+                // Round up: subsecond throttles must not invite an immediate retry.
+                if (it.seconds < Int.MAX_VALUE && it.nano > 0) it.seconds + 1 else it.seconds
+            }
+            return seconds?.takeIf { it in 1..Int.MAX_VALUE }?.toInt()
+                ?: error.metadata["retry_after_seconds"]?.trim()?.toIntOrNull()?.takeIf { it > 0 }
         }
 
         /**
@@ -118,7 +149,8 @@ sealed class JoinFailure(message: String, cause: Throwable? = null) :
          * that may be wrong would turn a missing header — which the screen
          * already handles — into a confidently wrong number of minutes.
          */
-        private fun retryAfterOf(reason: Throwable?): Int? = (reason as? HttpException)
+        private fun retryAfterOf(reason: Throwable?): Int? = if (reason is RemoteError) remoteRetryAfter(reason)
+        else (reason as? HttpException)
             ?.response()
             ?.headers()
             ?.get("Retry-After")

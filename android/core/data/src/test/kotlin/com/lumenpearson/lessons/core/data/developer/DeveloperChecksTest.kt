@@ -57,6 +57,9 @@ class DeveloperChecksTest {
         assertEquals(CheckOutcome.FAIL, serverAnswer(ServerStatus.Unreachable).first)
         assertEquals(CheckOutcome.FAIL, serverAnswer(ServerStatus.NeedsHttps).first)
         assertEquals(CheckOutcome.SKIP, serverAnswer(ServerStatus.NotConfigured).first)
-        assertEquals("api 1 · schema 0017", serverAnswer(ServerStatus.Ok(apiVersion = 1, schema = "0017")).second)
+        assertEquals(
+            "server API 1 · schema 0017",
+            serverAnswer(ServerStatus.Ok(apiVersion = 1, schema = "0017")).second,
+        )
     }
 }

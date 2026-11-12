@@ -359,6 +359,10 @@ internal class LessonsPreferences(
     /** @see BundleTags.bundleTag */
     suspend fun bundleTag(signature: String): String? = bundleTags.bundleTag(signature)
 
+    suspend fun v2BundleTag(signature: String): String? = bundleTags.v2BundleTag(signature)
+
+    suspend fun writeV2BundleTag(signature: String, etag: String) = bundleTags.writeV2BundleTag(signature, etag)
+
     /**
      * The role the server last gave this phone in [classId], kept across
      * launches.

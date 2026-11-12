@@ -1,0 +1,30 @@
+{
+  "capabilities": {
+    "egress": "DIARY_EGRESS_DIRECT",
+    "enabled": true,
+    "providers": [
+      {
+        "features": [
+          "DIARY_FEATURE_SCHEDULE",
+          99,
+          "DIARY_FEATURE_FINAL_MARKS"
+        ],
+        "provider": "sample",
+        "regions": [
+          "sample"
+        ],
+        "routes": [
+          {
+            "egress": "DIARY_EGRESS_DIRECT",
+            "region": "sample"
+          }
+        ],
+        "signInMethods": [
+          "SIGN_IN_METHOD_PASSWORD",
+          99,
+          "SIGN_IN_METHOD_SESSION_ADOPT"
+        ]
+      }
+    ]
+  }
+}

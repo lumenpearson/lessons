@@ -141,6 +141,46 @@ other DTO tests decode copies written by hand (`BundleJsonTest`). The vectors ar
 that beats Airbnb's — no deploy pipeline needed, a test on each side is the lock — and #639
 extends it to every payload the app reads.
 
+### The transport reads the same contract
+
+**Airbnb.** The shared schema and producer/consumer fixtures above prevent two
+implementations from agreeing only with their own copies ([Building services, part 4][svc4]).
+
+**Here.** Android transports 5a, approved under #273, extends the existing Buf
+freshness job to Java lite messages and Connect Kotlin clients. The generators and
+their runtimes are pinned together by the existing server contract test; generated
+Android changes select that same Contract job. This reuses one contract and one
+gate rather than adding a second Android schema or a separate CI pipeline.
+Literal-byte codec tests belong on the JVM, where they are cheap and deterministic.
+Their limit is reflection after shrinking: the plan also requires a bounded call
+through the signed, minified app to prove that a real error detail still decodes.
+Neither a debug codec test nor release assembly alone establishes that result.
+The approved design keeps generated types behind domain-valued remotes; migrating
+schedule and join does not require migrating the remaining repositories at once.
+The deployment canary machinery is still unnecessary for this contract check;
+the existing exact-source CI, production and installed-APK checks remain the
+delivery boundary. The pinned official plugins reproduce both generated trees
+locally; delivery also requires remote CI freshness and the minified 5a call.
+
+The 5a REST DTOs read canonical samples from the server's actual protobuf-py
+runtime. The writer compares by default and updates only on an explicit switch;
+coverage checks include nested descriptor growth and each oneof alternative.
+Android reads those same files strictly, exercises request encoding as well as
+response decoding, and keeps unknown enum values without dropping their neighbors.
+The existing CI selector runs both consumers when a golden changes. This extends
+the shared-fixture pattern above without adding another build system or CI job.
+
+The final 5a device check is an opt-in release-target AndroidTest APK, signed with
+the tested app's certificate and built from the same reviewed master commit.
+The existing APK workflow supplies it as a separate artifact; the ordinary app
+artifact never collects the test APK. Build-property reach tests hold those
+connections and the source/signing guards. This is the one question a JVM test
+cannot hold: whether R8 preserved the lite codec and binary ErrorInfo registry.
+One schema-valid code that the alphanumeric issuers cannot produce must become
+the public UnknownCode outcome through minified Connect. A server fixture holds
+that it creates no phone membership/device and consumes exactly one throttle
+attempt. No retry, account setup or family installation belongs to this check.
+
 ## Delivery
 
 ### A merge is a deploy, so the deploy is checked

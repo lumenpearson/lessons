@@ -1,0 +1,14 @@
+{
+  "events": [
+    {
+      "coversLesson": true,
+      "date": "2026-09-21",
+      "endsAt": "sample",
+      "id": 7,
+      "kind": 99,
+      "location": "sample",
+      "startsAt": "sample",
+      "title": "sample"
+    }
+  ]
+}

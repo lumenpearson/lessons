@@ -1,13 +1,13 @@
 {
   "android": {
     "modules": {
-      ":app": 706,
-      ":core:data": 644,
+      ":app": 711,
+      ":core:data": 759,
       ":core:designsystem": 205,
       ":core:model": 145,
-      ":widget": 126
+      ":widget": 130
     },
-    "total": 1826
+    "total": 1950
   },
-  "server": 3877
+  "server": 3892
 }

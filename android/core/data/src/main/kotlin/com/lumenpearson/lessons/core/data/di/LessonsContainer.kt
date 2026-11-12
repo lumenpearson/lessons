@@ -31,6 +31,7 @@ import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
 import com.lumenpearson.lessons.core.data.network.NetworkModule
 import com.lumenpearson.lessons.core.data.repository.BundleTagStore
+import com.lumenpearson.lessons.core.data.datastore.V2BundleTagStore
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SessionRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
@@ -174,6 +175,9 @@ interface LessonsContainer {
  */
 class DefaultLessonsContainer(
     context: Context,
+    private val transport: String,
+    private val clientVersion: Int,
+    private val appStreaming: Boolean,
     private val githubClientId: String = "",
     private val githubProject: GithubProject = GithubProject.UPSTREAM,
 ) : LessonsContainer {
@@ -240,7 +244,10 @@ class DefaultLessonsContainer(
             // this one brings the copy up to date on its own.
             runCatching { preferences.followCredentials() }
         }
-        NetworkModule.apis(credentials = preferences.credentials::current, cleartext = CleartextPolicy.Platform)
+        NetworkModule.apis(
+            credentials = preferences.credentials::current, cleartext = CleartextPolicy.Platform,
+            clientVersion = clientVersion, transport = transport,
+        )
     }
 
     private val api: LessonsApi by lazy { apis.lessons }
@@ -255,31 +262,7 @@ class DefaultLessonsContainer(
      * leaving a class has to take its tags with it, and that starts in the
      * session repository, through [TimetableCache].
      */
-    private val bundleTags: BundleTagStore = object : BundleTagStore {
-        override suspend fun tagFor(signature: String): String? =
-            runCatching { preferences.bundleTag(signature) }.getOrNull()
-
-        override suspend fun remember(signature: String, etag: String) {
-            // Guarded because it writes: a full disk must cost the next sync
-            // its shortcut, not the sync that just succeeded.
-            runCatching { preferences.writeBundleTag(signature, etag) }
-        }
-
-        override suspend fun forget(signature: String) {
-            // Guarded for the same reason, and the cost is smaller still: a tag
-            // left behind for an evicted year is one request that answers 304
-            // and then asks again.
-            runCatching { preferences.forgetBundleTag(signature) }
-        }
-
-        override suspend fun forgetClass(classId: Long) {
-            runCatching { preferences.forgetBundleTagsOf(classId) }
-        }
-
-        override suspend fun forgetClassesOtherThan(keep: Collection<Long>) {
-            runCatching { preferences.forgetBundleTagsOutside(keep) }
-        }
-    }
+    private val bundleTags: BundleTagStore by lazy { V2BundleTagStore(preferences) }
 
     /**
      * The concrete type, because two interfaces are drawn from it: the
@@ -290,7 +273,7 @@ class DefaultLessonsContainer(
     private val timetable: TimetableRepositoryImpl by lazy {
         TimetableRepositoryImpl(
             dao = database.timetableDao(),
-            api = api,
+            remote = apis.schedule,
             // Taken from the preferences rather than from `sessionRepository`,
             // which is a lazy in this same container: the timetable is what the
             // widget's cold start asks for first, and routing it through the
@@ -336,6 +319,7 @@ class DefaultLessonsContainer(
         SessionRepositoryImpl(
             preferences = preferences,
             api = api,
+            joinRemote = apis.join,
             // The repository rather than the DAO, so that emptying a class's
             // cache is one call that knows about all of it — rows, window
             // claims and ETags. Building it here is free of the cold-start

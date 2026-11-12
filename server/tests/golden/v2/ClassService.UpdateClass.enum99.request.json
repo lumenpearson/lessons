@@ -1,0 +1,20 @@
+{
+  "schoolClass": {
+    "bellScheduleId": 7,
+    "calendarReady": true,
+    "city": "sample",
+    "devices": 7,
+    "grade": 7,
+    "id": 7,
+    "joinCode": "sample",
+    "joinMode": 99,
+    "letter": "sample",
+    "members": 7,
+    "name": "sample",
+    "pendingRequests": 7,
+    "school": "sample",
+    "timezone": "Europe/Moscow",
+    "timezoneLabel": "Europe/Moscow"
+  },
+  "updateMask": "shortName,school"
+}

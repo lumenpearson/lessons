@@ -38,8 +38,8 @@ internal object NetworkRedaction {
     val KeptHeaders: List<String> = listOf(
         "Content-Type",
         "Retry-After",
-        "X-Diary-Unavailable",
-        "X-Diary-Reauth",
+        "grpc-status",
+        "grpc-message",
         "X-Vercel-Id",
         "X-GitHub-Request-Id",
     )

@@ -53,9 +53,19 @@ internal class BundleTags(private val store: LessonsPreferences) {
         store.write { prefs -> prefs[PreferenceKeys.bundleTagKey(signature)] = etag }
     }
 
+    suspend fun v2BundleTag(signature: String): String? =
+        store.preferences.first()[PreferenceKeys.v2BundleTagKey(signature)]
+
+    suspend fun writeV2BundleTag(signature: String, etag: String) {
+        store.write { prefs -> prefs[PreferenceKeys.v2BundleTagKey(signature)] = etag }
+    }
+
     /** @see bundleTag */
     suspend fun forgetBundleTag(signature: String) {
-        store.write { prefs -> prefs.remove(PreferenceKeys.bundleTagKey(signature)) }
+        store.write { prefs ->
+            prefs.remove(PreferenceKeys.bundleTagKey(signature))
+            prefs.remove(PreferenceKeys.v2BundleTagKey(signature))
+        }
     }
 
     /**
@@ -69,8 +79,8 @@ internal class BundleTags(private val store: LessonsPreferences) {
      * @see bundleTag
      */
     suspend fun forgetBundleTagsOf(classId: Long) {
-        val prefix = PreferenceKeys.bundleTagPrefix(classId)
-        store.write { prefs -> prefs.removeKeysStartingWith { it.startsWith(prefix) } }
+        val prefixes = listOf(PreferenceKeys.bundleTagPrefix(classId), PreferenceKeys.v2BundleTagPrefix(classId))
+        store.write { prefs -> prefs.removeKeysStartingWith { name -> prefixes.any { name.startsWith(it) } } }
     }
 
     /**
@@ -79,10 +89,11 @@ internal class BundleTags(private val store: LessonsPreferences) {
      * @see bundleTag
      */
     suspend fun forgetBundleTagsOutside(keep: Collection<Long>) {
-        val kept = keep.map { PreferenceKeys.bundleTagPrefix(it) }
+        val kept = keep.flatMap { listOf(PreferenceKeys.bundleTagPrefix(it), PreferenceKeys.v2BundleTagPrefix(it)) }
         store.write { prefs ->
             prefs.removeKeysStartingWith { name ->
-                name.startsWith(PreferenceKeys.BUNDLE_TAG_PREFIX) && kept.none { name.startsWith(it) }
+                (name.startsWith(PreferenceKeys.BUNDLE_TAG_PREFIX) ||
+                    name.startsWith(PreferenceKeys.V2_BUNDLE_TAG_PREFIX)) && kept.none { name.startsWith(it) }
             }
         }
     }

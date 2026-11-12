@@ -58,6 +58,8 @@ val ConsolePresets: List<ConsoleDraft> = listOf(
     ConsoleDraft(path = "/api/v1/now", auth = ConsoleAuth.DEVICE),
     ConsoleDraft(path = "/api/v1/diary/capabilities", auth = ConsoleAuth.DIARY),
     ConsoleDraft(path = "/api/v1/diary/students", auth = ConsoleAuth.DIARY),
+    ConsoleDraft(path = "/api/v2/diary/capabilities"),
+    ConsoleDraft(path = "/api/rpc/lessons.v2.DiaryService/GetDiaryCapabilities?encoding=json&message=%7B%7D"),
 )
 
 /** Why the console would not send a draft. The page words each one. */

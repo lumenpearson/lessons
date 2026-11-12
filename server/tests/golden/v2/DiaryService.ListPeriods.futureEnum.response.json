@@ -1,0 +1,11 @@
+{
+  "periods": [
+    {
+      "endsOn": "sample",
+      "id": "9007199254740993",
+      "isCurrent": true,
+      "name": "sample",
+      "startsOn": "sample"
+    }
+  ]
+}

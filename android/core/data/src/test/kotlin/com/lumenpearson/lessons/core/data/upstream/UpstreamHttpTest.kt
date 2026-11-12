@@ -4,6 +4,8 @@ import com.lumenpearson.lessons.core.data.diagnostics.NetworkLog
 import com.lumenpearson.lessons.core.data.network.AuthInterceptor
 import com.lumenpearson.lessons.core.data.network.BaseUrlInterceptor
 import com.lumenpearson.lessons.core.data.network.DiaryAuthInterceptor
+import com.lumenpearson.lessons.core.data.network.v2.BearerInterceptor
+import com.lumenpearson.lessons.core.data.network.v2.ClientVersionInterceptor
 import java.io.EOFException
 import java.io.IOException
 import java.net.SocketException
@@ -103,7 +105,10 @@ class UpstreamHttpTest {
         // The developer mode's recorder is the one addition, and it signs
         // nothing: it reads the method, the host and the path (#237).
         assertEquals(listOf(NetworkLog.Recorder::class, OriginGuard::class, BrowserHeaders::class), kinds)
-        for (ours in listOf(BaseUrlInterceptor::class, AuthInterceptor::class, DiaryAuthInterceptor::class)) {
+        for (ours in listOf(
+            BaseUrlInterceptor::class, AuthInterceptor::class, DiaryAuthInterceptor::class,
+            BearerInterceptor::class, ClientVersionInterceptor::class,
+        )) {
             assertFalse(ours in kinds)
         }
         assertTrue(client.networkInterceptors.isEmpty())
@@ -118,12 +123,26 @@ class UpstreamHttpTest {
     fun `a browser user agent is sent and an Authorization header is refused`() = runBlocking {
         server.enqueue(MockResponse.Builder().code(200).build())
         UpstreamHttp.fetch(clientFor(server), Request.Builder().url(server.url("/")).build())
-        assertEquals(UpstreamHttp.USER_AGENT, server.takeRequest().headers["User-Agent"])
+        val sent = server.takeRequest()
+        assertEquals(UpstreamHttp.USER_AGENT, sent.headers["User-Agent"])
+        assertNull(sent.headers["Authorization"])
+        assertNull(sent.headers["X-Lessons-Client"])
 
         val signed = Request.Builder().url(server.url("/")).header("Authorization", "Bearer ours").build()
         val failure = runCatching { UpstreamHttp.fetch(clientFor(server), signed) }.exceptionOrNull()
         assertTrue(failure is UpstreamNotAllowed)
         assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `a school client version is refused before it reaches a diary`() = runBlocking {
+        server.enqueue(MockResponse())
+        val request = Request.Builder().url(server.url("/")).header("X-Lessons-Client", "73").build()
+
+        val failure = runCatching { UpstreamHttp.fetch(clientFor(server), request) }.exceptionOrNull()
+
+        assertTrue(failure is UpstreamNotAllowed)
+        assertEquals(0, server.requestCount)
     }
 
     /**

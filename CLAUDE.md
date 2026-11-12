@@ -70,7 +70,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3877 tests, six of them skipped unless a
+- **`pytest -q -n auto`** — 3892 tests, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), plus eleven PostgreSQL-only lock
   checks skipped on SQLite, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
@@ -105,8 +105,9 @@ Contract, from the repository root, with Buf 1.73.0 fetched by hand (`docs/build
 v2 contract and Buf»; the binary never enters the repository):
 
 - `buf lint`: the STANDARD rules, as CI's «Contract» job runs them
-- `buf generate`: rewrites `server/app/contract/` from `proto/`. Commit it with the proto
-  change, because CI regenerates and fails on any difference
+- `buf generate`: rewrites `server/app/contract/` and
+  `android/core/data/src/main/contract/java/` from `proto/` and the locked google.rpc input.
+  Commit both generated trees with their inputs; CI regenerates and diffs both
 - `python -m pytest -q tests/test_contract.py` (from `server/`): what Buf cannot check.
   Every method's REST binding, credential, least role and idempotency, against the resource
   map of `docs/specs/2026-10-04-contract-v2-design.md`. Buf reads no options, so an edit to
@@ -376,7 +377,7 @@ Android modules (`android/settings.gradle.kts`):
 ```
 :core:model          pure JVM — domain types, ScheduleEngine, AlertPlanner
 :core:designsystem   theme, typography, Compose components
-:core:data           Room, Retrofit, repositories, sync, notifications
+:core:data           Room, domain remotes, REST/Connect, repositories, sync, notifications
 :widget              Glance home-screen widget
 :app                 screens, navigation, ViewModels
 ```
@@ -411,9 +412,14 @@ next» across a gap is `TimetableDao.firstTeachingDayAfter` over the cached year
 now a whole year rather than a fortnight; the row's residue is the last days of May.
 `docs/architecture.md` says what a server change would have to be, and why it was not made.
 
-There is no Hilt. `Graph` is a small hand-written container a test can swap wholesale,
-because the Glance widget and the WorkManager worker both need repositories from entry
-points Hilt does not inject cleanly.
+There is no Hilt. `Graph` is a small hand-written container a test can swap wholesale.
+The application implements GraphOwner and supplies the required transport/version/streaming
+configuration to the same container even when a worker or notification initializes first.
+ScheduleRemote and JoinRemote hide strict v2 DTOs/generated lite messages below repositories;
+the other areas retain v1 until5b. The shared server client signs at send time, and each call
+retains its own refusal status or original no-answer exception.
+
+- Only DEVICE_TOKEN_INVALID revokes v2 membership; bare401/CLIENT_TOO_OLD retain cache and tags (`V2MembershipLifecycleTest`, `V2SyncRepositoryTest`).
 
 ## Conventions already true in this codebase
 

@@ -5,10 +5,11 @@ import com.lumenpearson.lessons.core.data.database.TimetableDao
 import com.lumenpearson.lessons.core.data.database.buildTimetable
 import com.lumenpearson.lessons.core.data.database.toEntity
 import com.lumenpearson.lessons.core.data.database.toRecord
-import com.lumenpearson.lessons.core.data.network.LessonsApi
+import com.lumenpearson.lessons.core.data.network.v2.ScheduleRemote
+import com.lumenpearson.lessons.core.data.network.v2.ScheduleRemoteResult
+import com.lumenpearson.lessons.core.data.network.v2.RemoteError
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
 import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
-import com.lumenpearson.lessons.core.data.network.dto.toDomain
 import com.lumenpearson.lessons.core.model.SchoolYear
 import com.lumenpearson.lessons.core.model.Timetable
 import java.io.IOException
@@ -28,7 +29,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import retrofit2.HttpException
 
 /**
  * Room-backed implementation: the network writes, the database reads, and the
@@ -41,7 +41,7 @@ import retrofit2.HttpException
  */
 internal class TimetableRepositoryImpl(
     private val dao: TimetableDao,
-    private val api: LessonsApi,
+    private val remote: ScheduleRemote,
     /**
      * The class being shown, or `null` when this device is in none.
      *
@@ -233,8 +233,6 @@ internal class TimetableRepositoryImpl(
     private suspend fun fetchYear(openingYear: Int): SyncResult {
         return try {
             val bounds = SchoolYear.boundsOf(openingYear)
-            val start = bounds.start
-            val span = SchoolYear.daysOf(openingYear).coerceIn(MIN_DAYS, MAX_DAYS)
             val classId = activeClassId.first()
             // The tag belongs to one class and one year, and those two numbers
             // are the whole signature now. It used to carry the start date and
@@ -242,38 +240,14 @@ internal class TimetableRepositoryImpl(
             // names itself, and a signature that cannot disagree with the
             // request is one fewer thing to keep in step.
             val signature = "${classId ?: 0L}|$openingYear"
-            var response = api.bundle(
-                start = start.toString(),
-                days = span,
-                ifNoneMatch = bundleTags.tagFor(signature),
-            )
-            if (
-                response.code() == HTTP_NOT_MODIFIED &&
+            var response = remote.window(openingYear, bundleTags.tagFor(signature))
+            if (response is ScheduleRemoteResult.NotModified &&
                 !(classId != null && holdsWindow(classId, openingYear))
             ) {
-                // «Nothing changed» is only an answer when there is something
-                // for it to be about. The tag lives in the preferences and
-                // outlives every wipe of the cache — `clearSession`,
-                // `removeSession`, `clearMemberships` and a destructive Room
-                // migration all leave it standing — and none of `classId` or
-                // `openingYear` moves across a leave and a re-join of the same
-                // class. So the phone could send a tag the server still matched
-                // while holding nothing at all, and go on reporting a
-                // successful sync over «Расписание ещё не загружено» for ever.
-                response = api.bundle(start = start.toString(), days = span, ifNoneMatch = null)
+                // A persisted tag can outlive a destructive Room migration.
+                response = remote.window(openingYear, null)
             }
-            // Retrofit throws `HttpException` for a *body-typed* suspend
-            // method and hands a `Response<T>`-typed one the error response
-            // verbatim — so the `catch` below, which is where `onTokenRejected`
-            // lives, has been unreachable for this call since it started
-            // asking «changed since?». A revoked device therefore kept the
-            // class, the token and a year of somebody else's timetable, and
-            // the screen said «Server returned HTTP 401» in English.
-            if (response.code() == HTTP_UNAUTHORISED) {
-                runCatching { onTokenRejected() }
-                return SyncResult.Unauthorised
-            }
-            if (response.code() == HTTP_NOT_MODIFIED) {
+            if (response is ScheduleRemoteResult.NotModified) {
                 // Nothing to write: the window is byte-for-byte what is already
                 // cached. The check still happened, though, and «обновлено N
                 // назад» is a claim about *that* — left alone it would keep
@@ -292,14 +266,10 @@ internal class TimetableRepositoryImpl(
                 onNothingChanged()
                 return SyncResult.Success
             }
-            val body = response.body()
-                ?: return SyncResult.Failed("Server returned HTTP ${response.code()}")
-            val timetable = body.toDomain(fallbackSyncedAtEpochMillis = clock.millis())
-            // The class the *server* resolved the token to, not the one this
-            // device thinks is active. They are the same except in the seconds
-            // around a switch, and taking the local answer there would file one
-            // class's window under the other's id — which is the one mistake
-            // this cache cannot survive, because both windows look plausible.
+            val changed = response as ScheduleRemoteResult.Changed
+            val timetable = changed.timetable
+            // A class switch can overtake the call; file rows under the class
+            // the server resolved, rather than the earlier local selection.
             val syncedClassId = timetable.schoolClass.id
             val now = clock.millis()
             dao.replaceWindow(
@@ -334,7 +304,7 @@ internal class TimetableRepositoryImpl(
             // After the write, not before: a tag remembered for a window that
             // failed to land would make the next sync ask «changed since?» about
             // rows this device does not have.
-            response.headers()["ETag"]?.takeIf { it.isNotBlank() }?.let { etag ->
+            changed.etag?.takeIf { it.isNotBlank() }?.let { etag ->
                 bundleTags.remember(signature, etag)
             }
             // Guarded: the sync succeeded, and a failure to tidy up afterwards
@@ -346,21 +316,15 @@ internal class TimetableRepositoryImpl(
         } catch (cancellation: CancellationException) {
             // A cancelled sync is not a failed sync; let it propagate.
             throw cancellation
-        } catch (http: HttpException) {
-            if (http.code() == HTTP_UNAUTHORISED) {
-                // Before returning, not after: the caller shows the message,
-                // and by the time it does the app must already be out of a
-                // class that no longer has this device in it.
-                //
-                // Guarded, because it writes: `signOut` clears the session
-                // through DataStore, whose write side rethrows `IOException`,
-                // and this runs inside a `catch` with nothing above it but the
-                // bare `viewModelScope.launch` of whoever asked for a refresh.
-                // A full disk would turn a handled 401 into a crash.
-                runCatching { onTokenRejected() }
-                SyncResult.Unauthorised
-            } else {
-                SyncResult.Failed("Server returned HTTP ${http.code()}")
+        } catch (refusal: RemoteError) {
+            when (refusal.reason) {
+                "DEVICE_TOKEN_INVALID" -> {
+                    // Storage failure while leaving must not turn a handled refusal into a crash.
+                    runCatching { onTokenRejected() }
+                    SyncResult.Unauthorised
+                }
+                "CLIENT_TOO_OLD" -> SyncResult.ClientTooOld
+                else -> SyncResult.Failed(refusal.message ?: "The server refused the sync")
             }
         } catch (_: ServerNeedsHttpsException) {
             // Before the «no address» catch, whose kind this is.
@@ -493,14 +457,5 @@ internal class TimetableRepositoryImpl(
          */
         const val MAX_YEARS = 3
 
-        const val MIN_DAYS = 1
-
-        /** The server rejects anything larger (`MAX_BUNDLE_DAYS`). */
-        const val MAX_DAYS = 280
-
-        const val HTTP_UNAUTHORISED = 401
-
-        /** The whole point of sending `If-None-Match`: a body that is not sent. */
-        const val HTTP_NOT_MODIFIED = 304
     }
 }

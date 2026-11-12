@@ -86,7 +86,7 @@ class EditedTermReachesTheCacheTest {
         val dao = InMemoryTimetableDao()
         val repository = TimetableRepositoryImpl(
             dao = dao,
-            api = api,
+            remote = api.scheduleFixture(clock),
             activeClassId = flowOf(1L),
             clock = clock,
             ioDispatcher = UnconfinedTestDispatcher(),
@@ -122,7 +122,7 @@ class EditedTermReachesTheCacheTest {
         val dao = InMemoryTimetableDao()
         val repository = TimetableRepositoryImpl(
             dao = dao,
-            api = api,
+            remote = api.scheduleFixture(clock),
             activeClassId = flowOf(1L),
             clock = clock,
             ioDispatcher = UnconfinedTestDispatcher(),

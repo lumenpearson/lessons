@@ -1,0 +1,19 @@
+{
+  "tasks": [
+    {
+      "createdAt": "2026-09-21T14:13:20.005Z",
+      "done": true,
+      "doneAt": "2026-09-21T14:13:20.005Z",
+      "dueDate": "sample",
+      "dueTime": "sample",
+      "homeworkId": 7,
+      "id": 7,
+      "notes": "sample",
+      "priority": 7,
+      "remindAt": "sample",
+      "subjectName": "sample",
+      "title": "sample",
+      "updatedAt": "2026-09-21T14:13:20.005Z"
+    }
+  ]
+}

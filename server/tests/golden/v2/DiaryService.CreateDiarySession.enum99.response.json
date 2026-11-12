@@ -1,0 +1,22 @@
+{
+  "session": {
+    "login": "sample",
+    "provider": "sample",
+    "region": "sample",
+    "schoolId": "9007199254740993",
+    "schoolName": "sample",
+    "students": [
+      {
+        "className": "sample",
+        "firstName": "sample",
+        "fullName": "sample",
+        "id": "9007199254740993",
+        "lastName": "sample",
+        "middleName": "sample",
+        "school": "sample"
+      }
+    ],
+    "token": "sample",
+    "zone": "sample"
+  }
+}

@@ -3,6 +3,7 @@ package com.lumenpearson.lessons
 import android.app.Application
 import com.lumenpearson.lessons.appicon.AppIcons
 import com.lumenpearson.lessons.core.data.di.Graph
+import com.lumenpearson.lessons.core.data.di.GraphOwner
 import com.lumenpearson.lessons.core.data.diagnostics.LifecycleRecorder
 import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
 import com.lumenpearson.lessons.core.data.repository.SyncArming
@@ -45,7 +46,7 @@ import kotlinx.coroutines.launch
  * that wakes the process, which is a phone reading a child's marks with nobody
  * holding it, and on the server an activity that keeps a session alive for ever.
  */
-class LessonsApplication : Application() {
+class LessonsApplication : Application(), GraphOwner {
 
     /**
      * Process-scoped scope. It is never cancelled because the only thing running
@@ -56,11 +57,7 @@ class LessonsApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        Graph.init(
-            this,
-            githubClientId = BuildConfig.GITHUB_CLIENT_ID,
-            githubProject = BuildProvenance.current().project,
-        )
+        initializeLessonsGraph()
         observeSyncArming()
         // Off the main thread: it reads the cached timetable to work out what to
         // arm for, and Application.onCreate is on the critical path of every
@@ -69,6 +66,17 @@ class LessonsApplication : Application() {
         // Off the main thread inside the store, like the alarms above.
         AppIcons.store(this).reconcileInBackground()
         startDeveloperMode()
+    }
+
+    override fun initializeLessonsGraph() {
+        Graph.init(
+            this,
+            transport = BuildConfig.TRANSPORT,
+            clientVersion = BuildConfig.VERSION_CODE,
+            appStreaming = BuildConfig.APP_STREAMING,
+            githubClientId = BuildConfig.GITHUB_CLIENT_ID,
+            githubProject = BuildProvenance.current().project,
+        )
     }
 
     /**

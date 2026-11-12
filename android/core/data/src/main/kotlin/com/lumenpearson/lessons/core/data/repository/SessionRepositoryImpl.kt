@@ -2,8 +2,8 @@ package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.network.LessonsApi
+import com.lumenpearson.lessons.core.data.network.v2.JoinRemote
 import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
-import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +36,7 @@ internal class SessionRepositoryImpl(
      * preferences for the life of the install.
      */
     private val cache: TimetableCache,
+    private val joinRemote: JoinRemote,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     /**
      * Called once the last membership and the whole cache are gone.
@@ -117,21 +118,9 @@ internal class SessionRepositoryImpl(
                 // The server upper-cases and trims join codes too; doing it here
                 // as well means a pupil typing "abc123" is never told the code
                 // is wrong.
-                val response = api.join(
-                    JoinRequestDto(
-                        code = code.trim().uppercase(),
-                        deviceName = deviceName?.trim()?.ifBlank { null },
-                    ),
-                )
-                val joined = Session(
-                    classId = response.classId,
-                    className = response.className,
-                    school = response.school?.trim()?.ifBlank { null },
-                    token = response.token,
-                    // The join is the only answer that carries it (the bundle
-                    // does not), so it is kept with the membership it came
-                    // with — and replaced, like the token, by a re-join.
-                    diary = response.diary?.toDomain(),
+                val joined = joinRemote.create(
+                    code = code.trim().uppercase(),
+                    deviceName = deviceName?.trim()?.ifBlank { null },
                 )
                 // Before the membership is stored, so the new token can never
                 // show rows that predate it. Only this class's rows: the other

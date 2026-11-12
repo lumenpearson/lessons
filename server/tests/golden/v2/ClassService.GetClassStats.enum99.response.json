@@ -1,0 +1,24 @@
+{
+  "stats": {
+    "devicesActive": 7,
+    "eventsUpcoming": 7,
+    "homeworkOpen": 7,
+    "homeworkTotal": 7,
+    "lessonsPerWeek": 1.25,
+    "membersByRole": [
+      {
+        "count": 7,
+        "role": 99
+      }
+    ],
+    "subjects": [
+      {
+        "hours": 1.25,
+        "name": "sample"
+      }
+    ],
+    "subjectsCount": 7,
+    "substitutionsUpcoming": 7,
+    "today": "sample"
+  }
+}

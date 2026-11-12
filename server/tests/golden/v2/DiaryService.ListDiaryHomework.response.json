@@ -1,0 +1,21 @@
+{
+  "homework": [
+    {
+      "ambiguous": true,
+      "dueDate": "sample",
+      "edits": [
+        {
+          "changedUpstream": true,
+          "field": "sample",
+          "original": "sample",
+          "value": "sample"
+        }
+      ],
+      "id": "9007199254740993",
+      "subject": "sample",
+      "target": "sample",
+      "teacher": "sample",
+      "text": "sample"
+    }
+  ]
+}

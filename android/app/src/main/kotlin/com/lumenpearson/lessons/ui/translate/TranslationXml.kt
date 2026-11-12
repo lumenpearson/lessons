@@ -194,6 +194,7 @@ internal object TranslationXml {
     private val ModulePrefixes = linkedMapOf(
         "ds_" to "core/designsystem",
         "alert_" to "core/data",
+        "client_" to "core/data",
         "widget_" to "widget",
     )
 }

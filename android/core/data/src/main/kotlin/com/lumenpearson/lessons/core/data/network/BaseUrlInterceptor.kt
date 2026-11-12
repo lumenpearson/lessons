@@ -1,5 +1,6 @@
 package com.lumenpearson.lessons.core.data.network
 
+import com.lumenpearson.lessons.core.data.network.v2.CallObservation
 import java.io.IOException
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
@@ -52,11 +53,18 @@ class ServerNeedsHttpsException(host: String) :
  *   [CleartextPolicy].
  */
 internal class BaseUrlInterceptor(
-    private val baseUrlProvider: () -> String,
+    private val credentials: () -> RequestCredentials,
     private val cleartext: CleartextPolicy,
 ) : Interceptor {
 
-    override fun intercept(chain: Interceptor.Chain): Response {
+    override fun intercept(chain: Interceptor.Chain): Response = try {
+        rewrite(chain)
+    } catch (failure: IOException) {
+        chain.request().tag(CallObservation::class.java)?.failure = failure
+        throw failure
+    }
+
+    private fun rewrite(chain: Interceptor.Chain): Response {
         val request = chain.request()
         // Failing here rather than proceeding is the whole point. Letting an
         // unusable address through sends the call to the `.invalid` placeholder
@@ -64,7 +72,8 @@ internal class BaseUrlInterceptor(
         // host they have never heard of — or, from a background sync, nothing
         // at all. The two causes are one exception because the cure is the same
         // screen either way.
-        val configured = baseUrlProvider().trim().toHttpUrlOrNull()
+        val snapshot = credentials()
+        val configured = snapshot.baseUrl.trim().toHttpUrlOrNull()
             ?: throw ServerAddressMissingException()
 
         // Here, before `proceed`, rather than left to OkHttp, which refuses the
@@ -84,6 +93,10 @@ internal class BaseUrlInterceptor(
             .apply { if (prefix.isNotEmpty()) encodedPath(prefix + request.url.encodedPath) }
             .build()
 
-        return chain.proceed(request.newBuilder().url(rewritten).build())
+        return chain.proceed(
+            request.newBuilder().url(rewritten)
+                .tag(ServerRequestContext::class.java, ServerRequestContext(request.url.encodedPath, snapshot))
+                .build(),
+        )
     }
 }

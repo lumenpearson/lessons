@@ -1,0 +1,17 @@
+{
+  "nextPageToken": "sample",
+  "schools": [
+    {
+      "active": true,
+      "address": "sample",
+      "city": "sample",
+      "fullName": "sample",
+      "inn": "sample",
+      "name": "sample",
+      "ogrn": "sample",
+      "region": "sample"
+    }
+  ],
+  "totalSize": 7,
+  "truncated": true
+}

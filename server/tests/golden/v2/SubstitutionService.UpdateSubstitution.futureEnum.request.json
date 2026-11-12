@@ -1,0 +1,13 @@
+{
+  "substitution": {
+    "action": "A_FUTURE_ENUM_NAME",
+    "date": "2026-09-21",
+    "id": 7,
+    "index": 7,
+    "note": "sample",
+    "room": "sample",
+    "subject": "sample",
+    "teacher": "sample"
+  },
+  "updateMask": "shortName,school"
+}

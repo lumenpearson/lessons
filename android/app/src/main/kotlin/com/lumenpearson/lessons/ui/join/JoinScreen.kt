@@ -363,7 +363,11 @@ internal fun JoinError?.asText(): String? = when (this) {
     is JoinError.TooManyAttempts -> minutes
         ?.let { pluralStringResource(R.plurals.join_error_too_many_wait, it, it) }
         ?: correctedString(R.string.join_error_too_many)
-    is JoinError.Rejected ->
-        detail?.let { correctedString(R.string.join_error_rejected, it) }
-            ?: correctedString(R.string.join_error_generic)
+    is JoinError.Rejected -> rejectionText()
 }
+
+@Composable
+private fun JoinError.Rejected.rejectionText(): String =
+    if (serverTooOld) correctedString(R.string.join_error_server_too_old)
+    else detail?.let { correctedString(R.string.join_error_rejected, it) }
+        ?: correctedString(R.string.join_error_generic)

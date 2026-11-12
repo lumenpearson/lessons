@@ -1,0 +1,2278 @@
+{
+  "methods": [
+    {
+      "credential": "device",
+      "method": "lessons.v2.AccessRequestService/ApproveAccessRequest",
+      "requestType": "lessons.v2.ApproveAccessRequestRequest",
+      "responseType": "lessons.v2.ApproveAccessRequestResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "AccessRequestService.ApproveAccessRequest.request.json",
+          "response": "AccessRequestService.ApproveAccessRequest.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "AccessRequestService.ApproveAccessRequest.empty.request.json",
+          "response": "AccessRequestService.ApproveAccessRequest.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "AccessRequestService.ApproveAccessRequest.enum99.request.json",
+          "response": "AccessRequestService.ApproveAccessRequest.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "AccessRequestService.ApproveAccessRequest.futureEnum.request.json",
+          "response": "AccessRequestService.ApproveAccessRequest.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.AccessRequestService/DeclineAccessRequest",
+      "requestType": "lessons.v2.DeclineAccessRequestRequest",
+      "responseType": "lessons.v2.DeclineAccessRequestResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "AccessRequestService.DeclineAccessRequest.request.json",
+          "response": "AccessRequestService.DeclineAccessRequest.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "AccessRequestService.DeclineAccessRequest.empty.request.json",
+          "response": "AccessRequestService.DeclineAccessRequest.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "AccessRequestService.DeclineAccessRequest.enum99.request.json",
+          "response": "AccessRequestService.DeclineAccessRequest.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "AccessRequestService.DeclineAccessRequest.futureEnum.request.json",
+          "response": "AccessRequestService.DeclineAccessRequest.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.AccessRequestService/ListAccessRequests",
+      "requestType": "lessons.v2.ListAccessRequestsRequest",
+      "responseType": "lessons.v2.ListAccessRequestsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "AccessRequestService.ListAccessRequests.request.json",
+          "response": "AccessRequestService.ListAccessRequests.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "AccessRequestService.ListAccessRequests.empty.request.json",
+          "response": "AccessRequestService.ListAccessRequests.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "AccessRequestService.ListAccessRequests.enum99.request.json",
+          "response": "AccessRequestService.ListAccessRequests.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "AccessRequestService.ListAccessRequests.futureEnum.request.json",
+          "response": "AccessRequestService.ListAccessRequests.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.AuditService/ListAuditEntries",
+      "requestType": "lessons.v2.ListAuditEntriesRequest",
+      "responseType": "lessons.v2.ListAuditEntriesResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "AuditService.ListAuditEntries.request.json",
+          "response": "AuditService.ListAuditEntries.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "AuditService.ListAuditEntries.empty.request.json",
+          "response": "AuditService.ListAuditEntries.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "AuditService.ListAuditEntries.enum99.request.json",
+          "response": "AuditService.ListAuditEntries.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "AuditService.ListAuditEntries.futureEnum.request.json",
+          "response": "AuditService.ListAuditEntries.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.BellService/CreateBellSchedule",
+      "requestType": "lessons.v2.CreateBellScheduleRequest",
+      "responseType": "lessons.v2.CreateBellScheduleResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "BellService.CreateBellSchedule.request.json",
+          "response": "BellService.CreateBellSchedule.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "BellService.CreateBellSchedule.empty.request.json",
+          "response": "BellService.CreateBellSchedule.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "BellService.CreateBellSchedule.enum99.request.json",
+          "response": "BellService.CreateBellSchedule.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "BellService.CreateBellSchedule.futureEnum.request.json",
+          "response": "BellService.CreateBellSchedule.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.BellService/DeleteBellSchedule",
+      "requestType": "lessons.v2.DeleteBellScheduleRequest",
+      "responseType": "lessons.v2.DeleteBellScheduleResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "BellService.DeleteBellSchedule.request.json",
+          "response": "BellService.DeleteBellSchedule.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "BellService.DeleteBellSchedule.empty.request.json",
+          "response": "BellService.DeleteBellSchedule.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "BellService.DeleteBellSchedule.enum99.request.json",
+          "response": "BellService.DeleteBellSchedule.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "BellService.DeleteBellSchedule.futureEnum.request.json",
+          "response": "BellService.DeleteBellSchedule.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.BellService/GetBellSchedule",
+      "requestType": "lessons.v2.GetBellScheduleRequest",
+      "responseType": "lessons.v2.GetBellScheduleResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "BellService.GetBellSchedule.request.json",
+          "response": "BellService.GetBellSchedule.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "BellService.GetBellSchedule.empty.request.json",
+          "response": "BellService.GetBellSchedule.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "BellService.GetBellSchedule.enum99.request.json",
+          "response": "BellService.GetBellSchedule.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "BellService.GetBellSchedule.futureEnum.request.json",
+          "response": "BellService.GetBellSchedule.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.BellService/ListBellSchedules",
+      "requestType": "lessons.v2.ListBellSchedulesRequest",
+      "responseType": "lessons.v2.ListBellSchedulesResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "BellService.ListBellSchedules.request.json",
+          "response": "BellService.ListBellSchedules.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "BellService.ListBellSchedules.empty.request.json",
+          "response": "BellService.ListBellSchedules.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "BellService.ListBellSchedules.enum99.request.json",
+          "response": "BellService.ListBellSchedules.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "BellService.ListBellSchedules.futureEnum.request.json",
+          "response": "BellService.ListBellSchedules.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.BellService/UpdateBellSchedule",
+      "requestType": "lessons.v2.UpdateBellScheduleRequest",
+      "responseType": "lessons.v2.UpdateBellScheduleResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "BellService.UpdateBellSchedule.request.json",
+          "response": "BellService.UpdateBellSchedule.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "BellService.UpdateBellSchedule.empty.request.json",
+          "response": "BellService.UpdateBellSchedule.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "BellService.UpdateBellSchedule.enum99.request.json",
+          "response": "BellService.UpdateBellSchedule.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "BellService.UpdateBellSchedule.futureEnum.request.json",
+          "response": "BellService.UpdateBellSchedule.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ClassDeviceService/ListClassDevices",
+      "requestType": "lessons.v2.ListClassDevicesRequest",
+      "responseType": "lessons.v2.ListClassDevicesResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ClassDeviceService.ListClassDevices.request.json",
+          "response": "ClassDeviceService.ListClassDevices.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ClassDeviceService.ListClassDevices.empty.request.json",
+          "response": "ClassDeviceService.ListClassDevices.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ClassDeviceService.ListClassDevices.enum99.request.json",
+          "response": "ClassDeviceService.ListClassDevices.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ClassDeviceService.ListClassDevices.futureEnum.request.json",
+          "response": "ClassDeviceService.ListClassDevices.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ClassDeviceService/RevokeClassDevice",
+      "requestType": "lessons.v2.RevokeClassDeviceRequest",
+      "responseType": "lessons.v2.RevokeClassDeviceResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ClassDeviceService.RevokeClassDevice.request.json",
+          "response": "ClassDeviceService.RevokeClassDevice.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ClassDeviceService.RevokeClassDevice.empty.request.json",
+          "response": "ClassDeviceService.RevokeClassDevice.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ClassDeviceService.RevokeClassDevice.enum99.request.json",
+          "response": "ClassDeviceService.RevokeClassDevice.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ClassDeviceService.RevokeClassDevice.futureEnum.request.json",
+          "response": "ClassDeviceService.RevokeClassDevice.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ClassDeviceService/UnlinkClassDevice",
+      "requestType": "lessons.v2.UnlinkClassDeviceRequest",
+      "responseType": "lessons.v2.UnlinkClassDeviceResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ClassDeviceService.UnlinkClassDevice.request.json",
+          "response": "ClassDeviceService.UnlinkClassDevice.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ClassDeviceService.UnlinkClassDevice.empty.request.json",
+          "response": "ClassDeviceService.UnlinkClassDevice.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ClassDeviceService.UnlinkClassDevice.enum99.request.json",
+          "response": "ClassDeviceService.UnlinkClassDevice.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ClassDeviceService.UnlinkClassDevice.futureEnum.request.json",
+          "response": "ClassDeviceService.UnlinkClassDevice.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ClassService/DeleteClass",
+      "requestType": "lessons.v2.DeleteClassRequest",
+      "responseType": "lessons.v2.DeleteClassResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ClassService.DeleteClass.request.json",
+          "response": "ClassService.DeleteClass.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ClassService.DeleteClass.empty.request.json",
+          "response": "ClassService.DeleteClass.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ClassService.DeleteClass.enum99.request.json",
+          "response": "ClassService.DeleteClass.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ClassService.DeleteClass.futureEnum.request.json",
+          "response": "ClassService.DeleteClass.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ClassService/GetClass",
+      "requestType": "lessons.v2.GetClassRequest",
+      "responseType": "lessons.v2.GetClassResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ClassService.GetClass.request.json",
+          "response": "ClassService.GetClass.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ClassService.GetClass.empty.request.json",
+          "response": "ClassService.GetClass.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ClassService.GetClass.enum99.request.json",
+          "response": "ClassService.GetClass.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ClassService.GetClass.futureEnum.request.json",
+          "response": "ClassService.GetClass.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ClassService/GetClassStats",
+      "requestType": "lessons.v2.GetClassStatsRequest",
+      "responseType": "lessons.v2.GetClassStatsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ClassService.GetClassStats.request.json",
+          "response": "ClassService.GetClassStats.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ClassService.GetClassStats.empty.request.json",
+          "response": "ClassService.GetClassStats.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ClassService.GetClassStats.enum99.request.json",
+          "response": "ClassService.GetClassStats.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ClassService.GetClassStats.futureEnum.request.json",
+          "response": "ClassService.GetClassStats.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ClassService/GetTermScheme",
+      "requestType": "lessons.v2.GetTermSchemeRequest",
+      "responseType": "lessons.v2.GetTermSchemeResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ClassService.GetTermScheme.request.json",
+          "response": "ClassService.GetTermScheme.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ClassService.GetTermScheme.empty.request.json",
+          "response": "ClassService.GetTermScheme.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ClassService.GetTermScheme.enum99.request.json",
+          "response": "ClassService.GetTermScheme.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ClassService.GetTermScheme.futureEnum.request.json",
+          "response": "ClassService.GetTermScheme.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ClassService/ListTerms",
+      "requestType": "lessons.v2.ListTermsRequest",
+      "responseType": "lessons.v2.ListTermsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ClassService.ListTerms.request.json",
+          "response": "ClassService.ListTerms.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ClassService.ListTerms.empty.request.json",
+          "response": "ClassService.ListTerms.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ClassService.ListTerms.enum99.request.json",
+          "response": "ClassService.ListTerms.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ClassService.ListTerms.futureEnum.request.json",
+          "response": "ClassService.ListTerms.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ClassService/UpdateClass",
+      "requestType": "lessons.v2.UpdateClassRequest",
+      "responseType": "lessons.v2.UpdateClassResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ClassService.UpdateClass.request.json",
+          "response": "ClassService.UpdateClass.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ClassService.UpdateClass.empty.request.json",
+          "response": "ClassService.UpdateClass.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ClassService.UpdateClass.enum99.request.json",
+          "response": "ClassService.UpdateClass.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ClassService.UpdateClass.futureEnum.request.json",
+          "response": "ClassService.UpdateClass.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ClassService/UpdateTerm",
+      "requestType": "lessons.v2.UpdateTermRequest",
+      "responseType": "lessons.v2.UpdateTermResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ClassService.UpdateTerm.request.json",
+          "response": "ClassService.UpdateTerm.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ClassService.UpdateTerm.empty.request.json",
+          "response": "ClassService.UpdateTerm.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ClassService.UpdateTerm.enum99.request.json",
+          "response": "ClassService.UpdateTerm.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ClassService.UpdateTerm.futureEnum.request.json",
+          "response": "ClassService.UpdateTerm.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ClassService/UpdateTermScheme",
+      "requestType": "lessons.v2.UpdateTermSchemeRequest",
+      "responseType": "lessons.v2.UpdateTermSchemeResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ClassService.UpdateTermScheme.request.json",
+          "response": "ClassService.UpdateTermScheme.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ClassService.UpdateTermScheme.empty.request.json",
+          "response": "ClassService.UpdateTermScheme.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ClassService.UpdateTermScheme.enum99.request.json",
+          "response": "ClassService.UpdateTermScheme.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ClassService.UpdateTermScheme.futureEnum.request.json",
+          "response": "ClassService.UpdateTermScheme.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.DayService/GetDay",
+      "requestType": "lessons.v2.GetDayRequest",
+      "responseType": "lessons.v2.GetDayResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DayService.GetDay.request.json",
+          "response": "DayService.GetDay.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DayService.GetDay.empty.request.json",
+          "response": "DayService.GetDay.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DayService.GetDay.enum99.request.json",
+          "response": "DayService.GetDay.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DayService.GetDay.futureEnum.request.json",
+          "response": "DayService.GetDay.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.DayService/UpdateDay",
+      "requestType": "lessons.v2.UpdateDayRequest",
+      "responseType": "lessons.v2.UpdateDayResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DayService.UpdateDay.request.json",
+          "response": "DayService.UpdateDay.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DayService.UpdateDay.empty.request.json",
+          "response": "DayService.UpdateDay.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DayService.UpdateDay.enum99.request.json",
+          "response": "DayService.UpdateDay.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DayService.UpdateDay.futureEnum.request.json",
+          "response": "DayService.UpdateDay.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "none",
+      "method": "lessons.v2.DeviceService/CreateDevice",
+      "requestType": "lessons.v2.CreateDeviceRequest",
+      "responseType": "lessons.v2.CreateDeviceResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DeviceService.CreateDevice.request.json",
+          "response": "DeviceService.CreateDevice.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DeviceService.CreateDevice.empty.request.json",
+          "response": "DeviceService.CreateDevice.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DeviceService.CreateDevice.enum99.request.json",
+          "response": "DeviceService.CreateDevice.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DeviceService.CreateDevice.futureEnum.request.json",
+          "response": "DeviceService.CreateDevice.futureEnum.response.json"
+        }
+      ],
+      "unread": {
+        "timezone": "Session has no zone; the schedule window remains the class-zone source."
+      }
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/BatchUpdateCorrections",
+      "requestType": "lessons.v2.BatchUpdateCorrectionsRequest",
+      "responseType": "lessons.v2.BatchUpdateCorrectionsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.BatchUpdateCorrections.request.json",
+          "response": "DiaryService.BatchUpdateCorrections.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.BatchUpdateCorrections.empty.request.json",
+          "response": "DiaryService.BatchUpdateCorrections.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.BatchUpdateCorrections.enum99.request.json",
+          "response": "DiaryService.BatchUpdateCorrections.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.BatchUpdateCorrections.futureEnum.request.json",
+          "response": "DiaryService.BatchUpdateCorrections.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/ClearCorrections",
+      "requestType": "lessons.v2.ClearCorrectionsRequest",
+      "responseType": "lessons.v2.ClearCorrectionsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.ClearCorrections.request.json",
+          "response": "DiaryService.ClearCorrections.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.ClearCorrections.empty.request.json",
+          "response": "DiaryService.ClearCorrections.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.ClearCorrections.enum99.request.json",
+          "response": "DiaryService.ClearCorrections.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.ClearCorrections.futureEnum.request.json",
+          "response": "DiaryService.ClearCorrections.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "none",
+      "method": "lessons.v2.DiaryService/CreateDiarySession",
+      "requestType": "lessons.v2.CreateDiarySessionRequest",
+      "responseType": "lessons.v2.CreateDiarySessionResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.CreateDiarySession.request.json",
+          "response": "DiaryService.CreateDiarySession.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.CreateDiarySession.empty.request.json",
+          "response": "DiaryService.CreateDiarySession.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.CreateDiarySession.enum99.request.json",
+          "response": "DiaryService.CreateDiarySession.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.CreateDiarySession.futureEnum.request.json",
+          "response": "DiaryService.CreateDiarySession.futureEnum.response.json"
+        },
+        {
+          "kind": "oneof:petersburg",
+          "request": "DiaryService.CreateDiarySession.oneof-petersburg.request.json",
+          "response": "DiaryService.CreateDiarySession.oneof-petersburg.response.json"
+        },
+        {
+          "kind": "oneof:netschool",
+          "request": "DiaryService.CreateDiarySession.oneof-netschool.request.json",
+          "response": "DiaryService.CreateDiarySession.oneof-netschool.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/DeleteDiarySession",
+      "requestType": "lessons.v2.DeleteDiarySessionRequest",
+      "responseType": "lessons.v2.DeleteDiarySessionResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.DeleteDiarySession.request.json",
+          "response": "DiaryService.DeleteDiarySession.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.DeleteDiarySession.empty.request.json",
+          "response": "DiaryService.DeleteDiarySession.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.DeleteDiarySession.enum99.request.json",
+          "response": "DiaryService.DeleteDiarySession.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.DeleteDiarySession.futureEnum.request.json",
+          "response": "DiaryService.DeleteDiarySession.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "none",
+      "method": "lessons.v2.DiaryService/GetDiaryCapabilities",
+      "requestType": "lessons.v2.GetDiaryCapabilitiesRequest",
+      "responseType": "lessons.v2.GetDiaryCapabilitiesResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.GetDiaryCapabilities.request.json",
+          "response": "DiaryService.GetDiaryCapabilities.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.GetDiaryCapabilities.empty.request.json",
+          "response": "DiaryService.GetDiaryCapabilities.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.GetDiaryCapabilities.enum99.request.json",
+          "response": "DiaryService.GetDiaryCapabilities.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.GetDiaryCapabilities.futureEnum.request.json",
+          "response": "DiaryService.GetDiaryCapabilities.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/ListCorrections",
+      "requestType": "lessons.v2.ListCorrectionsRequest",
+      "responseType": "lessons.v2.ListCorrectionsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.ListCorrections.request.json",
+          "response": "DiaryService.ListCorrections.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.ListCorrections.empty.request.json",
+          "response": "DiaryService.ListCorrections.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.ListCorrections.enum99.request.json",
+          "response": "DiaryService.ListCorrections.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.ListCorrections.futureEnum.request.json",
+          "response": "DiaryService.ListCorrections.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/ListDiaryHomework",
+      "requestType": "lessons.v2.ListDiaryHomeworkRequest",
+      "responseType": "lessons.v2.ListDiaryHomeworkResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.ListDiaryHomework.request.json",
+          "response": "DiaryService.ListDiaryHomework.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.ListDiaryHomework.empty.request.json",
+          "response": "DiaryService.ListDiaryHomework.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.ListDiaryHomework.enum99.request.json",
+          "response": "DiaryService.ListDiaryHomework.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.ListDiaryHomework.futureEnum.request.json",
+          "response": "DiaryService.ListDiaryHomework.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/ListDiarySubjects",
+      "requestType": "lessons.v2.ListDiarySubjectsRequest",
+      "responseType": "lessons.v2.ListDiarySubjectsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.ListDiarySubjects.request.json",
+          "response": "DiaryService.ListDiarySubjects.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.ListDiarySubjects.empty.request.json",
+          "response": "DiaryService.ListDiarySubjects.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.ListDiarySubjects.enum99.request.json",
+          "response": "DiaryService.ListDiarySubjects.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.ListDiarySubjects.futureEnum.request.json",
+          "response": "DiaryService.ListDiarySubjects.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/ListMarks",
+      "requestType": "lessons.v2.ListMarksRequest",
+      "responseType": "lessons.v2.ListMarksResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.ListMarks.request.json",
+          "response": "DiaryService.ListMarks.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.ListMarks.empty.request.json",
+          "response": "DiaryService.ListMarks.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.ListMarks.enum99.request.json",
+          "response": "DiaryService.ListMarks.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.ListMarks.futureEnum.request.json",
+          "response": "DiaryService.ListMarks.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/ListPeriods",
+      "requestType": "lessons.v2.ListPeriodsRequest",
+      "responseType": "lessons.v2.ListPeriodsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.ListPeriods.request.json",
+          "response": "DiaryService.ListPeriods.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.ListPeriods.empty.request.json",
+          "response": "DiaryService.ListPeriods.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.ListPeriods.enum99.request.json",
+          "response": "DiaryService.ListPeriods.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.ListPeriods.futureEnum.request.json",
+          "response": "DiaryService.ListPeriods.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/ListScheduleDays",
+      "requestType": "lessons.v2.ListScheduleDaysRequest",
+      "responseType": "lessons.v2.ListScheduleDaysResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.ListScheduleDays.request.json",
+          "response": "DiaryService.ListScheduleDays.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.ListScheduleDays.empty.request.json",
+          "response": "DiaryService.ListScheduleDays.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.ListScheduleDays.enum99.request.json",
+          "response": "DiaryService.ListScheduleDays.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.ListScheduleDays.futureEnum.request.json",
+          "response": "DiaryService.ListScheduleDays.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/ListStudents",
+      "requestType": "lessons.v2.ListStudentsRequest",
+      "responseType": "lessons.v2.ListStudentsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.ListStudents.request.json",
+          "response": "DiaryService.ListStudents.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.ListStudents.empty.request.json",
+          "response": "DiaryService.ListStudents.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.ListStudents.enum99.request.json",
+          "response": "DiaryService.ListStudents.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.ListStudents.futureEnum.request.json",
+          "response": "DiaryService.ListStudents.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/ListTeachers",
+      "requestType": "lessons.v2.ListTeachersRequest",
+      "responseType": "lessons.v2.ListTeachersResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.ListTeachers.request.json",
+          "response": "DiaryService.ListTeachers.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.ListTeachers.empty.request.json",
+          "response": "DiaryService.ListTeachers.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.ListTeachers.enum99.request.json",
+          "response": "DiaryService.ListTeachers.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.ListTeachers.futureEnum.request.json",
+          "response": "DiaryService.ListTeachers.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/ListTurnstileEvents",
+      "requestType": "lessons.v2.ListTurnstileEventsRequest",
+      "responseType": "lessons.v2.ListTurnstileEventsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.ListTurnstileEvents.request.json",
+          "response": "DiaryService.ListTurnstileEvents.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.ListTurnstileEvents.empty.request.json",
+          "response": "DiaryService.ListTurnstileEvents.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.ListTurnstileEvents.enum99.request.json",
+          "response": "DiaryService.ListTurnstileEvents.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.ListTurnstileEvents.futureEnum.request.json",
+          "response": "DiaryService.ListTurnstileEvents.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "diary",
+      "method": "lessons.v2.DiaryService/ResetCorrections",
+      "requestType": "lessons.v2.ResetCorrectionsRequest",
+      "responseType": "lessons.v2.ResetCorrectionsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DiaryService.ResetCorrections.request.json",
+          "response": "DiaryService.ResetCorrections.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DiaryService.ResetCorrections.empty.request.json",
+          "response": "DiaryService.ResetCorrections.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DiaryService.ResetCorrections.enum99.request.json",
+          "response": "DiaryService.ResetCorrections.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DiaryService.ResetCorrections.futureEnum.request.json",
+          "response": "DiaryService.ResetCorrections.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "none",
+      "method": "lessons.v2.DirectoryService/ListSchoolRegions",
+      "requestType": "lessons.v2.ListSchoolRegionsRequest",
+      "responseType": "lessons.v2.ListSchoolRegionsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DirectoryService.ListSchoolRegions.request.json",
+          "response": "DirectoryService.ListSchoolRegions.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DirectoryService.ListSchoolRegions.empty.request.json",
+          "response": "DirectoryService.ListSchoolRegions.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DirectoryService.ListSchoolRegions.enum99.request.json",
+          "response": "DirectoryService.ListSchoolRegions.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DirectoryService.ListSchoolRegions.futureEnum.request.json",
+          "response": "DirectoryService.ListSchoolRegions.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.DirectoryService/ListSchools",
+      "requestType": "lessons.v2.ListSchoolsRequest",
+      "responseType": "lessons.v2.ListSchoolsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "DirectoryService.ListSchools.request.json",
+          "response": "DirectoryService.ListSchools.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "DirectoryService.ListSchools.empty.request.json",
+          "response": "DirectoryService.ListSchools.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "DirectoryService.ListSchools.enum99.request.json",
+          "response": "DirectoryService.ListSchools.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "DirectoryService.ListSchools.futureEnum.request.json",
+          "response": "DirectoryService.ListSchools.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.EventService/CreateEvent",
+      "requestType": "lessons.v2.CreateEventRequest",
+      "responseType": "lessons.v2.CreateEventResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "EventService.CreateEvent.request.json",
+          "response": "EventService.CreateEvent.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "EventService.CreateEvent.empty.request.json",
+          "response": "EventService.CreateEvent.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "EventService.CreateEvent.enum99.request.json",
+          "response": "EventService.CreateEvent.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "EventService.CreateEvent.futureEnum.request.json",
+          "response": "EventService.CreateEvent.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.EventService/DeleteEvent",
+      "requestType": "lessons.v2.DeleteEventRequest",
+      "responseType": "lessons.v2.DeleteEventResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "EventService.DeleteEvent.request.json",
+          "response": "EventService.DeleteEvent.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "EventService.DeleteEvent.empty.request.json",
+          "response": "EventService.DeleteEvent.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "EventService.DeleteEvent.enum99.request.json",
+          "response": "EventService.DeleteEvent.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "EventService.DeleteEvent.futureEnum.request.json",
+          "response": "EventService.DeleteEvent.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.EventService/GetEvent",
+      "requestType": "lessons.v2.GetEventRequest",
+      "responseType": "lessons.v2.GetEventResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "EventService.GetEvent.request.json",
+          "response": "EventService.GetEvent.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "EventService.GetEvent.empty.request.json",
+          "response": "EventService.GetEvent.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "EventService.GetEvent.enum99.request.json",
+          "response": "EventService.GetEvent.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "EventService.GetEvent.futureEnum.request.json",
+          "response": "EventService.GetEvent.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.EventService/ListEvents",
+      "requestType": "lessons.v2.ListEventsRequest",
+      "responseType": "lessons.v2.ListEventsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "EventService.ListEvents.request.json",
+          "response": "EventService.ListEvents.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "EventService.ListEvents.empty.request.json",
+          "response": "EventService.ListEvents.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "EventService.ListEvents.enum99.request.json",
+          "response": "EventService.ListEvents.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "EventService.ListEvents.futureEnum.request.json",
+          "response": "EventService.ListEvents.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.EventService/UpdateEvent",
+      "requestType": "lessons.v2.UpdateEventRequest",
+      "responseType": "lessons.v2.UpdateEventResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "EventService.UpdateEvent.request.json",
+          "response": "EventService.UpdateEvent.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "EventService.UpdateEvent.empty.request.json",
+          "response": "EventService.UpdateEvent.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "EventService.UpdateEvent.enum99.request.json",
+          "response": "EventService.UpdateEvent.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "EventService.UpdateEvent.futureEnum.request.json",
+          "response": "EventService.UpdateEvent.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.HomeworkService/CreateHomework",
+      "requestType": "lessons.v2.CreateHomeworkRequest",
+      "responseType": "lessons.v2.CreateHomeworkResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "HomeworkService.CreateHomework.request.json",
+          "response": "HomeworkService.CreateHomework.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "HomeworkService.CreateHomework.empty.request.json",
+          "response": "HomeworkService.CreateHomework.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "HomeworkService.CreateHomework.enum99.request.json",
+          "response": "HomeworkService.CreateHomework.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "HomeworkService.CreateHomework.futureEnum.request.json",
+          "response": "HomeworkService.CreateHomework.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.HomeworkService/DeleteHomework",
+      "requestType": "lessons.v2.DeleteHomeworkRequest",
+      "responseType": "lessons.v2.DeleteHomeworkResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "HomeworkService.DeleteHomework.request.json",
+          "response": "HomeworkService.DeleteHomework.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "HomeworkService.DeleteHomework.empty.request.json",
+          "response": "HomeworkService.DeleteHomework.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "HomeworkService.DeleteHomework.enum99.request.json",
+          "response": "HomeworkService.DeleteHomework.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "HomeworkService.DeleteHomework.futureEnum.request.json",
+          "response": "HomeworkService.DeleteHomework.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.HomeworkService/GetHomework",
+      "requestType": "lessons.v2.GetHomeworkRequest",
+      "responseType": "lessons.v2.GetHomeworkResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "HomeworkService.GetHomework.request.json",
+          "response": "HomeworkService.GetHomework.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "HomeworkService.GetHomework.empty.request.json",
+          "response": "HomeworkService.GetHomework.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "HomeworkService.GetHomework.enum99.request.json",
+          "response": "HomeworkService.GetHomework.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "HomeworkService.GetHomework.futureEnum.request.json",
+          "response": "HomeworkService.GetHomework.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.HomeworkService/ListHomework",
+      "requestType": "lessons.v2.ListHomeworkRequest",
+      "responseType": "lessons.v2.ListHomeworkResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "HomeworkService.ListHomework.request.json",
+          "response": "HomeworkService.ListHomework.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "HomeworkService.ListHomework.empty.request.json",
+          "response": "HomeworkService.ListHomework.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "HomeworkService.ListHomework.enum99.request.json",
+          "response": "HomeworkService.ListHomework.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "HomeworkService.ListHomework.futureEnum.request.json",
+          "response": "HomeworkService.ListHomework.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.HomeworkService/UpdateHomework",
+      "requestType": "lessons.v2.UpdateHomeworkRequest",
+      "responseType": "lessons.v2.UpdateHomeworkResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "HomeworkService.UpdateHomework.request.json",
+          "response": "HomeworkService.UpdateHomework.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "HomeworkService.UpdateHomework.empty.request.json",
+          "response": "HomeworkService.UpdateHomework.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "HomeworkService.UpdateHomework.enum99.request.json",
+          "response": "HomeworkService.UpdateHomework.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "HomeworkService.UpdateHomework.futureEnum.request.json",
+          "response": "HomeworkService.UpdateHomework.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/CreateCalendarFeed",
+      "requestType": "lessons.v2.CreateCalendarFeedRequest",
+      "responseType": "lessons.v2.CreateCalendarFeedResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.CreateCalendarFeed.request.json",
+          "response": "MeService.CreateCalendarFeed.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.CreateCalendarFeed.empty.request.json",
+          "response": "MeService.CreateCalendarFeed.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.CreateCalendarFeed.enum99.request.json",
+          "response": "MeService.CreateCalendarFeed.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.CreateCalendarFeed.futureEnum.request.json",
+          "response": "MeService.CreateCalendarFeed.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/CreateHomeworkTick",
+      "requestType": "lessons.v2.CreateHomeworkTickRequest",
+      "responseType": "lessons.v2.CreateHomeworkTickResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.CreateHomeworkTick.request.json",
+          "response": "MeService.CreateHomeworkTick.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.CreateHomeworkTick.empty.request.json",
+          "response": "MeService.CreateHomeworkTick.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.CreateHomeworkTick.enum99.request.json",
+          "response": "MeService.CreateHomeworkTick.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.CreateHomeworkTick.futureEnum.request.json",
+          "response": "MeService.CreateHomeworkTick.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/CreateLinkCode",
+      "requestType": "lessons.v2.CreateLinkCodeRequest",
+      "responseType": "lessons.v2.CreateLinkCodeResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.CreateLinkCode.request.json",
+          "response": "MeService.CreateLinkCode.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.CreateLinkCode.empty.request.json",
+          "response": "MeService.CreateLinkCode.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.CreateLinkCode.enum99.request.json",
+          "response": "MeService.CreateLinkCode.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.CreateLinkCode.futureEnum.request.json",
+          "response": "MeService.CreateLinkCode.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/CreateTask",
+      "requestType": "lessons.v2.CreateTaskRequest",
+      "responseType": "lessons.v2.CreateTaskResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.CreateTask.request.json",
+          "response": "MeService.CreateTask.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.CreateTask.empty.request.json",
+          "response": "MeService.CreateTask.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.CreateTask.enum99.request.json",
+          "response": "MeService.CreateTask.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.CreateTask.futureEnum.request.json",
+          "response": "MeService.CreateTask.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/DeleteHomeworkTick",
+      "requestType": "lessons.v2.DeleteHomeworkTickRequest",
+      "responseType": "lessons.v2.DeleteHomeworkTickResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.DeleteHomeworkTick.request.json",
+          "response": "MeService.DeleteHomeworkTick.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.DeleteHomeworkTick.empty.request.json",
+          "response": "MeService.DeleteHomeworkTick.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.DeleteHomeworkTick.enum99.request.json",
+          "response": "MeService.DeleteHomeworkTick.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.DeleteHomeworkTick.futureEnum.request.json",
+          "response": "MeService.DeleteHomeworkTick.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/DeleteTask",
+      "requestType": "lessons.v2.DeleteTaskRequest",
+      "responseType": "lessons.v2.DeleteTaskResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.DeleteTask.request.json",
+          "response": "MeService.DeleteTask.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.DeleteTask.empty.request.json",
+          "response": "MeService.DeleteTask.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.DeleteTask.enum99.request.json",
+          "response": "MeService.DeleteTask.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.DeleteTask.futureEnum.request.json",
+          "response": "MeService.DeleteTask.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/GetCalendarFeed",
+      "requestType": "lessons.v2.GetCalendarFeedRequest",
+      "responseType": "lessons.v2.GetCalendarFeedResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.GetCalendarFeed.request.json",
+          "response": "MeService.GetCalendarFeed.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.GetCalendarFeed.empty.request.json",
+          "response": "MeService.GetCalendarFeed.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.GetCalendarFeed.enum99.request.json",
+          "response": "MeService.GetCalendarFeed.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.GetCalendarFeed.futureEnum.request.json",
+          "response": "MeService.GetCalendarFeed.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/GetMe",
+      "requestType": "lessons.v2.GetMeRequest",
+      "responseType": "lessons.v2.GetMeResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.GetMe.request.json",
+          "response": "MeService.GetMe.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.GetMe.empty.request.json",
+          "response": "MeService.GetMe.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.GetMe.enum99.request.json",
+          "response": "MeService.GetMe.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.GetMe.futureEnum.request.json",
+          "response": "MeService.GetMe.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/GetTask",
+      "requestType": "lessons.v2.GetTaskRequest",
+      "responseType": "lessons.v2.GetTaskResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.GetTask.request.json",
+          "response": "MeService.GetTask.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.GetTask.empty.request.json",
+          "response": "MeService.GetTask.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.GetTask.enum99.request.json",
+          "response": "MeService.GetTask.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.GetTask.futureEnum.request.json",
+          "response": "MeService.GetTask.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/ListTasks",
+      "requestType": "lessons.v2.ListTasksRequest",
+      "responseType": "lessons.v2.ListTasksResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.ListTasks.request.json",
+          "response": "MeService.ListTasks.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.ListTasks.empty.request.json",
+          "response": "MeService.ListTasks.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.ListTasks.enum99.request.json",
+          "response": "MeService.ListTasks.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.ListTasks.futureEnum.request.json",
+          "response": "MeService.ListTasks.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/UnlinkMe",
+      "requestType": "lessons.v2.UnlinkMeRequest",
+      "responseType": "lessons.v2.UnlinkMeResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.UnlinkMe.request.json",
+          "response": "MeService.UnlinkMe.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.UnlinkMe.empty.request.json",
+          "response": "MeService.UnlinkMe.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.UnlinkMe.enum99.request.json",
+          "response": "MeService.UnlinkMe.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.UnlinkMe.futureEnum.request.json",
+          "response": "MeService.UnlinkMe.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.MeService/UpdateTask",
+      "requestType": "lessons.v2.UpdateTaskRequest",
+      "responseType": "lessons.v2.UpdateTaskResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "MeService.UpdateTask.request.json",
+          "response": "MeService.UpdateTask.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "MeService.UpdateTask.empty.request.json",
+          "response": "MeService.UpdateTask.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "MeService.UpdateTask.enum99.request.json",
+          "response": "MeService.UpdateTask.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "MeService.UpdateTask.futureEnum.request.json",
+          "response": "MeService.UpdateTask.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.ScheduleService/GetScheduleWindow",
+      "requestType": "lessons.v2.GetScheduleWindowRequest",
+      "responseType": "lessons.v2.GetScheduleWindowResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "ScheduleService.GetScheduleWindow.request.json",
+          "response": "ScheduleService.GetScheduleWindow.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "ScheduleService.GetScheduleWindow.empty.request.json",
+          "response": "ScheduleService.GetScheduleWindow.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "ScheduleService.GetScheduleWindow.enum99.request.json",
+          "response": "ScheduleService.GetScheduleWindow.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "ScheduleService.GetScheduleWindow.futureEnum.request.json",
+          "response": "ScheduleService.GetScheduleWindow.futureEnum.response.json"
+        }
+      ],
+      "unread": {
+        "window.device": "Device permissions still come from v1 GetMe until 5b.",
+        "window.schoolClass.city": "SchoolClassInfo has no city; directory moves in 5b."
+      }
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.SubjectService/CreateSubject",
+      "requestType": "lessons.v2.CreateSubjectRequest",
+      "responseType": "lessons.v2.CreateSubjectResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "SubjectService.CreateSubject.request.json",
+          "response": "SubjectService.CreateSubject.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "SubjectService.CreateSubject.empty.request.json",
+          "response": "SubjectService.CreateSubject.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "SubjectService.CreateSubject.enum99.request.json",
+          "response": "SubjectService.CreateSubject.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "SubjectService.CreateSubject.futureEnum.request.json",
+          "response": "SubjectService.CreateSubject.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.SubjectService/DeleteSubject",
+      "requestType": "lessons.v2.DeleteSubjectRequest",
+      "responseType": "lessons.v2.DeleteSubjectResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "SubjectService.DeleteSubject.request.json",
+          "response": "SubjectService.DeleteSubject.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "SubjectService.DeleteSubject.empty.request.json",
+          "response": "SubjectService.DeleteSubject.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "SubjectService.DeleteSubject.enum99.request.json",
+          "response": "SubjectService.DeleteSubject.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "SubjectService.DeleteSubject.futureEnum.request.json",
+          "response": "SubjectService.DeleteSubject.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.SubjectService/GetSubject",
+      "requestType": "lessons.v2.GetSubjectRequest",
+      "responseType": "lessons.v2.GetSubjectResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "SubjectService.GetSubject.request.json",
+          "response": "SubjectService.GetSubject.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "SubjectService.GetSubject.empty.request.json",
+          "response": "SubjectService.GetSubject.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "SubjectService.GetSubject.enum99.request.json",
+          "response": "SubjectService.GetSubject.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "SubjectService.GetSubject.futureEnum.request.json",
+          "response": "SubjectService.GetSubject.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.SubjectService/ListSubjects",
+      "requestType": "lessons.v2.ListSubjectsRequest",
+      "responseType": "lessons.v2.ListSubjectsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "SubjectService.ListSubjects.request.json",
+          "response": "SubjectService.ListSubjects.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "SubjectService.ListSubjects.empty.request.json",
+          "response": "SubjectService.ListSubjects.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "SubjectService.ListSubjects.enum99.request.json",
+          "response": "SubjectService.ListSubjects.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "SubjectService.ListSubjects.futureEnum.request.json",
+          "response": "SubjectService.ListSubjects.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.SubjectService/UpdateSubject",
+      "requestType": "lessons.v2.UpdateSubjectRequest",
+      "responseType": "lessons.v2.UpdateSubjectResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "SubjectService.UpdateSubject.request.json",
+          "response": "SubjectService.UpdateSubject.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "SubjectService.UpdateSubject.empty.request.json",
+          "response": "SubjectService.UpdateSubject.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "SubjectService.UpdateSubject.enum99.request.json",
+          "response": "SubjectService.UpdateSubject.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "SubjectService.UpdateSubject.futureEnum.request.json",
+          "response": "SubjectService.UpdateSubject.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.SubstitutionService/CreateSubstitution",
+      "requestType": "lessons.v2.CreateSubstitutionRequest",
+      "responseType": "lessons.v2.CreateSubstitutionResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "SubstitutionService.CreateSubstitution.request.json",
+          "response": "SubstitutionService.CreateSubstitution.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "SubstitutionService.CreateSubstitution.empty.request.json",
+          "response": "SubstitutionService.CreateSubstitution.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "SubstitutionService.CreateSubstitution.enum99.request.json",
+          "response": "SubstitutionService.CreateSubstitution.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "SubstitutionService.CreateSubstitution.futureEnum.request.json",
+          "response": "SubstitutionService.CreateSubstitution.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.SubstitutionService/DeleteSubstitution",
+      "requestType": "lessons.v2.DeleteSubstitutionRequest",
+      "responseType": "lessons.v2.DeleteSubstitutionResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "SubstitutionService.DeleteSubstitution.request.json",
+          "response": "SubstitutionService.DeleteSubstitution.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "SubstitutionService.DeleteSubstitution.empty.request.json",
+          "response": "SubstitutionService.DeleteSubstitution.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "SubstitutionService.DeleteSubstitution.enum99.request.json",
+          "response": "SubstitutionService.DeleteSubstitution.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "SubstitutionService.DeleteSubstitution.futureEnum.request.json",
+          "response": "SubstitutionService.DeleteSubstitution.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.SubstitutionService/GetSubstitution",
+      "requestType": "lessons.v2.GetSubstitutionRequest",
+      "responseType": "lessons.v2.GetSubstitutionResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "SubstitutionService.GetSubstitution.request.json",
+          "response": "SubstitutionService.GetSubstitution.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "SubstitutionService.GetSubstitution.empty.request.json",
+          "response": "SubstitutionService.GetSubstitution.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "SubstitutionService.GetSubstitution.enum99.request.json",
+          "response": "SubstitutionService.GetSubstitution.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "SubstitutionService.GetSubstitution.futureEnum.request.json",
+          "response": "SubstitutionService.GetSubstitution.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.SubstitutionService/ListSubstitutions",
+      "requestType": "lessons.v2.ListSubstitutionsRequest",
+      "responseType": "lessons.v2.ListSubstitutionsResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "SubstitutionService.ListSubstitutions.request.json",
+          "response": "SubstitutionService.ListSubstitutions.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "SubstitutionService.ListSubstitutions.empty.request.json",
+          "response": "SubstitutionService.ListSubstitutions.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "SubstitutionService.ListSubstitutions.enum99.request.json",
+          "response": "SubstitutionService.ListSubstitutions.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "SubstitutionService.ListSubstitutions.futureEnum.request.json",
+          "response": "SubstitutionService.ListSubstitutions.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.SubstitutionService/UpdateSubstitution",
+      "requestType": "lessons.v2.UpdateSubstitutionRequest",
+      "responseType": "lessons.v2.UpdateSubstitutionResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "SubstitutionService.UpdateSubstitution.request.json",
+          "response": "SubstitutionService.UpdateSubstitution.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "SubstitutionService.UpdateSubstitution.empty.request.json",
+          "response": "SubstitutionService.UpdateSubstitution.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "SubstitutionService.UpdateSubstitution.enum99.request.json",
+          "response": "SubstitutionService.UpdateSubstitution.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "SubstitutionService.UpdateSubstitution.futureEnum.request.json",
+          "response": "SubstitutionService.UpdateSubstitution.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.TimetableService/GetTimetable",
+      "requestType": "lessons.v2.GetTimetableRequest",
+      "responseType": "lessons.v2.GetTimetableResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "TimetableService.GetTimetable.request.json",
+          "response": "TimetableService.GetTimetable.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "TimetableService.GetTimetable.empty.request.json",
+          "response": "TimetableService.GetTimetable.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "TimetableService.GetTimetable.enum99.request.json",
+          "response": "TimetableService.GetTimetable.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "TimetableService.GetTimetable.futureEnum.request.json",
+          "response": "TimetableService.GetTimetable.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.TimetableService/ImportTimetable",
+      "requestType": "lessons.v2.ImportTimetableRequest",
+      "responseType": "lessons.v2.ImportTimetableResponse",
+      "rest": true,
+      "samples": [
+        {
+          "kind": "full",
+          "request": "TimetableService.ImportTimetable.request.json",
+          "response": "TimetableService.ImportTimetable.response.json"
+        },
+        {
+          "kind": "empty",
+          "request": "TimetableService.ImportTimetable.empty.request.json",
+          "response": "TimetableService.ImportTimetable.empty.response.json"
+        },
+        {
+          "kind": "enum99",
+          "request": "TimetableService.ImportTimetable.enum99.request.json",
+          "response": "TimetableService.ImportTimetable.enum99.response.json"
+        },
+        {
+          "kind": "futureEnum",
+          "request": "TimetableService.ImportTimetable.futureEnum.request.json",
+          "response": "TimetableService.ImportTimetable.futureEnum.response.json"
+        }
+      ],
+      "unread": {}
+    },
+    {
+      "credential": "device",
+      "method": "lessons.v2.WatchService/WatchClass",
+      "requestType": "lessons.v2.WatchClassRequest",
+      "responseType": "lessons.v2.WatchClassResponse",
+      "rest": false,
+      "samples": [],
+      "unread": {}
+    }
+  ]
+}

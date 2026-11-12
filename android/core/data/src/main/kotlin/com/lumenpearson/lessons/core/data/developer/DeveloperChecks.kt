@@ -122,7 +122,7 @@ internal typealias Answer = Pair<CheckOutcome, String>
  * failure: the API answers, and it is the reads that gained a column that fail.
  */
 internal fun serverAnswer(status: ServerStatus): Answer = when (status) {
-    is ServerStatus.Ok -> CheckOutcome.PASS to "api ${status.apiVersion} · schema ${status.schema ?: "?"}"
+    is ServerStatus.Ok -> CheckOutcome.PASS to "server API ${status.apiVersion} · schema ${status.schema ?: "?"}"
     is ServerStatus.Degraded ->
         CheckOutcome.WARN to "degraded · schema ${status.schema ?: "?"}, code expects ${status.expected ?: "?"}"
     ServerStatus.NotConfigured -> CheckOutcome.SKIP to "no server address"
