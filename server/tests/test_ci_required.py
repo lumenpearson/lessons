@@ -99,6 +99,49 @@ def test_requested_apk_source_is_checked_before_signing(expected, actual, allowe
     assert (result.returncode == 0) is allowed, result.stdout + result.stderr
 
 
+@pytest.mark.parametrize(
+    "native,build_type,signed,test_fails,expected_calls,passes",
+    [
+        (False, "release", "true", False, [["test", "assembleRelease"]], True),
+        (False, "debug", "false", False, [["test", "assembleDebug"]], True),
+        (False, "both", "true", False, [["test", "assembleDebug", "assembleRelease"]], True),
+        (True, "release", "true", False,
+         [["test"], ["assembleRelease", ":app:assembleReleaseAndroidTest",
+                       "-Plessons.nativeCheck=true"]], True),
+        (True, "release", "false", False, [], False),
+        (True, "release", "true", True, [["test"]], False),
+        (False, "release", "true", True, [["test", "assembleRelease"]], False),
+    ],
+    ids=["ordinary-release", "ordinary-debug", "ordinary-both", "native",
+         "native-unsigned", "native-test-failure", "ordinary-test-failure"],
+)
+def test_native_apk_packaging_does_not_change_the_complete_jvm_gate(
+    native, build_type, signed, test_fails, expected_calls, passes, tmp_path,
+) -> None:
+    bash = shutil.which("bash")
+    assert bash is not None
+    apk = yaml.safe_load((ROOT / ".github/workflows/apk.yml").read_text(encoding="utf-8"))
+    build = next(step for step in apk["jobs"]["build"]["steps"] if step.get("name") == "Build")
+    trace = tmp_path / "calls"
+    gradle = tmp_path / "gradlew"
+    gradle.write_text(
+        '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$TRACE"\n'
+        'case " $* " in *" test "*) [ "$FAKE_TEST_FAILS" != "true" ] || exit 17 ;; esac\n',
+        encoding="utf-8",
+    )
+    gradle.chmod(0o755)
+    ran = subprocess.run(
+        [bash, "-e", "-c", build["run"]], cwd=tmp_path,
+        env={**os.environ, "INPUT_NATIVE_CHECK": str(native).lower(),
+             "INPUT_BUILD_TYPE": build_type, "RELEASE_SIGNED": signed,
+             "FAKE_TEST_FAILS": str(test_fails).lower(), "TRACE": trace.as_posix()},
+        capture_output=True, text=True, check=False, timeout=30,
+    )
+    calls = [line.split() for line in trace.read_text().splitlines()] if trace.exists() else []
+    assert calls == expected_calls, ran.stdout + ran.stderr
+    assert (ran.returncode == 0) is passes, ran.stdout + ran.stderr
+
+
 def test_the_summary_job_needs_every_other_job_and_runs_whatever_they_ended_as() -> None:
     jobs = _jobs()
     summary = jobs["ci"]

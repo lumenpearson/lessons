@@ -214,6 +214,10 @@ common signing certificate. The main APK remains in **lessons-apk**. The native
 path forces Connect without app streaming, uses `-Plessons.nativeCheck=true` to
 target release rather than debug, and processes the test APK with the tested
 app's R8 mapping. It adds no production test entry point or codec keep rule.
+Its complete JVM `test` gate runs first without that property; a second Gradle
+invocation applies it only to APK packaging. Otherwise release-target manifest
+selection hides Compose's debug host activity from Robolectric (#737). A failed
+JVM gate stops the native path before either APK is packaged or uploaded.
 The two narrow test-only missing-annotation rules cover AndroidX Test's
 compile-time Error Prone metadata; production shrinking remains strict.
 
