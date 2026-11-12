@@ -15,6 +15,7 @@ file, and its one step to the verdict it is there to give.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -140,6 +141,71 @@ def test_native_apk_packaging_does_not_change_the_complete_jvm_gate(
     calls = [line.split() for line in trace.read_text().splitlines()] if trace.exists() else []
     assert calls == expected_calls, ran.stdout + ran.stderr
     assert (ran.returncode == 0) is passes, ran.stdout + ran.stderr
+
+
+@pytest.mark.parametrize(
+    "app_signers,test_signers,valid,passes",
+    [
+        ([('Signer #1', 'a')], [('Signer #1', 'a')], True, True),
+        ([('V2 Signer:', 'a')], [('V2 Signer:', 'a')], True, True),
+        ([('Signer #1', 'a')], [('V2 Signer:', 'a')], True, True),
+        ([('V1 Signer:', 'a'), ('V2 Signer:', 'a')], [('V2 Signer:', 'a')], True, True),
+        ([('V2 Signer:', 'a'), ('Source Stamp Signer:', 'b')],
+         [('V2 Signer:', 'a')], True, True),
+        ([('V2 Signer:', 'a')], [('V2 Signer:', 'b')], True, False),
+        ([('Signer #1', 'a')], [('Signer #1', 'a')], False, False),
+        ([], [('Signer #1', 'a')], True, False),
+        ([('Signer #1', 'a')], [], True, False),
+        ([('Source Stamp Signer:', 'a')], [('V2 Signer:', 'a')], True, False),
+        ([('Signer #1', 'a'), ('Signer #2', 'b')], [('Signer #1', 'a')], True, False),
+    ],
+    ids=["legacy", "build-tools37", "mixed-tools", "same-key-schemes", "ignore-source-stamp",
+         "different-keys", "invalid-signature", "missing-app", "missing-test",
+         "source-stamp-only", "additional-key"],
+)
+def test_native_apk_pair_requires_one_common_verified_signing_identity(
+    app_signers, test_signers, valid, passes, tmp_path,
+) -> None:
+    bash = shutil.which("bash")
+    assert bash is not None
+    apk = yaml.safe_load((ROOT / ".github/workflows/apk.yml").read_text(encoding="utf-8"))
+    verify = next(step for step in apk["jobs"]["build"]["steps"]
+                  if step.get("name") == "Verify native APK pair")
+    signer = tmp_path / "sdk/build-tools/37.0.0/apksigner"
+    signer.parent.mkdir(parents=True)
+    signer.write_text(
+        '#!/usr/bin/env bash\ncase "$3" in\n'
+        '*/app-release.apk) printf "%s" "$FAKE_APP_CERTS"; '
+        '[ "$FAKE_VALID" = "true" ] || exit 9 ;;\n'
+        '*/app-release-androidTest.apk) printf "%s" "$FAKE_TEST_CERTS" ;;\n'
+        '*) exit 19 ;;\nesac\n', encoding="utf-8",
+    )
+    signer.chmod(0o755)
+    for relative in ("app/build/outputs/apk/release/app-release.apk",
+                     "app/build/outputs/apk/androidTest/release/app-release-androidTest.apk"):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"Local shell-control fixture, not an installable APK")
+
+    def output(signers):
+        return "".join(f"{name} certificate SHA-256 digest: {digit * 64}\n"
+                       for name, digit in signers)
+
+    ran = subprocess.run(
+        [bash, "-e", "-c", verify["run"]], cwd=tmp_path,
+        env={**os.environ, "ANDROID_HOME": (tmp_path / "sdk").as_posix(),
+             "RUNNER_TEMP": tmp_path.as_posix(), "VERSION_CODE": "1", "GITHUB_SHA": "c" * 40,
+             "FAKE_APP_CERTS": output(app_signers), "FAKE_TEST_CERTS": output(test_signers),
+             "FAKE_VALID": str(valid).lower()},
+        capture_output=True, text=True, check=False, timeout=30,
+    )
+    assert (ran.returncode == 0) is passes, ran.stdout + ran.stderr
+    receipt = tmp_path / "native-check/native-check.json"
+    assert receipt.exists() is passes
+    if passes:
+        metadata = json.loads(receipt.read_text())
+        assert metadata["certificate_sha256"] == "a" * 64
+        assert metadata["source_commit"] == "c" * 40
 
 
 def test_the_summary_job_needs_every_other_job_and_runs_whatever_they_ended_as() -> None:

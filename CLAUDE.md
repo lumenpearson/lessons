@@ -70,7 +70,7 @@ Server, from `server/`:
   `conftest.py` refuses to start when it would (#312)
 - **`ruff check app tests scripts migrations`** — exactly what CI lints; `ruff check .` from
   `server/` covers the same tree
-- **`pytest -q -n auto`** — 3899 tests, six of them skipped unless a
+- **`pytest -q -n auto`** — 3910 tests, six of them skipped unless a
   host is running (`-m host`, CI's «Host» job), plus eleven PostgreSQL-only lock
   checks skipped on SQLite, and **the exact command
   CI runs**. Not `python -m pytest`, which is what this line used to say: the `-m`
@@ -421,6 +421,7 @@ retains its own refusal status or original no-answer exception.
 
 - Only DEVICE_TOKEN_INVALID revokes v2 membership; bare401/CLIENT_TOO_OLD retain cache and tags (`V2MembershipLifecycleTest`, `V2SyncRepositoryTest`).
 - Run the complete JVM gate without the release AndroidTest target property; apply `lessons.nativeCheck=true` only to native APK packaging (`test_ci_required.py`, #737).
+- Parse apksigner certificate identities across numbered and scheme-labelled output, excluding source stamps and refusing distinct signer identities (`test_ci_required.py`, #740).
 - Schedule applies and revocations validate the sent server/token under the membership gate; completed exit/replacement wins (`V2InFlightMembershipTest`, `ScheduleObservationTest`).
 
 ## Conventions already true in this codebase

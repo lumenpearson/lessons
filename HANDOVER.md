@@ -6,124 +6,147 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-**12 November 2026 — Android transports, part 5a (#273): implementation delivered; signed/native gate correction #737.**
+**12 November 2026 — Android transports, part 5a (#273): implementation delivered; APK certificate-output correction #740.**
 The [approved design](docs/specs/2026-10-05-android-transports-design.md), decision
-#307 and the [six-task implementation plan](docs/specs/2026-11-12-android-transports-5a-plan.md)
-bound this batch. Working #733 merged to dev `f4ccd1e8`; promotion #736 merged to
-master `bc836f86`. Their exact-head/dev/promotion/master CI passed, and that
-production source was READY with all four aliases and healthy warmups. The first
-actual signed/native APK47 workflow failed before artifact upload or any native
-call. Correction [PR #738](https://github.com/lumenpearson/lessons/pull/738)
-uses the owned `work/apk-native-unit-gate-737` branch from dev `f4ccd1e8`, M11.
-The preceding verified installed artifact remains signed APK46 from #731/#732.
-All nine worktrees and the original Phone draft
-survive. Persistent branches are `master` and `dev`; only the merged working
-ref is retired, never its files or another worktree's unfinished changes.
+#307 and [six-task plan](docs/specs/2026-11-12-android-transports-5a-plan.md) bind
+this batch. Working #733 and promotion #736 delivered 5a through dev `f4ccd1e8`
+to master `bc836f86`. Correction #737 then merged through #738/#739: dev is
+`cb3364cb533e61b0f10e47a3cb6db014d013d1d6`, master is
+`23dc5bfccb3cbeee52ae0873ec0665f391ba62f3`. Their exact working/dev/promotion/master
+CI passed; production was READY at that exact master, with all four aliases,
+healthy public/authorized warmups and no error groups in the bounded log window.
+Issue737 actually closed; programme273 remains open for 5b/5c/5d.
 
-Schedule and Join now use domain-valued v2 remotes over the shared server client resources.
-The build selects REST, Connect or unary gRPC, with Connect the default. Every
-send reads a coherent current address/credential snapshot and carries the app's
-client version. Me/link codes, management, directory and diary retain v1 until
-5b. Installed v1 responses, the server client minimum and family installations
-are unchanged. Live host/streaming acceptance remains 5c; v1 retirement is later.
+Actual signed/native APK48 completed its ordinary JVM gate and release/test
+packaging, then the common-certificate guard refused the pair before upload.
+[PR #741](https://github.com/lumenpearson/lessons/pull/741), existing milestone11,
+owns correction740 on `work/apk-certificate-output-740` from dev `cb3364cb`.
+The last verified installed baseline remains signed APK46 from #731/#732.
+All nine worktree directories, the original Phone draft and private/raw evidence
+remain. Persistent branches are master/dev; retire only a verified merged
+working ref, preserving its files and every unfinished worktree.
 
-Generated Java lite/Connect code and strict canonical DTO infrastructure cover
-all75 unary methods and all76 credentials, with WatchClass explicitly non-REST.
-The75 bindings share606 descriptor-owned JSON fixtures. No protobuf Kotlin DSL,
-kotlin-reflect or moshi-kotlin runtime is added. Required application-owned Graph
-configuration also reaches concurrent/background-first callers. Only the
-DEVICE_TOKEN_INVALID reason removes a membership. Bare401, CLIENT_TOO_OLD and
-future refusals keep memberships, rows and tags; obsolete-client sync becomes
-permanent failure and prompts globally. v2 ETags have a separate namespace and
-all ordinary lifecycle wipes remove both generations. Unknown join codes,
-invite-only classes, device limits, throttling and missing-v2 compatibility cues
-remain distinct, including translated screen text.
+Schedule and Join now use domain-valued v2 remotes over shared server-client
+resources. The build selects REST, Connect or unary gRPC, with Connect default.
+Every send reads a coherent address/credential snapshot and carries the client
+version. Generated Java lite/Connect code and strict DTOs cover all75 unary
+methods and76 credentials, with WatchClass explicitly non-REST;75 bindings share
+606 descriptor-owned JSON fixtures. Required application-owned Graph setup also
+reaches background-first callers. No Kotlin protobuf DSL, kotlin-reflect or
+moshi-kotlin runtime is added. Me/link codes, management, directory and diary
+retain v1 until5b. Installed v1 answers, client minimum and family installations
+are unchanged; live host/streaming acceptance belongs to5c, v1 retirement later.
 
-The original implementation recorded3875passed/17skipped,3892 total server cases,
-and the complete1973-case Android gate after its review fixes. The #737 correction has a fresh complete
-server gate: Ruff; mypy242; bare pytest `-q -n auto` with8workers,
-**3882passed/17skipped in2182.38s**,3899 total cases. The17 skip identities are
-unchanged:6 live-host and11 PostgreSQL-only checks on SQLite. The complete ordinary
-Android `test assembleDebug assembleRelease detekt` invocation passed51.67s on
-frozen source with valid Gradle cache:1973 logical cases across app711,
-core:data782, core:designsystem205, core:model145 and widget130. Both completed
-report checks and all canonical declarations agree3899/1973. Follow-up Ruff,
-mypy and current declaration/reference checks passed after measured document
-updates. Complete XML/logs, original/failed/filtered reports and the previous
-3877-case server report remain separate; no filtered report is credited as full.
+Only DEVICE_TOKEN_INVALID removes a membership. Bare401, CLIENT_TOO_OLD and
+future refusals retain memberships, rows and tags; obsolete-client sync is
+permanent failure with a global prompt. v2 ETags use a separate namespace and
+ordinary lifecycle wipes remove both generations. Join refusals remain distinct,
+including translated UI text. Original review defects734/735 closed through736:
+late answers validate the sent identity under the short persistence/wipe gate,
+no lock spans the network, and a second NotModified without cached rows fails.
 
-Public Buf and its remote generator returned generic HTTP403, including with
-both inputs local. Official pinned local plugins remove that local execution
-blocker: two identical runs produced506 Android files and all48 existing Python
-Git blobs exactly; the Windows Python working bytes and lock stay untouched.
-Original final-head CI43202461339, dev43204520485, promotion43207051000 and
-master43208336108 all passed, including remote generation/diffs, Buf lint and
-both live-host adapters; PR runs also passed breaking comparison. Correction738
-still needs its own exact-head/dev/promotion/master CI. No Windows403 recovery
-is inferred. See [build.md](docs/build.md), "The v2
-contract and Buf". Preserve raw diagnostics and this batch's ledger under the
-ignored `.superpowers/sdd/2026-11-12-android-transports-5a-plan/` workspace.
+Public Buf and remote generation returned generic HTTP403, including with both
+inputs local. Official pinned local plugins removed the local execution blocker:
+two identical generations produced506 Android files and all48 existing Python
+Git blobs exactly; Python Windows working bytes and the lock stayed untouched.
+Original and737 exact-head/dev/promotion/master CI passed published remote
+generation/diffs, lint and both live-host adapters; PR runs also passed breaking
+comparison. Correction741 still needs its own CI. No Windows403 recovery or
+exact upstream refusal reason is inferred. See [build.md](docs/build.md),
+"The v2 contract and Buf", and preserve the private generation diagnostics.
 
-Actual signed/native run43209912625 failed after13m32s: the release-target
-property selected app release JVM tests without Compose's debug-only host
-activity;159 of711 cases failed in activity-resolution setup. An unchanged-source
-four-case reproduction failed4/4 in41.02s. A mistaken ordinary release-task
-selection later stopped before running tests and is not RED/GREEN proof.
-The corrected ordinary debug selection passed4/4 in19.95s. Seven new cases
-execute the real Build shell with a recording Gradle stub: the original native
-paths were RED2, then all24 cases in `test_ci_required.py` passed after the
-correction; the seven new cases execute the APK Build shell.
+APK47 had failed before upload: nativeCheck selected release JVM manifests,
+hiding Compose's debug-only host activity;159 of711 cases failed at setup.
+An unchanged-source four-case reproduction failed4/4. Correction737 keeps the
+complete ordinary `test` invocation before native-only release/test packaging,
+preserving every test, source/signing guard and production R8. Its seven new
+Build-shell cases observed RED2 then GREEN; the complete test file had24 cases.
+The local fallback-signed pair was packaging proof, not signed/native delivery.
 
-Native builds now run the complete ordinary JVM gate without the target property,
-then apply it only to release/test APK packaging. Ordinary builds keep one
-invocation. No tests, production shrinking or signing/source guards are removed;
-no test activity or keep rule enters production. The planned local main/test
-R8 packaging passed15s using debug-signing fallback, with test R8 actually run.
-It is not a delivery artifact or native proof. The actual signed master pair must match
-the reviewed SHA and preceding certificate, then run one bounded Connect call
-with the schema-valid, never-issued `!5A!` code in the separate Studio fixture.
-It must decode ErrorInfo as public UnknownCode without creating membership,
-restore the previous server URL, and retain fixture data on normal shutdown.
-No account journey, Terms acceptance, family rollout or widget resize is implied.
+APK48 exposed a separate output-format incompatibility. A new distinct private
+JKS fixture on unchanged23dc produced two valid APKs with the requested same
+certificate, rejecting the null-storeType hypothesis. The cached AGP DSL already
+initializes that field. The official Google Build Tools37 Linux archive was
+checked against its published SHA1 and size; only its verifier jar was extracted
+privately, without installing or changing the SDK. The same fixture pair and
+retained real signed APK46 verify under36 and37. Version37 emits `V2 Signer:`
+where the workflow expected `Signer #1`; the exact unchanged guard passes with36
+and fails with37 on the same pair, reproducing APK48's message.
 
-One fresh independent Astra review found three Important findings, no Critical:
-request/membership ownership for delayed refusals and success (#734), and false
-success on a second NotModified without cached rows (#735). Original10 defect
-cases were observed RED against unchanged production code, then GREEN among65
-focused cases and the complete1973-case Android run. New real-wire provenance,
-shared-resource, cross-facade gate and replacement-flight tests hold the fix.
-A late answer now validates its sent server/token under the same short gate as
-membership persistence/wipes; no lock spans the network. Obsolete conditional
-requests fail before sending, and retained inactive classes keep their own tags.
-Both defects closed through #736 on default master. That original cohort was not
-re-reviewed. One fresh independent review of correction738 atbf821754 found no
-Critical or Important issues and three Minors. Two verification-wording findings
-are clarified here; loss of argument boundaries in the recording Gradle stub
-remains deferred. Its current command is correct and the original defect is held,
-but a future quoted task list could escape that regression. The full finding and
-review verdict are in the same PR receipt. Three
-original Minors remain deferred in full in #733/#736:
+Correction740 reads certificate identity independently of its display label,
+normalizes CR, excludes source stamps and deduplicates repeated schemes. Exactly
+one common64-hex APK-signing identity and successful cryptographic verification
+remain mandatory. Missing, different or additional identities refuse receipt
+creation/upload. Signing DSL, SDK selection, R8 and source guards are unchanged.
+Eleven shell-behavior cases observed RED5/6passed against the original guard;
+the corrected complete file passed35 cases in15.95s. The actual corrected guard
+also passes both official tools on the same retained valid pair. Shell fixtures
+hold control flow and receipt behavior; they do not perform real cryptography.
+
+Fresh complete correction740 gates: Ruff passed; mypy passed242 modules; bare
+`pytest -q -n auto` with8workers passed **3893 cases and skipped17 in2147.67s**,
+**3910 total**. The17 skip identities match737:6 live-host and11 PostgreSQL-only
+cases on SQLite. Full Android `test assembleDebug assembleRelease detekt` passed
+85.8s with1973 logical cases: app711, data782, design205, model145, widget130.
+The source was frozen throughout both full gates. Complete reports, measured
+3910/1973 counts and every canonical declaration agree; postcount declaration/
+reference checks passed2 cases in13.59s with their own focused XML. The Android
+wrapper stopped after the successful gate because of a daemon-log PID parsing
+mistake; reports were retained and the own daemon stopped normally. A separately
+agreed server-only cohort followed, without rerunning Android. All observed own
+processes exited and fresh exact PID absence was read back before resource-idle.
+Original3892,737's3899, filtered and failed reports remain separate and preserved.
+
+One fresh independent Astra review of correction741 at `54b6eb5f` approved the
+change with no Critical or Important findings and six Minors. Four remain
+explicitly deferred: the matrix lacks equal two-distinct-signer sets on both
+sides; a digest-looking suffix inside certificate DN metadata can cause a false
+refusal; the verifier stub does not assert the first two arguments or a test-only
+verification failure; identical fixture bytes and limited receipt assertions do
+not hold the two hash-to-file bindings independently. Current code verifies both
+APKs, requires one common identity and writes the hashes in the correct order.
+Two documentation findings were corrected under the requested document update:
+ambiguous fixture-key wording and a damaged handover separator. Only documents
+changed after review; no runtime/test fix pass or second review was performed.
+The report is a judgment pass over source and saved owner evidence, not an
+independent execution or delivery/native acceptance. Original5a had one fresh review,
+its three Important findings were fixed with observed RED/GREEN cases and the
+full gate, and that cohort was not re-reviewed. Its three Minors remain deferred:
 malformed enum/int64 object payloads lose observed HTTP provenance; Connect's
-proxy429 header lacks Retry-After fallback; an external redirect can carry the
-build-version header, without the bearer.
+proxy429 handling lacks Retry-After fallback; an external redirect may carry
+the build-version header, without the bearer. Correction737 had one fresh
+independent approval with no Critical/Important and three Minors. Two inaccurate
+verification phrases were clarified; the recording Gradle stub still loses
+argument boundaries through `$*` and whitespace splitting, so a future quoted
+task list could escape its regression. Its current command is correct. Full
+findings and dispositions remain in the respective PR descriptions and ledger.
 
-The [correction PR #738 delivery receipt](https://github.com/lumenpearson/lessons/pull/738)
-is the live record of the correction's review, final-head/dev/promotion/master CI, pinned merges,
-production aliases/warmup/runtime scope, signed artifacts, bounded Studio native
-proof, Project6 metadata and safe working-ref retirement. This opening is updated
-inside this still-open correction PR. Original #733/#736 retain the first
-implementation's actual CI/production and failed APK47 receipts. Post-merge
-facts are read back in the same descriptions;
-they are not predicted in this source snapshot or sent in a close-out PR.
-Issue737 closes through its promotion to master; programme273 stays open for
-5b/5c/5d. Project6 access lacks read:project; separate stored CLI authentication
-is absent, and public read-only retrieval returned `Failed to fetch restricted URL`.
-No board facts or README were read. Project actions remain paused pending an
-applicable access/policy change; no scope upgrade, browser/other-session workaround
-or transfer of denied actions is planned. No field/readback completion is claimed.
-Each heavy-CLI handoff requires actual process exit and retained reports. Desktop,
-SDK-control, ADB and native activity require a fresh coordinator grant, never an
-expired or released queue entry. Preserve every worktree and the private receipts.
+The [PR741 delivery receipt](https://github.com/lumenpearson/lessons/pull/741) is
+the live record for its review, final-head/dev/promotion/master CI, pinned merges,
+source-matched production, actual signed pair, Studio native proof and safe
+working-ref retirement. This opening is updated inside that still-open PR.
+Post-merge facts belong in the same description, never a close-out-only PR.
+Original733/736 and737's738/739 retain their actual delivery/failure receipts.
+
+Next: finish741 review/CI and dev/master delivery, then a new guarded signed
+workflow. Independently verify its exact source, both APK hashes and the preceding
+real certificate before requesting a fresh Studio-only slot for the retained
+fixture. Update without uninstalling, observe startup/Home/reopen, then make
+one bounded minified Connect call with never-issued `!5A!`; it must decode
+ErrorInfo as public UnknownCode, create no membership, restore the prior server
+URL and preserve data on normal shutdown. No account/Terms/family journey,
+widget resize or live Android gRPC/streaming is implied.
+
+Project6 remains an explicit access/readback boundary: CLI lacks read:project,
+separate stored authentication is absent, and public retrieval returned
+`Failed to fetch restricted URL`. No board README/fields were read. Project
+actions stay paused pending an applicable effective access/policy change, with
+no scope upgrade, alternate browser or other-session relay. Formal Task6
+completion is not claimed while those readbacks remain unverified. Heavy CLI
+and every Studio/SDK/ADB/native action require a fresh matching coordinator
+agreement, actual process exit and retained evidence; a released queue entry
+never resumes itself. Preserve the private `.superpowers/sdd/2026-11-12-android-transports-5a-plan/`
+ledger and every unfinished worktree.
 
 **Preceding batch — 12 November 2026, Android decomposition, part C (#273).**
 Parts A and B merged in #451 and #625. The working branch
@@ -2333,7 +2356,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3899 tests, ~38 min on Windows
+cd server  && pytest -q -n auto                          # 3910 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
 cd android && ./gradlew test                             # 1973 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines

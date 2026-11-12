@@ -218,6 +218,11 @@ Its complete JVM `test` gate runs first without that property; a second Gradle
 invocation applies it only to APK packaging. Otherwise release-target manifest
 selection hides Compose's debug host activity from Robolectric (#737). A failed
 JVM gate stops the native path before either APK is packaged or uploaded.
+The certificate check accepts the scheme-labelled output of Build Tools 37 as
+well as older numbered signers (#740). It requires one unique APK-signing
+certificate common to both verified APKs; source-stamp certificates are excluded.
+Multiple schemes using that same certificate are allowed, distinct identities
+are refused. A parse failure still stops collection and upload.
 The two narrow test-only missing-annotation rules cover AndroidX Test's
 compile-time Error Prone metadata; production shrinking remains strict.
 
