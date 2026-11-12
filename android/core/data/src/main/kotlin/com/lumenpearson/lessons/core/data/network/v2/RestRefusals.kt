@@ -47,8 +47,10 @@ internal object RestRefusals {
         RemoteError(canonicalHttpCode(response.code()), httpStatus = response.code(), cause = failure)
     }
 
-    suspend fun <T> request(send: suspend (CallObservation) -> Response<T>): Response<T> {
-        val observation = CallObservation()
+    suspend fun <T> request(
+        observation: CallObservation = CallObservation(),
+        send: suspend (CallObservation) -> Response<T>,
+    ): Response<T> {
         return try {
             send(observation)
         } catch (failure: IOException) {

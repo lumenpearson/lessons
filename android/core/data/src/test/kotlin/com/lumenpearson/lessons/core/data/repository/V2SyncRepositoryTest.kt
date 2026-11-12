@@ -31,7 +31,7 @@ class V2SyncRepositoryTest {
         days = listOf(SchoolDay(LocalDate.parse("2026-11-12"), 4)), syncedAtEpochMillis = clock.millis())
 
     @Test
-    fun `server resolved class rows land before the tag and exactly one notification`() = runTest {
+    fun `confirmed class rows land before their own tag and exactly one notification`() = runTest {
         val dao = InMemoryTimetableDao()
         val order = mutableListOf<String>()
         val tags = object : BundleTagStore by RecordingTagStore() {
@@ -47,7 +47,7 @@ class V2SyncRepositoryTest {
         }, tags, onData = { order += "notify" })
 
         assertEquals(SyncResult.Success, repository.refreshYear(2026))
-        assertEquals(listOf("tag:7|2026:new-tag", "notify"), order)
+        assertEquals(listOf("tag:17|2026:new-tag", "notify"), order)
         assertEquals(17L, checkNotNull(dao.snapshot(17)).schoolClass.id)
     }
 

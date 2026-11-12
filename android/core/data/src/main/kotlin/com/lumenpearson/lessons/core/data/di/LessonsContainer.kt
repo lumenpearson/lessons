@@ -34,6 +34,7 @@ import com.lumenpearson.lessons.core.data.repository.BundleTagStore
 import com.lumenpearson.lessons.core.data.datastore.V2BundleTagStore
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SessionRepositoryImpl
+import com.lumenpearson.lessons.core.data.repository.ScheduleMembership
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
@@ -298,24 +299,15 @@ class DefaultLessonsContainer(
             // re-derive an alarm it almost always finds already armed; see
             // [SchoolAlerts.ensureArmed] for what the cheap answer gives up.
             onNothingChanged = { SchoolAlerts.ensureArmed(appContext) },
-            // Resolved when it fires, not here: `sessionRepository` is a lazy
-            // in this same container and asking for it now would build it on
-            // the cold-start path of a class this device may not even be in.
-            //
-            // `leave`, not `signOut`. The token the server refused is the one
-            // the request carried, which is the class on screen — and since a
-            // phone may now hold several, signing out of all of them would
-            // answer one class revoking a device by deleting the other classes'
-            // tokens too, in the background, with the app closed and nothing on
-            // screen to say where they went.
-            onTokenRejected = { sessionRepository.leaveActive() },
+            // Resolve the lazy session only on rejection, and revoke the sent token rather than the selection now.
+            membership = ScheduleMembership(preferences) { sessionImplementation.rejectRequest(it) },
             bundleTags = bundleTags,
         )
     }
 
     override val timetableRepository: TimetableRepository get() = timetable
 
-    override val sessionRepository: SessionRepository by lazy {
+    private val sessionImplementation: SessionRepositoryImpl by lazy {
         SessionRepositoryImpl(
             preferences = preferences,
             api = api,
@@ -337,6 +329,8 @@ class DefaultLessonsContainer(
             onActiveClassChanged = sessionEffects::onActiveClassChanged,
         )
     }
+
+    override val sessionRepository: SessionRepository get() = sessionImplementation
 
     override val settingsRepository: SettingsRepository by lazy {
         SettingsRepositoryImpl(

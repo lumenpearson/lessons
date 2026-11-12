@@ -83,6 +83,8 @@ internal class BaseUrlInterceptor(
             throw ServerNeedsHttpsException(configured.host)
         }
 
+        request.tag(CallObservation::class.java)?.recordRequest(snapshot)
+
         // A configured path such as /lessons/ prefixes the endpoint path, which
         // is what makes hosting behind a reverse proxy subdirectory work.
         val prefix = configured.encodedPath.trimEnd('/')

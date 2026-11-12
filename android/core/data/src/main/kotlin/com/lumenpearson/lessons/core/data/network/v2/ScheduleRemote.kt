@@ -4,6 +4,12 @@ import com.lumenpearson.lessons.core.model.Timetable
 
 internal fun interface ScheduleRemote {
     suspend fun window(openingYear: Int, ifNoneMatch: String?): ScheduleRemoteResult
+
+    suspend fun window(
+        openingYear: Int,
+        ifNoneMatch: String?,
+        observation: CallObservation,
+    ): ScheduleRemoteResult = window(openingYear, ifNoneMatch)
 }
 
 internal sealed interface ScheduleRemoteResult {

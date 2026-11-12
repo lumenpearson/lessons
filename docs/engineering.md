@@ -170,6 +170,19 @@ response decoding, and keeps unknown enum values without dropping their neighbor
 The existing CI selector runs both consumers when a golden changes. This extends
 the shared-fixture pattern above without adding another build system or CI job.
 
+The independent 5a review found that coherent sending alone does not establish
+ownership of a delayed answer. Deterministic deferred-response tests use the real
+preferences/token cipher, cache orchestration and tag adapter to hold class
+switches, token replacement, exit, server changes and partially applied writes.
+Actual REST/Connect/HTTP2-gRPC fixtures separately hold the request-local identity
+through success/refusal and stale-validator refusal before the wire. A shared
+short persistence gate costs less than holding a network request lock and lets
+the next membership operate while an old request waits. The official RPC adapter
+receives a per-call tagging view that reuses the base pool/dispatcher/timeouts;
+an identity assertion holds that resource boundary. These are existing JVM layers,
+not a new emulator suite or CI job. The ten original defect regressions failed
+before the fix and then passed with the complete Android suite.
+
 The final 5a device check is an opt-in release-target AndroidTest APK, signed with
 the tested app's certificate and built from the same reviewed master commit.
 The existing APK workflow supplies it as a separate artifact; the ordinary app

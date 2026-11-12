@@ -9,6 +9,7 @@ import com.lumenpearson.lessons.core.data.datastore.testVault
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
 import com.lumenpearson.lessons.core.data.network.v2.JoinRemote
+import com.lumenpearson.lessons.core.data.network.v2.CallObservation
 import com.lumenpearson.lessons.core.data.network.v2.RemoteError
 import com.lumenpearson.lessons.core.data.network.v2.ScheduleRemote
 import com.lumenpearson.lessons.core.data.network.v2.ScheduleRemoteResult
@@ -101,19 +102,29 @@ class V2MembershipLifecycleTest {
         var failure: Exception? = null
         private val tagsSeen = mutableListOf<String?>()
         private val clock = Clock.fixed(Instant.parse("2026-11-12T07:00:00Z"), ZoneOffset.UTC)
-        private val remote = ScheduleRemote { year, tag ->
-            tagsSeen += tag
-            failure?.let { throw it }
-            val member = checkNotNull(preferences.currentSession())
-            val date = LocalDate.of(year, 11, 12)
-            ScheduleRemoteResult.Changed(Timetable(SchoolClassInfo(member.classId, member.className),
-                listOf(SchoolDay(date, date.dayOfWeek.value)), syncedAtEpochMillis = clock.millis()),
-                "v2:${member.classId}|$year")
+        private val remote = object : ScheduleRemote {
+            override suspend fun window(openingYear: Int, ifNoneMatch: String?): ScheduleRemoteResult =
+                window(openingYear, ifNoneMatch, CallObservation())
+
+            override suspend fun window(
+                openingYear: Int,
+                ifNoneMatch: String?,
+                observation: CallObservation,
+            ): ScheduleRemoteResult {
+                observation.recordRequest(preferences.credentials.refresh())
+                tagsSeen += ifNoneMatch
+                failure?.let { throw it }
+                val member = checkNotNull(preferences.currentSession())
+                val date = LocalDate.of(openingYear, 11, 12)
+                return ScheduleRemoteResult.Changed(Timetable(SchoolClassInfo(member.classId, member.className),
+                    listOf(SchoolDay(date, date.dayOfWeek.value)), syncedAtEpochMillis = clock.millis()),
+                    "v2:${member.classId}|$openingYear")
+            }
         }
         val timetable = TimetableRepositoryImpl(dao, remote, preferences.session.map { it?.classId },
             clock = clock, ioDispatcher = UnconfinedTestDispatcher(), bundleTags = V2BundleTagStore(preferences),
-            onTokenRejected = { sessions.leaveActive() })
-        val sessions: SessionRepository = SessionRepositoryImpl(preferences, NoCallsApi, timetable,
+            membership = ScheduleMembership(preferences) { sessions.rejectRequest(it) })
+        val sessions: SessionRepositoryImpl = SessionRepositoryImpl(preferences, NoCallsApi, timetable,
             joinRemote = JoinRemote { _, _ -> error("No join") }, ioDispatcher = UnconfinedTestDispatcher())
 
         suspend fun seed() {

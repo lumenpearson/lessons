@@ -12,7 +12,12 @@ import com.connectrpc.okhttp.ConnectOkHttpClient
 import com.connectrpc.protocols.NetworkProtocol
 import okhttp3.OkHttpClient
 
-internal class RpcCalls(private val http: HTTPClientInterface, protocol: NetworkProtocol) {
+internal class RpcCalls(
+    private val http: (CallObservation) -> HTTPClientInterface,
+    protocol: NetworkProtocol,
+) {
+    constructor(http: HTTPClientInterface, protocol: NetworkProtocol) : this({ http }, protocol)
+
     private val config = ProtocolClientConfig(
         host = "http://base-url.invalid/api/rpc",
         serializationStrategy = LiteProtobufStrategy(),
@@ -21,13 +26,17 @@ internal class RpcCalls(private val http: HTTPClientInterface, protocol: Network
         timeoutOracle = { null },
     )
 
-    suspend fun <Input : Any, Output : Any> unary(method: MethodSpec<Input, Output>, request: Input): Output {
-        val observation = CallObservation()
-        val observed = object : HTTPClientInterface by http {
+    suspend fun <Input : Any, Output : Any> unary(
+        method: MethodSpec<Input, Output>,
+        request: Input,
+        observation: CallObservation = CallObservation(),
+    ): Output {
+        val client = http(observation)
+        val observed = object : HTTPClientInterface by client {
             override fun unary(request: UnaryHTTPRequest, onResult: (HTTPResponse) -> Unit): Cancelable =
-                http.unary(request) { response ->
-                    observation.status = response.status
-                    observation.failure = response.cause?.exception ?: response.cause
+                client.unary(request) { response ->
+                    observation.status = response.status ?: observation.status
+                    observation.failure = response.cause?.exception ?: response.cause ?: observation.failure
                     onResult(response)
                 }
         }
@@ -43,6 +52,6 @@ internal class RpcCalls(private val http: HTTPClientInterface, protocol: Network
 
     companion object {
         fun using(client: OkHttpClient, protocol: NetworkProtocol): RpcCalls =
-            RpcCalls(ConnectOkHttpClient(client), protocol)
+            RpcCalls({ observation -> ConnectOkHttpClient(client.observing(observation)) }, protocol)
     }
 }

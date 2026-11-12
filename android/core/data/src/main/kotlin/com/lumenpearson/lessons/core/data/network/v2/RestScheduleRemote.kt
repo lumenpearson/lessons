@@ -4,7 +4,15 @@ import java.time.Clock
 
 internal class RestScheduleRemote(private val api: V2Api, private val clock: Clock) : ScheduleRemote {
     override suspend fun window(openingYear: Int, ifNoneMatch: String?): ScheduleRemoteResult {
-        val response = RestRefusals.request { api.scheduleWindow(openingYear, ifNoneMatch, it) }
+        return window(openingYear, ifNoneMatch, CallObservation())
+    }
+
+    override suspend fun window(
+        openingYear: Int,
+        ifNoneMatch: String?,
+        observation: CallObservation,
+    ): ScheduleRemoteResult {
+        val response = RestRefusals.request(observation) { api.scheduleWindow(openingYear, ifNoneMatch, it) }
         val headerTag = response.headers()["ETag"]?.takeIf { it.isNotBlank() }
         if (response.code() == NotModifiedStatus) return ScheduleRemoteResult.NotModified(headerTag)
         val body = RestRefusals.body(response)

@@ -274,7 +274,7 @@ never retrieve their values. Ordinary `lessons-apk` still contains one main APK.
   Assert the public repository's UnknownCode over minified Connect, which requires
   ErrorInfo decoding; a reasonless404 must instead classify server-too-old. No
   account, family code, UI Continue or Terms acceptance is involved.
-- [ ] Run complete server and Android gate sets serially, with dedicated complete
+- [x] Run complete server and Android gate sets serially, with dedicated complete
   reports; update counts from them. Build the whole-branch review package and use
   one fresh independent most-capable reviewer with this Review Focus and rulings.
   Re-grade findings, fix Important/Critical once with RED→GREEN/full green suite,
@@ -288,6 +288,11 @@ never retrieve their values. Ordinary `lessons-apk` still contains one main APK.
   Record actual scope, data retention and normal own-VM shutdown. Complete Project
   readbacks, preserve persistent master/dev and retire only the merged working ref.
   Final Expected: all gates/readbacks green;5a complete,5b/5c/5d still separate.
+
+The remaining post-merge checklist is executed and read back in the same
+[working PR #733 delivery receipt](https://github.com/lumenpearson/lessons/pull/733).
+Its actual merge/CI/production/signed/native facts occur after this source
+snapshot; they are not predicted here or moved into a separate close-out PR.
 
 ## Commands and report ownership
 

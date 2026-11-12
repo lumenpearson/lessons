@@ -2,12 +2,12 @@
   "android": {
     "modules": {
       ":app": 711,
-      ":core:data": 759,
+      ":core:data": 782,
       ":core:designsystem": 205,
       ":core:model": 145,
       ":widget": 130
     },
-    "total": 1950
+    "total": 1973
   },
   "server": 3892
 }

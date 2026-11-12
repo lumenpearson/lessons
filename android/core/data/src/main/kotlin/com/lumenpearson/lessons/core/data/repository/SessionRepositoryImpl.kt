@@ -2,12 +2,14 @@ package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.network.LessonsApi
+import com.lumenpearson.lessons.core.data.network.RequestCredentials
 import com.lumenpearson.lessons.core.data.network.v2.JoinRemote
 import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -125,8 +127,10 @@ internal class SessionRepositoryImpl(
                 // Before the membership is stored, so the new token can never
                 // show rows that predate it. Only this class's rows: the other
                 // classes on the phone have nothing to do with this join.
-                cache.forgetClass(joined.classId)
-                preferences.addSession(joined)
+                preferences.membershipChanges.withLock {
+                    cache.forgetClass(joined.classId)
+                    preferences.addSession(joined)
+                }
                 onActiveClassChanged()
                 Result.success(joined)
             } catch (cancellation: CancellationException) {
@@ -147,43 +151,74 @@ internal class SessionRepositoryImpl(
             // below is not free: it re-reads the cache, re-arms an alarm and
             // asks for a sync. Re-selecting the class already on screen is what
             // a list of classes does every time somebody taps the current one.
-            if (preferences.currentSession()?.classId == classId) return@withContext
-            if (preferences.currentSessions().none { it.classId == classId }) return@withContext
-            preferences.selectSession(classId)
-            onActiveClassChanged()
+            val changed = preferences.membershipChanges.withLock {
+                when {
+                    preferences.currentSession()?.classId == classId -> false
+                    preferences.currentSessions().none { it.classId == classId } -> false
+                    else -> {
+                        preferences.selectSession(classId)
+                        true
+                    }
+                }
+            }
+            if (changed) onActiveClassChanged()
         }
     }
 
     override suspend fun leave(classId: Long) {
         withContext(ioDispatcher) {
-            val wasShowing = preferences.currentSession()?.classId == classId
-            // Memberships first, rows second: the screens re-point at whatever
-            // class is left before its predecessor's rows go, rather than
-            // drawing an empty week under a name that is about to change.
-            preferences.removeSession(classId)
-            cache.forgetClass(classId)
-            when {
-                preferences.currentSession() == null -> onSignedOut()
-                wasShowing -> onActiveClassChanged()
-            }
+            val change = preferences.membershipChanges.withLock { leaveLocked(classId) }
+            notifyChange(change)
         }
     }
 
     override suspend fun leaveActive() {
         withContext(ioDispatcher) {
-            // Read once and handed straight on: two reads with a switch
-            // possible between them would leave the class the user had just
-            // moved to.
-            val showing = preferences.currentSession() ?: return@withContext
-            leave(showing.classId)
+            val change = preferences.membershipChanges.withLock {
+                preferences.currentSession()?.let { leaveLocked(it.classId) } ?: SessionChange.NONE
+            }
+            notifyChange(change)
         }
     }
 
     override suspend fun signOut() {
         withContext(ioDispatcher) {
-            preferences.clearSession()
-            cache.forgetEverything()
+            preferences.membershipChanges.withLock {
+                preferences.clearSession()
+                cache.forgetEverything()
+            }
             onSignedOut()
         }
     }
+
+    internal suspend fun rejectRequest(request: RequestCredentials): Boolean = withContext(ioDispatcher) {
+        val change = preferences.membershipChanges.withLock {
+            preferences.membershipFor(request)?.let { leaveLocked(it.classId) }
+        } ?: return@withContext false
+        notifyChange(change)
+        true
+    }
+
+    /** The matching membership and its wipe cannot be overtaken by a response or replacement. */
+    private suspend fun leaveLocked(classId: Long): SessionChange {
+        val wasShowing = preferences.currentSession()?.classId == classId
+        // Memberships first: screens re-point before their predecessor's rows disappear.
+        preferences.removeSession(classId)
+        cache.forgetClass(classId)
+        return when {
+            preferences.currentSession() == null -> SessionChange.SIGNED_OUT
+            wasShowing -> SessionChange.ACTIVE_CHANGED
+            else -> SessionChange.NONE
+        }
+    }
+
+    private suspend fun notifyChange(change: SessionChange) {
+        when (change) {
+            SessionChange.SIGNED_OUT -> onSignedOut()
+            SessionChange.ACTIVE_CHANGED -> onActiveClassChanged()
+            SessionChange.NONE -> Unit
+        }
+    }
+
+    private enum class SessionChange { NONE, SIGNED_OUT, ACTIVE_CHANGED }
 }

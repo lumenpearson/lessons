@@ -420,6 +420,7 @@ the other areas retain v1 until5b. The shared server client signs at send time, 
 retains its own refusal status or original no-answer exception.
 
 - Only DEVICE_TOKEN_INVALID revokes v2 membership; bare401/CLIENT_TOO_OLD retain cache and tags (`V2MembershipLifecycleTest`, `V2SyncRepositoryTest`).
+- Schedule applies and revocations validate the sent server/token under the membership gate; completed exit/replacement wins (`V2InFlightMembershipTest`, `ScheduleObservationTest`).
 
 ## Conventions already true in this codebase
 

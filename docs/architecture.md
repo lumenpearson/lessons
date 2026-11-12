@@ -285,8 +285,8 @@ which is filled by a different rule and is described under
 
 **The 5a network boundary.** Schedule and joining use domain-valued `ScheduleRemote`
 and `JoinRemote`. A build selects REST, Connect (the default) or unary gRPC; one
-factory shares the existing server OkHttp client between those bindings and the
-remaining v1 APIs. Generated Java lite messages and the canonical REST DTOs stay
+factory shares the server OkHttp pool, dispatcher and timeout budgets with the
+remaining v1 APIs. RPC adds only a per-call tagging view for the official adapter. Generated Java lite messages and the canonical REST DTOs stay
 behind the remotes. Both bindings apply the same domain normalization; the
 repositories retain year bounds, single-flight, cache transactions and callback
 order. V2 tags have a separate namespace and every existing cache wipe clears
@@ -301,6 +301,16 @@ exceptions and cancellation. Only `DEVICE_TOKEN_INVALID` removes a membership
 during sync. `CLIENT_TOO_OLD` preserves memberships/cache, permanently fails the
 worker run and latches one process-wide update prompt, including before an
 Activity starts. Host/streaming acceptance remains a separate5c boundary.
+
+Schedule's validator belongs to the captured server/token owner. The actual
+send refuses a changed owner before transmitting an obsolete conditional request.
+Success and rejection retain the actual sent snapshot. A short gate shared by
+facades of the same DataStore orders result validation/persistence with membership
+replacement, exit and server-settings writes; it never spans network I/O. A late
+answer cannot recreate an exited class, revoke a replacement token or put another
+class's tag under the earlier selection. An inactive but retained membership may
+still fill its own cache. Missing rows allow one unconditional recovery request;
+a second NotModified without the window fails without freshness or callbacks.
 
 **One device, several classes.** A join code buys one read-only token for one
 class, so a pupil in two classes is a phone holding two tokens — that was always
@@ -1029,8 +1039,8 @@ with the host.
 
 ## Testing
 
-3892 tests on the server, 1950 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 145, `:core:data` 759,
+3892 tests on the server, 1973 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 145, `:core:data` 782,
 `:core:designsystem` 205, `:widget` 130, `:app` 711 (#325).
 
 The table below is the load-bearing part of that rather than the whole of it:
