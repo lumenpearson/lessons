@@ -143,9 +143,18 @@ An earlier unquoted PowerShell property split failed task selection before R8;
 that failed receipt stays separate. The valid packaging used one structured
 nativeCheck argument. The own dedicated daemon stopped normally after all
 checks, all sixteen recorded process IDs and own client/daemon children were
-absent, and the coordinator actually released the resource. Independent
-whole-branch review of744 is still pending; none of these host checks supplies
-the required signed-device acceptance.
+absent, and the coordinator actually released the resource. One fresh independent
+Astra review of the whole correction at03ac996a found no Critical/Important and
+two Minors, both deferred: the registration policy assertion is not scoped to
+the release block, and APK download instructions do not distinguish the native
+target roots from ordinary-release shrinking. The reviewed registration is
+correct and engineering.md records the variant limitation. The reviewer also
+independently matched retained APK hashes and inspected actual DEX call sites:
+all30 cross-APK method targets with packaged definitions use compatible opcodes,
+all four callback subclasses agree, and the test retains its runtime Test
+annotation. The wider unresolved references are Kotlin annotations and Android
+framework AppComponentFactory methods. No Gradle/server/signing/device rerun
+was attributed to that review, and no host check supplies signed-device acceptance.
 
 One fresh independent Astra review of correction741 at `54b6eb5f` approved the
 change with no Critical or Important findings and six Minors. Four remain
