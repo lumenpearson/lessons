@@ -2,6 +2,14 @@ package com.lumenpearson.lessons.core.data.network
 
 import com.lumenpearson.lessons.core.data.diagnostics.NetworkLog
 import com.lumenpearson.lessons.core.data.diagnostics.NetworkSource
+import com.lumenpearson.lessons.core.data.network.v2.BearerInterceptor
+import com.lumenpearson.lessons.core.data.network.v2.ClientVersionInterceptor
+import com.lumenpearson.lessons.core.data.network.v2.RecordCallStatusInterceptor
+import com.lumenpearson.lessons.core.data.network.v2.AppTransport
+import com.lumenpearson.lessons.core.data.network.v2.JoinRemote
+import com.lumenpearson.lessons.core.data.network.v2.ScheduleRemote
+import com.lumenpearson.lessons.core.data.network.v2.V2Remotes
+import java.time.Clock
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -41,8 +49,8 @@ internal object NetworkModule {
     }
 
     /**
-     * @param credentials the address and both bearers, asked by each
-     * interceptor on every request, on OkHttp's own thread. It must answer from
+     * @param credentials the address and both bearers, captured together once
+     * at send time, on OkHttp's own thread. It must answer from
      * memory — the container hands in `CredentialsSnapshot.current` — because a
      * read of the store here is a parked thread on every call the app makes.
      *
@@ -62,6 +70,7 @@ internal object NetworkModule {
     fun okHttpClient(
         credentials: () -> RequestCredentials,
         cleartext: CleartextPolicy,
+        clientVersion: Int = 1,
     ): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -70,7 +79,7 @@ internal object NetworkModule {
         .retryOnConnectionFailure(true)
         // Order matters: the URL is rewritten first so the auth interceptors see
         // the real path when they decide whether the call is theirs to sign.
-        .addInterceptor(BaseUrlInterceptor({ credentials().baseUrl }, cleartext))
+        .addInterceptor(BaseUrlInterceptor(credentials, cleartext))
         // The developer mode's recorder, after the rewrite so it records the
         // server the request really went to, and before the bearers, which it
         // would not read anyway. Off, it is one volatile read (#237).
@@ -84,6 +93,9 @@ internal object NetworkModule {
         // reason to pay for a second connection pool and dispatcher.
         .addInterceptor(AuthInterceptor { credentials().classToken })
         .addInterceptor(DiaryAuthInterceptor { credentials().diaryToken })
+        .addInterceptor(BearerInterceptor(credentials))
+        .addInterceptor(ClientVersionInterceptor(clientVersion))
+        .addInterceptor(RecordCallStatusInterceptor())
         .build()
 
     /** Retrofit configured for kotlinx.serialization; see [PLACEHOLDER_BASE_URL]. */
@@ -97,22 +109,27 @@ internal object NetworkModule {
         .build()
 
     /**
-     * The stack every call site shares: one client, one Retrofit, four APIs.
+     * One server client for the remaining v1 APIs and the selected v2 remotes.
      *
      * Built as one object rather than through four factories because the
      * client is the expensive part and all four interfaces want the same one —
      * the same pool, the same timeouts and the same base-URL rewrite.
      */
-    fun apis(credentials: () -> RequestCredentials, cleartext: CleartextPolicy): Apis {
+    fun apis(credentials: () -> RequestCredentials, cleartext: CleartextPolicy,
+        clientVersion: Int, transport: String): Apis {
+        val client = okHttpClient(credentials, cleartext, clientVersion)
         val retrofit = retrofit(
-            client = okHttpClient(credentials, cleartext),
+            client = client,
             json = json(),
         )
+        val remotes = V2Remotes.using(client, retrofit, AppTransport.parse(transport), Clock.systemUTC())
         return Apis(
             lessons = retrofit.create(LessonsApi::class.java),
             diary = retrofit.create(DiaryApi::class.java),
             manage = retrofit.create(ManageApi::class.java),
             directory = retrofit.create(DirectoryApi::class.java),
+            join = remotes.join,
+            schedule = remotes.schedule,
         )
     }
 
@@ -131,5 +148,7 @@ internal object NetworkModule {
         val diary: DiaryApi,
         val manage: ManageApi,
         val directory: DirectoryApi,
+        val join: JoinRemote,
+        val schedule: ScheduleRemote,
     )
 }

@@ -10,6 +10,8 @@
     match the rules being applied to it.
 -->
 <resources>
+    <string name="client_update_required">Update the app</string>
+    <string name="client_update_required_detail">The server no longer supports this version. Your classes and cached timetable remain on this phone.</string>
 
     <!-- Channels -->
     <string name="alert_channel_lessons">Lessons</string>

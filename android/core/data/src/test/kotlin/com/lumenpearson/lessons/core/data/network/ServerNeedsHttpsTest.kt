@@ -1,5 +1,8 @@
 package com.lumenpearson.lessons.core.data.network
 
+import com.lumenpearson.lessons.core.data.network.v2.JoinRemote
+import com.lumenpearson.lessons.core.data.network.v2.ScheduleRemote
+
 import com.lumenpearson.lessons.core.data.database.InMemoryTimetableDao
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.datastore.MemoryStore
@@ -111,7 +114,9 @@ class ServerNeedsHttpsTest {
     fun `an https address is never refused, whatever the build says about cleartext`() {
         var sent: HttpUrl? = null
         val client = OkHttpClient.Builder()
-            .addInterceptor(BaseUrlInterceptor({ "https://school.example/lessons/" }, refusesEverything))
+            .addInterceptor(BaseUrlInterceptor(
+                { RequestCredentials("https://school.example/lessons/", null, null) }, refusesEverything,
+            ))
             .addInterceptor { chain ->
                 sent = chain.request().url
                 Response.Builder()
@@ -153,7 +158,7 @@ class ServerNeedsHttpsTest {
         var rejected = 0
         val result = TimetableRepositoryImpl(
             dao = InMemoryTimetableDao(),
-            api = RefusingApi,
+            remote = ScheduleRemote { _, _ -> throw ServerNeedsHttpsException("192.168.1.50") },
             activeClassId = flowOf(1L),
             ioDispatcher = UnconfinedTestDispatcher(),
             onTokenRejected = { rejected++ },
@@ -171,6 +176,7 @@ class ServerNeedsHttpsTest {
             preferences = preferences,
             api = RefusingApi,
             cache = NoCache,
+            joinRemote = JoinRemote { _, _ -> error("The badge never joins") },
             ioDispatcher = UnconfinedTestDispatcher(),
         )
 

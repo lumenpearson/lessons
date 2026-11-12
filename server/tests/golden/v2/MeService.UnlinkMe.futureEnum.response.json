@@ -1,0 +1,8 @@
+{
+  "me": {
+    "canEdit": true,
+    "deviceName": "sample",
+    "linked": true,
+    "role": "A_FUTURE_ENUM_NAME"
+  }
+}

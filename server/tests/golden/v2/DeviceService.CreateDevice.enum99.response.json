@@ -1,0 +1,13 @@
+{
+  "classId": 7,
+  "className": "sample",
+  "diary": {
+    "provider": "sample",
+    "region": "sample",
+    "schoolId": "9007199254740993",
+    "schoolName": "sample"
+  },
+  "school": "sample",
+  "timezone": "Europe/Moscow",
+  "token": "sample"
+}

@@ -1,0 +1,29 @@
+{
+  "scheduleDays": [
+    {
+      "date": "2026-09-21",
+      "lessons": [
+        {
+          "ambiguous": true,
+          "edits": [
+            {
+              "changedUpstream": true,
+              "field": "sample",
+              "original": "sample",
+              "value": "sample"
+            }
+          ],
+          "endsAt": "sample",
+          "homework": "sample",
+          "number": 7,
+          "room": "sample",
+          "startsAt": "sample",
+          "subject": "sample",
+          "target": "sample",
+          "teacher": "sample",
+          "topic": "sample"
+        }
+      ]
+    }
+  ]
+}

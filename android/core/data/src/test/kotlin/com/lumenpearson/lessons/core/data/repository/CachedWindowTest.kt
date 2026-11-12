@@ -295,7 +295,7 @@ class CachedWindowTest {
 
     private fun repository(dao: InMemoryTimetableDao, today: LocalDate) = TimetableRepositoryImpl(
         dao = dao,
-        api = UnusedLessonsApi(),
+        remote = UnusedLessonsApi().scheduleFixture(),
         activeClassId = MutableStateFlow(CLASS_ID),
         // Noon, so the school's date is the same date whichever side of
         // midnight the zone conversion lands on.

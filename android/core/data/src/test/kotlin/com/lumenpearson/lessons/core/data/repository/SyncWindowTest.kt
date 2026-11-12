@@ -1,13 +1,12 @@
 package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.database.InMemoryTimetableDao
-import com.lumenpearson.lessons.core.data.network.LessonsApi
-import com.lumenpearson.lessons.core.data.network.dto.BundleDto
-import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.SchoolClassDto
 import com.lumenpearson.lessons.core.model.SchoolYear
+import com.lumenpearson.lessons.core.model.SchoolClassInfo
+import com.lumenpearson.lessons.core.model.Timetable
+import com.lumenpearson.lessons.core.data.network.v2.ScheduleRemote
+import com.lumenpearson.lessons.core.data.network.v2.ScheduleRemoteResult
 import java.time.Clock
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -15,13 +14,12 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import retrofit2.Response
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * What the app actually asks the server for.
+ * The year requested from the remote and the complete window actually stored.
  *
  * The bug this pins: the window was a rolling month anchored to Monday of the
  * current week, so the calendar had a month of real days and then «Нет данных»
@@ -40,17 +38,22 @@ class SyncWindowTest {
         Clock.fixed(LocalDate.parse(day).atStartOfDay(zone).toInstant(), zone)
 
     private suspend fun windowAt(day: String): Pair<LocalDate, Int> {
-        val api = RecordingApi()
-        TimetableRepositoryImpl(
-            dao = InMemoryTimetableDao(),
-            api = api,
-            // Any class will do: these tests are about the dates asked for, and
-            // the window is the same whichever class is on screen.
+        val dao = InMemoryTimetableDao()
+        var queriedYear: Int? = null
+        val result = TimetableRepositoryImpl(
+            dao = dao,
+            remote = ScheduleRemote { year, _ ->
+                queriedYear = year
+                ScheduleRemoteResult.Changed(Timetable(SchoolClassInfo(1, "9A")), null)
+            },
             activeClassId = flowOf(1L),
             clock = clockAt(day),
             ioDispatcher = UnconfinedTestDispatcher(),
         ).refresh()
-        return LocalDate.parse(api.start!!) to api.days!!
+        assertEquals(SyncResult.Success, result)
+        val stored = dao.windows(1).single()
+        assertEquals(checkNotNull(queriedYear), stored.openingYear)
+        return stored.startsOn to (ChronoUnit.DAYS.between(stored.startsOn, stored.endsOn).toInt() + 1)
     }
 
     @Test
@@ -106,38 +109,6 @@ class SyncWindowTest {
             val (_, days) = windowAt(day)
             assertTrue("$day asked for $days", days in 1..280)
         }
-    }
-
-    private class RecordingApi : LessonsApi by UnusedApi() {
-        var start: String? = null
-        var days: Int? = null
-
-        override suspend fun bundle(
-            start: String,
-            days: Int,
-            ifNoneMatch: String?,
-        ): Response<BundleDto> {
-            this.start = start
-            this.days = days
-            return Response.success(
-                BundleDto(
-                    apiVersion = 1,
-                    schoolClass = SchoolClassDto(id = 1, name = "9А"),
-                    days = emptyList(),
-                ),
-            )
-        }
-    }
-
-    /** Every call this test does not make; reaching one is the bug. */
-    private class UnusedApi : LessonsApi {
-        override suspend fun join(body: JoinRequestDto) = error("unused")
-        override suspend fun bundle(start: String, days: Int, ifNoneMatch: String?) =
-            error("unused")
-        override suspend fun health() = error("unused")
-        override suspend fun warmup() = error("unused")
-        override suspend fun me() = error("unused")
-        override suspend fun unlink() = error("unused")
     }
 
 }

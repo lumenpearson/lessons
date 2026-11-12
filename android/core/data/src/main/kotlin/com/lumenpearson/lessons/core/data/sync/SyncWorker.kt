@@ -10,7 +10,7 @@ import com.lumenpearson.lessons.core.data.diagnostics.ActivityLog
 import com.lumenpearson.lessons.core.data.repository.SyncResult
 
 /**
- * Pulls a fresh bundle into the cache in the background.
+ * Pulls a fresh schedule window into the cache in the background.
  *
  * It reaches for its dependencies through [Graph] rather than being injected:
  * WorkManager builds workers reflectively, and a service locator is what makes
@@ -22,6 +22,8 @@ import com.lumenpearson.lessons.core.data.repository.SyncResult
  *  * [SyncResult.Unauthorised] is a permanent [Result.failure] - retrying a
  *    revoked token can only ever fail, and the reason is put in the output data
  *    so the app can react by sending the user back to the join screen.
+ *  * [SyncResult.ClientTooOld] permanently fails this run without removing
+ *    memberships or cached rows; the foreground asks for an APK update.
  */
 class SyncWorker(
     appContext: Context,
@@ -30,7 +32,7 @@ class SyncWorker(
 
     override suspend fun doWork(): Result {
         // The worker may be the first thing to run after a process restart.
-        Graph.init(applicationContext)
+        Graph.ensureInitialized(applicationContext)
         val container = Graph.container
 
         // Nothing to sync before the device has joined a class. Reporting
@@ -55,32 +57,10 @@ class SyncWorker(
             ActivityKind.SYNC,
             "background sync, attempt ${runAttemptCount + 1}: ${result::class.java.simpleName}",
         )
-        return when (result) {
-            // The repository broadcasts on its own now, so that an in-app
-            // refresh reaches the widget too; this path needs nothing extra.
-            is SyncResult.Success -> Result.success()
-
-            is SyncResult.Unauthorised -> Result.failure(
-                workDataOf(KEY_ERROR to REASON_UNAUTHORISED),
-            )
-
-            // Retrying on a timer cannot invent a server address. Fail once and
-            // leave it; the next run after the user sets one will go through.
-            is SyncResult.NotConfigured -> Result.failure(
-                workDataOf(KEY_ERROR to REASON_NOT_CONFIGURED),
-            )
-
-            // Nor can it make the server speak https. The same: fail once.
-            is SyncResult.NeedsHttps -> Result.failure(
-                workDataOf(KEY_ERROR to REASON_NEEDS_HTTPS),
-            )
-
-            is SyncResult.Failed ->
-                if (runAttemptCount < MAX_ATTEMPTS) {
-                    Result.retry()
-                } else {
-                    Result.failure(workDataOf(KEY_ERROR to result.message))
-                }
+        return when (val outcome = result.workOutcome(runAttemptCount)) {
+            SyncWorkOutcome.Success -> Result.success()
+            SyncWorkOutcome.Retry -> Result.retry()
+            is SyncWorkOutcome.Failure -> Result.failure(workDataOf(KEY_ERROR to outcome.reason))
         }
     }
 
@@ -97,10 +77,7 @@ class SyncWorker(
         /** @see SyncResult.NeedsHttps */
         const val REASON_NEEDS_HTTPS: String = "needs_https"
 
-        /**
-         * After three tries the next scheduled run will happen sooner than the
-         * backoff would anyway, so there is no point retrying further.
-         */
-        private const val MAX_ATTEMPTS = 3
+        /** @see SyncResult.ClientTooOld */
+        const val REASON_CLIENT_TOO_OLD: String = "client_too_old"
     }
 }

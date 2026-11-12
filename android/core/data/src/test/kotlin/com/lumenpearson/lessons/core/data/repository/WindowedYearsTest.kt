@@ -58,7 +58,7 @@ class WindowedYearsTest {
         private val etag: String? = null,
         private val nextSchoolDay: Boolean = false,
     ) : LessonsApi {
-        val requested = mutableListOf<String>()
+        val requested = mutableListOf<Int>()
         val tagsSeen = mutableListOf<String?>()
         var answerNotModified = false
 
@@ -73,7 +73,6 @@ class WindowedYearsTest {
             days: Int,
             ifNoneMatch: String?,
         ): Response<BundleDto> {
-            requested += start
             tagsSeen += ifNoneMatch
             val raw = OkResponse.Builder()
                 .code(200)
@@ -145,12 +144,12 @@ class WindowedYearsTest {
     }
 
     private fun repository(
-        api: LessonsApi,
+        api: YearApi,
         dao: InMemoryTimetableDao,
         tags: BundleTagStore = RecordingTagStore(),
     ) = TimetableRepositoryImpl(
         dao = dao,
-        api = api,
+        remote = api.scheduleFixture(clock, onYear = { api.requested += it }),
         activeClassId = flowOf(1L),
         clock = clock,
         ioDispatcher = UnconfinedTestDispatcher(),
@@ -432,6 +431,6 @@ class WindowedYearsTest {
         // and so is the summer bug it carried: applied in July it reached back
         // far enough to ask for some 320 days, past what the server accepts,
         // and the window came back silently clipped in April.
-        assertEquals(SchoolYear.start(2026).toString(), api.requested.single())
+        assertEquals(2026, api.requested.single())
     }
 }

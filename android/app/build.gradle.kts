@@ -119,6 +119,19 @@ val appVersionCode =
 // "Enable Device Flow" ticked) and passes its client id here. There is no
 // secret: the device flow does not use one, and an APK could not keep it
 // anyway. Empty means the row does not appear.
+val appTransport = (signingSecret("LESSONS_TRANSPORT", "lessons.transport") ?: "connect").also { value ->
+    if (value !in setOf("rest", "connect", "grpc")) {
+        throw GradleException("LESSONS_TRANSPORT / lessons.transport must be rest, connect or grpc.")
+    }
+}
+
+val appStreaming = (signingSecret("LESSONS_APP_STREAMING", "lessons.streaming") ?: "false").let { raw ->
+    raw.toBooleanStrictOrNull()
+        ?: throw GradleException("LESSONS_APP_STREAMING / lessons.streaming must be true or false.")
+}.also { enabled ->
+    if (enabled && appTransport != "grpc") throw GradleException("App streaming requires lessons.transport=grpc.")
+}
+
 val githubClientId = signingSecret("LESSONS_GITHUB_CLIENT_ID", "lessons.github.clientId") ?: ""
 
 // Where "отправить письмом" on the bug-report sheet goes. Not in the source
@@ -220,17 +233,25 @@ val buildCommit = signingSecret("LESSONS_BUILD_COMMIT", "lessons.build.commit") 
 val buildNumber = signingSecret("LESSONS_BUILD_NUMBER", "lessons.build.number") ?: ""
 val buildTime = signingSecret("LESSONS_BUILD_TIME", "lessons.build.time") ?: ""
 
+val nativeCheck = providers.gradleProperty("lessons.nativeCheck").orNull?.let { raw ->
+    raw.toBooleanStrictOrNull() ?: throw GradleException("lessons.nativeCheck must be true or false.")
+} ?: false
+
 android {
     namespace = "com.lumenpearson.lessons"
     compileSdk = 37
+    testBuildType = if (nativeCheck) "release" else "debug"
 
     defaultConfig {
         applicationId = "com.lumenpearson.lessons"
         minSdk = 26
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = 37
         versionCode = appVersionCode
         versionName = appVersionName
         buildConfigField("String", "GITHUB_CLIENT_ID", "\"$githubClientId\"")
+        buildConfigField("String", "TRANSPORT", "\"$appTransport\"")
+        buildConfigField("boolean", "APP_STREAMING", appStreaming.toString())
         buildConfigField("String", "CONTACT_EMAIL", "\"$contactEmail\"")
         buildConfigField("String", "BUILD_REPOSITORY", "\"$buildRepository\"")
         buildConfigField("String", "BUILD_REF", "\"$buildRef\"")
@@ -295,6 +316,7 @@ android {
             }
             isMinifyEnabled = true
             isShrinkResources = true
+            testProguardFiles("native-check-proguard-rules.pro")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -327,6 +349,14 @@ android {
         // emulates is pinned in `src/test/resources/robolectric.properties`,
         // beside the reason.
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+androidComponents.onVariants(androidComponents.selector().withBuildType("release")) { variant ->
+    if (nativeCheck) {
+        val androidTest = checkNotNull(variant.androidTest) { "Release AndroidTest must be enabled" }
+        val releaseSigning = checkNotNull(android.buildTypes.getByName("release").signingConfig)
+        checkNotNull(androidTest.signingConfig).from(releaseSigning)
     }
 }
 
@@ -394,6 +424,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.runner)
     // The management view model is a coroutine state holder: its tests need a
     // main dispatcher and a scheduler they can step, which is all this is for.
     testImplementation(libs.kotlinx.coroutines.test)

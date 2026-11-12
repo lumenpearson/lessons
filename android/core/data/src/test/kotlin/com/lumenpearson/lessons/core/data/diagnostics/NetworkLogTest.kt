@@ -167,10 +167,12 @@ class NetworkLogTest {
             .add("Authorization", "Bearer x")
             .add("Retry-After", "60")
             .add("X-Diary-Unavailable", "upstream")
+            .add("grpc-status", "7")
+            .add("grpc-message", "refused")
             .build()
 
         assertEquals(
-            listOf("Retry-After" to "60", "X-Diary-Unavailable" to "upstream"),
+            listOf("Retry-After" to "60", "grpc-status" to "7", "grpc-message" to "refused"),
             NetworkRedaction.headers(headers),
         )
     }

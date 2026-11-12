@@ -418,6 +418,9 @@ sealed interface SyncResult {
     /** The cache now holds a fresh window. */
     data object Success : SyncResult
 
+    /** Updating the APK is required; a timer cannot repair it. */
+    data object ClientTooOld : SyncResult
+
     /** HTTP 401: the device token is gone or revoked. Send the user to the join screen. */
     data object Unauthorised : SyncResult
 

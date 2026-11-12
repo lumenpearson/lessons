@@ -98,7 +98,7 @@ sealed interface JoinError {
      * to its own Russian sentence, which is the whole reason the field is
      * nullable.
      */
-    data class Rejected(val detail: String?) : JoinError
+    data class Rejected(val detail: String?, val serverTooOld: Boolean = false) : JoinError
 
     companion object {
 
@@ -130,7 +130,7 @@ sealed interface JoinError {
                 else -> Rejected(null)
             }
             is JoinFailure.Rejected ->
-                Rejected(classified.reason?.message?.takeIf { it.isNotBlank() })
+                Rejected(classified.reason?.message?.takeIf { it.isNotBlank() }, classified.serverTooOld)
         }
     }
 }

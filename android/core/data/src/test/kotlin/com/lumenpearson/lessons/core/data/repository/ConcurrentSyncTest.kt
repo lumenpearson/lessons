@@ -64,7 +64,7 @@ class ConcurrentSyncTest {
 
     private fun repository(api: LessonsApi) = TimetableRepositoryImpl(
         dao = InMemoryTimetableDao(),
-        api = api,
+        remote = api.scheduleFixture(clock),
         activeClassId = flowOf(1L),
         clock = clock,
         ioDispatcher = UnconfinedTestDispatcher(),

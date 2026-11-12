@@ -1,0 +1,14 @@
+{
+  "login": "sample",
+  "netschool": {
+    "at": "sample",
+    "cookies": {
+      "esrnSec": "sample",
+      "nsSessionId": "sample"
+    },
+    "timeOut": 7,
+    "ver": "sample"
+  },
+  "region": "sample",
+  "schoolId": "9007199254740993"
+}

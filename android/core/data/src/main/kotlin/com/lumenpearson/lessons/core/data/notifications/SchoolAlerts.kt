@@ -355,7 +355,7 @@ object SchoolAlerts {
     fun onDataChanged(context: Context) {
         val appContext = context.applicationContext
         runCatching {
-            Graph.init(appContext)
+            Graph.ensureInitialized(appContext)
             val preferences = LessonsPreferences(appContext)
             runBlocking {
                 val settings = preferences.currentSettings()
@@ -427,7 +427,7 @@ object SchoolAlerts {
     private fun read(context: Context): Pair<Timetable, AlertPreferences>? = runCatching {
         // The alarm can be the first thing to run after a process restart, so
         // the graph may not exist yet. Same reason SyncWorker opens with this.
-        Graph.init(context)
+        Graph.ensureInitialized(context)
         // This `runBlocking` re-enters the repository's own `ioDispatcher`,
         // because `snapshot` opens with `withContext(ioDispatcher)`. It is safe
         // on `Dispatchers.IO`, which is a pool of sixty-four and hands the work

@@ -1,0 +1,8 @@
+{
+  "me": {
+    "canEdit": true,
+    "deviceName": "sample",
+    "linked": true,
+    "role": "ROLE_VIEWER"
+  }
+}

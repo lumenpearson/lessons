@@ -97,7 +97,7 @@ jobs:
               # allow-list of diary hosts, bundled in place, and the vectors
               # are `DiaryProtocolVectorsTest`'s resource — so an edit to
               # either must run both halves, not only the server's.
-              android/*|docs/app/*|docs/legal/*|docs/counts.json|server/scripts/check_test_counts.py|server/app/catalog/data/*|server/tests/vectors/*|.github/workflows/*) android=true ;;
+              android/*|docs/app/*|docs/legal/*|docs/counts.json|server/scripts/check_test_counts.py|server/app/catalog/data/*|server/tests/vectors/*|server/tests/golden/*|.github/workflows/*) android=true ;;
             esac
             case "$file" in
               # Agent navigation consumes repository-wide source names (#661).
@@ -110,7 +110,7 @@ jobs:
               # `server/app/contract/` is here as well as under the server,
               # because a hand edit there, with no proto change, is exactly what
               # the regeneration check exists to refuse.
-              proto/*|buf.yaml|buf.gen.yaml|buf.lock|server/app/contract/*|.github/workflows/*) contract=true ;;
+              proto/*|buf.yaml|buf.gen.yaml|buf.lock|server/app/contract/*|android/core/data/src/main/contract/*|.github/workflows/*) contract=true ;;
             esac
           done <<< "$files"
 
@@ -200,6 +200,10 @@ jobs:
           fi
           if ! diff -r --exclude=__pycache__ "$out/server/app/contract" server/app/contract; then
             echo "::error::server/app/contract is not what proto/ generates. From the repository root run: buf generate, then commit server/app/contract with the proto change."
+            exit 1
+          fi
+          if ! diff -r "$out/android/core/data/src/main/contract/java" android/core/data/src/main/contract/java; then
+            echo "::error::Android contract sources are not what proto/ generates. Run buf generate and commit both generated trees."
             exit 1
           fi
 

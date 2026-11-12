@@ -6,7 +6,92 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-**12 November 2026 — Android decomposition, part C (#273).**
+**12 November 2026 — Android transports, part 5a (#273): complete local gates and independent review fix pass.**
+The [approved design](docs/specs/2026-10-05-android-transports-design.md), decision
+#307 and the [six-task implementation plan](docs/specs/2026-11-12-android-transports-5a-plan.md)
+bound this batch. The owned TaskParent worktree uses `work/android-transports-5a`
+from dev `2503c553`; preceding production master is `98139d49`, signed APK46,
+delivered through #731/#732. All nine worktrees and the original Phone draft
+survive. Persistent branches are `master` and `dev`; only the merged working
+ref is retired, never its files or another worktree's unfinished changes.
+
+Schedule and Join now use domain-valued v2 remotes over the shared server client resources.
+The build selects REST, Connect or unary gRPC, with Connect the default. Every
+send reads a coherent current address/credential snapshot and carries the app's
+client version. Me/link codes, management, directory and diary retain v1 until
+5b. Installed v1 responses, the server client minimum and family installations
+are unchanged. Live host/streaming acceptance remains 5c; v1 retirement is later.
+
+Generated Java lite/Connect code and strict canonical DTO infrastructure cover
+all75 unary methods and all76 credentials, with WatchClass explicitly non-REST.
+The75 bindings share606 descriptor-owned JSON fixtures. No protobuf Kotlin DSL,
+kotlin-reflect or moshi-kotlin runtime is added. Required application-owned Graph
+configuration also reaches concurrent/background-first callers. Only the
+DEVICE_TOKEN_INVALID reason removes a membership. Bare401, CLIENT_TOO_OLD and
+future refusals keep memberships, rows and tags; obsolete-client sync becomes
+permanent failure and prompts globally. v2 ETags have a separate namespace and
+all ordinary lifecycle wipes remove both generations. Unknown join codes,
+invite-only classes, device limits, throttling and missing-v2 compatibility cues
+remain distinct, including translated screen text.
+
+Complete server gates passed on the unchanged Python runtime/tests: Ruff; mypy242; bare pytest
+`-q -n auto` with8workers, **3875passed/17skipped in2262.02s**,3892 total cases.
+The17 skips are the existing6 live-host and11 PostgreSQL-only checks, not failed
+or silently selected cases. The complete Android `test assembleDebug
+assembleRelease detekt` invocation after the review fix pass passed314.91s on
+frozen source:1973 logical JVM cases across app711, core:data782,
+core:designsystem205, core:model145 and widget130. The count
+writer and both completed-report checkers agree, as do all canonical document
+and module declarations. Full XML/logs are retained separately before any
+focused rerun, including the preceding3877-case server report.
+
+Public Buf and its remote generator returned generic HTTP403, including with
+both inputs local. Official pinned local plugins remove that local execution
+blocker: two identical runs produced506 Android files and all48 existing Python
+Git blobs exactly; the Windows Python working bytes and lock stay untouched.
+Initial exact-head CI43194079621 onff7d65fc passed every job, including the
+published remote generation and both diffs, Buf lint/breaking and both live-host
+adapters. The final fix head still needs its own CI; no local403 recovery is inferred. See [build.md](docs/build.md), "The v2
+contract and Buf". Preserve raw diagnostics and this batch's ledger under the
+ignored `.superpowers/sdd/2026-11-12-android-transports-5a-plan/` workspace.
+
+The release-target native harness and separate APK artifact are implemented.
+Local main/test R8 packaging passed with debug-signing fallback; this is no
+native or delivery-certificate proof. The actual signed master pair must match
+the reviewed SHA and preceding certificate, then run one bounded Connect call
+with the schema-valid, never-issued `!5A!` code in the separate Studio fixture.
+It must decode ErrorInfo as public UnknownCode without creating membership,
+restore the previous server URL, and retain fixture data on normal shutdown.
+No account journey, Terms acceptance, family rollout or widget resize is implied.
+
+One fresh independent Astra review found three Important findings, no Critical:
+request/membership ownership for delayed refusals and success (#734), and false
+success on a second NotModified without cached rows (#735). Original10 defect
+cases were observed RED against unchanged production code, then GREEN among65
+focused cases and the complete1973-case Android run. New real-wire provenance,
+shared-resource, cross-facade gate and replacement-flight tests hold the fix.
+A late answer now validates its sent server/token under the same short gate as
+membership persistence/wipes; no lock spans the network. Obsolete conditional
+requests fail before sending, and retained inactive classes keep their own tags.
+No re-review was dispatched. Three Minors remain deferred in full in the PR:
+malformed enum/int64 object payloads lose observed HTTP provenance; Connect's
+proxy429 header lacks Retry-After fallback; an external redirect can carry the
+build-version header, without the bearer.
+
+The [working PR #733 delivery receipt](https://github.com/lumenpearson/lessons/pull/733)
+is the live record of actual final-head/dev/promotion/master CI, pinned merges,
+production aliases/warmup/runtime scope, signed artifacts, bounded Studio native
+proof, Project6 metadata and safe working-ref retirement. This opening is updated
+inside that still-open PR. Post-merge facts are read back in its description;
+they are not predicted in this source snapshot or sent in a close-out PR.
+The issues close through the promotion to master; programme273 stays open for
+5b/5c/5d. Project6 CLI access lacks read:project, so its readback is not inferred
+from issue creation; use the authorized browser path only within a matching slot.
+Each heavy-CLI handoff requires actual process exit and retained reports. Desktop,
+SDK-control, ADB and native activity require a fresh coordinator grant, never an
+expired or released queue entry. Preserve every worktree and the private receipts.
+
+**Preceding batch — 12 November 2026, Android decomposition, part C (#273).**
 Parts A and B merged in #451 and #625. The working branch
 `work/android-decomposition-c` starts at dev `bf322643`. It separates the four
 onboarding steps, splits the floating toolbar by concern and extracts the shell
@@ -26,10 +111,11 @@ APK hash throughout. The new fixture closed normally with its launcher and
 child absent and userdata retained. The original fixture's earlier startup
 failed before connection; its unresolved process remains quarantined, so this
 is no claim that the original fixture recovered. The source-pinned signed
-main update is still pending at this checkpoint. Final delivery readbacks belong to
-[PR #731](https://github.com/lumenpearson/lessons/pull/731), including its
-working-head and dev CI, the separate promotion to master, master CI,
-production and the bounded Studio checks. Do not infer an account journey,
+master update subsequently passed as code 46, with final delivery readbacks in
+[PR #731](https://github.com/lumenpearson/lessons/pull/731) and promotion
+[PR #732](https://github.com/lumenpearson/lessons/pull/732), including exact
+working-head, dev, promotion and master CI, production and bounded Studio
+checks. Do not infer an account journey,
 Terms acceptance, widget resizing or a family rollout from these gates.
 
 One fresh independent review found no user-visible regression. Its important
@@ -60,10 +146,9 @@ survived consolidation; retired refs were preserved in a verified Git bundle.
 The two persistent branches are `master` and `dev`, with one working branch
 targeting dev and a separate dev-to-master promotion. Never reset dev to master.
 
-Last updated: **11 November 2026**. This committed #724 snapshot
-records the integrated dependency cohort, the recovered host-cancellation fix#728
-and its measured verification below. Current facts are 3877server/
-1823Android cases; no migration or installed-v1 contract changes are included.
+Historical **11 November 2026** #724 snapshot: the integrated dependency cohort,
+the recovered host-cancellation fix#728 and its measured verification below.
+That batch measured3877server/1823Android cases; no migration or installed-v1 contract changes are included.
 The previous production anchor is Task1's master4dbfe33f (PR726/727), whose CI,
 four-alias production and signed APK44/Studio startup proof are recorded below.
 
@@ -2214,9 +2299,9 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 
 ```bash
 cd server  && ruff check app tests scripts migrations   # clean
-cd server  && pytest -q -n auto                          # 3877 tests, ~38 min on Windows
+cd server  && pytest -q -n auto                          # 3892 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
-cd android && ./gradlew test                             # 1826 tests across the five modules
+cd android && ./gradlew test                             # 1973 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

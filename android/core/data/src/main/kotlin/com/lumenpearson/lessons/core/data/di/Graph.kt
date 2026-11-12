@@ -36,25 +36,36 @@ object Graph {
      * done this, or - after a process restart triggered by WorkManager - be the
      * first thing to touch it.
      *
-     * @param githubClientId passed by the application, which is the one caller
-     *   that runs first in the process and the one that has the constant. A
-     *   receiver or worker calling this later without it changes nothing,
-     *   because by then the graph already exists.
-     * @param githubProject the repository the build names (#469), passed by
-     *   the application for the same reason; `BuildPropertyReachTest` holds
-     *   that it is, since a call without it reports to the upstream repository.
+     * Only the application's [GraphOwner] supplies these constants. Background
+     * entry points use [ensureInitialized] so their order cannot pick defaults.
      */
     fun init(
         context: Context,
+        transport: String,
+        clientVersion: Int,
+        appStreaming: Boolean,
         githubClientId: String = "",
         githubProject: GithubProject = GithubProject.UPSTREAM,
     ) {
         if (instance != null) return
         synchronized(this) {
             if (instance == null) {
-                instance = DefaultLessonsContainer(context.applicationContext, githubClientId, githubProject)
+                require(transport in setOf("rest", "connect", "grpc")) { "Unknown app transport" }
+                require(clientVersion > 0) { "The client version must be positive" }
+                require(!appStreaming || transport == "grpc") { "App streaming requires grpc" }
+                instance = DefaultLessonsContainer(
+                    context.applicationContext, transport, clientVersion, appStreaming, githubClientId, githubProject,
+                )
             }
         }
+    }
+
+    fun ensureInitialized(context: Context) {
+        if (instance != null) return
+        val owner = context.applicationContext as? GraphOwner
+            ?: error("The application must implement GraphOwner")
+        owner.initializeLessonsGraph()
+        check(instance != null) { "GraphOwner did not initialize the graph" }
     }
 
     /** @throws IllegalStateException if [init] has not run in this process yet. */

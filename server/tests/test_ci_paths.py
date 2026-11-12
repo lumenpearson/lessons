@@ -47,6 +47,7 @@ READ_BY_THE_SUITE = {
     "buf.yaml": "test_contract",
     "buf.gen.yaml": "test_contract",
     "buf.lock": "test_contract",
+    "android/gradle/libs.versions.toml": "test_contract",
     "requirements.in": "test_requirements_mirror, test_contract, test_diary_client",
     "requirements.txt": "test_requirements_mirror",
     ".python-version": "test_requirements_mirror",
@@ -81,6 +82,9 @@ def _server_patterns() -> list[str]:
         ("docs/counts.json", "Android"),
         ("server/scripts/check_test_counts.py", "Android"),
         ("android/settings.gradle.kts", "Server"),
+        ("android/core/data/src/main/contract/java/DeviceServiceClient.kt", "Contract"),
+        ("server/tests/golden/v2/DeviceService.CreateDevice.request.json", "Android"),
+        ("server/tests/golden/v2/DeviceService.CreateDevice.request.json", "Server"),
     ],
 )
 def test_count_inputs_run_the_job_that_consumes_them(path, consumer):

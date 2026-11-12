@@ -27,6 +27,7 @@ android {
     defaultConfig {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
@@ -63,6 +64,7 @@ android {
     // than `srcDirs(...)`, which AGP 9.4 deprecates (#185); both add to the
     // defaults rather than replace them.
     sourceSets {
+        getByName("main").java.directories += "$projectDir/src/main/contract/java"
         getByName("test").assets.directories += "$projectDir/schemas"
         getByName("androidTest").assets.directories += "$projectDir/schemas"
 
@@ -86,6 +88,7 @@ android {
         // can load it from the classpath the way the app loads it from assets.
         getByName("test").resources.directories += listOf(
             inRepository("server/tests/vectors"),
+            inRepository("server/tests/golden"),
             inRepository("server/app/catalog/data"),
         )
     }
@@ -112,6 +115,9 @@ ksp {
 val everyModule = rootProject.allprojects.map { it.layout.projectDirectory }
 
 tasks.withType<Test>().configureEach {
+    inputs.file(rootProject.layout.projectDirectory.file("../.github/workflows/ci.yml"))
+        .withPropertyName("sharedResourceCiPaths")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootProject.layout.projectDirectory.dir("../docs/legal"))
         .withPropertyName("legalDocuments")
         .withPathSensitivity(PathSensitivity.RELATIVE)
@@ -124,6 +130,10 @@ tasks.withType<Test>().configureEach {
     inputs.files(everyModule.map { it.file("build.gradle.kts") })
         .withPropertyName("everyModuleBuildScript")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
+tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
+    exclude("**/contract/**")
 }
 
 dependencies {
@@ -155,6 +165,15 @@ dependencies {
     // debug one. A debug-only `debugImplementation` is the way to ask for it.
     implementation(libs.okhttp.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.protobuf.javalite)
+    implementation(libs.connect.kotlin) {
+        // The project-owned lite codec does not need the reflection adapter.
+        exclude(group = "com.squareup.moshi", module = "moshi-kotlin")
+    }
+    implementation(libs.connect.okhttp) {
+        exclude(group = "com.squareup.moshi", module = "moshi-kotlin")
+    }
+    implementation(libs.moshi)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

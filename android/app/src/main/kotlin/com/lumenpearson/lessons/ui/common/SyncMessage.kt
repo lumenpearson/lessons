@@ -56,6 +56,7 @@ sealed interface SyncMessage {
  * succeeded and the fresh data on screen is the only feedback needed.
  */
 fun SyncResult.toMessageOrNull(): SyncMessage? = when (this) {
+    SyncResult.ClientTooOld -> null
     SyncResult.Success -> null
     SyncResult.Unauthorised -> SyncMessage.Unauthorised
     SyncResult.NotConfigured -> SyncMessage.NotConfigured

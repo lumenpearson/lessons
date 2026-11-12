@@ -7,6 +7,8 @@
     read a string from, and must not pull a UI module in to find one.
 -->
 <resources>
+    <string name="client_update_required">Обновите приложение</string>
+    <string name="client_update_required_detail">Сервер больше не поддерживает эту версию. Ваши классы и сохранённое расписание остаются на телефоне.</string>
 
     <!-- Channels -->
     <string name="alert_channel_lessons">Уроки</string>

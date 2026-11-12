@@ -147,7 +147,7 @@ class AboutCardTest {
         show(ServerStatus.Ok(apiVersion = 1, schema = "0014"))
 
         assertShows("Сервер на связи")
-        assertShows("API v1")
+        assertShows("API сервера v1")
         assertShows("Схема 0014")
     }
 

@@ -21,6 +21,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.LocalScrollBlur
 import com.lumenpearson.lessons.core.designsystem.theme.MotionSettings
 import com.lumenpearson.lessons.core.designsystem.theme.ScrollBlurSettings
 import com.lumenpearson.lessons.ui.onboarding.OnboardingScreen
+import com.lumenpearson.lessons.ui.settings.ClientUpdateHost
 import java.time.LocalDate
 
 /**
@@ -72,6 +73,7 @@ fun LessonsApp(
         ),
         LocalLiquidRipple provides ripple,
     ) {
+        ClientUpdateHost()
         // The page colour, painted once for the whole app.
         //
         // Nothing used to paint it. The tabs draw rows and nothing behind them,
