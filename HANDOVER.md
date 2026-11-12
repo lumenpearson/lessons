@@ -6,22 +6,37 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-**12 November 2026 — Android transports, part 5a (#273): implementation delivered; APK certificate-output correction #740.**
+**12 November 2026 — Android transports, part 5a (#273): implementation delivered; signed harness correction #743.**
 The [approved design](docs/specs/2026-10-05-android-transports-design.md), decision
 #307 and [six-task plan](docs/specs/2026-11-12-android-transports-5a-plan.md) bind
-this batch. Working #733 and promotion #736 delivered 5a through dev `f4ccd1e8`
-to master `bc836f86`. Correction #737 then merged through #738/#739: dev is
-`cb3364cb533e61b0f10e47a3cb6db014d013d1d6`, master is
-`23dc5bfccb3cbeee52ae0873ec0665f391ba62f3`. Their exact working/dev/promotion/master
-CI passed; production was READY at that exact master, with all four aliases,
+this batch. Working #733 and promotion #736 delivered 5a; #738/#739 corrected
+the ordinary/native JVM configuration (#737). Certificate correction740 then
+merged through [#741](https://github.com/lumenpearson/lessons/pull/741) and
+[#742](https://github.com/lumenpearson/lessons/pull/742): dev is
+`c796795877a14bc29ad253a790fb9b1ca279df53`, master is
+`c800491f306d3f9489c66906f2639bc46cda4878`. Exact working/dev/promotion/master
+CI passed. Production was READY at that exact master, with all four aliases,
 healthy public/authorized warmups and no error groups in the bounded log window.
-Issue737 actually closed; programme273 remains open for 5b/5c/5d.
+Issues737/740 closed; programme273 remains open for5b/5c/5d. Formal5a native and
+Project6 acceptance remains pending; implementation delivery does not close it.
 
-Actual signed/native APK48 completed its ordinary JVM gate and release/test
-packaging, then the common-certificate guard refused the pair before upload.
-[PR #741](https://github.com/lumenpearson/lessons/pull/741), existing milestone11,
-owns correction740 on `work/apk-certificate-output-740` from dev `cb3364cb`.
-The last verified installed baseline remains signed APK46 from #731/#732.
+Signed workflow43252321452 at masterC800 produced actual APK49 and its matching
+unversioned test APK. Independent cryptographic/source/hash checks passed, and
+the retained fixture updated46 to49 without uninstalling or changing its real
+certificate/first-install time. Welcome startup passed in slot209; Home/reopen
+was not accepted. The one actual instrumentation attempt in slot211 crashed in
+AndroidJUnitRunner.onCreate with NoClassDefFoundError for androidx.tracing.Trace.
+Neither APK defines it. Repository reachability and in-test URL restoration are
+unknown; no retry or successful test is inferred. A bounded crash capture matched
+that attempt. The own VM then closed normally, its launcher/child exited0 and
+fresh absence/data retention preceded actual resource release212. The original
+quarantined fixture was untouched.
+
+[PR #744](https://github.com/lumenpearson/lessons/pull/744), existing milestone11,
+owns correction743 on `work/native-harness-linkage-743` from devC796. Its
+[three-task plan](docs/specs/2026-11-12-native-harness-743-plan.md) preserves the
+measured external harness boundary, then requires reviewed delivery and a new
+actual signed artifact. Failed APK49 and its receipt remain immutable.
 All nine worktree directories, the original Phone draft and private/raw evidence
 remain. Persistent branches are master/dev; retire only a verified merged
 working ref, preserving its files and every unfinished worktree.
@@ -51,7 +66,8 @@ two identical generations produced506 Android files and all48 existing Python
 Git blobs exactly; Python Windows working bytes and the lock stayed untouched.
 Original and737 exact-head/dev/promotion/master CI passed published remote
 generation/diffs, lint and both live-host adapters; PR runs also passed breaking
-comparison. Correction741 still needs its own CI. No Windows403 recovery or
+comparison. Correction740 also passed its own delivery CI; correction744 still
+needs exact-head CI. No Windows403 recovery or
 exact upstream refusal reason is inferred. See [build.md](docs/build.md),
 "The v2 contract and Buf", and preserve the private generation diagnostics.
 
@@ -83,19 +99,62 @@ the corrected complete file passed35 cases in15.95s. The actual corrected guard
 also passes both official tools on the same retained valid pair. Shell fixtures
 hold control flow and receipt behavior; they do not perform real cryptography.
 
-Fresh complete correction740 gates: Ruff passed; mypy passed242 modules; bare
+Preserved complete correction740 gates: Ruff passed; mypy passed242 modules; bare
 `pytest -q -n auto` with8workers passed **3893 cases and skipped17 in2147.67s**,
 **3910 total**. The17 skip identities match737:6 live-host and11 PostgreSQL-only
 cases on SQLite. Full Android `test assembleDebug assembleRelease detekt` passed
 85.8s with1973 logical cases: app711, data782, design205, model145, widget130.
 The source was frozen throughout both full gates. Complete reports, measured
-3910/1973 counts and every canonical declaration agree; postcount declaration/
+3910/1973 counts and every canonical declaration agreed then; postcount declaration/
 reference checks passed2 cases in13.59s with their own focused XML. The Android
 wrapper stopped after the successful gate because of a daemon-log PID parsing
 mistake; reports were retained and the own daemon stopped normally. A separately
 agreed server-only cohort followed, without rerunning Android. All observed own
 processes exited and fresh exact PID absence was read back before resource-idle.
 Original3892,737's3899, filtered and failed reports remain separate and preserved.
+
+Correction743 keeps seventeen measured declaration owners, twenty-five methods
+and Graph.INSTANCE only in nativeCheck. Names may still be obfuscated; only the
+two BaseContinuationImpl callback names/prototypes stay stable for the four
+actual test coroutine subclasses. Cached original JVM declarations and actual
+APK DEX established the inherited facade and mangled method signatures. No
+generated ErrorInfo, remote or repository implementation gets a harness keep.
+Ordinary release excludes the new rule file. This is a testable minified target,
+not byte-for-byte proof of ordinary release entry-point elimination.
+
+The existing build-property class observed RED9cases/8passed/one expected missing
+target-file assertion, then GREEN9/9. One valid private-fixture packaging passed
+in173.27s. Both actual APKs cryptographically verify with the same existing local
+fixture certificate; neither was installed. Actual packaged inherited linkage
+has no missing measured classes/members, callback declarations or overrides;
+all four test subclasses agree. Product mappings, including ErrorInfo and the
+Schedule/Join/repository implementations, remain obfuscated. This is not real
+production signing or a successful device/Connect result.
+
+The complete ordinary Android gate passed108.57s:1974 logical cases, app712,
+data782, design205, model145 and widget130, plus debug/release assembly and
+Detekt. All2709 frozen inputs stayed unchanged through packaging, linkage and
+the full gate. Measured count documents changed afterward; completed reports,
+Python3.12 count checks and canonical declarations agree. Server/API/proto/lock
+inputs are unchanged from740; its3910-case archived full report is reused only
+as the server count input. No new local server execution is claimed for743.
+
+An earlier unquoted PowerShell property split failed task selection before R8;
+that failed receipt stays separate. The valid packaging used one structured
+nativeCheck argument. The own dedicated daemon stopped normally after all
+checks, all sixteen recorded process IDs and own client/daemon children were
+absent, and the coordinator actually released the resource. One fresh independent
+Astra review of the whole correction at03ac996a found no Critical/Important and
+two Minors, both deferred: the registration policy assertion is not scoped to
+the release block, and APK download instructions do not distinguish the native
+target roots from ordinary-release shrinking. The reviewed registration is
+correct and engineering.md records the variant limitation. The reviewer also
+independently matched retained APK hashes and inspected actual DEX call sites:
+all30 cross-APK method targets with packaged definitions use compatible opcodes,
+all four callback subclasses agree, and the test retains its runtime Test
+annotation. The wider unresolved references are Kotlin annotations and Android
+framework AppComponentFactory methods. No Gradle/server/signing/device rerun
+was attributed to that review, and no host check supplies signed-device acceptance.
 
 One fresh independent Astra review of correction741 at `54b6eb5f` approved the
 change with no Critical or Important findings and six Minors. Four remain
@@ -121,14 +180,15 @@ argument boundaries through `$*` and whitespace splitting, so a future quoted
 task list could escape its regression. Its current command is correct. Full
 findings and dispositions remain in the respective PR descriptions and ledger.
 
-The [PR741 delivery receipt](https://github.com/lumenpearson/lessons/pull/741) is
+The [PR744 delivery receipt](https://github.com/lumenpearson/lessons/pull/744) is
 the live record for its review, final-head/dev/promotion/master CI, pinned merges,
-source-matched production, actual signed pair, Studio native proof and safe
+source-matched production, new actual signed pair, native proof and safe
 working-ref retirement. This opening is updated inside that still-open PR.
 Post-merge facts belong in the same description, never a close-out-only PR.
-Original733/736 and737's738/739 retain their actual delivery/failure receipts.
+Original733/736,737's738/739 and740's741/742 retain their actual delivery/failure
+receipts, including failed49 and the open743 acceptance boundary.
 
-Next: finish741 review/CI and dev/master delivery, then a new guarded signed
+Next: finish744 review/CI and dev/master delivery, then a new guarded signed
 workflow. Independently verify its exact source, both APK hashes and the preceding
 real certificate before requesting a fresh Studio-only slot for the retained
 fixture. Update without uninstalling, observe startup/Home/reopen, then make
@@ -137,16 +197,17 @@ ErrorInfo as public UnknownCode, create no membership, restore the prior server
 URL and preserve data on normal shutdown. No account/Terms/family journey,
 widget resize or live Android gRPC/streaming is implied.
 
-Project6 remains an explicit access/readback boundary: CLI lacks read:project,
-separate stored authentication is absent, and public retrieval returned
-`Failed to fetch restricted URL`. No board README/fields were read. Project
-actions stay paused pending an applicable effective access/policy change, with
-no scope upgrade, alternate browser or other-session relay. Formal Task6
-completion is not claimed while those readbacks remain unverified. Heavy CLI
+Project6 remains an explicit readback boundary: CLI lacks read:project and the
+earlier browser returned `Failed to fetch restricted URL`. An effective
+github.com policy change and full application restart now permit a fresh scoped
+ordinary browser check; the own Project6 README/field readback is still queued,
+not completed. No scope upgrade, alternate route or borrowed evidence supplies
+those values. Formal Task6 completion is not claimed while these readbacks or
+signed native acceptance remain unverified. Heavy CLI
 and every Studio/SDK/ADB/native action require a fresh matching coordinator
 agreement, actual process exit and retained evidence; a released queue entry
-never resumes itself. Preserve the private `.superpowers/sdd/2026-11-12-android-transports-5a-plan/`
-ledger and every unfinished worktree.
+never resumes itself. Preserve both private `.superpowers/sdd/2026-11-12-android-transports-5a-plan/`
+and `.superpowers/sdd/2026-11-12-native-harness-743-plan/` ledgers and every unfinished worktree.
 
 **Preceding batch — 12 November 2026, Android decomposition, part C (#273).**
 Parts A and B merged in #451 and #625. The working branch
@@ -2358,7 +2419,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 3910 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
-cd android && ./gradlew test                             # 1973 tests across the five modules
+cd android && ./gradlew test                             # 1974 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

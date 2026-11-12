@@ -1,5 +1,6 @@
 # Only the test APK: the runner discovers this entry point by name and annotation.
-# No generated message, codec or production graph gets an extra keep rule here.
+# Target-side external declarations live in native-check-target-proguard-rules.pro.
+# Neither file retains a generated message, codec or repository implementation.
 -keep class com.lumenpearson.lessons.TransportReleaseTest { public <init>(); public void *(); }
 -keepattributes RuntimeVisibleAnnotations,AnnotationDefault
 

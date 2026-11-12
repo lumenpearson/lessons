@@ -321,6 +321,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (nativeCheck) {
+                proguardFiles("native-check-target-proguard-rules.pro")
+            }
         }
     }
 
@@ -377,6 +380,9 @@ val everyModuleSrc = rootProject.allprojects.map { it.layout.projectDirectory.di
 tasks.withType<Test>().configureEach {
     inputs.file(layout.projectDirectory.file("build.gradle.kts"))
         .withPropertyName("appBuildScript")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(layout.projectDirectory.file("native-check-target-proguard-rules.pro"))
+        .withPropertyName("nativeCheckTargetRules")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.layout.projectDirectory.file("../.github/workflows/apk.yml"))
         .withPropertyName("apkWorkflow")
