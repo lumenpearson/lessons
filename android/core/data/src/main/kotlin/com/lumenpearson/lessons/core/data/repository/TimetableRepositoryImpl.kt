@@ -5,10 +5,13 @@ import com.lumenpearson.lessons.core.data.database.TimetableDao
 import com.lumenpearson.lessons.core.data.database.buildTimetable
 import com.lumenpearson.lessons.core.data.database.toEntity
 import com.lumenpearson.lessons.core.data.database.toRecord
-import com.lumenpearson.lessons.core.data.network.LessonsApi
+import com.lumenpearson.lessons.core.data.network.v2.ScheduleRemote
+import com.lumenpearson.lessons.core.data.network.v2.CallObservation
+import com.lumenpearson.lessons.core.data.network.RequestCredentials
+import com.lumenpearson.lessons.core.data.network.v2.ScheduleRemoteResult
+import com.lumenpearson.lessons.core.data.network.v2.RemoteError
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
 import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
-import com.lumenpearson.lessons.core.data.network.dto.toDomain
 import com.lumenpearson.lessons.core.model.SchoolYear
 import com.lumenpearson.lessons.core.model.Timetable
 import java.io.IOException
@@ -28,7 +31,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import retrofit2.HttpException
 
 /**
  * Room-backed implementation: the network writes, the database reads, and the
@@ -41,7 +43,7 @@ import retrofit2.HttpException
  */
 internal class TimetableRepositoryImpl(
     private val dao: TimetableDao,
-    private val api: LessonsApi,
+    private val remote: ScheduleRemote,
     /**
      * The class being shown, or `null` when this device is in none.
      *
@@ -107,6 +109,7 @@ internal class TimetableRepositoryImpl(
      * requests reads exactly as it did before.
      */
     private val bundleTags: BundleTagStore = BundleTagStore.None,
+    private val membership: ScheduleMembership? = null,
 ) : TimetableRepository, TimetableCache {
 
     /**
@@ -207,10 +210,16 @@ internal class TimetableRepositoryImpl(
      * by class and year, so a switch between classes is never coalesced into
      * the class being left.
      */
-    private val flights = SingleFlight<String, SyncResult>()
+    private data class SyncRequest(val classId: Long?, val year: Int, val credentials: RequestCredentials?)
 
-    private suspend fun syncYear(openingYear: Int): SyncResult =
-        flights.run("${activeClassId.first() ?: 0L}|$openingYear") { fetchYear(openingYear) }
+    private val flights = SingleFlight<SyncRequest, SyncResult>()
+
+    private suspend fun syncYear(openingYear: Int): SyncResult {
+        val owner = membership?.capture()
+        if (membership != null && owner == null) return SyncResult.Unauthorised
+        val request = SyncRequest(owner?.classId ?: activeClassId.first(), openingYear, owner?.credentials)
+        return flights.run(request) { fetchYear(request) }
+    }
 
     /**
      * Fetches one school year and writes it over whatever that year held.
@@ -230,150 +239,102 @@ internal class TimetableRepositoryImpl(
      * arithmetic. What it costs is payload, once per year visited — which is
      * what the `ETag` is for.
      */
-    private suspend fun fetchYear(openingYear: Int): SyncResult {
+    private suspend fun fetchYear(request: SyncRequest): SyncResult {
+        var observation = CallObservation(request.credentials)
         return try {
-            val bounds = SchoolYear.boundsOf(openingYear)
-            val start = bounds.start
-            val span = SchoolYear.daysOf(openingYear).coerceIn(MIN_DAYS, MAX_DAYS)
-            val classId = activeClassId.first()
-            // The tag belongs to one class and one year, and those two numbers
-            // are the whole signature now. It used to carry the start date and
-            // the span as well, because the window could be any length; a year
-            // names itself, and a signature that cannot disagree with the
-            // request is one fewer thing to keep in step.
-            val signature = "${classId ?: 0L}|$openingYear"
-            var response = api.bundle(
-                start = start.toString(),
-                days = span,
-                ifNoneMatch = bundleTags.tagFor(signature),
-            )
-            if (
-                response.code() == HTTP_NOT_MODIFIED &&
-                !(classId != null && holdsWindow(classId, openingYear))
+            val bounds = SchoolYear.boundsOf(request.year)
+            val signature = "${request.classId ?: 0L}|${request.year}"
+            var response = remote.window(request.year, bundleTags.tagFor(signature), observation)
+            if (response is ScheduleRemoteResult.NotModified &&
+                !(request.classId != null && holdsWindow(request.classId, request.year))
             ) {
-                // «Nothing changed» is only an answer when there is something
-                // for it to be about. The tag lives in the preferences and
-                // outlives every wipe of the cache — `clearSession`,
-                // `removeSession`, `clearMemberships` and a destructive Room
-                // migration all leave it standing — and none of `classId` or
-                // `openingYear` moves across a leave and a re-join of the same
-                // class. So the phone could send a tag the server still matched
-                // while holding nothing at all, and go on reporting a
-                // successful sync over «Расписание ещё не загружено» for ever.
-                response = api.bundle(start = start.toString(), days = span, ifNoneMatch = null)
+                // A persisted tag can outlive Room; recovery is one unconditional request only.
+                observation = CallObservation(request.credentials)
+                response = remote.window(request.year, null, observation)
             }
-            // Retrofit throws `HttpException` for a *body-typed* suspend
-            // method and hands a `Response<T>`-typed one the error response
-            // verbatim — so the `catch` below, which is where `onTokenRejected`
-            // lives, has been unreachable for this call since it started
-            // asking «changed since?». A revoked device therefore kept the
-            // class, the token and a year of somebody else's timetable, and
-            // the screen said «Server returned HTTP 401» in English.
-            if (response.code() == HTTP_UNAUTHORISED) {
-                runCatching { onTokenRejected() }
-                return SyncResult.Unauthorised
-            }
-            if (response.code() == HTTP_NOT_MODIFIED) {
-                // Nothing to write: the window is byte-for-byte what is already
-                // cached. The check still happened, though, and «обновлено N
-                // назад» is a claim about *that* — left alone it would keep
-                // growing on a phone that is syncing perfectly. The widget is
-                // deliberately not poked: nothing it draws has changed, and a
-                // redraw per poll is the cost this whole request was avoiding.
-                classId?.let { dao.touchSyncedAt(it, clock.millis()) }
-                // The alarm chain is told anyway, and that is not a
-                // contradiction of the line above. The widget draws the data,
-                // so unchanged data means nothing to redraw; the chain is a
-                // *chain*, one alarm long, and what ends it is not the data
-                // changing but time passing over a gap wider than the planner
-                // looks ahead — a fortnight of holidays, in which nothing on
-                // the server changes and therefore every poll is this branch.
-                // Left silent, this is the path that watches the chain die.
-                onNothingChanged()
-                return SyncResult.Success
-            }
-            val body = response.body()
-                ?: return SyncResult.Failed("Server returned HTTP ${response.code()}")
-            val timetable = body.toDomain(fallbackSyncedAtEpochMillis = clock.millis())
-            // The class the *server* resolved the token to, not the one this
-            // device thinks is active. They are the same except in the seconds
-            // around a switch, and taking the local answer there would file one
-            // class's window under the other's id — which is the one mistake
-            // this cache cannot survive, because both windows look plausible.
-            val syncedClassId = timetable.schoolClass.id
-            val now = clock.millis()
-            dao.replaceWindow(
-                schoolClass = timetable.schoolClass.toEntity(timetable.syncedAtEpochMillis),
-                window = SyncedWindowEntity(
-                    classId = syncedClassId,
-                    openingYear = openingYear,
-                    startsOn = bounds.start,
-                    endsOn = bounds.endInclusive,
-                    syncedAtEpochMillis = now,
-                ),
-                days = timetable.days.map { it.toRecord(syncedClassId, isNextSchoolDay = false) },
-                // Only the year that holds today. The lookahead row answers
-                // «what is the next school day» from *now*, and a fetch of 2031
-                // rewriting it would point the widget and the notifications at
-                // a Monday five years out.
-                //
-                // It writes nothing today, and that is not a defect here: the
-                // server resolves `next_school_day` at most three weeks past
-                // the last lesson *in the window asked for*, and this window is
-                // the school year, so those three weeks are in June and out of
-                // season for every class. What answers across a gap instead is
-                // `firstTeachingDayAfter` over the cached year — see
-                // `TimetableDao`'s ranged deletes. The guard is kept rather
-                // than the branch removed: the field is in every bundle, a
-                // narrower window fills it, and the row it would write is one
-                // no screen could question.
-                nextSchoolDay = timetable.nextSchoolDay
-                    ?.takeIf { openingYear == SchoolYear.openingYearOf(todayAtSchool()) }
-                    ?.toRecord(syncedClassId, isNextSchoolDay = true),
-            )
-            // After the write, not before: a tag remembered for a window that
-            // failed to land would make the next sync ask «changed since?» about
-            // rows this device does not have.
-            response.headers()["ETag"]?.takeIf { it.isNotBlank() }?.let { etag ->
-                bundleTags.remember(signature, etag)
-            }
-            // Guarded: the sync succeeded, and a failure to tidy up afterwards
-            // is not a failure to sync. The worst an unpruned cache costs is
-            // rows nobody reads until the next successful prune.
-            runCatching { prune(syncedClassId) }
-            onDataChanged()
-            SyncResult.Success
-        } catch (cancellation: CancellationException) {
-            // A cancelled sync is not a failed sync; let it propagate.
-            throw cancellation
-        } catch (http: HttpException) {
-            if (http.code() == HTTP_UNAUTHORISED) {
-                // Before returning, not after: the caller shows the message,
-                // and by the time it does the app must already be out of a
-                // class that no longer has this device in it.
-                //
-                // Guarded, because it writes: `signOut` clears the session
-                // through DataStore, whose write side rethrows `IOException`,
-                // and this runs inside a `catch` with nothing above it but the
-                // bare `viewModelScope.launch` of whoever asked for a refresh.
-                // A full disk would turn a handled 401 into a crash.
-                runCatching { onTokenRejected() }
-                SyncResult.Unauthorised
+            if (response is ScheduleRemoteResult.NotModified) {
+                finishUnchanged(request, observation)
             } else {
-                SyncResult.Failed("Server returned HTTP ${http.code()}")
+                val changed = response as ScheduleRemoteResult.Changed
+                val result = applying(observation, changed.timetable.schoolClass.id) {
+                    storeChanged(changed, request.year, bounds)
+                }
+                if (result == SyncResult.Success) onDataChanged()
+                result
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (refusal: RemoteError) {
+            when (refusal.reason) {
+                "DEVICE_TOKEN_INVALID" -> rejectSentMembership(observation)
+                "CLIENT_TOO_OLD" -> SyncResult.ClientTooOld
+                else -> SyncResult.Failed(refusal.message ?: "The server refused the sync")
             }
         } catch (_: ServerNeedsHttpsException) {
-            // Before the «no address» catch, whose kind this is.
             SyncResult.NeedsHttps
         } catch (missing: ServerAddressMissingException) {
             SyncResult.NotConfigured
         } catch (io: IOException) {
             SyncResult.Failed(io.message ?: "Network unavailable")
         } catch (unexpected: Exception) {
-            // Malformed payloads and database constraint violations end up here.
-            // The cache is untouched, because replaceWindow is one transaction.
             SyncResult.Failed(unexpected.message ?: unexpected::class.java.simpleName)
         }
+    }
+
+    private suspend fun finishUnchanged(request: SyncRequest, observation: CallObservation): SyncResult {
+        val result = applying(observation, request.classId ?: 0L) {
+            val classId = request.classId
+            if (classId == null || !holdsWindow(classId, request.year)) {
+                SyncResult.Failed("The server returned no cached schedule window")
+            } else {
+                dao.touchSyncedAt(classId, clock.millis())
+                SyncResult.Success
+            }
+        }
+        // The unchanged window still needs an armed alarm chain, but never a false freshness claim.
+        if (result == SyncResult.Success) onNothingChanged()
+        return result
+    }
+
+    private suspend fun applying(
+        observation: CallObservation,
+        classId: Long,
+        persist: suspend () -> SyncResult,
+    ): SyncResult = membership?.apply(observation.credentials, classId, persist) ?: persist()
+
+    private suspend fun rejectSentMembership(observation: CallObservation): SyncResult = try {
+        val rejected = if (membership != null) membership.reject(observation.credentials) else {
+            onTokenRejected()
+            true
+        }
+        if (rejected) SyncResult.Unauthorised else SyncResult.Failed("The membership changed during sync")
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: Exception) {
+        // A storage failure must not turn a handled remote refusal into a process crash.
+        SyncResult.Unauthorised
+    }
+
+    private suspend fun storeChanged(
+        changed: ScheduleRemoteResult.Changed,
+        openingYear: Int,
+        bounds: ClosedRange<LocalDate>,
+    ): SyncResult {
+        val timetable = changed.timetable
+        val classId = timetable.schoolClass.id
+        dao.replaceWindow(
+            schoolClass = timetable.schoolClass.toEntity(timetable.syncedAtEpochMillis),
+            window = SyncedWindowEntity(classId, openingYear, bounds.start, bounds.endInclusive, clock.millis()),
+            days = timetable.days.map { it.toRecord(classId, isNextSchoolDay = false) },
+            // A future year's fetch must not replace the lookahead row for today.
+            nextSchoolDay = timetable.nextSchoolDay
+                ?.takeIf { openingYear == SchoolYear.openingYearOf(todayAtSchool()) }
+                ?.toRecord(classId, isNextSchoolDay = true),
+        )
+        // Only a window that landed may acquire a validator, under its confirmed class.
+        changed.etag?.takeIf { it.isNotBlank() }?.let { bundleTags.remember("$classId|$openingYear", it) }
+        runCatching { prune(classId) }
+        return SyncResult.Success
     }
 
     /**
@@ -493,14 +454,5 @@ internal class TimetableRepositoryImpl(
          */
         const val MAX_YEARS = 3
 
-        const val MIN_DAYS = 1
-
-        /** The server rejects anything larger (`MAX_BUNDLE_DAYS`). */
-        const val MAX_DAYS = 280
-
-        const val HTTP_UNAUTHORISED = 401
-
-        /** The whole point of sending `If-None-Match`: a body that is not sent. */
-        const val HTTP_NOT_MODIFIED = 304
     }
 }

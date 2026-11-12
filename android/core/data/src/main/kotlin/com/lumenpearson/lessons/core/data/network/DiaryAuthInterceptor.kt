@@ -30,7 +30,7 @@ internal class DiaryAuthInterceptor(
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
-        val path = request.url.encodedPath
+        val path = request.serverPath()
 
         // `/login` and `/session` are the calls that mint the token, so they
         // cannot carry one: a stale bearer riding the request that is meant to
@@ -38,13 +38,15 @@ internal class DiaryAuthInterceptor(
         // signing in to a second account would hand the server the first
         // one's. `/capabilities` is asked before anybody is signed in and says
         // the same thing to everyone. All three are anonymous on the server.
-        val mine = path.contains(DIARY_PATH_PREFIX) &&
+        val mine = path.startsWith(DIARY_PATH_PREFIX) &&
             ANONYMOUS_SUFFIXES.none { path.endsWith(it) }
         if (!mine || request.header(HEADER) != null) {
             return chain.proceed(request)
         }
 
-        val token = tokenProvider()?.takeIf { it.isNotBlank() }
+        val context = request.tag(ServerRequestContext::class.java)
+        val token = (if (context != null) context.credentials.diaryToken else tokenProvider())
+            ?.takeIf { it.isNotBlank() }
             ?: return chain.proceed(request)
 
         return chain.proceed(
@@ -57,11 +59,7 @@ internal class DiaryAuthInterceptor(
     internal companion object {
         const val HEADER = "Authorization"
 
-        /**
-         * Matched with `contains` rather than `startsWith`: the base URL may
-         * carry a path prefix of its own when the server sits behind a reverse
-         * proxy, exactly as the relative paths in [DiaryApi] allow for.
-         */
+        /** Matched against the captured API path, before a reverse-proxy prefix is added. */
         const val DIARY_PATH_PREFIX = "/api/v1/diary"
 
         /**

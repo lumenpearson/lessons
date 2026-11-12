@@ -1,5 +1,8 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.connectrpc.Code
+import com.lumenpearson.lessons.core.data.network.v2.RemoteError
+
 import com.lumenpearson.lessons.core.data.database.InMemoryTimetableDao
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.ManageApi
@@ -32,10 +35,9 @@ import retrofit2.Response
  * that joining does on the way in; the old class was still on screen after
  * joining a new one with a new code.
  *
- * A `401` on the class bearer has exactly one correct answer — the token is
- * gone server-side and cannot come back — so it has to be automatic. Every
- * other failure must leave the session alone: no network is not "you were
- * thrown out", and neither is a role that changed.
+ * V2 sync requires DEVICE_TOKEN_INVALID; a bare proxy 401 is not proof that
+ * membership was revoked. Management retains its v1 status contract until5b.
+ * No network or changed role may remove memberships.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TokenRejectedTest {
@@ -43,9 +45,12 @@ class TokenRejectedTest {
     // -- the read API -------------------------------------------------------
 
     @Test
-    fun `a 401 on a sync drops the session`() = runTest {
+    fun `DEVICE_TOKEN_INVALID on a sync drops the session`() = runTest {
         var rejected = 0
-        val result = refreshAgainst(FailingApi(httpError(401)), onTokenRejected = { rejected++ })
+        val result = refreshAgainst(
+            FailingApi(RemoteError(Code.UNAUTHENTICATED, "DEVICE_TOKEN_INVALID", httpStatus = 401)),
+            onTokenRejected = { rejected++ },
+        )
 
         assertEquals(SyncResult.Unauthorised, result)
         assertEquals(1, rejected)
@@ -77,7 +82,7 @@ class TokenRejectedTest {
         onTokenRejected: suspend () -> Unit,
     ): SyncResult = TimetableRepositoryImpl(
         dao = InMemoryTimetableDao(),
-        api = api,
+        remote = api.scheduleFixture(),
         // Which class is on screen is beside the point here: a 401 is about the
         // token, and the token is the same one whichever class it names.
         activeClassId = flowOf(1L),

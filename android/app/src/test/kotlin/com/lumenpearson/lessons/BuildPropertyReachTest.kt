@@ -33,6 +33,41 @@ import org.junit.Test
 class BuildPropertyReachTest {
 
     @Test
+    fun `native checks target release with the tested signing configuration and exact source`() {
+        assertTrue(buildScript.contains("providers.gradleProperty(\"lessons.nativeCheck\")"))
+        assertTrue(buildScript.contains("testBuildType = if (nativeCheck) \"release\" else \"debug\""))
+        assertTrue(buildScript.contains("checkNotNull(androidTest.signingConfig).from(releaseSigning)"))
+        assertTrue(workflow.contains("native_check:"))
+        assertTrue(workflow.contains("Native checks require master, release and an expected commit"))
+        assertTrue(workflow.contains("Native checks require release signing"))
+        assertTrue(workflow.contains(":app:assembleReleaseAndroidTest"))
+        assertTrue(workflow.contains("-Plessons.nativeCheck=true"))
+        val source = File(root, "android/app/src/androidTest/kotlin/com/lumenpearson/lessons/TransportReleaseTest.kt")
+        assertTrue("The native harness must be checked in", source.isFile)
+    }
+
+    @Test
+    fun `the native harness is isolated from the ordinary APK artifact`() {
+        assertTrue(workflow.contains("name: lessons-native-check"))
+        assertTrue(workflow.contains("for variant in debug release; do"))
+        assertFalse(workflow.contains("find app/build/outputs/apk -name '*.apk'"))
+    }
+
+    @Test
+    fun `transport streaming and version reach the application owned graph`() {
+        assertTrue(buildScript.contains("signingSecret(\"LESSONS_TRANSPORT\", \"lessons.transport\")"))
+        assertTrue(buildScript.contains("signingSecret(\"LESSONS_APP_STREAMING\", \"lessons.streaming\")"))
+        assertFalse(buildScript.contains("signingSecret(\"LESSONS_STREAMING\""))
+        assertTrue(buildScript.contains("buildConfigField(\"String\", \"TRANSPORT\""))
+        assertTrue(buildScript.contains("buildConfigField(\"boolean\", \"APP_STREAMING\""))
+        assertTrue(passed.containsAll(listOf("LESSONS_TRANSPORT", "LESSONS_APP_STREAMING")))
+        assertTrue(application.contains("GraphOwner"))
+        assertTrue(application.contains("transport = BuildConfig.TRANSPORT"))
+        assertTrue(application.contains("clientVersion = BuildConfig.VERSION_CODE"))
+        assertTrue(application.contains("appStreaming = BuildConfig.APP_STREAMING"))
+    }
+
+    @Test
     fun `the walk found both files`() {
         assertTrue("app/build.gradle.kts is empty or missing", buildScript.length > 100)
         assertTrue("apk.yml is empty or missing", workflow.length > 100)

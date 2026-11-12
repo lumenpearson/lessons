@@ -1,0 +1,11 @@
+{
+  "homework": {
+    "attachmentUrl": "sample",
+    "done": true,
+    "dueDate": "sample",
+    "id": 7,
+    "subject": "sample",
+    "text": "sample"
+  },
+  "updateMask": "shortName,school"
+}

@@ -22,6 +22,12 @@ import org.junit.Test
 class JoinErrorTest {
 
     @Test
+    fun `missing v2 keeps the server compatibility cue through the screen mapping`() {
+        assertEquals(JoinError.Rejected("synthetic", serverTooOld = true),
+            JoinError.of(JoinFailure.Rejected(404, IllegalStateException("synthetic"), serverTooOld = true)))
+    }
+
+    @Test
     fun `an invite-only class is not a wrong code`() {
         assertEquals(JoinError.InviteOnly, JoinError.of(JoinFailure.InviteOnly))
     }

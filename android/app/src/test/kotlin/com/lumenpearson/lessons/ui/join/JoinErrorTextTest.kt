@@ -37,6 +37,14 @@ class JoinErrorTextTest {
     }
 
     @Test
+    fun `a missing v2 endpoint asks for a newer server without blaming the join code`() {
+        show(JoinError.Rejected("synthetic proxy message", serverTooOld = true))
+        compose.onNodeWithText("Нужен сервер новее", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Такого кода нет", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("synthetic proxy message", substring = true).assertDoesNotExist()
+    }
+
+    @Test
     fun `an invite-only class points at the bot, not at the person who gave the code`() {
         show(JoinError.InviteOnly)
 

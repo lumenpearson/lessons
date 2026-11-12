@@ -157,6 +157,32 @@ The signing four are set up in "Configuring your own key" further down, the two 
 properties in "What the build is told about itself", and the variable in "The terms and the
 privacy policy the app links".
 
+### Choosing the app's transport
+
+`-Plessons.transport=rest|connect|grpc`, or `LESSONS_TRANSPORT`, selects the
+server-v2 unary binding when the APK is built. The default is `connect`; there
+is no runtime switch. The APK workflow passes the repository variable of the
+same name, with that default. All three bindings are tested by the ordinary
+unit-test job; CI assembles the default rather than adding a transport matrix.
+In stage 5a only joining a class and fetching its schedule window use v2; the
+other areas retain their v1 adapters.
+
+`-Plessons.streaming=true`, or `LESSONS_APP_STREAMING=true`, is accepted only
+with `grpc`; an invalid transport, boolean or combination fails configuration.
+The host's `LESSONS_STREAMING` never selects app streaming. Stage 5a accepts
+and carries the app flag, but host streaming acceptance and WatchClass belong
+to stage 5c.
+
+The Application passes those constants and `BuildConfig.VERSION_CODE` to the
+process graph, including when a worker initializes it first. The shared server
+client sends that version as `X-Lessons-Client`. A hand-built APK defaults to
+version code 1: after an operator raises the server minimum above 1, that APK
+will be refused too. `CLIENT_TOO_OLD` asks for an update once per process and
+permanently fails that worker run while preserving memberships and cached data.
+The about card's server API badge and the warmup check report the server's
+`api_version`; a value of 1 does not say which binding the APK selected or that
+the server lacks v2.
+
 ## Through GitHub Actions
 
 ### Build one right now
@@ -168,6 +194,8 @@ privacy policy the app links".
 | `build_type` | `release` (the default), `debug` or `both` |
 | `version_name` | what to write as the versionName; empty means the value from `build.gradle.kts` |
 | `version_code` | what to write as the versionCode; empty means this run's number |
+| `expected_commit` | refuse before signing when the selected ref no longer names this full SHA |
+| `native_check` | also build the release-target test APK; only master/release with an expected SHA and real signing |
 
 The APK lands in the **lessons-apk** artifact on the run's page. **How long it stays is a
 repository setting, not a workflow one** — Settings → Actions → General → "Artifact and log
@@ -179,6 +207,28 @@ was reducing it, which is the kind of claim a document is worst at catching.
 confused with each other. Give `version_code` when the number has to be chosen rather than
 inherited — it is the only version Android compares, and what is set in `build.gradle.kts`
 never reaches a CI build, because the workflow passes its own.
+
+The opt-in **lessons-native-check** artifact contains only the test APK and a
+receipt binding its hash, the main APK's hash, version code, source commit and
+common signing certificate. The main APK remains in **lessons-apk**. The native
+path forces Connect without app streaming, uses `-Plessons.nativeCheck=true` to
+target release rather than debug, and processes the test APK with the tested
+app's R8 mapping. It adds no production test entry point or codec keep rule.
+The two narrow test-only missing-annotation rules cover AndroidX Test's
+compile-time Error Prone metadata; production shrinking remains strict.
+
+After verifying the signed pair and obtaining the computer-use slot, install
+the main APK as an update without uninstalling and the test APK with `adb install
+-r -t`. Run `com.lumenpearson.lessons.TransportReleaseTest` through
+`com.lumenpearson.lessons.test/androidx.test.runner.AndroidJUnitRunner`, passing
+`expectedCommit` and `serverUrl` for the source-matched HTTPS production alias.
+The harness refuses debug, another transport, missing source identity or a
+fixture with memberships before making a request. It invokes join once with
+the schema-valid, unissued `!5A!` code, requires public `UnknownCode`, checks that
+no membership appeared and restores the previous server address. An unexpected
+answer or throttle ends the check without a retry. The request still consumes
+one throttle slot on the normal answered path. A successful build or signature
+check alone is not an executed minified-code proof.
 
 Ordinary CI (`Actions → CI`) builds both debug and release on every push and pull request —
 the artifacts `app-debug` and `app-release-unsigned-key`. Release is built always, not only
@@ -841,12 +891,12 @@ beside the name of the test that reads them:
 | Module | Declared inputs |
 | --- | --- |
 | `:core:model` | its `src/main/kotlin` |
-| `:core:data` | `docs/legal/`, `docs/app/`, every module's `src/main` and `build.gradle.kts` |
+| `:core:data` | `docs/legal/`, `docs/app/`, every module's `src/main` and `build.gradle.kts`, `.github/workflows/ci.yml` |
 | `:core:designsystem` | every module's `src/main` |
 | `:widget` | its `src/main` |
 | `:app` | every module's `src` (every source set), `settings.gradle.kts`, `docs/legal/`, `server/app/catalog/data/`, its own `build.gradle.kts` and `.github/workflows/apk.yml` |
 
-The region catalog and the protocol vectors are `:core:data`'s test resources, so they
+The region catalog, protocol vectors and `server/tests/golden/` are `:core:data`'s test resources, so they
 were inputs there already. So a plain run after an edit runs what reads it, and `--rerun`
 is no longer needed for that. A new test that opens a file by path declares the file in its
 module's build script, or brings the gap back for itself.
@@ -894,7 +944,8 @@ LESSONS_TEST_DATABASE_URL=postgresql://gate:gate@127.0.0.1:55432/gate pytest -q 
 ## The v2 contract and Buf
 
 `proto/lessons/v2/` is the v2 contract ([api.md](api.md), «v2: the contract»). Buf checks it
-and generates the Python under `server/app/contract/` from it. Buf is not in the repository
+and generates Python under `server/app/contract/` and Android wire types under
+`android/core/data/src/main/contract/java` from it. Buf is not in the repository
 and nothing installs it. CI's «Contract» job fetches **Buf 1.73.0** through
 `bufbuild/buf-action` v1.6.0, pinned in `ci.yml` by version and by checksum. A local copy
 is fetched by hand at the same version and kept outside the repository:
@@ -907,7 +958,7 @@ is fetched by hand at the same version and kept outside the repository:
 From the repository root:
 
 - `buf lint`: the STANDARD rules, with the one exception `buf.yaml` names and why.
-- `buf generate`: rewrites `server/app/contract/` whole (`clean: true`). Commit it in the
+- `buf generate`: rewrites both generated trees whole (`clean: true`). Commit them in the
   same change as the proto, because CI regenerates and fails on any difference.
 - `git fetch origin master`, then `buf breaking --against '.git#ref=origin/master'`: the
   breaking rules against `origin/master` rather than a local `master` that may be stale. `master`
@@ -939,8 +990,9 @@ was tried against `master` on 5 October 2026, in a scratch copy:
 | add a case to `CreateDiarySessionRequest.credential` (a new diary platform) | nothing, by design: the only contract change a platform makes |
 | change what a field means under the same name | review and, from sub-project 5, the golden files |
 
-**The plugins are remote and pinned.** `buf.gen.yaml` names `buf.build/bufbuild/py:v0.6.0`
-and `buf.build/connectrpc/py:v0.12.1`. An unpinned plugin takes Buf's latest release, so
+**The plugins are remote and pinned.** `buf.gen.yaml` names `buf.build/bufbuild/py:v0.6.0`,
+`buf.build/connectrpc/py:v0.12.1`, `buf.build/protocolbuffers/java:v36.2` with `lite`, and
+`buf.build/connectrpc/kotlin:v0.9.0`. An unpinned plugin takes Buf's latest release, so
 CI would regenerate something else one morning with nothing changed here.
 `server/tests/test_contract.py` holds each pin level with its runtime's floor in
 `requirements.in` (`protobuf-py>=0.6.0`, `connectrpc>=0.12.1`) and with the header of every
@@ -948,6 +1000,28 @@ generated module. Moving one is three edits and a regeneration, in one commit.
 `buf.gen.yaml` also names googleapis' `google/rpc` as a second input, by the commit
 `buf.lock` pins, because a module under `inputs:` is not resolved through the lock. `buf dep
 update` moves the lock alone, and `test_contract.py` fails until the input follows it.
+The Android pins are held level with `protobuf-javalite` 4.36.2 and connect-kotlin
+0.9.0 in `libs.versions.toml`. Generated code is outside detekt's hand-written sources.
+
+**When a local network cannot reach the BSR.** A generic HTML HTTP 403 from
+`buf.build`, including `CodeGenerationService/GenerateCode`, is different from
+Buf's documented 429 rate limit. Repeated retries or a version change do not
+establish a working generator. Buf also supports
+[local plugins](https://buf.build/docs/bsr/remote-plugins/). Keep the published
+remote template for CI, and use a private template with the same inputs/options:
+Java uses `protoc_builtin: java` with the official `protoc` 36.2 executable;
+Connect Kotlin uses `local: [java, -jar, <protoc-gen-connect-kotlin-0.9.0.jar>]`;
+Python uses the isolated `protoc-gen-py==0.6.0` and
+`protoc-gen-connectrpc==0.12.1` entry points with `protobuf-py==0.6.0`.
+Use `strategy: all`, matching remote invocation. The binaries come from the
+[protobuf release](https://github.com/protocolbuffers/protobuf/releases/tag/v36.2)
+and [Connect Kotlin release](https://github.com/connectrpc/connect-kotlin/releases/tag/v0.9.0);
+verify their release digests before running them. An already cached Google APIs
+module must be the exact `buf.lock` commit, in a separate `BUF_CACHE_DIR`.
+Generate into two separate private output directories and compare the results;
+Python unchanged by this stage must match the committed Git blobs (Windows
+checkout line endings can differ). This fallback removes the local execution
+dependency on the BSR; successful remote CI freshness remains a delivery gate.
 
 **Unauthenticated, for now.** Generation, and the `googleapis` dependency pinned in
 `buf.lock`, come from the Buf Schema Registry without a login, as the spike did it. Buf

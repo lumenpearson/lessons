@@ -53,6 +53,12 @@ internal object PreferenceKeys {
      */
     fun bundleTagKey(signature: String) = stringPreferencesKey("bundle_etag|$signature")
 
+    fun v2BundleTagKey(signature: String) = stringPreferencesKey("$V2_BUNDLE_TAG_PREFIX$signature")
+
+    fun v2BundleTagPrefix(classId: Long) = "$V2_BUNDLE_TAG_PREFIX$classId|"
+
+    const val V2_BUNDLE_TAG_PREFIX = "v2_bundle_etag|"
+
     /** @see LessonsPreferences.lastRole */
     fun roleKey(classId: Long) = stringPreferencesKey("$ROLE_PREFIX$classId")
 

@@ -1,0 +1,11 @@
+{
+  "terms": [
+    {
+      "endsOn": "sample",
+      "index": 7,
+      "kind": "TERM_KIND_QUARTER",
+      "startsOn": "sample"
+    }
+  ],
+  "year": 7
+}

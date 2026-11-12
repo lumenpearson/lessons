@@ -1,0 +1,10 @@
+{
+  "allowMissing": true,
+  "day": {
+    "bellScheduleId": 7,
+    "date": "2026-09-21",
+    "kind": "DAY_KIND_NORMAL",
+    "note": "sample"
+  },
+  "updateMask": "shortName,school"
+}

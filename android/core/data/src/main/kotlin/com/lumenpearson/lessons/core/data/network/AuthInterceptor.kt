@@ -10,8 +10,10 @@ import okhttp3.Response
  * only exists after the user joins a class and disappears again on sign-out -
  * the OkHttp client outlives both events.
  *
- * [tokenProvider] is called on every request, on OkHttp's own dispatcher
- * thread, and cannot suspend — so it answers from memory. It used to read the
+ * [tokenProvider] is the fallback for a standalone client. The shared stack
+ * uses its captured request credentials so the address and bearer cannot come
+ * from different settings writes. The provider cannot suspend and answers from
+ * memory. It used to read the
  * preferences through `runBlocking`, which parked a thread per request; see
  * `CredentialsSnapshot` for what it reads now and how that stays current.
  *
@@ -40,15 +42,18 @@ internal class AuthInterceptor(
         // which class is searching for which school. Its paths are matched as a
         // prefix, not by suffix like the three above, so that a second
         // directory call cannot arrive signed because nobody listed it.
-        val path = request.url.encodedPath
-        val needsAuth = UNAUTHENTICATED_SUFFIXES.none { path.endsWith(it) } &&
-            !path.contains(DiaryAuthInterceptor.DIARY_PATH_PREFIX) &&
-            !path.contains(DIRECTORY_PATH_PREFIX)
+        val path = request.serverPath()
+        val needsAuth = path.startsWith("/api/v1/") &&
+            UNAUTHENTICATED_SUFFIXES.none { path.endsWith(it) } &&
+            !path.startsWith(DiaryAuthInterceptor.DIARY_PATH_PREFIX) &&
+            !path.startsWith(DIRECTORY_PATH_PREFIX)
         if (!needsAuth || request.header(HEADER) != null) {
             return chain.proceed(request)
         }
 
-        val token = tokenProvider()?.takeIf { it.isNotBlank() }
+        val context = request.tag(ServerRequestContext::class.java)
+        val token = (if (context != null) context.credentials.classToken else tokenProvider())
+            ?.takeIf { it.isNotBlank() }
             ?: return chain.proceed(request)
 
         return chain.proceed(

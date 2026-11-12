@@ -60,6 +60,7 @@ The phone keeps an access key and copies of the timetable and the diary, so the 
     <string name="join_error_rejected">Could not join: %1$s</string>
     <string name="join_error_no_server">No server address is set. Tap “Server address” below and type the address the class admin gave you.</string>
     <string name="join_error_generic">Could not join. Check the code and your network connection.</string>
+    <string name="join_error_server_too_old">This server does not support connections from this app version. A newer server or another address is needed.</string>
     <string name="join_error_unknown_code">No such code. Check it with whoever gave it to you.</string>
     <!--
       The bot's button labels stay in Russian here and in strings_admin.xml,
@@ -397,7 +398,7 @@ The phone keeps an access key and copies of the timetable and the diary, so the 
     <string name="about_badge_server_needs_https">Needs an https:// address</string>
     <string name="about_badge_schema">Schema %1$s</string>
     <string name="about_badge_schema_expected">Expected %1$s</string>
-    <string name="about_badge_api">API v%1$d</string>
+    <string name="about_badge_api">Server API v%1$d</string>
     <string name="about_badge_repository">%1$s</string>
     <string name="about_badge_ref">Branch %1$s</string>
     <string name="about_badge_commit">Commit %1$s</string>

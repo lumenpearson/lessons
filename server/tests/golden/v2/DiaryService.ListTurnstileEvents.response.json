@@ -1,0 +1,8 @@
+{
+  "turnstileEvents": [
+    {
+      "at": "sample",
+      "direction": "ATTENDANCE_DIRECTION_IN"
+    }
+  ]
+}

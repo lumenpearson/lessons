@@ -1,0 +1,19 @@
+{
+  "generic": true,
+  "query": "sample",
+  "regions": [
+    {
+      "cities": [
+        "sample"
+      ],
+      "code": "sample",
+      "examples": [
+        "sample"
+      ],
+      "label": "sample",
+      "region": "sample",
+      "schools": 7
+    }
+  ],
+  "truncated": true
+}

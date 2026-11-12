@@ -45,6 +45,7 @@ class ConditionalSyncTest {
         var calls = 0
         var answerNotModified = false
         var status = 0
+        var refusalReason: String? = null
         val tagsSeen = mutableListOf<String?>()
 
         override suspend fun join(body: JoinRequestDto) = error("unused")
@@ -69,7 +70,10 @@ class ConditionalSyncTest {
                     .request(Request.Builder().url("http://test/api/v1/bundle").build())
                     .build()
                 return Response.error(
-                    "".toResponseBody("application/json".toMediaType()),
+                    (refusalReason?.let {
+                        """{"error":{"status":"UNAUTHENTICATED","details":[
+                            {"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"$it"}]}}"""
+                    } ?: "").toResponseBody("application/json".toMediaType()),
                     failed,
                 )
             }
@@ -113,7 +117,7 @@ class ConditionalSyncTest {
     ) =
         TimetableRepositoryImpl(
             dao = dao,
-            api = api,
+            remote = api.scheduleFixture(clock),
             activeClassId = flowOf(1L),
             clock = clock,
             ioDispatcher = UnconfinedTestDispatcher(),
@@ -228,7 +232,7 @@ class ConditionalSyncTest {
         // an answer to a different question.
         val nextYear = TimetableRepositoryImpl(
             dao = InMemoryTimetableDao(),
-            api = api,
+            remote = api.scheduleFixture(clock),
             activeClassId = flowOf(1L),
             clock = Clock.fixed(
                 LocalDate.parse("2027-10-15").atStartOfDay(zone).toInstant(),
@@ -270,7 +274,7 @@ class ConditionalSyncTest {
     }
 
     @Test
-    fun `a 401 on the bundle throws the device out of the class`() = runTest {
+    fun `an explicitly rejected device token on the window leaves the class`() = runTest {
         // Retrofit throws `HttpException` only for a *body-typed* suspend
         // method; a `Response<T>`-typed one is handed the error response
         // verbatim. So the `catch (http: HttpException)` that calls
@@ -283,6 +287,7 @@ class ConditionalSyncTest {
         // 401» in English instead of the sentence written for it.
         val api = FakeApi(etag = null)
         api.status = 401
+        api.refusalReason = "DEVICE_TOKEN_INVALID"
         var rejected = 0
 
         val result = repository(

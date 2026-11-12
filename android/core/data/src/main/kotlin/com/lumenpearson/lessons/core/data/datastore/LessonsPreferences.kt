@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -77,6 +78,8 @@ internal class LessonsPreferences(
     private val vault: TokenVault,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : DiarySessionStore, ShellModeSource, SettingsStore {
+
+    val membershipChanges = MembershipChanges.forStore(dataStore)
 
     constructor(context: Context) : this(context.applicationContext.lessonsDataStore, TokenVault.platform)
 
@@ -147,6 +150,17 @@ internal class LessonsPreferences(
     suspend fun currentSession(): Session? = opened.first().openActiveMembership(vault)
 
     suspend fun currentSessions(): List<Session> = opened.first().openMemberships(vault)
+
+    internal suspend fun currentClassRequest(): Pair<Session?, RequestCredentials> = opened.first().let {
+        it.openActiveMembership(vault) to it.requestCredentials()
+    }
+
+    /** The caller holds membershipChanges through the cache operation that this lookup authorizes. */
+    internal suspend fun membershipFor(request: RequestCredentials): Session? {
+        val current = opened.first()
+        if (current.toSettings().baseUrl != request.baseUrl) return null
+        return current.openMemberships(vault).firstOrNull { it.token == request.classToken }
+    }
 
     override suspend fun currentSettings(): AppSettings = preferences.first().toSettings()
 
@@ -326,9 +340,11 @@ internal class LessonsPreferences(
 
     /** Read-modify-write inside DataStore's transaction, so concurrent edits merge. */
     override suspend fun updateSettings(transform: (AppSettings) -> AppSettings) {
-        write { prefs ->
-            val updated = transform(prefs.toSettings())
-            prefs.putSettings(updated)
+        membershipChanges.withLock {
+            write { prefs ->
+                val updated = transform(prefs.toSettings())
+                prefs.putSettings(updated)
+            }
         }
     }
 
@@ -358,6 +374,10 @@ internal class LessonsPreferences(
 
     /** @see BundleTags.bundleTag */
     suspend fun bundleTag(signature: String): String? = bundleTags.bundleTag(signature)
+
+    suspend fun v2BundleTag(signature: String): String? = bundleTags.v2BundleTag(signature)
+
+    suspend fun writeV2BundleTag(signature: String, etag: String) = bundleTags.writeV2BundleTag(signature, etag)
 
     /**
      * The role the server last gave this phone in [classId], kept across

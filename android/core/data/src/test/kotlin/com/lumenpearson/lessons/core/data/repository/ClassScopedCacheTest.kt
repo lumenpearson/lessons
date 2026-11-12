@@ -169,7 +169,7 @@ class ClassScopedCacheTest {
         val active = MutableStateFlow<Long?>(1L)
         val repository = TimetableRepositoryImpl(
             dao = dao,
-            api = UnusedLessonsApi(),
+            remote = UnusedLessonsApi().scheduleFixture(),
             activeClassId = active,
             ioDispatcher = UnconfinedTestDispatcher(),
         )

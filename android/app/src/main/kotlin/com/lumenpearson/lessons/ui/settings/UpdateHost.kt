@@ -2,8 +2,11 @@ package com.lumenpearson.lessons.ui.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lumenpearson.lessons.core.data.network.v2.ClientCompatibility
 import com.lumenpearson.lessons.core.designsystem.modifier.LiquidRippleState
 
 /**
@@ -30,13 +33,19 @@ internal fun UpdateHost(
     viewModel: SettingsViewModel,
     ripple: LiquidRippleState?,
     screenToRoot: (Offset) -> Offset,
+    compatibilityHost: Boolean = false,
 ) {
+    val required by ClientCompatibility.updateRequired.collectAsStateWithLifecycle()
+    // Once required, the Activity host owns this same sheet on every route.
+    if (required != compatibilityHost) return
     val uriHandler = LocalUriHandler.current
 
     // Once per composition of the shell, which is once per process for
     // practical purposes; the repository's own once-a-day gate takes care of
     // the rest, so a rotation cannot turn into a second request.
-    LaunchedEffect(Unit) { viewModel.checkForUpdatesAtLaunch() }
+    LaunchedEffect(Unit) {
+        if (!compatibilityHost) viewModel.checkForUpdatesAtLaunch()
+    }
 
     if (!state.showReleaseSheet) return
 

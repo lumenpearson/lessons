@@ -31,8 +31,10 @@ import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
 import com.lumenpearson.lessons.core.data.network.NetworkModule
 import com.lumenpearson.lessons.core.data.repository.BundleTagStore
+import com.lumenpearson.lessons.core.data.datastore.V2BundleTagStore
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SessionRepositoryImpl
+import com.lumenpearson.lessons.core.data.repository.ScheduleMembership
 import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.SettingsRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.TimetableRepository
@@ -174,6 +176,9 @@ interface LessonsContainer {
  */
 class DefaultLessonsContainer(
     context: Context,
+    private val transport: String,
+    private val clientVersion: Int,
+    private val appStreaming: Boolean,
     private val githubClientId: String = "",
     private val githubProject: GithubProject = GithubProject.UPSTREAM,
 ) : LessonsContainer {
@@ -240,7 +245,10 @@ class DefaultLessonsContainer(
             // this one brings the copy up to date on its own.
             runCatching { preferences.followCredentials() }
         }
-        NetworkModule.apis(credentials = preferences.credentials::current, cleartext = CleartextPolicy.Platform)
+        NetworkModule.apis(
+            credentials = preferences.credentials::current, cleartext = CleartextPolicy.Platform,
+            clientVersion = clientVersion, transport = transport,
+        )
     }
 
     private val api: LessonsApi by lazy { apis.lessons }
@@ -255,31 +263,7 @@ class DefaultLessonsContainer(
      * leaving a class has to take its tags with it, and that starts in the
      * session repository, through [TimetableCache].
      */
-    private val bundleTags: BundleTagStore = object : BundleTagStore {
-        override suspend fun tagFor(signature: String): String? =
-            runCatching { preferences.bundleTag(signature) }.getOrNull()
-
-        override suspend fun remember(signature: String, etag: String) {
-            // Guarded because it writes: a full disk must cost the next sync
-            // its shortcut, not the sync that just succeeded.
-            runCatching { preferences.writeBundleTag(signature, etag) }
-        }
-
-        override suspend fun forget(signature: String) {
-            // Guarded for the same reason, and the cost is smaller still: a tag
-            // left behind for an evicted year is one request that answers 304
-            // and then asks again.
-            runCatching { preferences.forgetBundleTag(signature) }
-        }
-
-        override suspend fun forgetClass(classId: Long) {
-            runCatching { preferences.forgetBundleTagsOf(classId) }
-        }
-
-        override suspend fun forgetClassesOtherThan(keep: Collection<Long>) {
-            runCatching { preferences.forgetBundleTagsOutside(keep) }
-        }
-    }
+    private val bundleTags: BundleTagStore by lazy { V2BundleTagStore(preferences) }
 
     /**
      * The concrete type, because two interfaces are drawn from it: the
@@ -290,7 +274,7 @@ class DefaultLessonsContainer(
     private val timetable: TimetableRepositoryImpl by lazy {
         TimetableRepositoryImpl(
             dao = database.timetableDao(),
-            api = api,
+            remote = apis.schedule,
             // Taken from the preferences rather than from `sessionRepository`,
             // which is a lazy in this same container: the timetable is what the
             // widget's cold start asks for first, and routing it through the
@@ -315,27 +299,19 @@ class DefaultLessonsContainer(
             // re-derive an alarm it almost always finds already armed; see
             // [SchoolAlerts.ensureArmed] for what the cheap answer gives up.
             onNothingChanged = { SchoolAlerts.ensureArmed(appContext) },
-            // Resolved when it fires, not here: `sessionRepository` is a lazy
-            // in this same container and asking for it now would build it on
-            // the cold-start path of a class this device may not even be in.
-            //
-            // `leave`, not `signOut`. The token the server refused is the one
-            // the request carried, which is the class on screen — and since a
-            // phone may now hold several, signing out of all of them would
-            // answer one class revoking a device by deleting the other classes'
-            // tokens too, in the background, with the app closed and nothing on
-            // screen to say where they went.
-            onTokenRejected = { sessionRepository.leaveActive() },
+            // Resolve the lazy session only on rejection, and revoke the sent token rather than the selection now.
+            membership = ScheduleMembership(preferences) { sessionImplementation.rejectRequest(it) },
             bundleTags = bundleTags,
         )
     }
 
     override val timetableRepository: TimetableRepository get() = timetable
 
-    override val sessionRepository: SessionRepository by lazy {
+    private val sessionImplementation: SessionRepositoryImpl by lazy {
         SessionRepositoryImpl(
             preferences = preferences,
             api = api,
+            joinRemote = apis.join,
             // The repository rather than the DAO, so that emptying a class's
             // cache is one call that knows about all of it — rows, window
             // claims and ETags. Building it here is free of the cold-start
@@ -353,6 +329,8 @@ class DefaultLessonsContainer(
             onActiveClassChanged = sessionEffects::onActiveClassChanged,
         )
     }
+
+    override val sessionRepository: SessionRepository get() = sessionImplementation
 
     override val settingsRepository: SettingsRepository by lazy {
         SettingsRepositoryImpl(

@@ -1,0 +1,15 @@
+{
+  "schedule": {
+    "id": 7,
+    "isDefault": true,
+    "name": "sample",
+    "periods": [
+      {
+        "endsAt": "sample",
+        "index": 7,
+        "startsAt": "sample"
+      }
+    ]
+  },
+  "updateMask": "shortName,school"
+}

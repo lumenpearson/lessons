@@ -212,7 +212,9 @@ internal class OriginGuard(private val allowed: () -> Set<UpstreamOrigin>) : Int
 internal object BrowserHeaders : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
-        if (request.header("Authorization") != null) throw UpstreamNotAllowed(request.url)
+        if (request.header("Authorization") != null || request.header("X-Lessons-Client") != null) {
+            throw UpstreamNotAllowed(request.url)
+        }
         return chain.proceed(
             request.newBuilder().header("User-Agent", UpstreamHttp.USER_AGENT).build(),
         )

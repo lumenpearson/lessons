@@ -1,0 +1,18 @@
+{
+  "applied": true,
+  "bells": 7,
+  "conflicts": [
+    {
+      "existing": 7,
+      "incoming": 7,
+      "weekday": 7
+    }
+  ],
+  "days": [
+    7
+  ],
+  "lessons": 7,
+  "rejected": [
+    "sample"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "device": {
+    "clientVersion": 7,
+    "createdAt": "2026-09-21T14:13:20.005Z",
+    "deviceName": "sample",
+    "id": 7,
+    "lastSeenAt": "2026-09-21T14:13:20.005Z",
+    "linked": true,
+    "linkedAt": "2026-09-21T14:13:20.005Z",
+    "owner": "sample",
+    "revoked": true,
+    "role": "ROLE_VIEWER"
+  }
+}

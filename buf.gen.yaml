@@ -1,5 +1,5 @@
-# Python only: Kotlin and Java lite wait for sub-project 5, which adds them
-# with the bindings that use them (the design's decision 3).
+# Python serves the contract; Java lite and Connect Kotlin are the Android
+# transport layer's wire types. Both generated trees are owned by Buf.
 #
 # Every remote plugin is pinned. An unpinned one takes Buf's latest release,
 # and CI regenerates and fails on any difference, so a release on Buf's side
@@ -19,6 +19,11 @@ plugins:
   # Services: connectrpc's interfaces and clients over those messages.
   - remote: buf.build/connectrpc/py:v0.12.1
     out: server/app/contract
+  - remote: buf.build/protocolbuffers/java:v36.2
+    out: android/core/data/src/main/contract/java
+    opt: lite
+  - remote: buf.build/connectrpc/kotlin:v0.9.0
+    out: android/core/data/src/main/contract/java
 inputs:
   # The contract: the workspace buf.yaml describes.
   - directory: .

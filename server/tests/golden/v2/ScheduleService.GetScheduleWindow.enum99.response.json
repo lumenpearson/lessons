@@ -1,0 +1,75 @@
+{
+  "etag": "sample",
+  "notModified": true,
+  "window": {
+    "days": [
+      {
+        "date": "2026-09-21",
+        "events": [
+          {
+            "coversLesson": true,
+            "endsAt": "sample",
+            "kind": 99,
+            "location": "sample",
+            "startsAt": "sample",
+            "title": "sample"
+          }
+        ],
+        "holiday": {
+          "code": "sample",
+          "stopsLessons": true,
+          "title": "sample"
+        },
+        "homework": [
+          {
+            "attachmentUrl": "sample",
+            "subject": "sample",
+            "text": "sample"
+          }
+        ],
+        "kind": 99,
+        "lessons": [
+          {
+            "color": "sample",
+            "endsAt": "sample",
+            "index": 7,
+            "isCancelled": true,
+            "isReplaced": true,
+            "note": "sample",
+            "room": "sample",
+            "startsAt": "sample",
+            "subject": "sample",
+            "teacher": "sample"
+          }
+        ],
+        "note": "sample",
+        "offReason": 99,
+        "weekday": 7
+      }
+    ],
+    "device": {
+      "canEdit": true,
+      "linked": true,
+      "role": 99
+    },
+    "generatedAt": "2026-09-21T14:13:20.005Z",
+    "schoolClass": {
+      "city": "sample",
+      "grade": 7,
+      "id": 7,
+      "letter": "sample",
+      "name": "sample",
+      "school": "sample",
+      "termKind": 99,
+      "terms": [
+        {
+          "endsOn": "sample",
+          "index": 7,
+          "kind": 99,
+          "startsOn": "sample"
+        }
+      ],
+      "timezone": "Europe/Moscow"
+    }
+  }
+}

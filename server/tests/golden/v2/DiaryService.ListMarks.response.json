@@ -1,0 +1,14 @@
+{
+  "marks": [
+    {
+      "comment": "sample",
+      "date": "2026-09-21",
+      "id": "9007199254740993",
+      "kind": "MARK_KIND_GRADE",
+      "reason": "sample",
+      "subject": "sample",
+      "subjectId": "9007199254740993",
+      "value": "sample"
+    }
+  ]
+}

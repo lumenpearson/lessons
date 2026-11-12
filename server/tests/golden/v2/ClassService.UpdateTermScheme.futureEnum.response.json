@@ -1,0 +1,14 @@
+{
+  "termScheme": {
+    "kind": "A_FUTURE_ENUM_NAME",
+    "year": 7
+  },
+  "terms": [
+    {
+      "endsOn": "sample",
+      "index": 7,
+      "kind": "A_FUTURE_ENUM_NAME",
+      "startsOn": "sample"
+    }
+  ]
+}
