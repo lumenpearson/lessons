@@ -194,6 +194,33 @@ the public UnknownCode outcome through minified Connect. A server fixture holds
 that it creates no phone membership/device and consumes exactly one throttle
 attempt. No retry, account setup or family installation belongs to this check.
 
+APK49 exposed a separate boundary before the test could start (#743):
+AndroidJUnitRunner called `androidx.tracing.Trace`, but neither signed APK
+defined it. The separate test also retained references to four public target
+types that app R8 had eliminated. AGP applies the app mapping to the test APK;
+that cannot restore an app declaration with no surviving mapping. This is the
+[test/app retention problem described by AndroidX Test](https://github.com/android/android-test/issues/2167).
+The same actual DEX inspection found settings-copy/getter, Result boxing and
+Kotlin facade calls whose target members were removed or optimized. Read the
+cached original declarations too: two facade methods are inherited, so class
+strings or direct-only member lookup are insufficient. The four actual test
+coroutine subclasses also retain invokeSuspend/create overrides whose target
+names or argument order had changed. Only these two callback members keep their
+ABI; other bridge names may still be obfuscated. The measured bridge is
+seventeen types, twenty-five methods and one field; none is a transport
+implementation. Class-retention annotations with no callable use are not roots.
+Keep Airbnb's cheapest-layer rule: existing build-property tests hold native-only
+registration and a narrow allowed declaration surface; actual packaged DEX
+linkage checks the optimizer boundary before paying for another device run.
+Only the measured external entry points may become native-check target roots,
+with obfuscation and internal optimization allowed. No codec, generated message,
+remote or repository implementation gets a harness keep. The ordinary release
+does not receive these roots. This makes the device artifact a testable minified
+target, not byte-for-byte proof of ordinary release entry-point optimization;
+the live ErrorInfo/codec question still requires its actual signed device result.
+There is no new CI job, dependency or framework, and no runner failure is counted
+as a repository call or successful cleanup inside the test.
+
 Build Tools 37 changed apksigner's certificate labels from numbered signers to
 signature schemes (#740). The unchanged workflow failed its certificate guard
 on the same two APKs, both signed with one private fixture key, with 37 while
@@ -214,7 +241,7 @@ Build script with a recording Gradle stub, holding the complete ordinary JVM
 gate, native-only packaging arguments and failure short-circuit. Native builds
 pay for a second Gradle invocation so the release-target property applies only
 to packaging. They still run every existing JVM test first, then minify both
-APKs; production gains neither a test activity nor a keep rule. This adds no
+APKs; ordinary production gains neither a test activity nor a keep rule. This adds no
 CI job, test framework or device check. Real focused Compose tests and the
 complete suites separately verify the configurations the shell test records.
 

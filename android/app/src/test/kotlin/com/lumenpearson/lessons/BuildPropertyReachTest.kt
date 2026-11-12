@@ -54,6 +54,43 @@ class BuildPropertyReachTest {
     }
 
     @Test
+    fun `only the native target preserves the measured external harness declarations`() {
+        val file = File(root, "android/app/native-check-target-proguard-rules.pro")
+        assertTrue("The separately optimized test APK needs its target declarations", file.isFile)
+        val rules = file.readLines().joinToString("\n") { it.substringBefore('#') }
+        val block = Regex(
+            """-keep,allowoptimization,allowobfuscation\s+(?:class|interface)\s+([\w.]+)\s*\{([^}]*)}""",
+        )
+        val blocks = block.findAll(rules).toList()
+        assertEquals("No duplicate roots can hide a broader earlier rule", nativeBridgeMembers.size, blocks.size)
+        val actual = blocks.associate { match ->
+            match.groupValues[1] to match.groupValues[2].split(';')
+                .filter(String::isNotBlank).map { it.replace(Regex("\\s+"), "") }.toSet()
+        }
+        val expected = nativeBridgeMembers.mapValues { (_, members) ->
+            members.map { it.replace(Regex("\\s+"), "") }.toSet()
+        }
+        assertEquals("Keep declarations, never codec or repository implementations", expected, actual)
+        val callback = Regex("""-keepclassmembers,allowoptimization\s+class\s+""" +
+            """kotlin\.coroutines\.jvm\.internal\.BaseContinuationImpl\s*\{([^}]*)}""")
+        val callbacks = callback.findAll(rules).toList()
+        assertEquals("One shared coroutine callback ABI", 1, callbacks.size)
+        val callbackMembers = callbacks.single().groupValues[1].split(';')
+            .filter(String::isNotBlank).map { it.replace(Regex("\\s+"), "") }.toSet()
+        assertEquals(nativeCallbackMembers.map { it.replace(Regex("\\s+"), "") }.toSet(), callbackMembers)
+        assertTrue("No extra keep or optimizer directives",
+            block.replace(callback.replace(rules, ""), "").isBlank())
+        val registration = "proguardFiles(\"native-check-target-proguard-rules.pro\")"
+        assertEquals("One native-only registration", 1, buildScript.windowed(registration.length).count {
+            it == registration
+        })
+        assertTrue(Regex("""if\s*\(nativeCheck\)\s*\{\s*${Regex.escape(registration)}\s*}""")
+            .containsMatchIn(buildScript))
+        assertTrue(buildScript.contains("inputs.file(layout.projectDirectory.file(" +
+            "\"native-check-target-proguard-rules.pro\"))"))
+    }
+
+    @Test
     fun `transport streaming and version reach the application owned graph`() {
         assertTrue(buildScript.contains("signingSecret(\"LESSONS_TRANSPORT\", \"lessons.transport\")"))
         assertTrue(buildScript.contains("signingSecret(\"LESSONS_APP_STREAMING\", \"lessons.streaming\")"))
@@ -202,6 +239,71 @@ class BuildPropertyReachTest {
         val buildScript: String by lazy { File(root, "android/app/build.gradle.kts").readText() }
 
         val workflow: String by lazy { File(root, ".github/workflows/apk.yml").readText() }
+
+        val nativeCallbackMembers = setOf(
+            "protected abstract java.lang.Object invokeSuspend(java.lang.Object)",
+            "public kotlin.coroutines.Continuation create(java.lang.Object,kotlin.coroutines.Continuation)",
+        )
+
+        // These are the separate APK's measured JVM entry points, not its transitive implementations.
+        val nativeBridgeMembers = mapOf(
+            "androidx.tracing.Trace" to setOf(
+                "public static void beginSection(java.lang.String)",
+                "public static void endSection()",
+                "public static void forceEnableAppTracing()",
+            ),
+            "com.lumenpearson.lessons.core.data.di.Graph" to setOf(
+                "public static final com.lumenpearson.lessons.core.data.di.Graph INSTANCE",
+                "public void ensureInitialized(android.content.Context)",
+                "public com.lumenpearson.lessons.core.data.di.LessonsContainer getContainer()",
+            ),
+            "com.lumenpearson.lessons.core.data.di.LessonsContainer" to setOf(
+                "public com.lumenpearson.lessons.core.data.repository.SessionRepository getSessionRepository()",
+                "public com.lumenpearson.lessons.core.data.repository.SettingsRepository getSettingsRepository()",
+            ),
+            "com.lumenpearson.lessons.core.data.repository.SessionRepository" to setOf(
+                "public java.lang.Object currentAll(kotlin.coroutines.Continuation)",
+                "public java.lang.Object join-0E7RQCE(java.lang.String,java.lang.String," +
+                    "kotlin.coroutines.Continuation)",
+            ),
+            "com.lumenpearson.lessons.core.data.repository.SettingsRepository" to setOf(
+                "public kotlinx.coroutines.flow.Flow getSettings()",
+                "public java.lang.Object update(kotlin.jvm.functions.Function1,kotlin.coroutines.Continuation)",
+            ),
+            "com.lumenpearson.lessons.core.data.repository.AppSettings" to setOf(
+                "public java.lang.String getBaseUrl()",
+                "public static com.lumenpearson.lessons.core.data.repository.AppSettings copy\$default(...)",
+            ),
+            "kotlin.Result" to setOf(
+                "public static kotlin.Result box-impl(java.lang.Object)",
+                "public java.lang.Object unbox-impl()",
+            ),
+            "kotlin.LazyKt" to emptySet(),
+            "kotlin.LazyKt__LazyJVMKt" to setOf(
+                "public static kotlin.Lazy lazy(kotlin.jvm.functions.Function0)",
+            ),
+            "kotlin.ResultKt" to setOf("public static void throwOnFailure(java.lang.Object)"),
+            "kotlin.coroutines.intrinsics.IntrinsicsKt" to emptySet(),
+            "kotlin.coroutines.intrinsics.IntrinsicsKt__IntrinsicsKt" to setOf(
+                "public static java.lang.Object getCOROUTINE_SUSPENDED()",
+            ),
+            "kotlin.coroutines.jvm.internal.SpillingKt" to setOf(
+                "public static java.lang.Object nullOutSpilledVariable(java.lang.Object)",
+            ),
+            "kotlinx.coroutines.BuildersKt" to setOf(
+                "public static java.lang.Object runBlockingK\$default(kotlin.coroutines.CoroutineContext," +
+                    "kotlin.jvm.functions.Function2,int,java.lang.Object)",
+                "public static java.lang.Object withContext(kotlin.coroutines.CoroutineContext," +
+                    "kotlin.jvm.functions.Function2,kotlin.coroutines.Continuation)",
+            ),
+            "kotlinx.coroutines.TimeoutKt" to setOf(
+                "public static java.lang.Object withTimeout(long,kotlin.jvm.functions.Function2," +
+                    "kotlin.coroutines.Continuation)",
+            ),
+            "kotlinx.coroutines.flow.FlowKt" to setOf(
+                "public static java.lang.Object first(kotlinx.coroutines.flow.Flow,kotlin.coroutines.Continuation)",
+            ),
+        )
 
         val application: String by lazy {
             File(root, "android/app/src/main/kotlin/com/lumenpearson/lessons/LessonsApplication.kt").readText()
