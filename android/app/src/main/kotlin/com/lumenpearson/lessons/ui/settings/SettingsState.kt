@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.ui.settings
 
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.ClassRole
+import com.lumenpearson.lessons.core.data.repository.ClassActionOwner
 import com.lumenpearson.lessons.core.data.repository.DeviceFlow
 import com.lumenpearson.lessons.core.data.repository.DeviceLink
 import com.lumenpearson.lessons.core.data.repository.GithubAccount
@@ -52,6 +53,9 @@ data class SettingsUiState(
     /** How the bound server answered, for the about card's badge. */
     val serverStatus: ServerStatus = ServerStatus.Checking,
 )
+
+internal val SettingsUiState.classOwner: ClassActionOwner?
+    get() = session?.let { ClassActionOwner(it.classId, settings.baseUrl, it.token) }
 
 /**
  * The Telegram link as the class page sees it.

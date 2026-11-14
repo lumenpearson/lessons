@@ -238,7 +238,8 @@ private fun ManagementRows(role: ClassRole?) {
  */
 @Composable
 private fun LoadOnOpen(viewModel: ManagementViewModel, load: () -> Unit) {
-    LaunchedEffect(Unit) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(state.operationGeneration) {
         viewModel.consumeNotice()
         viewModel.dismissWriteFailure()
         load()

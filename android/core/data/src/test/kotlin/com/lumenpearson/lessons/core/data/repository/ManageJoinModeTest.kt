@@ -1,13 +1,14 @@
 package com.lumenpearson.lessons.core.data.repository
 
-import com.lumenpearson.lessons.core.data.network.ManageApi
 import com.lumenpearson.lessons.core.data.network.NetworkModule
-import com.lumenpearson.lessons.core.data.network.dto.ClassPatchDto
-import com.lumenpearson.lessons.core.data.network.dto.ManagedClassDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.SchoolClassDto
+import com.lumenpearson.lessons.core.data.network.v2.V2BindingFixture
+import com.lumenpearson.lessons.core.data.network.v2.toManagedClass
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import java.util.concurrent.TimeUnit
 import org.junit.Test
 
 /**
@@ -29,11 +30,11 @@ class ManageJoinModeTest {
 
     @Test
     fun `an invite-only class arrives as one`() {
-        val decoded = json.decodeFromString<ManagedClassDto>(
-            """{ "id": 1, "name": "9А", "join_code": "DEMO24", "join_mode": "invite" }""",
+        val decoded = json.decodeFromString<SchoolClassDto>(
+            """{ "id": 1, "name": "9А", "joinCode": "DEMO24", "joinMode": "JOIN_MODE_INVITE" }""",
         )
 
-        assertEquals(ClassJoinMode.INVITE, decoded.toDomain().joinMode)
+        assertEquals(ClassJoinMode.INVITE, decoded.toManagedClass().joinMode)
     }
 
     /**
@@ -43,62 +44,50 @@ class ManageJoinModeTest {
      */
     @Test
     fun `an unknown join mode reads as open`() {
-        val decoded = json.decodeFromString<ManagedClassDto>(
-            """{ "id": 1, "name": "9А", "join_code": "DEMO24", "join_mode": "moderated" }""",
+        val decoded = json.decodeFromString<SchoolClassDto>(
+            """{ "id": 1, "name": "9А", "joinCode": "DEMO24", "joinMode": "moderated" }""",
         )
 
-        assertEquals(ClassJoinMode.OPEN, decoded.toDomain().joinMode)
+        assertEquals(ClassJoinMode.OPEN, decoded.toManagedClass().joinMode)
     }
 
     /** A server from before the feature sends no such key at all. */
     @Test
     fun `a missing join mode reads as open`() {
-        val decoded = json.decodeFromString<ManagedClassDto>(
-            """{ "id": 1, "name": "9А", "join_code": "DEMO24" }""",
+        val decoded = json.decodeFromString<SchoolClassDto>(
+            """{ "id": 1, "name": "9А", "joinCode": "DEMO24" }""",
         )
 
-        assertEquals(ClassJoinMode.OPEN, decoded.toDomain().joinMode)
+        assertEquals(ClassJoinMode.OPEN, decoded.toManagedClass().joinMode)
     }
 
     @Test
     fun `switching the mode patches that field and nothing else`() = runTest {
-        val api = RecordingManageApi()
-
-        val result = ManageRepositoryImpl(
-            api = api,
-            ioDispatcher = UnconfinedTestDispatcher(),
-        ).setJoinMode(ClassJoinMode.INVITE)
-
-        assertEquals(ClassJoinMode.INVITE, result.getOrNull()?.joinMode)
-        // Serialized rather than compared field by field: what matters is the
-        // body on the wire, and `explicitNulls = false` is what keeps the four
-        // fields this toggle never touches out of it.
-        assertEquals("""{"join_mode":"invite"}""", json.encodeToString(api.patches.single()))
+        V2BindingFixture("rest").use { fixture ->
+            fixture.success("""{"schoolClass":{"id":1,"name":"9A","joinMode":"JOIN_MODE_INVITE"}}""",
+                com.lumenpearson.lessons.contract.v2.UpdateClassResponse.newBuilder().setSchoolClass(
+                    com.lumenpearson.lessons.contract.v2.SchoolClass.newBuilder().setId(1).setName("9A")
+                        .setJoinMode(com.lumenpearson.lessons.contract.v2.JoinMode.JOIN_MODE_INVITE)).build())
+            val repository = ManageRepositoryImpl(fixture.manage, UnconfinedTestDispatcher())
+            val result = repository.setJoinMode(ClassJoinMode.INVITE)
+            assertEquals(ClassJoinMode.INVITE, result.getOrNull()?.joinMode)
+            val sent = checkNotNull(fixture.server.takeRequest(3, TimeUnit.SECONDS))
+            assertEquals("joinMode", sent.url.queryParameter("updateMask"))
+            assertEquals("""{"joinMode":"JOIN_MODE_INVITE"}""", checkNotNull(sent.body).utf8())
+        }
     }
 
     @Test
     fun `going back to the class code patches that field too`() = runTest {
-        val api = RecordingManageApi()
-
-        ManageRepositoryImpl(api = api, ioDispatcher = UnconfinedTestDispatcher())
-            .setJoinMode(ClassJoinMode.OPEN)
-
-        assertEquals("""{"join_mode":"open"}""", json.encodeToString(api.patches.single()))
-    }
-
-    /** Keeps every patch it is sent, and echoes the mode back as the server does. */
-    private class RecordingManageApi : ManageApi by UnusedManageApi() {
-
-        val patches: MutableList<ClassPatchDto> = mutableListOf()
-
-        override suspend fun updateClass(body: ClassPatchDto): ManagedClassDto {
-            patches += body
-            return ManagedClassDto(
-                id = 1,
-                name = "9А",
-                joinCode = "DEMO24",
-                joinMode = body.joinMode ?: "open",
-            )
+        V2BindingFixture("rest").use { fixture ->
+            fixture.success("""{"schoolClass":{"id":1,"name":"9A","joinMode":"JOIN_MODE_OPEN"}}""",
+                com.lumenpearson.lessons.contract.v2.UpdateClassResponse.newBuilder().setSchoolClass(
+                    com.lumenpearson.lessons.contract.v2.SchoolClass.newBuilder().setId(1).setName("9A")
+                        .setJoinMode(com.lumenpearson.lessons.contract.v2.JoinMode.JOIN_MODE_OPEN)).build())
+            ManageRepositoryImpl(fixture.manage, UnconfinedTestDispatcher()).setJoinMode(ClassJoinMode.OPEN)
+            val sent = checkNotNull(fixture.server.takeRequest(3, TimeUnit.SECONDS))
+            assertEquals("joinMode", sent.url.queryParameter("updateMask"))
+            assertEquals("""{"joinMode":"JOIN_MODE_OPEN"}""", checkNotNull(sent.body).utf8())
         }
     }
 }

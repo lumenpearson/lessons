@@ -19,19 +19,31 @@ internal class V2BindingFixture(val transport: String) : AutoCloseable {
     val client: okhttp3.OkHttpClient
     val join: JoinRemote
     val schedule: ScheduleRemote
+    val manage: ManageRemote
+    val diary: DiaryRemote
+    val directory: DirectoryRemote
+    val me: MeRemote
+    @Volatile
+    var credentials: RequestCredentials
+    var afterResponse: (() -> Unit)? = null
 
     init {
         if (transport == "grpc") server.protocols = listOf(Protocol.H2_PRIOR_KNOWLEDGE)
         server.start()
-        val credentials = RequestCredentials(server.url("/school/").toString(), "synthetic-device", "synthetic-diary")
+        credentials = RequestCredentials(server.url("/school/").toString(), "synthetic-device", "synthetic-diary")
         client = NetworkModule.okHttpClient({ credentials }, CleartextPolicy { true }, clientVersion = 73)
             .newBuilder().apply {
+                addInterceptor { chain -> chain.proceed(chain.request()).also { afterResponse?.invoke() } }
                 if (transport == "grpc") protocols(listOf(Protocol.H2_PRIOR_KNOWLEDGE))
             }.build()
         val remotes = V2Remotes.using(client, NetworkModule.retrofit(client, NetworkModule.json()),
             AppTransport.parse(transport), clock)
         join = remotes.join
         schedule = remotes.schedule
+        me = remotes.me
+        manage = remotes.manage
+        diary = remotes.diary
+        directory = remotes.directory
     }
 
     fun success(json: String, message: MessageLite, etag: String? = null) {

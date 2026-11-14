@@ -3,6 +3,9 @@ package com.lumenpearson.lessons
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
 import com.lumenpearson.lessons.core.data.di.Graph
+import com.lumenpearson.lessons.core.data.repository.DiaryFailure
+import com.lumenpearson.lessons.core.data.repository.DiaryRepository
+import com.lumenpearson.lessons.core.data.repository.DiaryTarget
 import com.lumenpearson.lessons.core.data.repository.JoinFailure
 import java.net.URI
 import kotlinx.coroutines.NonCancellable
@@ -14,10 +17,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** One repository invocation: an unexpected answer ends the check without a retry. */
+/** Three bounded requests: an unexpected answer ends the check without a retry. */
 class TransportReleaseTest {
     @Test(timeout = TotalBudgetMillis)
-    fun minifiedConnectDecodesErrorInfoAsUnknownCode(): Unit = runBlocking {
+    fun minifiedConnectDecodesClassAndDiaryResponses(): Unit = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val arguments = InstrumentationRegistry.getArguments()
         val expected = arguments.getString("expectedCommit")
@@ -33,15 +36,21 @@ class TransportReleaseTest {
         Graph.ensureInitialized(instrumentation.targetContext)
         val repository = Graph.container.sessionRepository
         assertTrue("The native fixture must have no memberships", repository.currentAll().isEmpty())
+        val diary = Graph.container.diaryRepository
+        requireEmptyDiary(diary)
         val settings = Graph.container.settingsRepository
         val original = settings.settings.first().baseUrl
         try {
             settings.update { it.copy(baseUrl = endpoint) }
-            val result = withTimeout(CallBudgetMillis) { repository.join(NativeJoinCode, deviceName = null) }
-            assertTrue("Expected public UnknownCode; unexpected answers are never retried",
-                result.exceptionOrNull() === JoinFailure.UnknownCode)
+            withTimeout(ProbeBudgetMillis) {
+                checkDiaryBindings(diary)
+                val result = withTimeout(CallBudgetMillis) { repository.join(NativeJoinCode, deviceName = null) }
+                assertTrue("Expected public UnknownCode; unexpected answers are never retried",
+                    result.exceptionOrNull() === JoinFailure.UnknownCode)
+            }
             assertTrue("The probe must not create a membership", repository.currentAll().isEmpty())
-            Log.i("LessonsNativeCheck", "Minified Connect ErrorInfo decoded as UnknownCode; source=$expected")
+            requireEmptyDiary(diary)
+            Log.i("LessonsNativeCheck", "Minified Connect capabilities, SignInRequired and UnknownCode; source=$expected")
         } finally {
             withContext(NonCancellable) {
                 withTimeout(RestoreBudgetMillis) { settings.update { it.copy(baseUrl = original) } }
@@ -49,11 +58,29 @@ class TransportReleaseTest {
         }
     }
 
+    private suspend fun checkDiaryBindings(diary: DiaryRepository) {
+        val preflight = withTimeout(CallBudgetMillis) {
+            Graph.container.diarySignIn.preflight(DiaryTarget.petersburg("native-preflight"))
+        }
+        assertTrue("Production must advertise Petersburg before any password is entered", preflight.isSuccess)
+        requireEmptyDiary(diary)
+        val students = withTimeout(CallBudgetMillis) { diary.students() }
+        assertTrue("The unauthenticated diary read must decode SignInRequired",
+            students.exceptionOrNull() is DiaryFailure.SignInRequired)
+        requireEmptyDiary(diary)
+    }
+
+    private suspend fun requireEmptyDiary(diary: DiaryRepository) {
+        assertTrue("The native fixture must have no diary bearer", diary.current() == null)
+        assertTrue("The native fixture must have no diary target", diary.target.first() == null)
+    }
+
     private companion object {
         const val NativeJoinCode = "!5A!"
         // The production call timeout is sixty seconds; restoration has a separate local-write budget.
         const val CallBudgetMillis = 75_000L
+        const val ProbeBudgetMillis = 150_000L
         const val RestoreBudgetMillis = 5_000L
-        const val TotalBudgetMillis = 90_000L
+        const val TotalBudgetMillis = 165_000L
     }
 }

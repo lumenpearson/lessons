@@ -330,7 +330,7 @@ class DiaryImportTest {
             val rig = DiaryRig()
             // What the last account left, which a new account's sign-in empties.
             rig.cache.putStudents(rig.cache.generation(), listOf(pupil(9)))
-            val seeding = SeedingDiarySignIn(ClearingSignIn(rig), rig.cache)
+            val seeding = SeedingDiarySignIn(ClearingSignIn(rig), rig.cache, rig.store)
 
             when (path) {
                 "signIn" -> seeding.signIn(DiaryTarget.petersburg("parent"), "secret").getOrThrow()

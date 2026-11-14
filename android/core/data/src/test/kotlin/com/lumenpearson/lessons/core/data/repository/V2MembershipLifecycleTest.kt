@@ -6,6 +6,7 @@ import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.datastore.MemoryStore
 import com.lumenpearson.lessons.core.data.datastore.V2BundleTagStore
 import com.lumenpearson.lessons.core.data.datastore.testVault
+import com.lumenpearson.lessons.core.data.network.RestServerStatusRemote
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
 import com.lumenpearson.lessons.core.data.network.v2.JoinRemote
@@ -124,7 +125,8 @@ class V2MembershipLifecycleTest {
         val timetable = TimetableRepositoryImpl(dao, remote, preferences.session.map { it?.classId },
             clock = clock, ioDispatcher = UnconfinedTestDispatcher(), bundleTags = V2BundleTagStore(preferences),
             membership = ScheduleMembership(preferences) { sessions.rejectRequest(it) })
-        val sessions: SessionRepositoryImpl = SessionRepositoryImpl(preferences, NoCallsApi, timetable,
+        val sessions: SessionRepositoryImpl = SessionRepositoryImpl(
+            preferences, RestServerStatusRemote(NoCallsApi::warmup), timetable,
             joinRemote = JoinRemote { _, _ -> error("No join") }, ioDispatcher = UnconfinedTestDispatcher())
 
         suspend fun seed() {

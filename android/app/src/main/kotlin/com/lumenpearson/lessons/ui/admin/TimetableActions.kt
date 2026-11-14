@@ -30,8 +30,8 @@ internal class TimetableActions(
             timetable = it.timetable.copy(loading = true, failure = null),
         )
     }) {
-        val result = repository.timetable()
-        plumbing.finish(result) { current, value, failure ->
+        val result = request(repository) { timetable() }
+        finish(result) { current, value, failure ->
             current.copy(timetable = Remote(value ?: current.timetable.value, false, failure))
         }
     }
@@ -44,9 +44,9 @@ internal class TimetableActions(
      * lands in [PendingImport] so the sheet can ask.
      */
     fun importTimetable(text: String) = plumbing.write {
-        val result = repository.importTimetable(text, replace = false)
-        result.onSuccess { outcome ->
-            plumbing.state.update {
+        val result = request(repository) { importTimetable(text, replace = false) }
+        result.onCurrentSuccess { outcome ->
+            update {
                 if (outcome.applied) {
                     it.copy(
                         pendingImport = null,
@@ -73,9 +73,9 @@ internal class TimetableActions(
     fun replacePendingImport() {
         val pending = plumbing.state.value.pendingImport ?: return
         plumbing.write {
-            val result = repository.importTimetable(pending.text, replace = true)
-            result.onSuccess { outcome ->
-                plumbing.state.update {
+            val result = request(repository) { importTimetable(pending.text, replace = true) }
+            result.onCurrentSuccess { outcome ->
+                update {
                     it.copy(
                         pendingImport = null,
                         importRejected = outcome.rejected,

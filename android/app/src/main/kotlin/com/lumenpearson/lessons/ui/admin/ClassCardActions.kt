@@ -27,8 +27,8 @@ internal class ClassCardActions(
 ) {
 
     fun loadClass() = plumbing.read({ it.copy(classCard = it.classCard.copy(loading = true, failure = null)) }) {
-        val result = repository.classCard()
-        plumbing.finish(result) { current, value, failure ->
+        val result = request(repository) { classCard() }
+        finish(result) { current, value, failure ->
             current.copy(classCard = Remote(value ?: current.classCard.value, false, failure))
         }
     }
@@ -42,9 +42,9 @@ internal class ClassCardActions(
      */
     fun saveClass(edit: ClassEdit) = plumbing.write {
         val before = plumbing.state.value.classCard.value ?: return@write Result.success(Unit)
-        val result = repository.updateClass(before, edit)
-        result.onSuccess { card ->
-            plumbing.state.update {
+        val result = request(repository) { updateClass(before, edit) }
+        result.onCurrentSuccess { card ->
+            update {
                 it.copy(classCard = Remote(card), notice = ManagementNotice.ClassSaved)
             }
         }
@@ -61,9 +61,9 @@ internal class ClassCardActions(
      * copy is newer than the one the tap was made against.
      */
     fun setJoinMode(mode: ClassJoinMode) = plumbing.write {
-        val result = repository.setJoinMode(mode)
-        result.onSuccess { card ->
-            plumbing.state.update {
+        val result = request(repository) { setJoinMode(mode) }
+        result.onCurrentSuccess { card ->
+            update {
                 it.copy(
                     classCard = Remote(card),
                     // The card the server answered with, not the mode that was
@@ -85,7 +85,8 @@ internal class ClassCardActions(
      */
     fun searchSchools(query: String) {
         if (plumbing.state.value.gone != null) return
-        plumbing.state.update {
+        val operation = plumbing.operation()
+        operation.update {
             it.copy(
                 schoolSearch = it.schoolSearch.copy(
                     query = query,
@@ -96,11 +97,12 @@ internal class ClassCardActions(
             )
         }
         viewModelScope.launch {
-            val result = repository.searchSchools(query)
+            if (!operation.isCurrent) return@launch
+            val result = operation.request(repository) { searchSchools(query) }
             val failure = result.exceptionOrNull()?.let(ManageFailure::of)
-            if (plumbing.note(failure)) return@launch
+            if (operation.note(failure)) return@launch
             val found = result.getOrNull()
-            plumbing.state.update {
+            operation.update {
                 if (it.gone != null || it.schoolSearch.query != query) {
                     // A later query is already on screen; this answer is about a
                     // search the person has moved on from.
@@ -154,8 +156,8 @@ internal class ClassCardActions(
      * drops the session anyway.
      */
     fun deleteClass(confirmName: String) = plumbing.write {
-        val result = repository.deleteClass(confirmName)
-        result.onSuccess { plumbing.state.update { it.copy(classDeleted = true) } }
+        val result = request(repository) { deleteClass(confirmName) }
+        result.onCurrentSuccess { update { it.copy(classDeleted = true) } }
         result
     }
 
@@ -176,6 +178,11 @@ internal class ClassCardActions(
      */
     fun leaveDeletedClass() {
         if (!plumbing.state.value.classDeleted) return
-        viewModelScope.launch { session.leaveActive() }
+        val operation = plumbing.operation()
+        viewModelScope.launch {
+            if (!operation.isCurrent) return@launch
+            val classId = operation.owner?.classId
+            if (operation.isCurrent && classId != null) session.leave(classId)
+        }
     }
 }
