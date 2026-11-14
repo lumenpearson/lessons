@@ -166,7 +166,7 @@ interface ManageRepository {
     suspend fun unlinkDevice(id: Long): Result<ManagedDevice>
 
     /** One page of the audit log, newest first. */
-    suspend fun log(limit: Int = LOG_PAGE, offset: Int = 0): Result<AuditPage>
+    suspend fun log(pageSize: Int = LOG_PAGE, pageToken: String = ""): Result<AuditPage>
 
     /** The numbers «📊 Статистика» shows. Readable by an editor. */
     suspend fun stats(): Result<ClassStats>
@@ -191,7 +191,7 @@ interface ManageRepository {
         /** `AUDIT_PAGE` in `server/app/api/manage.py`, so both pages turn alike. */
         const val LOG_PAGE: Int = 30
 
-        /** The server's own ceiling on `limit`; asking for more is a `422`. */
+        /** The v2 page-size ceiling; larger requests are read as this size. */
         const val LOG_PAGE_MAX: Int = 100
     }
 }

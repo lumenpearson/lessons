@@ -162,4 +162,18 @@ data class ManagementUiState(
     val notice: ManagementNotice? = null,
     /** The class was deleted from this phone. Nothing below it exists any more. */
     val classDeleted: Boolean = false,
+    val logNavigation: LogNavigation = LogNavigation(),
+    /** Kept with the value so a reset and stale-result guards are atomic. */
+    internal val operationGeneration: Long = 0,
 )
+
+/** These positions count displayed rows; tokens are never interpreted as server offsets. */
+data class LogPosition(val token: String = "", val firstRow: Long = 1)
+
+data class LogNavigation(
+    val current: LogPosition = LogPosition(),
+    val previous: List<LogPosition> = emptyList(),
+) {
+    fun canAdvance(page: AuditPage): Boolean = page.nextPageToken.isNotEmpty() &&
+        page.nextPageToken != current.token && previous.none { it.token == page.nextPageToken }
+}

@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.datastore.testVault
+import com.lumenpearson.lessons.core.data.network.RestServerStatusRemote
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.v2.JoinRemote
 import com.lumenpearson.lessons.core.data.network.dto.BundleDto
@@ -46,7 +47,7 @@ class ServerStatusReadTest {
         val answer = CompletableDeferred<Unit>()
         val repository = SessionRepositoryImpl(
             preferences = LessonsPreferences(SlowStore(answer), testVault()),
-            api = NoCallsApi,
+            api = RestServerStatusRemote(NoCallsApi::warmup),
             cache = NoCache,
             joinRemote = JoinRemote { _, _ -> error("The badge never joins") },
             ioDispatcher = StandardTestDispatcher(testScheduler),

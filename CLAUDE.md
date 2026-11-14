@@ -144,6 +144,8 @@ the second file exists: while it was alone, every Russian word came from the dev
 fallback beside digits from the bundle. `FontAxisTest` holds all three halves — the pair
 draws Russian, neither carries an axis nothing varies, and no file is bundled unnamed.
 
+- **Match late authentication refusals to the address and bearer actually sent, and compare before removal inside the persistence boundary** (`ManageMembershipTest`, `DiaryTokenOwnershipTest`, #747/#753).
+
 - **Keep current agent paths and test names resolvable** (`test_instruction_references.py`, #661); Server runs for every changed path because this guard inventories the whole tree.
 - **Baseline rewrites keep or lower their sibling budget, refreshing accepted IDs in the same reviewed PR** (`DetektBaselineBudgetTest`, #635); both manual and current IDs consume it.
 

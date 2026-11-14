@@ -135,7 +135,7 @@ internal class FakeManageRepository : ManageRepository {
 
     override suspend fun unlinkDevice(id: Long): Result<ManagedDevice> = park()
 
-    override suspend fun log(limit: Int, offset: Int): Result<AuditPage> = park()
+    override suspend fun log(pageSize: Int, pageToken: String): Result<AuditPage> = park()
 
     override suspend fun stats(): Result<ClassStats> = park()
 

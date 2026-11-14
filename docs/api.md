@@ -1654,13 +1654,18 @@ two `DayService` methods and the five `SubstitutionService` methods (3b-6); ten
 `DiaryService` methods, a diary session's two and its eight reads (3b-7); and its four
 corrections (3b-8). A method a deployment does not serve answers `UNIMPLEMENTED` before it
 asks for any credential; `WatchClass`, the one stream, answers as the next section says.
-The 5a Android build calls `CreateDevice` and `GetScheduleWindow` through its
-selected v2 binding; Me/link codes, management, directory and diary retain their
-v1 adapters until5b. Previously installed APKs retain every v1 answer above.
+The Android transport boundary calls `CreateDevice`, `GetScheduleWindow`,
+Me/link codes, management, directory and diary through its selected v2 binding.
+Domain remotes keep wire DTOs and generated messages out of repositories;
+server-status metadata remains a small plain-HTTP read. There is no runtime
+v1 fallback. Previously installed APKs retain every v1 answer above.
 A reasonless missing-v2 response is a server-compatibility refusal, whereas
 `JOIN_CODE_UNKNOWN` is an unknown class/invite code. `CLIENT_TOO_OLD` preserves
 cached data and asks for an APK update; only `DEVICE_TOKEN_INVALID` revokes the
-sync's membership. These are Android classifications of the existing contract,
+sync's membership. Management uses that same structured invalid-device reason,
+without matching English messages. Diary refusals clear only the address and
+diary bearer actually sent, conditionally in storage; a newer account survives
+an older request's refusal. These are Android classifications of the existing contract,
 not changes to the server's minimum or v1 surface. The proto files are the
 reference: every service, method, message and field there carries the comment that says
 what it means and what v1 sent in its place. This section says only what a file cannot.

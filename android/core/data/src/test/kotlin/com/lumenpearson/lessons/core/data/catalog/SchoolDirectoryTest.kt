@@ -2,8 +2,7 @@ package com.lumenpearson.lessons.core.data.catalog
 
 import com.lumenpearson.lessons.core.data.diary.statusError
 import com.lumenpearson.lessons.core.data.network.DirectoryApi
-import com.lumenpearson.lessons.core.data.network.SchoolRegionDto
-import com.lumenpearson.lessons.core.data.network.SchoolRegionsDto
+import com.lumenpearson.lessons.core.data.network.v2.DirectoryRemote
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
 import com.lumenpearson.lessons.core.data.upstream.DiarySchool
 import com.lumenpearson.lessons.core.data.upstream.DiarySchoolSearch
@@ -30,11 +29,11 @@ class SchoolDirectoryTest {
     }
 
     private class FakeDirectoryApi(
-        var answer: SchoolRegionsDto = SchoolRegionsDto(),
+        var answer: DirectoryRegions = DirectoryRegions("", emptyList(), false, false),
         var failure: Throwable? = null,
-    ) : DirectoryApi {
+    ) : DirectoryRemote {
         val asked = mutableListOf<String>()
-        override suspend fun schoolRegions(query: String): SchoolRegionsDto {
+        override suspend fun schoolRegions(query: String): DirectoryRegions {
             asked += query
             failure?.let { throw it }
             return answer
@@ -46,7 +45,7 @@ class SchoolDirectoryTest {
             Result.success(listOf(DiarySchool(1, "$regionKey:$query", null)))
     }
 
-    private fun directory(api: DirectoryApi) = ServerSchoolDirectory(
+    private fun directory(api: DirectoryRemote) = ServerSchoolDirectory(
         api = api,
         search = { RegionSearch(catalog) },
         schools = NoSchools,
@@ -87,12 +86,12 @@ class SchoolDirectoryTest {
     @Test
     fun `hits are placed against the bundled catalog, and an unknown key is kept unplaced`() = runTest {
         val api = FakeDirectoryApi(
-            answer = SchoolRegionsDto(
+            answer = DirectoryRegions(
                 query = "лицей 1535",
                 regions = listOf(
-                    SchoolRegionDto(region = "moscow", code = "77", schools = 3, cities = listOf("Москва")),
-                    SchoolRegionDto(region = "somewhere-new", code = "99", schools = 1),
-                    SchoolRegionDto(region = null, code = "94", label = "г Байконур", schools = 1),
+                    DirectoryRegion(region = "moscow", code = "77", schools = 3, cities = listOf("Москва")),
+                    DirectoryRegion(region = "somewhere-new", code = "99", schools = 1),
+                    DirectoryRegion(region = null, code = "94", label = "г Байконур", schools = 1),
                 ),
                 truncated = true,
             ),
@@ -141,7 +140,7 @@ class SchoolDirectoryTest {
 
     // ---- the combined lookup -------------------------------------------------
 
-    private fun lookup(api: DirectoryApi) = RegionLookup(
+    private fun lookup(api: DirectoryRemote) = RegionLookup(
         search = { RegionSearch(catalog) },
         directory = directory(api),
     )
@@ -160,9 +159,9 @@ class SchoolDirectoryTest {
     @Test
     fun `a school is looked up in the directory, and its regions come first`() = runTest {
         val api = FakeDirectoryApi(
-            answer = SchoolRegionsDto(
+            answer = DirectoryRegions(
                 query = "гимназия 1 казань",
-                regions = listOf(SchoolRegionDto(region = "tatarstan", code = "16", schools = 2)),
+                regions = listOf(DirectoryRegion(region = "tatarstan", code = "16", schools = 2)),
             ),
         )
 

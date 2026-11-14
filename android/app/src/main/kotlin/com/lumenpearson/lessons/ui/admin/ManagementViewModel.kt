@@ -16,8 +16,11 @@ import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.ManageRepository
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
+import com.lumenpearson.lessons.core.data.repository.SettingsRepository
 import com.lumenpearson.lessons.core.data.repository.SessionRepository
 import com.lumenpearson.lessons.core.data.repository.SubjectForm
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
@@ -52,6 +55,7 @@ class ManagementViewModel(
     private val repository: ManageRepository,
     private val deviceLinks: DeviceLinkRepository,
     private val session: SessionRepository,
+    private val settingsRepository: SettingsRepository? = null,
 ) : ViewModel() {
 
     /** Built first, so the seven classes after it always take one that exists. */
@@ -85,20 +89,22 @@ class ManagementViewModel(
         // one round trip before `loadClass` answers, which on a shared phone
         // is one class's invite code shown to another.
         //
-        // Keyed on the class id rather than on `null`, because leaving is no
+        // Keyed on server, class id and bearer rather than on `null`, because leaving is no
         // longer the only way the class under this screen changes. A phone may
         // hold several and switch between them, which goes from one class
         // straight to the next with no null in between — so a reset that waited
         // for one would never come, and every line above would describe the
         // class the user had just switched away from.
         viewModelScope.launch {
-            session.session
-                .map { it?.classId }
+            val addresses = settingsRepository?.settings?.map { it.baseUrl } ?: flowOf("")
+            combine(session.session, addresses) { member, address ->
+                Triple(member?.classId, member?.token, address)
+            }
                 .distinctUntilChanged()
                 // The first emission is the class this view model was built
                 // for; resetting on it would wipe a load already in flight.
                 .drop(1)
-                .collect { plumbing.state.value = ManagementUiState() }
+                .collect { plumbing.reset() }
         }
     }
 
@@ -178,7 +184,7 @@ class ManagementViewModel(
 
     // -- the log ------------------------------------------------------------
 
-    fun loadLog(offset: Int = 0) = logActions.loadLog(offset)
+    fun loadLog() = logActions.loadLog()
 
     /** @see LogActions.showNextLogPage */
     fun showNextLogPage() = logActions.showNextLogPage()
@@ -207,10 +213,12 @@ class ManagementViewModel(
      */
     fun recheckRole() {
         if (plumbing.state.value.recheckingRole) return
+        val operation = plumbing.operation()
+        operation.update { it.copy(recheckingRole = true) }
         viewModelScope.launch {
-            plumbing.state.update { it.copy(recheckingRole = true) }
+            if (!operation.isCurrent) return@launch
             val link = deviceLinks.refresh().getOrNull()
-            plumbing.state.update {
+            operation.update {
                 it.copy(
                     recheckingRole = false,
                     // Only a role that manages clears it. Anything else — a
@@ -237,6 +245,7 @@ class ManagementViewModel(
                     repository = Graph.container.manageRepository,
                     deviceLinks = Graph.container.deviceLinkRepository,
                     session = Graph.container.sessionRepository,
+                    settingsRepository = Graph.container.settingsRepository,
                 )
             }
         }

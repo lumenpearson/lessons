@@ -59,7 +59,7 @@ class BuildPropertyReachTest {
         assertTrue("The separately optimized test APK needs its target declarations", file.isFile)
         val rules = file.readLines().joinToString("\n") { it.substringBefore('#') }
         val block = Regex(
-            """-keep,allowoptimization,allowobfuscation\s+(?:class|interface)\s+([\w.]+)\s*\{([^}]*)}""",
+            """-keep,allowoptimization,allowobfuscation\s+(?:class|interface)\s+([\w.$]+)\s*\{([^}]*)}""",
         )
         val blocks = block.findAll(rules).toList()
         assertEquals("No duplicate roots can hide a broader earlier rule", nativeBridgeMembers.size, blocks.size)
@@ -260,7 +260,25 @@ class BuildPropertyReachTest {
             "com.lumenpearson.lessons.core.data.di.LessonsContainer" to setOf(
                 "public com.lumenpearson.lessons.core.data.repository.SessionRepository getSessionRepository()",
                 "public com.lumenpearson.lessons.core.data.repository.SettingsRepository getSettingsRepository()",
+                "public com.lumenpearson.lessons.core.data.repository.DiaryRepository getDiaryRepository()",
+                "public com.lumenpearson.lessons.core.data.repository.DiarySignIn getDiarySignIn()",
             ),
+            "com.lumenpearson.lessons.core.data.repository.DiaryRepository" to setOf(
+                "public java.lang.Object current(kotlin.coroutines.Continuation)",
+                "public kotlinx.coroutines.flow.Flow getTarget()",
+                "public java.lang.Object students-IoAF18A(kotlin.coroutines.Continuation)",
+            ),
+            "com.lumenpearson.lessons.core.data.repository.DiarySignIn" to setOf(
+                "public java.lang.Object preflight-gIAlu-s(" +
+                    "com.lumenpearson.lessons.core.data.repository.DiaryTarget,kotlin.coroutines.Continuation)",
+            ),
+            "com.lumenpearson.lessons.core.data.repository.DiaryTarget" to setOf(
+                "public static final com.lumenpearson.lessons.core.data.repository.DiaryTarget\$Companion Companion",
+            ),
+            "com.lumenpearson.lessons.core.data.repository.DiaryTarget\$Companion" to setOf(
+                "public com.lumenpearson.lessons.core.data.repository.DiaryTarget petersburg(java.lang.String)",
+            ),
+            "com.lumenpearson.lessons.core.data.repository.DiaryFailure\$SignInRequired" to emptySet(),
             "com.lumenpearson.lessons.core.data.repository.SessionRepository" to setOf(
                 "public java.lang.Object currentAll(kotlin.coroutines.Continuation)",
                 "public java.lang.Object join-0E7RQCE(java.lang.String,java.lang.String," +
@@ -277,6 +295,7 @@ class BuildPropertyReachTest {
             "kotlin.Result" to setOf(
                 "public static kotlin.Result box-impl(java.lang.Object)",
                 "public java.lang.Object unbox-impl()",
+                "public static boolean isSuccess-impl(java.lang.Object)",
             ),
             "kotlin.LazyKt" to emptySet(),
             "kotlin.LazyKt__LazyJVMKt" to setOf(

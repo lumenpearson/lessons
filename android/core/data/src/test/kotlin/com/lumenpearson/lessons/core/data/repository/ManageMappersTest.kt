@@ -1,22 +1,38 @@
 package com.lumenpearson.lessons.core.data.repository
 
-import com.lumenpearson.lessons.core.data.network.dto.AccessRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.AuditEntryDto
-import com.lumenpearson.lessons.core.data.network.dto.BellPeriodDto
-import com.lumenpearson.lessons.core.data.network.dto.BellScheduleDto
-import com.lumenpearson.lessons.core.data.network.dto.ManagedClassDto
-import com.lumenpearson.lessons.core.data.network.dto.ManagedDeviceDto
-import com.lumenpearson.lessons.core.data.network.dto.ManagedSubjectDto
-import com.lumenpearson.lessons.core.data.network.dto.RequestDecisionDto
-import com.lumenpearson.lessons.core.data.network.dto.SchoolDto
-import com.lumenpearson.lessons.core.data.network.dto.SchoolSearchDto
-import com.lumenpearson.lessons.core.data.network.dto.StatsDto
-import com.lumenpearson.lessons.core.data.network.dto.SubjectHoursDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.AccessRequestDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.AuditEntryDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.BellPeriodDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.BellScheduleDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.SchoolClassDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.ClassDeviceDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.SubjectDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.ApproveAccessRequestResponseDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.DeclineAccessRequestResponseDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.RoleCountDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.UpdateBellScheduleResponseDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.SchoolDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.ListSchoolsResponseDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.ClassStatsDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.SubjectHoursDto
+import com.lumenpearson.lessons.core.data.network.v2.toManagedClass
+import com.lumenpearson.lessons.core.data.network.v2.toManagedSubject
+import com.lumenpearson.lessons.core.data.network.v2.toManagedBells
+import com.lumenpearson.lessons.core.data.network.v2.toManagedDevice
+import com.lumenpearson.lessons.core.data.network.v2.toManagedAudit
+import com.lumenpearson.lessons.core.data.network.v2.toManagedStats
+import com.lumenpearson.lessons.core.data.network.v2.toManagedRequest
+import com.lumenpearson.lessons.core.data.network.v2.toManagedDecision
+import com.lumenpearson.lessons.core.data.network.v2.toManagedSchool
+import com.lumenpearson.lessons.core.data.network.v2.toManagedSchools
+import com.lumenpearson.lessons.core.data.network.v2.toManagedBellWrite
+import com.lumenpearson.lessons.core.data.network.v2.ManagementChange
+import com.lumenpearson.lessons.core.data.network.v2.changedManagementValue as changedValue
+import com.lumenpearson.lessons.core.data.network.v2.optionalManagementChange as changedOrCleared
+import java.time.ZoneId
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -38,7 +54,7 @@ class ManageMappersTest {
 
     @Test
     fun `a class card keeps its counts and loses its blanks`() {
-        val card = ManagedClassDto(
+        val card = SchoolClassDto(
             id = 1,
             name = "  9А ",
             school = "   ",
@@ -51,7 +67,7 @@ class ManageMappersTest {
             pendingRequests = 1,
             bellScheduleId = 3,
             calendarReady = true,
-        ).toDomain()
+        ).toManagedClass()
 
         assertEquals("9А", card.name)
         // A school typed as spaces is a school nobody entered.
@@ -65,7 +81,7 @@ class ManageMappersTest {
     /** An unlabelled zone still says more as its IANA name than as an empty row. */
     @Test
     fun `a missing zone label falls back to the zone itself`() {
-        val card = ManagedClassDto(id = 1, timezone = "Asia/Omsk", timezoneLabel = "").toDomain()
+        val card = SchoolClassDto(id = 1, timezone = "Asia/Omsk", timezoneLabel = "").toManagedClass()
         assertEquals("Asia/Omsk", card.timezoneLabel)
     }
 
@@ -73,13 +89,13 @@ class ManageMappersTest {
 
     @Test
     fun `a subject keeps its id and drops its empty fields`() {
-        val subject = ManagedSubjectDto(
+        val subject = SubjectDto(
             id = 4,
             name = "Алгебра",
             shortName = "",
             teacher = " Иванова А. П. ",
             color = "#5B6ABF",
-        ).toDomain()
+        ).toManagedSubject()
 
         assertEquals(4L, subject.id)
         assertNull(subject.shortName)
@@ -99,7 +115,7 @@ class ManageMappersTest {
                 BellPeriodDto(index = 2, startsAt = "09:25:00", endsAt = "10:10:00"),
                 BellPeriodDto(index = 1, startsAt = "08:30:00", endsAt = "09:15:00"),
             ),
-        ).toDomain()
+        ).toManagedBells()
 
         assertEquals(listOf(1, 2), schedule.periods.map { it.index })
         assertEquals(LocalTime.of(8, 30), schedule.periods.first().startsAt)
@@ -118,7 +134,7 @@ class ManageMappersTest {
                 BellPeriodDto(index = 1, startsAt = "08:30:00", endsAt = "09:15:00"),
                 BellPeriodDto(index = 2, startsAt = "nonsense", endsAt = "10:10:00"),
             ),
-        ).toDomain()
+        ).toManagedBells()
 
         assertEquals(listOf(1), schedule.periods.map { it.index })
     }
@@ -128,23 +144,22 @@ class ManageMappersTest {
     /**
      * The stamps are class wall time and are kept as such.
      *
-     * The server has already converted them into the class's zone, so reading
-     * them as an instant in the device's zone would move every one of them for
-     * an administrator travelling — which is the exact confusion `_wall` in
-     * `app/api/manage.py` exists to prevent.
+     * The v2 wire carries UTC instants. Only the explicitly fetched class's
+     * zone converts them into these naive domain stamps; the device zone
+     * must never move them for an administrator travelling.
      */
     @Test
     fun `a device's timestamps are read as class wall time`() {
-        val device = ManagedDeviceDto(
+        val device = ClassDeviceDto(
             id = 7,
             deviceName = "Pixel 8",
             linked = true,
             owner = "@anna",
             role = "editor",
-            createdAt = "2026-09-01T18:22:04",
-            lastSeenAt = "2026-09-12T07:55:10",
+            createdAt = "2026-09-01T15:22:04Z",
+            lastSeenAt = "2026-09-12T04:55:10Z",
             linkedAt = null,
-        ).toDomain()
+        ).toManagedDevice(ZoneId.of("Europe/Moscow"))
 
         assertEquals(LocalDateTime.of(2026, 9, 1, 18, 22, 4), device.createdAt)
         assertEquals(LocalDateTime.of(2026, 9, 12, 7, 55, 10), device.lastSeenAt)
@@ -154,8 +169,8 @@ class ManageMappersTest {
 
     @Test
     fun `a device with no role is one that is linked to nobody`() {
-        assertNull(ManagedDeviceDto(id = 8, role = null).toDomain().role)
-        assertNull(ManagedDeviceDto(id = 8, role = "headmaster").toDomain().role)
+        assertNull(ClassDeviceDto(id = 8, role = "ROLE_UNSPECIFIED").toManagedDevice(ZoneId.of("Europe/Moscow")).role)
+        assertNull(ClassDeviceDto(id = 8, role = "headmaster").toManagedDevice(ZoneId.of("Europe/Moscow")).role)
     }
 
     // -- the log ------------------------------------------------------------
@@ -169,7 +184,7 @@ class ManageMappersTest {
             summary = "предмет «Алгебра» → «Алгебра и начала анализа», строк обновлено: 12",
             who = null,
             at = "not a date",
-        ).toDomain()
+        ).toManagedAudit(ZoneId.of("Europe/Moscow"))
 
         assertEquals("subject.rename", entry.action)
         assertNull(entry.at)
@@ -180,13 +195,14 @@ class ManageMappersTest {
 
     @Test
     fun `the role breakdown is read as roles`() {
-        val stats = StatsDto(
+        val stats = ClassStatsDto(
             today = "2026-09-12",
             lessonsPerWeek = 32.5,
             subjectsCount = 2,
             subjects = listOf(SubjectHoursDto(name = " Алгебра ", hours = 4.0)),
-            membersByRole = mapOf("owner" to 1, "editor" to 4, "headmaster" to 9),
-        ).toDomain()
+            membersByRole = listOf(RoleCountDto("ROLE_OWNER", 1), RoleCountDto("ROLE_EDITOR", 4),
+                RoleCountDto("ROLE_FUTURE", 9)),
+        ).toManagedStats()
 
         assertEquals(LocalDate.of(2026, 9, 12), stats.today)
         assertEquals(32.5, stats.lessonsPerWeek, 0.0)
@@ -203,8 +219,8 @@ class ManageMappersTest {
             who = "@petya",
             requestedRole = "editor",
             message = "  ",
-            createdAt = "2026-09-11T19:02:44",
-        ).toDomain()
+            createdAt = "2026-09-11T16:02:44Z",
+        ).toManagedRequest(ZoneId.of("Europe/Moscow"))
 
         assertEquals(ClassRole.EDITOR, request.requestedRole)
         assertNull(request.message)
@@ -213,13 +229,13 @@ class ManageMappersTest {
 
     @Test
     fun `a decision is approved or it is not`() {
-        val approved = RequestDecisionDto(id = 5, status = "approved", role = "editor", who = "@petya")
-        assertTrue(approved.toDomain().approved)
-        assertEquals(ClassRole.EDITOR, approved.toDomain().role)
+        val approved = ApproveAccessRequestResponseDto(requestId = 5, role = "ROLE_EDITOR", who = "@petya")
+        assertTrue(approved.toManagedDecision().approved)
+        assertEquals(ClassRole.EDITOR, approved.toManagedDecision().role)
 
-        val declined = RequestDecisionDto(id = 5, status = "declined", role = null, who = "@petya")
-        assertTrue(!declined.toDomain().approved)
-        assertNull(declined.toDomain().role)
+        val declined = DeclineAccessRequestResponseDto(requestId = 5, who = "@petya")
+        assertTrue(!declined.toManagedDecision().approved)
+        assertNull(declined.toManagedDecision().role)
     }
 
     // -- what a patch actually carries --------------------------------------
@@ -242,29 +258,29 @@ class ManageMappersTest {
     /** A nullable field has three states, and a blank box is the third. */
     @Test
     fun `a nullable field can be left alone, changed or cleared`() {
-        assertNull(changedOrCleared("Демо-школа", "Демо-школа"))
-        assertNull(changedOrCleared(null, ""))
-        assertNull(changedOrCleared(null, "   "))
-        assertEquals(JsonPrimitive("Лицей 2"), changedOrCleared("Демо-школа", "Лицей 2"))
+        assertEquals(ManagementChange.Unchanged, changedOrCleared("Демо-школа", "Демо-школа"))
+        assertEquals(ManagementChange.Unchanged, changedOrCleared(null, ""))
+        assertEquals(ManagementChange.Unchanged, changedOrCleared(null, "   "))
+        assertEquals(ManagementChange.Value("Лицей 2"), changedOrCleared("Демо-школа", "Лицей 2"))
         // The explicit null. An omitted field could never say this.
-        assertEquals(JsonNull, changedOrCleared("Демо-школа", ""))
-        assertEquals(JsonNull, changedOrCleared("Демо-школа", null))
+        assertEquals(ManagementChange.Clear, changedOrCleared("Демо-школа", ""))
+        assertEquals(ManagementChange.Clear, changedOrCleared("Демо-школа", null))
     }
 
     /** Setting a field that was empty is a change, not a clear. */
     @Test
     fun `filling in an empty field sends the value`() {
-        assertEquals(JsonPrimitive("Омск"), changedOrCleared(null, "Омск"))
+        assertEquals(ManagementChange.Value("Омск"), changedOrCleared(null, "Омск"))
     }
 
     // -- the school directory -----------------------------------------------
 
     @Test
     fun `a school keeps its full name when the short one is missing`() {
-        val school = SchoolDto(name = "", fullName = "ШКОЛА № 1").toDomain()
+        val school = SchoolDto(name = "", fullName = "ШКОЛА № 1").toManagedSchool()
         assertEquals("ШКОЛА № 1", school.fullName)
 
-        val short = SchoolDto(name = "МБОУ СОШ № 1", fullName = "").toDomain()
+        val short = SchoolDto(name = "МБОУ СОШ № 1", fullName = "").toManagedSchool()
         // A blank full name falls back to the short one rather than to nothing:
         // the class card has to be able to show *some* unambiguous name.
         assertEquals("МБОУ СОШ № 1", short.fullName)
@@ -272,10 +288,10 @@ class ManageMappersTest {
 
     @Test
     fun `a nameless row is dropped rather than drawn as an empty button`() {
-        val page = SchoolSearchDto(
-            items = listOf(SchoolDto(name = "Школа № 1"), SchoolDto(name = "  ")),
-            total = 2,
-        ).toDomain()
+        val page = ListSchoolsResponseDto(
+            schools = listOf(SchoolDto(name = "Школа № 1"), SchoolDto(name = "  ")),
+            totalSize = 2,
+        ).toManagedSchools()
         assertEquals(1, page.items.size)
         // `total` is the server's count and is not re-derived: it says how many
         // the directory matched, not how many survived this filter.
@@ -284,7 +300,7 @@ class ManageMappersTest {
 
     @Test
     fun `truncated survives the mapping because nothing else says it`() {
-        val page = SchoolSearchDto(items = emptyList(), truncated = true).toDomain()
+        val page = ListSchoolsResponseDto(schools = emptyList(), truncated = true).toManagedSchools()
         assertTrue(page.truncated)
     }
 
@@ -303,7 +319,7 @@ class ManageMappersTest {
      */
     @Test
     fun `a bells write says how many lessons it stopped ringing`() {
-        val written = BellScheduleDto(id = 3, name = "Обычное", silencedLessons = 2).toWritten()
+        val written = UpdateBellScheduleResponseDto(BellScheduleDto(id = 3, name = "Обычное"), 2).toManagedBellWrite()
         assertEquals(2, written.silencedLessons)
         assertEquals("Обычное", written.schedule.name)
     }
@@ -314,13 +330,14 @@ class ManageMappersTest {
      */
     @Test
     fun `a schedule that says nothing about it silenced nothing`() {
-        assertEquals(0, BellScheduleDto(id = 3, name = "Обычное").toWritten().silencedLessons)
+        val response = UpdateBellScheduleResponseDto(BellScheduleDto(id = 3, name = "Обычное"))
+        assertEquals(0, response.toManagedBellWrite().silencedLessons)
     }
 
     /** A number the server cannot mean is not a school fact to report. */
     @Test
     fun `a negative count is not shown as one`() {
-        val written = BellScheduleDto(id = 3, name = "Обычное", silencedLessons = -1).toWritten()
+        val written = UpdateBellScheduleResponseDto(BellScheduleDto(id = 3, name = "Обычное"), -1).toManagedBellWrite()
         assertEquals(0, written.silencedLessons)
     }
 }

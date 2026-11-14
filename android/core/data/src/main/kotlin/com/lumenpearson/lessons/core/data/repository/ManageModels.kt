@@ -1,9 +1,13 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.connectrpc.Code
+import com.lumenpearson.lessons.core.data.network.v2.RemoteError
+import com.lumenpearson.lessons.core.data.network.v2.failureStatus
 import java.io.IOException
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -18,8 +22,8 @@ import retrofit2.HttpException
  * nothing in [DiaryLesson] does: the screens are allowed to know what a bell
  * schedule is and not allowed to know what JSON is.
  *
- * Every timestamp is **class wall time** — the server converts before sending,
- * because an admin in Vladivostok reading a Moscow server's log must not see
+ * Every domain timestamp is **class wall time** — v2 bindings convert UTC instants
+ * with the fetched class zone, because an admin reading another zone's log must not see
  * yesterday evening against this morning's change. That is why they are
  * [LocalDateTime] and not [java.time.Instant]: there is no instant here to be
  * had, only the time the class says it was.
@@ -270,12 +274,10 @@ data class AuditEntry(
     val at: LocalDateTime?,
 )
 
-/** One page of the log. [hasMore] rather than a total; see `GET /manage/log`. */
+/** One page of the append-only log; its next token is opaque and there is no server total. */
 data class AuditPage(
     val entries: List<AuditEntry>,
-    val limit: Int,
-    val offset: Int,
-    val hasMore: Boolean,
+    val nextPageToken: String,
 )
 
 /** Lessons a week for one subject; a fortnightly lesson counts a half. */
@@ -334,18 +336,18 @@ data class RequestDecision(
 sealed class ManageFailure(message: String, cause: Throwable? = null) :
     Exception(message, cause) {
 
-    /** `401`: the device token itself is gone. Nothing on this page can help. */
+    /** DEVICE_TOKEN_INVALID, or an unauthenticated status fallback. */
     data object SignedOut : ManageFailure("The device token is no longer valid")
 
     /**
-     * `403 device is not linked`: this phone is tied to no Telegram account, so
+     * DEVICE_NOT_LINKED: this phone is tied to no Telegram account, so
      * there is no role to look up. The page has to go; linking is done on the
      * class page, not here.
      */
     data object NotLinked : ManageFailure("This device is not linked to a Telegram account")
 
     /**
-     * `403 <role> role required`: the linked account no longer holds the role
+     * ROLE_REQUIRED: the linked account no longer holds the role
      * this page is for. The role was demoted in the bot while the page was open,
      * which is exactly the case the server exists to catch.
      *
@@ -367,10 +369,10 @@ sealed class ManageFailure(message: String, cause: Throwable? = null) :
     data object NotFound : ManageFailure("No such row in this class")
 
     /**
-     * `409`: well formed, and refused by the class's own state — a subject name
+     * Well formed, and refused by the class's own state — a subject name
      * already taken, a bell schedule days still point at, a device that is not
-     * linked. [detail] is the server's own sentence, which is the only thing
-     * that tells those three apart.
+     * linked. The structured reason chooses this case; [detail] retains the
+     * server's explanation without trying to classify its wording.
      */
     data class Refused(val detail: String?) :
         ManageFailure(detail ?: "The class's own state refuses this")
@@ -411,55 +413,65 @@ sealed class ManageFailure(message: String, cause: Throwable? = null) :
 
     companion object {
 
-        /** The exact `detail` the server sends for an unlinked device. */
-        const val DETAIL_NOT_LINKED: String = "device is not linked"
-
-        /** The tail of `"admin role required"`, `"owner role required"`, … */
-        private const val DETAIL_ROLE_SUFFIX: String = "role required"
+        private val RefusedReasons = setOf(
+            "RESOURCE_EXISTS", "RESOURCE_IN_USE", "SUBJECT_RENAME_CLASH", "CLASS_DEVICE_NOT_LINKED",
+        )
+        private val InvalidReasons = setOf(
+            "VALIDATION_FAILED", "NO_BELL_FOR_LESSON", "EMPTY_BELL_SCHEDULE", "TERM_BOUNDS_REFUSED",
+            "NO_LESSON_ON_DAY", "LESSON_NOT_ON_TIMETABLE",
+        )
 
         /** Classifies whatever a call threw. */
         fun of(failure: Throwable): ManageFailure = when (failure) {
+            is CancellationException -> throw failure
             is ManageFailure -> failure
+            is RemoteError -> ofRemote(failure)
             is HttpException -> ofStatus(failure.code(), detailOf(errorBodyOf(failure)))
             is IOException -> Offline(failure)
             else -> Unexpected(code = null, reason = failure)
         }
 
-        /**
-         * The rule itself, over a status and the server's `detail`.
-         *
-         * Separated from [of] so that it can be read — and tested — without a
-         * Retrofit response to build: every sentence about who is thrown off
-         * this page is in these fifteen lines.
-         *
-         * The `403` branch reads the detail because the status alone cannot
-         * answer the only question worth asking about a `403` here. It compares
-         * against the two spellings `app/api/manage.py` writes, and falls
-         * through to [NotAllowed] for anything it does not recognise — the safe
-         * direction, because [NotAllowed] leaves the user where they are.
-         */
+        private fun ofRemote(error: RemoteError): ManageFailure = when (error.reason) {
+            "DEVICE_TOKEN_INVALID" -> SignedOut
+            "DEVICE_NOT_LINKED" -> NotLinked
+            "ROLE_REQUIRED" -> RoleLost(requiredRole(error.metadata["role"]))
+            "ROLE_GRANT_REFUSED" -> NotAllowed(error.detail())
+            "RESOURCE_NOT_FOUND" -> NotFound
+            in RefusedReasons -> Refused(error.detail())
+            in InvalidReasons -> Invalid(error.detail())
+            "REQUEST_UNDECODABLE", "CLIENT_TOO_OLD" -> Unexpected(error.httpStatus, error)
+            else -> ofRemoteStatus(error)
+        }
+
+        private fun ofRemoteStatus(error: RemoteError): ManageFailure {
+            val status = error.failureStatus()
+            val classified = when {
+                error.code == Code.FAILED_PRECONDITION -> Refused(error.detail())
+                // A gateway 401 does not establish that this membership was revoked.
+                status == 401 -> null
+                else -> status?.let { ofStatus(it, error.detail()) }
+            }
+            // Keep structured details reachable when the UI has no dedicated refusal case.
+            return if (classified == null || classified is Unexpected) Unexpected(error.httpStatus, error)
+                else classified
+        }
+
+        private fun requiredRole(raw: String?): String? = when (raw) {
+            "ROLE_VIEWER" -> "viewer"
+            "ROLE_EDITOR" -> "editor"
+            "ROLE_ADMIN" -> "admin"
+            "ROLE_OWNER" -> "owner"
+            else -> null
+        }
+
+        private fun RemoteError.detail(): String? = message?.trim()?.ifBlank { null }
+
+        /** A status alone cannot establish link or role loss, whatever its message says. */
         fun ofStatus(code: Int, detail: String? = null): ManageFailure {
             val said = detail?.trim().orEmpty()
             return when (code) {
                 401 -> SignedOut
-                403 -> when {
-                    said.equals(DETAIL_NOT_LINKED, ignoreCase = true) -> NotLinked
-                    // `dropLast`, not `removeSuffix`: the guard above matched
-                    // ignoring case and `removeSuffix` does not, so the two
-                    // disagreed on anything but the server's current lowercase
-                    // spelling — and the role then came back as the whole
-                    // sentence, so the screen said «нет роли admin ROLE
-                    // REQUIRED». Dead today, and the live risk is precisely
-                    // that the two spellings are written in two places: the
-                    // day `manage.py` capitalises that message, the guard
-                    // still fires and the extraction silently stops working.
-                    // The length is the same whatever the case, so taking it
-                    // off by length cannot drift from the test above it.
-                    said.endsWith(DETAIL_ROLE_SUFFIX, ignoreCase = true) ->
-                        RoleLost(said.dropLast(DETAIL_ROLE_SUFFIX.length).trim().ifBlank { null })
-
-                    else -> NotAllowed(said.ifBlank { null })
-                }
+                403 -> NotAllowed(said.ifBlank { null })
 
                 404 -> NotFound
                 409 -> Refused(said.ifBlank { null })

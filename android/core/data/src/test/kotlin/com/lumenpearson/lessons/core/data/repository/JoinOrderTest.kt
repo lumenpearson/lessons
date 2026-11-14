@@ -3,6 +3,7 @@ package com.lumenpearson.lessons.core.data.repository
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.datastore.MemoryStore
 import com.lumenpearson.lessons.core.data.datastore.testVault
+import com.lumenpearson.lessons.core.data.network.RestServerStatusRemote
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
 import com.lumenpearson.lessons.core.data.network.v2.JoinRemote
@@ -35,7 +36,8 @@ class JoinOrderTest {
             }
             override suspend fun forgetEverything() = error("Joining never wipes other classes")
         }
-        val repository = SessionRepositoryImpl(preferences, NoCallsApi, cache, joinRemote = remote,
+        val repository = SessionRepositoryImpl(
+            preferences, RestServerStatusRemote(NoCallsApi::warmup), cache, joinRemote = remote,
             ioDispatcher = UnconfinedTestDispatcher(), onActiveClassChanged = {
                 assertEquals("new-token", preferences.currentSession()?.token)
                 assertEquals("other-token", preferences.currentSessions().single { it.classId == 12L }.token)
@@ -58,7 +60,8 @@ class JoinOrderTest {
             override suspend fun forgetClass(classId: Long) = error("No wipe before success")
             override suspend fun forgetEverything() = error("No wipe before success")
         }
-        val repository = SessionRepositoryImpl(preferences, NoCallsApi, cache,
+        val repository = SessionRepositoryImpl(
+            preferences, RestServerStatusRemote(NoCallsApi::warmup), cache,
             joinRemote = JoinRemote { _, _ -> throw cancelled },
             ioDispatcher = UnconfinedTestDispatcher(), onActiveClassChanged = { error("No callback") })
 

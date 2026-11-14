@@ -285,6 +285,74 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `an unlink success for the previous class does not replace its successor`() = runTest {
+        val gate = CompletableDeferred<Unit>().also { links.unlinkGate = it }
+        val model = watched()
+        model.unlinkDevice()
+        assertEquals(DeviceLinkState.Loading(null), model.uiState.value.deviceLink)
+
+        sessions.inner.rejoin(classId = 2L, className = "9Б")
+        model.refreshDeviceLink()
+        val successor = DeviceLinkState.Ready(linkOf(ClassRole.ADMIN))
+        assertEquals(successor, model.uiState.value.deviceLink)
+        gate.complete(Unit)
+
+        assertEquals(successor, model.uiState.value.deviceLink)
+        assertEquals(listOf(2L to ClassRole.ADMIN), links.remembered)
+    }
+
+    @Test
+    fun `an unlink failure for the previous class cannot replace the new class state`() = runTest {
+        val gate = CompletableDeferred<Unit>().also { links.unlinkGate = it }
+        links.unlinkFailure = java.io.IOException("synthetic offline")
+        val model = watched()
+        model.unlinkDevice()
+        sessions.inner.rejoin(classId = 2L, className = "9Б")
+        gate.complete(Unit)
+
+        assertEquals(DeviceLinkState.Idle, model.uiState.value.deviceLink)
+        assertEquals(emptyList<Pair<Long, ClassRole?>>(), links.remembered)
+    }
+
+    @Test
+    fun `an unlink success under a replaced token cannot publish or remember the old role`() = runTest {
+        val gate = CompletableDeferred<Unit>().also { links.unlinkGate = it }
+        val model = watched()
+        model.unlinkDevice()
+        sessions.inner.rejoin(classId = 1L, className = "Replacement credentials")
+        gate.complete(Unit)
+
+        assertEquals(DeviceLinkState.Idle, model.uiState.value.deviceLink)
+        assertEquals(emptyList<Pair<Long, ClassRole?>>(), links.remembered)
+    }
+
+    @Test
+    fun `an unlink failure under a replaced token cannot replace its successor refresh`() = runTest {
+        val gate = CompletableDeferred<Unit>().also { links.unlinkGate = it }
+        links.unlinkFailure = java.io.IOException("synthetic offline")
+        val model = watched()
+        model.unlinkDevice()
+        sessions.inner.rejoin(classId = 1L, className = "Replacement credentials")
+        model.refreshDeviceLink()
+        gate.complete(Unit)
+
+        assertEquals(DeviceLinkState.Ready(linkOf(ClassRole.ADMIN)), model.uiState.value.deviceLink)
+        assertEquals(listOf(1L to ClassRole.ADMIN), links.remembered)
+    }
+
+    @Test
+    fun `an unlink answer from the previous server cannot publish or remember its role`() = runTest {
+        val gate = CompletableDeferred<Unit>().also { links.unlinkGate = it }
+        val model = watched()
+        model.unlinkDevice()
+        model.setBaseUrl("https://other.example/")
+        gate.complete(Unit)
+
+        assertEquals(DeviceLinkState.Idle, model.uiState.value.deviceLink)
+        assertEquals(emptyList<Pair<Long, ClassRole?>>(), links.remembered)
+    }
+
+    @Test
     fun `work still out when the view model is cleared does not land`() {
         val gate = CompletableDeferred<Unit>().also { github.issueGate = it }
         val filed = mutableListOf<String>()
@@ -427,6 +495,8 @@ private class Github : GithubRepository {
 private class Links : DeviceLinkRepository {
     var role: ClassRole? = ClassRole.ADMIN
     var gate: CompletableDeferred<Unit>? = null
+    var unlinkGate: CompletableDeferred<Unit>? = null
+    var unlinkFailure: Exception? = null
     val roles = MutableStateFlow<Map<Long, ClassRole?>>(emptyMap())
     val remembered = mutableListOf<Pair<Long, ClassRole?>>()
     override val link = MutableStateFlow<DeviceLink?>(null)
@@ -436,7 +506,10 @@ private class Links : DeviceLinkRepository {
         return Result.success(linkOf(role))
     }
 
-    override suspend fun unlink(): Result<DeviceLink> = Result.success(linkOf(null))
+    override suspend fun unlink(): Result<DeviceLink> {
+        unlinkGate?.await()
+        return unlinkFailure?.let { Result.failure(it) } ?: Result.success(linkOf(null))
+    }
 
     override fun lastRole(classId: Long): Flow<ClassRole?> = roles.map { it[classId] }
 

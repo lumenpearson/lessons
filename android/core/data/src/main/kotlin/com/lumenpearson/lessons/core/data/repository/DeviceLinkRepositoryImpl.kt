@@ -1,8 +1,10 @@
 package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
-import com.lumenpearson.lessons.core.data.network.LessonsApi
-import com.lumenpearson.lessons.core.data.network.dto.DeviceMeDto
+import com.lumenpearson.lessons.core.data.network.RequestCredentials
+import com.lumenpearson.lessons.core.data.network.v2.CallObservation
+import com.lumenpearson.lessons.core.data.network.v2.MeRemote
+import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -12,46 +14,64 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.withLock
 
 /**
- * Two calls over [LessonsApi], and a memory of the last answer.
+ * A complete v2 linking operation, and a memory of its last owned answer.
  *
  * Failures come back as [Result] rather than thrown, for the same reason the
  * join call does: the settings page shows them verbatim and has nothing to
- * decide. A 401 here means the token itself is gone, and the sync worker will
- * report that on its own; this class does not sign anybody out.
+ * decide. Token rejection belongs to the sync path; this class does not sign
+ * anybody out, including on a bare 401.
  */
 internal class DeviceLinkRepositoryImpl(
-    private val api: LessonsApi,
+    private val remote: MeRemote,
     private val preferences: LessonsPreferences? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : DeviceLinkRepository {
 
     private val latest = MutableStateFlow<DeviceLink?>(null)
+    // Guarded with the store membership gate, including the later role write.
+    private var roleAnswer: RoleAnswer? = null
     override val link: StateFlow<DeviceLink?> = latest.asStateFlow()
 
-    override suspend fun refresh(): Result<DeviceLink> = call { api.me().toDomain() }
+    override suspend fun refresh(): Result<DeviceLink> = call { remote.refresh(it) }
 
-    override suspend fun unlink(): Result<DeviceLink> = call {
-        api.unlink()
-        // The server's answer to unlink says only "not linked"; the code that
-        // replaces the link is minted by the next /me, so ask for it now
-        // rather than showing a card with nothing on it.
-        api.me().toDomain()
-    }
+    override suspend fun unlink(): Result<DeviceLink> = call { remote.unlink(it) }
 
     override fun lastRole(classId: Long): Flow<ClassRole?> =
         preferences?.lastRole(classId) ?: flowOf(null)
 
     override suspend fun rememberRole(classId: Long, role: ClassRole?) {
-        preferences?.rememberRole(classId, role)
+        val store = preferences ?: return
+        store.membershipChanges.withLock {
+            val answer = roleAnswer ?: return@withLock
+            val current = store.currentClassRequest()
+            val replyMatches = answer.classId == classId && answer.role == role
+            val requestMatches = current.first?.classId == classId &&
+                current.second.baseUrl == answer.credentials.baseUrl &&
+                current.second.classToken == answer.credentials.classToken
+            if (replyMatches && requestMatches) store.rememberRole(classId, role)
+        }
     }
 
-    private suspend fun call(block: suspend () -> DeviceLink): Result<DeviceLink> =
+    private suspend fun call(block: suspend (CallObservation) -> DeviceLink): Result<DeviceLink> =
         withContext(ioDispatcher) {
             try {
-                val value = block()
-                latest.value = value
+                val store = preferences
+                val owner = store?.membershipChanges?.withLock { store.currentClassRequest() }
+                val value = block(CallObservation(owner?.second))
+                if (store == null) {
+                    latest.value = value
+                } else store.membershipChanges.withLock {
+                    val current = store.currentClassRequest()
+                    val sent = owner?.second ?: throw IOException("The membership changed during linking")
+                    if (current.first?.classId != owner?.first?.classId ||
+                        current.second.baseUrl != sent.baseUrl || current.second.classToken != sent.classToken
+                    ) throw IOException("The membership changed during linking")
+                    roleAnswer = current.first?.let { RoleAnswer(it.classId, sent, value.role) }
+                    latest.value = value
+                }
                 Result.success(value)
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -59,13 +79,6 @@ internal class DeviceLinkRepositoryImpl(
                 Result.failure(failure)
             }
         }
-}
 
-private fun DeviceMeDto.toDomain(): DeviceLink = DeviceLink(
-    deviceName = deviceName?.trim()?.ifBlank { null },
-    linked = linked,
-    role = ClassRole.fromWire(role),
-    canEdit = canEdit,
-    linkCode = linkCode?.trim()?.ifBlank { null },
-    botDeepLink = botDeepLink?.trim()?.ifBlank { null },
-)
+    private class RoleAnswer(val classId: Long, val credentials: RequestCredentials, val role: ClassRole?)
+}

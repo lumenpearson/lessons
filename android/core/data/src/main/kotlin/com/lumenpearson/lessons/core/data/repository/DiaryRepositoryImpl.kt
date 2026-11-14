@@ -1,9 +1,9 @@
 package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.diary.DiaryCacheWriter
-import com.lumenpearson.lessons.core.data.network.DiaryApi
-import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryResetRequestDto
+import com.lumenpearson.lessons.core.data.network.RequestCredentials
+import com.lumenpearson.lessons.core.data.network.v2.CallObservation
+import com.lumenpearson.lessons.core.data.network.v2.DiaryRemote
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -36,6 +36,9 @@ internal interface DiarySessionStore {
     /** The bearer only; the target and the login stay. */
     suspend fun clearDiaryToken()
 
+    /** Clears only the still-current address/bearer actually refused by the server, in one store write. */
+    suspend fun rejectDiaryRequest(sent: RequestCredentials)
+
     /** The bearer, the login, the target and the chosen pupil. */
     suspend fun forgetDiary()
 
@@ -52,7 +55,7 @@ internal interface DiarySessionStore {
 }
 
 /**
- * Every call the app makes over [DiaryApi], a token in [DiarySessionStore], and
+ * Every call the app makes over [DiaryRemote], a token in [DiarySessionStore], and
  * the rule for what a failure means.
  *
  * Two behaviours are worth knowing about:
@@ -78,7 +81,7 @@ internal interface DiarySessionStore {
  * the same question would have been answered.
  */
 internal class DiaryRepositoryImpl(
-    private val api: DiaryApi,
+    private val api: DiaryRemote,
     private val store: DiarySessionStore,
     private val diarySignIn: DiarySignIn,
     private val forgetLocal: suspend () -> Unit = {},
@@ -118,7 +121,7 @@ internal class DiaryRepositoryImpl(
     }
 
     override suspend fun students(): Result<List<DiaryStudent>> = remembered(
-        read = { call { api.students().map { it.toDomain() } } },
+        read = { call { api.students(it) } },
         write = { generation, rows -> cache.putStudents(generation, rows) },
     )
 
@@ -129,7 +132,7 @@ internal class DiaryRepositoryImpl(
     ): Result<List<DiaryLesson>> = remembered(
         read = {
             ranged(from, to) {
-                api.schedule(studentId, from.toString(), to.toString()).mapNotNull { it.toDomain() }
+                api.schedule(studentId, from, to, it)
             }
         },
         write = { generation, rows -> cache.putLessons(generation, studentId, from, to, rows) },
@@ -142,7 +145,7 @@ internal class DiaryRepositoryImpl(
     ): Result<List<DiaryHomework>> = remembered(
         read = {
             ranged(from, to) {
-                api.homework(studentId, from.toString(), to.toString()).mapNotNull { it.toDomain() }
+                api.homework(studentId, from, to, it)
             }
         },
         write = { generation, rows -> cache.putHomework(generation, studentId, from, to, rows) },
@@ -155,19 +158,19 @@ internal class DiaryRepositoryImpl(
     ): Result<List<DiaryMark>> = remembered(
         read = {
             ranged(from, to) {
-                api.grades(studentId, from.toString(), to.toString()).mapNotNull { it.toDomain() }
+                api.grades(studentId, from, to, it)
             }
         },
         write = { generation, rows -> cache.putMarks(generation, studentId, from, to, rows) },
     )
 
     override suspend fun periods(studentId: Long): Result<List<DiaryPeriod>> = remembered(
-        read = { call { api.periods(studentId).map { it.toDomain() } } },
+        read = { call { api.periods(studentId, it) } },
         write = { generation, rows -> cache.putPeriods(generation, studentId, rows) },
     )
 
     override suspend fun overrides(studentId: Long): Result<List<DiaryOverrideRecord>> = call {
-        api.overrides(studentId).mapNotNull { it.toDomain() }
+        api.overrides(studentId, it)
     }
 
     // The three writes below drop the token on a bare `401`, like every read,
@@ -196,20 +199,7 @@ internal class DiaryRepositoryImpl(
         value: String,
         original: String?,
     ): Result<Unit> = call(unprocessable = DiaryFailure.Rejected) {
-        api.putOverride(
-            studentId,
-            DiaryOverrideRequestDto(
-                // Verbatim: the server composed this key and matches it exactly
-                // when it lays the correction back over the lesson.
-                target = target,
-                field = field.wire(),
-                value = value,
-                original = original,
-            ),
-        )
-        // The stored row comes back and is dropped: the screen redraws from the
-        // schedule it refetches, and a correction kept in two places is a
-        // correction shown two ways after the next upstream change.
+        api.correct(studentId, target, field, value, original, it)
     }
 
     override suspend fun reset(
@@ -217,17 +207,12 @@ internal class DiaryRepositoryImpl(
         target: String,
         field: DiaryField,
     ): Result<Unit> = call(unprocessable = DiaryFailure.Rejected) {
-        // In the body, not in the query string: the key is the server's own and
-        // it can carry an ampersand, so it travels where nothing re-encodes it.
-        api.resetOverride(
-            studentId,
-            DiaryResetRequestDto(target = target, field = field.wire()),
-        )
+        api.reset(studentId, target, field, it)
     }
 
     override suspend fun resetAll(studentId: Long): Result<Unit> =
         call(unprocessable = DiaryFailure.Rejected) {
-            api.resetOverrides(studentId)
+            api.resetAll(studentId, it)
         }
 
     /**
@@ -261,7 +246,7 @@ internal class DiaryRepositoryImpl(
     private suspend fun <T> ranged(
         from: LocalDate,
         to: LocalDate,
-        block: suspend () -> T,
+        block: suspend (CallObservation) -> T,
     ): Result<T> {
         val span = to.toEpochDay() - from.toEpochDay()
         if (span < 0 || span > DiaryRepository.MAX_RANGE_DAYS) {
@@ -278,28 +263,23 @@ internal class DiaryRepositoryImpl(
      */
     private suspend fun <T> call(
         unprocessable: DiaryFailure = DiaryFailure.BadRange,
-        block: suspend () -> T,
+        block: suspend (CallObservation) -> T,
     ): Result<T> = withContext(ioDispatcher) {
+        val observation = CallObservation()
         try {
-            Result.success(block())
+            Result.success(block(observation))
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (failure: Exception) {
             val classified = DiaryFailure.of(failure, unprocessable)
             if (classified is DiaryFailure.SignInRequired) {
-                // Guarded, because it writes: the store is DataStore, whose
-                // write side rethrows `IOException`, and this runs inside the
-                // `catch` that is turning a refusal into a `Result`. A full
-                // disk therefore threw out of a function that promises not to,
-                // into the bare `viewModelScope.launch` every caller uses — so
-                // the one thing worse than staying signed in on a dead token
-                // was the app disappearing while the screen was open. The
-                // token stays until the next failure tries again; see
-                // `signOut`, which has always guarded its own clear.
-                //
-                // The token only: which diary this phone uses outlives it, so
-                // the next screen asks for the same account (see the store).
-                runCatching { store.clearDiaryToken() }
+                // An old refusal cannot authorize a write against a replacement account or server.
+                observation.credentials?.let { sent ->
+                    runCatching { store.rejectDiaryRequest(sent) }.onFailure {
+                        // A disk failure preserves the refusal; cancellation still belongs to the caller.
+                        if (it is CancellationException) throw it
+                    }
+                }
             }
             Result.failure(classified)
         }

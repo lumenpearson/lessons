@@ -1,5 +1,7 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.connectrpc.Code
+import com.lumenpearson.lessons.core.data.network.v2.RemoteError
 import java.io.IOException
 import java.net.SocketTimeoutException
 import org.junit.Assert.assertEquals
@@ -11,8 +13,8 @@ import org.junit.Test
 /**
  * The rule that decides whether the management page is still the user's.
  *
- * `server/app/api/manage.py` sends three different `403`s and they do not mean
- * the same thing. Two of them — «привяжите телефон» and «нужна роль» — say the
+ * Three different permission refusals do not mean the same thing. Two of
+ * them — «привяжите телефон» and «нужна роль» — say the
  * page itself is gone, because the role is looked up per request from the
  * linked Telegram account and somebody has just changed it in the bot. The
  * third is one of the grant guards on approving a request, and it says only
@@ -29,38 +31,31 @@ class ManageFailureTest {
 
     @Test
     fun `an unlinked device ends the session`() {
-        val failure = ManageFailure.ofStatus(403, ManageFailure.DETAIL_NOT_LINKED)
+        val failure = ManageFailure.of(refusal("DEVICE_NOT_LINKED"))
         assertEquals(ManageFailure.NotLinked, failure)
         assertTrue(failure.endsTheSession)
     }
 
     @Test
     fun `a missing role ends the session and names the role`() {
-        val failure = ManageFailure.ofStatus(403, "admin role required")
+        val failure = ManageFailure.of(refusal("ROLE_REQUIRED", role = "ROLE_ADMIN"))
         assertEquals(ManageFailure.RoleLost("admin"), failure)
         assertTrue(failure.endsTheSession)
     }
 
     @Test
     fun `owner is named as readily as admin`() {
-        assertEquals(ManageFailure.RoleLost("owner"), ManageFailure.ofStatus(403, "owner role required"))
+        assertEquals(ManageFailure.RoleLost("owner"), ManageFailure.of(refusal("ROLE_REQUIRED", role = "ROLE_OWNER")))
     }
 
-    /**
-     * The guard matches ignoring case, so the extraction has to as well.
-     *
-     * It did not: `endsWith(ignoreCase = true)` recognised the sentence and
-     * `removeSuffix` — which is case-sensitive — then took nothing off it, so
-     * the role came back as the whole sentence and the screen named it as the
-     * missing role. The server writes this message in lowercase today, which
-     * is the only reason nobody has seen it; the two spellings live in two
-     * repositories and one of them is a Russian-facing message somebody will
-     * reword.
-     */
     @Test
-    fun `the role is named whatever case the server wrote the sentence in`() {
-        assertEquals(ManageFailure.RoleLost("admin"), ManageFailure.ofStatus(403, "admin ROLE REQUIRED"))
-        assertEquals(ManageFailure.RoleLost("Owner"), ManageFailure.ofStatus(403, "Owner Role Required"))
+    fun `the role comes from metadata whatever sentence the server wrote`() {
+        assertEquals(ManageFailure.RoleLost("admin"), ManageFailure.of(
+            refusal("ROLE_REQUIRED", role = "ROLE_ADMIN", message = "admin ROLE REQUIRED"),
+        ))
+        assertEquals(ManageFailure.RoleLost("owner"), ManageFailure.of(
+            refusal("ROLE_REQUIRED", role = "ROLE_OWNER", message = "A translated refusal"),
+        ))
     }
 
     /**
@@ -191,4 +186,8 @@ class ManageFailureTest {
         assertNull(failure.detail)
         assertTrue(failure.message!!.isNotBlank())
     }
+
+    private fun refusal(reason: String, role: String? = null, message: String = "A translated refusal") =
+        RemoteError(Code.PERMISSION_DENIED, reason,
+            metadata = role?.let { mapOf("role" to it) }.orEmpty(), message = message, httpStatus = 403)
 }

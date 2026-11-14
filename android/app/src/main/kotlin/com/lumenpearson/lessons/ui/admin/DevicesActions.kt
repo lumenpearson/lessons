@@ -2,7 +2,6 @@ package com.lumenpearson.lessons.ui.admin
 
 import com.lumenpearson.lessons.core.data.repository.ManageRepository
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
-import kotlinx.coroutines.flow.update
 
 /**
  * What the devices sheet does: the list under its switch, and revoking or unlinking a phone.
@@ -22,7 +21,7 @@ internal class DevicesActions(
             )
         }) {
             val result = repository.devices(includeRevoked)
-            plumbing.finish(result) { current, value, failure ->
+            finish(result) { current, value, failure ->
                 // Dropped when the switch has moved on since this was asked.
                 // «Показывать отключённые» is the one control on this page that
                 // changes what a read *asks for*, so flipping it twice leaves
@@ -39,8 +38,8 @@ internal class DevicesActions(
 
     fun revokeDevice(device: ManagedDevice) = plumbing.write {
         val result = repository.revokeDevice(device.id)
-        result.onSuccess {
-            plumbing.state.update { it.copy(notice = ManagementNotice.DeviceRevoked) }
+        result.onCurrentSuccess {
+            update { it.copy(notice = ManagementNotice.DeviceRevoked) }
             loadDevices()
         }
         result
@@ -48,8 +47,8 @@ internal class DevicesActions(
 
     fun unlinkDevice(device: ManagedDevice) = plumbing.write {
         val result = repository.unlinkDevice(device.id)
-        result.onSuccess {
-            plumbing.state.update { it.copy(notice = ManagementNotice.DeviceUnlinked) }
+        result.onCurrentSuccess {
+            update { it.copy(notice = ManagementNotice.DeviceUnlinked) }
             loadDevices()
         }
         result

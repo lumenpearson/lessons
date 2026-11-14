@@ -5,10 +5,11 @@ import com.lumenpearson.lessons.core.data.network.v2.RemoteError
 
 import com.lumenpearson.lessons.core.data.database.InMemoryTimetableDao
 import com.lumenpearson.lessons.core.data.network.LessonsApi
-import com.lumenpearson.lessons.core.data.network.ManageApi
-import com.lumenpearson.lessons.core.data.network.dto.ClassPatchDto
 import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.ManagedClassDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.SchoolClassDto
+import com.lumenpearson.lessons.core.data.network.v2.ManageRemote
+import com.lumenpearson.lessons.core.data.network.v2.CallObservation
+import com.lumenpearson.lessons.core.data.network.v2.toManagedClass
 import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -93,30 +94,20 @@ class TokenRejectedTest {
     // -- the management API -------------------------------------------------
 
     @Test
-    fun `a 401 on the management surface drops the session too`() = runTest {
+    fun `an observed invalid-token reason on management rejects its sent membership`() = runTest {
         var rejected = 0
-        val result = ManageRepositoryImpl(
-            api = FailingManageApi(httpError(401)),
-            ioDispatcher = UnconfinedTestDispatcher(),
-            onTokenRejected = { rejected++ },
-        ).classCard()
-
+        val result = management(RemoteError(Code.UNAUTHENTICATED, "DEVICE_TOKEN_INVALID", httpStatus = 401)) {
+            rejected++
+        }
         assertTrue(result.exceptionOrNull() is ManageFailure.SignedOut)
         assertEquals(1, rejected)
     }
 
     @Test
     fun `a demoted role is not a lost token`() = runTest {
-        // The device is still in the class; only what it may do has changed.
-        // Signing out here would throw an editor off the app for opening the
-        // one sheet their role no longer covers.
         var rejected = 0
-        val result = ManageRepositoryImpl(
-            api = FailingManageApi(httpError(403, """{"detail":"admin role required"}""")),
-            ioDispatcher = UnconfinedTestDispatcher(),
-            onTokenRejected = { rejected++ },
-        ).classCard()
-
+        val result = management(RemoteError(Code.PERMISSION_DENIED, "ROLE_REQUIRED",
+            mapOf("role" to "ROLE_ADMIN"), httpStatus = 403)) { rejected++ }
         assertTrue(result.exceptionOrNull() is ManageFailure.RoleLost)
         assertEquals(0, rejected)
     }
@@ -124,29 +115,44 @@ class TokenRejectedTest {
     @Test
     fun `an unlinked phone is not a lost token either`() = runTest {
         var rejected = 0
-        val result = ManageRepositoryImpl(
-            api = FailingManageApi(httpError(403, """{"detail":"device is not linked"}""")),
-            ioDispatcher = UnconfinedTestDispatcher(),
-            onTokenRejected = { rejected++ },
-        ).classCard()
-
+        val result = management(RemoteError(Code.FAILED_PRECONDITION, "DEVICE_NOT_LINKED", httpStatus = 400)) {
+            rejected++
+        }
         assertTrue(result.exceptionOrNull() is ManageFailure.NotLinked)
+        assertEquals(0, rejected)
+    }
+
+    @Test
+    fun `a reasonless management 401 is unexpected and cannot end the membership`() = runTest {
+        var rejected = 0
+        val result = management(RemoteError(Code.UNAUTHENTICATED, httpStatus = 401)) { rejected++ }
+        assertTrue(result.exceptionOrNull() is ManageFailure.Unexpected)
         assertEquals(0, rejected)
     }
 
     @Test
     fun `a successful call rejects nothing`() = runTest {
         var rejected = 0
-        val result = ManageRepositoryImpl(
-            api = object : ManageApi by UnusedManageApi() {
-                override suspend fun classCard() = ManagedClassDto(id = 1, name = "9А")
-            },
-            ioDispatcher = UnconfinedTestDispatcher(),
-            onTokenRejected = { rejected++ },
-        ).classCard()
-
+        val result = management(null) { rejected++ }
         assertTrue(result.isSuccess)
         assertFalse(rejected > 0)
+    }
+
+    private suspend fun management(failure: Exception?, rejected: suspend () -> Unit): Result<ManagedClass> {
+        val fixture = V2InFlightMembershipTest.Fixture()
+        fixture.seed()
+        val remote = object : ManageRemote by UnusedManageRemote {
+            override suspend fun classCard(observation: CallObservation): ManagedClass {
+                observation.recordRequest(fixture.preferences.currentClassRequest().second)
+                failure?.let { throw it }
+                return SchoolClassDto(id = 7, name = "9A", timezone = "Europe/Moscow").toManagedClass()
+            }
+        }
+        return ManageRepositoryImpl(remote, UnconfinedTestDispatcher(),
+            ScheduleMembership(fixture.preferences) { request ->
+                rejected()
+                fixture.sessions.rejectRequest(request)
+            }).classCard()
     }
 
     // -- fakes --------------------------------------------------------------
@@ -179,52 +185,4 @@ class TokenRejectedTest {
         override suspend fun unlink() = error("unused")
     }
 
-    private class FailingManageApi(private val failure: Exception) : ManageApi by UnusedManageApi() {
-        override suspend fun classCard(): Nothing = throw failure
-    }
-}
-
-/** Every management call these tests do not make; reaching one is the bug. */
-internal class UnusedManageApi : ManageApi {
-    override suspend fun classCard() = error("unused")
-    override suspend fun updateClass(body: ClassPatchDto) = error("unused")
-    override suspend fun deleteClass(body: com.lumenpearson.lessons.core.data.network.dto.ClassDeleteDto) =
-        error("unused")
-    override suspend fun searchSchools(query: String, pageSize: Int, region: String?) = error("unused")
-    override suspend fun subjects() = error("unused")
-    override suspend fun createSubject(body: com.lumenpearson.lessons.core.data.network.dto.SubjectInDto) =
-        error("unused")
-    override suspend fun updateSubject(
-        subjectId: Long,
-        body: com.lumenpearson.lessons.core.data.network.dto.SubjectPatchDto,
-    ) = error("unused")
-    override suspend fun deleteSubject(subjectId: Long) = error("unused")
-    override suspend fun bells() = error("unused")
-    override suspend fun createBellSchedule(
-        body: com.lumenpearson.lessons.core.data.network.dto.BellScheduleInDto,
-    ) = error("unused")
-    override suspend fun updateBellSchedule(
-        scheduleId: Long,
-        body: com.lumenpearson.lessons.core.data.network.dto.BellSchedulePatchDto,
-    ) = error("unused")
-    override suspend fun writeBellPeriods(
-        scheduleId: Long,
-        body: com.lumenpearson.lessons.core.data.network.dto.BellPeriodsDto,
-    ) = error("unused")
-    override suspend fun deleteBellSchedule(scheduleId: Long) = error("unused")
-    override suspend fun timetable() = error("unused")
-    override suspend fun importTimetable(
-        body: com.lumenpearson.lessons.core.data.network.dto.TimetableImportInDto,
-    ) = error("unused")
-    override suspend fun devices(includeRevoked: Boolean) = error("unused")
-    override suspend fun revokeDevice(deviceId: Long) = error("unused")
-    override suspend fun unlinkDevice(deviceId: Long) = error("unused")
-    override suspend fun log(limit: Int, offset: Int) = error("unused")
-    override suspend fun stats() = error("unused")
-    override suspend fun requests() = error("unused")
-    override suspend fun approveRequest(
-        requestId: Long,
-        body: com.lumenpearson.lessons.core.data.network.dto.RequestDecisionInDto,
-    ) = error("unused")
-    override suspend fun declineRequest(requestId: Long) = error("unused")
 }

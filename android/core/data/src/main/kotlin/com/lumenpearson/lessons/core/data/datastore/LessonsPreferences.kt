@@ -286,6 +286,15 @@ internal class LessonsPreferences(
         write { it.dropDiaryToken() }
     }
 
+    override suspend fun rejectDiaryRequest(sent: RequestCredentials) {
+        if (sent.diaryToken.isNullOrBlank()) return
+        write { prefs ->
+            // Compare inside DataStore's transaction, including writes through another preferences facade.
+            val current = prefs.requestCredentials()
+            if (current.baseUrl == sent.baseUrl && current.diaryToken == sent.diaryToken) prefs.dropDiaryToken()
+        }
+    }
+
     /** Signing out: the diary and only the diary; [clearSession] is its counterpart. */
     override suspend fun forgetDiary() {
         write { it.dropDiary() }

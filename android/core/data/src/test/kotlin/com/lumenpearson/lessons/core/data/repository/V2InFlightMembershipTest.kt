@@ -6,6 +6,7 @@ import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
 import com.lumenpearson.lessons.core.data.datastore.MemoryStore
 import com.lumenpearson.lessons.core.data.datastore.V2BundleTagStore
 import com.lumenpearson.lessons.core.data.datastore.testVault
+import com.lumenpearson.lessons.core.data.network.RestServerStatusRemote
 import com.lumenpearson.lessons.core.data.network.LessonsApi
 import com.lumenpearson.lessons.core.data.network.RequestCredentials
 import com.lumenpearson.lessons.core.data.network.dto.JoinRequestDto
@@ -237,7 +238,8 @@ class V2InFlightMembershipTest {
             clock = Clock.fixed(Instant.parse("2026-11-12T07:00:00Z"), ZoneOffset.UTC),
             ioDispatcher = UnconfinedTestDispatcher(), bundleTags = tags,
             membership = ScheduleMembership(preferences) { sessions.rejectRequest(it) })
-        val sessions: SessionRepositoryImpl = SessionRepositoryImpl(preferences, NoCalls, timetable,
+        val sessions: SessionRepositoryImpl = SessionRepositoryImpl(
+            preferences, RestServerStatusRemote(NoCalls::warmup), timetable,
             JoinRemote { _, _ -> Session(7, "Class 7", null, "synthetic-replacement") },
             ioDispatcher = UnconfinedTestDispatcher())
 

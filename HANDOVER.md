@@ -6,6 +6,28 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
+**14 November 2026 — Android transports, part 5b (#746): source and full local gates complete; delivery acceptance pending.**
+The [approved design](docs/specs/2026-10-05-android-transports-design.md) and
+[six-task plan](docs/specs/2026-11-13-android-transports-5b-plan.md) govern this
+batch. Work is isolated on `work/android-transports-5b`, from dev
+`89cddb513493cfef89934c5328a7f243559c6444`. Accepted 5a master is
+`dab632966012e9f546e8edb47b98ee4578593298`, with the same tree. #743 is closed:
+signed APK 50 passed its actual native and Home/reopen checks. APK 49's earlier
+failure remains historical evidence, not a request to rerun it.
+
+5b moves Me, diary, directory and all management operations to domain remotes
+over REST v2, Connect and unary gRPC. The completed local Android set is 2166
+passing cases; the full server run is 3893 passed/17 skipped/15 warnings, 3910
+unique cases. Detailed execution, cache and skip boundaries are below. Independent
+review, exact-head CI, dev/master merge, a new signed native candidate, production
+and Project 6 readback remain unfinished. Track their source-event receipts on
+[#746](https://github.com/lumenpearson/lessons/issues/746) and this batch's delivery
+PRs; local reports do not close acceptance. Preserve every worktree and ledger.
+
+The dated 5a notes below retain the sequence of failures and corrections. Their
+pending-acceptance statements are superseded by the accepted APK 50 baseline above;
+they are not the current 5b continuation instructions.
+
 **12 November 2026 — Android transports, part 5a (#273): implementation delivered; signed harness correction #743.**
 The [approved design](docs/specs/2026-10-05-android-transports-design.md), decision
 #307 and [six-task plan](docs/specs/2026-11-12-android-transports-5a-plan.md) bind
@@ -589,7 +611,83 @@ broke or would have broken a running deployment). **The board is the owner's pro
 local one fills it with `gh`, by the rule in the project's README, as «The board» in the
 `github-pr` skill says.
 
-## What the last session added: integrate the dependency cohort and retain branch work
+## What the last session added: move the remaining Android features to v2 domain remotes
+
+- #746, milestone 11, is stage 5b of #273. Domain-valued Me, Diary, Directory and
+  seven service-sized management contracts now cover all 25 logical management
+  operations. REST v2 and binary Connect/native unary gRPC share the established
+  client and canonical normalizers. No Retrofit DTO or generated message crosses
+  a domain boundary; the runtime does not fall back to v1. Installed APKs retain
+  the unchanged server v1 API. Later 5c/5d remain separate.
+- Linking and management capture the actual server/class/bearer identity. A late
+  reply, stale role recheck or queued action cannot publish another identity's
+  code, role or notice. Only an observed DEVICE_TOKEN_INVALID revokes its matching
+  class membership; role loss, absent/replaced tokens and server errors retain it.
+  A short persistence gate protects ownership without spanning network I/O.
+- Diary refusal cleanup compares the sent server and bearer atomically inside
+  the store write before dropping credentials (#753). A late refusal cannot erase
+  a replacement account. Cancellation propagates; targets, login, pupil selection
+  and class membership survive. Typed diary credentials keep passwords off our
+  server. Directory results and opaque identifiers retain their existing meaning.
+- Management updates preserve missing/set/clear semantics with minimal field masks,
+  avoid lossy int64 casts, and use the class zone for UTC conversion. Audit next
+  tokens stay opaque; only successful navigation changes history and visible row
+  ranges. Failed reads retain the page, and reset invalidates in-flight history.
+  The broad runtime status proxy is replaced by a small HTTP warmup remote.
+- Retained regressions cover reason/metadata classification, unknown enums, request
+  snapshots, link/role ownership, diary cleanup races, all transports, masks,
+  class-zone boundaries, pagination and stale UI completion. #270 and #747–#756 name
+  the defects and their observed failures before correction. Five retired mapper
+  baseline entries and their budget were removed (202→197); none were added.
+- Full Android initially executed all 346 tasks: 2166 unique cases, with one
+  assertion exposing #755's nested JVM owner regex. After that correction and
+  #756's measured native Result accessor correction, the standard unfiltered
+  test/assembleDebug/assembleRelease/detekt gate passed. The final run refreshed
+  app 733 cases and its Detekt report; 1433 cases and four clean Detekt reports
+  reused source-identical evidence. Ordinary release R8 restored from cache;
+  rematerialized release and retained debug APK hashes match the earlier full run.
+  These reuse/cache facts are not additional executions. All 2166 completed cases
+  pass, with no errors or skips. Measured module totals are in docs/counts.json.
+- Full server Ruff passed; mypy passed 242 files. Bare pytest-q-nauto with the
+  agreed eight-worker environment reported 3893 passed, 17 skipped, 15 warnings in
+  2348.06s. Fresh canonical JUnit contains 3910 unique cases, 0 failures/0 errors.
+  All 17 skip identities and reasons match the preserved earlier report: 11 require
+  PostgreSQL row locks/retention and 6 a running host. This SQLite run executes
+  neither conditional group. No server/database implementation changed; current
+  CI Host execution remains a separate delivery gate.
+- The native probe now uses two read-only diary calls and one existing unissued
+  join-code attempt: capabilities preflight, unauthenticated students refusal,
+  and UnknownCode. The join records one attempt/throttle entry; it creates no
+  account or membership. Empty diary/membership state, source/HTTPS/Connect guards,
+  bounded call budgets and URL restoration are required. Authenticated successful
+  Me/Manage/Directory/Diary paths remain JVM fixtures; see docs/build.md.
+- Separate local native packaging passed after #756. The measured main/test DEX
+  scan reports no missing references in its declared scope, including two direct
+  parent constructor references. Named ContinuationImpl and SuspendLambda callback
+  requirements are distinguished. The first failed pair, original diagnostic,
+  both raw APK pairs and mappings remain immutable. Packaging/static proof is
+  not execution of a production-signed candidate.
+- Coordinator independently rehashed 136 owned inputs, 1105 server files, runtime
+  tools and prior Android/native artifacts, confirmed fresh report/skip evidence
+  and birth-aware process absence, then actually released the full-server slot
+  on 14 November at 01:24:46 UTC. Later heavy, SDK, native and UI work requires a new
+  exact request/grant. All nine worktrees, original untracked files and ignored
+  evidence are retained; no cleanup/reset/deletion occurred.
+- Both completed-report count checks pass at 3910/2166. The separate final
+  documentation guard run passed 168 cases with 0 failures/errors/skips; its partial
+  report did not replace the full server report. Only this result prose changed
+  afterward; reference targets, declarations and all product/test inputs stayed
+  unchanged. The private pre-admission path-key correction and original packet
+  remain preserved. No test was executed under that withdrawn packet.
+- Next: one fresh whole-branch independent review, exact working-head CI, merge
+  into dev, dev-push CI, pinned promotion
+  to master and master CI. Then verify exact-source production and the new signed
+  native pair, run native/Home-reopen checks under fresh grants, restore fixture
+  state and reconcile Project 6 with readback. Keep #746 in Verification until its
+  actual remaining criteria pass; #273 stays open for 5c/5d. Post-merge receipts
+  belong on the existing delivery records, with no closeout-only source PR.
+
+## What the session before it added: integrate the dependency cohort and retain branch work
 
 - #724, dependency milestone7: eight original Dependabot heads are folded into
   one working branch from dev, retaining their commits as merge parents:
@@ -689,92 +787,6 @@ Studio input requires the shared queue's explicit grant. Full onboarding, real
 provider/account flows, physical devices, widget sizes and a fresh PostgreSQL
 suite are not claimed by the local dependency gates above.
 
-
-## What the session before it added: preserve branch work and test integration on dev
-
-- #724, milestone13: owner requests master/dev/one temporary working branch on
-  GitHub and locally; Claude Code work is owned work to reconcile. Task1 delivered
-  the workflow/feature transition; Task2 is the separate dependency/ref batch above. #724 is not closed by Task1 alone.
-- Read-only inventory found65 contained refs, eight dependency heads, three absent
-  pending designs and four unique historical bot commits. A complete verified
-  Git bundle and exact local-WIP copy precede ref cleanup. No worktree files are
-  deleted. docs/branch-work-inventory.md maps each retained feature and its tests.
-- The three pending design documents return with original content/commit ancestry;
-  this preserves them without approving their proposals. Old bot handlers are
-  reconciled against newer retained-parent/shared-service behavior, not restored
-  over it. Existing stale/editor-parent regressions:133passed/4skipped73.03s.
-- #725 is a confirmed recovered gap: a diary pupil switch met a concurrently
-  signed-out session, left the ORM failed and misreported an upstream error.
-  RED1failed4.96s; GREEN1passed5.08s. gone.committed rolls back before the existing
-  signed-out answer. Five recovered controls then passed6.04s, including class
-  scheme, picked-subject entry and split/merge service-refusal paths.
-- CI admits dev/master pushes and PRs with its existing complete gates and path
-  filters. Production signing admits master/v-tags only. Monitoring reads GitHub
-  commits/HEAD, retaining repository-scoped ETag behavior across default-branch
-  rename. FlowRED4failed/3controls3.91s; GREEN7passed3.66s; final focused82passed46.38s.
-- Android's guide reads HEAD after two existing URL assertions failed against
-  main (9 cases, 2 failed, 37s). New translation PRs start from and target the
-  persistent dev branch. Five Android source/test inputs match the native run.
-  Old APKs keep their embedded main refs: the bundled guide still works, but
-  submitting corrections requires an update after rename. No live PR was sent.
-- Before review, complete SQLite: 3839 passed, 17 skipped, 15 warnings in 2279.94 seconds; 3856 unique JUnit cases, zero failures/errors. Bare pytest -q -n8 with actual
-  Git Bash and owned editable Python3.12; eight production/test/workflow hashes
-  match. Ruffclean/mypy242clean. Native test/both assembles/detekt:
-  BUILD SUCCESSFUL in 2m 51s;1817logicalcases/fivemodules, zero failures/errors/skips.
-- Corrected review pass: one fresh review on 3db8d837 found one Critical,
-  seven Important and two Minor items. The single fix pass gates signing inputs
-  before the decode step, gives each diary press one answer, preserves real
-  rollback witnesses and resolves configured-fork bases without auth/error fallback.
-  Callback/signing RED7 -> GREEN73; real witnesses125passed/2skipped84.04s;
-  fork behavior RED3/3controls -> GREEN6. One-off fake-GitHub safety controls
-  RED10 -> GREEN10 hold PR enforcement, exact dev CI and resumable rename readback.
-  Current instructions preserve dev and carry issue closing lines to promotion.
-- Corrected complete SQLite: 3840 passed, 17 skipped,
-  15 warnings in 1985.24 seconds; 3857 unique cases,
-  zero failures/errors. Corrected native four gates: BUILD SUCCESSFUL in 2m 53s;
-  1823 logical cases. Eighteen source/test/workflow hashes
-  match. These are the completed Task1 reports; current Task2 facts are above.
-  No second independent review or fresh PostgreSQL/live-provider claim is made.
-- Deferred review minors: source-set/dated branch prose, and the cross-repository
-  304 regression/stale config comment. Repository signing keys remain untouched;
-  the ordinary committed workflow's input guard is not absolute protection from
-  a collaborator rewriting a workflow. Secure environment provisioning and removal
-  of unrestricted stored copies require a separate safe credential operation.
-- Task1 measured declarations3857/1823 and both report comparisons passed;
-  corrected final documentation checks197passed163.70s and current2passed11.91s.
-- Delivered11November: working PR726 pinned27cca6e9 passed CI42967237838 and
-  merged to dev5d55a542; dev-push CI42968049528 passed. GitHub renamed the default
-  branch to master and Vercel Production tracking persisted master. Promotion727
-  passed CI42969998768 and merged to master4dbfe33f; masterCI42970855052 passed.
-  Both persistent branches remain protected, working cleanup is enabled and
-  issue725 read back closed/completed. Task1 alone leaves724 open for Task2.
-- Production4dbfe33f was READY; all four retained/new aliases matched and warmups
-  returned200/ok/API1/schema0019/v2true. Deployment-scoped error/fatal groups were
-  empty after CI and native checks, a point-in-time observation rather than soak.
-- Signed APK workflow42972263205 passed on that exact master. The retained
-  production package0.1.0/code44 has a verified non-debug signature and embedded
-  source match. On the Studio-launched API37 AVD, install/Welcome/Home/reopen
-  completed with the release process identified and an empty crash buffer.
-  That release run pressed no Continue/Terms control; onboarding/provider/guide
-  coverage remains bounded. The own Emulator stopped normally, its data remained
-  and the shared UI lease was released. Final external proof is on PR726/727.
-
-SDK tools/emulator are prepared in a separate F-drive SDK because the legacy
-executables fail to launch and C has limited space. Existing SDKs, AVDs and
-worktrees remain. UI use requires an explicit coordinated lease; no time expiry
-grants access. The debug APK pinned to source7a049119, SHA256
-09E62E55BCB447AE246F9FEF23C9AB80449E8E32A3926A5D176981638889464C,
-was installed into the owned x86_64/API37 AVD launched from Studio Device Manager.
-The launcher opened Welcome to Lessons, then the local Confirmation screen;
-the app process's crash buffer had no entries. The original AVD configuration
-was retained before enabling software graphics and cold boot without wiping data.
-An explicit foreground raise also preceded the successful screen observation;
-the display result is not attributed to one change alone. The emulator was
-closed normally, its processes were absent, and the UI lease was released.
-Completed onboarding, guide navigation and provider/account flows were not verified.
-No model/schema/dependency change is included in Task1. No new full PostgreSQL,
-real diary/Telegram or installed physical-device proof is claimed. The original
-backlog bugs remain queued after the owner's explicit branch-flow work.
 
 ## The milestones
 
@@ -2419,7 +2431,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 3910 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
-cd android && ./gradlew test                             # 1974 tests across the five modules
+cd android && ./gradlew test                             # 2166 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

@@ -3,7 +3,6 @@ package com.lumenpearson.lessons.ui.admin
 import com.lumenpearson.lessons.core.data.repository.AccessRequest
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ManageRepository
-import kotlinx.coroutines.flow.update
 
 /**
  * What the statistics and requests sheets do: the class's numbers, the access
@@ -18,22 +17,22 @@ internal class RequestsActions(
 
     fun loadStats() = plumbing.read({ it.copy(stats = it.stats.copy(loading = true, failure = null)) }) {
         val result = repository.stats()
-        plumbing.finish(result) { current, value, failure ->
+        finish(result) { current, value, failure ->
             current.copy(stats = Remote(value ?: current.stats.value, false, failure))
         }
     }
 
     fun loadRequests() = plumbing.read({ it.copy(requests = it.requests.copy(loading = true, failure = null)) }) {
         val result = repository.requests()
-        plumbing.finish(result) { current, value, failure ->
+        finish(result) { current, value, failure ->
             current.copy(requests = Remote(value ?: current.requests.value, false, failure))
         }
     }
 
     fun approveRequest(request: AccessRequest, role: ClassRole?) = plumbing.write {
         val result = repository.approveRequest(request.id, role)
-        result.onSuccess { decision ->
-            plumbing.state.update {
+        result.onCurrentSuccess { decision ->
+            update {
                 it.copy(notice = ManagementNotice.RequestApproved(decision.who, decision.role))
             }
             loadRequests()
@@ -43,8 +42,8 @@ internal class RequestsActions(
 
     fun declineRequest(request: AccessRequest) = plumbing.write {
         val result = repository.declineRequest(request.id)
-        result.onSuccess { decision ->
-            plumbing.state.update { it.copy(notice = ManagementNotice.RequestDeclined(decision.who)) }
+        result.onCurrentSuccess { decision ->
+            update { it.copy(notice = ManagementNotice.RequestDeclined(decision.who)) }
             loadRequests()
         }
         result

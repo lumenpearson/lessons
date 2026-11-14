@@ -2,6 +2,10 @@ package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
 import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
+import com.lumenpearson.lessons.core.data.network.v2.RemoteError
+import com.lumenpearson.lessons.core.data.network.v2.failureStatus
+import com.lumenpearson.lessons.core.data.network.v2.hasNoV2
+import com.lumenpearson.lessons.core.data.network.v2.retrySeconds
 import com.lumenpearson.lessons.core.data.upstream.UpstreamFailure
 import com.lumenpearson.lessons.core.data.upstream.UpstreamNotAllowed
 import com.lumenpearson.lessons.core.data.upstream.isTimeout
@@ -295,6 +299,7 @@ sealed class DiarySignInProblem(message: String, cause: Throwable? = null) :
             // Never classified: a cancelled screen is not a failure to show.
             is CancellationException -> throw failure
             is DiarySignInProblem -> failure
+            is RemoteError -> ofRemote(failure, registering)
             is UpstreamFailure -> ofUpstream(failure, host)
             // A request to a host outside the allow-list. Every URL is built
             // from the catalog, so this is a bug here, never «нет сети».
@@ -304,6 +309,33 @@ sealed class DiarySignInProblem(message: String, cause: Throwable? = null) :
             is IOException -> ofTransport(failure, registering)
             else -> Unexpected(failure::class.simpleName, failure)
         }
+
+        private fun ofRemote(error: RemoteError, registering: Boolean): DiarySignInProblem = when (error.reason) {
+            "DIARY_CREDENTIALS_REJECTED" -> WrongPassword(upstreamMessage = null)
+            "DIARY_NO_STUDENTS" -> NoStudent
+            "DIARY_DISABLED" -> ServerDisabled
+            "DIARY_UNAVAILABLE" -> if (error.metadata["upstream"] == "address-refused") ServerAddressRefused
+                else ProviderUnavailable(host = null)
+            "DIARY_UPSTREAM_UNREADABLE" -> ProviderUnreadable(host = null)
+            "DIARY_REAUTH" -> ReauthRequired
+            "DIARY_TOKEN_INVALID" -> SignInRequired
+            "THROTTLED" -> TooManyAttempts(error.retrySeconds())
+            "REQUEST_UNDECODABLE", "CLIENT_TOO_OLD" -> Unexpected(error.message, error)
+            else -> if (error.hasNoV2()) ServerTooOld else ofRemoteStatus(error, registering)
+        }
+
+        @Suppress("MagicNumber") // HTTP status codes are protocol identifiers.
+        private fun ofRemoteStatus(error: RemoteError, registering: Boolean): DiarySignInProblem =
+            when (error.failureStatus()) {
+                401 -> SignInRequired
+                403 -> if (registering) NoStudent else Unexpected(error.message, error)
+                409 -> ServerRefusedSession
+                429 -> TooManyAttempts(error.retrySeconds())
+                502 -> ProviderUnreadable(host = null)
+                503 -> ProviderUnavailable(host = null)
+                504 -> Timeout(host = null)
+                else -> Unexpected(error.message, error)
+            }
 
         private fun ofUpstream(failure: UpstreamFailure, host: String?): DiarySignInProblem =
             when (failure) {

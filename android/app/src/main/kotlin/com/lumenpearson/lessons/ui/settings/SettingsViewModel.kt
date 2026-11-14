@@ -195,13 +195,15 @@ class SettingsViewModel(
         // into the bot links the wrong phone to the wrong class.
         //
         // `drop(1)` leaves the state this view model starts with alone — the
-        // first emission is the class it was built for.
+        // first emission is the class it was built for. The address also owns
+        // each answer; this observer stays independent of the suspending status probe.
         viewModelScope.launch {
-            sessionRepository.session
-                .map { it?.classId }
+            combine(sessionRepository.session, settingsRepository.settings) { member, settings ->
+                Triple(member?.classId, member?.token, settings.baseUrl)
+            }
                 .distinctUntilChanged()
                 .drop(1)
-                .collect { settingsDeviceLink.deviceLink.value = DeviceLinkState.Idle }
+                .collect { settingsDeviceLink.reset() }
         }
     }
 

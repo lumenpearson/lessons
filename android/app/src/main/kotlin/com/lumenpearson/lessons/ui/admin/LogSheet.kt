@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.lumenpearson.lessons.R
+import com.lumenpearson.lessons.core.data.repository.AuditPage
 import com.lumenpearson.lessons.core.data.repository.AuditEntry
 import com.lumenpearson.lessons.core.designsystem.component.EmptyState
 import com.lumenpearson.lessons.core.designsystem.component.GroupItem
@@ -26,7 +27,7 @@ import com.lumenpearson.lessons.core.designsystem.theme.accentTone
  * «📜 Журнал»: who changed what, newest first.
  *
  * Paged with two buttons rather than an endless scroll, because the log is
- * append-only and unbounded and the server answers `has_more` rather than a
+ * append-only and unbounded and the server answers an opaque next token rather than a
  * total — there is no scrollbar to be honest about. The summaries are plain
  * text written by whichever surface made the change, so the bot's lines and the
  * app's read alike here.
@@ -68,8 +69,8 @@ fun LogSheet(
                 SheetNote(
                     text = correctedString(
                         R.string.admin_log_page,
-                        page.offset + 1,
-                        page.offset + page.entries.size,
+                        state.logNavigation.current.firstRow,
+                        state.logNavigation.current.firstRow + page.entries.size - 1,
                     ),
                 )
                 RoundedCardContainer(modifier = Modifier.padding(horizontal = ScreenPadding)) {
@@ -84,30 +85,39 @@ fun LogSheet(
                         )
                     }
                 }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = ScreenPadding, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(
-                        onClick = viewModel::showPreviousLogPage,
-                        enabled = page.offset > 0 && !state.log.loading,
-                    ) {
-                        Text(text = correctedString(R.string.admin_log_newer))
-                    }
-                    TextButton(
-                        onClick = viewModel::showNextLogPage,
-                        enabled = page.hasMore && !state.log.loading,
-                    ) {
-                        Text(text = correctedString(R.string.admin_log_older))
-                    }
-                }
                 // A failed page turn leaves the page that is up and says so;
                 // clearing the list would lose the thing the user was reading.
                 SheetFailure(failure = state.log.failure)
             }
+        }
+        if (page != null) LogPager(state, viewModel, page)
+    }
+}
+
+@Composable
+private fun LogPager(
+    state: ManagementUiState,
+    viewModel: ManagementViewModel,
+    page: AuditPage,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = ScreenPadding, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextButton(
+            onClick = viewModel::showPreviousLogPage,
+            enabled = state.logNavigation.previous.isNotEmpty() && !state.log.loading,
+        ) {
+            Text(text = correctedString(R.string.admin_log_newer))
+        }
+        TextButton(
+            onClick = viewModel::showNextLogPage,
+            enabled = state.logNavigation.canAdvance(page) && !state.log.loading,
+        ) {
+            Text(text = correctedString(R.string.admin_log_older))
         }
     }
 }

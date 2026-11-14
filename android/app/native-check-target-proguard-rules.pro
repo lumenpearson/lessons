@@ -13,6 +13,24 @@
 -keep,allowoptimization,allowobfuscation interface com.lumenpearson.lessons.core.data.di.LessonsContainer {
     public com.lumenpearson.lessons.core.data.repository.SessionRepository getSessionRepository();
     public com.lumenpearson.lessons.core.data.repository.SettingsRepository getSettingsRepository();
+    public com.lumenpearson.lessons.core.data.repository.DiaryRepository getDiaryRepository();
+    public com.lumenpearson.lessons.core.data.repository.DiarySignIn getDiarySignIn();
+}
+-keep,allowoptimization,allowobfuscation interface com.lumenpearson.lessons.core.data.repository.DiaryRepository {
+    public java.lang.Object current(kotlin.coroutines.Continuation);
+    public kotlinx.coroutines.flow.Flow getTarget();
+    public java.lang.Object students-IoAF18A(kotlin.coroutines.Continuation);
+}
+-keep,allowoptimization,allowobfuscation interface com.lumenpearson.lessons.core.data.repository.DiarySignIn {
+    public java.lang.Object preflight-gIAlu-s(com.lumenpearson.lessons.core.data.repository.DiaryTarget,kotlin.coroutines.Continuation);
+}
+-keep,allowoptimization,allowobfuscation class com.lumenpearson.lessons.core.data.repository.DiaryTarget {
+    public static final com.lumenpearson.lessons.core.data.repository.DiaryTarget$Companion Companion;
+}
+-keep,allowoptimization,allowobfuscation class com.lumenpearson.lessons.core.data.repository.DiaryTarget$Companion {
+    public com.lumenpearson.lessons.core.data.repository.DiaryTarget petersburg(java.lang.String);
+}
+-keep,allowoptimization,allowobfuscation class com.lumenpearson.lessons.core.data.repository.DiaryFailure$SignInRequired {
 }
 -keep,allowoptimization,allowobfuscation interface com.lumenpearson.lessons.core.data.repository.SessionRepository {
     public java.lang.Object currentAll(kotlin.coroutines.Continuation);
@@ -29,6 +47,7 @@
 -keep,allowoptimization,allowobfuscation class kotlin.Result {
     public static kotlin.Result box-impl(java.lang.Object);
     public java.lang.Object unbox-impl();
+    public static boolean isSuccess-impl(java.lang.Object);
 }
 # The public facade owners inherit their callable declarations from JVM part classes.
 -keep,allowoptimization,allowobfuscation class kotlin.LazyKt {

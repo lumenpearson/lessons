@@ -1,8 +1,12 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.lumenpearson.lessons.core.data.network.v2.RemoteError
+import com.lumenpearson.lessons.core.data.network.v2.failureStatus
+import com.lumenpearson.lessons.core.data.network.v2.retrySeconds
 import java.io.IOException
 import java.time.LocalDate
 import java.time.LocalTime
+import kotlinx.coroutines.CancellationException
 import retrofit2.HttpException
 
 /**
@@ -104,6 +108,7 @@ enum class DiaryField(private val wireName: String) {
     fun wire(): String = wireName
 
     companion object {
+
         /**
          * `null` for anything this build does not know, which is not the same
          * decision as [DiaryMarkKind.fromWire]'s "other": a mark of an unknown
@@ -381,6 +386,8 @@ sealed class DiaryFailure(message: String, cause: Throwable? = null) :
 
     companion object {
 
+        private val UnexpectedRemoteReasons = setOf("FEATURE_UNSUPPORTED", "REQUEST_UNDECODABLE", "CLIENT_TOO_OLD")
+
         /** The header that separates "sign in" from "type your password again". */
         const val REAUTH_HEADER = "X-Diary-Reauth"
 
@@ -410,11 +417,40 @@ sealed class DiaryFailure(message: String, cause: Throwable? = null) :
             failure: Throwable,
             unprocessable: DiaryFailure = BadRange,
         ): DiaryFailure = when (failure) {
+            is CancellationException -> throw failure
             is DiaryFailure -> failure
+            is RemoteError -> ofRemote(failure, unprocessable)
             is HttpException -> ofHttp(failure, unprocessable)
             is IOException -> Offline(failure)
             else -> Unexpected(code = null, reason = failure)
         }
+
+        private fun ofRemote(error: RemoteError, unprocessable: DiaryFailure): DiaryFailure = when (error.reason) {
+            "DIARY_TOKEN_INVALID" -> SignInRequired
+            "DIARY_REAUTH" -> ReauthRequired
+            "DIARY_DISABLED" -> Disabled
+            "DIARY_UNAVAILABLE" ->
+                if (error.metadata["upstream"] == "address-refused") ServerAddressRefused else Unavailable
+            "DIARY_UPSTREAM_UNREADABLE" -> Unreadable
+            "RESOURCE_NOT_FOUND" -> UnknownStudent
+            "THROTTLED" -> Throttled(error.retrySeconds())
+            "CORRECTIONS_UNAVAILABLE" -> Rejected
+            "VALIDATION_FAILED" -> unprocessable
+            in UnexpectedRemoteReasons -> Unexpected(error.httpStatus, error)
+            else -> ofRemoteStatus(error, unprocessable)
+        }
+
+        @Suppress("MagicNumber") // HTTP status codes are protocol identifiers.
+        private fun ofRemoteStatus(error: RemoteError, unprocessable: DiaryFailure): DiaryFailure =
+            when (error.failureStatus()) {
+                401 -> SignInRequired
+                404 -> UnknownStudent
+                422 -> unprocessable
+                429 -> Throttled(error.retrySeconds())
+                502 -> Unreadable
+                503, 504 -> Unavailable
+                else -> Unexpected(error.httpStatus, error)
+            }
 
         private fun ofHttp(
             failure: HttpException,

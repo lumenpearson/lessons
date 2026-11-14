@@ -225,6 +225,12 @@ Multiple schemes using that same certificate are allowed, distinct identities
 are refused. A parse failure still stops collection and upload.
 The two narrow test-only missing-annotation rules cover AndroidX Test's
 compile-time Error Prone metadata; production shrinking remains strict.
+The native-check variant also retains the exact external JVM bridge used by its
+separate test DEX, including the measured Kotlin Result success accessor (#756).
+The strict build-property test inventories those owners and members, including
+nested JVM class names (#755). Ordinary release builds do not load these bridge
+rules. Inspect a candidate's actual main/test DEX and direct parent constructors;
+the inventory and a successful package build alone cannot prove runtime linkage.
 
 After verifying the signed pair and obtaining the computer-use slot, install
 the main APK as an update without uninstalling and the test APK with `adb install
@@ -232,12 +238,19 @@ the main APK as an update without uninstalling and the test APK with `adb instal
 `com.lumenpearson.lessons.test/androidx.test.runner.AndroidJUnitRunner`, passing
 `expectedCommit` and `serverUrl` for the source-matched HTTPS production alias.
 The harness refuses debug, another transport, missing source identity or a
-fixture with memberships before making a request. It invokes join once with
-the schema-valid, unissued `!5A!` code, requires public `UnknownCode`, checks that
-no membership appeared and restores the previous server address. An unexpected
-answer or throttle ends the check without a retry. The request still consumes
-one throttle slot on the normal answered path. A successful build or signature
-check alone is not an executed minified-code proof.
+fixture with memberships, a diary bearer or a diary target before making a request.
+It runs Petersburg sign-in preflight without a password, exercising the new
+capabilities binding, then reads students without credentials and requires public
+`SignInRequired`. It invokes join once with the schema-valid, unissued `!5A!` code
+and requires public `UnknownCode`. These three calls share a 150-second budget,
+with at most 75 seconds per call and a separate five-second URL restoration budget.
+The harness checks that no membership or diary identity appeared and restores the
+previous server address. An unexpected answer or throttle ends the check without
+a retry. The join request still records one unknown attempt and consumes one
+throttle slot; the other two probes are read-only. Successful Me, management and
+directory bindings and authenticated diary reads remain held by JVM fixtures;
+this empty-account native probe does not exercise them. A successful build,
+signature or structural linkage check alone is not an executed minified-code proof.
 
 Ordinary CI (`Actions → CI`) builds both debug and release on every push and pull request —
 the artifacts `app-debug` and `app-release-unsigned-key`. Release is built always, not only

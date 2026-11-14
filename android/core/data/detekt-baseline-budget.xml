@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<SmellBaseline maxEntries="202">
+<SmellBaseline maxEntries="197">
   <ManuallySuppressedIssues />
   <CurrentIssues>
     <ID>CyclomaticComplexMethod:DiaryImportImpl.kt:DiaryImportImpl$private suspend fun FlowCollector&lt;DiaryImportProgress&gt;.import</ID>
@@ -126,8 +126,6 @@
     <ID>ReturnCount:DiaryImportImpl.kt:DiaryImportImpl$private suspend fun FlowCollector&lt;DiaryImportProgress&gt;.import</ID>
     <ID>ReturnCount:DiaryKeys.kt:internal fun Preferences.toDiarySession: DiarySession?</ID>
     <ID>ReturnCount:DiaryKeys.kt:internal fun Preferences.toDiaryTarget: DiaryTarget?</ID>
-    <ID>ReturnCount:DiaryMappers.kt:internal fun DiaryHomeworkDto.toDomain: DiaryHomework?</ID>
-    <ID>ReturnCount:DiaryMappers.kt:internal fun DiaryOverrideDto.toDomain: DiaryOverrideRecord?</ID>
     <ID>ReturnCount:DiarySignInImpl.kt:DiarySignInImpl$override suspend fun signIn: Result&lt;DiaryRegistration&gt;</ID>
     <ID>ReturnCount:DiarySignInImpl.kt:DiarySignInImpl$private fun requestFor: DiarySessionRequestDto?</ID>
     <ID>ReturnCount:DiaryTarget.kt:DiaryTargetCodec$fun decode: DiaryTarget?</ID>
@@ -142,8 +140,6 @@
     <ID>ReturnCount:LegalDocuments.kt:internal fun LegalManifest.toEdition: LegalEdition?</ID>
     <ID>ReturnCount:LegalDocuments.kt:internal fun readLegal: LegalText?</ID>
     <ID>ReturnCount:LocaleOverride.kt:fun localeOverrideFor: List&lt;String&gt;?</ID>
-    <ID>ReturnCount:ManageMappers.kt:internal fun BellPeriodDto.toDomain: BellPeriod?</ID>
-    <ID>ReturnCount:ManageMappers.kt:private fun wallTime: LocalDateTime?</ID>
     <ID>ReturnCount:ManageModels.kt:ManageFailure.Companion$fun detailOf: String?</ID>
     <ID>ReturnCount:Mappers.kt:internal fun EventDto.toDomain: SchoolEvent?</ID>
     <ID>ReturnCount:Mappers.kt:internal fun LessonDto.toDomain: Lesson?</ID>
@@ -197,7 +193,6 @@
     <ID>TooManyFunctions:DiaryRepositoryImpl.kt:DiaryRepositoryImpl : DiaryRepository</ID>
     <ID>TooManyFunctions:LessonsPreferences.kt:LessonsPreferences : DiarySessionStoreShellModeSourceSettingsStore</ID>
     <ID>TooManyFunctions:ManageApi.kt:ManageApi</ID>
-    <ID>TooManyFunctions:ManageMappers.kt:com.lumenpearson.lessons.core.data.repository.ManageMappers.kt</ID>
     <ID>TooManyFunctions:ManageRepository.kt:ManageRepository</ID>
     <ID>TooManyFunctions:ManageRepositoryImpl.kt:ManageRepositoryImpl : ManageRepository</ID>
     <ID>TooManyFunctions:RegionSearch.kt:RegionSearch</ID>

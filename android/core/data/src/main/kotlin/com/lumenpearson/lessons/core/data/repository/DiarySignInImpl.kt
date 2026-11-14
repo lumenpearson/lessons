@@ -2,12 +2,7 @@ package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.diagnostics.ActivityKind
 import com.lumenpearson.lessons.core.data.diagnostics.ActivityLog
-import com.lumenpearson.lessons.core.data.network.DiaryApi
-import com.lumenpearson.lessons.core.data.network.dto.DiarySessionRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiarySessionResponseDto
-import com.lumenpearson.lessons.core.data.network.dto.NetSchoolCookiesDto
-import com.lumenpearson.lessons.core.data.network.dto.NetSchoolCredentialDto
-import com.lumenpearson.lessons.core.data.network.dto.PetersburgCredentialDto
+import com.lumenpearson.lessons.core.data.network.v2.DiaryRemote
 import com.lumenpearson.lessons.core.data.upstream.NetSchoolRegion
 import com.lumenpearson.lessons.core.data.upstream.NetSchoolSignIn
 import com.lumenpearson.lessons.core.data.upstream.PetersburgSignIn
@@ -21,10 +16,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.jsonObject
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import retrofit2.HttpException
@@ -43,7 +34,7 @@ import retrofit2.HttpException
  *   different account signs in, before its session is written.
  */
 internal class DiarySignInImpl(
-    private val api: DiaryApi,
+    private val api: DiaryRemote,
     private val store: DiarySessionStore,
     private val directory: () -> UpstreamDirectory,
     private val client: () -> OkHttpClient,
@@ -83,12 +74,11 @@ internal class DiarySignInImpl(
                 if (failure.code() == 404) throw DiarySignInProblem.ServerTooOld
                 throw failure
             }
-            if (!capabilities.registration) throw DiarySignInProblem.ServerTooOld
             if (!capabilities.enabled) throw DiarySignInProblem.ServerDisabled
             val served = when (target.provider) {
-                DiaryProviderKey.PETERSBURG -> capabilities.providers.petersburg != null
+                DiaryProviderKey.PETERSBURG -> DiaryProviderKey.PETERSBURG.wire in capabilities.providers
                 DiaryProviderKey.NETSCHOOL ->
-                    target.region in capabilities.providers.netschool?.regions.orEmpty()
+                    target.region in capabilities.providers[DiaryProviderKey.NETSCHOOL.wire].orEmpty()
             }
             if (!served) throw DiarySignInProblem.RegionNotServed
         }
@@ -172,7 +162,7 @@ internal class DiarySignInImpl(
             // From here the session is the server's: nothing on the phone may
             // end it or send it again, whatever happens to the write below.
             upstream.spent = true
-            val session = sessionFrom(response, upstream.target)
+            val session = response.session
             try {
                 val previous = store.currentDiaryTarget()
                 if (previous == null || previous.accountKey() != session.target.accountKey()) {
@@ -192,7 +182,7 @@ internal class DiarySignInImpl(
                     DiarySignInProblem.Unexpected("the session could not be stored", failure),
                 )
             }
-            Result.success(DiaryRegistration(session, response.students.map { it.toDomain() }))
+            Result.success(response)
         }
     }
 
@@ -276,69 +266,37 @@ internal class DiarySignInImpl(
      * session the diary shaped oddly is «the diary answered strangely», not a
      * `422` that looks like a bug in the app.
      */
-    private fun requestFor(upstream: UpstreamSession): DiarySessionRequestDto? {
+    private fun requestFor(upstream: UpstreamSession): DiaryHandover? {
         val target = upstream.target
         // Already clean when the session came from `openUpstream`; cleaned
         // again rather than trusted, because the server stores the cleaned
         // login and refuses, with a 422, one that cleans to under three.
         val login = DiaryLogin.clean(target.login) ?: throw DiarySignInProblem.LoginTooShort
-        return when (upstream) {
+        val credential: DiaryCredential? = when (upstream) {
             is UpstreamSession.Petersburg -> {
                 val token = upstream.token
-                if (token.length < MIN_JWT_LENGTH || !JWT.matches(token) || !UpstreamValues.cookieValueOk(token)) {
-                    return null
-                }
-                DiarySessionRequestDto(
-                    provider = DiaryProviderKey.PETERSBURG.wire,
-                    login = login,
-                    credential = credentialJson.encodeToJsonElement(PetersburgCredentialDto(token)).jsonObject,
-                )
+                val valid = token.length >= MIN_JWT_LENGTH && JWT.matches(token) && UpstreamValues.cookieValueOk(token)
+                if (valid) DiaryCredential.Petersburg(token) else null
             }
             is UpstreamSession.NetSchool -> {
-                val at = upstream.at
-                if (at.length !in AT_LENGTH || !UpstreamValues.headerValueOk(at)) return null
+                val at = upstream.at.takeIf { it.length in AT_LENGTH && UpstreamValues.headerValueOk(it) }
                 val session = upstream.cookies[NSSESSIONID]
                     ?.takeIf { it.length <= NSSESSIONID_MAX && UpstreamValues.cookieValueOk(it) }
-                    ?: return null
                 val security = upstream.cookies[ESRNSEC]
                     ?.takeIf { it.length <= ESRNSEC_MAX && UpstreamValues.cookieValueOk(it) }
-                val credential = NetSchoolCredentialDto(
+                if (at == null || session == null) null else DiaryCredential.NetSchool(
                     at = at,
-                    cookies = NetSchoolCookiesDto(session = session, security = security),
+                    sessionCookie = session,
+                    securityCookie = security,
                     // Left out rather than refused when it is not a version the
                     // server takes: it only acknowledges a warning page and says
                     // goodbye, and a session is worth more than either.
                     ver = upstream.ver?.takeIf { it.length <= VER_MAX && VER.matches(it) },
-                    timeOut = upstream.timeOut?.takeIf { it in 0..Int.MAX_VALUE.toLong() },
-                )
-                DiarySessionRequestDto(
-                    provider = DiaryProviderKey.NETSCHOOL.wire,
-                    login = login,
-                    region = target.region,
-                    schoolId = target.schoolId,
-                    credential = credentialJson.encodeToJsonElement(credential).jsonObject,
+                    timeOut = upstream.timeOut?.takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt(),
                 )
             }
         }
-    }
-
-    /**
-     * What the phone keeps: our bearer, and the target as the server now names
-     * it — its zone above all, so the phone's «today» is the server's.
-     */
-    private fun sessionFrom(response: DiarySessionResponseDto, sent: DiaryTarget): DiarySession {
-        // The login as the server stored it, which is what «Вход выполнен»
-        // prints and what `accountKey` compares; what was sent, cleaned the
-        // same way, if it ever stops echoing one.
-        val login = DiaryLogin.clean(response.login) ?: DiaryLogin.clean(sent.login) ?: sent.login.trim()
-        val target = sent.copy(
-            region = response.region ?: sent.region,
-            schoolId = response.schoolId ?: sent.schoolId,
-            schoolName = response.schoolName?.takeIf { it.isNotBlank() } ?: sent.schoolName,
-            login = login,
-            zone = response.zone?.takeIf { it.isNotBlank() } ?: sent.zone,
-        )
-        return DiarySession(login = login, token = response.token, target = target)
+        return credential?.let { DiaryHandover(target.copy(login = login), it) }
     }
 
     private companion object {
@@ -372,8 +330,6 @@ internal class DiarySignInImpl(
         val VER = Regex("[A-Za-z0-9._-]+")
         const val VER_MAX = 32
 
-        /** Nulls left out: `ver` and `ESRNSec` are absent, not `null`, when there are none. */
-        val credentialJson = Json { explicitNulls = false }
     }
 }
 

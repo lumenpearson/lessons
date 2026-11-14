@@ -1,24 +1,12 @@
 package com.lumenpearson.lessons.core.data.repository
 
-import com.lumenpearson.lessons.core.data.network.DiaryApi
+import com.lumenpearson.lessons.core.data.network.v2.CallObservation
+import com.lumenpearson.lessons.core.data.network.RequestCredentials
+import com.lumenpearson.lessons.core.data.network.v2.DiaryRemote
+import com.lumenpearson.lessons.core.data.network.v2.dto.CreateDiarySessionRequestDto
+import com.lumenpearson.lessons.core.data.network.v2.restRequest
 import com.lumenpearson.lessons.core.data.network.NetworkModule
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
-import com.lumenpearson.lessons.core.data.network.dto.DiaryAttendanceDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryCapabilitiesDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryHomeworkDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryLessonDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryMarkDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryPeriodDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryProvidersDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryResetRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiarySessionRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiarySessionResponseDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryStudentDto
-import com.lumenpearson.lessons.core.data.network.dto.DiarySubjectDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryTeacherDto
-import com.lumenpearson.lessons.core.data.network.dto.NetSchoolCapabilitiesDto
 import com.lumenpearson.lessons.core.data.upstream.FakeUpstreamDirectory
 import com.lumenpearson.lessons.core.data.upstream.MutableClock
 import com.lumenpearson.lessons.core.data.upstream.NetSchoolScript
@@ -35,13 +23,13 @@ import com.lumenpearson.lessons.core.data.upstream.originOf
 import com.lumenpearson.lessons.core.data.upstream.rawAnswer
 import com.lumenpearson.lessons.core.data.upstream.regionAt
 import java.io.IOException
+import java.time.LocalDate
 import java.time.Duration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import mockwebserver3.Dispatcher
@@ -127,16 +115,17 @@ class DiarySignInTest {
         signIn().signIn(netschoolTarget(), "hunter2").getOrThrow()
 
         val written = Json.parseToJsonElement(
-            NetworkModule.json().encodeToString(DiarySessionRequestDto.serializer(), api.registered.single()),
+            NetworkModule.json().encodeToString(
+                CreateDiarySessionRequestDto.serializer(), api.registered.single().restRequest(),
+            ),
         ).jsonObject
-        assertEquals(setOf("provider", "login", "region", "school_id", "credential"), written.keys)
-        assertEquals("netschool", written.getValue("provider").jsonPrimitive.content)
-        assertEquals("42", written.getValue("school_id").jsonPrimitive.content)
-        val credential = written.getValue("credential").jsonObject
+        assertEquals(setOf("login", "region", "schoolId", "netschool"), written.keys)
+        assertEquals("42", written.getValue("schoolId").jsonPrimitive.content)
+        val credential = written.getValue("netschool").jsonObject
         assertEquals(setOf("at", "cookies", "ver"), credential.keys)
         assertEquals("after-role", credential.getValue("at").jsonPrimitive.content)
         assertEquals(
-            mapOf("NSSESSIONID" to NetSchoolScript_COOKIE),
+            mapOf("nsSessionId" to NetSchoolScript_COOKIE),
             credential.getValue("cookies").jsonObject.mapValues { it.value.jsonPrimitive.content },
         )
         assertFalse("hunter2" in written.toString())
@@ -147,10 +136,10 @@ class DiarySignInTest {
         signIn().signIn(DiaryTarget.petersburg(" parent@example.com "), "secret").getOrThrow()
 
         val body = api.registered.single()
-        assertEquals("petersburg", body.provider)
-        assertEquals("parent@example.com", body.login)
-        assertNull(body.region)
-        assertEquals(PETERSBURG_JWT, body.credential.getValue("token").jsonPrimitive.content)
+        assertEquals("petersburg", body.target.provider.wire)
+        assertEquals("parent@example.com", body.target.login)
+        assertNull(body.target.region)
+        assertEquals(PETERSBURG_JWT, (body.credential as DiaryCredential.Petersburg).token)
         assertEquals(DiaryProviderKey.PETERSBURG, store.session!!.target.provider)
     }
 
@@ -178,7 +167,7 @@ class DiarySignInTest {
 
     @Test
     fun `a server with its diary switched off fails before the password is sent`() = runBlocking {
-        api.capabilities = { DiaryCapabilitiesDto(enabled = false, registration = true) }
+        api.capabilities = { DiaryCapabilities(false, emptyMap()) }
 
         val failure = signIn().signIn(netschoolTarget(), "hunter2").exceptionOrNull()
 
@@ -228,7 +217,7 @@ class DiarySignInTest {
 
         val sent = Json.parseToJsonElement(script.to(PetersburgSignIn.LOGIN_PATH).single().body!!.utf8()).jsonObject
         assertEquals("parent@example.com", sent.getValue("login").jsonPrimitive.content)
-        assertEquals("parent@example.com", api.registered.single().login)
+        assertEquals("parent@example.com", api.registered.single().target.login)
         assertEquals("parent@example.com", store.session!!.target.login)
 
         val failure = signIn().openUpstream(netschoolTarget(login = "ab\u200b"), "hunter2").exceptionOrNull()
@@ -475,8 +464,8 @@ class DiarySignInTest {
         signIn().signIn(kept, "hunter2").getOrThrow()
 
         val body = api.registered.single()
-        assertEquals("zabaikalsky", body.region)
-        assertEquals(42L, body.schoolId)
+        assertEquals("zabaikalsky", body.target.region)
+        assertEquals(42L, body.target.schoolId)
         assertEquals("42", script.to(NetSchoolSignIn.LOGIN_PATH).single().body!!.utf8().substringAfter("scid=").substringBefore('&'))
     }
 
@@ -526,43 +515,67 @@ class DiarySignInTest {
         upstreamBudgetMillis = upstreamBudgetMillis,
     )
 
-    private fun listing(regions: List<String> = listOf("zabaikalsky")) = DiaryCapabilitiesDto(
+    private fun listing(regions: List<String> = listOf("zabaikalsky")) = DiaryCapabilities(
         enabled = true,
-        registration = true,
-        providers = DiaryProvidersDto(petersburg = JsonObject(emptyMap()), netschool = NetSchoolCapabilitiesDto(regions)),
+        providers = mapOf("petersburg" to emptySet(), "netschool" to regions.toSet()),
     )
 
     /** Our server, as far as registration goes; every read fails the test. */
-    private inner class ScriptedDiaryApi : DiaryApi {
-        var capabilities: () -> DiaryCapabilitiesDto = { listing() }
-        var register: (DiarySessionRequestDto) -> DiarySessionResponseDto = ACCEPT
+    private inner class ScriptedDiaryApi : DiaryRemote {
+        var capabilities: () -> DiaryCapabilities = { listing() }
+        var register: (DiaryHandover) -> DiaryRegistration = ACCEPT
         var capabilityCalls = 0
-        val registered = mutableListOf<DiarySessionRequestDto>()
+        val registered = mutableListOf<DiaryHandover>()
 
-        override suspend fun capabilities(): DiaryCapabilitiesDto {
+        override suspend fun capabilities(): DiaryCapabilities {
             capabilityCalls++
             return capabilities.invoke()
         }
 
-        override suspend fun registerSession(body: DiarySessionRequestDto): DiarySessionResponseDto {
+        override suspend fun registerSession(body: DiaryHandover): DiaryRegistration {
             val answer = register(body)
             registered += body
             return answer
         }
 
         override suspend fun logout() = fail()
-        override suspend fun students(): List<DiaryStudentDto> = fail()
-        override suspend fun schedule(studentId: Long, from: String, to: String): List<DiaryLessonDto> = fail()
-        override suspend fun homework(studentId: Long, from: String, to: String): List<DiaryHomeworkDto> = fail()
-        override suspend fun grades(studentId: Long, from: String, to: String): List<DiaryMarkDto> = fail()
-        override suspend fun periods(studentId: Long): List<DiaryPeriodDto> = fail()
-        override suspend fun subjects(studentId: Long, periodId: Long?): List<DiarySubjectDto> = fail()
-        override suspend fun teachers(studentId: Long): List<DiaryTeacherDto> = fail()
-        override suspend fun attendance(studentId: Long): List<DiaryAttendanceDto> = fail()
-        override suspend fun overrides(studentId: Long): List<DiaryOverrideDto> = fail()
-        override suspend fun putOverride(studentId: Long, body: DiaryOverrideRequestDto): DiaryOverrideDto = fail()
-        override suspend fun resetOverride(studentId: Long, body: DiaryResetRequestDto) = fail()
-        override suspend fun resetOverrides(studentId: Long) = fail()
+        override suspend fun students(observation: CallObservation): List<DiaryStudent> = fail()
+        override suspend fun schedule(
+            studentId: Long,
+            from: LocalDate,
+            to: LocalDate,
+            observation: CallObservation,
+        ): List<DiaryLesson> = fail()
+        override suspend fun homework(
+            studentId: Long,
+            from: LocalDate,
+            to: LocalDate,
+            observation: CallObservation,
+        ): List<DiaryHomework> = fail()
+        override suspend fun grades(
+            studentId: Long,
+            from: LocalDate,
+            to: LocalDate,
+            observation: CallObservation,
+        ): List<DiaryMark> = fail()
+        override suspend fun periods(studentId: Long, observation: CallObservation): List<DiaryPeriod> = fail()
+        override suspend fun overrides(studentId: Long, observation: CallObservation): List<DiaryOverrideRecord> =
+            fail()
+        override suspend fun correct(
+            studentId: Long,
+            target: String,
+            field: DiaryField,
+            value: String,
+            original: String?,
+            observation: CallObservation,
+        ) = fail()
+        override suspend fun reset(
+            studentId: Long,
+            target: String,
+            field: DiaryField,
+            observation: CallObservation,
+        ) = fail()
+        override suspend fun resetAll(studentId: Long, observation: CallObservation) = fail()
 
         private fun fail(): Nothing = throw AssertionError("a sign-in reads nothing from the diary")
     }
@@ -583,6 +596,10 @@ class DiarySignInTest {
 
         override suspend fun clearDiaryToken() {
             session = null
+        }
+
+        override suspend fun rejectDiaryRequest(sent: RequestCredentials) {
+            if (session?.token == sent.diaryToken) clearDiaryToken()
         }
 
         override suspend fun forgetDiary() {
@@ -607,16 +624,14 @@ class DiarySignInTest {
 }
 
 /** Our server's answer to a registration it accepts, echoing what was sent. */
-private val ACCEPT: (DiarySessionRequestDto) -> DiarySessionResponseDto = { body ->
-    DiarySessionResponseDto(
-        token = "ours",
-        login = body.login,
-        provider = body.provider,
-        region = body.region,
-        schoolId = body.schoolId,
-        schoolName = if (body.provider == "netschool") "Школа № 1" else null,
-        zone = if (body.provider == "netschool") "Asia/Chita" else "Europe/Moscow",
-        students = listOf(DiaryStudentDto(id = 7, firstName = "Пётр", lastName = "Иванов", fullName = "Иванов Пётр")),
+private val ACCEPT: (DiaryHandover) -> DiaryRegistration = { body ->
+    val target = body.target.copy(
+        schoolName = if (body.target.provider == DiaryProviderKey.NETSCHOOL) "Школа № 1" else null,
+        zone = if (body.target.provider == DiaryProviderKey.NETSCHOOL) "Asia/Chita" else "Europe/Moscow",
+    )
+    DiaryRegistration(
+        DiarySession(target.login, "ours", target),
+        listOf(DiaryStudent(7, "Пётр", "Иванов", null, "Иванов Пётр", null, null)),
     )
 }
 
