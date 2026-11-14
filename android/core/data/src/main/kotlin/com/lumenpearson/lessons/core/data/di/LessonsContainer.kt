@@ -27,7 +27,7 @@ import com.lumenpearson.lessons.core.data.developer.RequestConsole
 import com.lumenpearson.lessons.core.data.diagnostics.ActivityLog
 import com.lumenpearson.lessons.core.data.diagnostics.NetworkLog
 import com.lumenpearson.lessons.core.data.network.CleartextPolicy
-import com.lumenpearson.lessons.core.data.network.LessonsApi
+import com.lumenpearson.lessons.core.data.network.ServerStatusRemote
 import com.lumenpearson.lessons.core.data.notifications.SchoolAlerts
 import com.lumenpearson.lessons.core.data.network.NetworkModule
 import com.lumenpearson.lessons.core.data.repository.BundleTagStore
@@ -251,7 +251,7 @@ class DefaultLessonsContainer(
         )
     }
 
-    private val api: LessonsApi by lazy { apis.lessons }
+    private val api: ServerStatusRemote by lazy { apis.serverStatus }
 
     /**
      * The ETag of the window this phone already holds, so a poll that changes
@@ -350,7 +350,7 @@ class DefaultLessonsContainer(
     }
 
     override val deviceLinkRepository: DeviceLinkRepository by lazy {
-        DeviceLinkRepositoryImpl(api = api, preferences = preferences)
+        DeviceLinkRepositoryImpl(remote = apis.me, preferences = preferences)
     }
 
     override val docsRepository: DocsRepository by lazy {
@@ -422,6 +422,7 @@ class DefaultLessonsContainer(
                 forgetLocal = diaryCacheImpl::clear,
             ),
             cache = diaryCacheImpl,
+            store = diaryStore,
         )
     }
 
@@ -475,11 +476,8 @@ class DefaultLessonsContainer(
     override val manageRepository: ManageRepository by lazy {
         ManageRepositoryImpl(
             api = apis.manage,
-            // The management surface carries the same class bearer, so a `401`
-            // there means the same thing it means on a sync — including the
-            // case an admin makes themselves by deleting the class. And it
-            // means it about that one class: see the note on the sync above.
-            onTokenRejected = { sessionRepository.leaveActive() },
+            // Revocation belongs to the actual sent identity, even after selection changes.
+            membership = ScheduleMembership(preferences) { sessionImplementation.rejectRequest(it) },
         )
     }
 

@@ -2,34 +2,41 @@ package com.lumenpearson.lessons.ui.admin
 
 import com.lumenpearson.lessons.core.data.repository.ManageRepository
 
-/**
- * What the log sheet does: one page of the audit log at a time, forward and back.
- *
- * Holds no state of its own; see [ManagementPlumbing].
- */
+/** Navigation remembers successful token positions, never an inferred server offset or total. */
 internal class LogActions(
     private val plumbing: ManagementPlumbing,
     private val repository: ManageRepository,
 ) {
+    fun loadLog() = load(LogPosition(), emptyList())
 
-    fun loadLog(offset: Int = 0) =
-        plumbing.read({ it.copy(log = it.log.copy(loading = true, failure = null)) }) {
-            val result = repository.log(offset = offset)
-            plumbing.finish(result) { current, value, failure ->
-                current.copy(log = Remote(value ?: current.log.value, false, failure))
-            }
-        }
-
-    /** One page forward, or one back; both are the same read at a new offset. */
     fun showNextLogPage() {
-        val page = plumbing.state.value.log.value ?: return
-        if (!page.hasMore) return
-        loadLog(page.offset + page.limit)
+        val state = plumbing.state.value
+        val page = state.log.value ?: return
+        if (state.log.loading || !state.logNavigation.canAdvance(page)) return
+        val navigation = state.logNavigation
+        val next = LogPosition(page.nextPageToken, navigation.current.firstRow + page.entries.size)
+        load(next, navigation.previous + navigation.current)
     }
 
     fun showPreviousLogPage() {
-        val page = plumbing.state.value.log.value ?: return
-        if (page.offset <= 0) return
-        loadLog((page.offset - page.limit).coerceAtLeast(0))
+        val state = plumbing.state.value
+        if (state.log.loading) return
+        val previous = state.logNavigation.previous
+        val target = previous.lastOrNull() ?: return
+        load(target, previous.dropLast(1))
+    }
+
+    private fun load(position: LogPosition, previous: List<LogPosition>) {
+        if (plumbing.state.value.log.loading) return
+        plumbing.read({ it.copy(log = it.log.copy(loading = true, failure = null)) }) {
+            val result = request(repository) { log(pageToken = position.token) }
+            finish(result) { current, value, failure ->
+                current.copy(
+                    log = Remote(value ?: current.log.value, false, failure),
+                    // A failed turn retains both the visible page and the path back to it.
+                    logNavigation = if (value == null) current.logNavigation else LogNavigation(position, previous),
+                )
+            }
+        }
     }
 }

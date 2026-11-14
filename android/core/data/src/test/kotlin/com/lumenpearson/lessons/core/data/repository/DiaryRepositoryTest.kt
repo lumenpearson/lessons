@@ -1,25 +1,17 @@
 package com.lumenpearson.lessons.core.data.repository
 
-import com.lumenpearson.lessons.core.data.network.DiaryApi
-import com.lumenpearson.lessons.core.data.network.dto.DiaryAttendanceDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryHomeworkDto
+import com.lumenpearson.lessons.core.data.network.v2.CallObservation
+import com.lumenpearson.lessons.core.data.network.RequestCredentials
+import com.lumenpearson.lessons.core.data.network.v2.DiaryRemote
 import com.lumenpearson.lessons.core.data.network.dto.DiaryLessonDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryCapabilitiesDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryMarkDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryPeriodDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryResetRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiarySessionRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiarySessionResponseDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryStudentDto
-import com.lumenpearson.lessons.core.data.network.dto.DiarySubjectDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryTeacherDto
 import com.lumenpearson.lessons.core.data.upstream.UpstreamSession
 import java.io.IOException
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -365,8 +357,13 @@ class DiaryRepositoryTest {
      */
     @Test
     fun `a 401 whose sign-out cannot be written is still a failure, not a crash`() = runTest {
+        store.stored = DiarySession("synthetic-parent", "synthetic-dead")
+        var attempts = 0
         val unwritable = object : DiarySessionStore by store {
-            override suspend fun clearDiaryToken() = throw IOException("no space left on device")
+            override suspend fun rejectDiaryRequest(sent: RequestCredentials) {
+                attempts++
+                throw IOException("no space left on device")
+            }
         }
         val repository = DiaryRepositoryImpl(
             api = FakeApi(callFailure = httpError(401)),
@@ -378,9 +375,11 @@ class DiaryRepositoryTest {
         val result = repository.students()
 
         assertEquals(DiaryFailure.SignInRequired, result.exceptionOrNull())
+        assertEquals(1, attempts)
+        assertEquals("synthetic-dead", store.stored?.token)
     }
 
-    private fun repository(api: DiaryApi, signIn: DiarySignIn = FakeSignIn()) = DiaryRepositoryImpl(
+    private fun repository(api: DiaryRemote, signIn: DiarySignIn = FakeSignIn()) = DiaryRepositoryImpl(
         api = api,
         store = store,
         diarySignIn = signIn,
@@ -436,6 +435,10 @@ class DiaryRepositoryTest {
             stored = null
         }
 
+        override suspend fun rejectDiaryRequest(sent: RequestCredentials) {
+            if (stored?.token == sent.diaryToken) clearDiaryToken()
+        }
+
         override suspend fun forgetDiary() {
             stored = null
             target = null
@@ -454,11 +457,11 @@ class DiaryRepositoryTest {
      * The server, as far as this test is concerned: one pupil, one lesson, and
      * whichever failure the case under test asked for.
      */
-    private class FakeApi(
+    private inner class FakeApi(
         private val logoutFailure: Throwable? = null,
         private val callFailure: Throwable? = null,
         private val stored: List<DiaryOverrideDto> = emptyList(),
-    ) : DiaryApi {
+    ) : DiaryRemote {
 
         var scheduleCalls: Int = 0
             private set
@@ -479,16 +482,17 @@ class DiaryRepositoryTest {
         var resetAllCalls: Int = 0
             private set
 
-        override suspend fun capabilities(): DiaryCapabilitiesDto = DiaryCapabilitiesDto(enabled = true, registration = true)
+        override suspend fun capabilities() = DiaryCapabilities(true, emptyMap())
 
-        override suspend fun registerSession(body: DiarySessionRequestDto): DiarySessionResponseDto =
+        override suspend fun registerSession(handover: DiaryHandover): DiaryRegistration =
             throw AssertionError("the repository registers nothing itself; DiarySignIn does")
 
         override suspend fun logout() {
             logoutFailure?.let { throw it }
         }
 
-        override suspend fun students(): List<DiaryStudentDto> {
+        override suspend fun students(observation: CallObservation): List<DiaryStudent> {
+            observation.recordRequest(RequestCredentials("https://school.example/", null, store.stored?.token))
             callFailure?.let { throw it }
             return listOf(
                 DiaryStudentDto(
@@ -497,15 +501,17 @@ class DiaryRepositoryTest {
                     lastName = "Иванов",
                     fullName = "Иванов Иван",
                 ),
-            )
+            ).map { it.toDomain() }
         }
 
         override suspend fun schedule(
             studentId: Long,
-            from: String,
-            to: String,
-        ): List<DiaryLessonDto> {
+            from: LocalDate,
+            to: LocalDate,
+            observation: CallObservation,
+        ): List<DiaryLesson> {
             scheduleCalls++
+            observation.recordRequest(RequestCredentials("https://school.example/", null, store.stored?.token))
             callFailure?.let { throw it }
             return listOf(
                 DiaryLessonDto(
@@ -515,74 +521,70 @@ class DiaryRepositoryTest {
                     startsAt = "08:30:00",
                     endsAt = "09:15:00",
                 ),
-            )
+            ).mapNotNull { it.toDomain() }
         }
 
         override suspend fun homework(
             studentId: Long,
-            from: String,
-            to: String,
-        ): List<DiaryHomeworkDto> {
+            from: LocalDate,
+            to: LocalDate,
+            observation: CallObservation,
+        ): List<DiaryHomework> {
+            observation.recordRequest(RequestCredentials("https://school.example/", null, store.stored?.token))
             callFailure?.let { throw it }
             return emptyList()
         }
 
         override suspend fun grades(
             studentId: Long,
-            from: String,
-            to: String,
-        ): List<DiaryMarkDto> {
+            from: LocalDate,
+            to: LocalDate,
+            observation: CallObservation,
+        ): List<DiaryMark> {
+            observation.recordRequest(RequestCredentials("https://school.example/", null, store.stored?.token))
             callFailure?.let { throw it }
             return emptyList()
         }
 
-        override suspend fun periods(studentId: Long): List<DiaryPeriodDto> {
+        override suspend fun periods(studentId: Long, observation: CallObservation): List<DiaryPeriod> {
+            observation.recordRequest(RequestCredentials("https://school.example/", null, store.stored?.token))
             callFailure?.let { throw it }
             return emptyList()
         }
 
-        override suspend fun subjects(studentId: Long, periodId: Long?): List<DiarySubjectDto> {
+        override suspend fun overrides(studentId: Long, observation: CallObservation): List<DiaryOverrideRecord> {
+            observation.recordRequest(RequestCredentials("https://school.example/", null, store.stored?.token))
             callFailure?.let { throw it }
-            return emptyList()
+            return stored.mapNotNull { it.toDomain() }
         }
 
-        override suspend fun teachers(studentId: Long): List<DiaryTeacherDto> {
-            callFailure?.let { throw it }
-            return emptyList()
-        }
-
-        override suspend fun attendance(studentId: Long): List<DiaryAttendanceDto> {
-            callFailure?.let { throw it }
-            return emptyList()
-        }
-
-        override suspend fun overrides(studentId: Long): List<DiaryOverrideDto> {
-            callFailure?.let { throw it }
-            return stored
-        }
-
-        override suspend fun putOverride(
+        override suspend fun correct(
             studentId: Long,
-            body: DiaryOverrideRequestDto,
-        ): DiaryOverrideDto {
-            written = body
-            callFailure?.let { throw it }
-            return DiaryOverrideDto(
-                target = body.target,
-                field = body.field,
-                value = body.value,
-                originalWhenWritten = body.original,
-                updatedAt = "2026-09-15T10:00:00+03:00",
-            )
-        }
-
-        override suspend fun resetOverride(studentId: Long, body: DiaryResetRequestDto) {
-            reset = body
+            target: String,
+            field: DiaryField,
+            value: String,
+            original: String?,
+            observation: CallObservation,
+        ) {
+            written = DiaryOverrideRequestDto(target, field.wire(), value, original)
+            observation.recordRequest(RequestCredentials("https://school.example/", null, store.stored?.token))
             callFailure?.let { throw it }
         }
 
-        override suspend fun resetOverrides(studentId: Long) {
+        override suspend fun reset(
+            studentId: Long,
+            target: String,
+            field: DiaryField,
+            observation: CallObservation,
+        ) {
+            reset = DiaryResetRequestDto(target, field.wire())
+            observation.recordRequest(RequestCredentials("https://school.example/", null, store.stored?.token))
+            callFailure?.let { throw it }
+        }
+
+        override suspend fun resetAll(studentId: Long, observation: CallObservation) {
             resetAllCalls++
+            observation.recordRequest(RequestCredentials("https://school.example/", null, store.stored?.token))
             callFailure?.let { throw it }
         }
     }

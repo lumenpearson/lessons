@@ -174,7 +174,7 @@ class ServerNeedsHttpsTest {
         preferences.updateSettings { it.copy(baseUrl = "http://192.168.1.50:8000/") }
         val repository = SessionRepositoryImpl(
             preferences = preferences,
-            api = RefusingApi,
+            api = RestServerStatusRemote(RefusingApi::warmup),
             cache = NoCache,
             joinRemote = JoinRemote { _, _ -> error("The badge never joins") },
             ioDispatcher = UnconfinedTestDispatcher(),

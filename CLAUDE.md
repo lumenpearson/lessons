@@ -144,6 +144,8 @@ the second file exists: while it was alone, every Russian word came from the dev
 fallback beside digits from the bundle. `FontAxisTest` holds all three halves — the pair
 draws Russian, neither carries an axis nothing varies, and no file is bundled unnamed.
 
+- **Match late authentication refusals to the address and bearer actually sent, and compare before removal inside the persistence boundary** (`ManageMembershipTest`, `DiaryTokenOwnershipTest`, #747/#753).
+
 - **Keep current agent paths and test names resolvable** (`test_instruction_references.py`, #661); Server runs for every changed path because this guard inventories the whole tree.
 - **Baseline rewrites keep or lower their sibling budget, refreshing accepted IDs in the same reviewed PR** (`DetektBaselineBudgetTest`, #635); both manual and current IDs consume it.
 
@@ -415,14 +417,19 @@ now a whole year rather than a fortnight; the row's residue is the last days of 
 There is no Hilt. `Graph` is a small hand-written container a test can swap wholesale.
 The application implements GraphOwner and supplies the required transport/version/streaming
 configuration to the same container even when a worker or notification initializes first.
-ScheduleRemote and JoinRemote hide strict v2 DTOs/generated lite messages below repositories;
-the other areas retain v1 until5b. The shared server client signs at send time, and each call
+Schedule, Join, Me, management, directory and diary expose domain-valued v2 remotes;
+strict DTOs/generated lite messages stay below repositories, with v1 retained for
+compatibility fixtures. The shared server client signs at send time, and each call
 retains its own refusal status or original no-answer exception.
 
 - Only DEVICE_TOKEN_INVALID revokes v2 membership; bare401/CLIENT_TOO_OLD retain cache and tags (`V2MembershipLifecycleTest`, `V2SyncRepositoryTest`).
 - Run the complete JVM gate without the release AndroidTest target property; apply `lessons.nativeCheck=true` only to native APK packaging (`test_ci_required.py`, #737).
 - Parse apksigner certificate identities across numbered and scheme-labelled output, excluding source stamps and refusing distinct signer identities (`test_ci_required.py`, #740).
 - Schedule applies and revocations validate the sent server/token under the membership gate; completed exit/replacement wins (`V2InFlightMembershipTest`, `ScheduleObservationTest`).
+- Capture the displayed server/class/bearer before queuing management or unlink actions; generation alone cannot hold the IO-dispatch gap (`ManagementInitiatingOwnerTest`, `DeviceLinkInitiatingOwnerTest`, #758, #761).
+- Bind role caches and active Account refreshes to server/class/bearer, treating legacy unowned roles as unknown (`CachedRoleOwnerTest`, `SettingsViewModelTest`, #760).
+- Diary cache commits need sent credentials and generation under the local identity gate; complete owned logout cleanup after credential commit (`DiaryAccountTransitionTest`, #762, #763).
+- DIARY_CREDENTIALS_REJECTED refuses an already-open session, not its password (`DiarySignInRemainingFailureTest`, `DiarySignInTest`, #759).
 
 ## Conventions already true in this codebase
 

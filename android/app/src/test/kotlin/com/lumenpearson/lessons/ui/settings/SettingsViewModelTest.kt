@@ -8,6 +8,7 @@ import com.lumenpearson.lessons.core.data.developer.DeveloperState
 import com.lumenpearson.lessons.core.data.developer.DeveloperTool
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.ClassRole
+import com.lumenpearson.lessons.core.data.repository.ClassActionOwner
 import com.lumenpearson.lessons.core.data.repository.DeviceFlow
 import com.lumenpearson.lessons.core.data.repository.DeviceLink
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
@@ -35,6 +36,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -86,7 +88,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `while it is watched the page publishes the settings, the classes and every remote field`() = runTest {
-        links.roles.value = mapOf(1L to ClassRole.EDITOR)
+        links.seedRole(currentOwner(), ClassRole.EDITOR)
         val model = watched()
 
         val session = checkNotNull(sessions.inner.session.value)
@@ -262,7 +264,7 @@ class SettingsViewModelTest {
         assertEquals(DeviceLinkState.Ready(linkOf(null)), model.uiState.value.deviceLink)
         assertEquals(listOf(1L to ClassRole.ADMIN, 1L to null), links.remembered)
 
-        links.roles.value = links.roles.value + (2L to ClassRole.EDITOR)
+        links.seedRole(ClassActionOwner(2L, AppSettings().baseUrl, "t2"), ClassRole.EDITOR)
         sessions.inner.rejoin(classId = 2L, className = "9Б")
         assertEquals(DeviceLinkState.Idle, model.uiState.value.deviceLink)
         assertEquals(ClassRole.EDITOR, model.uiState.value.cachedRole)
@@ -282,6 +284,125 @@ class SettingsViewModelTest {
 
         assertEquals(DeviceLinkState.Idle, model.uiState.value.deviceLink)
         assertEquals(emptyList<Pair<Long, ClassRole?>>(), links.remembered)
+    }
+
+    @Test
+    fun `an unlink success for the previous class does not replace its successor`() = runTest {
+        val gate = CompletableDeferred<Unit>().also { links.unlinkGate = it }
+        val model = watched()
+        model.unlinkDevice()
+        assertEquals(DeviceLinkState.Loading(null), model.uiState.value.deviceLink)
+
+        sessions.inner.rejoin(classId = 2L, className = "9Б")
+        model.refreshDeviceLink()
+        val successor = DeviceLinkState.Ready(linkOf(ClassRole.ADMIN))
+        assertEquals(successor, model.uiState.value.deviceLink)
+        gate.complete(Unit)
+
+        assertEquals(successor, model.uiState.value.deviceLink)
+        assertEquals(listOf(2L to ClassRole.ADMIN), links.remembered)
+    }
+
+    @Test
+    fun `an unlink failure for the previous class cannot replace the new class state`() = runTest {
+        val gate = CompletableDeferred<Unit>().also { links.unlinkGate = it }
+        links.unlinkFailure = java.io.IOException("synthetic offline")
+        val model = watched()
+        model.unlinkDevice()
+        sessions.inner.rejoin(classId = 2L, className = "9Б")
+        gate.complete(Unit)
+
+        assertEquals(DeviceLinkState.Idle, model.uiState.value.deviceLink)
+        assertEquals(emptyList<Pair<Long, ClassRole?>>(), links.remembered)
+    }
+
+    @Test
+    fun `an unlink success under a replaced token cannot publish or remember the old role`() = runTest {
+        val gate = CompletableDeferred<Unit>().also { links.unlinkGate = it }
+        val model = watched()
+        model.unlinkDevice()
+        sessions.inner.rejoin(classId = 1L, className = "Replacement credentials")
+        gate.complete(Unit)
+
+        assertEquals(DeviceLinkState.Idle, model.uiState.value.deviceLink)
+        assertEquals(emptyList<Pair<Long, ClassRole?>>(), links.remembered)
+    }
+
+    @Test
+    fun `an unlink failure under a replaced token cannot replace its successor refresh`() = runTest {
+        val gate = CompletableDeferred<Unit>().also { links.unlinkGate = it }
+        links.unlinkFailure = java.io.IOException("synthetic offline")
+        val model = watched()
+        model.unlinkDevice()
+        sessions.inner.rejoin(classId = 1L, className = "Replacement credentials")
+        model.refreshDeviceLink()
+        gate.complete(Unit)
+
+        assertEquals(DeviceLinkState.Ready(linkOf(ClassRole.ADMIN)), model.uiState.value.deviceLink)
+        assertEquals(listOf(1L to ClassRole.ADMIN), links.remembered)
+    }
+
+    @Test
+    fun `an unlink answer from the previous server cannot publish or remember its role`() = runTest {
+        val gate = CompletableDeferred<Unit>().also { links.unlinkGate = it }
+        val model = watched()
+        model.unlinkDevice()
+        model.setBaseUrl("https://other.example/")
+        gate.complete(Unit)
+
+        assertEquals(DeviceLinkState.Idle, model.uiState.value.deviceLink)
+        assertEquals(emptyList<Pair<Long, ClassRole?>>(), links.remembered)
+    }
+
+    @Test
+    fun `an open Account page refreshes a replacement bearer without another manual request`() = runTest {
+        val model = watched()
+        model.openAccountPage()
+        assertEquals(DeviceLinkState.Ready(linkOf(ClassRole.ADMIN)), model.uiState.value.deviceLink)
+        assertEquals(ClassRole.ADMIN, model.uiState.value.effectiveRole)
+        val gate = CompletableDeferred<Unit>().also { links.gate = it }
+        links.role = null
+        try {
+            sessions.inner.rejoin(classId = 1L, className = "Replacement credentials")
+            assertEquals("One initial refresh and one automatic replacement refresh", 2, links.refreshCalls)
+            assertNull("A successor must not draw the old manager's affordances", model.uiState.value.effectiveRole)
+            gate.complete(Unit)
+            assertEquals(DeviceLinkState.Ready(linkOf(null)), model.uiState.value.deviceLink)
+            assertNull(model.uiState.value.cachedRole)
+        } finally {
+            gate.complete(Unit)
+        }
+    }
+
+    @Test
+    fun `an open Account page refreshes a new server and drops the previous cached role`() = runTest {
+        val model = watched()
+        model.openAccountPage()
+        val gate = CompletableDeferred<Unit>().also { links.gate = it }
+        links.role = null
+        try {
+            model.setBaseUrl("https://successor.invalid/")
+            assertEquals(2, links.refreshCalls)
+            assertNull(model.uiState.value.effectiveRole)
+            gate.complete(Unit)
+            assertEquals(DeviceLinkState.Ready(linkOf(null)), model.uiState.value.deviceLink)
+        } finally {
+            gate.complete(Unit)
+        }
+    }
+
+    @Test
+    fun `a closed Account page does not create link codes on later identity changes`() = runTest {
+        val model = watched()
+        model.openAccountPage()
+        model.closeAccountPage()
+        sessions.inner.rejoin(classId = 1L, className = "Replacement credentials")
+        assertEquals(1, links.refreshCalls)
+    }
+
+    private suspend fun currentOwner(): ClassActionOwner {
+        val member = checkNotNull(sessions.inner.session.value)
+        return ClassActionOwner(member.classId, settings.settings.first().baseUrl, member.token)
     }
 
     @Test
@@ -425,23 +546,45 @@ private class Github : GithubRepository {
  * completed, and the roles are remembered per class, as the store keeps them.
  */
 private class Links : DeviceLinkRepository {
+    override suspend fun refresh(owner: ClassActionOwner) = refresh()
+    override suspend fun unlink(owner: ClassActionOwner) = unlink()
     var role: ClassRole? = ClassRole.ADMIN
     var gate: CompletableDeferred<Unit>? = null
+    var unlinkGate: CompletableDeferred<Unit>? = null
+    var unlinkFailure: Exception? = null
     val roles = MutableStateFlow<Map<Long, ClassRole?>>(emptyMap())
     val remembered = mutableListOf<Pair<Long, ClassRole?>>()
+    var refreshCalls = 0
+    private val roleOwners = mutableMapOf<Long, ClassActionOwner>()
+    private var observedRoleOwner: ClassActionOwner? = null
     override val link = MutableStateFlow<DeviceLink?>(null)
 
     override suspend fun refresh(): Result<DeviceLink> {
+        refreshCalls++
         gate?.await()
         return Result.success(linkOf(role))
     }
 
-    override suspend fun unlink(): Result<DeviceLink> = Result.success(linkOf(null))
+    override suspend fun unlink(): Result<DeviceLink> {
+        unlinkGate?.await()
+        return unlinkFailure?.let { Result.failure(it) } ?: Result.success(linkOf(null))
+    }
 
     override fun lastRole(classId: Long): Flow<ClassRole?> = roles.map { it[classId] }
 
+    override fun lastRole(owner: ClassActionOwner): Flow<ClassRole?> {
+        observedRoleOwner = owner
+        return roles.map { if (roleOwners[owner.classId] == owner) it[owner.classId] else null }
+    }
+
+    fun seedRole(owner: ClassActionOwner, role: ClassRole?) {
+        roleOwners[owner.classId] = owner
+        roles.value = roles.value + (owner.classId to role)
+    }
+
     override suspend fun rememberRole(classId: Long, role: ClassRole?) {
         remembered += classId to role
+        observedRoleOwner?.takeIf { it.classId == classId }?.let { roleOwners[classId] = it }
         roles.value = roles.value + (classId to role)
     }
 }

@@ -7,6 +7,10 @@ import com.lumenpearson.lessons.core.data.network.v2.ClientVersionInterceptor
 import com.lumenpearson.lessons.core.data.network.v2.RecordCallStatusInterceptor
 import com.lumenpearson.lessons.core.data.network.v2.AppTransport
 import com.lumenpearson.lessons.core.data.network.v2.JoinRemote
+import com.lumenpearson.lessons.core.data.network.v2.ManageRemote
+import com.lumenpearson.lessons.core.data.network.v2.MeRemote
+import com.lumenpearson.lessons.core.data.network.v2.DiaryRemote
+import com.lumenpearson.lessons.core.data.network.v2.DirectoryRemote
 import com.lumenpearson.lessons.core.data.network.v2.ScheduleRemote
 import com.lumenpearson.lessons.core.data.network.v2.V2Remotes
 import java.time.Clock
@@ -22,8 +26,8 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
  *
  * There is no DI framework in this app (see `di.Graph` for why), so this object
  * is the factory: [DefaultLessonsContainer][com.lumenpearson.lessons.core.data.di.DefaultLessonsContainer]
- * calls [apis] once and everything else takes the resulting [LessonsApi],
- * [DiaryApi], [ManageApi] and [DirectoryApi].
+ * calls [apis] once. Feature repositories receive the selected domain-valued v2
+ * remotes; [LessonsApi] retains the plain HTTP health and warmup calls.
  */
 internal object NetworkModule {
 
@@ -109,11 +113,10 @@ internal object NetworkModule {
         .build()
 
     /**
-     * One server client for the remaining v1 APIs and the selected v2 remotes.
+     * One server client for retained plain-HTTP metadata and the selected v2 remotes.
      *
-     * Built as one object rather than through four factories because the
-     * client is the expensive part and all four interfaces want the same one —
-     * the same pool, the same timeouts and the same base-URL rewrite.
+     * The client owns the pool, timeouts and coherent address/credential snapshots;
+     * all service proxies and RPC calls share those resources.
      */
     fun apis(credentials: () -> RequestCredentials, cleartext: CleartextPolicy,
         clientVersion: Int, transport: String): Apis {
@@ -124,31 +127,31 @@ internal object NetworkModule {
         )
         val remotes = V2Remotes.using(client, retrofit, AppTransport.parse(transport), Clock.systemUTC())
         return Apis(
-            lessons = retrofit.create(LessonsApi::class.java),
-            diary = retrofit.create(DiaryApi::class.java),
-            manage = retrofit.create(ManageApi::class.java),
-            directory = retrofit.create(DirectoryApi::class.java),
+            serverStatus = RestServerStatusRemote(retrofit.create(ServerStatusApi::class.java)::warmup),
+            diary = remotes.diary,
+            manage = remotes.manage,
+            directory = remotes.directory,
             join = remotes.join,
             schedule = remotes.schedule,
+            me = remotes.me,
         )
     }
 
     /**
-     * @property manage the management surface. It carries no bearer of its own:
-     *   `/api/v1/manage` is signed by the ordinary class token like the rest of
-     *   [LessonsApi], and the role behind that token is looked up per request on
-     *   the server.
-     * @property directory the anonymous school directory. The same client, and
-     *   no bearer: [AuthInterceptor] skips its paths by prefix.
+     * @property manage the v2 management surface, signed by the class token with
+     *   its role checked by the server on every request.
+     * @property directory the anonymous school-region lookup. Per-method v2
+     *   credential metadata keeps it separate from the authenticated school search.
      *
      * @see apis
      */
     data class Apis(
-        val lessons: LessonsApi,
-        val diary: DiaryApi,
-        val manage: ManageApi,
-        val directory: DirectoryApi,
+        val serverStatus: ServerStatusRemote,
+        val diary: DiaryRemote,
+        val manage: ManageRemote,
+        val directory: DirectoryRemote,
         val join: JoinRemote,
         val schedule: ScheduleRemote,
+        val me: MeRemote,
     )
 }

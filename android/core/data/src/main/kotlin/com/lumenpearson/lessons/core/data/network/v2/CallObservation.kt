@@ -21,7 +21,7 @@ internal class CallObservation(private val expected: RequestCredentials? = null)
         if (expected != null &&
             (actual.baseUrl != expected.baseUrl || actual.classToken != expected.classToken)
         ) {
-            throw IOException("The membership changed before the schedule request was sent")
+            throw IOException("The membership changed before the request was sent")
         }
         credentials = actual
     }
@@ -33,3 +33,8 @@ internal fun OkHttpClient.observing(observation: CallObservation): OkHttpClient 
         chain.proceed(chain.request().newBuilder().tag(CallObservation::class.java, observation).build())
     })
 }.build()
+
+/** A compound call observes each outcome separately and retains the first actual send's owner. */
+internal fun CallObservation.followUp(): CallObservation = CallObservation(
+    credentials ?: throw IOException("The previous response has no request identity"),
+)

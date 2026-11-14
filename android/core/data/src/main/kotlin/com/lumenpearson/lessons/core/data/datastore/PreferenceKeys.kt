@@ -62,6 +62,10 @@ internal object PreferenceKeys {
     /** @see LessonsPreferences.lastRole */
     fun roleKey(classId: Long) = stringPreferencesKey("$ROLE_PREFIX$classId")
 
+    fun roleAddressKey(classId: Long) = stringPreferencesKey("${ROLE_PREFIX}address|$classId")
+
+    fun roleTokenKey(classId: Long) = stringPreferencesKey("${ROLE_PREFIX}token|$classId")
+
     /** What every remembered role's key starts with. */
     const val ROLE_PREFIX = "device_role|"
 

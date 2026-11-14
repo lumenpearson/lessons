@@ -15,8 +15,10 @@ import retrofit2.http.POST
 import retrofit2.http.Query
 
 /**
- * The entire server surface the app uses. Read-only apart from the call that
- * mints a device token and the one that unties it from a Telegram account.
+ * The retained v1 contract for compatibility fixtures describing installed clients.
+ *
+ * Runtime business calls use the selected v2 domain remotes; plain-HTTP metadata
+ * uses [ServerStatusRemote]. Keeping this shape is not a runtime transport fallback.
  *
  * Paths are relative (no leading slash) so that a base URL with a path prefix -
  * `https://school.example/lessons/` behind a reverse proxy - keeps working.

@@ -110,6 +110,9 @@ internal class ModeAnnouncingDiaryStore(
     private val announce: () -> Unit,
 ) : DiarySessionStore by delegate {
 
+    override suspend fun <T> withDiaryIdentity(block: suspend DiarySessionStore.() -> T): T =
+        delegate.withDiaryIdentity { block(ModeAnnouncingDiaryStore(this, announce)) }
+
     override suspend fun writeDiarySession(value: DiarySession) {
         delegate.writeDiarySession(value)
         announce()

@@ -1,7 +1,11 @@
 package com.lumenpearson.lessons.core.data.catalog
 
+import com.lumenpearson.lessons.core.data.network.v2.RemoteError
+import com.lumenpearson.lessons.core.data.network.v2.failureStatus
+import com.lumenpearson.lessons.core.data.network.v2.hasNoV2
+import com.lumenpearson.lessons.core.data.network.v2.retrySeconds
 import com.lumenpearson.lessons.core.data.network.DirectoryApi
-import com.lumenpearson.lessons.core.data.network.SchoolRegionsDto
+import com.lumenpearson.lessons.core.data.network.v2.DirectoryRemote
 import com.lumenpearson.lessons.core.data.network.ServerAddressMissingException
 import com.lumenpearson.lessons.core.data.repository.DiaryFailure
 import com.lumenpearson.lessons.core.data.upstream.DiarySchool
@@ -125,6 +129,7 @@ sealed class DirectoryProblem(message: String, cause: Throwable? = null) : Excep
         fun of(failure: Throwable): DirectoryProblem = when (failure) {
             is CancellationException -> throw failure
             is DirectoryProblem -> failure
+            is RemoteError -> ofRemote(failure)
             is HttpException -> ofHttp(failure)
             is IOException ->
                 if (generateSequence<Throwable>(failure) { it.cause }.take(8).any { it is ServerAddressMissingException }) {
@@ -133,6 +138,24 @@ sealed class DirectoryProblem(message: String, cause: Throwable? = null) : Excep
                     Offline
                 }
             else -> Unexpected(failure::class.simpleName, failure)
+        }
+
+        private fun ofRemote(error: RemoteError): DirectoryProblem = when (error.reason) {
+            "DIRECTORY_DISABLED" -> Disabled
+            "DIRECTORY_SPENT" -> Spent(error.retrySeconds())
+            "DIRECTORY_UNAVAILABLE" -> Upstream
+            "THROTTLED" -> Throttled(error.retrySeconds())
+            "VALIDATION_FAILED" -> TooShort
+            "REQUEST_UNDECODABLE", "CLIENT_TOO_OLD" -> Unexpected(error.message, error)
+            else -> if (error.hasNoV2()) ServerTooOld else ofRemoteStatus(error)
+        }
+
+        @Suppress("MagicNumber") // HTTP status codes are protocol identifiers.
+        private fun ofRemoteStatus(error: RemoteError): DirectoryProblem = when (error.failureStatus()) {
+            422 -> TooShort
+            429 -> Throttled(error.retrySeconds())
+            503, 504 -> Upstream
+            else -> Unexpected(error.message, error)
         }
 
         private fun ofHttp(failure: HttpException): DirectoryProblem = when (failure.code()) {
@@ -163,7 +186,7 @@ sealed class DirectoryProblem(message: String, cause: Throwable? = null) : Excep
  *   the main thread: its generic-name rule is the server's, from the same file.
  */
 internal class ServerSchoolDirectory(
-    private val api: DirectoryApi,
+    private val api: DirectoryRemote,
     private val search: suspend () -> RegionSearch,
     private val schools: DiarySchoolSearch,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -200,7 +223,7 @@ internal class ServerSchoolDirectory(
  * as unplaced, with the code as its label when the directory gave no other,
  * rather than dropped: the person still learns where the school is.
  */
-internal fun SchoolRegionsDto.toHits(catalog: RegionCatalog): SchoolRegionHits = SchoolRegionHits(
+internal fun DirectoryRegions.toHits(catalog: RegionCatalog): SchoolRegionHits = SchoolRegionHits(
     query = query,
     hits = regions.map { row ->
         val region = catalog.region(row.region)

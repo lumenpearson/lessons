@@ -283,15 +283,37 @@ the class timetable this section is about, and `diary.db`, the family's own diar
 which is filled by a different rule and is described under
 [the phone's half](#the-phones-half) of the diary.
 
-**The 5a network boundary.** Schedule and joining use domain-valued `ScheduleRemote`
-and `JoinRemote`. A build selects REST, Connect (the default) or unary gRPC; one
-factory shares the server OkHttp pool, dispatcher and timeout budgets with the
-remaining v1 APIs. RPC adds only a per-call tagging view for the official adapter. Generated Java lite messages and the canonical REST DTOs stay
+**The transport boundary.** Schedule, joining, Me/link codes, management,
+directory and diary use domain-valued remotes. A build selects REST, Connect
+(the default) or unary gRPC; one factory shares the server OkHttp pool,
+dispatcher and timeout budgets. RPC adds only a per-call tagging view for the official adapter. Generated Java lite messages and the canonical REST DTOs stay
 behind the remotes. Both bindings apply the same domain normalization; the
 repositories retain year bounds, single-flight, cache transactions and callback
 order. V2 tags have a separate namespace and every existing cache wipe clears
-both generations. Me/link codes, management, directory and diary remain on v1
-until5b; a v1 server response is still required by APKs already installed.
+both generations. The remaining server metadata read has a small plain-HTTP
+`ServerStatusRemote`; GitHub and upstream school traffic keep their own clients.
+The retained v1 interfaces serve compatibility fixtures rather than a runtime
+fallback. The server continues answering v1 for APKs already installed.
+
+Management audit pagination carries the server's opaque next token; the screen
+keeps successful page history and row positions without inventing a total or
+offset. Each management or linking action captures the displayed server, class
+and bearer before launching a coroutine. The repository checks that initiating
+owner before work and pins the actual send; a generation check alone would leave
+an IO-dispatch gap in which an old confirmation could write to a successor class.
+Late answers also remain bound to that generation. Persisted roles retain the
+server and existing sealed membership token; an unowned legacy role is unknown.
+An open Account page refreshes token or address replacements automatically.
+
+Diary authentication refusals compare the sent address and diary bearer inside
+one conditional DataStore write. Successful cache writes check those same actual
+sent credentials and the cache generation under a local identity gate. Account
+replacement holds that gate through cache clear, pupil reset and token storage;
+network IO stays outside it. Registration pupil seeding checks the still-current
+session too. Logout propagates remote cancellation before local changes, then
+finishes an owned credential commit and cache cleanup without cancellation in
+between. A failed first disk write retains the account and its offline rows;
+a delayed logout cannot erase a successor account.
 
 The app supplies required build constants even when a background caller touches
 the graph first. One send-time snapshot supplies address and bearers; anonymous
@@ -1039,9 +1061,9 @@ with the host.
 
 ## Testing
 
-3910 tests on the server, 1974 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 145, `:core:data` 782,
-`:core:designsystem` 205, `:widget` 130, `:app` 712 (#325).
+3910 tests on the server, 2202 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 145, `:core:data` 985,
+`:core:designsystem` 205, `:widget` 130, `:app` 737 (#325).
 
 The table below is the load-bearing part of that rather than the whole of it:
 

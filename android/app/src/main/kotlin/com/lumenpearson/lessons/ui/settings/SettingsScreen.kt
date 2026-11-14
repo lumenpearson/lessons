@@ -22,6 +22,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -192,12 +193,12 @@ fun SettingsSectionScreen(
     // class page asks on every visit. Keyed on the section: the same view
     // model serves every page, and a visit to «Оформление» is not a visit here.
     //
-    // And keyed on the class as well, because there is a token per class and
-    // the switch happens on this very page: without it, switching to a class
-    // this phone is only a reader in went on offering the editor's rows the
-    // previous class had earned.
+    // Identity changes are observed by the view model, including replacement bearers for the same class.
     if (section == SettingsSection.ACCOUNT) {
-        LaunchedEffect(state.session?.classId) { viewModel.refreshDeviceLink() }
+        DisposableEffect(viewModel) {
+            viewModel.openAccountPage()
+            onDispose { viewModel.closeAccountPage() }
+        }
     }
 
     if (showUnlinkSheet) {

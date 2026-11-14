@@ -1,20 +1,23 @@
 package com.lumenpearson.lessons.core.data.diary
 
-import com.lumenpearson.lessons.core.data.network.DiaryApi
-import com.lumenpearson.lessons.core.data.network.dto.DiaryAttendanceDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryCapabilitiesDto
+import com.lumenpearson.lessons.core.data.network.v2.CallObservation
+import com.lumenpearson.lessons.core.data.network.RequestCredentials
+import com.lumenpearson.lessons.core.data.network.v2.DiaryRemote
 import com.lumenpearson.lessons.core.data.network.dto.DiaryHomeworkDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryLessonDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryMarkDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideRequestDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryPeriodDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryResetRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiarySessionRequestDto
-import com.lumenpearson.lessons.core.data.network.dto.DiarySessionResponseDto
 import com.lumenpearson.lessons.core.data.network.dto.DiaryStudentDto
-import com.lumenpearson.lessons.core.data.network.dto.DiarySubjectDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryTeacherDto
+import com.lumenpearson.lessons.core.data.repository.DiaryStudent
+import com.lumenpearson.lessons.core.data.repository.DiaryLesson
+import com.lumenpearson.lessons.core.data.repository.DiaryHomework
+import com.lumenpearson.lessons.core.data.repository.DiaryMark
+import com.lumenpearson.lessons.core.data.repository.DiaryPeriod
+import com.lumenpearson.lessons.core.data.repository.DiaryCapabilities
+import com.lumenpearson.lessons.core.data.repository.DiaryHandover
+import com.lumenpearson.lessons.core.data.repository.DiaryField
+import com.lumenpearson.lessons.core.data.repository.DiaryOverrideRecord
+import com.lumenpearson.lessons.core.data.repository.toDomain
 import com.lumenpearson.lessons.core.data.repository.DiaryRegistration
 import com.lumenpearson.lessons.core.data.repository.DiaryRepositoryImpl
 import com.lumenpearson.lessons.core.data.repository.DiarySession
@@ -151,7 +154,8 @@ internal class InMemoryDiaryDao : DiaryDao() {
     override suspend fun deleteWeeksOtherThan(keep: List<Long>) = drop { weeks.removeAll { it.studentId !in keep } }
     override suspend fun deletePeriodsOtherThan(keep: List<Long>) = drop { periods.removeAll { it.studentId !in keep } }
     override suspend fun deleteLessonsOtherThan(keep: List<Long>) = drop { lessons.removeAll { it.studentId !in keep } }
-    override suspend fun deleteHomeworkOtherThan(keep: List<Long>) = drop { homework.removeAll { it.studentId !in keep } }
+    override suspend fun deleteHomeworkOtherThan(keep: List<Long>) =
+        drop { homework.removeAll { it.studentId !in keep } }
     override suspend fun deleteMarksOtherThan(keep: List<Long>) = drop { marks.removeAll { it.studentId !in keep } }
 
     override suspend fun deleteLessons(studentId: Long, from: LocalDate, to: LocalDate) =
@@ -186,7 +190,7 @@ internal class ScriptedDiaryApi(
     var homework: List<DiaryHomeworkDto> = emptyList(),
     var marks: List<DiaryMarkDto> = emptyList(),
     var periods: List<DiaryPeriodDto> = emptyList(),
-) : DiaryApi {
+) : DiaryRemote {
 
     /** `route → failure`; the route names are the ones in [calls]. */
     val failures = mutableMapOf<String, Throwable>()
@@ -197,45 +201,73 @@ internal class ScriptedDiaryApi(
     /** Runs inside a request, before it answers — for a test that signs out mid-read. */
     var duringRequest: suspend (String) -> Unit = {}
 
-    private suspend fun <T> answer(route: String, value: () -> T): T {
+    var credentials: () -> RequestCredentials = { RequestCredentials("https://school.example/", null, "ours") }
+
+    private suspend fun <T> answer(route: String, observation: CallObservation, value: () -> T): T {
+        observation.recordRequest(credentials())
         calls += route
         duringRequest(route)
         failures[route.substringBefore(' ')]?.let { throw it }
         return value()
     }
 
-    override suspend fun students(): List<DiaryStudentDto> = answer("students") { students }
+    override suspend fun students(observation: CallObservation): List<DiaryStudent> =
+        answer("students", observation) { students.map { it.toDomain() } }
 
-    override suspend fun schedule(studentId: Long, from: String, to: String): List<DiaryLessonDto> =
-        answer("schedule $studentId $from..$to") { lessons }
+    override suspend fun schedule(
+        studentId: Long,
+        from: LocalDate,
+        to: LocalDate,
+        observation: CallObservation,
+    ): List<DiaryLesson> =
+        answer("schedule $studentId $from..$to", observation) { lessons.mapNotNull { it.toDomain() } }
 
-    override suspend fun homework(studentId: Long, from: String, to: String): List<DiaryHomeworkDto> =
-        answer("homework $studentId $from..$to") { homework }
+    override suspend fun homework(
+        studentId: Long,
+        from: LocalDate,
+        to: LocalDate,
+        observation: CallObservation,
+    ): List<DiaryHomework> =
+        answer("homework $studentId $from..$to", observation) { homework.mapNotNull { it.toDomain() } }
 
-    override suspend fun grades(studentId: Long, from: String, to: String): List<DiaryMarkDto> =
-        answer("grades $studentId $from..$to") { marks }
+    override suspend fun grades(
+        studentId: Long,
+        from: LocalDate,
+        to: LocalDate,
+        observation: CallObservation,
+    ): List<DiaryMark> =
+        answer("grades $studentId $from..$to", observation) { marks.mapNotNull { it.toDomain() } }
 
-    override suspend fun periods(studentId: Long): List<DiaryPeriodDto> = answer("periods $studentId") { periods }
+    override suspend fun periods(studentId: Long, observation: CallObservation): List<DiaryPeriod> =
+        answer("periods $studentId", observation) { periods.map { it.toDomain() } }
 
-    override suspend fun capabilities(): DiaryCapabilitiesDto = error("not used by the import")
-    override suspend fun registerSession(body: DiarySessionRequestDto): DiarySessionResponseDto =
-        error("not used by the import")
+    override suspend fun capabilities(): DiaryCapabilities = error("not used by the import")
+    override suspend fun registerSession(handover: DiaryHandover): DiaryRegistration = error("not used by the import")
 
     override suspend fun logout() {
         calls += "logout"
         failures["logout"]?.let { throw it }
     }
 
-    override suspend fun subjects(studentId: Long, periodId: Long?): List<DiarySubjectDto> = error("not used")
-
-    override suspend fun teachers(studentId: Long): List<DiaryTeacherDto> = error("not used")
-    override suspend fun attendance(studentId: Long): List<DiaryAttendanceDto> = error("not used")
-    override suspend fun overrides(studentId: Long): List<DiaryOverrideDto> = error("not used")
-    override suspend fun putOverride(studentId: Long, body: DiaryOverrideRequestDto): DiaryOverrideDto =
+    override suspend fun overrides(studentId: Long, observation: CallObservation): List<DiaryOverrideRecord> =
         error("not used")
+    override suspend fun correct(
+        studentId: Long,
+        target: String,
+        field: DiaryField,
+        value: String,
+        original: String?,
+        observation: CallObservation,
+    ) =
+        error("not used")
+    override suspend fun reset(
+        studentId: Long,
+        target: String,
+        field: DiaryField,
+        observation: CallObservation,
+    ) = error("not used")
+    override suspend fun resetAll(studentId: Long, observation: CallObservation) = error("not used")
 
-    override suspend fun resetOverride(studentId: Long, body: DiaryResetRequestDto) = error("not used")
-    override suspend fun resetOverrides(studentId: Long) = error("not used")
 }
 
 /** The diary half of the preferences, in memory. */
@@ -264,6 +296,10 @@ internal class MemoryDiaryStore(
 
     override suspend fun clearDiaryToken() {
         sessionFlow.value = null
+    }
+
+    override suspend fun rejectDiaryRequest(sent: RequestCredentials) {
+        if (session?.token == sent.diaryToken) clearDiaryToken()
     }
 
     override suspend fun forgetDiary() {
@@ -296,6 +332,7 @@ internal class DiaryRig(
     val store: MemoryDiaryStore = MemoryDiaryStore(),
     val clock: MutableClock = MutableClock(),
 ) {
+    init { api.credentials = { RequestCredentials("https://school.example/", null, store.session?.token) } }
     val dao = InMemoryDiaryDao()
     val cache = DiaryCacheImpl(dao = { dao }, selection = store, clock = clock)
     val repository = DiaryRepositoryImpl(

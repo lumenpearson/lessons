@@ -11,6 +11,7 @@ import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.DeviceFlow
 import com.lumenpearson.lessons.core.data.repository.GithubAccount
 import com.lumenpearson.lessons.core.data.repository.ClassRole
+import com.lumenpearson.lessons.core.data.repository.ClassActionOwner
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.GithubRepository
 import com.lumenpearson.lessons.core.data.repository.TranslationChange
@@ -39,7 +40,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -98,7 +98,7 @@ class SettingsViewModel(
     // combines read the classes' flows the moment they are declared.
     private val settingsUpdates = SettingsUpdates(settingsRepository, updateRepository, viewModelScope)
     private val settingsGithub = SettingsGithub(githubRepository, message, viewModelScope)
-    private val settingsDeviceLink = SettingsDeviceLink(sessionRepository, deviceLinkRepository, viewModelScope)
+    private val settingsDeviceLink = SettingsDeviceLink(deviceLinkRepository, viewModelScope)
 
     /** The installed version, with build suffixes stripped. */
     val installedVersion: String get() = updateRepository.installedVersion
@@ -143,10 +143,15 @@ class SettingsViewModel(
 
     /** The role remembered for the class on screen; see [effectiveRole]. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val cachedRole: Flow<ClassRole?> = sessionRepository.session
-        .map { it?.classId }
+    private val cachedRole: Flow<Pair<ClassActionOwner?, ClassRole?>> =
+        combine(sessionRepository.session, settingsRepository.settings) { member, settings ->
+            member?.let { ClassActionOwner(it.classId, settings.baseUrl, it.token) }
+        }
         .distinctUntilChanged()
-        .flatMapLatest { id -> if (id == null) flowOf(null) else deviceLinkRepository.lastRole(id) }
+        .flatMapLatest { owner ->
+            if (owner == null) flowOf(null to null)
+            else deviceLinkRepository.lastRole(owner).map { owner to it }
+        }
 
     val uiState: StateFlow<SettingsUiState> = combine(
         local,
@@ -163,8 +168,8 @@ class SettingsViewModel(
             signIn = remote.signIn,
             isFilingIssue = remote.filing,
             showReleaseSheet = remote.sheet,
-            deviceLink = link,
-            cachedRole = cached,
+            deviceLink = link.state.takeIf { link.owner == state.classOwner } ?: DeviceLinkState.Idle,
+            cachedRole = cached.second.takeIf { cached.first == state.classOwner },
         )
     }.stateIn(
         scope = viewModelScope,
@@ -194,22 +199,26 @@ class SettingsViewModel(
         // link code is the quieter one, because typing another class's code
         // into the bot links the wrong phone to the wrong class.
         //
-        // `drop(1)` leaves the state this view model starts with alone — the
-        // first emission is the class it was built for.
+        // The first identity also binds queued actions; this observer must not wait for the status probe.
         viewModelScope.launch {
-            sessionRepository.session
-                .map { it?.classId }
+            combine(sessionRepository.session, settingsRepository.settings) { member, settings ->
+                member?.let { ClassActionOwner(it.classId, settings.baseUrl, it.token) }
+            }
                 .distinctUntilChanged()
-                .drop(1)
-                .collect { settingsDeviceLink.deviceLink.value = DeviceLinkState.Idle }
+                .collect { settingsDeviceLink.bindOwner(it) }
         }
     }
 
+    /** The Account page owns automatic refresh only while it is on screen. */
+    fun openAccountPage() = settingsDeviceLink.openAccountPage(uiState.value.classOwner)
+
+    fun closeAccountPage() = settingsDeviceLink.closeAccountPage()
+
     /** @see SettingsDeviceLink.refreshDeviceLink */
-    fun refreshDeviceLink() = settingsDeviceLink.refreshDeviceLink()
+    fun refreshDeviceLink() = settingsDeviceLink.refreshDeviceLink(uiState.value.classOwner)
 
     /** @see SettingsDeviceLink.unlinkDevice */
-    fun unlinkDevice() = settingsDeviceLink.unlinkDevice()
+    fun unlinkDevice() = settingsDeviceLink.unlinkDevice(uiState.value.classOwner)
 
     /** Light, dark, or whatever the system is doing. */
     fun setThemeMode(mode: ThemeMode) = update { it.copy(themeMode = mode) }

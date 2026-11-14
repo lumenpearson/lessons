@@ -1,10 +1,9 @@
 package com.lumenpearson.lessons.core.data.repository
 
 import com.lumenpearson.lessons.core.data.datastore.LessonsPreferences
-import com.lumenpearson.lessons.core.data.network.LessonsApi
+import com.lumenpearson.lessons.core.data.network.ServerStatusRemote
 import com.lumenpearson.lessons.core.data.network.RequestCredentials
 import com.lumenpearson.lessons.core.data.network.v2.JoinRemote
-import com.lumenpearson.lessons.core.data.network.ServerNeedsHttpsException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +26,7 @@ import kotlinx.coroutines.withContext
  */
 internal class SessionRepositoryImpl(
     private val preferences: LessonsPreferences,
-    private val api: LessonsApi,
+    private val api: ServerStatusRemote,
     /**
      * The cached timetable, as the thing that drops it — see [TimetableCache].
      *
@@ -82,36 +81,7 @@ internal class SessionRepositoryImpl(
         // that stood here parked the dispatcher thread it was running on.
         if (preferences.currentSettings().baseUrl.isBlank()) return@withContext ServerStatus.NotConfigured
 
-        try {
-            val body = api.warmup()
-            when (body.status) {
-                "ok" -> ServerStatus.Ok(apiVersion = body.apiVersion, schema = body.revision)
-                // `degraded` and `down` are both «the server answered and said
-                // it is not well», and the schema pair is what says which.
-                // Anything else a future server invents lands here too, with
-                // its own sentence, rather than being reported as healthy.
-                else -> ServerStatus.Degraded(
-                    schema = body.revision,
-                    expected = body.expectedSchema,
-                    detail = body.detail,
-                )
-            }
-        } catch (e: CancellationException) {
-            // Rethrown, never swallowed: this runs in the settings screen's
-            // scope, and turning a cancellation into «сервер не отвечает» would
-            // leave a badge accusing the server of a screen that was closed.
-            throw e
-        } catch (_: ServerNeedsHttpsException) {
-            // Refused before it was sent, so the server was never asked and
-            // must not be called unreachable.
-            ServerStatus.NeedsHttps
-        } catch (_: Exception) {
-            // Everything else is one answer on purpose. A reader cannot act on
-            // the difference between an unresolved host, a refused connection
-            // and a 502, and the exception's own message is the least readable
-            // sentence on the page — it has printed a whole URL before now.
-            ServerStatus.Unreachable
-        }
+        api.read()
     }
 
     override suspend fun join(code: String, deviceName: String?): Result<Session> =

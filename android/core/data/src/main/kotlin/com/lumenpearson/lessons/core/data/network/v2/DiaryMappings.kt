@@ -1,13 +1,23 @@
-package com.lumenpearson.lessons.core.data.repository
+package com.lumenpearson.lessons.core.data.network.v2
 
-import com.lumenpearson.lessons.core.data.network.dto.DiaryEditDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryHomeworkDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryLessonDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryMarkDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryOverrideDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryPeriodDto
-import com.lumenpearson.lessons.core.data.network.dto.DiaryStudentDto
 import com.lumenpearson.lessons.core.data.network.dto.WireFormats
+import com.lumenpearson.lessons.core.data.network.v2.dto.DiaryCorrectionDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.DiaryEditDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.DiaryHomeworkDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.DiaryLessonDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.DiaryMarkDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.DiaryPeriodDto
+import com.lumenpearson.lessons.core.data.network.v2.dto.DiaryStudentDto
+import com.lumenpearson.lessons.core.data.repository.DiaryEdit
+import com.lumenpearson.lessons.core.data.repository.DiaryField
+import com.lumenpearson.lessons.core.data.repository.DiaryHomework
+import com.lumenpearson.lessons.core.data.repository.DiaryLesson
+import com.lumenpearson.lessons.core.data.repository.DiaryMark
+import com.lumenpearson.lessons.core.data.repository.DiaryMarkKind
+import com.lumenpearson.lessons.core.data.repository.DiaryOverrideRecord
+import com.lumenpearson.lessons.core.data.repository.DiaryPeriod
+import com.lumenpearson.lessons.core.data.repository.DiaryStudent
+import java.time.LocalDate
 
 /**
  * Wire shapes to domain types.
@@ -65,9 +75,8 @@ internal fun DiaryEditDto.toDomain(): DiaryEdit? {
     )
 }
 
-/** `null` when the date is unreadable — the only field a lesson cannot do without. */
-internal fun DiaryLessonDto.toDomain(): DiaryLesson? {
-    val day = WireFormats.parseDate(date) ?: return null
+/** The containing schedule day owns the lesson date in v2. */
+internal fun DiaryLessonDto.toDomain(day: LocalDate): DiaryLesson {
     return DiaryLesson(
         date = day,
         number = number?.takeIf { it > 0 },
@@ -89,8 +98,9 @@ internal fun DiaryLessonDto.toDomain(): DiaryLesson? {
 
 /** `null` when the due date or the text is missing; an assignment needs both. */
 internal fun DiaryHomeworkDto.toDomain(): DiaryHomework? {
-    val due = WireFormats.parseDate(dueDate) ?: return null
-    val body = text.trim().ifBlank { return null }
+    val due = WireFormats.parseDate(dueDate)
+    val body = text.trim()
+    if (due == null || body.isBlank()) return null
     return DiaryHomework(
         id = id,
         dueDate = due,
@@ -112,9 +122,10 @@ internal fun DiaryHomeworkDto.toDomain(): DiaryHomework? {
  * «сбросить всё» still reaches it — which is the honest outcome for a row a
  * newer server knows about and this build does not.
  */
-internal fun DiaryOverrideDto.toDomain(): DiaryOverrideRecord? {
-    val key = target.ifBlank { return null }
-    val named = DiaryField.fromWire(field) ?: return null
+internal fun DiaryCorrectionDto.toDomain(): DiaryOverrideRecord? {
+    val key = target
+    val named = DiaryField.fromWire(field)
+    if (key.isBlank() || named == null) return null
     return DiaryOverrideRecord(
         target = key,
         field = named,
@@ -137,7 +148,7 @@ internal fun DiaryMarkDto.toDomain(): DiaryMark? {
         subject = subject.trim(),
         date = WireFormats.parseDate(date),
         value = cell,
-        kind = DiaryMarkKind.fromWire(kind),
+        kind = DiaryMarkKind.fromWire(kind.removePrefix("MARK_KIND_")),
         reason = reason.cleaned(),
         comment = comment.cleaned(),
     )
