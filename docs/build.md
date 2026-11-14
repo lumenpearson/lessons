@@ -164,8 +164,10 @@ server-v2 unary binding when the APK is built. The default is `connect`; there
 is no runtime switch. The APK workflow passes the repository variable of the
 same name, with that default. All three bindings are tested by the ordinary
 unit-test job; CI assembles the default rather than adding a transport matrix.
-In stage 5a only joining a class and fetching its schedule window use v2; the
-other areas retain their v1 adapters.
+Stage 5a moved joining and the schedule window. Stage 5b also moves Me/linking,
+management, directory and diary operations to domain-valued v2 remotes; retained
+v1 adapters serve compatibility fixtures. Health and warmup keep plain HTTP.
+This source capability does not by itself prove signed-device or family acceptance.
 
 `-Plessons.streaming=true`, or `LESSONS_APP_STREAMING=true`, is accepted only
 with `grpc`; an invalid transport, boolean or combination fails configuration.

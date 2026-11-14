@@ -20,7 +20,7 @@ internal class DevicesActions(
                 devices = it.devices.copy(loading = true, failure = null),
             )
         }) {
-            val result = repository.devices(includeRevoked)
+            val result = request(repository) { devices(includeRevoked) }
             finish(result) { current, value, failure ->
                 // Dropped when the switch has moved on since this was asked.
                 // «Показывать отключённые» is the one control on this page that
@@ -37,7 +37,7 @@ internal class DevicesActions(
         }
 
     fun revokeDevice(device: ManagedDevice) = plumbing.write {
-        val result = repository.revokeDevice(device.id)
+        val result = request(repository) { revokeDevice(device.id) }
         result.onCurrentSuccess {
             update { it.copy(notice = ManagementNotice.DeviceRevoked) }
             loadDevices()
@@ -46,7 +46,7 @@ internal class DevicesActions(
     }
 
     fun unlinkDevice(device: ManagedDevice) = plumbing.write {
-        val result = repository.unlinkDevice(device.id)
+        val result = request(repository) { unlinkDevice(device.id) }
         result.onCurrentSuccess {
             update { it.copy(notice = ManagementNotice.DeviceUnlinked) }
             loadDevices()

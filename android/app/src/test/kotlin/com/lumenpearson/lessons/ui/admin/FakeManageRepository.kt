@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.ui.admin
 
 import com.lumenpearson.lessons.core.data.repository.AccessRequest
 import com.lumenpearson.lessons.core.data.repository.AuditPage
+import com.lumenpearson.lessons.core.data.repository.ClassActionOwner
 import com.lumenpearson.lessons.core.data.repository.BellPeriod
 import com.lumenpearson.lessons.core.data.repository.BellSchedule
 import com.lumenpearson.lessons.core.data.repository.BellsWritten
@@ -43,6 +44,7 @@ import kotlinx.coroutines.flow.map
  * asked of a repository that answers immediately.
  */
 internal class FakeManageRepository : ManageRepository {
+    override fun forOwner(owner: ClassActionOwner): ManageRepository = this
 
     /** Calls still waiting, in the order they were made. */
     val pending: MutableList<CompletableDeferred<Result<Any?>>> = mutableListOf()
@@ -149,6 +151,8 @@ internal class FakeManageRepository : ManageRepository {
 
 /** A link the test can set before it is asked for; [refresh] never fails. */
 internal class FakeDeviceLinkRepository(role: ClassRole?) : DeviceLinkRepository {
+    override suspend fun refresh(owner: ClassActionOwner) = refresh()
+    override suspend fun unlink(owner: ClassActionOwner) = unlink()
 
     private val state = MutableStateFlow(link(role))
 

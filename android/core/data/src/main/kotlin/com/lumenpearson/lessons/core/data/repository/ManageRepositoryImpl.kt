@@ -14,7 +14,11 @@ internal class ManageRepositoryImpl(
     private val api: ManageRemote,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val membership: ScheduleMembership? = null,
+    private val initiatingOwner: ClassActionOwner? = null,
 ) : ManageRepository {
+    override fun forOwner(owner: ClassActionOwner): ManageRepository =
+        ManageRepositoryImpl(api, ioDispatcher, membership, owner)
+
     override suspend fun classCard() = call { api.classCard(it) }
 
     override suspend fun updateClass(before: ManagedClass, edit: ClassEdit) = call { api.updateClass(before, edit, it) }
@@ -81,6 +85,9 @@ internal class ManageRepositoryImpl(
             if (membership != null && owner == null) {
                 throw IOException("There is no class membership for this operation")
             }
+            if (initiatingOwner != null &&
+                (owner == null || !initiatingOwner.matches(owner.classId, owner.credentials))
+            ) throw IOException("The initiating membership changed before management started")
             observation = CallObservation(owner?.credentials)
             Result.success(block(observation))
         } catch (cancellation: CancellationException) {

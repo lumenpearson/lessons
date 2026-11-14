@@ -422,6 +422,7 @@ class DefaultLessonsContainer(
                 forgetLocal = diaryCacheImpl::clear,
             ),
             cache = diaryCacheImpl,
+            store = diaryStore,
         )
     }
 

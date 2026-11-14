@@ -37,10 +37,17 @@ internal class DeviceLinkRepositoryImpl(
 
     override suspend fun refresh(): Result<DeviceLink> = call { remote.refresh(it) }
 
+    override suspend fun refresh(owner: ClassActionOwner): Result<DeviceLink> = call(owner) { remote.refresh(it) }
+
     override suspend fun unlink(): Result<DeviceLink> = call { remote.unlink(it) }
+
+    override suspend fun unlink(owner: ClassActionOwner): Result<DeviceLink> = call(owner) { remote.unlink(it) }
 
     override fun lastRole(classId: Long): Flow<ClassRole?> =
         preferences?.lastRole(classId) ?: flowOf(null)
+
+    override fun lastRole(owner: ClassActionOwner): Flow<ClassRole?> =
+        preferences?.lastRole(owner) ?: flowOf(null)
 
     override suspend fun rememberRole(classId: Long, role: ClassRole?) {
         val store = preferences ?: return
@@ -51,22 +58,33 @@ internal class DeviceLinkRepositoryImpl(
             val requestMatches = current.first?.classId == classId &&
                 current.second.baseUrl == answer.credentials.baseUrl &&
                 current.second.classToken == answer.credentials.classToken
-            if (replyMatches && requestMatches) store.rememberRole(classId, role)
+            if (replyMatches && requestMatches) {
+                store.rememberRole(ClassActionOwner(classId, answer.credentials.baseUrl,
+                    checkNotNull(answer.credentials.classToken)), role)
+            }
         }
     }
 
-    private suspend fun call(block: suspend (CallObservation) -> DeviceLink): Result<DeviceLink> =
+    private suspend fun call(
+        initiatingOwner: ClassActionOwner? = null,
+        block: suspend (CallObservation) -> DeviceLink,
+    ): Result<DeviceLink> =
         withContext(ioDispatcher) {
             try {
                 val store = preferences
                 val owner = store?.membershipChanges?.withLock { store.currentClassRequest() }
+                if (initiatingOwner != null &&
+                    (owner == null || !initiatingOwner.matches(owner.first?.classId, owner.second))
+                ) {
+                    throw IOException("The initiating membership changed before linking started")
+                }
                 val value = block(CallObservation(owner?.second))
                 if (store == null) {
                     latest.value = value
                 } else store.membershipChanges.withLock {
                     val current = store.currentClassRequest()
                     val sent = owner?.second ?: throw IOException("The membership changed during linking")
-                    if (current.first?.classId != owner?.first?.classId ||
+                    if (current.first?.classId != owner.first?.classId ||
                         current.second.baseUrl != sent.baseUrl || current.second.classToken != sent.classToken
                     ) throw IOException("The membership changed during linking")
                     roleAnswer = current.first?.let { RoleAnswer(it.classId, sent, value.role) }

@@ -16,21 +16,21 @@ internal class RequestsActions(
 ) {
 
     fun loadStats() = plumbing.read({ it.copy(stats = it.stats.copy(loading = true, failure = null)) }) {
-        val result = repository.stats()
+        val result = request(repository) { stats() }
         finish(result) { current, value, failure ->
             current.copy(stats = Remote(value ?: current.stats.value, false, failure))
         }
     }
 
     fun loadRequests() = plumbing.read({ it.copy(requests = it.requests.copy(loading = true, failure = null)) }) {
-        val result = repository.requests()
+        val result = request(repository) { requests() }
         finish(result) { current, value, failure ->
             current.copy(requests = Remote(value ?: current.requests.value, false, failure))
         }
     }
 
     fun approveRequest(request: AccessRequest, role: ClassRole?) = plumbing.write {
-        val result = repository.approveRequest(request.id, role)
+        val result = request(repository) { approveRequest(request.id, role) }
         result.onCurrentSuccess { decision ->
             update {
                 it.copy(notice = ManagementNotice.RequestApproved(decision.who, decision.role))
@@ -41,7 +41,7 @@ internal class RequestsActions(
     }
 
     fun declineRequest(request: AccessRequest) = plumbing.write {
-        val result = repository.declineRequest(request.id)
+        val result = request(repository) { declineRequest(request.id) }
         result.onCurrentSuccess { decision ->
             update { it.copy(notice = ManagementNotice.RequestDeclined(decision.who)) }
             loadRequests()

@@ -4,6 +4,8 @@ import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
 import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.data.repository.ManagedSubject
+import com.lumenpearson.lessons.core.data.repository.ClassActionOwner
+import com.lumenpearson.lessons.core.data.repository.ManageRepository
 import com.lumenpearson.lessons.ui.onboarding.FakeSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -106,6 +108,24 @@ class ManagementOwnershipTest {
     }
 
     private fun model() = ManagementViewModel(repository, FakeDeviceLinkRepository(ClassRole.ADMIN), session, settings)
+
+    @Test
+    fun `management passes the displayed bearer to its owner-bound repository`() {
+        val owners = mutableListOf<ClassActionOwner>()
+        val owned = object : ManageRepository by repository {
+            override fun forOwner(owner: ClassActionOwner): ManageRepository {
+                owners += owner
+                return repository
+            }
+        }
+        val model = ManagementViewModel(owned, FakeDeviceLinkRepository(ClassRole.ADMIN), session, settings)
+        model.setJoinMode(ClassJoinMode.INVITE)
+        session.rejoin(1, "Replacement bearer")
+
+        assertEquals(1, owners.size)
+        assertEquals(1L, owners.single().classId)
+        assertEquals("t", owners.single().token)
+    }
 
     private fun reset(plumbing: ManagementPlumbing) { plumbing.reset() }
 }

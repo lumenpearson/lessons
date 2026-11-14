@@ -16,14 +16,14 @@ internal class BellsActions(
 ) {
 
     fun loadBells() = plumbing.read({ it.copy(bells = it.bells.copy(loading = true, failure = null)) }) {
-        val result = repository.bells()
+        val result = request(repository) { bells() }
         finish(result) { current, value, failure ->
             current.copy(bells = Remote(value ?: current.bells.value, false, failure))
         }
     }
 
     fun addBellSchedule(name: String, periods: List<BellPeriod>) = plumbing.write {
-        val result = repository.createBellSchedule(name, periods)
+        val result = request(repository) { createBellSchedule(name, periods) }
         result.onCurrentSuccess { schedule ->
             update { it.copy(notice = ManagementNotice.BellsSaved(schedule.name)) }
             loadBells()
@@ -32,7 +32,7 @@ internal class BellsActions(
     }
 
     fun renameBellSchedule(id: Long, name: String) = plumbing.write {
-        val result = repository.renameBellSchedule(id, name)
+        val result = request(repository) { renameBellSchedule(id, name) }
         result.onCurrentSuccess { schedule ->
             update { it.copy(notice = ManagementNotice.BellsSaved(schedule.name)) }
             loadBells()
@@ -41,7 +41,7 @@ internal class BellsActions(
     }
 
     fun makeBellScheduleDefault(id: Long) = plumbing.write {
-        val result = repository.makeBellScheduleDefault(id)
+        val result = request(repository) { makeBellScheduleDefault(id) }
         result.onCurrentSuccess { written ->
             update {
                 it.copy(
@@ -57,7 +57,7 @@ internal class BellsActions(
     }
 
     fun saveBellPeriods(id: Long, periods: List<BellPeriod>) = plumbing.write {
-        val result = repository.writeBellPeriods(id, periods)
+        val result = request(repository) { writeBellPeriods(id, periods) }
         result.onCurrentSuccess { written ->
             update {
                 it.copy(
@@ -73,7 +73,7 @@ internal class BellsActions(
     }
 
     fun deleteBellSchedule(schedule: BellSchedule) = plumbing.write {
-        val result = repository.deleteBellSchedule(schedule.id)
+        val result = request(repository) { deleteBellSchedule(schedule.id) }
         result.onCurrentSuccess {
             update { it.copy(notice = ManagementNotice.BellsDeleted(schedule.name)) }
             loadBells()

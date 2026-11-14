@@ -27,7 +27,7 @@ internal class ClassCardActions(
 ) {
 
     fun loadClass() = plumbing.read({ it.copy(classCard = it.classCard.copy(loading = true, failure = null)) }) {
-        val result = repository.classCard()
+        val result = request(repository) { classCard() }
         finish(result) { current, value, failure ->
             current.copy(classCard = Remote(value ?: current.classCard.value, false, failure))
         }
@@ -42,7 +42,7 @@ internal class ClassCardActions(
      */
     fun saveClass(edit: ClassEdit) = plumbing.write {
         val before = plumbing.state.value.classCard.value ?: return@write Result.success(Unit)
-        val result = repository.updateClass(before, edit)
+        val result = request(repository) { updateClass(before, edit) }
         result.onCurrentSuccess { card ->
             update {
                 it.copy(classCard = Remote(card), notice = ManagementNotice.ClassSaved)
@@ -61,7 +61,7 @@ internal class ClassCardActions(
      * copy is newer than the one the tap was made against.
      */
     fun setJoinMode(mode: ClassJoinMode) = plumbing.write {
-        val result = repository.setJoinMode(mode)
+        val result = request(repository) { setJoinMode(mode) }
         result.onCurrentSuccess { card ->
             update {
                 it.copy(
@@ -98,7 +98,7 @@ internal class ClassCardActions(
         }
         viewModelScope.launch {
             if (!operation.isCurrent) return@launch
-            val result = repository.searchSchools(query)
+            val result = operation.request(repository) { searchSchools(query) }
             val failure = result.exceptionOrNull()?.let(ManageFailure::of)
             if (operation.note(failure)) return@launch
             val found = result.getOrNull()
@@ -156,7 +156,7 @@ internal class ClassCardActions(
      * drops the session anyway.
      */
     fun deleteClass(confirmName: String) = plumbing.write {
-        val result = repository.deleteClass(confirmName)
+        val result = request(repository) { deleteClass(confirmName) }
         result.onCurrentSuccess { update { it.copy(classDeleted = true) } }
         result
     }
@@ -181,7 +181,7 @@ internal class ClassCardActions(
         val operation = plumbing.operation()
         viewModelScope.launch {
             if (!operation.isCurrent) return@launch
-            val classId = session.current()?.classId
+            val classId = operation.owner?.classId
             if (operation.isCurrent && classId != null) session.leave(classId)
         }
     }

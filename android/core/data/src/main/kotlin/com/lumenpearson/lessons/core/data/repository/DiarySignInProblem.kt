@@ -311,7 +311,7 @@ sealed class DiarySignInProblem(message: String, cause: Throwable? = null) :
         }
 
         private fun ofRemote(error: RemoteError, registering: Boolean): DiarySignInProblem = when (error.reason) {
-            "DIARY_CREDENTIALS_REJECTED" -> WrongPassword(upstreamMessage = null)
+            "DIARY_CREDENTIALS_REJECTED" -> ServerRefusedSession
             "DIARY_NO_STUDENTS" -> NoStudent
             "DIARY_DISABLED" -> ServerDisabled
             "DIARY_UNAVAILABLE" -> if (error.metadata["upstream"] == "address-refused") ServerAddressRefused

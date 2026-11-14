@@ -50,6 +50,7 @@ class BundleTagsAndRolesTest {
     @Test
     fun `forgetting the tags outside a set spares that set, and nothing else is a tag`() = runBlocking {
         listOf("1|2026", "12|2026", "100|2026").forEach { preferences.writeBundleTag(it, "tag $it") }
+        preferences.addSession(session(1))
         preferences.writeScheduleFingerprint("shape")
         preferences.rememberRole(1, ClassRole.ADMIN)
 
@@ -83,6 +84,8 @@ class BundleTagsAndRolesTest {
     @Test
     fun `a role is kept per class, forgotten with null, and gone after a sign-out`() = runBlocking {
         preferences.writeBundleTag("9|2026", "kept")
+        preferences.addSession(session(7))
+        preferences.addSession(session(9))
         preferences.rememberRole(7, ClassRole.ADMIN)
         preferences.rememberRole(9, ClassRole.EDITOR)
 

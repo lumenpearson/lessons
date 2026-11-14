@@ -1,6 +1,9 @@
 package com.lumenpearson.lessons.ui.admin
 
 import com.lumenpearson.lessons.core.data.repository.ManageFailure
+import com.lumenpearson.lessons.core.data.repository.ManageRepository
+import com.lumenpearson.lessons.core.data.repository.ClassActionOwner
+import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -9,12 +12,19 @@ import kotlinx.coroutines.launch
 /** Each asynchronous operation belongs to the UI generation that initiated it. */
 internal class ManagementPlumbing(private val viewModelScope: CoroutineScope) {
     val state = MutableStateFlow(ManagementUiState())
+    private var owner: ClassActionOwner? = null
+
+    fun bindOwner(value: ClassActionOwner?) {
+        if (owner == value) return
+        owner = value
+        reset()
+    }
 
     fun reset() {
         state.update { ManagementUiState(operationGeneration = it.operationGeneration + 1) }
     }
 
-    fun operation(): Operation = Operation(state.value.operationGeneration)
+    fun operation(): Operation = Operation(state.value.operationGeneration, owner)
 
     fun read(begin: (ManagementUiState) -> ManagementUiState, block: suspend Operation.() -> Unit) {
         if (state.value.gone != null) return
@@ -27,7 +37,7 @@ internal class ManagementPlumbing(private val viewModelScope: CoroutineScope) {
         val before = state.value
         if (before.gone != null || before.working) return
         if (!state.compareAndSet(before, before.copy(working = true, writeFailure = null))) return
-        val operation = Operation(before.operationGeneration)
+        val operation = Operation(before.operationGeneration, owner)
         viewModelScope.launch {
             if (!operation.isCurrent) return@launch
             val failure = operation.block().exceptionOrNull()?.let(ManageFailure::of)
@@ -37,8 +47,15 @@ internal class ManagementPlumbing(private val viewModelScope: CoroutineScope) {
         }
     }
 
-    inner class Operation internal constructor(private val generation: Long) {
+    inner class Operation internal constructor(private val generation: Long, val owner: ClassActionOwner?) {
         val isCurrent: Boolean get() = state.value.operationGeneration == generation
+
+        suspend fun <T> request(
+            repository: ManageRepository,
+            call: suspend ManageRepository.() -> Result<T>,
+        ): Result<T> =
+            owner?.let { repository.forOwner(it).call() }
+                ?: Result.failure(ManageFailure.of(IOException("The displayed membership is not available yet")))
 
         fun update(change: (ManagementUiState) -> ManagementUiState) {
             // The revision and UI value share one CAS so reset cannot be overtaken by a late answer.

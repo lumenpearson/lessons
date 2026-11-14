@@ -8,7 +8,7 @@ class DiarySignInRemainingFailureTest {
     @Test
     fun `sign in reasons keep password session and server failures distinct`() {
         val cases = listOf(
-            "DIARY_CREDENTIALS_REJECTED" to DiarySignInProblem.WrongPassword(null),
+            "DIARY_CREDENTIALS_REJECTED" to DiarySignInProblem.ServerRefusedSession,
             "DIARY_NO_STUDENTS" to DiarySignInProblem.NoStudent,
             "DIARY_DISABLED" to DiarySignInProblem.ServerDisabled,
             "DIARY_UNAVAILABLE" to DiarySignInProblem.ProviderUnavailable(null),

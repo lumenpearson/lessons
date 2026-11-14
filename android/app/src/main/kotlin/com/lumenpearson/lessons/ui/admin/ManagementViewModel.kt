@@ -12,6 +12,7 @@ import com.lumenpearson.lessons.core.data.repository.BellSchedule
 import com.lumenpearson.lessons.core.data.repository.ClassEdit
 import com.lumenpearson.lessons.core.data.repository.ClassJoinMode
 import com.lumenpearson.lessons.core.data.repository.ClassRole
+import com.lumenpearson.lessons.core.data.repository.ClassActionOwner
 import com.lumenpearson.lessons.core.data.repository.DeviceLinkRepository
 import com.lumenpearson.lessons.core.data.repository.ManageRepository
 import com.lumenpearson.lessons.core.data.repository.ManagedDevice
@@ -22,7 +23,6 @@ import com.lumenpearson.lessons.core.data.repository.SubjectForm
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -98,13 +98,10 @@ class ManagementViewModel(
         viewModelScope.launch {
             val addresses = settingsRepository?.settings?.map { it.baseUrl } ?: flowOf("")
             combine(session.session, addresses) { member, address ->
-                Triple(member?.classId, member?.token, address)
+                member?.let { ClassActionOwner(it.classId, address, it.token) }
             }
                 .distinctUntilChanged()
-                // The first emission is the class this view model was built
-                // for; resetting on it would wipe a load already in flight.
-                .drop(1)
-                .collect { plumbing.reset() }
+                .collect { plumbing.bindOwner(it) }
         }
     }
 
@@ -217,7 +214,7 @@ class ManagementViewModel(
         operation.update { it.copy(recheckingRole = true) }
         viewModelScope.launch {
             if (!operation.isCurrent) return@launch
-            val link = deviceLinks.refresh().getOrNull()
+            val link = operation.owner?.let { deviceLinks.refresh(it).getOrNull() }
             operation.update {
                 it.copy(
                     recheckingRole = false,

@@ -6,7 +6,7 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
-**14 November 2026 — Android transports, part 5b (#746): source and full local gates complete; delivery acceptance pending.**
+**14 November 2026 — Android transports, part 5b (#746): review corrections and full Android gates complete; delivery acceptance pending.**
 The [approved design](docs/specs/2026-10-05-android-transports-design.md) and
 [six-task plan](docs/specs/2026-11-13-android-transports-5b-plan.md) govern this
 batch. Work is isolated on `work/android-transports-5b`, from dev
@@ -16,11 +16,17 @@ signed APK 50 passed its actual native and Home/reopen checks. APK 49's earlier
 failure remains historical evidence, not a request to rerun it.
 
 5b moves Me, diary, directory and all management operations to domain remotes
-over REST v2, Connect and unary gRPC. The completed local Android set is 2166
-passing cases; the full server run is 3893 passed/17 skipped/15 warnings, 3910
-unique cases. Detailed execution, cache and skip boundaries are below. Independent
-review, exact-head CI, dev/master merge, a new signed native candidate, production
-and Project 6 readback remain unfinished. Track their source-event receipts on
+over REST v2, Connect and unary gRPC. The completed local Android set is 2202
+passing cases (2057 fresh, 145 unchanged model cases with matching prior-full hashes).
+The completed full server run is 3893 passed/17 skipped/15 warnings, 3910 unique
+cases; server implementation inputs have not changed. The ONE independent review
+found six blocking findings (#758–#763), now corrected in one pass with observed
+RED/GREEN and the complete Android gates. Minor #764/#765 are deferred. Draft
+[PR #757](https://github.com/lumenpearson/lessons/pull/757) still needs its corrective
+commit and exact new-head CI. Corrective-head CI, dev/master delivery,
+signed native/Home-reopen, production and Project 6 acceptance
+remain unfinished. Corrected-source local native packaging and its bounded static
+scan now pass; this is not signed-device execution. Track their source-event receipts on
 [#746](https://github.com/lumenpearson/lessons/issues/746) and this batch's delivery
 PRs; local reports do not close acceptance. Preserve every worktree and ledger.
 
@@ -619,15 +625,16 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   client and canonical normalizers. No Retrofit DTO or generated message crosses
   a domain boundary; the runtime does not fall back to v1. Installed APKs retain
   the unchanged server v1 API. Later 5c/5d remain separate.
-- Linking and management capture the actual server/class/bearer identity. A late
+- Linking and management capture the displayed initiating server/class/bearer before
+  coroutine launch, then validate it before work and at the actual send. A late
   reply, stale role recheck or queued action cannot publish another identity's
   code, role or notice. Only an observed DEVICE_TOKEN_INVALID revokes its matching
   class membership; role loss, absent/replaced tokens and server errors retain it.
   A short persistence gate protects ownership without spanning network I/O.
 - Diary refusal cleanup compares the sent server and bearer atomically inside
   the store write before dropping credentials (#753). A late refusal cannot erase
-  a replacement account. Cancellation propagates; targets, login, pupil selection
-  and class membership survive. Typed diary credentials keep passwords off our
+  a replacement account. This refusal retains targets, login, pupil selection
+  and class membership, and cancellation propagates. Typed diary credentials keep passwords off our
   server. Directory results and opaque identifiers retain their existing meaning.
 - Management updates preserve missing/set/clear semantics with minimal field masks,
   avoid lossy int64 casts, and use the class zone for UTC conversion. Audit next
@@ -642,7 +649,7 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
 - Full Android initially executed all 346 tasks: 2166 unique cases, with one
   assertion exposing #755's nested JVM owner regex. After that correction and
   #756's measured native Result accessor correction, the standard unfiltered
-  test/assembleDebug/assembleRelease/detekt gate passed. The final run refreshed
+  test/assembleDebug/assembleRelease/detekt gate passed. That initial run refreshed
   app 733 cases and its Detekt report; 1433 cases and four clean Detekt reports
   reused source-identical evidence. Ordinary release R8 restored from cache;
   rematerialized release and retained debug APK hashes match the earlier full run.
@@ -661,7 +668,7 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   account or membership. Empty diary/membership state, source/HTTPS/Connect guards,
   bounded call budgets and URL restoration are required. Authenticated successful
   Me/Manage/Directory/Diary paths remain JVM fixtures; see docs/build.md.
-- Separate local native packaging passed after #756. The measured main/test DEX
+- Initial A86 local native packaging passed after #756. The measured main/test DEX
   scan reports no missing references in its declared scope, including two direct
   parent constructor references. Named ContinuationImpl and SuspendLambda callback
   requirements are distinguished. The first failed pair, original diagnostic,
@@ -673,19 +680,73 @@ local one fills it with `gh`, by the rule in the project's README, as «The boar
   on 14 November at 01:24:46 UTC. Later heavy, SDK, native and UI work requires a new
   exact request/grant. All nine worktrees, original untracked files and ignored
   evidence are retained; no cleanup/reset/deletion occurred.
-- Both completed-report count checks pass at 3910/2166. The separate final
+- Initial A86 completed-report count checks passed at 3910/2166. Its separate final
   documentation guard run passed 168 cases with 0 failures/errors/skips; its partial
   report did not replace the full server report. Only this result prose changed
   afterward; reference targets, declarations and all product/test inputs stayed
   unchanged. The private pre-admission path-key correction and original packet
   remain preserved. No test was executed under that withdrawn packet.
-- Next: one fresh whole-branch independent review, exact working-head CI, merge
-  into dev, dev-push CI, pinned promotion
-  to master and master CI. Then verify exact-source production and the new signed
-  native pair, run native/Home-reopen checks under fresh grants, restore fixture
-  state and reconcile Project 6 with readback. Keep #746 in Verification until its
-  actual remaining criteria pass; #273 stays open for 5c/5d. Post-merge receipts
-  belong on the existing delivery records, with no closeout-only source PR.
+- The ONE whole-branch review of the initial A86 implementation found six blockers,
+  filed before fixes as #758–#763. #758 (cross-class management writes) and #762
+  (cross-family diary cache writes) are Critical; the other four are Important.
+  One deterministic RED cohort had 20 assertion failures among 82 cases. The
+  corrected source passes those exact 82 identities. Persisted roles now belong
+  to server/class/bearer, using the existing sealed token rather than a second
+  bare credential; legacy unowned roles remain unknown. Account refresh follows
+  token/address changes only while that page is active. Already-open diary
+  sessions refused by the server use ServerRefusedSession, not WrongPassword.
+- Diary registration transitions, credential changes and successful cache commits
+  share the local identity gate, always before the cache write lock and never
+  across network IO. Actual sent diary credentials and generation both authorize
+  cache writes; delayed registration pupil seeding also checks the current session.
+  Remote logout cancellation leaves local state alone; after an owned credential
+  commit, cache cleanup completes despite cancellation. First-write disk failure
+  and successor-account controls remain green. Mode announcements still pass
+  through the owned store facade.
+- The first corrective full candidate retained 2202 cases with nine standalone
+  LogNavigation fixture failures and six Detekt findings. Its owner-less fixture
+  was corrected explicitly; assertions, baseline budgets and suppressions were
+  unchanged. The next unfiltered full run passed in 325.45 seconds: all 2202 cases
+  pass with no failures/errors/skips (app 737/data 985/model 145/design 205/widget 130).
+  It freshly executed 2057 cases and reused 145 unchanged model cases with matching
+  prior-full hashes. App/data Detekt freshly passed; three unchanged reports match
+  their clean prior evidence. Both ordinary assembles passed and release R8 executed;
+  the raw mapping/configuration contains no native-only target roots. Both failed
+  cohorts, every prior APK and all raw inputs/reports remain retained.
+- Current docs/counts.json was generated from completed 3910/2202 reports after
+  actual independent resource release. Both new count validators passed (3910/2202),
+  then all 168 selected documentation guards passed in 212.08 seconds, with no
+  failures/errors/skips. The complete three-command cohort ended normally in
+  217.51 seconds; the canonical full server report and all 336 Android report
+  files remained byte-identical, with a separate partial JUnit. Independent
+  resource qualification and actual release preceded this outcome prose. Initial
+  A86 exact-head CI passed, including both six-case
+  Host jobs; it does not verify the corrective working tree. There is no second review.
+- Minor #764 (same-owner audit reopen pagination) and #765 (concurrent Telegram
+  linking recovery) remain deferred on milestone 13 under #273. The four declined
+  review boundaries remain explicit: signed native/Home-reopen, actual delivery/
+  production/Project 6, later 5c/5d, and unconsumed diary bindings. Project 6 currently
+  has In progress and no Verification option; use its current README and read back
+  all 21 batch items plus the promotion PR, rather than claiming the partial prior
+  read covered them. No native or Project acceptance is inferred from local gates.
+- Corrected-source local native packaging passed separately in 163.8 seconds,
+  with 13 executed tasks out of 189 and both R8/package tasks executed. One unchanged
+  structural scan passed on the retained new main/test pair and mapping: nine
+  callback children, seven SuspendLambda and two named ContinuationImpl, no unknown
+  families or missing measured references. The two actual references to parent
+  constructors resolve against direct target declarations. The independent
+  resource readback also qualified both measurement process identities/end cutoffs;
+  one reused PID number was identified by creation time and left alone. All 156
+  source inputs and prior native/ordinary pairs, maps, reports and failed cohorts
+  remain preserved. This is local dirty-tree packaging/static proof only.
+- Next: stage and commit only the owned green source, counts and these documents;
+  verify exact new-head
+  CI, merge PR #757 into dev, check dev CI, promote pinned dev to master and check
+  master CI. Verify exact-source production, obtain a matching production-signed
+  pair, run native/Home-reopen with restoration and fresh resource receipts, and
+  reconcile Project 6 with complete readback. Keep #746 open until every remaining
+  criterion passes; #273 stays open for 5c/5d. Post-merge receipts belong on existing
+  delivery records, with no closeout-only source PR. Preserve all unfinished work.
 
 ## What the session before it added: integrate the dependency cohort and retain branch work
 
@@ -2431,7 +2492,7 @@ The gates, both halves (`CLAUDE.md` requires running both if you touched both):
 cd server  && ruff check app tests scripts migrations   # clean
 cd server  && pytest -q -n auto                          # 3910 tests, ~38 min on Windows
 cd server  && python -m mypy                             # clean, 242 modules
-cd android && ./gradlew test                             # 2166 tests across the five modules
+cd android && ./gradlew test                             # 2202 tests across the five modules
 cd android && ./gradlew detekt                           # nothing beyond the five baselines
 cd android && ./gradlew assembleDebug assembleRelease    # both assembles
 ```

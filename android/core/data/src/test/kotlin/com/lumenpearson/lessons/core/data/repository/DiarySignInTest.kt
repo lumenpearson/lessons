@@ -1,6 +1,8 @@
 package com.lumenpearson.lessons.core.data.repository
 
+import com.connectrpc.Code
 import com.lumenpearson.lessons.core.data.network.v2.CallObservation
+import com.lumenpearson.lessons.core.data.network.v2.RemoteError
 import com.lumenpearson.lessons.core.data.network.RequestCredentials
 import com.lumenpearson.lessons.core.data.network.v2.DiaryRemote
 import com.lumenpearson.lessons.core.data.network.v2.dto.CreateDiarySessionRequestDto
@@ -494,6 +496,25 @@ class DiarySignInTest {
 
         assertEquals("UpstreamSession(netschool, <redacted>)", upstream.toString())
         assertFalse(upstream is java.io.Serializable)
+    }
+
+    @Test
+    fun `an opened diary session refused by v2 keeps the session refusal recovery`() = runBlocking {
+        val flow = signIn()
+        val upstream = flow.openUpstream(netschoolTarget(), "hunter2").getOrThrow()
+        assertFalse(upstream.spent)
+        var handedOver: DiaryHandover? = null
+        api.register = { body ->
+            handedOver = body
+            throw RemoteError(Code.PERMISSION_DENIED, "DIARY_CREDENTIALS_REJECTED", httpStatus = 403)
+        }
+
+        val problem = flow.register(upstream).exceptionOrNull()
+
+        assertTrue("The phone already opened a session before the server refused it", handedOver != null)
+        assertEquals(DiarySignInProblem.ServerRefusedSession, problem)
+        assertEquals(DiarySignInProblem.Action.NONE, (problem as DiarySignInProblem).action)
+        assertNull(store.session)
     }
 
     // ---- plumbing ---------------------------------------------------------------

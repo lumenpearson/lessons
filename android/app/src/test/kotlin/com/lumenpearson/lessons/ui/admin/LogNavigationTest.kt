@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.ui.admin
 
 import com.lumenpearson.lessons.core.data.repository.AuditEntry
 import com.lumenpearson.lessons.core.data.repository.AuditPage
+import com.lumenpearson.lessons.core.data.repository.ClassActionOwner
 import com.lumenpearson.lessons.core.data.repository.ManageFailure
 import com.lumenpearson.lessons.core.data.repository.ManageRepository
 import java.io.IOException
@@ -160,9 +161,14 @@ class LogNavigationTest {
     )
 
     private class Fixture(val plumbing: ManagementPlumbing) {
+        init {
+            plumbing.bindOwner(ClassActionOwner(1L, "https://school.invalid/", "synthetic-log-owner"))
+        }
+
         val requests = mutableListOf<String>()
         val pending = mutableListOf<CompletableDeferred<Result<AuditPage>>>()
         private val repository = object : ManageRepository by FakeManageRepository() {
+            override fun forOwner(owner: ClassActionOwner): ManageRepository = this
             override suspend fun log(pageSize: Int, pageToken: String): Result<AuditPage> {
                 requests += pageToken
                 return CompletableDeferred<Result<AuditPage>>().also { pending += it }.await()

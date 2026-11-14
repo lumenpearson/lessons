@@ -27,11 +27,20 @@ interface DeviceLinkRepository {
      */
     suspend fun refresh(): Result<DeviceLink>
 
+    /** The screen's initiating identity, including a same-class replacement bearer. */
+    suspend fun refresh(owner: ClassActionOwner): Result<DeviceLink>
+
     /** Unties the device. Read-only afterwards, with a fresh code on the next [refresh]. */
     suspend fun unlink(): Result<DeviceLink>
 
+    /** Unties only the identity whose confirmation the user accepted. */
+    suspend fun unlink(owner: ClassActionOwner): Result<DeviceLink>
+
     /** The role the server last gave this phone in [classId], from disk; see [rememberRole]. */
     fun lastRole(classId: Long): Flow<ClassRole?> = flowOf(null)
+
+    /** A persisted role belongs to its server and bearer as well as its class id. */
+    fun lastRole(owner: ClassActionOwner): Flow<ClassRole?> = flowOf(null)
 
     /** Keeps [role] as [classId]'s last answer, for [lastRole] to draw before the next one. */
     suspend fun rememberRole(classId: Long, role: ClassRole?) = Unit

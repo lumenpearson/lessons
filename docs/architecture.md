@@ -297,11 +297,23 @@ fallback. The server continues answering v1 for APKs already installed.
 
 Management audit pagination carries the server's opaque next token; the screen
 keeps successful page history and row positions without inventing a total or
-offset. Its generation invalidates queued work and late results when the server,
-class or bearer changes. Me role persistence validates that same actual request
-owner. Diary authentication refusals carry their send-time observation to one
-conditional DataStore write comparing both address and diary bearer. A late
-refusal cannot clear another account's token; storage cancellation propagates.
+offset. Each management or linking action captures the displayed server, class
+and bearer before launching a coroutine. The repository checks that initiating
+owner before work and pins the actual send; a generation check alone would leave
+an IO-dispatch gap in which an old confirmation could write to a successor class.
+Late answers also remain bound to that generation. Persisted roles retain the
+server and existing sealed membership token; an unowned legacy role is unknown.
+An open Account page refreshes token or address replacements automatically.
+
+Diary authentication refusals compare the sent address and diary bearer inside
+one conditional DataStore write. Successful cache writes check those same actual
+sent credentials and the cache generation under a local identity gate. Account
+replacement holds that gate through cache clear, pupil reset and token storage;
+network IO stays outside it. Registration pupil seeding checks the still-current
+session too. Logout propagates remote cancellation before local changes, then
+finishes an owned credential commit and cache cleanup without cancellation in
+between. A failed first disk write retains the account and its offline rows;
+a delayed logout cannot erase a successor account.
 
 The app supplies required build constants even when a background caller touches
 the graph first. One send-time snapshot supplies address and bearers; anonymous
@@ -1049,9 +1061,9 @@ with the host.
 
 ## Testing
 
-3910 tests on the server, 2166 on Android; `pytest -q -n auto` and `./gradlew test`, both
-offline, both in CI. On Android that is `:core:model` 145, `:core:data` 953,
-`:core:designsystem` 205, `:widget` 130, `:app` 733 (#325).
+3910 tests on the server, 2202 on Android; `pytest -q -n auto` and `./gradlew test`, both
+offline, both in CI. On Android that is `:core:model` 145, `:core:data` 985,
+`:core:designsystem` 205, `:widget` 130, `:app` 737 (#325).
 
 The table below is the load-bearing part of that rather than the whole of it:
 

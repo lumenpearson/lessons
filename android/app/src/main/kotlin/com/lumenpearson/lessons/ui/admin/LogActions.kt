@@ -29,7 +29,7 @@ internal class LogActions(
     private fun load(position: LogPosition, previous: List<LogPosition>) {
         if (plumbing.state.value.log.loading) return
         plumbing.read({ it.copy(log = it.log.copy(loading = true, failure = null)) }) {
-            val result = repository.log(pageToken = position.token)
+            val result = request(repository) { log(pageToken = position.token) }
             finish(result) { current, value, failure ->
                 current.copy(
                     log = Remote(value ?: current.log.value, false, failure),

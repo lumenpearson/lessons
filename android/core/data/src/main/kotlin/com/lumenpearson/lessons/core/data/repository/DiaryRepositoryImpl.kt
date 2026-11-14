@@ -8,6 +8,9 @@ import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
@@ -17,7 +20,7 @@ import kotlinx.coroutines.withContext
  * An interface with one production implementation — `LessonsPreferences` — so
  * that the repository can be exercised without DataStore, and so that the only
  * thing this repository is allowed to do to storage is written down here. It
- * cannot reach the class token from here, which is the mechanical half of
+ * never receives a class bearer from here, which is the mechanical half of
  * "signing out of one does not touch the other".
  *
  * Two ways to let go, because a session and the account it belongs to die at
@@ -52,6 +55,15 @@ internal interface DiarySessionStore {
     /** The pupil the diary shows, when the account has several. */
     val selectedStudentId: Flow<Long?>
     suspend fun selectStudent(id: Long?)
+
+    /** Serializes local identity transitions and cache commits, never a network request. */
+    suspend fun <T> withDiaryIdentity(block: suspend DiarySessionStore.() -> T): T = block(this)
+
+    suspend fun currentDiaryRequest(): RequestCredentials =
+        RequestCredentials("", null, currentDiarySession()?.token)
+
+    suspend fun ownsDiaryRequest(sent: RequestCredentials): Boolean =
+        !sent.diaryToken.isNullOrBlank() && sent.diaryToken == currentDiarySession()?.token
 }
 
 /**
@@ -105,13 +117,30 @@ internal class DiaryRepositoryImpl(
         // (and saying goodbye upstream, for «Сетевой город») is good hygiene,
         // but the user asked to be signed out of this phone and a dead network
         // is not a reason to refuse.
-        runCatching { api.logout() }
         try {
-            store.forgetDiary()
-            // After the store, so a disk that refuses the first write is the
-            // failure reported, and nothing is emptied under a session that
-            // is still there.
-            forgetLocal()
+            val owner = store.withDiaryIdentity { currentDiaryRequest() to currentDiaryTarget() }
+            try {
+                api.logout()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                // A failed remote goodbye must not prevent an explicitly requested local sign-out.
+            }
+            currentCoroutineContext().ensureActive()
+            store.withDiaryIdentity {
+                val current = currentDiaryRequest()
+                if (current.baseUrl == owner.first.baseUrl && current.diaryToken == owner.first.diaryToken &&
+                    currentDiaryTarget() == owner.second
+                ) {
+                    currentCoroutineContext().ensureActive()
+                    withContext(NonCancellable) {
+                        // Once credentials commit, cancellation cannot strand this account's offline rows.
+                        forgetDiary()
+                        forgetLocal()
+                    }
+                }
+            }
+            currentCoroutineContext().ensureActive()
             Result.success(Unit)
         } catch (cancellation: CancellationException) {
             throw cancellation
@@ -121,7 +150,7 @@ internal class DiaryRepositoryImpl(
     }
 
     override suspend fun students(): Result<List<DiaryStudent>> = remembered(
-        read = { call { api.students(it) } },
+        read = { observation -> call(observation = observation) { api.students(it) } },
         write = { generation, rows -> cache.putStudents(generation, rows) },
     )
 
@@ -130,8 +159,8 @@ internal class DiaryRepositoryImpl(
         from: LocalDate,
         to: LocalDate,
     ): Result<List<DiaryLesson>> = remembered(
-        read = {
-            ranged(from, to) {
+        read = { observation ->
+            ranged(from, to, observation) {
                 api.schedule(studentId, from, to, it)
             }
         },
@@ -143,8 +172,8 @@ internal class DiaryRepositoryImpl(
         from: LocalDate,
         to: LocalDate,
     ): Result<List<DiaryHomework>> = remembered(
-        read = {
-            ranged(from, to) {
+        read = { observation ->
+            ranged(from, to, observation) {
                 api.homework(studentId, from, to, it)
             }
         },
@@ -156,8 +185,8 @@ internal class DiaryRepositoryImpl(
         from: LocalDate,
         to: LocalDate,
     ): Result<List<DiaryMark>> = remembered(
-        read = {
-            ranged(from, to) {
+        read = { observation ->
+            ranged(from, to, observation) {
                 api.grades(studentId, from, to, it)
             }
         },
@@ -165,7 +194,7 @@ internal class DiaryRepositoryImpl(
     )
 
     override suspend fun periods(studentId: Long): Result<List<DiaryPeriod>> = remembered(
-        read = { call { api.periods(studentId, it) } },
+        read = { observation -> call(observation = observation) { api.periods(studentId, it) } },
         write = { generation, rows -> cache.putPeriods(generation, studentId, rows) },
     )
 
@@ -218,21 +247,26 @@ internal class DiaryRepositoryImpl(
     /**
      * [read], and on success its answer written through to the cache.
      *
-     * The generation is taken **before** the request, so an answer that lands
-     * after a sign-out — or after another account signed in — is dropped by
-     * the cache rather than written under the wrong account. The write is
+     * The generation is taken **before** the request and checked together with
+     * its actual sent diary bearer and address under the identity gate. A read
+     * starting between a cache clear and a new account commit must also be dropped. The write is
      * guarded: a disk that will not take it costs the offline copy, never the
      * answer the screen asked for.
      */
     private suspend fun <T> remembered(
-        read: suspend () -> Result<T>,
+        read: suspend (CallObservation) -> Result<T>,
         write: suspend (generation: Long, value: T) -> Unit,
     ): Result<T> {
         val generation = cache.generation()
-        val result = read()
+        val observation = CallObservation()
+        val result = read(observation)
         result.onSuccess { value ->
             try {
-                write(generation, value)
+                observation.credentials?.let { sent ->
+                    store.withDiaryIdentity {
+                        if (ownsDiaryRequest(sent)) write(generation, value)
+                    }
+                }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Exception) {
@@ -246,13 +280,14 @@ internal class DiaryRepositoryImpl(
     private suspend fun <T> ranged(
         from: LocalDate,
         to: LocalDate,
+        observation: CallObservation,
         block: suspend (CallObservation) -> T,
     ): Result<T> {
         val span = to.toEpochDay() - from.toEpochDay()
         if (span < 0 || span > DiaryRepository.MAX_RANGE_DAYS) {
             return Result.failure(DiaryFailure.BadRange)
         }
-        return call(block = block)
+        return call(observation = observation, block = block)
     }
 
     /**
@@ -263,9 +298,9 @@ internal class DiaryRepositoryImpl(
      */
     private suspend fun <T> call(
         unprocessable: DiaryFailure = DiaryFailure.BadRange,
+        observation: CallObservation = CallObservation(),
         block: suspend (CallObservation) -> T,
     ): Result<T> = withContext(ioDispatcher) {
-        val observation = CallObservation()
         try {
             Result.success(block(observation))
         } catch (cancellation: CancellationException) {

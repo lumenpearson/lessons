@@ -19,6 +19,9 @@ package com.lumenpearson.lessons.core.data.repository
  */
 interface ManageRepository {
 
+    /** Retains the identity that the screen displayed when an operation began. */
+    fun forOwner(owner: ClassActionOwner): ManageRepository
+
     /** The class card: name, school, city, zone, join code and the counts. */
     suspend fun classCard(): Result<ManagedClass>
 

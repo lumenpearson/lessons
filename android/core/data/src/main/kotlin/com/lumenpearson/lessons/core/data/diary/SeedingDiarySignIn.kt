@@ -2,6 +2,7 @@ package com.lumenpearson.lessons.core.data.diary
 
 import com.lumenpearson.lessons.core.data.repository.DiaryRegistration
 import com.lumenpearson.lessons.core.data.repository.DiarySignIn
+import com.lumenpearson.lessons.core.data.repository.DiarySessionStore
 import com.lumenpearson.lessons.core.data.repository.DiaryTarget
 import com.lumenpearson.lessons.core.data.upstream.UpstreamSession
 import kotlinx.coroutines.CancellationException
@@ -14,12 +15,14 @@ import kotlinx.coroutines.CancellationException
  * A decorator rather than a line inside the sign-in, so the sign-in keeps no
  * idea that a cache exists: it already empties the cache through its
  * `forgetLocal` hook when the account changes, and this runs after that, so
- * the pupils land in a cache that belongs to the account that just signed in.
- * The generation is taken after the registration returns for the same reason.
+ * the pupils can be seeded after the registration returns. The identity gate
+ * then checks that the registered session still owns that cache; a later
+ * registration or sign-out must win over this decorator's delayed result.
  */
 internal class SeedingDiarySignIn(
     private val delegate: DiarySignIn,
     private val cache: DiaryCacheWriter,
+    private val store: DiarySessionStore,
 ) : DiarySignIn by delegate {
 
     override suspend fun register(upstream: UpstreamSession): Result<DiaryRegistration> =
@@ -29,9 +32,14 @@ internal class SeedingDiarySignIn(
         delegate.signIn(target, password).also { seed(it) }
 
     private suspend fun seed(result: Result<DiaryRegistration>) {
-        val students = result.getOrNull()?.students?.takeIf { it.isNotEmpty() } ?: return
+        val registration = result.getOrNull() ?: return
+        val students = registration.students.takeIf { it.isNotEmpty() } ?: return
         try {
-            cache.putStudents(cache.generation(), students)
+            store.withDiaryIdentity {
+                if (currentDiarySession() == registration.session) {
+                    cache.putStudents(cache.generation(), students)
+                }
+            }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {

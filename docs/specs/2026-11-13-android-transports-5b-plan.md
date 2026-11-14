@@ -21,7 +21,7 @@ evidence is historical baseline evidence, not a new 5b test run. Current
 `docs/counts.json` recorded 1974 Android and 3910 server cases at plan admission. Fresh completed
 reports determine the final counts.
 
-**Implementation checkpoint, 14 November 2026:** Tasks 1–5 have their retained
+**Initial implementation checkpoint, 14 November 2026:** Tasks 1–5 have their retained
 behavioural RED/GREEN evidence. The full Android report contains 2166 passing
 unique cases: app 733, data 953, design 205, model 145 and widget 130. The first full
 run executed every task and exposed #755; after its correction and #756's
@@ -41,9 +41,42 @@ the first failed pair and its diagnostic remain preserved. Named ContinuationImp
 helpers inherit create, while SuspendLambda helpers require both measured callbacks.
 This does not certify a signed device run. The final affected-document guard run
 passed all 168 selected cases without failures, errors or skips, using a separate
-JUnit file; the full server report remained byte-identical. Independent whole-branch
-review, exact-head CI, dev/master delivery, source-matched production, signed native
-execution and Project 6 acceptance remain separate unfinished gates.
+JUnit file; the full server report remained byte-identical. Initial head
+`a86f0cef8afd6602b5471186ef69e676cd26c114` also passed exact-head CI in PR #757.
+These receipts remain tied to that revision.
+
+**Review correction checkpoint, 14 November 2026:** The ONE independent whole-branch
+review found six blocking findings, tracked as #758–#763 before correction: initiating
+management and unlink ownership, already-open-session refusal semantics, owned role
+cache and active Account refresh, diary account/cache transitions and logout cancellation.
+The executor accepted all six, grading #758 and #762 Critical. One corrective pass
+reproduced 20 assertion failures among 82 cases, then passed those same 82 identities.
+A first full candidate retained nine failures from an unbound standalone log fixture
+and six Detekt findings; the fixture and lint corrections preserved its expectations.
+The next unfiltered test/assembleDebug/assembleRelease/detekt run passed in 325.45 seconds:
+2202 unique cases, no failures/errors/skips, app 737, data 985, design 205, model 145
+and widget 130. It freshly executed 2057 cases and reused the unchanged 145 model
+cases with matching prior-full report hashes. App/data Detekt freshly passed; the
+other three reports reused matching clean evidence. Both ordinary APKs were produced
+and release R8 executed. No baseline entry or suppression was added.
+
+Minor #764 (same-owner audit reopen pagination) and #765 (concurrent Telegram linking
+recovery) are explicitly deferred to milestone 13 under #273. The four declined review
+boundaries remain separate: signed native/Home-reopen, delivery/production/Project 6,
+later 5c/5d, and unconsumed diary bindings. There is no second review. Server
+implementation inputs remain unchanged from the completed 3910-case local run;
+corrective-head CI, dev/master delivery, source-matched production and signed-device/
+Project 6 acceptance remain unfinished. The current completed-report comparisons
+passed at server 3910 and Android 2202. The separately admitted documentation
+cohort passed all 168 selected guards in 212.08 seconds, with no failures/errors/
+skips; the full canonical server report and all 336 Android report files stayed
+byte-identical. This partial JUnit never replaces the full server report. Corrected-source
+local native packaging passed separately in 163.8 seconds: both R8 tasks and packages
+executed, followed by one unchanged bounded structural scan. Its nine callback
+children have no unknown family or missing measured reference, and the two actual
+parent-constructor references resolve directly. Both APKs, mappings and original
+inputs are retained. This local dirty-tree pair is packaging/static evidence only;
+it does not replace a source-matched production-signed device run.
 
 ## Global constraints
 
@@ -276,7 +309,8 @@ batch history according to the existing handover convention. Preserve old receip
    head CI, merge the green working PR into dev, verify exact dev push CI, then open
    and merge a pinned dev/master promotion after its exact-head CI. Carry closing
    references for #746/#270 only once their criteria are actually met. Preserve any
-   incomplete acceptance as Verification; never close on implementation alone.
+   acceptance issues open until their remaining gates pass; never close on implementation alone.
+   Project 6 currently has In progress but no Verification option; follow its current README.
 6. Verify master CI and production READY/source identity, aliases, authenticated
    warmup and bounded runtime-error query. Obtain and cryptographically verify a
    source-pinned production-signed native candidate; execute the frozen native

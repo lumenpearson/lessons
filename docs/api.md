@@ -1980,6 +1980,9 @@ page answers differently there but three things.
   `DIARY_NO_STUDENTS` and `DIARY_UPSTREAM_UNREADABLE` count; `DIARY_UNAVAILABLE` (`upstream`,
   or `address-refused` when the region drops this server's address) and `DIARY_DISABLED` do
   not; past either limit it is `THROTTLED`. `DeleteDiarySession` is v1's `/logout`.
+  Android maps that already-open-session refusal to `ServerRefusedSession`, keeping
+  the class-code recovery path. A password actually rejected by the upstream diary
+  before handover remains `WrongPassword`; these are different failures.
 - **A read asks the session's own diary who the pupil is, every time.** An id it does not
   list is `RESOURCE_NOT_FOUND` with `resource: "student"`, on all seven reads of one pupil,
   so another family's child is nobody here. A read whose `DiaryFeature` the session's

@@ -164,14 +164,15 @@ internal class DiarySignInImpl(
             upstream.spent = true
             val session = response.session
             try {
-                val previous = store.currentDiaryTarget()
-                if (previous == null || previous.accountKey() != session.target.accountKey()) {
-                    // In this order, so there is never a moment where a new
-                    // account's bearer sits over the old account's rows.
-                    forgetLocal()
-                    store.selectStudent(null)
+                store.withDiaryIdentity {
+                    val previous = currentDiaryTarget()
+                    if (previous == null || previous.accountKey() != session.target.accountKey()) {
+                        // Cache writers take this gate before their own lock, so an old read cannot fill the gap.
+                        forgetLocal()
+                        selectStudent(null)
+                    }
+                    writeDiarySession(session)
                 }
-                store.writeDiarySession(session)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (failure: Exception) {

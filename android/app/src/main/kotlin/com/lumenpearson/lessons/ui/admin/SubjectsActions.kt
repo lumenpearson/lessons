@@ -15,14 +15,14 @@ internal class SubjectsActions(
 ) {
 
     fun loadSubjects() = plumbing.read({ it.copy(subjects = it.subjects.copy(loading = true, failure = null)) }) {
-        val result = repository.subjects()
+        val result = request(repository) { subjects() }
         finish(result) { current, value, failure ->
             current.copy(subjects = Remote(value ?: current.subjects.value, false, failure))
         }
     }
 
     fun addSubject(form: SubjectForm) = plumbing.write {
-        val result = repository.createSubject(form)
+        val result = request(repository) { createSubject(form) }
         result.onCurrentSuccess { saved ->
             update { it.copy(notice = ManagementNotice.SubjectAdded(saved.subject.name)) }
             loadSubjects()
@@ -38,7 +38,7 @@ internal class SubjectsActions(
      * a warning about something that did not happen.
      */
     fun saveSubject(before: ManagedSubject, form: SubjectForm) = plumbing.write {
-        val result = repository.updateSubject(before, form)
+        val result = request(repository) { updateSubject(before, form) }
         result.onCurrentSuccess { saved ->
             update {
                 it.copy(
@@ -55,7 +55,7 @@ internal class SubjectsActions(
     }
 
     fun deleteSubject(subject: ManagedSubject) = plumbing.write {
-        val result = repository.deleteSubject(subject.id)
+        val result = request(repository) { deleteSubject(subject.id) }
         result.onCurrentSuccess {
             update { it.copy(notice = ManagementNotice.SubjectDeleted(subject.name)) }
             loadSubjects()

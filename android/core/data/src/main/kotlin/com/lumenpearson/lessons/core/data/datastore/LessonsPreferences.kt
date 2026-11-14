@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.lumenpearson.lessons.core.data.network.RequestCredentials
 import com.lumenpearson.lessons.core.data.repository.AppSettings
 import com.lumenpearson.lessons.core.data.repository.ClassRole
+import com.lumenpearson.lessons.core.data.repository.ClassActionOwner
 import com.lumenpearson.lessons.core.data.repository.DiarySession
 import com.lumenpearson.lessons.core.data.repository.DiarySessionStore
 import com.lumenpearson.lessons.core.data.repository.DiaryTarget
@@ -209,6 +210,8 @@ internal class LessonsPreferences(
             val remaining = prefs.memberships().filterNot { it.classId == classId }
             prefs.writeMemberships(remaining)
             prefs.remove(PreferenceKeys.roleKey(classId))
+            prefs.remove(PreferenceKeys.roleAddressKey(classId))
+            prefs.remove(PreferenceKeys.roleTokenKey(classId))
             val was = prefs[MembershipKeys.ACTIVE_CLASS_ID]
             val next = remaining.firstOrNull { it.classId == was } ?: remaining.firstOrNull()
             when {
@@ -277,27 +280,59 @@ internal class LessonsPreferences(
     override suspend fun currentDiarySession(): DiarySession? =
         opened.first().openDiarySession(vault)
 
+    override suspend fun currentDiaryRequest(): RequestCredentials =
+        opened.first().requestCredentials().copy(classToken = null)
+
+    override suspend fun ownsDiaryRequest(sent: RequestCredentials): Boolean {
+        val current = currentDiaryRequest()
+        return !sent.diaryToken.isNullOrBlank() && current.baseUrl == sent.baseUrl &&
+            current.diaryToken == sent.diaryToken
+    }
+
+    override suspend fun <T> withDiaryIdentity(block: suspend DiarySessionStore.() -> T): T =
+        membershipChanges.withLock { block(unlockedDiaryStore) }
+
+    private val unlockedDiaryStore: DiarySessionStore by lazy {
+        object : DiarySessionStore by this@LessonsPreferences {
+            override suspend fun writeDiarySession(value: DiarySession) {
+                write { it.putDiarySession(value.copy(token = vault.seal(value.token))) }
+            }
+
+            override suspend fun forgetDiary() {
+                write { it.dropDiary() }
+            }
+
+            override suspend fun selectStudent(id: Long?) {
+                write { prefs ->
+                    if (id == null) prefs.remove(DiaryKeys.STUDENT_ID) else prefs[DiaryKeys.STUDENT_ID] = id
+                }
+            }
+        }
+    }
+
     override suspend fun writeDiarySession(value: DiarySession) {
-        write { it.putDiarySession(value.copy(token = vault.seal(value.token))) }
+        withDiaryIdentity { writeDiarySession(value) }
     }
 
     /** A bare `401`; see [dropDiaryToken]. */
     override suspend fun clearDiaryToken() {
-        write { it.dropDiaryToken() }
+        membershipChanges.withLock { write { it.dropDiaryToken() } }
     }
 
     override suspend fun rejectDiaryRequest(sent: RequestCredentials) {
         if (sent.diaryToken.isNullOrBlank()) return
-        write { prefs ->
-            // Compare inside DataStore's transaction, including writes through another preferences facade.
-            val current = prefs.requestCredentials()
-            if (current.baseUrl == sent.baseUrl && current.diaryToken == sent.diaryToken) prefs.dropDiaryToken()
+        membershipChanges.withLock {
+            write { prefs ->
+                // Compare inside DataStore's transaction, including writes through another preferences facade.
+                val current = prefs.requestCredentials()
+                if (current.baseUrl == sent.baseUrl && current.diaryToken == sent.diaryToken) prefs.dropDiaryToken()
+            }
         }
     }
 
     /** Signing out: the diary and only the diary; [clearSession] is its counterpart. */
     override suspend fun forgetDiary() {
-        write { it.dropDiary() }
+        withDiaryIdentity { forgetDiary() }
     }
 
     override val diaryTarget: Flow<DiaryTarget?> =
@@ -309,9 +344,7 @@ internal class LessonsPreferences(
         preferences.map { it[DiaryKeys.STUDENT_ID] }.distinctUntilChanged()
 
     override suspend fun selectStudent(id: Long?) {
-        write { prefs ->
-            if (id == null) prefs.remove(DiaryKeys.STUDENT_ID) else prefs[DiaryKeys.STUDENT_ID] = id
-        }
+        withDiaryIdentity { selectStudent(id) }
     }
 
     // ---------------------------------------------------------------------
@@ -390,7 +423,7 @@ internal class LessonsPreferences(
 
     /**
      * The role the server last gave this phone in [classId], kept across
-     * launches.
+     * launches only for the same server and bearer.
      *
      * The server is still the only judge — `/me` is asked again and its answer
      * replaces this — but a role known only in memory started every launch as
@@ -399,16 +432,17 @@ internal class LessonsPreferences(
      * can only show a manager's button to somebody who has just lost the role,
      * and every write behind that button is checked by the server per request.
      */
-    fun lastRole(classId: Long): Flow<ClassRole?> =
-        preferences.map { ClassRole.fromWire(it[PreferenceKeys.roleKey(classId)]) }.distinctUntilChanged()
+    private val ownedRoles = OwnedRoles(this, vault, io)
+
+    fun lastRole(classId: Long): Flow<ClassRole?> = ownedRoles.read(classId)
+
+    fun lastRole(owner: ClassActionOwner): Flow<ClassRole?> = ownedRoles.read(owner.classId, owner)
 
     /** @see lastRole; `null` forgets it. */
-    suspend fun rememberRole(classId: Long, role: ClassRole?) {
-        write { prefs ->
-            val key = PreferenceKeys.roleKey(classId)
-            if (role == null) prefs.remove(key) else prefs[key] = role.name
-        }
-    }
+    suspend fun rememberRole(classId: Long, role: ClassRole?) = ownedRoles.remember(classId, role)
+
+    suspend fun rememberRole(owner: ClassActionOwner, role: ClassRole?) =
+        ownedRoles.remember(owner.classId, role, owner)
 
     /** @see BundleTags.bundleTag */
     suspend fun writeBundleTag(signature: String, etag: String) = bundleTags.writeBundleTag(signature, etag)
