@@ -54,6 +54,10 @@ CI is exactly: ruff, `python -m mypy`, pytest `-n auto`, `./gradlew test`, both 
 `./gradlew lint` is **not** a gate.
 `--offline` is needed for Gradle in a sandbox.
 
+The isolated developer console has its own locked Ruff and lightweight tests on Linux and
+Windows; commands and scope are in `tools/console/README.md`. Its fake-process suite runs
+no Gradle, SDK or device and does not replace either product's checks.
+
 **No commit without lint and tests green.** Touch both halves, run both.
 
 ## Five things that will bite you

@@ -6,6 +6,59 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
+**26 November 2026 — Console 6a (#771) and programme continuation.**
+The [approved console design](docs/specs/2026-10-05-build-console-design.md),
+decision #308 and [6a implementation plan](docs/specs/2026-11-26-build-console-6a-plan.md)
+govern this batch, isolated from the retained Android acceptance checkout.
+`tools/console/` is a separate Python 3.12/Textual project with a committed uv lock.
+Launch `uv run --project tools/console lessons-console` from the repository root.
+Build, Contract, Environment and Docs are implemented: closed task selection,
+ordered gates, checkout-local server preparation, JDK/Buf discovery, sanitized live
+and retained logs, history, queue and owned-process cancellation. Device/Deploy
+are 6b; Host/transport selection is 6c. Signing status is explicitly unknown until
+the safe Android status task is implemented in a later Android batch.
+
+The final locked offline Windows suite passed 29 cases in 12.41 seconds and Ruff
+passed. One independent review found three runner defects; the focused witnesses
+observed RED before one corrective pass, then GREEN. The same reviewer accepted
+the bounded correction readback (four focused cases), without another whole-branch
+review. Existing CI shell/routing guards passed 48 cases, with three
+document-fixture cases deliberately excluded from that isolated execution; 88
+gate/reference guards and the final two current-source checks also passed.
+The new lightweight Console CI matrix is written for Linux and Windows; it has
+not run remotely yet. No actual Gradle, Buf, SDK, device or production operation
+was run to establish this tooling result. Exact-head CI and delivery receipts
+belong to the open batch PR. The console adds local `--no-daemon` to keep the
+actual Gradle build within its owned process lifetime.
+
+Independent Android 5c work is tracked by #770. Its foreground WatchClass slice
+and the detailed core/standalone plan can progress while the failed 5b native
+acceptance lane is investigated. The user's one-based project 8 means documented
+project 7, core/standalone; it is not an additional project. Preserve the existing
+v1 contract and family APK compatibility until actual 5d acceptance permits
+retirement. Do not create a standalone build property before that flavor exists.
+
+**5b delivery baseline, superseding the dated pending-delivery notes below.**
+Working [#757](https://github.com/lumenpearson/lessons/pull/757) merged into dev
+`f6865bd86e38568c9d46e76adfaf459fb3cee166`; promotion
+[#766](https://github.com/lumenpearson/lessons/pull/766) delivered master
+`6776e66379c474e945ea05e3587643fc3d30d65c`. Both have source tree
+`77d2561d4cb2345708e19ea74bc0a96c31f59c1c`.
+Current master CI run 45826193767 passed, including actual contract generation,
+server and both live Host adapters. Signed workflow 45827394151 produced APK 54
+and its matching test APK at that source; signature/source checks passed.
+Production's four aliases, public/authorized warmups and the bounded error-log
+window passed on 26 November; #769 tracks the corrected legacy alias and its
+remaining Project closeout. Preserve those original receipts.
+
+5b native acceptance remains open on #746: the emulator failed to reach boot
+completion before any APK 54 installation or application test. The first loss
+of its adb transport is observed; the VM's exit cause is still unknown. A static
+linkage check, a signed artifact and passing production do not establish native
+Home/reopen or instrumentation acceptance. The earlier accepted APK 50 fixture,
+failed attempt, crash metadata and all worktrees remain preserved. No retry,
+wipe or v1 retirement follows from this handover.
+
 **14 November 2026 — Android transports, part 5b (#746): review corrections and full Android gates complete; delivery acceptance pending.**
 The [approved design](docs/specs/2026-10-05-android-transports-design.md) and
 [six-task plan](docs/specs/2026-11-13-android-transports-5b-plan.md) govern this

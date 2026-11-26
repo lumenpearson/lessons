@@ -23,6 +23,12 @@ it through that day's audit (#210). The server job installs the root `requiremen
 the lock Vercel installs — together with the package (#192), so its verdict is about the
 deployed versions. `./gradlew lint` is not in CI — do not report it as a gate.
 
+«Console» is a path-filtered Linux/Windows matrix for the isolated `tools/console/`
+project: its locked Ruff and fake-process/headless tests, without Gradle, SDK or a device.
+The aggregate needs it too. Its reviewed task inventory classifies this job as a self-test
+exception, so it never recursively invokes itself. Keep its filter level with the
+external inputs the console tests read.
+
 The «What changed» job runs a half when a file **its tests read** changed, and a file no
 pattern matches runs nothing and comes back green. The server's tests read far outside
 `server/`: every `.md` that can name the migration head (`CLAUDE.md`, the skills, all of

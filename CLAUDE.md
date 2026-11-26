@@ -22,6 +22,8 @@ android/     Kotlin / Compose / Glance, five Gradle modules; logo/ beside them h
              the logo's generators, which write the launcher icons into
              app/src/main/res (its README says how)
 server/      FastAPI + aiogram in one process, one database, Alembic migrations
+tools/console/ Python 3.12 / Textual developer console; its own uv lock and environment,
+             independent of the server package and Android runtime
 api/         thin Vercel entry point that re-exports server/app/main.py
 Dockerfile   the host target's image (server/app/host.py), built from the root:
              the whole app over HTTP/2, chosen instead of Vercel; server/Dockerfile
@@ -151,12 +153,18 @@ draws Russian, neither carries an axis nothing varies, and no file is bundled un
 
 - **Keep primary gate declarations level with CI and allowed command prefixes** (`test_gate_lists.py`, #659).
 
+The local console starts with `uv run --project tools/console lessons-console`.
+From `tools/console/`, its independent gates are `uv run --locked ruff check lessons_console tests`
+and `uv run --locked pytest -q`; fake processes and a headless pilot require no SDK.
+See [its README](tools/console/README.md) for preparation, cancellation and scope.
+
 CI (`.github/workflows/ci.yml`) is: ruff, mypy, pytest (`-n auto`), `./gradlew test`, both
 assembles, and `./gradlew detekt` after them; and, when `proto/`, `buf.*` or
 `server/app/contract/` changed, the «Contract» job: `buf lint`, `buf breaking` against the base,
 and the check that the committed generated code is what `buf generate` writes; and,
 whenever the server job runs, «Host», under pyvoy and under hypercorn: `python -m app.host`
-started on SQLite, asked over native gRPC by `tests/test_host_live.py`; and last, «CI», which
+started on SQLite, asked over native gRPC by `tests/test_host_live.py`; the path-filtered
+«Console» job runs its lint and fake-process tests on Linux and Windows; and last, «CI», which
 needs every job before it, runs whatever they ended as, and passes only when each one
 succeeded or was skipped. It is the one check `master` requires, through the repository
 ruleset that requires it, which the repository admin role can bypass (#424). The gates are
