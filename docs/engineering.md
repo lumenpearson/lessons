@@ -32,6 +32,9 @@ with controlled state. The project already holds product rules below the UI; a
 local maintenance tool does not need another fleet of Android scenarios to prove
 queueing, cancellation or secret redaction. Stage 6a therefore has an isolated
 Python project and a small behavioral suite, including Textual's headless pilot.
+Device and warmup adapters in 6b use injected replies at this same layer, covering
+install refusals, selected-owner consistency and volatile logs without a device
+or live HTTP request. Actual external execution remains a separate result.
 
 Its path-routed CI job runs on Linux and Windows because process ownership and
 cancellation use different OS primitives. Both jobs run only the console's light

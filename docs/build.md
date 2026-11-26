@@ -5,11 +5,32 @@ from a clone to a server answering, a bot replying and that APK talking to both.
 only want the file, skip to "Through GitHub Actions".
 
 For the local developer console, run `uv run --project tools/console lessons-console`
-from the repository root with Python 3.12 and uv available. Its first four tabs offer
-Build, Contract, Environment and Docs. Prepare creates this checkout's server environment;
+from the repository root with Python 3.12 and uv available. Its six tabs offer
+Build, Contract, Device, Deploy, Environment and Docs. Prepare creates this checkout's server environment;
 it does not borrow another worktree's editable installation. The console does not install
 the Android SDK or JDK. See [the console README](../tools/console/README.md) for the task
-list, sanitized logs, cancellation and the remaining Device/Deploy stages.
+list, sanitized logs, cancellation and device safeguards.
+
+### Device and production diagnostics in the console
+
+Device uses an already running local adb server. Start Android Studio or run
+`adb start-server` before refreshing; the console never starts or resets a shared
+bridge. Select an online serial and an APK from its AGP output metadata. Install
+checks the candidate's signature and version against the installed package before
+updating, and refuses a different key or a lower version. It does not uninstall,
+clear data or work around Android's own refusal. SDK/JDK discovery explains a
+missing prerequisite instead of installing tools.
+
+Logcat is limited to the selected app's PID, redacted in memory and never saved
+to run history. Stop ends only the owned client. The reverse controls manage
+`tcp:8000` to `tcp:8000` for a local server and leave other mappings alone.
+
+Deploy reads the HTTPS origin in `LESSONS_PRODUCTION_ORIGIN` on explicit refresh.
+It shows production's reported condition separately from whether its schema
+matches this checkout's expected revision. An unavailable database, a missing
+schema or a refused request remains visible as such. This tab does not deploy,
+migrate, sign in to Vercel or follow redirects. Host controls and selected
+transport builds remain the next console stage.
 
 ## From a clone to a working pair
 

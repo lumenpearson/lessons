@@ -1,10 +1,12 @@
 """Async visible job scheduling around subprocesses; no shell command entry."""
 
 import asyncio
+import json
 import os
 import signal
 import subprocess
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,6 +22,7 @@ class Run:
     state: str = "queued"
     lines: list[str] = field(default_factory=list)
     path: Path | None = None
+    result: dict | None = None
     cancel: asyncio.Event = field(default_factory=asyncio.Event)
     finished: asyncio.Event = field(default_factory=asyncio.Event)
     worker: asyncio.Task | None = field(default=None, repr=False)
@@ -50,8 +53,9 @@ class Runner:
         # Keep display memory bounded; the complete sanitized transcript remains on disk.
         if len(run.lines) > 2000:
             del run.lines[:1000]
-        stream.write(safe + "\n")
-        stream.flush()
+        if stream is not None:
+            stream.write(safe + "\n")
+            stream.flush()
         self.changed()
 
     async def _execute(self, run: Run) -> None:
@@ -77,12 +81,13 @@ class Runner:
             if run.cancel.is_set():
                 return
             run.state = "running"
-            directory = self.root / "tools/console/.runs"
-            directory.mkdir(parents=True, exist_ok=True)
-            stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
-            run.path = directory / f"{stamp}-{run.task.key}.log"
+            if not run.task.volatile:
+                directory = self.root / "tools/console/.runs"
+                directory.mkdir(parents=True, exist_ok=True)
+                stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+                run.path = directory / f"{stamp}-{run.task.key}.log"
             argv, cwd, env = self.resolver(run.task, self.root)
-            with run.path.open("w", encoding="utf-8") as stream:
+            with run.path.open("w", encoding="utf-8") if run.path else nullcontext(None) as stream:
                 self.emit(run, "Task: " + run.task.name, stream)
                 if self.redactor.short_values:
                     self.emit(run, "Some secrets are shorter than eight characters; value matching cannot redact them.", stream)
@@ -116,7 +121,14 @@ class Runner:
                 async def consume() -> None:
                     assert process.stdout
                     while raw := await asyncio.to_thread(process.stdout.readline):
-                        self.emit(run, raw.decode("utf-8", errors="replace").rstrip("\r\n"), stream)
+                        line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+                        if run.task.tool == "operation" and line.startswith("LESSONS_RESULT "):
+                            value = json.loads(line.removeprefix("LESSONS_RESULT "))
+                            if not isinstance(value, dict):
+                                raise ValueError("Unsupported operation result")
+                            run.result = value
+                        else:
+                            self.emit(run, line, stream)
 
                 reader = asyncio.create_task(consume())
                 while process.poll() is None:
@@ -202,6 +214,9 @@ class Runner:
             drain.result()
             if run.state == "queued":
                 run.state = "cancelled"
+            if run.task.volatile:
+                run.lines.clear()
+                run.result = None
             lock.release()
             if local_held:
                 self._heavy.release()
