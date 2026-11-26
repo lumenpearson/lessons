@@ -116,7 +116,7 @@ jobs:
               proto/*|buf.yaml|buf.gen.yaml|buf.lock|server/app/contract/*|android/core/data/src/main/contract/*|.github/workflows/*) contract=true ;;
             esac
             case "$file" in
-              tools/console/*|.github/workflows/*|.github/dependabot.yml|docs/build.md|server/app/config.py|server/.env.example|android/app/build.gradle.kts|.gitignore) console=true ;;
+              tools/console/*|.github/workflows/*|.github/dependabot.yml|docs/build.md|server/app/config.py|server/app/db.py|server/.env.example|android/app/build.gradle.kts|.gitignore) console=true ;;
             esac
           done <<< "$files"
 

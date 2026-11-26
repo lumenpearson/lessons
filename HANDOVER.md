@@ -6,6 +6,43 @@ place without reopening or redoing anything.
 What every batch before the last two added is in [docs/history.md](docs/history.md),
 newest first.
 
+**26 November 2026 — Console 6b (#776): Device and Deploy implemented; delivery in progress.**
+The [approved console design](docs/specs/2026-10-05-build-console-design.md) and
+[6b plan](docs/specs/2026-11-26-build-console-6b-plan.md) govern this separate batch.
+All six tabs are now implemented. Device selects an online serial and AGP APK,
+separates eligibility checks from installation, verifies fresh snapshot and
+installed signing/version evidence, and offers only non-destructive updates.
+Its logcat is PID-filtered and volatile, never written to history; reverse is
+limited to the documented local-server mapping. An existing compatible local adb
+server is required; the console never starts or resets the shared bridge.
+
+Deploy reads the configured `LESSONS_PRODUCTION_ORIGIN` through bounded HTTPS
+without redirects and shows production condition separately from this checkout's
+AST-read schema compatibility. It exposes no deployment or migration action.
+Typed operations retain the runner's queue, redaction and process ownership;
+selection/origin changes cannot apply an older asynchronous answer to a new owner.
+Host lifecycle and selected transport builds remain 6c.
+
+Local locked offline Windows verification passed 44 cases in 17.61 seconds and
+Ruff, plus 50 existing CI/reference guards (three document-fixture cases excluded
+from that isolated execution). One fresh independent review verified all 13
+frozen source/test hashes and parity, with no executable blocker. Its one build
+guide variable typo was corrected. The initial failed parity-refresh report is
+retained. No actual adb, apksigner, HTTP, SDK, device or production operation ran
+to establish these fixture results. Exact-head/dev/master CI and production
+readback remain delivery gates, recorded on the open batch PR.
+
+6a [#772](https://github.com/lumenpearson/lessons/pull/772) merged into dev
+`75f3f0d86099068fc880938a3a84cdae40a89d27`. Its exact working CI 45884032054
+and exact dev CI 45885733966 passed all selected jobs and the aggregate. The
+merged working ref was retired only after clean/tree/ancestry checks; its
+checkout and every report remain. Promotion [#780](https://github.com/lumenpearson/lessons/pull/780)
+is pinned to that dev head; its CI, master and production receipts are pending
+at this handover. Preserve dev and the separate 5b APK54/failed-native evidence.
+The original 6a local/first-CI notes below are historical, superseded by these
+delivery receipts. 5c #770 and standalone store #777 proceed independently;
+their written code does not establish runtime acceptance or permit v1 retirement.
+
 **26 November 2026 — Console 6a (#771) and programme continuation.**
 The [approved console design](docs/specs/2026-10-05-build-console-design.md),
 decision #308 and [6a implementation plan](docs/specs/2026-11-26-build-console-6a-plan.md)

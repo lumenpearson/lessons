@@ -1,9 +1,10 @@
 """The only selectable commands. Changing the table is a reviewed source change."""
 
+import json
 import os
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from lessons_console.environment import (
@@ -27,6 +28,8 @@ class Task:
     ci: tuple[str, str] | None = None
     always: bool = False
     settings: tuple[str, ...] = ()
+    parameters: tuple[tuple[str, str], ...] = ()
+    volatile: bool = False
 
 
 TASKS = (
@@ -58,6 +61,13 @@ TASKS = (
          ".", False, "Fetch origin/master and compare; CI instead uses the PR base.", ("contract", "buf:breaking")),
     Task("contract.fresh", "Contract: generated freshness", "Contract", "console", ("buf-fresh",),
          ".", True, "Generate into temporary storage and compare both source trees.", ("contract", "Generated code is what proto/ generates")),
+    Task("device.refresh", "Refresh online devices", "Device", "operation", (), ".", False, "Read online device serials."),
+    Task("device.check", "Check APK installation", "Device", "operation", (), ".", False, "Verify snapshot, signer and installed version."),
+    Task("device.install", "Install verified APK", "Device", "operation", (), ".", False, "Install only a verified compatible snapshot, without clearing data."),
+    Task("device.logcat", "App logcat (volatile)", "Device", "operation", (), ".", False, "Show only the selected app process; never save its output.", volatile=True),
+    Task("device.reverse.add", "Map local server port", "Device", "operation", (), ".", False, "Map only tcp:8000 to tcp:8000 and read back."),
+    Task("device.reverse.remove", "Remove local server mapping", "Device", "operation", (), ".", False, "Remove only tcp:8000 and read back."),
+    Task("deploy.warmup", "Read production warmup", "Deploy", "operation", (), ".", False, "Read production condition and checkout schema compatibility separately."),
 )
 BY_KEY = {task.key: task for task in TASKS}
 BATCHES = {
@@ -65,6 +75,13 @@ BATCHES = {
     "android.all": ("android.build", "android.detekt", "android.count"),
     "contract.all": ("contract.lint", "contract.breaking", "contract.fresh"),
 }
+
+
+def bind(key: str, values: dict) -> Task:
+    from lessons_console.operations import parameters
+    if key not in BY_KEY or BY_KEY[key].tool != "operation":
+        raise ValueError("Only a declared device/deploy operation accepts parameters")
+    return replace(BY_KEY[key], parameters=parameters(key, values))
 
 
 def disabled_reason(task: Task, root: Path) -> str | None:
@@ -98,6 +115,10 @@ def resolve(task: Task, root: Path) -> tuple[list[str], Path, dict[str, str]]:
         wrapper = str(root / "android" / ("gradlew.bat" if os.name == "nt" else "gradlew"))
         # A persistent daemon would outlive the wrapper and retain our owned job lock.
         argv = [wrapper, *task.argv[1:], "--max-workers=1", "--no-parallel", "--console=plain", "--no-daemon"]
+    elif task.tool == "operation":
+        from lessons_console.operations import parameters
+        values = dict(parameters(task.key, dict(task.parameters)))
+        argv = [sys.executable, "-m", "lessons_console.operations", task.key, str(root), json.dumps(values)]
     else:
         argv = [sys.executable, "-m", "lessons_console.actions", task.argv[0], str(root)]
     return argv, root / task.cwd, env
