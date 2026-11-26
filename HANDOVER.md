@@ -18,18 +18,23 @@ and retained logs, history, queue and owned-process cancellation. Device/Deploy
 are 6b; Host/transport selection is 6c. Signing status is explicitly unknown until
 the safe Android status task is implemented in a later Android batch.
 
-The final locked offline Windows suite passed 29 cases in 12.41 seconds and Ruff
+The final locked offline Windows suite passed 29 cases in 14.17 seconds and Ruff
 passed. One independent review found three runner defects; the focused witnesses
 observed RED before one corrective pass, then GREEN. The same reviewer accepted
 the bounded correction readback (four focused cases), without another whole-branch
 review. Existing CI shell/routing guards passed 48 cases, with three
 document-fixture cases deliberately excluded from that isolated execution; 88
 gate/reference guards and the final two current-source checks also passed.
-The new lightweight Console CI matrix is written for Linux and Windows; it has
-not run remotely yet. No actual Gradle, Buf, SDK, device or production operation
-was run to establish this tooling result. Exact-head CI and delivery receipts
-belong to the open batch PR. The console adds local `--no-daemon` to keep the
-actual Gradle build within its owned process lifetime.
+The first remote run in open [PR #772](https://github.com/lumenpearson/lessons/pull/772)
+passed Console/Linux, Contract, Android and both Host jobs, but its Console/Windows
+pilot checked a modal before async discovery/layout completed. Existing pilot
+tests now wait for actual screen/tab and control readiness; the focused pair and
+complete 29-case suite pass without changing application code or test count.
+Original hosted/local failures are preserved. Corrected-head CI and delivery
+receipts belong to the open PR. No actual Gradle, Buf, SDK, device or production
+operation was executed through the console to establish its tooling result.
+The console adds local `--no-daemon` to keep the actual Gradle build within its
+owned process lifetime.
 
 Independent Android 5c work is tracked by #770. Its foreground WatchClass slice
 and the detailed core/standalone plan can progress while the failed 5b native

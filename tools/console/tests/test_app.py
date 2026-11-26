@@ -1,8 +1,9 @@
 import asyncio
 import os
 import sys
+import time
 
-from textual.widgets import Select, Static
+from textual.widgets import Select, Static, TabbedContent
 
 from lessons_console.app import Admission, Console
 from lessons_console.runner import Runner
@@ -17,7 +18,12 @@ async def test_four_tabs_and_fake_light_task(root, tmp_path, monkeypatch):
     async with app.run_test(size=(120, 42)) as pilot:
         assert "One heavy console job" in str(app.query_one("#boundary", Static).render())
         await pilot.click("#--content-tab-contract")
-        await pilot.click("#run-contract")
+        async with asyncio.timeout(3):
+            while (app.query_one(TabbedContent).active != "contract"
+                   or not app.query_one("#run-contract").region.width):
+                await pilot.pause(0.01)
+            await pilot.pause()
+        assert await pilot.click("#run-contract")
         async with asyncio.timeout(8):
             while not runner.runs or not runner.runs[-1].finished.is_set():
                 await pilot.pause(0.05)
@@ -31,9 +37,22 @@ async def test_four_tabs_and_fake_light_task(root, tmp_path, monkeypatch):
 
 async def test_detected_emulator_prompts_and_cancel_keeps_idle(root, monkeypatch):
     monkeypatch.setattr("lessons_console.app.tools_summary", lambda root: "Fake tools")
-    app = Console(root, emulator_detector=lambda: ["emulator-fixture"])
+
+    def delayed_detector():
+        time.sleep(0.1)
+        return ["emulator-fixture"]
+
+    app = Console(root, emulator_detector=delayed_detector)
     async with app.run_test(size=(120, 42)) as pilot:
         await pilot.click("#run-build")
+        # Dispatch does not await detector completion or the modal's layout.
+        async with asyncio.timeout(3):
+            while True:
+                if isinstance(app.screen, Admission):
+                    cancel_buttons = app.screen.query("#decline")
+                    if cancel_buttons and cancel_buttons.first().region.width:
+                        break
+                await pilot.pause(0.01)
         assert isinstance(app.screen, Admission)
         await pilot.click("#decline")
         assert not app.runner.runs

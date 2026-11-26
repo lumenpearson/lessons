@@ -97,7 +97,7 @@ when the initial spike is counted from one.
 
 ## Measured candidate results
 
-The final locked, offline Windows console suite passed 29 cases in 12.41 seconds;
+The final locked, offline Windows console suite passed 29 cases in 14.17 seconds;
 Ruff passed. The independent review found three runner defects: Gradle daemon
 lifetime, coroutine-cancelled process ownership and a failed output consumer
 blocking a verbose child. Their three focused witnesses failed before correction
@@ -114,3 +114,12 @@ workflow execution remain distinct from these Windows results; record exact-head
 CI and delivery on the PR. The local Gradle command deliberately adds
 `--no-daemon`, so its actual build cannot escape into a reused daemon or leave a
 persistent descendant holding the console queue.
+
+The first remote run at `559e2886` passed Linux, Contract, Android and both Host
+jobs but exposed a Windows pilot readiness race (28 passed, one failed). The
+test asserted a modal before its asynchronous detector and layout completed.
+An observed local tab-readiness failure had the same cause. Existing pilot
+witnesses now wait for the actual screen/tab and laid-out controls within bounded
+timeouts, retaining their real clicks. This changed no application behavior or
+test count. The final focused pair and complete 29-case suite passed; the
+original hosted and local failures remain retained. Corrected-head CI is pending.
