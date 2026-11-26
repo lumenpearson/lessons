@@ -22,7 +22,7 @@ jobs:
   #
   # The Android job is ten minutes and the server job is two; a commit that
   # edits only `docs/` used to pay both. This job costs a few seconds and
-  # decides, as three outputs, which of Android, the server and the contract
+  # decides which of Android, the server, the contract and the local console
   # check has anything to do.
   #
   # It fails open on purpose. If the range cannot be worked out — a force push,
@@ -37,6 +37,7 @@ jobs:
       android: ${{ steps.filter.outputs.android }}
       server: ${{ steps.filter.outputs.server }}
       contract: ${{ steps.filter.outputs.contract }}
+      console: ${{ steps.filter.outputs.console }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -68,6 +69,7 @@ jobs:
             echo "android=true" >> "$GITHUB_OUTPUT"
             echo "server=true" >> "$GITHUB_OUTPUT"
             echo "contract=true" >> "$GITHUB_OUTPUT"
+            echo "console=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -75,11 +77,12 @@ jobs:
           echo "Changed files:"
           echo "$files"
 
-          # The workflow files themselves count as all three: a change to how
+          # The workflow files themselves count as all four: a change to how
           # the build runs has to be proved by running it.
           android=false
           server=false
           contract=false
+          console=false
           while IFS= read -r file; do
             case "$file" in
               # `docs/app/` is Android: `:core:data` packages it as assets
@@ -112,11 +115,15 @@ jobs:
               # the regeneration check exists to refuse.
               proto/*|buf.yaml|buf.gen.yaml|buf.lock|server/app/contract/*|android/core/data/src/main/contract/*|.github/workflows/*) contract=true ;;
             esac
+            case "$file" in
+              tools/console/*|.github/workflows/*|.github/dependabot.yml|docs/build.md|server/app/config.py|server/.env.example|android/app/build.gradle.kts|.gitignore) console=true ;;
+            esac
           done <<< "$files"
 
           echo "android=$android" >> "$GITHUB_OUTPUT"
           echo "server=$server" >> "$GITHUB_OUTPUT"
           echo "contract=$contract" >> "$GITHUB_OUTPUT"
+          echo "console=$console" >> "$GITHUB_OUTPUT"
 
   # The v2 contract (docs/specs/2026-10-04-contract-v2-design.md, «Checks»).
   #
@@ -337,6 +344,33 @@ jobs:
         if: always()
         run: cat "$RUNNER_TEMP/host.log"
 
+  console:
+    name: Console (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.console == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/console
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v10.4.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: tools/console/uv.lock
+      - name: Lint
+        run: uv run --locked ruff check lessons_console tests
+      - name: Test the console without external tools
+        run: uv run --locked pytest -q
+
   android:
     name: Android
     needs: changes
@@ -478,7 +512,7 @@ jobs:
   # too.
   ci:
     name: CI
-    needs: [changes, contract, server, host, android]
+    needs: [changes, contract, server, host, console, android]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

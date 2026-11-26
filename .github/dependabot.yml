@@ -6,6 +6,7 @@ version: 2
 #   pip     -> server/          (pyproject.toml, the full set including dev)
 #   uv      -> /               (requirements.in and its lock, requirements.txt,
 #                               which is what Vercel installs)
+#           -> /tools/console  (the isolated local console and its uv.lock)
 #   actions -> /               (.github/workflows)
 #
 # The Android versions in libs.versions.toml are not invented: they are carried
@@ -81,6 +82,13 @@ updates:
     patterns: ["*"]
     labels:
       - area:server
+
+  - package-ecosystem: uv
+    directory: /tools/console
+    multi-ecosystem-group: dependencies
+    patterns: ["*"]
+    labels:
+      - area:ci
 
   - package-ecosystem: github-actions
     directory: /
