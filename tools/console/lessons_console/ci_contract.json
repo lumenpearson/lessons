@@ -1,0 +1,507 @@
+{
+  "changes": {
+    "reason": "Routing only; does not test the checkout.",
+    "job": {
+      "name": "What changed",
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 5,
+      "outputs": {
+        "android": "${{ steps.filter.outputs.android }}",
+        "server": "${{ steps.filter.outputs.server }}",
+        "contract": "${{ steps.filter.outputs.contract }}",
+        "console": "${{ steps.filter.outputs.console }}"
+      }
+    },
+    "steps": [
+      {
+        "identity": "step-0",
+        "action": "actions/checkout@v7",
+        "with": {
+          "fetch-depth": 0
+        },
+        "if": "success()",
+        "cwd": ".",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "filter",
+        "run_sha256": "5039c2e7159dc80289d747976d19c8ff1e2c4b7071fd2a88e49667316ecf318f",
+        "if": "success()",
+        "cwd": ".",
+        "env": {
+          "BASE_REF": "${{ github.base_ref }}",
+          "BEFORE": "${{ github.event.before }}"
+        },
+        "continue-on-error": false
+      }
+    ]
+  },
+  "contract": {
+    "reason": "Represented gates and reviewed setup/artifact steps.",
+    "job": {
+      "name": "Contract (Buf)",
+      "needs": "changes",
+      "if": "needs.changes.outputs.contract == 'true'",
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 10
+    },
+    "steps": [
+      {
+        "identity": "step-0",
+        "action": "actions/checkout@v7",
+        "with": {
+          "fetch-depth": 0
+        },
+        "if": "success()",
+        "cwd": ".",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Does the base have a contract",
+        "run_sha256": "3ac7174822c2a6c0cd4668cafe07733aaa25e37e963f2a97602150e5ceb029a8",
+        "if": "github.event_name == 'pull_request'",
+        "cwd": ".",
+        "env": {
+          "BASE_SHA": "${{ github.event.pull_request.base.sha }}"
+        },
+        "continue-on-error": false
+      },
+      {
+        "identity": "buf",
+        "action": "bufbuild/buf-action@v1.6.0",
+        "with": {
+          "version": "1.73.0",
+          "checksum": "8f2986298ad08f0cc1bf999b9797b7c383adf32d7edf0f73d6f1e1a701baeac1",
+          "lint": true,
+          "breaking": "${{ github.event_name == 'pull_request' && steps.base.outputs.proto == 'true' }}",
+          "format": false,
+          "push": false,
+          "archive": false,
+          "pr_comment": false
+        },
+        "if": "success()",
+        "cwd": ".",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Generated code is what proto/ generates",
+        "run_sha256": "42926dc73cd07ea3fd618b42e248b1e3ddebea06ae317ad513c2565f7e8f8afe",
+        "if": "success()",
+        "cwd": ".",
+        "env": {
+          "BUF": "${{ steps.buf.outputs.buf_path }}"
+        },
+        "continue-on-error": false
+      }
+    ]
+  },
+  "server": {
+    "reason": "Represented gates and reviewed setup/artifact steps.",
+    "job": {
+      "name": "Server (API + bot)",
+      "needs": "changes",
+      "if": "needs.changes.outputs.server == 'true'",
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 20,
+      "defaults": {
+        "run": {
+          "working-directory": "server"
+        }
+      }
+    },
+    "steps": [
+      {
+        "identity": "step-0",
+        "action": "actions/checkout@v7",
+        "with": {},
+        "if": "success()",
+        "cwd": "server",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "step-1",
+        "action": "actions/setup-python@v7",
+        "with": {
+          "python-version": "3.12",
+          "cache": "pip",
+          "cache-dependency-path": "requirements.txt\nserver/pyproject.toml\n"
+        },
+        "if": "success()",
+        "cwd": "server",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Install",
+        "run_sha256": "072936eeb38232aaa92a6b0dd30b80bd642524ad5255a8892c635710aa186609",
+        "if": "success()",
+        "cwd": "server",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Lint",
+        "run_sha256": "9a0286b98b153b486a6642c41dc98071961e657388b9218eed83d5337ebb9cc0",
+        "if": "success()",
+        "cwd": "server",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Type check",
+        "run_sha256": "a9e3ea8e94d5ad862accce86e94ec077034f387f8281b8a17b7783918feab760",
+        "if": "success()",
+        "cwd": "server",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Test",
+        "run_sha256": "20d6767ac1118a16905b6987ad1a889b7bd08df730eac42f9b1e4ee14347da27",
+        "if": "success()",
+        "cwd": "server",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Check server test count",
+        "run_sha256": "e2526b7e424efd4d2fa638255bf0e6b1575e3fc695cde5df0c02582e07ce0bbb",
+        "if": "success()",
+        "cwd": "server",
+        "env": {},
+        "continue-on-error": false
+      }
+    ]
+  },
+  "host": {
+    "reason": "Host lifecycle and live gRPC matrix belong to 6c; 6a does not claim complete CI.",
+    "job": {
+      "name": "Host (${{ matrix.server }})",
+      "needs": "changes",
+      "if": "needs.changes.outputs.server == 'true'",
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 10,
+      "strategy": {
+        "fail-fast": false,
+        "matrix": {
+          "server": [
+            "pyvoy",
+            "hypercorn"
+          ]
+        }
+      },
+      "defaults": {
+        "run": {
+          "working-directory": "server"
+        }
+      }
+    },
+    "steps": [
+      {
+        "identity": "step-0",
+        "action": "actions/checkout@v7",
+        "with": {},
+        "if": "success()",
+        "cwd": "server",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "step-1",
+        "action": "actions/setup-python@v7",
+        "with": {
+          "python-version": "3.12",
+          "cache": "pip",
+          "cache-dependency-path": "requirements.txt\nserver/requirements-host.txt\nserver/pyproject.toml\n"
+        },
+        "if": "success()",
+        "cwd": "server",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Install",
+        "run_sha256": "2be88f5349bf5183990811d44ad1df48ca1995dcc1541ce9545705539f13481f",
+        "if": "success()",
+        "cwd": "server",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Start the host",
+        "run_sha256": "c04f72ce267b05774c66d7514f4fb67de13b5a81f7e0837cbd992d046dfacbea",
+        "if": "success()",
+        "cwd": "server",
+        "env": {
+          "DATABASE_URL": "sqlite+aiosqlite:///${{ runner.temp }}/host.db",
+          "HOST": "127.0.0.1",
+          "PORT": "8000",
+          "RUN_BOT": "false",
+          "BOT_TOKEN": "123456:not-a-real-token",
+          "WEBHOOK_SECRET": "ci-webhook-secret",
+          "CRON_SECRET": "ci-cron-secret",
+          "LESSONS_STREAMING": "true"
+        },
+        "continue-on-error": false
+      },
+      {
+        "identity": "Test against it",
+        "run_sha256": "52badf3087c15b8c648bafbecd66fe5f83d21c50d976870e88ffbe2051c4341c",
+        "if": "success()",
+        "cwd": "server",
+        "env": {
+          "LESSONS_HOST_URL": "http://127.0.0.1:8000",
+          "LESSONS_HOST_DATABASE_URL": "sqlite+aiosqlite:///${{ runner.temp }}/host.db"
+        },
+        "continue-on-error": false
+      },
+      {
+        "identity": "The host's log",
+        "run_sha256": "75a441117377aee8914a7c529df154798973c370ba50af4bff9d5edc3da72e95",
+        "if": "always()",
+        "cwd": "server",
+        "env": {},
+        "continue-on-error": false
+      }
+    ]
+  },
+  "console": {
+    "reason": "The console's own tests; never recursively launch the console suite.",
+    "job": {
+      "name": "Console (${{ matrix.os }})",
+      "needs": "changes",
+      "if": "needs.changes.outputs.console == 'true'",
+      "strategy": {
+        "fail-fast": false,
+        "matrix": {
+          "os": [
+            "ubuntu-latest",
+            "windows-latest"
+          ]
+        }
+      },
+      "runs-on": "${{ matrix.os }}",
+      "timeout-minutes": 10,
+      "defaults": {
+        "run": {
+          "working-directory": "tools/console"
+        }
+      }
+    },
+    "steps": [
+      {
+        "identity": "step-0",
+        "action": "actions/checkout@v7",
+        "with": {},
+        "if": "success()",
+        "cwd": "tools/console",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "step-1",
+        "action": "actions/setup-python@v7",
+        "with": {
+          "python-version": "3.12"
+        },
+        "if": "success()",
+        "cwd": "tools/console",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "step-2",
+        "action": "astral-sh/setup-uv@v10.4.0",
+        "with": {
+          "enable-cache": true,
+          "cache-dependency-glob": "tools/console/uv.lock"
+        },
+        "if": "success()",
+        "cwd": "tools/console",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Lint",
+        "run_sha256": "12f63aa3a7f90f2ac873c8d9927e63f2093cd00090bbed9a945bdd969c2347b4",
+        "if": "success()",
+        "cwd": "tools/console",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Test the console without external tools",
+        "run_sha256": "64023bf66d605489c1a458287207d3204abc4a1a7fa8c78348b38c354ef83b6f",
+        "if": "success()",
+        "cwd": "tools/console",
+        "env": {},
+        "continue-on-error": false
+      }
+    ]
+  },
+  "android": {
+    "reason": "Represented gates and reviewed setup/artifact steps.",
+    "job": {
+      "name": "Android",
+      "needs": "changes",
+      "if": "needs.changes.outputs.android == 'true'",
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 45,
+      "defaults": {
+        "run": {
+          "working-directory": "android"
+        }
+      }
+    },
+    "steps": [
+      {
+        "identity": "step-0",
+        "action": "actions/checkout@v7",
+        "with": {},
+        "if": "success()",
+        "cwd": "android",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "step-1",
+        "action": "actions/setup-java@v6",
+        "with": {
+          "distribution": "temurin",
+          "java-version": "21"
+        },
+        "if": "success()",
+        "cwd": "android",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "step-2",
+        "action": "android-actions/setup-android@v4.0.4",
+        "with": {
+          "packages": "platform-tools"
+        },
+        "if": "success()",
+        "cwd": "android",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "step-3",
+        "action": "gradle/actions/setup-gradle@v6",
+        "with": {},
+        "if": "success()",
+        "cwd": "android",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Test and assemble",
+        "run_sha256": "0b325445d4b31335d5581ab7d03b5dddea5c10729cec662de41c94b08de09def",
+        "if": "success()",
+        "cwd": "android",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Upload test reports",
+        "action": "actions/upload-artifact@v7",
+        "with": {
+          "name": "test-reports",
+          "path": "android/**/build/reports/tests/**",
+          "if-no-files-found": "ignore"
+        },
+        "if": "always()",
+        "cwd": "android",
+        "env": {},
+        "continue-on-error": true
+      },
+      {
+        "identity": "step-6",
+        "action": "actions/upload-artifact@v7",
+        "with": {
+          "name": "app-debug",
+          "path": "android/app/build/outputs/apk/debug/*.apk",
+          "if-no-files-found": "error"
+        },
+        "if": "success()",
+        "cwd": "android",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "step-7",
+        "action": "actions/upload-artifact@v7",
+        "with": {
+          "name": "app-release-unsigned-key",
+          "path": "android/app/build/outputs/apk/release/*.apk",
+          "if-no-files-found": "error"
+        },
+        "if": "success()",
+        "cwd": "android",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Detekt",
+        "run_sha256": "87b6ff6b9212b2e7ce34ae6698b455583e069d09ad2188d9f56df4cf4c987a71",
+        "if": "success() || failure()",
+        "cwd": "android",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "step-9",
+        "action": "actions/setup-python@v7",
+        "with": {
+          "python-version": "3.12"
+        },
+        "if": "success()",
+        "cwd": "android",
+        "env": {},
+        "continue-on-error": false
+      },
+      {
+        "identity": "Check Android test count",
+        "run_sha256": "1eab4e03faaff60aa8d926af9eaf65fb8708fd8679e80407cb3e7dc9ec3c622e",
+        "if": "success()",
+        "cwd": "android",
+        "env": {},
+        "continue-on-error": false
+      }
+    ]
+  },
+  "ci": {
+    "reason": "Aggregates remote job results; there is no equivalent local remote-results gate.",
+    "job": {
+      "name": "CI",
+      "needs": [
+        "changes",
+        "contract",
+        "server",
+        "host",
+        "console",
+        "android"
+      ],
+      "if": "always()",
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 5
+    },
+    "steps": [
+      {
+        "identity": "Every gate passed or was skipped",
+        "run_sha256": "b80c905e713db32501e6cd043a4003b2769ed7f7ea5add539d1cb751306f6fe4",
+        "if": "success()",
+        "cwd": ".",
+        "env": {
+          "RESULTS": "${{ join(needs.*.result, ' ') }}"
+        },
+        "continue-on-error": false
+      }
+    ]
+  }
+}

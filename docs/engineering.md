@@ -24,6 +24,30 @@ oversight.
 
 ## Testing
 
+### A local tool gets a small, independent feedback loop
+
+The approved console design (#308) applies the same boundary-first principle as
+the testing practice below: a runner is tested with fake commands, and a screen
+with controlled state. The project already holds product rules below the UI; a
+local maintenance tool does not need another fleet of Android scenarios to prove
+queueing, cancellation or secret redaction. Stage 6a therefore has an isolated
+Python project and a small behavioral suite, including Textual's headless pilot.
+
+Its path-routed CI job runs on Linux and Windows because process ownership and
+cancellation use different OS primitives. Both jobs run only the console's light
+tests and Ruff. Tests never start Gradle, Buf, adb, a host or an emulator. The
+existing CI aggregate requires these jobs, and the console's task-parity contract
+accounts for every current CI job/action/script or a specific reviewed exception.
+This adds fast checks for a new shipped tool while retaining the repository's
+stronger protections against silently skipped gates and secret-bearing commands.
+
+We do not add a console snapshot catalogue or repeat unchanged product suites
+for each helper edit. One focused correction check and the complete affected
+candidate precede delivery; exact-head CI and real external/device acceptance
+remain separate facts. Source work on independent approved subprojects proceeds
+while a device or shared-resource gate waits. A blocked emulator is a bounded
+acceptance item, not a lock over all programme development.
+
 ### A screen is a function of its state
 
 **Airbnb.** Every screen of Airbnb's Android app exposes one immutable state

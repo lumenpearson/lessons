@@ -4,6 +4,13 @@ This page is about the APK, and one section before it is about everything else: 
 from a clone to a server answering, a bot replying and that APK talking to both. If you
 only want the file, skip to "Through GitHub Actions".
 
+For the local developer console, run `uv run --project tools/console lessons-console`
+from the repository root with Python 3.12 and uv available. Its first four tabs offer
+Build, Contract, Environment and Docs. Prepare creates this checkout's server environment;
+it does not borrow another worktree's editable installation. The console does not install
+the Android SDK or JDK. See [the console README](../tools/console/README.md) for the task
+list, sanitized logs, cancellation and the remaining Device/Deploy stages.
+
 ## From a clone to a working pair
 
 The project is three things — a Python server that is also the Telegram bot, an Android app,
@@ -365,9 +372,12 @@ step. What stayed in CI for good:
   both. Server now runs on every changed path (#661): the agent reference guard
   inventories public source names across the repository, including newly introduced
   components. No manually listed folder filter can safely admit all future moves.
-  Android and Contract remain filtered. `server/tests/test_ci_paths.py` holds that
+  Android and Contract remain filtered. Console runs for its own files, workflows,
+  dependency automation and the environment/build inputs its tests consume; its small
+  Linux/Windows suite never starts an actual build or device.
+  `server/tests/test_ci_paths.py` holds that
   admission rule as well as each reader's declared inputs. If the range cannot be
-  worked out, all three run; no check infers safety from an unknown range.
+  worked out, all four run; no check infers safety from an unknown range.
 
 And one thing that did **not** stay: for a while, release was not built on a pull request.
 That saved about two minutes per push at the cost of finding a broken R8 at the merge
