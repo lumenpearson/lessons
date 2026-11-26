@@ -148,7 +148,7 @@ def test_console_ci_filter_covers_every_external_reader(root):
     arms = re.findall(r"^\s*(\S+)\)\s+console=true\s*;;", script, re.MULTILINE)
     assert len(arms) == 1
     inputs = ("tools/console/lessons_console/new_module.py", ".github/workflows/ci.yml",
-              ".github/dependabot.yml", "docs/build.md", "server/app/config.py",
+              ".github/dependabot.yml", "docs/build.md", "server/app/config.py", "server/app/db.py",
               "server/.env.example", "android/app/build.gradle.kts", ".gitignore")
     assert all(any(fnmatch.fnmatchcase(path, pattern) for pattern in arms[0].split("|"))
                for path in inputs)

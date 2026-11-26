@@ -57,9 +57,44 @@ The console lock serializes console jobs across worktrees. External terminals an
 agents must still follow their resource coordinator. An idle console lock is not
 permission to start work beside somebody else's build or device session.
 
-Host execution and transport selectors belong to 6c; Device and Deploy belong to
-6b. The represented gates do not establish full CI, signed-device or production
+Host execution and transport selectors belong to 6c. The represented gates do not establish full CI, signed-device or production
 acceptance. Tests never execute Gradle, Buf or adb.
+
+Device and Deploy are implemented in 6b. Device's Refresh lists only online serials
+and recognized single-APK AGP outputs from this checkout. Select both before Check
+install or Install APK. Installation copies the selected hash into a private
+snapshot, verifies its certificate and the installed base APK, refuses a different
+signer or lower version, installs only with `-r`, and reads the installed version
+back. A failed package probe never means the package is absent. There is no
+uninstall, data-clear, downgrade, adb restart or automatic retry action.
+
+Device operations require an already-running compatible local Android bridge on
+127.0.0.1:5037. Start Android Studio or run `adb start-server`, then Refresh. The
+console never starts, kills or resets that shared server. Custom server-related
+environment settings are refused with an explanation rather than silently routing
+to another bridge. Tool discovery reads paths and JDK release files only; signing
+configuration files are never opened. Missing adb, apksigner or JDK 21 prevents
+the corresponding operation.
+
+App logcat is filtered to one selected app PID. It stops when that process stops
+or changes; it never broadens to all device logs. Output is redacted, remains only
+in the active screen buffer, never opens a transcript and is cleared on stop.
+The reverse controls touch only tcp:8000 to tcp:8000, with explicit readback; a
+conflicting mapping is refused and unrelated ports are left intact. Every targeted
+adb command retains the selected serial. Changing selection or origin invalidates
+pending replies rather than applying an old result to the new target.
+
+Deploy reads `/api/v1/warmup` at an explicit HTTPS origin, supplied through
+`LESSONS_PRODUCTION_ORIGIN` or the input field. It sends no credentials and follows
+no redirects, with an eight-second complete-request deadline and a 64 KiB response
+limit. The screen separates production's reported condition/schema from readiness
+for this checkout's unique literal EXPECTED_REVISION. Healthy replies normally omit
+expected_schema; database-down replies cannot establish compatibility. Arbitrary
+response/error bodies are never displayed. There is no deploy button.
+
+The 6b tests inject all device tools and HTTP responses. Actual device installation,
+logcat, reverse mapping and live production readiness require their own observed
+runtime checks; fixture results do not establish them.
 
 From this directory, the two CI commands are:
 
