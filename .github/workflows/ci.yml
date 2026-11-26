@@ -180,7 +180,7 @@ jobs:
       # the job reads no secret and has `contents: read`, which is what bounds
       # that.
       - id: buf
-        uses: bufbuild/buf-action@v1.6.0
+        uses: bufbuild/buf-action@v1.7.0
         with:
           version: 1.73.0
           checksum: 8f2986298ad08f0cc1bf999b9797b7c383adf32d7edf0f73d6f1e1a701baeac1
